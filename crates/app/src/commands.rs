@@ -55,6 +55,8 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_FILE_EXIT"
             | "IDM_FILE_RELOAD"
             | "IDM_FILE_OPEN_FOLDER"
+            | "IDM_FILE_OPENFOLDERASWORKSPACE"
+            | "IDM_FILE_CONTAININGFOLDERASWORKSPACE"
             | "IDM_FILE_OPEN_CMD"
             | "IDM_FILE_OPEN_POWERSHELL"
             | "IDM_FILE_OPEN_DEFAULT_VIEWER"
