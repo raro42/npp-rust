@@ -15,6 +15,11 @@ pub struct UiFlags {
     pub highlight_dirty_scroll_reset: bool,
     /// When set, show the friendly “not ready yet” window.
     pub coming_soon: Option<ComingSoon>,
+    /// Zoom delta: -1 / +1 / 0 means restore.
+    pub zoom_delta: Option<i8>,
+    /// Open Go to Line dialog.
+    pub show_goto_line: bool,
+    pub always_on_top: Option<bool>,
 }
 
 /// Content for the “working on it — come back tomorrow” dialog.
@@ -38,10 +43,21 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_FILE_OPEN"
             | "IDM_FILE_SAVE"
             | "IDM_FILE_SAVEAS"
+            | "IDM_FILE_SAVECOPYAS"
+            | "IDM_FILE_SAVEALL"
+            | "IDM_FILE_RENAME"
             | "IDM_FILE_CLOSE"
             | "IDM_FILE_CLOSEALL"
+            | "IDM_FILE_CLOSEALL_BUT_CURRENT"
+            | "IDM_FILE_CLOSEALL_TOLEFT"
+            | "IDM_FILE_CLOSEALL_TORIGHT"
+            | "IDM_FILE_CLOSEALL_UNCHANGED"
             | "IDM_FILE_EXIT"
             | "IDM_FILE_RELOAD"
+            | "IDM_FILE_OPEN_FOLDER"
+            | "IDM_FILE_OPEN_CMD"
+            | "IDM_FILE_OPEN_POWERSHELL"
+            | "IDM_FILE_OPEN_DEFAULT_VIEWER"
             | "IDM_EDIT_UNDO"
             | "IDM_EDIT_REDO"
             | "IDM_EDIT_CUT"
@@ -53,16 +69,54 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_EDIT_RMV_TAB"
             | "IDM_EDIT_UPPERCASE"
             | "IDM_EDIT_LOWERCASE"
+            | "IDM_EDIT_INVERTCASE"
+            | "IDM_EDIT_PROPERCASE_FORCE"
             | "IDM_EDIT_DUP_LINE"
             | "IDM_EDIT_TRIMTRAILING"
+            | "IDM_EDIT_JOIN_LINES"
+            | "IDM_EDIT_LINE_UP"
+            | "IDM_EDIT_LINE_DOWN"
+            | "IDM_EDIT_BLANKLINEABOVECURRENT"
+            | "IDM_EDIT_REMOVEEMPTYLINES"
+            | "IDM_EDIT_REMOVEEMPTYLINESWITHBLANK"
+            | "IDM_EDIT_INSERT_DATETIME_SHORT"
+            | "IDM_EDIT_INSERT_DATETIME_LONG"
+            | "IDM_EDIT_FULLPATHTOCLIP"
+            | "IDM_EDIT_FILENAMETOCLIP"
+            | "IDM_EDIT_CURRENTDIRTOCLIP"
+            | "IDM_EDIT_COPY_ALL_NAMES"
+            | "IDM_EDIT_COPY_ALL_PATHS"
             | "IDM_FORMAT_TOUNIX"
             | "IDM_FORMAT_TODOS"
+            | "IDM_FORMAT_UTF_8"
+            | "IDM_FORMAT_AS_UTF_8"
+            | "IDM_FORMAT_ANSI"
             | "IDM_SEARCH_FIND"
             | "IDM_SEARCH_REPLACE"
             | "IDM_SEARCH_FINDNEXT"
             | "IDM_SEARCH_FINDPREV"
+            | "IDM_SEARCH_SETANDFINDNEXT"
+            | "IDM_SEARCH_SETANDFINDPREV"
+            | "IDM_SEARCH_GOTOLINE"
             | "IDM_VIEW_GOTO_START"
             | "IDM_VIEW_GOTO_END"
+            | "IDM_VIEW_ZOOMIN"
+            | "IDM_VIEW_ZOOMOUT"
+            | "IDM_VIEW_ZOOMRESTORE"
+            | "IDM_VIEW_ALWAYSONTOP"
+            | "IDM_VIEW_TAB1"
+            | "IDM_VIEW_TAB2"
+            | "IDM_VIEW_TAB3"
+            | "IDM_VIEW_TAB4"
+            | "IDM_VIEW_TAB5"
+            | "IDM_VIEW_TAB6"
+            | "IDM_VIEW_TAB7"
+            | "IDM_VIEW_TAB8"
+            | "IDM_VIEW_TAB9"
+            | "IDM_VIEW_TAB_NEXT"
+            | "IDM_VIEW_TAB_PREV"
+            | "IDM_VIEW_TAB_START"
+            | "IDM_VIEW_TAB_END"
             | "IDM_LANG_C"
             | "IDM_LANG_CPP"
             | "IDM_LANG_JAVA"
@@ -126,6 +180,46 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
             }
             CmdResult::Handled
         }
+        "IDM_FILE_SAVEALL" => {
+            state.save_all();
+            CmdResult::Handled
+        }
+        "IDM_FILE_SAVECOPYAS" => {
+            state.save_copy_as();
+            CmdResult::Handled
+        }
+        "IDM_FILE_RENAME" => {
+            state.rename_active();
+            CmdResult::Handled
+        }
+        "IDM_FILE_CLOSEALL_BUT_CURRENT" => {
+            state.close_all_but_current();
+            CmdResult::Handled
+        }
+        "IDM_FILE_CLOSEALL_TOLEFT" => {
+            state.close_all_to_left();
+            CmdResult::Handled
+        }
+        "IDM_FILE_CLOSEALL_TORIGHT" => {
+            state.close_all_to_right();
+            CmdResult::Handled
+        }
+        "IDM_FILE_CLOSEALL_UNCHANGED" => {
+            state.close_all_unchanged();
+            CmdResult::Handled
+        }
+        "IDM_FILE_OPEN_FOLDER" => {
+            state.reveal_in_os();
+            CmdResult::Handled
+        }
+        "IDM_FILE_OPEN_CMD" | "IDM_FILE_OPEN_POWERSHELL" => {
+            state.open_shell_here();
+            CmdResult::Handled
+        }
+        "IDM_FILE_OPEN_DEFAULT_VIEWER" => {
+            state.open_in_default_viewer();
+            CmdResult::Handled
+        }
 
         // —— Edit ——
         "IDM_EDIT_UNDO" => {
@@ -175,9 +269,137 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
             state.run_plugin("edit.lowercase");
             CmdResult::Handled
         }
+        "IDM_EDIT_INVERTCASE" => {
+            state.tabs.active_mut().buffer.map_text(|s| {
+                s.chars()
+                    .map(|c| {
+                        if c.is_uppercase() {
+                            c.to_lowercase().collect::<String>()
+                        } else if c.is_lowercase() {
+                            c.to_uppercase().collect::<String>()
+                        } else {
+                            c.to_string()
+                        }
+                    })
+                    .collect()
+            });
+            state.mark_text_changed();
+            state.status = "Invert case".into();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_PROPERCASE_FORCE" => {
+            state.tabs.active_mut().buffer.map_text(|s| {
+                let mut out = String::new();
+                let mut new_word = true;
+                for c in s.chars() {
+                    if c.is_alphabetic() {
+                        if new_word {
+                            out.extend(c.to_uppercase());
+                            new_word = false;
+                        } else {
+                            out.extend(c.to_lowercase());
+                        }
+                    } else {
+                        out.push(c);
+                        new_word = !c.is_alphanumeric();
+                    }
+                }
+                out
+            });
+            state.mark_text_changed();
+            state.status = "Proper Case".into();
+            CmdResult::Handled
+        }
         "IDM_EDIT_DUP_LINE" => {
             state.tabs.active_mut().buffer.duplicate_line();
             state.mark_text_changed();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_JOIN_LINES" => {
+            state.tabs.active_mut().buffer.join_lines();
+            state.mark_text_changed();
+            state.status = "Join lines".into();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_LINE_UP" => {
+            state.tabs.active_mut().buffer.move_line_up();
+            state.mark_text_changed();
+            ui.follow_caret = true;
+            CmdResult::Handled
+        }
+        "IDM_EDIT_LINE_DOWN" => {
+            state.tabs.active_mut().buffer.move_line_down();
+            state.mark_text_changed();
+            ui.follow_caret = true;
+            CmdResult::Handled
+        }
+        "IDM_EDIT_BLANKLINEABOVECURRENT" => {
+            state.tabs.active_mut().buffer.blank_line_above();
+            state.mark_text_changed();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_REMOVEEMPTYLINES" => {
+            state.tabs.active_mut().buffer.remove_empty_lines(false);
+            state.mark_text_changed();
+            state.status = "Removed empty lines".into();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_REMOVEEMPTYLINESWITHBLANK" => {
+            state.tabs.active_mut().buffer.remove_empty_lines(true);
+            state.mark_text_changed();
+            state.status = "Removed blank lines".into();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_INSERT_DATETIME_SHORT" => {
+            state.insert_datetime(false);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_INSERT_DATETIME_LONG" => {
+            state.insert_datetime(true);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_FULLPATHTOCLIP" => {
+            if let Some(p) = state.tabs.active().path.clone() {
+                ui.pending_clipboard = Some(p.display().to_string());
+                state.status = "Full path copied".into();
+            } else {
+                state.status = "No path to copy".into();
+            }
+            CmdResult::Handled
+        }
+        "IDM_EDIT_FILENAMETOCLIP" => {
+            ui.pending_clipboard = Some(state.tabs.active().title.clone());
+            state.status = "File name copied".into();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_CURRENTDIRTOCLIP" => {
+            if let Some(p) = state.tabs.active().path.as_ref().and_then(|p| p.parent()) {
+                ui.pending_clipboard = Some(p.display().to_string());
+                state.status = "Directory copied".into();
+            } else {
+                state.status = "No directory to copy".into();
+            }
+            CmdResult::Handled
+        }
+        "IDM_EDIT_COPY_ALL_NAMES" => {
+            let names: Vec<_> = state.tabs.iter().map(|d| d.title.clone()).collect();
+            ui.pending_clipboard = Some(names.join("\n"));
+            state.status = "All tab names copied".into();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_COPY_ALL_PATHS" => {
+            let paths: Vec<_> = state
+                .tabs
+                .iter()
+                .map(|d| {
+                    d.path
+                        .as_ref()
+                        .map(|p| p.display().to_string())
+                        .unwrap_or_else(|| d.title.clone())
+                })
+                .collect();
+            ui.pending_clipboard = Some(paths.join("\n"));
+            state.status = "All paths copied".into();
             CmdResult::Handled
         }
         "IDM_EDIT_TRIMTRAILING" => {
@@ -190,6 +412,14 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
         }
         "IDM_FORMAT_TODOS" => {
             state.run_plugin("edit.to_windows_eol");
+            CmdResult::Handled
+        }
+        "IDM_FORMAT_UTF_8" | "IDM_FORMAT_AS_UTF_8" => {
+            state.status = "Encoding: UTF-8 (native)".into();
+            CmdResult::Handled
+        }
+        "IDM_FORMAT_ANSI" => {
+            state.status = "Encoding: ANSI requested — npp-rs keeps UTF-8 in memory".into();
             CmdResult::Handled
         }
 
@@ -216,6 +446,26 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
             ui.follow_caret = true;
             CmdResult::Handled
         }
+        "IDM_SEARCH_SETANDFINDNEXT" => {
+            if let Some((s, e)) = state.tabs.active().buffer.selection() {
+                state.find_query = state.tabs.active().buffer.slice(s, e);
+            }
+            state.find_next();
+            ui.follow_caret = true;
+            CmdResult::Handled
+        }
+        "IDM_SEARCH_SETANDFINDPREV" => {
+            if let Some((s, e)) = state.tabs.active().buffer.selection() {
+                state.find_query = state.tabs.active().buffer.slice(s, e);
+            }
+            state.find_prev();
+            ui.follow_caret = true;
+            CmdResult::Handled
+        }
+        "IDM_SEARCH_GOTOLINE" => {
+            ui.show_goto_line = true;
+            CmdResult::Handled
+        }
 
         "IDM_VIEW_GOTO_START" => {
             let b = state.tabs.active_mut();
@@ -227,6 +477,76 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
             let end = state.tabs.active().buffer.len_chars();
             state.tabs.active_mut().buffer.set_caret(end);
             ui.follow_caret = true;
+            CmdResult::Handled
+        }
+        "IDM_VIEW_ZOOMIN" => {
+            ui.zoom_delta = Some(1);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_ZOOMOUT" => {
+            ui.zoom_delta = Some(-1);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_ZOOMRESTORE" => {
+            ui.zoom_delta = Some(0);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_ALWAYSONTOP" => {
+            ui.always_on_top = Some(true);
+            state.status = "Always on top requested".into();
+            CmdResult::Handled
+        }
+        "IDM_VIEW_TAB1" => {
+            state.switch_tab(0);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_TAB2" => {
+            state.switch_tab(1);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_TAB3" => {
+            state.switch_tab(2);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_TAB4" => {
+            state.switch_tab(3);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_TAB5" => {
+            state.switch_tab(4);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_TAB6" => {
+            state.switch_tab(5);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_TAB7" => {
+            state.switch_tab(6);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_TAB8" => {
+            state.switch_tab(7);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_TAB9" => {
+            state.switch_tab(8);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_TAB_NEXT" => {
+            state.next_tab();
+            CmdResult::Handled
+        }
+        "IDM_VIEW_TAB_PREV" => {
+            state.prev_tab();
+            CmdResult::Handled
+        }
+        "IDM_VIEW_TAB_START" => {
+            state.switch_tab(0);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_TAB_END" => {
+            let last = state.tabs.len().saturating_sub(1);
+            state.switch_tab(last);
             CmdResult::Handled
         }
 

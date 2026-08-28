@@ -64,12 +64,12 @@ trap cleanup EXIT
 
 if [[ -n "$body" ]]; then
   tmp="$(mktemp)"
-  soft=()
+  soft_args=()
   if [[ "${NPP_GH_SOFT_REDACT:-0}" == "1" ]]; then
-    soft=(--soft-redact)
+    soft_args=(--soft-redact)
   fi
   # Always store redacted copy; hard-fail if findings unless soft mode.
-  if ! printf '%s' "$body" | python3 "$REDACT" --redact "${soft[@]}" >"$tmp" 2>"${tmp}.err"; then
+  if ! printf '%s' "$body" | python3 "$REDACT" --redact "${soft_args[@]}" >"$tmp" 2>"${tmp}.err"; then
     cat "${tmp}.err" >&2 || true
     echo "gh-safe: refusing to post — private/sensitive patterns detected." >&2
     echo "gh-safe: fix the text or set NPP_GH_SOFT_REDACT=1 to post a redacted version (not recommended)." >&2

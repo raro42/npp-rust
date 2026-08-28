@@ -21,6 +21,10 @@ pub struct EditorApp {
     replace_with: String,
     /// Friendly dialog for menu items not wired yet.
     coming_soon: Option<crate::commands::ComingSoon>,
+    /// Editor monospace size (zoom).
+    font_size: f32,
+    show_goto_line: bool,
+    goto_line_input: String,
 }
 
 impl EditorApp {
@@ -35,6 +39,9 @@ impl EditorApp {
             show_replace: false,
             replace_with: String::new(),
             coming_soon: None,
+            font_size: 14.0,
+            show_goto_line: false,
+            goto_line_input: String::new(),
         }
     }
 }
@@ -56,6 +63,7 @@ impl eframe::App for EditorApp {
         self.status_bar(ctx);
         self.about_window(ctx);
         self.coming_soon_window(ctx);
+        self.goto_line_window(ctx);
     }
 }
 
@@ -199,6 +207,26 @@ impl EditorApp {
             self.show_replace = flags.show_replace;
             self.find_focus_once = flags.find_focus_once;
             self.follow_caret = flags.follow_caret;
+            if flags.show_goto_line {
+                self.show_goto_line = true;
+                let line = self.state.tabs.active().buffer.char_to_line(
+                    self.state.tabs.active().buffer.caret(),
+                ) + 1;
+                self.goto_line_input = line.to_string();
+            }
+            match flags.zoom_delta {
+                Some(1) => self.font_size = (self.font_size + 1.0).min(48.0),
+                Some(-1) => self.font_size = (self.font_size - 1.0).max(8.0),
+                Some(0) => self.font_size = 14.0,
+                _ => {}
+            }
+            if let Some(on) = flags.always_on_top {
+                ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(if on {
+                    egui::WindowLevel::AlwaysOnTop
+                } else {
+                    egui::WindowLevel::Normal
+                }));
+            }
             if let Some(t) = flags.pending_clipboard.take() {
                 ctx.copy_text(t);
             }
@@ -478,6 +506,50 @@ Tree-sitter highlight, and a calm UI.",
         }
     }
 
+    fn goto_line_window(&mut self, ctx: &egui::Context) {
+        if !self.show_goto_line {
+            return;
+        }
+        let mut open = true;
+        let mut go = false;
+        let mut cancel = false;
+        egui::Window::new("Go to line")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
+                ui.label("Line number (1-based):");
+                let resp = ui.text_edit_singleline(&mut self.goto_line_input);
+                if resp.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
+                    go = true;
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("Go").clicked() {
+                        go = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        cancel = true;
+                    }
+                });
+            });
+        if go {
+            if let Ok(n) = self.goto_line_input.trim().parse::<usize>() {
+                if n >= 1 {
+                    let line = (n - 1).min(self.state.tabs.active().buffer.line_count().saturating_sub(1));
+                    let at = self.state.tabs.active().buffer.line_to_char(line);
+                    self.state.tabs.active_mut().buffer.set_caret(at);
+                    self.follow_caret = true;
+                    self.state.status = format!("Go to line {n}");
+                }
+            }
+            self.show_goto_line = false;
+        }
+        if cancel || !open {
+            self.show_goto_line = false;
+        }
+    }
+
     fn tab_bar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("tabs").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -612,7 +684,7 @@ Tree-sitter highlight, and a calm UI.",
                 return;
             }
 
-            let font_id = FontId::monospace(14.0);
+            let font_id = FontId::monospace(self.font_size);
             let row_height = ui.fonts(|f| f.row_height(&font_id)) + 2.0;
             let total_lines = self.state.tabs.active().buffer.line_count().max(1);
             let avail = ui.available_size();

@@ -306,6 +306,149 @@ impl TextBuffer {
         }
     }
 
+    /// Insert an empty line above the caret line.
+    pub fn blank_line_above(&mut self) {
+        let line = self.char_to_line(self.caret);
+        let at = self.line_to_char(line);
+        self.rope.insert(at, "\n");
+        self.push_undo(Edit::Insert {
+            index: at,
+            text: "\n".into(),
+        });
+        self.redo.clear();
+        self.last_insert_end = None;
+        self.set_caret(at);
+    }
+
+    /// Join selected lines (or current + next) with a space.
+    pub fn join_lines(&mut self) {
+        let (start_line, mut end_line) = self.selected_line_range();
+        if start_line == end_line {
+            end_line = (start_line + 1).min(self.line_count().saturating_sub(1));
+        }
+        if start_line >= end_line {
+            return;
+        }
+        let start = self.line_to_char(start_line);
+        let end = if end_line + 1 < self.line_count() {
+            self.line_to_char(end_line + 1)
+        } else {
+            self.len_chars()
+        };
+        let chunk = self.slice(start, end);
+        let joined = chunk
+            .lines()
+            .map(|l| l.trim_end_matches('\r'))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let mut out = joined;
+        if chunk.ends_with('\n') {
+            out.push('\n');
+        }
+        self.delete_range(start, end, true);
+        self.caret = start;
+        self.sel_anchor = None;
+        self.insert(&out);
+        self.set_caret(start + out.chars().count().saturating_sub(if out.ends_with('\n') { 1 } else { 0 }));
+    }
+
+    pub fn move_line_up(&mut self) {
+        let line = self.char_to_line(self.caret);
+        if line == 0 {
+            return;
+        }
+        self.swap_lines(line - 1, line);
+        let new_start = self.line_to_char(line - 1);
+        self.set_caret(new_start);
+    }
+
+    pub fn move_line_down(&mut self) {
+        let line = self.char_to_line(self.caret);
+        if line + 1 >= self.line_count() {
+            return;
+        }
+        self.swap_lines(line, line + 1);
+        let new_start = self.line_to_char(line + 1);
+        self.set_caret(new_start);
+    }
+
+    fn swap_lines(&mut self, a: usize, b: usize) {
+        if a + 1 != b || b >= self.line_count() {
+            return;
+        }
+        let a_start = self.line_to_char(a);
+        let b_start = self.line_to_char(b);
+        let b_end = if b + 1 < self.line_count() {
+            self.line_to_char(b + 1)
+        } else {
+            self.len_chars()
+        };
+        let line_a = self.slice(a_start, b_start);
+        let line_b = self.slice(b_start, b_end);
+        // Normalize: first line always ends with \n when not last pair at EOF oddly.
+        let mut first = line_b.trim_end_matches(['\r', '\n']).to_string();
+        first.push('\n');
+        let second = if line_a.ends_with('\n') || b + 1 >= self.line_count() {
+            // Keep second as original first line content.
+            if b + 1 >= self.line_count() && !line_b.ends_with('\n') {
+                // Moving last line up: second should not force trailing nl beyond doc.
+                line_a.trim_end_matches('\n').to_string()
+            } else {
+                line_a
+            }
+        } else {
+            line_a
+        };
+        let combined = format!("{first}{second}");
+        self.delete_range(a_start, b_end, true);
+        self.caret = a_start;
+        self.sel_anchor = None;
+        self.insert(&combined);
+    }
+
+    /// Remove empty lines in the whole document (or selection).
+    pub fn remove_empty_lines(&mut self, blank_only: bool) {
+        let text = if let Some((s, e)) = self.selection() {
+            self.slice(s, e)
+        } else {
+            self.to_string()
+        };
+        let filtered: String = text
+            .lines()
+            .filter(|l| {
+                if blank_only {
+                    !l.chars().all(|c| c.is_whitespace())
+                } else {
+                    !l.is_empty()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let mut out = filtered;
+        if text.ends_with('\n') && !out.ends_with('\n') {
+            out.push('\n');
+        }
+        if let Some((s, e)) = self.selection() {
+            self.set_selection(s, e);
+            self.insert(&out);
+        } else {
+            self.replace_document(&out);
+        }
+    }
+
+    /// Map selection (or whole doc) through `f`.
+    pub fn map_text<F: FnOnce(&str) -> String>(&mut self, f: F) {
+        if let Some((s, e)) = self.selection() {
+            let src = self.slice(s, e);
+            let out = f(&src);
+            self.set_selection(s, e);
+            self.insert(&out);
+        } else {
+            let src = self.to_string();
+            self.replace_document(&f(&src));
+        }
+    }
+
     pub fn line_count(&self) -> usize {
         self.rope.len_lines()
     }
