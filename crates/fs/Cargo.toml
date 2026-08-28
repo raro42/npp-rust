@@ -1,0 +1,10 @@
+[package]
+name = "fs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "File open/save including background large-file loads"
+
+[dependencies]
+anyhow = { workspace = true }
+thiserror = { workspace = true }

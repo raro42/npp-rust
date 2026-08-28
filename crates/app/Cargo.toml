@@ -1,0 +1,23 @@
+[package]
+name = "app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Notepad++-inspired OS-agnostic text editor"
+default-run = "npp-rs"
+
+[[bin]]
+name = "npp-rs"
+path = "src/main.rs"
+
+[dependencies]
+buffer = { path = "../buffer" }
+doc = { path = "../doc" }
+fs = { path = "../fs" }
+highlight = { path = "../highlight" }
+format = { path = "../format" }
+plugins = { path = "../plugins" }
+eframe = { version = "0.31", default-features = true, features = ["default_fonts", "glow"] }
+egui = "0.31"
+rfd = "0.15"
+anyhow = { workspace = true }

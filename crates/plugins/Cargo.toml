@@ -1,0 +1,9 @@
+[package]
+name = "plugins"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "In-process editor plugin registry"
+
+[dependencies]
+format = { path = "../format" }
