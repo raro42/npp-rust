@@ -13,6 +13,15 @@ pub struct UiFlags {
     pub request_quit: bool,
     pub pending_clipboard: Option<String>,
     pub highlight_dirty_scroll_reset: bool,
+    /// When set, show the friendly “not ready yet” window.
+    pub coming_soon: Option<ComingSoon>,
+}
+
+/// Content for the “working on it — come back tomorrow” dialog.
+#[derive(Debug, Clone)]
+pub struct ComingSoon {
+    pub cmd: String,
+    pub feature: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -276,4 +285,45 @@ fn copy_selection(state: &mut EditorState, ui: &mut UiFlags) {
 
 pub fn stub_message(cmd: &str) -> String {
     format!("Not implemented yet (Notepad++ parity stub): {cmd}")
+}
+
+/// Human-ish feature name from an `IDM_*` id.
+pub fn feature_name_from_cmd(cmd: &str) -> String {
+    let raw = cmd.strip_prefix("IDM_").unwrap_or(cmd);
+    raw.split('_')
+        .map(|w| {
+            let mut c = w.chars();
+            match c.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().collect::<String>() + c.as_str().to_lowercase().as_str(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+pub fn coming_soon_for(cmd: &str) -> ComingSoon {
+    ComingSoon {
+        cmd: cmd.to_string(),
+        feature: feature_name_from_cmd(cmd),
+    }
+}
+
+/// Short smile lines — pick by hashing the command so the same item feels consistent.
+pub fn coming_soon_blurb(cmd: &str) -> &'static str {
+    const LINES: &[&str] = &[
+        "We’re polishing this one with care. Come back tomorrow — it’ll be friendlier.",
+        "Not ready yet, but the elves are typing. See you tomorrow!",
+        "Almost there. Sleep well; tomorrow this button gets a real job.",
+        "Still in the workshop. Check again tomorrow — we owe you a smile.",
+        "Good eye! This feature is on the bench. Tomorrow’s build loves you more.",
+        "Patience, explorer. Tomorrow we turn this stub into magic.",
+        "Noted in Ralf’s side-project notebook. Tomorrow: progress. Today: coffee.",
+        "The menu is honest; the code is catching up. See you tomorrow!",
+    ];
+    let mut h: u32 = 0;
+    for b in cmd.bytes() {
+        h = h.wrapping_mul(31).wrapping_add(u32::from(b));
+    }
+    LINES[(h as usize) % LINES.len()]
 }

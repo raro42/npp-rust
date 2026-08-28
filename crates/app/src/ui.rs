@@ -16,6 +16,8 @@ pub struct EditorApp {
     drag_anchor: Option<usize>,
     show_replace: bool,
     replace_with: String,
+    /// Friendly dialog for menu items not wired yet.
+    coming_soon: Option<crate::commands::ComingSoon>,
 }
 
 impl EditorApp {
@@ -29,6 +31,7 @@ impl EditorApp {
             drag_anchor: None,
             show_replace: false,
             replace_with: String::new(),
+            coming_soon: None,
         }
     }
 }
@@ -49,6 +52,7 @@ impl eframe::App for EditorApp {
         self.editor_pane(ctx);
         self.status_bar(ctx);
         self.about_window(ctx);
+        self.coming_soon_window(ctx);
     }
 }
 
@@ -181,7 +185,11 @@ impl EditorApp {
         if let Some(cmd) = run_cmd {
             let result = crate::commands::dispatch(&cmd, &mut self.state, &mut flags);
             if result == crate::commands::CmdResult::Stub {
-                self.state.status = crate::commands::stub_message(&cmd);
+                self.coming_soon = Some(crate::commands::coming_soon_for(&cmd));
+                self.state.status = format!("Coming soon: {}", self.coming_soon.as_ref().unwrap().feature);
+            }
+            if flags.coming_soon.is_some() {
+                self.coming_soon = flags.coming_soon.take();
             }
             self.show_about = flags.show_about;
             self.state.find_open = flags.find_open;
@@ -387,6 +395,69 @@ Tree-sitter highlight, and a calm UI.",
             });
         if !open {
             self.show_about = false;
+        }
+    }
+
+    fn coming_soon_window(&mut self, ctx: &egui::Context) {
+        let Some(info) = self.coming_soon.clone() else {
+            return;
+        };
+        let blurb = crate::commands::coming_soon_blurb(&info.cmd);
+        let mut open = true;
+        egui::Window::new("Coming soon")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .default_width(380.0)
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(6.0);
+                    ui.heading(
+                        RichText::new("Not ready yet")
+                            .size(22.0)
+                            .color(Color32::from_rgb(255, 196, 120)),
+                    );
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new(format!("“{}”", info.feature))
+                            .strong()
+                            .size(16.0),
+                    );
+                    ui.add_space(10.0);
+                    ui.label(
+                        RichText::new(blurb)
+                            .italics()
+                            .color(Color32::from_rgb(200, 200, 210)),
+                    );
+                    ui.add_space(8.0);
+                    ui.label(
+                        RichText::new("We’re building npp-rs in the background — one honest menu at a time.")
+                            .small()
+                            .color(Color32::from_rgb(150, 150, 160)),
+                    );
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new("Come back tomorrow. Bring a smile; we’ll bring a feature.")
+                            .small()
+                            .strong()
+                            .color(Color32::from_rgb(140, 200, 160)),
+                    );
+                    ui.add_space(12.0);
+                    if ui.button("Alright, see you tomorrow").clicked() {
+                        self.coming_soon = None;
+                    }
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new(info.cmd)
+                            .small()
+                            .monospace()
+                            .color(Color32::from_rgb(110, 110, 120)),
+                    );
+                });
+            });
+        if !open {
+            self.coming_soon = None;
         }
     }
 
