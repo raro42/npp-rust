@@ -64,19 +64,27 @@ trap cleanup EXIT
 
 if [[ -n "$body" ]]; then
   tmp="$(mktemp)"
-  soft_args=()
-  if [[ "${NPP_GH_SOFT_REDACT:-0}" == "1" ]]; then
-    soft_args=(--soft-redact)
-  fi
   # Always store redacted copy; hard-fail if findings unless soft mode.
-  if ! printf '%s' "$body" | python3 "$REDACT" --redact "${soft_args[@]}" >"$tmp" 2>"${tmp}.err"; then
-    cat "${tmp}.err" >&2 || true
+  redact_err="${tmp}.err"
+  if [[ "${NPP_GH_SOFT_REDACT:-0}" == "1" ]]; then
+    redact_ok=0
+    if printf '%s' "$body" | python3 "$REDACT" --redact --soft-redact >"$tmp" 2>"$redact_err"; then
+      redact_ok=1
+    fi
+  else
+    redact_ok=0
+    if printf '%s' "$body" | python3 "$REDACT" --redact >"$tmp" 2>"$redact_err"; then
+      redact_ok=1
+    fi
+  fi
+  if [[ "$redact_ok" -ne 1 ]]; then
+    cat "$redact_err" >&2 || true
     echo "gh-safe: refusing to post — private/sensitive patterns detected." >&2
     echo "gh-safe: fix the text or set NPP_GH_SOFT_REDACT=1 to post a redacted version (not recommended)." >&2
     exit 1
   fi
-  if [[ -s "${tmp}.err" ]]; then
-    cat "${tmp}.err" >&2 || true
+  if [[ -s "$redact_err" ]]; then
+    cat "$redact_err" >&2 || true
   fi
   # Ensure repo flag for issue/pr if missing
   has_repo=0
