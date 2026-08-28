@@ -46,7 +46,7 @@ impl TextBuffer {
     pub fn from_str(s: &str) -> Self {
         let mut buf = Self::new();
         buf.rope = Rope::from_str(s);
-        buf.caret = buf.len_chars();
+        buf.caret = 0;
         buf
     }
 

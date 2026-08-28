@@ -609,6 +609,12 @@ Tree-sitter highlight, and a calm UI.",
                 // Clicking the editor closes find focus but keeps the bar open.
                 response.request_focus();
             }
+
+            if self.state.reset_view {
+                self.scroll_line = 0.0;
+                self.follow_caret = false;
+                self.state.reset_view = false;
+            }
             let visible_rows =
                 ((rect.height() / row_height).floor() as usize).max(1);
             let max_scroll = (total_lines.saturating_sub(visible_rows) as f32).max(0.0);

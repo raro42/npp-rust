@@ -26,6 +26,8 @@ pub struct EditorState {
     pub highlight_lang: String,
     pub highlight_dirty: bool,
     pub recent: RecentFiles,
+    /// UI should jump scroll to line 1 (set on open / new).
+    pub reset_view: bool,
 }
 
 impl Default for EditorState {
@@ -48,6 +50,7 @@ impl EditorState {
             highlight_lang: String::new(),
             highlight_dirty: true,
             recent: RecentFiles::load(),
+            reset_view: false,
         }
     }
 
@@ -82,6 +85,7 @@ impl EditorState {
     pub fn new_file(&mut self) {
         self.tabs.open_untitled();
         self.highlight_dirty = true;
+        self.reset_view = true;
         self.status = "New file".into();
     }
 
@@ -139,6 +143,9 @@ impl EditorState {
         }
         self.recent.touch(&result.path);
         self.highlight_dirty = true;
+        self.reset_view = true;
+        // Ensure caret is at the top after open.
+        self.tabs.active_mut().buffer.set_caret(0);
         self.status = format!(
             "Opened {} ({:.1} KiB, {} ms)",
             result.path.display(),
