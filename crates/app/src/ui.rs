@@ -94,10 +94,12 @@ impl EditorApp {
             self.show_replace = true;
             self.state.find_open = true;
             self.find_focus_once = true;
+            self.seed_find_from_selection();
         } else if cmd && f {
             self.state.find_open = true;
             self.show_replace = false;
             self.find_focus_once = true;
+            self.seed_find_from_selection();
         }
         if cmd && a {
             self.state.tabs.active_mut().buffer.select_all();
@@ -147,6 +149,12 @@ impl EditorApp {
         } else if (self.state.find_open || self.show_replace) && cmd && g {
             self.state.find_next();
             self.follow_caret = true;
+        }
+        if (self.state.find_open || self.show_replace)
+            && ctx.input(|i| i.key_pressed(Key::Escape))
+        {
+            self.state.find_open = false;
+            self.show_replace = false;
         }
     }
 
@@ -426,12 +434,26 @@ Tree-sitter highlight, and a calm UI.",
         });
     }
 
+    fn seed_find_from_selection(&mut self) {
+        if let Some((s, e)) = self.state.tabs.active().buffer.selection() {
+            let sel = self.state.tabs.active().buffer.slice(s, e);
+            if !sel.is_empty() && !sel.contains('\n') && sel.chars().count() <= 200 {
+                self.state.find_query = sel;
+            }
+        }
+    }
+
     fn find_replace_bar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("find").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.label("Find:");
-                let resp = ui.text_edit_singleline(&mut self.state.find_query);
-                if resp.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
+                let resp = ui.add(
+                    egui::TextEdit::singleline(&mut self.state.find_query)
+                        .desired_width(220.0)
+                        .hint_text("search text"),
+                );
+                let enter = ui.input(|i| i.key_pressed(Key::Enter));
+                if resp.has_focus() && enter {
                     self.state.find_next();
                     self.follow_caret = true;
                 }
@@ -507,8 +529,15 @@ Tree-sitter highlight, and a calm UI.",
             let total_lines = self.state.tabs.active().buffer.line_count().max(1);
             let avail = ui.available_size();
             let (rect, response) = ui.allocate_exact_size(avail, Sense::click_and_drag());
-            response.request_focus();
-
+            // Do not steal focus every frame — that breaks Find (Ctrl/Cmd+F).
+            if !self.state.find_open && !self.show_replace {
+                if response.clicked() || response.drag_started() {
+                    response.request_focus();
+                }
+            } else if response.clicked() {
+                // Clicking the editor closes find focus but keeps the bar open.
+                response.request_focus();
+            }
             let visible_rows =
                 ((rect.height() / row_height).floor() as usize).max(1);
             let max_scroll = (total_lines.saturating_sub(visible_rows) as f32).max(0.0);
@@ -842,39 +871,75 @@ Tree-sitter highlight, and a calm UI.",
                 egui::Event::Key {
                     key: Key::ArrowUp,
                     pressed: true,
+                    modifiers,
                     ..
                 } => {
-                    move_caret_vert(&mut self.state, -1);
+                    if modifiers.command || modifiers.ctrl {
+                        // macOS: ⌘↑ = start of document
+                        go_doc_start(&mut self.state, modifiers.shift);
+                    } else {
+                        move_caret_vert(&mut self.state, -1);
+                    }
                     caret_moved = true;
                 }
                 egui::Event::Key {
                     key: Key::ArrowDown,
                     pressed: true,
+                    modifiers,
                     ..
                 } => {
-                    move_caret_vert(&mut self.state, 1);
+                    if modifiers.command || modifiers.ctrl {
+                        // macOS: ⌘↓ = end of document
+                        go_doc_end(&mut self.state, modifiers.shift);
+                    } else {
+                        move_caret_vert(&mut self.state, 1);
+                    }
                     caret_moved = true;
                 }
                 egui::Event::Key {
                     key: Key::Home,
                     pressed: true,
+                    modifiers,
                     ..
                 } => {
-                    let b = self.state.tabs.active_mut();
-                    let line = b.buffer.char_to_line(b.buffer.caret());
-                    b.buffer.set_caret(b.buffer.line_to_char(line));
+                    if modifiers.command || modifiers.ctrl {
+                        go_doc_start(&mut self.state, modifiers.shift);
+                    } else {
+                        let b = self.state.tabs.active_mut();
+                        let c = b.buffer.caret();
+                        let line = b.buffer.char_to_line(c);
+                        let line_start = b.buffer.line_to_char(line);
+                        if modifiers.shift {
+                            let anchor = b.buffer.selection().map(|(s, _)| s).unwrap_or(c);
+                            b.buffer.set_selection(anchor, line_start);
+                        } else {
+                            b.buffer.set_caret(line_start);
+                        }
+                    }
                     caret_moved = true;
                 }
                 egui::Event::Key {
                     key: Key::End,
                     pressed: true,
+                    modifiers,
                     ..
                 } => {
-                    let b = self.state.tabs.active_mut();
-                    let line = b.buffer.char_to_line(b.buffer.caret());
-                    let raw = b.buffer.line(line);
-                    let n = raw.trim_end_matches(['\n', '\r']).chars().count();
-                    b.buffer.set_caret(b.buffer.line_to_char(line) + n);
+                    if modifiers.command || modifiers.ctrl {
+                        go_doc_end(&mut self.state, modifiers.shift);
+                    } else {
+                        let b = self.state.tabs.active_mut();
+                        let c = b.buffer.caret();
+                        let line = b.buffer.char_to_line(c);
+                        let raw = b.buffer.line(line);
+                        let n = raw.trim_end_matches(['\n', '\r']).chars().count();
+                        let line_end = b.buffer.line_to_char(line) + n;
+                        if modifiers.shift {
+                            let anchor = b.buffer.selection().map(|(s, _)| s).unwrap_or(c);
+                            b.buffer.set_selection(anchor, line_end);
+                        } else {
+                            b.buffer.set_caret(line_end);
+                        }
+                    }
                     caret_moved = true;
                 }
                 egui::Event::Key {
@@ -923,6 +988,27 @@ fn move_caret_vert(state: &mut EditorState, delta: i32) {
     let raw = b.buffer.line(line);
     let n = raw.trim_end_matches(['\n', '\r']).chars().count();
     b.buffer.set_caret(b.buffer.line_to_char(line) + col.min(n));
+}
+
+fn go_doc_start(state: &mut EditorState, select: bool) {
+    let b = state.tabs.active_mut();
+    if select {
+        let anchor = b.buffer.selection().map(|(s, _)| s).unwrap_or_else(|| b.buffer.caret());
+        b.buffer.set_selection(anchor, 0);
+    } else {
+        b.buffer.set_caret(0);
+    }
+}
+
+fn go_doc_end(state: &mut EditorState, select: bool) {
+    let b = state.tabs.active_mut();
+    let end = b.buffer.len_chars();
+    if select {
+        let anchor = b.buffer.selection().map(|(s, _)| s).unwrap_or_else(|| b.buffer.caret());
+        b.buffer.set_selection(anchor, end);
+    } else {
+        b.buffer.set_caret(end);
+    }
 }
 
 fn text_width(ui: &egui::Ui, font_id: &FontId, text: &str) -> f32 {

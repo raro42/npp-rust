@@ -157,6 +157,19 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
             CmdResult::Handled
         }
 
+        "IDM_VIEW_GOTO_START" => {
+            let b = state.tabs.active_mut();
+            b.buffer.set_caret(0);
+            ui.follow_caret = true;
+            CmdResult::Handled
+        }
+        "IDM_VIEW_GOTO_END" => {
+            let end = state.tabs.active().buffer.len_chars();
+            state.tabs.active_mut().buffer.set_caret(end);
+            ui.follow_caret = true;
+            CmdResult::Handled
+        }
+
         // —— Language (subset we highlight) ——
         "IDM_LANG_C" => {
             state.set_language("c");
