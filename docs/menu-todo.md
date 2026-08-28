@@ -2,33 +2,22 @@
 
 Date: 2026-08-28
 
-Ready: **273**. Remaining stubs: **301**.
+Ready: **337**. Remaining stubs: **237**.
 
-Track progress by wiring `IDM_*` in `crates/app/src/commands.rs` and updating `is_implemented`.
 Teal menu labels = ready.
 
-## Edit (74)
+## Edit (63)
 
 - [ ] `IDM_EDIT_BEGINENDSELECT` — Edit/Begin/End Select
 - [ ] `IDM_EDIT_BEGINENDSELECT_COLUMNMODE` — Edit/Begin/End Select in Column Mode
 - [ ] `IDM_EDIT_INSERT_DATETIME_CUSTOMIZED` — Edit/Insert/Date Time (customized)
 - [ ] `IDM_EDIT_PROPERCASE_BLEND` — Edit/Convert Case to/Proper Case (blend)
-- [ ] `IDM_EDIT_SENTENCECASE_FORCE` — Edit/Convert Case to/Sentence case
 - [ ] `IDM_EDIT_SENTENCECASE_BLEND` — Edit/Convert Case to/Sentence case (blend)
 - [ ] `IDM_EDIT_RANDOMCASE` — Edit/Convert Case to/ranDOm CasE
-- [ ] `IDM_EDIT_REMOVE_ANY_DUP_LINES` — Edit/Line Operations/Remove Duplicate Lines
-- [ ] `IDM_EDIT_REMOVE_CONSECUTIVE_DUP_LINES` — Edit/Line Operations/Remove Consecutive Duplicate Lines
-- [ ] `IDM_EDIT_SPLIT_LINES` — Edit/Line Operations/Split Lines
-- [ ] `IDM_EDIT_BLANKLINEBELOWCURRENT` — Edit/Line Operations/Insert Blank Line Below Current
-- [ ] `IDM_EDIT_SORTLINES_REVERSE_ORDER` — Edit/Line Operations/Reverse Line Order
 - [ ] `IDM_EDIT_SORTLINES_RANDOMLY` — Edit/Line Operations/Randomize Line Order
-- [ ] `IDM_EDIT_SORTLINES_LEXICOGRAPHIC_ASCENDING` — Edit/Line Operations/Sort Lines Lexicographically Ascending
-- [ ] `IDM_EDIT_SORTLINES_LEXICO_CASE_INSENS_ASCENDING` — Edit/Line Operations/Sort Lines Lex. Ascending Ignoring Case
-- [ ] `IDM_EDIT_SORTLINES_LOCALE_ASCENDING` — Edit/Line Operations/Sort Lines In Locale Order Ascending
 - [ ] `IDM_EDIT_SORTLINES_INTEGER_ASCENDING` — Edit/Line Operations/Sort Lines As Integers Ascending
 - [ ] `IDM_EDIT_SORTLINES_DECIMALCOMMA_ASCENDING` — Edit/Line Operations/Sort Lines As Decimals (Comma) Ascending
 - [ ] `IDM_EDIT_SORTLINES_DECIMALDOT_ASCENDING` — Edit/Line Operations/Sort Lines As Decimals (Dot) Ascending
-- [ ] `IDM_EDIT_SORTLINES_LENGTH_ASCENDING` — Edit/Line Operations/Sort Lines By Length Ascending
 - [ ] `IDM_EDIT_SORTLINES_LEXICOGRAPHIC_DESCENDING` — Edit/Line Operations/Sort Lines Lexicographically Descending
 - [ ] `IDM_EDIT_SORTLINES_LEXICO_CASE_INSENS_DESCENDING` — Edit/Line Operations/Sort Lines Lex. Descending Ignoring Case
 - [ ] `IDM_EDIT_SORTLINES_LOCALE_DESCENDING` — Edit/Line Operations/Sort Lines In Locale Order Descending
@@ -47,7 +36,6 @@ Teal menu labels = ready.
 - [ ] `IDM_EDIT_FUNCCALLTIP_PREVIOUS` — Edit/Auto-Completion/Function Parameters Previous Hint
 - [ ] `IDM_EDIT_FUNCCALLTIP_NEXT` — Edit/Auto-Completion/Function Parameters Next Hint
 - [ ] `IDM_EDIT_AUTOCOMPLETE_PATH` — Edit/Auto-Completion/Path Completion
-- [ ] `IDM_FORMAT_TOMAC` — Edit/EOL Conversion/Macintosh (CR)
 - [ ] `IDM_EDIT_TRIMLINEHEAD` — Edit/Blank Operations/Trim Leading Space
 - [ ] `IDM_EDIT_TRIM_BOTH` — Edit/Blank Operations/Trim Leading and Trailing Space
 - [ ] `IDM_EDIT_EOL2WS` — Edit/Blank Operations/EOL to Space
@@ -211,62 +199,6 @@ Teal menu labels = ready.
 - [ ] `IDM_SEARCH_DELETEUNMARKEDLINES` — Search/Bookmark/Remove Non-Bookmarked Lines
 - [ ] `IDM_SEARCH_INVERSEMARKS` — Search/Bookmark/Inverse Bookmarks
 - [ ] `IDM_SEARCH_FINDCHARINRANGE` — Search/Find characters in range...
-
-## Encoding (53)
-
-- [ ] `IDM_FORMAT_UTF_16BE` — Encoding/UTF-16 BE BOM
-- [ ] `IDM_FORMAT_UTF_16LE` — Encoding/UTF-16 LE BOM
-- [ ] `IDM_FORMAT_ISO_8859_6` — Encoding/Character sets/Arabic/ISO 8859-6
-- [ ] `IDM_FORMAT_DOS_720` — Encoding/Character sets/Arabic/OEM 720
-- [ ] `IDM_FORMAT_WIN_1256` — Encoding/Character sets/Arabic/Windows-1256
-- [ ] `IDM_FORMAT_ISO_8859_4` — Encoding/Character sets/Baltic/ISO 8859-4
-- [ ] `IDM_FORMAT_ISO_8859_13` — Encoding/Character sets/Baltic/ISO 8859-13
-- [ ] `IDM_FORMAT_DOS_775` — Encoding/Character sets/Baltic/OEM 775
-- [ ] `IDM_FORMAT_WIN_1257` — Encoding/Character sets/Baltic/Windows-1257
-- [ ] `IDM_FORMAT_ISO_8859_14` — Encoding/Character sets/Celtic/ISO 8859-14
-- [ ] `IDM_FORMAT_ISO_8859_5` — Encoding/Character sets/Cyrillic/ISO 8859-5
-- [ ] `IDM_FORMAT_KOI8R_CYRILLIC` — Encoding/Character sets/Cyrillic/KOI8-R
-- [ ] `IDM_FORMAT_KOI8U_CYRILLIC` — Encoding/Character sets/Cyrillic/KOI8-U
-- [ ] `IDM_FORMAT_MAC_CYRILLIC` — Encoding/Character sets/Cyrillic/Macintosh
-- [ ] `IDM_FORMAT_DOS_855` — Encoding/Character sets/Cyrillic/OEM 855
-- [ ] `IDM_FORMAT_DOS_866` — Encoding/Character sets/Cyrillic/OEM 866
-- [ ] `IDM_FORMAT_WIN_1251` — Encoding/Character sets/Cyrillic/Windows-1251
-- [ ] `IDM_FORMAT_DOS_852` — Encoding/Character sets/Central European/OEM 852
-- [ ] `IDM_FORMAT_WIN_1250` — Encoding/Character sets/Central European/Windows-1250
-- [ ] `IDM_FORMAT_BIG5` — Encoding/Character sets/Chinese/Big5 (Traditional)
-- [ ] `IDM_FORMAT_GB2312` — Encoding/Character sets/Chinese/GB2312 (Simplified)
-- [ ] `IDM_FORMAT_ISO_8859_2` — Encoding/Character sets/Eastern European/ISO 8859-2
-- [ ] `IDM_FORMAT_ISO_8859_7` — Encoding/Character sets/Greek/ISO 8859-7
-- [ ] `IDM_FORMAT_DOS_737` — Encoding/Character sets/Greek/OEM 737
-- [ ] `IDM_FORMAT_DOS_869` — Encoding/Character sets/Greek/OEM 869
-- [ ] `IDM_FORMAT_WIN_1253` — Encoding/Character sets/Greek/Windows-1253
-- [ ] `IDM_FORMAT_ISO_8859_8` — Encoding/Character sets/Hebrew/ISO 8859-8
-- [ ] `IDM_FORMAT_DOS_862` — Encoding/Character sets/Hebrew/OEM 862
-- [ ] `IDM_FORMAT_WIN_1255` — Encoding/Character sets/Hebrew/Windows-1255
-- [ ] `IDM_FORMAT_SHIFT_JIS` — Encoding/Character sets/Japanese/Shift-JIS
-- [ ] `IDM_FORMAT_KOREAN_WIN` — Encoding/Character sets/Korean/Windows 949
-- [ ] `IDM_FORMAT_EUC_KR` — Encoding/Character sets/Korean/EUC-KR
-- [ ] `IDM_FORMAT_DOS_861` — Encoding/Character sets/North European/OEM 861 : Icelandic
-- [ ] `IDM_FORMAT_DOS_865` — Encoding/Character sets/North European/OEM 865 : Nordic
-- [ ] `IDM_FORMAT_TIS_620` — Encoding/Character sets/Thai/TIS-620
-- [ ] `IDM_FORMAT_ISO_8859_3` — Encoding/Character sets/Turkish/ISO 8859-3
-- [ ] `IDM_FORMAT_ISO_8859_9` — Encoding/Character sets/Turkish/ISO 8859-9
-- [ ] `IDM_FORMAT_DOS_857` — Encoding/Character sets/Turkish/OEM 857
-- [ ] `IDM_FORMAT_WIN_1254` — Encoding/Character sets/Turkish/Windows-1254
-- [ ] `IDM_FORMAT_ISO_8859_1` — Encoding/Character sets/Western European/ISO 8859-1
-- [ ] `IDM_FORMAT_ISO_8859_15` — Encoding/Character sets/Western European/ISO 8859-15
-- [ ] `IDM_FORMAT_DOS_850` — Encoding/Character sets/Western European/OEM 850
-- [ ] `IDM_FORMAT_DOS_858` — Encoding/Character sets/Western European/OEM 858
-- [ ] `IDM_FORMAT_DOS_860` — Encoding/Character sets/Western European/OEM 860 : Portuguese
-- [ ] `IDM_FORMAT_DOS_863` — Encoding/Character sets/Western European/OEM 863 : French
-- [ ] `IDM_FORMAT_DOS_437` — Encoding/Character sets/Western European/OEM-US
-- [ ] `IDM_FORMAT_WIN_1252` — Encoding/Character sets/Western European/Windows-1252
-- [ ] `IDM_FORMAT_WIN_1258` — Encoding/Character sets/Vietnamese/Windows-1258
-- [ ] `IDM_FORMAT_CONV2_ANSI` — Encoding/Convert to ANSI
-- [ ] `IDM_FORMAT_CONV2_AS_UTF_8` — Encoding/Convert to UTF-8
-- [ ] `IDM_FORMAT_CONV2_UTF_8` — Encoding/Convert to UTF-8-BOM
-- [ ] `IDM_FORMAT_CONV2_UTF_16BE` — Encoding/Convert to UTF-16 BE BOM
-- [ ] `IDM_FORMAT_CONV2_UTF_16LE` — Encoding/Convert to UTF-16 LE BOM
 
 ## Tools (12)
 

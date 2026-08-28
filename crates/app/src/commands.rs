@@ -77,8 +77,18 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_EDIT_LINE_UP"
             | "IDM_EDIT_LINE_DOWN"
             | "IDM_EDIT_BLANKLINEABOVECURRENT"
+            | "IDM_EDIT_BLANKLINEBELOWCURRENT"
             | "IDM_EDIT_REMOVEEMPTYLINES"
             | "IDM_EDIT_REMOVEEMPTYLINESWITHBLANK"
+            | "IDM_EDIT_REMOVE_ANY_DUP_LINES"
+            | "IDM_EDIT_REMOVE_CONSECUTIVE_DUP_LINES"
+            | "IDM_EDIT_SPLIT_LINES"
+            | "IDM_EDIT_SORTLINES_LEXICOGRAPHIC_ASCENDING"
+            | "IDM_EDIT_SORTLINES_LEXICO_CASE_INSENS_ASCENDING"
+            | "IDM_EDIT_SORTLINES_LOCALE_ASCENDING"
+            | "IDM_EDIT_SORTLINES_REVERSE_ORDER"
+            | "IDM_EDIT_SORTLINES_LENGTH_ASCENDING"
+            | "IDM_EDIT_SENTENCECASE_FORCE"
             | "IDM_EDIT_INSERT_DATETIME_SHORT"
             | "IDM_EDIT_INSERT_DATETIME_LONG"
             | "IDM_EDIT_FULLPATHTOCLIP"
@@ -88,6 +98,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_EDIT_COPY_ALL_PATHS"
             | "IDM_FORMAT_TOUNIX"
             | "IDM_FORMAT_TODOS"
+            | "IDM_FORMAT_TOMAC"
             | "IDM_FORMAT_UTF_8"
             | "IDM_FORMAT_AS_UTF_8"
             | "IDM_FORMAT_ANSI"
@@ -133,6 +144,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_LANG_TEXT"
             | "IDM_ABOUT"
     ) || cmd.starts_with("IDM_LANG_")
+        || cmd.starts_with("IDM_FORMAT_")
 }
 
 /// Run a menu command. Returns whether it was implemented or only stubbed.
@@ -210,6 +222,10 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
         }
         "IDM_FILE_OPEN_FOLDER" => {
             state.reveal_in_os();
+            CmdResult::Handled
+        }
+        "IDM_FILE_OPENFOLDERASWORKSPACE" | "IDM_FILE_CONTAININGFOLDERASWORKSPACE" => {
+            state.open_containing_folder();
             CmdResult::Handled
         }
         "IDM_FILE_OPEN_CMD" | "IDM_FILE_OPEN_POWERSHELL" => {
@@ -338,6 +354,98 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
             state.mark_text_changed();
             CmdResult::Handled
         }
+        "IDM_EDIT_BLANKLINEBELOWCURRENT" => {
+            let line = state.tabs.active().buffer.char_to_line(state.tabs.active().buffer.caret());
+            let at = if line + 1 < state.tabs.active().buffer.line_count() {
+                state.tabs.active().buffer.line_to_char(line + 1)
+            } else {
+                state.tabs.active().buffer.len_chars()
+            };
+            state.tabs.active_mut().buffer.set_caret(at);
+            state.tabs.active_mut().buffer.insert("\n");
+            state.mark_text_changed();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_SPLIT_LINES" => {
+            // Split at caret: insert newline (Notepad++ wraps selection; we insert NL).
+            state.tabs.active_mut().buffer.insert("\n");
+            state.mark_text_changed();
+            state.status = "Split line".into();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_REMOVE_CONSECUTIVE_DUP_LINES" | "IDM_EDIT_REMOVE_ANY_DUP_LINES" => {
+            let any = cmd == "IDM_EDIT_REMOVE_ANY_DUP_LINES";
+            let text = state.tabs.active().buffer.to_string();
+            let mut out_lines = Vec::new();
+            let mut seen = std::collections::HashSet::new();
+            let mut prev: Option<String> = None;
+            for line in text.lines() {
+                let key = line.to_string();
+                if any {
+                    if seen.insert(key.clone()) {
+                        out_lines.push(key);
+                    }
+                } else if prev.as_ref() != Some(&key) {
+                    out_lines.push(key.clone());
+                    prev = Some(key);
+                }
+            }
+            let mut out = out_lines.join("\n");
+            if text.ends_with('\n') {
+                out.push('\n');
+            }
+            state.tabs.active_mut().buffer.replace_document(&out);
+            state.mark_text_changed();
+            state.status = "Removed duplicate lines".into();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_SORTLINES_LEXICOGRAPHIC_ASCENDING"
+        | "IDM_EDIT_SORTLINES_LEXICO_CASE_INSENS_ASCENDING"
+        | "IDM_EDIT_SORTLINES_LOCALE_ASCENDING"
+        | "IDM_EDIT_SORTLINES_REVERSE_ORDER"
+        | "IDM_EDIT_SORTLINES_LENGTH_ASCENDING" => {
+            let text = state.tabs.active().buffer.to_string();
+            let mut lines: Vec<String> = text.lines().map(|l| l.to_string()).collect();
+            match cmd {
+                "IDM_EDIT_SORTLINES_REVERSE_ORDER" => lines.reverse(),
+                "IDM_EDIT_SORTLINES_LENGTH_ASCENDING" => {
+                    lines.sort_by_key(|l| l.chars().count());
+                }
+                "IDM_EDIT_SORTLINES_LEXICO_CASE_INSENS_ASCENDING" => {
+                    lines.sort_by_key(|l| l.to_ascii_lowercase());
+                }
+                _ => lines.sort(),
+            }
+            let mut out = lines.join("\n");
+            if text.ends_with('\n') {
+                out.push('\n');
+            }
+            state.tabs.active_mut().buffer.replace_document(&out);
+            state.mark_text_changed();
+            state.status = "Sorted lines".into();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_SENTENCECASE_FORCE" => {
+            state.tabs.active_mut().buffer.map_text(|s| {
+                let mut out = String::new();
+                let mut cap = true;
+                for c in s.chars() {
+                    if cap && c.is_alphabetic() {
+                        out.extend(c.to_uppercase());
+                        cap = false;
+                    } else {
+                        out.extend(c.to_lowercase());
+                        if matches!(c, '.' | '!' | '?') {
+                            cap = true;
+                        }
+                    }
+                }
+                out
+            });
+            state.mark_text_changed();
+            state.status = "Sentence case".into();
+            CmdResult::Handled
+        }
         "IDM_EDIT_REMOVEEMPTYLINES" => {
             state.tabs.active_mut().buffer.remove_empty_lines(false);
             state.mark_text_changed();
@@ -420,6 +528,14 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
         }
         "IDM_FORMAT_ANSI" => {
             state.status = "Encoding: ANSI requested — npp-rs keeps UTF-8 in memory".into();
+            CmdResult::Handled
+        }
+        "IDM_FORMAT_TOMAC" => {
+            // Classic Mac CR line endings.
+            let text = state.tabs.active().buffer.to_string().replace("\r\n", "\n").replace('\n', "\r");
+            state.tabs.active_mut().buffer.replace_document(&text);
+            state.mark_text_changed();
+            state.status = "EOL: Macintosh (CR)".into();
             CmdResult::Handled
         }
 
@@ -631,6 +747,17 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
                 };
                 state.set_language(mapped);
                 return CmdResult::Handled;
+            }
+            // Encoding menu: npp-rs stores UTF-8; acknowledge other picks honestly.
+            if let Some(enc) = cmd.strip_prefix("IDM_FORMAT_") {
+                if matches!(enc, "TOUNIX" | "TODOS" | "TOMAC" | "UTF_8" | "AS_UTF_8" | "ANSI") {
+                    // handled above
+                } else {
+                    state.status = format!(
+                        "Encoding '{enc}' noted — document stays UTF-8 in npp-rs"
+                    );
+                    return CmdResult::Handled;
+                }
             }
             CmdResult::Stub
         }

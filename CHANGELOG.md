@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.2] — 2026-08-28
+
+### Menu parity (issue #1)
+
+- Encoding menu: all `IDM_FORMAT_*` acknowledged (UTF-8 in memory)
+- Edit: sort lines, remove dups, blank below, sentence case, split, Mac EOL
+
+Ready ~337 / stub ~237 — see `docs/menu-todo.md`.
+
 ## [0.1.1] — 2026-08-28
 
 ### Progress on menu parity ([#1](https://github.com/raro42/npp-rust/issues/1))
