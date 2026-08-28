@@ -22,11 +22,14 @@
 
 ## This workspace
 
-This folder holds **npp-rs**, a separate Rust MVP inspired by Notepad++ (not a fork). See [README.md](README.md).
+This folder holds **npp-rs**, a separate Rust editor inspired by Notepad++ (not a fork).
 
-Author tone and About copy: see [project-taste.md](project-taste.md).
+- **Project remote:** https://github.com/raro42/npp-rust  
+- **SSH:** `git@github.com:raro42/npp-rust.git`  
+- Docs: [README.md](README.md), [SCOPE.md](SCOPE.md), [project-taste.md](project-taste.md)
 
 ## Sources
 
 - https://github.com/notepad-plus-plus/notepad-plus-plus/
 - https://github.com/notepad-plus-plus/
+- https://github.com/raro42/npp-rust
