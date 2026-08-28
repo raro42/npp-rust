@@ -6,6 +6,9 @@ See [SCOPE.md](SCOPE.md) for an honest feature boundary. This is **not** a drop-
 
 ## Features
 
+- **Full Notepad++ menu bar** (574 commands from upstream `Notepad_plus.rc`; unimplemented items show a status stub)
+- CI runs `cargo test --workspace` on push (see [TESTING.md](TESTING.md))
+
 - Multi-tab open / edit / save (UTF-8)
 - **Open Recent** (persisted)
 - Find + **Replace** / Replace All

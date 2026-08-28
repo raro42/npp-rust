@@ -151,168 +151,134 @@ impl EditorApp {
     }
 
     fn menu_bar(&mut self, ctx: &egui::Context) {
+        let menu = crate::menu_data::load_npp_menu();
+        let mut flags = crate::commands::UiFlags {
+            show_about: self.show_about,
+            find_open: self.state.find_open,
+            show_replace: self.show_replace,
+            find_focus_once: self.find_focus_once,
+            follow_caret: self.follow_caret,
+            ..Default::default()
+        };
+        let mut run_cmd: Option<String> = None;
+
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("New\tCtrl+N").clicked() {
-                        self.state.new_file();
-                        ui.close_menu();
-                    }
-                    if ui.button("Open…\tCtrl+O").clicked() {
-                        self.state.open_dialog();
-                        ui.close_menu();
-                    }
+                for node in &menu {
+                    self.render_menu_node(ui, node, &mut run_cmd, true);
+                }
+            });
+        });
 
-                    let recent_paths: Vec<_> = self.state.recent.paths().to_vec();
-                    ui.menu_button("Open Recent", |ui| {
-                        if recent_paths.is_empty() {
-                            ui.label(
-                                RichText::new("(empty)")
-                                    .weak()
-                                    .italics()
-                                    .color(Color32::from_rgb(140, 140, 150)),
-                            );
-                        } else {
-                            let mut open_path = None;
-                            for (i, path) in recent_paths.iter().enumerate() {
-                                let label = crate::recent::recent_label(path);
-                                let exists = path.exists();
-                                let text = if exists {
-                                    RichText::new(format!("{}.  {label}", i + 1))
-                                } else {
-                                    RichText::new(format!("{}.  {label}  (missing)", i + 1))
-                                        .weak()
-                                        .color(Color32::from_rgb(150, 120, 120))
-                                };
-                                if ui
-                                    .add_enabled(exists, egui::Button::new(text))
-                                    .on_hover_text(path.display().to_string())
-                                    .clicked()
-                                {
-                                    open_path = Some(path.clone());
+        if let Some(cmd) = run_cmd {
+            let result = crate::commands::dispatch(&cmd, &mut self.state, &mut flags);
+            if result == crate::commands::CmdResult::Stub {
+                self.state.status = crate::commands::stub_message(&cmd);
+            }
+            self.show_about = flags.show_about;
+            self.state.find_open = flags.find_open;
+            self.show_replace = flags.show_replace;
+            self.find_focus_once = flags.find_focus_once;
+            self.follow_caret = flags.follow_caret;
+            if let Some(t) = flags.pending_clipboard.take() {
+                ctx.copy_text(t);
+            }
+            if flags.request_quit {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+            if flags.highlight_dirty_scroll_reset {
+                self.scroll_line = 0.0;
+            }
+        }
+    }
+
+    fn render_menu_node(
+        &mut self,
+        ui: &mut egui::Ui,
+        node: &crate::menu_data::MenuNode,
+        run_cmd: &mut Option<String>,
+        top_level: bool,
+    ) {
+        use crate::menu_data::MenuNode;
+        match node {
+            MenuNode::Separator => {
+                ui.separator();
+            }
+            MenuNode::Item { label, cmd } => {
+                if ui.button(label).clicked() {
+                    *run_cmd = Some(cmd.clone());
+                    ui.close_menu();
+                }
+            }
+            MenuNode::Popup { label, children } => {
+                // Inject Recent Files into File menu (Notepad++ inserts this at runtime).
+                let is_file = top_level && label == "File";
+                let is_plugins = top_level && label == "Plugins";
+                ui.menu_button(label, |ui| {
+                    if is_file {
+                        // Match N++: recent list near the end; we place after Open block via full tree,
+                        // and also expose an explicit Recent submenu at the top of File for clarity.
+                        ui.menu_button("Recent Files", |ui| {
+                            let recent_paths: Vec<_> = self.state.recent.paths().to_vec();
+                            if recent_paths.is_empty() {
+                                ui.label(RichText::new("(empty)").italics().weak());
+                            } else {
+                                let mut open_path = None;
+                                for (i, path) in recent_paths.iter().enumerate() {
+                                    let label = crate::recent::recent_label(path);
+                                    let exists = path.exists();
+                                    let text = if exists {
+                                        RichText::new(format!("{}.  {label}", i + 1))
+                                    } else {
+                                        RichText::new(format!("{}.  {label}  (missing)", i + 1))
+                                            .weak()
+                                    };
+                                    if ui
+                                        .add_enabled(exists, egui::Button::new(text))
+                                        .on_hover_text(path.display().to_string())
+                                        .clicked()
+                                    {
+                                        open_path = Some(path.clone());
+                                    }
+                                }
+                                ui.separator();
+                                if ui.button("Clear Recent Files").clicked() {
+                                    self.state.clear_recent();
+                                    ui.close_menu();
+                                }
+                                if let Some(path) = open_path {
+                                    self.state.open_path(path);
+                                    ui.close_menu();
                                 }
                             }
-                            ui.separator();
-                            if ui.button("Clear Recent Files").clicked() {
-                                self.state.clear_recent();
-                                ui.close_menu();
-                            }
-                            if let Some(path) = open_path {
-                                self.state.open_path(path);
-                                ui.close_menu();
+                        });
+                        ui.separator();
+                    }
+                    for child in children {
+                        self.render_menu_node(ui, child, run_cmd, false);
+                    }
+                    if is_plugins {
+                        ui.separator();
+                        ui.label(RichText::new("npp-rs builtins").small().weak());
+                        let host = plugins::PluginHost::new();
+                        let mut run_id = None;
+                        for p in host.list() {
+                            if ui.button(p.name()).clicked() {
+                                run_id = Some(p.id().to_string());
                             }
                         }
-                    });
-
-                    if ui.button("Save\tCtrl+S").clicked() {
-                        self.state.save();
-                        ui.close_menu();
-                    }
-                    if ui.button("Save As…\tCtrl+Shift+S").clicked() {
-                        self.state.save_as_dialog();
-                        ui.close_menu();
-                    }
-                    ui.separator();
-                    if ui.button("Quit").clicked() {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                    }
-                });
-                ui.menu_button("Edit", |ui| {
-                    if ui.button("Undo\tCtrl+Z").clicked() {
-                        self.state.undo();
-                        ui.close_menu();
-                    }
-                    if ui.button("Redo\tCtrl+Y").clicked() {
-                        self.state.redo();
-                        ui.close_menu();
-                    }
-                    ui.separator();
-                    if ui.button("Select All\tCtrl+A").clicked() {
-                        self.state.tabs.active_mut().buffer.select_all();
-                        ui.close_menu();
-                    }
-                    if ui.button("Duplicate Line\tCtrl+D").clicked() {
-                        self.state.tabs.active_mut().buffer.duplicate_line();
-                        self.state.mark_text_changed();
-                        ui.close_menu();
-                    }
-                    if ui.button("Delete Line\tCtrl+Shift+L").clicked() {
-                        self.state.tabs.active_mut().buffer.delete_line();
-                        self.state.mark_text_changed();
-                        ui.close_menu();
-                    }
-                    ui.separator();
-                    if ui.button("Indent\tCtrl+]").clicked() {
-                        self.state.tabs.active_mut().buffer.indent_lines("    ");
-                        self.state.mark_text_changed();
-                        ui.close_menu();
-                    }
-                    if ui.button("Outdent\tCtrl+[").clicked() {
-                        self.state.tabs.active_mut().buffer.outdent_lines(4);
-                        self.state.mark_text_changed();
-                        ui.close_menu();
-                    }
-                    ui.separator();
-                    if ui.button("Find…\tCtrl+F").clicked() {
-                        self.state.find_open = true;
-                        self.show_replace = false;
-                        self.find_focus_once = true;
-                        ui.close_menu();
-                    }
-                    if ui.button("Replace…\tCtrl+Shift+F").clicked() {
-                        self.state.find_open = true;
-                        self.show_replace = true;
-                        self.find_focus_once = true;
-                        ui.close_menu();
-                    }
-                });
-                ui.menu_button("Language", |ui| {
-                    for lang in [
-                        "plain", "rust", "c", "cpp", "python", "sql", "markdown", "json",
-                    ] {
-                        let selected = self.state.tabs.active().language == lang;
-                        if ui.selectable_label(selected, lang).clicked() {
-                            self.state.set_language(lang);
+                        if ui.button("Format Document").clicked() {
+                            self.state.format_document();
+                            ui.close_menu();
+                        }
+                        if let Some(id) = run_id {
+                            self.state.run_plugin(&id);
                             ui.close_menu();
                         }
                     }
                 });
-                ui.menu_button("Format", |ui| {
-                    if ui.button("Format Document\tCtrl+Shift+I").clicked() {
-                        self.state.format_document();
-                        ui.close_menu();
-                    }
-                    ui.label(
-                        RichText::new("Python · C/C++ · SQL · Markdown · …")
-                            .small()
-                            .weak(),
-                    );
-                });
-                ui.menu_button("Plugins", |ui| {
-                    let host = plugins::PluginHost::new();
-                    let mut run_id = None;
-                    for p in host.list() {
-                        if ui.button(p.name()).clicked() {
-                            run_id = Some(p.id().to_string());
-                        }
-                    }
-                    if let Some(id) = run_id {
-                        self.state.run_plugin(&id);
-                        ui.close_menu();
-                    }
-                });
-                ui.menu_button("Help", |ui| {
-                    if ui.button("About npp-rs…").clicked() {
-                        self.show_about = true;
-                        ui.close_menu();
-                    }
-                    if ui.button("Keyboard shortcuts").clicked() {
-                        self.show_about = true;
-                        ui.close_menu();
-                    }
-                });
-            });
-        });
+            }
+        }
     }
 
     fn about_window(&mut self, ctx: &egui::Context) {

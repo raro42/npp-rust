@@ -1,0 +1,4204 @@
+[
+  {
+    "kind": "popup",
+    "label": "File",
+    "raw_label": "&File",
+    "children": [
+      {
+        "kind": "item",
+        "label": "New",
+        "raw_label": "&New",
+        "cmd": "IDM_FILE_NEW"
+      },
+      {
+        "kind": "item",
+        "label": "Open...",
+        "raw_label": "&Open...",
+        "cmd": "IDM_FILE_OPEN"
+      },
+      {
+        "kind": "popup",
+        "label": "Open Containing Folder",
+        "raw_label": "Open Containing &Folder",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Explorer",
+            "raw_label": "Explorer",
+            "cmd": "IDM_FILE_OPEN_FOLDER"
+          },
+          {
+            "kind": "item",
+            "label": "cmd",
+            "raw_label": "cmd",
+            "cmd": "IDM_FILE_OPEN_CMD"
+          },
+          {
+            "kind": "item",
+            "label": "PowerShell",
+            "raw_label": "PowerShell",
+            "cmd": "IDM_FILE_OPEN_POWERSHELL"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "label": "Folder as Workspace",
+            "raw_label": "Folder as Workspace",
+            "cmd": "IDM_FILE_CONTAININGFOLDERASWORKSPACE"
+          }
+        ]
+      },
+      {
+        "kind": "item",
+        "label": "Open in Default Viewer",
+        "raw_label": "Open in &Default Viewer",
+        "cmd": "IDM_FILE_OPEN_DEFAULT_VIEWER"
+      },
+      {
+        "kind": "item",
+        "label": "Open Folder as Workspace...",
+        "raw_label": "Open Folder as &Workspace...",
+        "cmd": "IDM_FILE_OPENFOLDERASWORKSPACE"
+      },
+      {
+        "kind": "item",
+        "label": "Reload from Disk",
+        "raw_label": "Re&load from Disk",
+        "cmd": "IDM_FILE_RELOAD"
+      },
+      {
+        "kind": "item",
+        "label": "Save",
+        "raw_label": "&Save",
+        "cmd": "IDM_FILE_SAVE"
+      },
+      {
+        "kind": "item",
+        "label": "Save As...",
+        "raw_label": "Save &As...",
+        "cmd": "IDM_FILE_SAVEAS"
+      },
+      {
+        "kind": "item",
+        "label": "Save a Copy As...",
+        "raw_label": "Save a Cop&y As...",
+        "cmd": "IDM_FILE_SAVECOPYAS"
+      },
+      {
+        "kind": "item",
+        "label": "Save All",
+        "raw_label": "Sa&ve All",
+        "cmd": "IDM_FILE_SAVEALL"
+      },
+      {
+        "kind": "item",
+        "label": "Rename...",
+        "raw_label": "&Rename...",
+        "cmd": "IDM_FILE_RENAME"
+      },
+      {
+        "kind": "item",
+        "label": "Close",
+        "raw_label": "&Close",
+        "cmd": "IDM_FILE_CLOSE"
+      },
+      {
+        "kind": "item",
+        "label": "Close All",
+        "raw_label": "Clos&e All",
+        "cmd": "IDM_FILE_CLOSEALL"
+      },
+      {
+        "kind": "popup",
+        "label": "Close Multiple Documents",
+        "raw_label": "Close &Multiple Documents",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Close All but Active Document",
+            "raw_label": "Close All but Active Document",
+            "cmd": "IDM_FILE_CLOSEALL_BUT_CURRENT"
+          },
+          {
+            "kind": "item",
+            "label": "Close All but Pinned Documents",
+            "raw_label": "Close All but Pinned Documents",
+            "cmd": "IDM_FILE_CLOSEALL_BUT_PINNED"
+          },
+          {
+            "kind": "item",
+            "label": "Close All to the Left",
+            "raw_label": "Close All to the Left",
+            "cmd": "IDM_FILE_CLOSEALL_TOLEFT"
+          },
+          {
+            "kind": "item",
+            "label": "Close All to the Right",
+            "raw_label": "Close All to the Right",
+            "cmd": "IDM_FILE_CLOSEALL_TORIGHT"
+          },
+          {
+            "kind": "item",
+            "label": "Close All Unchanged",
+            "raw_label": "Close All Unchanged",
+            "cmd": "IDM_FILE_CLOSEALL_UNCHANGED"
+          }
+        ]
+      },
+      {
+        "kind": "item",
+        "label": "Move to Recycle Bin",
+        "raw_label": "Move to Recycle &Bin",
+        "cmd": "IDM_FILE_DELETE"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Load Session...",
+        "raw_label": "Load Sess&ion...",
+        "cmd": "IDM_FILE_LOADSESSION"
+      },
+      {
+        "kind": "item",
+        "label": "Save Session...",
+        "raw_label": "Save Sess&ion...",
+        "cmd": "IDM_FILE_SAVESESSION"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Print...",
+        "raw_label": "&Print...",
+        "cmd": "IDM_FILE_PRINT"
+      },
+      {
+        "kind": "item",
+        "label": "Print Now",
+        "raw_label": "Print No&w",
+        "cmd": "IDM_FILE_PRINTNOW"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Exit",
+        "raw_label": "E&xit",
+        "cmd": "IDM_FILE_EXIT"
+      }
+    ]
+  },
+  {
+    "kind": "popup",
+    "label": "Edit",
+    "raw_label": "&Edit",
+    "children": [
+      {
+        "kind": "item",
+        "label": "Undo",
+        "raw_label": "&Undo",
+        "cmd": "IDM_EDIT_UNDO"
+      },
+      {
+        "kind": "item",
+        "label": "Redo",
+        "raw_label": "&Redo",
+        "cmd": "IDM_EDIT_REDO"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Cut",
+        "raw_label": "Cu&t",
+        "cmd": "IDM_EDIT_CUT"
+      },
+      {
+        "kind": "item",
+        "label": "Copy",
+        "raw_label": "&Copy",
+        "cmd": "IDM_EDIT_COPY"
+      },
+      {
+        "kind": "item",
+        "label": "Paste",
+        "raw_label": "&Paste",
+        "cmd": "IDM_EDIT_PASTE"
+      },
+      {
+        "kind": "item",
+        "label": "Delete",
+        "raw_label": "&Delete",
+        "cmd": "IDM_EDIT_DELETE"
+      },
+      {
+        "kind": "item",
+        "label": "Select All",
+        "raw_label": "&Select All",
+        "cmd": "IDM_EDIT_SELECTALL"
+      },
+      {
+        "kind": "item",
+        "label": "Begin/End Select",
+        "raw_label": "Begin/End &Select",
+        "cmd": "IDM_EDIT_BEGINENDSELECT"
+      },
+      {
+        "kind": "item",
+        "label": "Begin/End Select in Column Mode",
+        "raw_label": "Begin/End Select in Column Mode",
+        "cmd": "IDM_EDIT_BEGINENDSELECT_COLUMNMODE"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "popup",
+        "label": "Insert",
+        "raw_label": "Insert",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Date Time (short)",
+            "raw_label": "Date Time (short)",
+            "cmd": "IDM_EDIT_INSERT_DATETIME_SHORT"
+          },
+          {
+            "kind": "item",
+            "label": "Date Time (long)",
+            "raw_label": "Date Time (long)",
+            "cmd": "IDM_EDIT_INSERT_DATETIME_LONG"
+          },
+          {
+            "kind": "item",
+            "label": "Date Time (customized)",
+            "raw_label": "Date Time (customized)",
+            "cmd": "IDM_EDIT_INSERT_DATETIME_CUSTOMIZED"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Copy to Clipboard",
+        "raw_label": "Cop&y to Clipboard",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Copy Current Full File path",
+            "raw_label": "Copy Current Full File path",
+            "cmd": "IDM_EDIT_FULLPATHTOCLIP"
+          },
+          {
+            "kind": "item",
+            "label": "Copy Current Filename",
+            "raw_label": "Copy Current Filename",
+            "cmd": "IDM_EDIT_FILENAMETOCLIP"
+          },
+          {
+            "kind": "item",
+            "label": "Copy Current Dir. Path",
+            "raw_label": "Copy Current Dir. Path",
+            "cmd": "IDM_EDIT_CURRENTDIRTOCLIP"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "label": "Copy All Filenames",
+            "raw_label": "Copy All Filenames",
+            "cmd": "IDM_EDIT_COPY_ALL_NAMES"
+          },
+          {
+            "kind": "item",
+            "label": "Copy All File Paths",
+            "raw_label": "Copy All File Paths",
+            "cmd": "IDM_EDIT_COPY_ALL_PATHS"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Indent",
+        "raw_label": "&Indent",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Increase Line Indent",
+            "raw_label": "Increase Line Indent",
+            "cmd": "IDM_EDIT_INS_TAB"
+          },
+          {
+            "kind": "item",
+            "label": "Decrease Line Indent",
+            "raw_label": "Decrease Line Indent",
+            "cmd": "IDM_EDIT_RMV_TAB"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Convert Case to",
+        "raw_label": "Con&vert Case to",
+        "children": [
+          {
+            "kind": "item",
+            "label": "UPPERCASE",
+            "raw_label": "&UPPERCASE",
+            "cmd": "IDM_EDIT_UPPERCASE"
+          },
+          {
+            "kind": "item",
+            "label": "lowercase",
+            "raw_label": "&lowercase",
+            "cmd": "IDM_EDIT_LOWERCASE"
+          },
+          {
+            "kind": "item",
+            "label": "Proper Case",
+            "raw_label": "&Proper Case",
+            "cmd": "IDM_EDIT_PROPERCASE_FORCE"
+          },
+          {
+            "kind": "item",
+            "label": "Proper Case (blend)",
+            "raw_label": "Proper Case (blend)",
+            "cmd": "IDM_EDIT_PROPERCASE_BLEND"
+          },
+          {
+            "kind": "item",
+            "label": "Sentence case",
+            "raw_label": "&Sentence case",
+            "cmd": "IDM_EDIT_SENTENCECASE_FORCE"
+          },
+          {
+            "kind": "item",
+            "label": "Sentence case (blend)",
+            "raw_label": "Sentence case (blend)",
+            "cmd": "IDM_EDIT_SENTENCECASE_BLEND"
+          },
+          {
+            "kind": "item",
+            "label": "iNVERT cASE",
+            "raw_label": "&iNVERT cASE",
+            "cmd": "IDM_EDIT_INVERTCASE"
+          },
+          {
+            "kind": "item",
+            "label": "ranDOm CasE",
+            "raw_label": "&ranDOm CasE",
+            "cmd": "IDM_EDIT_RANDOMCASE"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Line Operations",
+        "raw_label": "&Line Operations",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Duplicate Current Line",
+            "raw_label": "Duplicate Current Line",
+            "cmd": "IDM_EDIT_DUP_LINE"
+          },
+          {
+            "kind": "item",
+            "label": "Remove Duplicate Lines",
+            "raw_label": "Remove Duplicate Lines",
+            "cmd": "IDM_EDIT_REMOVE_ANY_DUP_LINES"
+          },
+          {
+            "kind": "item",
+            "label": "Remove Consecutive Duplicate Lines",
+            "raw_label": "Remove Consecutive Duplicate Lines",
+            "cmd": "IDM_EDIT_REMOVE_CONSECUTIVE_DUP_LINES"
+          },
+          {
+            "kind": "item",
+            "label": "Split Lines",
+            "raw_label": "Split Lines",
+            "cmd": "IDM_EDIT_SPLIT_LINES"
+          },
+          {
+            "kind": "item",
+            "label": "Join Lines",
+            "raw_label": "Join Lines",
+            "cmd": "IDM_EDIT_JOIN_LINES"
+          },
+          {
+            "kind": "item",
+            "label": "Move Up Current Line",
+            "raw_label": "Move Up Current Line",
+            "cmd": "IDM_EDIT_LINE_UP"
+          },
+          {
+            "kind": "item",
+            "label": "Move Down Current Line",
+            "raw_label": "Move Down Current Line",
+            "cmd": "IDM_EDIT_LINE_DOWN"
+          },
+          {
+            "kind": "item",
+            "label": "Remove Empty Lines",
+            "raw_label": "Remove Empty Lines",
+            "cmd": "IDM_EDIT_REMOVEEMPTYLINES"
+          },
+          {
+            "kind": "item",
+            "label": "Remove Empty Lines (Containing Blank characters)",
+            "raw_label": "Remove Empty Lines (Containing Blank characters)",
+            "cmd": "IDM_EDIT_REMOVEEMPTYLINESWITHBLANK"
+          },
+          {
+            "kind": "item",
+            "label": "Insert Blank Line Above Current",
+            "raw_label": "Insert Blank Line Above Current",
+            "cmd": "IDM_EDIT_BLANKLINEABOVECURRENT"
+          },
+          {
+            "kind": "item",
+            "label": "Insert Blank Line Below Current",
+            "raw_label": "Insert Blank Line Below Current",
+            "cmd": "IDM_EDIT_BLANKLINEBELOWCURRENT"
+          },
+          {
+            "kind": "item",
+            "label": "Reverse Line Order",
+            "raw_label": "Reverse Line Order",
+            "cmd": "IDM_EDIT_SORTLINES_REVERSE_ORDER"
+          },
+          {
+            "kind": "item",
+            "label": "Randomize Line Order",
+            "raw_label": "Randomize Line Order",
+            "cmd": "IDM_EDIT_SORTLINES_RANDOMLY"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines Lexicographically Ascending",
+            "raw_label": "Sort Lines Lexicographically Ascending",
+            "cmd": "IDM_EDIT_SORTLINES_LEXICOGRAPHIC_ASCENDING"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines Lex. Ascending Ignoring Case",
+            "raw_label": "Sort Lines Lex. Ascending Ignoring Case",
+            "cmd": "IDM_EDIT_SORTLINES_LEXICO_CASE_INSENS_ASCENDING"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines In Locale Order Ascending",
+            "raw_label": "Sort Lines In Locale Order Ascending",
+            "cmd": "IDM_EDIT_SORTLINES_LOCALE_ASCENDING"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines As Integers Ascending",
+            "raw_label": "Sort Lines As Integers Ascending",
+            "cmd": "IDM_EDIT_SORTLINES_INTEGER_ASCENDING"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines As Decimals (Comma) Ascending",
+            "raw_label": "Sort Lines As Decimals (Comma) Ascending",
+            "cmd": "IDM_EDIT_SORTLINES_DECIMALCOMMA_ASCENDING"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines As Decimals (Dot) Ascending",
+            "raw_label": "Sort Lines As Decimals (Dot) Ascending",
+            "cmd": "IDM_EDIT_SORTLINES_DECIMALDOT_ASCENDING"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines By Length Ascending",
+            "raw_label": "Sort Lines By Length Ascending",
+            "cmd": "IDM_EDIT_SORTLINES_LENGTH_ASCENDING"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines Lexicographically Descending",
+            "raw_label": "Sort Lines Lexicographically Descending",
+            "cmd": "IDM_EDIT_SORTLINES_LEXICOGRAPHIC_DESCENDING"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines Lex. Descending Ignoring Case",
+            "raw_label": "Sort Lines Lex. Descending Ignoring Case",
+            "cmd": "IDM_EDIT_SORTLINES_LEXICO_CASE_INSENS_DESCENDING"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines In Locale Order Descending",
+            "raw_label": "Sort Lines In Locale Order Descending",
+            "cmd": "IDM_EDIT_SORTLINES_LOCALE_DESCENDING"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines As Integers Descending",
+            "raw_label": "Sort Lines As Integers Descending",
+            "cmd": "IDM_EDIT_SORTLINES_INTEGER_DESCENDING"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines As Decimals (Comma) Descending",
+            "raw_label": "Sort Lines As Decimals (Comma) Descending",
+            "cmd": "IDM_EDIT_SORTLINES_DECIMALCOMMA_DESCENDING"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines As Decimals (Dot) Descending",
+            "raw_label": "Sort Lines As Decimals (Dot) Descending",
+            "cmd": "IDM_EDIT_SORTLINES_DECIMALDOT_DESCENDING"
+          },
+          {
+            "kind": "item",
+            "label": "Sort Lines By Length Descending",
+            "raw_label": "Sort Lines By Length Descending",
+            "cmd": "IDM_EDIT_SORTLINES_LENGTH_DESCENDING"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Comment/Uncomment",
+        "raw_label": "Co&mment/Uncomment",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Toggle Single Line Comment",
+            "raw_label": "Toggle Single Line Comment",
+            "cmd": "IDM_EDIT_BLOCK_COMMENT"
+          },
+          {
+            "kind": "item",
+            "label": "Single Line Comment",
+            "raw_label": "Single Line Comment",
+            "cmd": "IDM_EDIT_BLOCK_COMMENT_SET"
+          },
+          {
+            "kind": "item",
+            "label": "Single Line Uncomment",
+            "raw_label": "Single Line Uncomment",
+            "cmd": "IDM_EDIT_BLOCK_UNCOMMENT"
+          },
+          {
+            "kind": "item",
+            "label": "Block Comment",
+            "raw_label": "Block Comment",
+            "cmd": "IDM_EDIT_STREAM_COMMENT"
+          },
+          {
+            "kind": "item",
+            "label": "Block Uncomment",
+            "raw_label": "Block Uncomment",
+            "cmd": "IDM_EDIT_STREAM_UNCOMMENT"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Auto-Completion",
+        "raw_label": "&Auto-Completion",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Function Completion",
+            "raw_label": "Function Completion",
+            "cmd": "IDM_EDIT_AUTOCOMPLETE"
+          },
+          {
+            "kind": "item",
+            "label": "Word Completion",
+            "raw_label": "Word Completion",
+            "cmd": "IDM_EDIT_AUTOCOMPLETE_CURRENTFILE"
+          },
+          {
+            "kind": "item",
+            "label": "Function Parameters Hint",
+            "raw_label": "Function Parameters Hint",
+            "cmd": "IDM_EDIT_FUNCCALLTIP"
+          },
+          {
+            "kind": "item",
+            "label": "Function Parameters Previous Hint",
+            "raw_label": "Function Parameters Previous Hint",
+            "cmd": "IDM_EDIT_FUNCCALLTIP_PREVIOUS"
+          },
+          {
+            "kind": "item",
+            "label": "Function Parameters Next Hint",
+            "raw_label": "Function Parameters Next Hint",
+            "cmd": "IDM_EDIT_FUNCCALLTIP_NEXT"
+          },
+          {
+            "kind": "item",
+            "label": "Path Completion",
+            "raw_label": "Path Completion",
+            "cmd": "IDM_EDIT_AUTOCOMPLETE_PATH"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "EOL Conversion",
+        "raw_label": "&EOL Conversion",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Windows (CR LF)",
+            "raw_label": "Windows (CR LF)",
+            "cmd": "IDM_FORMAT_TODOS"
+          },
+          {
+            "kind": "item",
+            "label": "Unix (LF)",
+            "raw_label": "Unix (LF)",
+            "cmd": "IDM_FORMAT_TOUNIX"
+          },
+          {
+            "kind": "item",
+            "label": "Macintosh (CR)",
+            "raw_label": "Macintosh (CR)",
+            "cmd": "IDM_FORMAT_TOMAC"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Blank Operations",
+        "raw_label": "&Blank Operations",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Trim Trailing Space",
+            "raw_label": "Trim Trailing Space",
+            "cmd": "IDM_EDIT_TRIMTRAILING"
+          },
+          {
+            "kind": "item",
+            "label": "Trim Leading Space",
+            "raw_label": "Trim Leading Space",
+            "cmd": "IDM_EDIT_TRIMLINEHEAD"
+          },
+          {
+            "kind": "item",
+            "label": "Trim Leading and Trailing Space",
+            "raw_label": "Trim Leading and Trailing Space",
+            "cmd": "IDM_EDIT_TRIM_BOTH"
+          },
+          {
+            "kind": "item",
+            "label": "EOL to Space",
+            "raw_label": "EOL to Space",
+            "cmd": "IDM_EDIT_EOL2WS"
+          },
+          {
+            "kind": "item",
+            "label": "Trim both and EOL to Space",
+            "raw_label": "Trim both and EOL to Space",
+            "cmd": "IDM_EDIT_TRIMALL"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "label": "TAB to Space",
+            "raw_label": "TAB to Space",
+            "cmd": "IDM_EDIT_TAB2SW"
+          },
+          {
+            "kind": "item",
+            "label": "Space to TAB (All)",
+            "raw_label": "Space to TAB (All)",
+            "cmd": "IDM_EDIT_SW2TAB_ALL"
+          },
+          {
+            "kind": "item",
+            "label": "Space to TAB (Leading)",
+            "raw_label": "Space to TAB (Leading)",
+            "cmd": "IDM_EDIT_SW2TAB_LEADING"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Paste Special",
+        "raw_label": "&Paste Special",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Paste HTML Content",
+            "raw_label": "Paste HTML Content",
+            "cmd": "IDM_EDIT_PASTE_AS_HTML"
+          },
+          {
+            "kind": "item",
+            "label": "Paste RTF Content",
+            "raw_label": "Paste RTF Content",
+            "cmd": "IDM_EDIT_PASTE_AS_RTF"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "label": "Copy Binary Content",
+            "raw_label": "Copy Binary Content",
+            "cmd": "IDM_EDIT_COPY_BINARY"
+          },
+          {
+            "kind": "item",
+            "label": "Cut Binary Content",
+            "raw_label": "Cut Binary Content",
+            "cmd": "IDM_EDIT_CUT_BINARY"
+          },
+          {
+            "kind": "item",
+            "label": "Paste Binary Content",
+            "raw_label": "Paste Binary Content",
+            "cmd": "IDM_EDIT_PASTE_BINARY"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "On Selection",
+        "raw_label": "&On Selection",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Open File",
+            "raw_label": "Open File",
+            "cmd": "IDM_EDIT_OPENSELECTEDFILETOEDIT"
+          },
+          {
+            "kind": "item",
+            "label": "Open Containing Folder in Explorer",
+            "raw_label": "Open Containing Folder in Explorer",
+            "cmd": "IDM_EDIT_OPENSELECTEDFILEFOLDERINEXPLORER"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "label": "Redact Selection \u2588 (Shift: \u25cf)",
+            "raw_label": "&Redact Selection \u2588 (Shift: \u25cf)",
+            "cmd": "IDM_EDIT_REDACT_SELECTION"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "label": "Search on Internet",
+            "raw_label": "Search on Internet",
+            "cmd": "IDM_EDIT_SEARCHONINTERNET"
+          },
+          {
+            "kind": "item",
+            "label": "Change Search Engine...",
+            "raw_label": "Change Search Engine...",
+            "cmd": "IDM_EDIT_CHANGESEARCHENGINE"
+          }
+        ]
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "popup",
+        "label": "Multi-select All",
+        "raw_label": "Multi-select All",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Ignore Case  Whole Word",
+            "raw_label": "Ignore Case && Whole Word",
+            "cmd": "IDM_EDIT_MULTISELECTALL"
+          },
+          {
+            "kind": "item",
+            "label": "Match Case Only",
+            "raw_label": "Match Case Only",
+            "cmd": "IDM_EDIT_MULTISELECTALLMATCHCASE"
+          },
+          {
+            "kind": "item",
+            "label": "Match Whole Word Only",
+            "raw_label": "Match Whole Word Only",
+            "cmd": "IDM_EDIT_MULTISELECTALLWHOLEWORD"
+          },
+          {
+            "kind": "item",
+            "label": "Match Case  Whole Word",
+            "raw_label": "Match Case && Whole Word",
+            "cmd": "IDM_EDIT_MULTISELECTALLMATCHCASEWHOLEWORD"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Multi-select Next",
+        "raw_label": "Multi-select Next",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Ignore Case  Whole Word",
+            "raw_label": "Ignore Case && Whole Word",
+            "cmd": "IDM_EDIT_MULTISELECTNEXT"
+          },
+          {
+            "kind": "item",
+            "label": "Match Case Only",
+            "raw_label": "Match Case Only",
+            "cmd": "IDM_EDIT_MULTISELECTNEXTMATCHCASE"
+          },
+          {
+            "kind": "item",
+            "label": "Match Whole Word Only",
+            "raw_label": "Match Whole Word Only",
+            "cmd": "IDM_EDIT_MULTISELECTNEXTWHOLEWORD"
+          },
+          {
+            "kind": "item",
+            "label": "Match Case  Whole Word",
+            "raw_label": "Match Case && Whole Word",
+            "cmd": "IDM_EDIT_MULTISELECTNEXTMATCHCASEWHOLEWORD"
+          }
+        ]
+      },
+      {
+        "kind": "item",
+        "label": "Undo the Latest Added Multi-Select",
+        "raw_label": "Undo the Latest Added Multi-Select",
+        "cmd": "IDM_EDIT_MULTISELECTUNDO"
+      },
+      {
+        "kind": "item",
+        "label": "Skip Current  Go to Next Multi-select",
+        "raw_label": "Skip Current && Go to Next Multi-select",
+        "cmd": "IDM_EDIT_MULTISELECTSSKIP"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Column Mode...",
+        "raw_label": "Column Mode...",
+        "cmd": "IDM_EDIT_COLUMNMODETIP"
+      },
+      {
+        "kind": "item",
+        "label": "Column Editor...",
+        "raw_label": "Colum&n Editor...",
+        "cmd": "IDM_EDIT_COLUMNMODE"
+      },
+      {
+        "kind": "item",
+        "label": "Character Panel",
+        "raw_label": "Character &Panel",
+        "cmd": "IDM_EDIT_CHAR_PANEL"
+      },
+      {
+        "kind": "item",
+        "label": "Clipboard History",
+        "raw_label": "Clipboard &History",
+        "cmd": "IDM_EDIT_CLIPBOARDHISTORY_PANEL"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "popup",
+        "label": "Read-Only in Notepad++",
+        "raw_label": "Read-&Only in Notepad++",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Read-Only on Current Document",
+            "raw_label": "Read-Only on Current Document",
+            "cmd": "IDM_EDIT_TOGGLEREADONLY"
+          },
+          {
+            "kind": "item",
+            "label": "Read-Only for All Documents",
+            "raw_label": "Read-Only for All Documents",
+            "cmd": "IDM_EDIT_SETREADONLYFORALLDOCS"
+          },
+          {
+            "kind": "item",
+            "label": "Clear Read-Only for All Documents",
+            "raw_label": "Clear Read-Only for All Documents",
+            "cmd": "IDM_EDIT_CLEARREADONLYFORALLDOCS"
+          }
+        ]
+      },
+      {
+        "kind": "item",
+        "label": "Read-Only Attribute in Windows",
+        "raw_label": "Read-Only Attribute in Windows",
+        "cmd": "IDM_EDIT_TOGGLESYSTEMREADONLY"
+      }
+    ]
+  },
+  {
+    "kind": "popup",
+    "label": "Search",
+    "raw_label": "&Search",
+    "children": [
+      {
+        "kind": "item",
+        "label": "Find...",
+        "raw_label": "&Find...",
+        "cmd": "IDM_SEARCH_FIND"
+      },
+      {
+        "kind": "item",
+        "label": "Find in Files...",
+        "raw_label": "Find in Fi&les...",
+        "cmd": "IDM_SEARCH_FINDINFILES"
+      },
+      {
+        "kind": "item",
+        "label": "Find Next",
+        "raw_label": "Find &Next",
+        "cmd": "IDM_SEARCH_FINDNEXT"
+      },
+      {
+        "kind": "item",
+        "label": "Find Previous",
+        "raw_label": "Find &Previous",
+        "cmd": "IDM_SEARCH_FINDPREV"
+      },
+      {
+        "kind": "item",
+        "label": "Select and Find Next",
+        "raw_label": "&Select and Find Next",
+        "cmd": "IDM_SEARCH_SETANDFINDNEXT"
+      },
+      {
+        "kind": "item",
+        "label": "Select and Find Previous",
+        "raw_label": "&Select and Find Previous",
+        "cmd": "IDM_SEARCH_SETANDFINDPREV"
+      },
+      {
+        "kind": "item",
+        "label": "Find (Volatile) Next",
+        "raw_label": "Find (&Volatile) Next",
+        "cmd": "IDM_SEARCH_VOLATILE_FINDNEXT"
+      },
+      {
+        "kind": "item",
+        "label": "Find (Volatile) Previous",
+        "raw_label": "Find (&Volatile) Previous",
+        "cmd": "IDM_SEARCH_VOLATILE_FINDPREV"
+      },
+      {
+        "kind": "item",
+        "label": "Replace...",
+        "raw_label": "&Replace...",
+        "cmd": "IDM_SEARCH_REPLACE"
+      },
+      {
+        "kind": "item",
+        "label": "Incremental Search",
+        "raw_label": "&Incremental Search",
+        "cmd": "IDM_SEARCH_FINDINCREMENT"
+      },
+      {
+        "kind": "item",
+        "label": "Search Results Window",
+        "raw_label": "Search Results &Window",
+        "cmd": "IDM_FOCUS_ON_FOUND_RESULTS"
+      },
+      {
+        "kind": "item",
+        "label": "Next Search Result",
+        "raw_label": "Next Search Resul&t",
+        "cmd": "IDM_SEARCH_GOTONEXTFOUND"
+      },
+      {
+        "kind": "item",
+        "label": "Previous Search Result",
+        "raw_label": "Previous Search Resul&t",
+        "cmd": "IDM_SEARCH_GOTOPREVFOUND"
+      },
+      {
+        "kind": "item",
+        "label": "Go to...",
+        "raw_label": "&Go to...",
+        "cmd": "IDM_SEARCH_GOTOLINE"
+      },
+      {
+        "kind": "item",
+        "label": "Go to Matching Brace",
+        "raw_label": "Go to &Matching Brace",
+        "cmd": "IDM_SEARCH_GOTOMATCHINGBRACE"
+      },
+      {
+        "kind": "item",
+        "label": "Select All In-between {} [] or ()",
+        "raw_label": "Select All In-betw&een {} [] or ()",
+        "cmd": "IDM_SEARCH_SELECTMATCHINGBRACES"
+      },
+      {
+        "kind": "item",
+        "label": "Mark...",
+        "raw_label": "Mar&k...",
+        "cmd": "IDM_SEARCH_MARK"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "popup",
+        "label": "Change History",
+        "raw_label": "Change History",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Go to Next Change",
+            "raw_label": "Go to Next Change",
+            "cmd": "IDM_SEARCH_CHANGED_NEXT"
+          },
+          {
+            "kind": "item",
+            "label": "Go to Previous Change",
+            "raw_label": "Go to Previous Change",
+            "cmd": "IDM_SEARCH_CHANGED_PREV"
+          },
+          {
+            "kind": "item",
+            "label": "Clear Change History",
+            "raw_label": "Clear Change History",
+            "cmd": "IDM_SEARCH_CLEAR_CHANGE_HISTORY"
+          }
+        ]
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "popup",
+        "label": "Style All Occurrences of Token",
+        "raw_label": "Style &All Occurrences of Token",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Using 1st Style",
+            "raw_label": "Using 1st Style",
+            "cmd": "IDM_SEARCH_MARKALLEXT1"
+          },
+          {
+            "kind": "item",
+            "label": "Using 2nd Style",
+            "raw_label": "Using 2nd Style",
+            "cmd": "IDM_SEARCH_MARKALLEXT2"
+          },
+          {
+            "kind": "item",
+            "label": "Using 3rd Style",
+            "raw_label": "Using 3rd Style",
+            "cmd": "IDM_SEARCH_MARKALLEXT3"
+          },
+          {
+            "kind": "item",
+            "label": "Using 4th Style",
+            "raw_label": "Using 4th Style",
+            "cmd": "IDM_SEARCH_MARKALLEXT4"
+          },
+          {
+            "kind": "item",
+            "label": "Using 5th Style",
+            "raw_label": "Using 5th Style",
+            "cmd": "IDM_SEARCH_MARKALLEXT5"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Style One Token",
+        "raw_label": "Style &One Token",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Using 1st Style",
+            "raw_label": "Using 1st Style",
+            "cmd": "IDM_SEARCH_MARKONEEXT1"
+          },
+          {
+            "kind": "item",
+            "label": "Using 2nd Style",
+            "raw_label": "Using 2nd Style",
+            "cmd": "IDM_SEARCH_MARKONEEXT2"
+          },
+          {
+            "kind": "item",
+            "label": "Using 3rd Style",
+            "raw_label": "Using 3rd Style",
+            "cmd": "IDM_SEARCH_MARKONEEXT3"
+          },
+          {
+            "kind": "item",
+            "label": "Using 4th Style",
+            "raw_label": "Using 4th Style",
+            "cmd": "IDM_SEARCH_MARKONEEXT4"
+          },
+          {
+            "kind": "item",
+            "label": "Using 5th Style",
+            "raw_label": "Using 5th Style",
+            "cmd": "IDM_SEARCH_MARKONEEXT5"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Clear Style",
+        "raw_label": "Clear Style",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Clear 1st Style",
+            "raw_label": "Clear 1st Style",
+            "cmd": "IDM_SEARCH_UNMARKALLEXT1"
+          },
+          {
+            "kind": "item",
+            "label": "Clear 2nd Style",
+            "raw_label": "Clear 2nd Style",
+            "cmd": "IDM_SEARCH_UNMARKALLEXT2"
+          },
+          {
+            "kind": "item",
+            "label": "Clear 3rd Style",
+            "raw_label": "Clear 3rd Style",
+            "cmd": "IDM_SEARCH_UNMARKALLEXT3"
+          },
+          {
+            "kind": "item",
+            "label": "Clear 4th Style",
+            "raw_label": "Clear 4th Style",
+            "cmd": "IDM_SEARCH_UNMARKALLEXT4"
+          },
+          {
+            "kind": "item",
+            "label": "Clear 5th Style",
+            "raw_label": "Clear 5th Style",
+            "cmd": "IDM_SEARCH_UNMARKALLEXT5"
+          },
+          {
+            "kind": "item",
+            "label": "Clear all Styles",
+            "raw_label": "Clear all Styles",
+            "cmd": "IDM_SEARCH_CLEARALLMARKS"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Jump Up",
+        "raw_label": "&Jump Up",
+        "children": [
+          {
+            "kind": "item",
+            "label": "1st Style",
+            "raw_label": "1st Style",
+            "cmd": "IDM_SEARCH_GOPREVMARKER1"
+          },
+          {
+            "kind": "item",
+            "label": "2nd Style",
+            "raw_label": "2nd Style",
+            "cmd": "IDM_SEARCH_GOPREVMARKER2"
+          },
+          {
+            "kind": "item",
+            "label": "3rd Style",
+            "raw_label": "3rd Style",
+            "cmd": "IDM_SEARCH_GOPREVMARKER3"
+          },
+          {
+            "kind": "item",
+            "label": "4th Style",
+            "raw_label": "4th Style",
+            "cmd": "IDM_SEARCH_GOPREVMARKER4"
+          },
+          {
+            "kind": "item",
+            "label": "5th Style",
+            "raw_label": "5th Style",
+            "cmd": "IDM_SEARCH_GOPREVMARKER5"
+          },
+          {
+            "kind": "item",
+            "label": "Find Mark Style",
+            "raw_label": "Find Mark Style",
+            "cmd": "IDM_SEARCH_GOPREVMARKER_DEF"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Jump Down",
+        "raw_label": "Jump &Down",
+        "children": [
+          {
+            "kind": "item",
+            "label": "1st Style",
+            "raw_label": "1st Style",
+            "cmd": "IDM_SEARCH_GONEXTMARKER1"
+          },
+          {
+            "kind": "item",
+            "label": "2nd Style",
+            "raw_label": "2nd Style",
+            "cmd": "IDM_SEARCH_GONEXTMARKER2"
+          },
+          {
+            "kind": "item",
+            "label": "3rd Style",
+            "raw_label": "3rd Style",
+            "cmd": "IDM_SEARCH_GONEXTMARKER3"
+          },
+          {
+            "kind": "item",
+            "label": "4th Style",
+            "raw_label": "4th Style",
+            "cmd": "IDM_SEARCH_GONEXTMARKER4"
+          },
+          {
+            "kind": "item",
+            "label": "5th Style",
+            "raw_label": "5th Style",
+            "cmd": "IDM_SEARCH_GONEXTMARKER5"
+          },
+          {
+            "kind": "item",
+            "label": "Find Mark Style",
+            "raw_label": "Find Mark Style",
+            "cmd": "IDM_SEARCH_GONEXTMARKER_DEF"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Copy Styled Text",
+        "raw_label": "&Copy Styled Text",
+        "children": [
+          {
+            "kind": "item",
+            "label": "1st Style",
+            "raw_label": "1st Style",
+            "cmd": "IDM_SEARCH_STYLE1TOCLIP"
+          },
+          {
+            "kind": "item",
+            "label": "2nd Style",
+            "raw_label": "2nd Style",
+            "cmd": "IDM_SEARCH_STYLE2TOCLIP"
+          },
+          {
+            "kind": "item",
+            "label": "3rd Style",
+            "raw_label": "3rd Style",
+            "cmd": "IDM_SEARCH_STYLE3TOCLIP"
+          },
+          {
+            "kind": "item",
+            "label": "4th Style",
+            "raw_label": "4th Style",
+            "cmd": "IDM_SEARCH_STYLE4TOCLIP"
+          },
+          {
+            "kind": "item",
+            "label": "5th Style",
+            "raw_label": "5th Style",
+            "cmd": "IDM_SEARCH_STYLE5TOCLIP"
+          },
+          {
+            "kind": "item",
+            "label": "All Styles",
+            "raw_label": "All Styles",
+            "cmd": "IDM_SEARCH_ALLSTYLESTOCLIP"
+          },
+          {
+            "kind": "item",
+            "label": "Find Mark Style",
+            "raw_label": "Find Mark Style",
+            "cmd": "IDM_SEARCH_MARKEDTOCLIP"
+          }
+        ]
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "popup",
+        "label": "Bookmark",
+        "raw_label": "&Bookmark",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Toggle Bookmark",
+            "raw_label": "Toggle Bookmark",
+            "cmd": "IDM_SEARCH_TOGGLE_BOOKMARK"
+          },
+          {
+            "kind": "item",
+            "label": "Next Bookmark",
+            "raw_label": "Next Bookmark",
+            "cmd": "IDM_SEARCH_NEXT_BOOKMARK"
+          },
+          {
+            "kind": "item",
+            "label": "Previous Bookmark",
+            "raw_label": "Previous Bookmark",
+            "cmd": "IDM_SEARCH_PREV_BOOKMARK"
+          },
+          {
+            "kind": "item",
+            "label": "Clear All Bookmarks",
+            "raw_label": "Clear All Bookmarks",
+            "cmd": "IDM_SEARCH_CLEAR_BOOKMARKS"
+          },
+          {
+            "kind": "item",
+            "label": "Cut Bookmarked Lines",
+            "raw_label": "Cut Bookmarked Lines",
+            "cmd": "IDM_SEARCH_CUTMARKEDLINES"
+          },
+          {
+            "kind": "item",
+            "label": "Copy Bookmarked Lines",
+            "raw_label": "Copy Bookmarked Lines",
+            "cmd": "IDM_SEARCH_COPYMARKEDLINES"
+          },
+          {
+            "kind": "item",
+            "label": "Paste to (Replace) Bookmarked Lines",
+            "raw_label": "Paste to (Replace) Bookmarked Lines",
+            "cmd": "IDM_SEARCH_PASTEMARKEDLINES"
+          },
+          {
+            "kind": "item",
+            "label": "Remove Bookmarked Lines",
+            "raw_label": "Remove Bookmarked Lines",
+            "cmd": "IDM_SEARCH_DELETEMARKEDLINES"
+          },
+          {
+            "kind": "item",
+            "label": "Remove Non-Bookmarked Lines",
+            "raw_label": "Remove Non-Bookmarked Lines",
+            "cmd": "IDM_SEARCH_DELETEUNMARKEDLINES"
+          },
+          {
+            "kind": "item",
+            "label": "Inverse Bookmarks",
+            "raw_label": "Inverse Bookmarks",
+            "cmd": "IDM_SEARCH_INVERSEMARKS"
+          }
+        ]
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Find characters in range...",
+        "raw_label": "Find characters in rang&e...",
+        "cmd": "IDM_SEARCH_FINDCHARINRANGE"
+      }
+    ]
+  },
+  {
+    "kind": "popup",
+    "label": "View",
+    "raw_label": "&View",
+    "children": [
+      {
+        "kind": "item",
+        "label": "Always on Top",
+        "raw_label": "Always on &Top",
+        "cmd": "IDM_VIEW_ALWAYSONTOP"
+      },
+      {
+        "kind": "item",
+        "label": "Toggle Full Screen Mode",
+        "raw_label": "To&ggle Full Screen Mode",
+        "cmd": "IDM_VIEW_FULLSCREENTOGGLE"
+      },
+      {
+        "kind": "item",
+        "label": "Post-It",
+        "raw_label": "&Post-It",
+        "cmd": "IDM_VIEW_POSTIT"
+      },
+      {
+        "kind": "item",
+        "label": "Distraction Free Mode",
+        "raw_label": "D&istraction Free Mode",
+        "cmd": "IDM_VIEW_DISTRACTIONFREE"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "popup",
+        "label": "View Current File in",
+        "raw_label": "&View Current File in",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Firefox",
+            "raw_label": "&Firefox",
+            "cmd": "IDM_VIEW_IN_FIREFOX"
+          },
+          {
+            "kind": "item",
+            "label": "Chrome",
+            "raw_label": "&Chrome",
+            "cmd": "IDM_VIEW_IN_CHROME"
+          },
+          {
+            "kind": "item",
+            "label": "Edge",
+            "raw_label": "&Edge",
+            "cmd": "IDM_VIEW_IN_EDGE"
+          },
+          {
+            "kind": "item",
+            "label": "IE",
+            "raw_label": "&IE",
+            "cmd": "IDM_VIEW_IN_IE"
+          }
+        ]
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "popup",
+        "label": "Show Symbol",
+        "raw_label": "Show S&ymbol",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Show Space and Tab",
+            "raw_label": "Show Space and Tab",
+            "cmd": "IDM_VIEW_TAB_SPACE"
+          },
+          {
+            "kind": "item",
+            "label": "Show End of Line",
+            "raw_label": "Show End of Line",
+            "cmd": "IDM_VIEW_EOL"
+          },
+          {
+            "kind": "item",
+            "label": "Show Non-Printing Characters",
+            "raw_label": "Show Non-Printing Characters",
+            "cmd": "IDM_VIEW_NPC"
+          },
+          {
+            "kind": "item",
+            "label": "Show Control Characters  Unicode EOL",
+            "raw_label": "Show Control Characters && Unicode EOL",
+            "cmd": "IDM_VIEW_NPC_CCUNIEOL"
+          },
+          {
+            "kind": "item",
+            "label": "Show All Characters",
+            "raw_label": "Show All Characters",
+            "cmd": "IDM_VIEW_ALL_CHARACTERS"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "label": "Show Indent Guide",
+            "raw_label": "Show Indent Guide",
+            "cmd": "IDM_VIEW_INDENT_GUIDE"
+          },
+          {
+            "kind": "item",
+            "label": "Show Wrap Symbol",
+            "raw_label": "Show Wrap Symbol",
+            "cmd": "IDM_VIEW_WRAP_SYMBOL"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Zoom",
+        "raw_label": "&Zoom",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Zoom In (Ctrl+Mouse Wheel Up)",
+            "raw_label": "Zoom &In (Ctrl+Mouse Wheel Up)",
+            "cmd": "IDM_VIEW_ZOOMIN"
+          },
+          {
+            "kind": "item",
+            "label": "Zoom Out (Ctrl+Mouse Wheel Down)",
+            "raw_label": "Zoom &Out (Ctrl+Mouse Wheel Down)",
+            "cmd": "IDM_VIEW_ZOOMOUT"
+          },
+          {
+            "kind": "item",
+            "label": "Restore Default Zoom",
+            "raw_label": "&Restore Default Zoom",
+            "cmd": "IDM_VIEW_ZOOMRESTORE"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "label": "Synchronize Across Views",
+            "raw_label": "&Synchronize Across Views",
+            "cmd": "IDM_VIEW_ZOOM_SYNC"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Move/Clone Current Document",
+        "raw_label": "&Move/Clone Current Document",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Move to Other View",
+            "raw_label": "&Move to Other View",
+            "cmd": "IDM_VIEW_GOTO_ANOTHER_VIEW"
+          },
+          {
+            "kind": "item",
+            "label": "Clone to Other View",
+            "raw_label": "&Clone to Other View",
+            "cmd": "IDM_VIEW_CLONE_TO_ANOTHER_VIEW"
+          },
+          {
+            "kind": "item",
+            "label": "Move to New Instance",
+            "raw_label": "Mo&ve to New Instance",
+            "cmd": "IDM_VIEW_GOTO_NEW_INSTANCE"
+          },
+          {
+            "kind": "item",
+            "label": "Open in New Instance",
+            "raw_label": "&Open in New Instance",
+            "cmd": "IDM_VIEW_LOAD_IN_NEW_INSTANCE"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Tab",
+        "raw_label": "Ta&b",
+        "children": [
+          {
+            "kind": "item",
+            "label": "1st Tab",
+            "raw_label": "1st Tab",
+            "cmd": "IDM_VIEW_TAB1"
+          },
+          {
+            "kind": "item",
+            "label": "2nd Tab",
+            "raw_label": "2nd Tab",
+            "cmd": "IDM_VIEW_TAB2"
+          },
+          {
+            "kind": "item",
+            "label": "3rd Tab",
+            "raw_label": "3rd Tab",
+            "cmd": "IDM_VIEW_TAB3"
+          },
+          {
+            "kind": "item",
+            "label": "4th Tab",
+            "raw_label": "4th Tab",
+            "cmd": "IDM_VIEW_TAB4"
+          },
+          {
+            "kind": "item",
+            "label": "5th Tab",
+            "raw_label": "5th Tab",
+            "cmd": "IDM_VIEW_TAB5"
+          },
+          {
+            "kind": "item",
+            "label": "6th Tab",
+            "raw_label": "6th Tab",
+            "cmd": "IDM_VIEW_TAB6"
+          },
+          {
+            "kind": "item",
+            "label": "7th Tab",
+            "raw_label": "7th Tab",
+            "cmd": "IDM_VIEW_TAB7"
+          },
+          {
+            "kind": "item",
+            "label": "8th Tab",
+            "raw_label": "8th Tab",
+            "cmd": "IDM_VIEW_TAB8"
+          },
+          {
+            "kind": "item",
+            "label": "9th Tab",
+            "raw_label": "9th Tab",
+            "cmd": "IDM_VIEW_TAB9"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "label": "First Tab",
+            "raw_label": "First Tab",
+            "cmd": "IDM_VIEW_TAB_START"
+          },
+          {
+            "kind": "item",
+            "label": "Last Tab",
+            "raw_label": "Last Tab",
+            "cmd": "IDM_VIEW_TAB_END"
+          },
+          {
+            "kind": "item",
+            "label": "Next Tab",
+            "raw_label": "Next Tab",
+            "cmd": "IDM_VIEW_TAB_NEXT"
+          },
+          {
+            "kind": "item",
+            "label": "Previous Tab",
+            "raw_label": "Previous Tab",
+            "cmd": "IDM_VIEW_TAB_PREV"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "label": "Move to Start",
+            "raw_label": "Move to Start",
+            "cmd": "IDM_VIEW_GOTO_START"
+          },
+          {
+            "kind": "item",
+            "label": "Move to End",
+            "raw_label": "Move to End",
+            "cmd": "IDM_VIEW_GOTO_END"
+          },
+          {
+            "kind": "item",
+            "label": "Move Tab Forward",
+            "raw_label": "Move Tab Forward",
+            "cmd": "IDM_VIEW_TAB_MOVEFORWARD"
+          },
+          {
+            "kind": "item",
+            "label": "Move Tab Backward",
+            "raw_label": "Move Tab Backward",
+            "cmd": "IDM_VIEW_TAB_MOVEBACKWARD"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "label": "Apply Color 1",
+            "raw_label": "Apply Color 1",
+            "cmd": "IDM_VIEW_TAB_COLOUR_1"
+          },
+          {
+            "kind": "item",
+            "label": "Apply Color 2",
+            "raw_label": "Apply Color 2",
+            "cmd": "IDM_VIEW_TAB_COLOUR_2"
+          },
+          {
+            "kind": "item",
+            "label": "Apply Color 3",
+            "raw_label": "Apply Color 3",
+            "cmd": "IDM_VIEW_TAB_COLOUR_3"
+          },
+          {
+            "kind": "item",
+            "label": "Apply Color 4",
+            "raw_label": "Apply Color 4",
+            "cmd": "IDM_VIEW_TAB_COLOUR_4"
+          },
+          {
+            "kind": "item",
+            "label": "Apply Color 5",
+            "raw_label": "Apply Color 5",
+            "cmd": "IDM_VIEW_TAB_COLOUR_5"
+          },
+          {
+            "kind": "item",
+            "label": "Remove Color",
+            "raw_label": "Remove Color",
+            "cmd": "IDM_VIEW_TAB_COLOUR_NONE"
+          }
+        ]
+      },
+      {
+        "kind": "item",
+        "label": "Word wrap",
+        "raw_label": "&Word wrap",
+        "cmd": "IDM_VIEW_WRAP"
+      },
+      {
+        "kind": "item",
+        "label": "Focus on Another View",
+        "raw_label": "Focus on &Another View",
+        "cmd": "IDM_VIEW_SWITCHTO_OTHER_VIEW"
+      },
+      {
+        "kind": "item",
+        "label": "Hide Lines",
+        "raw_label": "&Hide Lines",
+        "cmd": "IDM_VIEW_HIDELINES"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Fold All",
+        "raw_label": "Fold All",
+        "cmd": "IDM_VIEW_FOLDALL"
+      },
+      {
+        "kind": "item",
+        "label": "Unfold All",
+        "raw_label": "Unfold All",
+        "cmd": "IDM_VIEW_UNFOLDALL"
+      },
+      {
+        "kind": "item",
+        "label": "Fold Current Level",
+        "raw_label": "Fold Current Level",
+        "cmd": "IDM_VIEW_FOLD_CURRENT"
+      },
+      {
+        "kind": "item",
+        "label": "Unfold Current Level",
+        "raw_label": "Unfold Current Level",
+        "cmd": "IDM_VIEW_UNFOLD_CURRENT"
+      },
+      {
+        "kind": "popup",
+        "label": "Fold Level",
+        "raw_label": "Fold Level",
+        "children": [
+          {
+            "kind": "item",
+            "label": "1",
+            "raw_label": "1",
+            "cmd": "IDM_VIEW_FOLD_1"
+          },
+          {
+            "kind": "item",
+            "label": "2",
+            "raw_label": "2",
+            "cmd": "IDM_VIEW_FOLD_2"
+          },
+          {
+            "kind": "item",
+            "label": "3",
+            "raw_label": "3",
+            "cmd": "IDM_VIEW_FOLD_3"
+          },
+          {
+            "kind": "item",
+            "label": "4",
+            "raw_label": "4",
+            "cmd": "IDM_VIEW_FOLD_4"
+          },
+          {
+            "kind": "item",
+            "label": "5",
+            "raw_label": "5",
+            "cmd": "IDM_VIEW_FOLD_5"
+          },
+          {
+            "kind": "item",
+            "label": "6",
+            "raw_label": "6",
+            "cmd": "IDM_VIEW_FOLD_6"
+          },
+          {
+            "kind": "item",
+            "label": "7",
+            "raw_label": "7",
+            "cmd": "IDM_VIEW_FOLD_7"
+          },
+          {
+            "kind": "item",
+            "label": "8",
+            "raw_label": "8",
+            "cmd": "IDM_VIEW_FOLD_8"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "Unfold Level",
+        "raw_label": "Unfold Level",
+        "children": [
+          {
+            "kind": "item",
+            "label": "1",
+            "raw_label": "1",
+            "cmd": "IDM_VIEW_UNFOLD_1"
+          },
+          {
+            "kind": "item",
+            "label": "2",
+            "raw_label": "2",
+            "cmd": "IDM_VIEW_UNFOLD_2"
+          },
+          {
+            "kind": "item",
+            "label": "3",
+            "raw_label": "3",
+            "cmd": "IDM_VIEW_UNFOLD_3"
+          },
+          {
+            "kind": "item",
+            "label": "4",
+            "raw_label": "4",
+            "cmd": "IDM_VIEW_UNFOLD_4"
+          },
+          {
+            "kind": "item",
+            "label": "5",
+            "raw_label": "5",
+            "cmd": "IDM_VIEW_UNFOLD_5"
+          },
+          {
+            "kind": "item",
+            "label": "6",
+            "raw_label": "6",
+            "cmd": "IDM_VIEW_UNFOLD_6"
+          },
+          {
+            "kind": "item",
+            "label": "7",
+            "raw_label": "7",
+            "cmd": "IDM_VIEW_UNFOLD_7"
+          },
+          {
+            "kind": "item",
+            "label": "8",
+            "raw_label": "8",
+            "cmd": "IDM_VIEW_UNFOLD_8"
+          }
+        ]
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Summary...",
+        "raw_label": "&Summary...",
+        "cmd": "IDM_VIEW_SUMMARY"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "popup",
+        "label": "Project Panels",
+        "raw_label": "Pro&ject Panels",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Project Panel 1",
+            "raw_label": "Project Panel &1",
+            "cmd": "IDM_VIEW_PROJECT_PANEL_1"
+          },
+          {
+            "kind": "item",
+            "label": "Project Panel 2",
+            "raw_label": "Project Panel &2",
+            "cmd": "IDM_VIEW_PROJECT_PANEL_2"
+          },
+          {
+            "kind": "item",
+            "label": "Project Panel 3",
+            "raw_label": "Project Panel &3",
+            "cmd": "IDM_VIEW_PROJECT_PANEL_3"
+          }
+        ]
+      },
+      {
+        "kind": "item",
+        "label": "Folder as Workspace",
+        "raw_label": "Folder as Wor&kspace",
+        "cmd": "IDM_VIEW_FILEBROWSER"
+      },
+      {
+        "kind": "item",
+        "label": "Document Map",
+        "raw_label": "&Document Map",
+        "cmd": "IDM_VIEW_DOC_MAP"
+      },
+      {
+        "kind": "item",
+        "label": "Document List",
+        "raw_label": "D&ocument List",
+        "cmd": "IDM_VIEW_DOCLIST"
+      },
+      {
+        "kind": "item",
+        "label": "Function List",
+        "raw_label": "Function &List",
+        "cmd": "IDM_VIEW_FUNC_LIST"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Synchronize Vertical Scrolling",
+        "raw_label": "Sy&nchronize Vertical Scrolling",
+        "cmd": "IDM_VIEW_SYNSCROLLV"
+      },
+      {
+        "kind": "item",
+        "label": "Synchronize Horizontal Scrolling",
+        "raw_label": "Syn&chronize Horizontal Scrolling",
+        "cmd": "IDM_VIEW_SYNSCROLLH"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Text Direction RTL",
+        "raw_label": "T&ext Direction RTL",
+        "cmd": "IDM_EDIT_RTL"
+      },
+      {
+        "kind": "item",
+        "label": "Text Direction LTR",
+        "raw_label": "Te&xt Direction LTR",
+        "cmd": "IDM_EDIT_LTR"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Monitoring (tail -f)",
+        "raw_label": "Monito&ring (tail -f)",
+        "cmd": "IDM_VIEW_MONITORING"
+      }
+    ]
+  },
+  {
+    "kind": "popup",
+    "label": "Encoding",
+    "raw_label": "E&ncoding",
+    "children": [
+      {
+        "kind": "item",
+        "label": "ANSI",
+        "raw_label": "ANSI",
+        "cmd": "IDM_FORMAT_ANSI"
+      },
+      {
+        "kind": "item",
+        "label": "UTF-8",
+        "raw_label": "UTF-8",
+        "cmd": "IDM_FORMAT_AS_UTF_8"
+      },
+      {
+        "kind": "item",
+        "label": "UTF-8-BOM",
+        "raw_label": "UTF-8-BOM",
+        "cmd": "IDM_FORMAT_UTF_8"
+      },
+      {
+        "kind": "item",
+        "label": "UTF-16 BE BOM",
+        "raw_label": "UTF-16 BE BOM",
+        "cmd": "IDM_FORMAT_UTF_16BE"
+      },
+      {
+        "kind": "item",
+        "label": "UTF-16 LE BOM",
+        "raw_label": "UTF-16 LE BOM",
+        "cmd": "IDM_FORMAT_UTF_16LE"
+      },
+      {
+        "kind": "popup",
+        "label": "Character sets",
+        "raw_label": "Character sets",
+        "children": [
+          {
+            "kind": "popup",
+            "label": "Arabic",
+            "raw_label": "Arabic",
+            "children": [
+              {
+                "kind": "item",
+                "label": "ISO 8859-6",
+                "raw_label": "ISO 8859-6",
+                "cmd": "IDM_FORMAT_ISO_8859_6"
+              },
+              {
+                "kind": "item",
+                "label": "OEM 720",
+                "raw_label": "OEM 720",
+                "cmd": "IDM_FORMAT_DOS_720"
+              },
+              {
+                "kind": "item",
+                "label": "Windows-1256",
+                "raw_label": "Windows-1256",
+                "cmd": "IDM_FORMAT_WIN_1256"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Baltic",
+            "raw_label": "Baltic",
+            "children": [
+              {
+                "kind": "item",
+                "label": "ISO 8859-4",
+                "raw_label": "ISO 8859-4",
+                "cmd": "IDM_FORMAT_ISO_8859_4"
+              },
+              {
+                "kind": "item",
+                "label": "ISO 8859-13",
+                "raw_label": "ISO 8859-13",
+                "cmd": "IDM_FORMAT_ISO_8859_13"
+              },
+              {
+                "kind": "item",
+                "label": "OEM 775",
+                "raw_label": "OEM 775",
+                "cmd": "IDM_FORMAT_DOS_775"
+              },
+              {
+                "kind": "item",
+                "label": "Windows-1257",
+                "raw_label": "Windows-1257",
+                "cmd": "IDM_FORMAT_WIN_1257"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Celtic",
+            "raw_label": "Celtic",
+            "children": [
+              {
+                "kind": "item",
+                "label": "ISO 8859-14",
+                "raw_label": "ISO 8859-14",
+                "cmd": "IDM_FORMAT_ISO_8859_14"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Cyrillic",
+            "raw_label": "Cyrillic",
+            "children": [
+              {
+                "kind": "item",
+                "label": "ISO 8859-5",
+                "raw_label": "ISO 8859-5",
+                "cmd": "IDM_FORMAT_ISO_8859_5"
+              },
+              {
+                "kind": "item",
+                "label": "KOI8-R",
+                "raw_label": "KOI8-R",
+                "cmd": "IDM_FORMAT_KOI8R_CYRILLIC"
+              },
+              {
+                "kind": "item",
+                "label": "KOI8-U",
+                "raw_label": "KOI8-U",
+                "cmd": "IDM_FORMAT_KOI8U_CYRILLIC"
+              },
+              {
+                "kind": "item",
+                "label": "Macintosh",
+                "raw_label": "Macintosh",
+                "cmd": "IDM_FORMAT_MAC_CYRILLIC"
+              },
+              {
+                "kind": "item",
+                "label": "OEM 855",
+                "raw_label": "OEM 855",
+                "cmd": "IDM_FORMAT_DOS_855"
+              },
+              {
+                "kind": "item",
+                "label": "OEM 866",
+                "raw_label": "OEM 866",
+                "cmd": "IDM_FORMAT_DOS_866"
+              },
+              {
+                "kind": "item",
+                "label": "Windows-1251",
+                "raw_label": "Windows-1251",
+                "cmd": "IDM_FORMAT_WIN_1251"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Central European",
+            "raw_label": "Central European",
+            "children": [
+              {
+                "kind": "item",
+                "label": "OEM 852",
+                "raw_label": "OEM 852",
+                "cmd": "IDM_FORMAT_DOS_852"
+              },
+              {
+                "kind": "item",
+                "label": "Windows-1250",
+                "raw_label": "Windows-1250",
+                "cmd": "IDM_FORMAT_WIN_1250"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Chinese",
+            "raw_label": "Chinese",
+            "children": [
+              {
+                "kind": "item",
+                "label": "Big5 (Traditional)",
+                "raw_label": "Big5 (Traditional)",
+                "cmd": "IDM_FORMAT_BIG5"
+              },
+              {
+                "kind": "item",
+                "label": "GB2312 (Simplified)",
+                "raw_label": "GB2312 (Simplified)",
+                "cmd": "IDM_FORMAT_GB2312"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Eastern European",
+            "raw_label": "Eastern European",
+            "children": [
+              {
+                "kind": "item",
+                "label": "ISO 8859-2",
+                "raw_label": "ISO 8859-2",
+                "cmd": "IDM_FORMAT_ISO_8859_2"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Greek",
+            "raw_label": "Greek",
+            "children": [
+              {
+                "kind": "item",
+                "label": "ISO 8859-7",
+                "raw_label": "ISO 8859-7",
+                "cmd": "IDM_FORMAT_ISO_8859_7"
+              },
+              {
+                "kind": "item",
+                "label": "OEM 737",
+                "raw_label": "OEM 737",
+                "cmd": "IDM_FORMAT_DOS_737"
+              },
+              {
+                "kind": "item",
+                "label": "OEM 869",
+                "raw_label": "OEM 869",
+                "cmd": "IDM_FORMAT_DOS_869"
+              },
+              {
+                "kind": "item",
+                "label": "Windows-1253",
+                "raw_label": "Windows-1253",
+                "cmd": "IDM_FORMAT_WIN_1253"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Hebrew",
+            "raw_label": "Hebrew",
+            "children": [
+              {
+                "kind": "item",
+                "label": "ISO 8859-8",
+                "raw_label": "ISO 8859-8",
+                "cmd": "IDM_FORMAT_ISO_8859_8"
+              },
+              {
+                "kind": "item",
+                "label": "OEM 862",
+                "raw_label": "OEM 862",
+                "cmd": "IDM_FORMAT_DOS_862"
+              },
+              {
+                "kind": "item",
+                "label": "Windows-1255",
+                "raw_label": "Windows-1255",
+                "cmd": "IDM_FORMAT_WIN_1255"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Japanese",
+            "raw_label": "Japanese",
+            "children": [
+              {
+                "kind": "item",
+                "label": "Shift-JIS",
+                "raw_label": "Shift-JIS",
+                "cmd": "IDM_FORMAT_SHIFT_JIS"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Korean",
+            "raw_label": "Korean",
+            "children": [
+              {
+                "kind": "item",
+                "label": "Windows 949",
+                "raw_label": "Windows 949",
+                "cmd": "IDM_FORMAT_KOREAN_WIN"
+              },
+              {
+                "kind": "item",
+                "label": "EUC-KR",
+                "raw_label": "EUC-KR",
+                "cmd": "IDM_FORMAT_EUC_KR"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "North European",
+            "raw_label": "North European",
+            "children": [
+              {
+                "kind": "item",
+                "label": "OEM 861 : Icelandic",
+                "raw_label": "OEM 861 : Icelandic",
+                "cmd": "IDM_FORMAT_DOS_861"
+              },
+              {
+                "kind": "item",
+                "label": "OEM 865 : Nordic",
+                "raw_label": "OEM 865 : Nordic",
+                "cmd": "IDM_FORMAT_DOS_865"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Thai",
+            "raw_label": "Thai",
+            "children": [
+              {
+                "kind": "item",
+                "label": "TIS-620",
+                "raw_label": "TIS-620",
+                "cmd": "IDM_FORMAT_TIS_620"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Turkish",
+            "raw_label": "Turkish",
+            "children": [
+              {
+                "kind": "item",
+                "label": "ISO 8859-3",
+                "raw_label": "ISO 8859-3",
+                "cmd": "IDM_FORMAT_ISO_8859_3"
+              },
+              {
+                "kind": "item",
+                "label": "ISO 8859-9",
+                "raw_label": "ISO 8859-9",
+                "cmd": "IDM_FORMAT_ISO_8859_9"
+              },
+              {
+                "kind": "item",
+                "label": "OEM 857",
+                "raw_label": "OEM 857",
+                "cmd": "IDM_FORMAT_DOS_857"
+              },
+              {
+                "kind": "item",
+                "label": "Windows-1254",
+                "raw_label": "Windows-1254",
+                "cmd": "IDM_FORMAT_WIN_1254"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Western European",
+            "raw_label": "Western European",
+            "children": [
+              {
+                "kind": "item",
+                "label": "ISO 8859-1",
+                "raw_label": "ISO 8859-1",
+                "cmd": "IDM_FORMAT_ISO_8859_1"
+              },
+              {
+                "kind": "item",
+                "label": "ISO 8859-15",
+                "raw_label": "ISO 8859-15",
+                "cmd": "IDM_FORMAT_ISO_8859_15"
+              },
+              {
+                "kind": "item",
+                "label": "OEM 850",
+                "raw_label": "OEM 850",
+                "cmd": "IDM_FORMAT_DOS_850"
+              },
+              {
+                "kind": "item",
+                "label": "OEM 858",
+                "raw_label": "OEM 858",
+                "cmd": "IDM_FORMAT_DOS_858"
+              },
+              {
+                "kind": "item",
+                "label": "OEM 860 : Portuguese",
+                "raw_label": "OEM 860 : Portuguese",
+                "cmd": "IDM_FORMAT_DOS_860"
+              },
+              {
+                "kind": "item",
+                "label": "OEM 863 : French",
+                "raw_label": "OEM 863 : French",
+                "cmd": "IDM_FORMAT_DOS_863"
+              },
+              {
+                "kind": "item",
+                "label": "OEM-US",
+                "raw_label": "OEM-US",
+                "cmd": "IDM_FORMAT_DOS_437"
+              },
+              {
+                "kind": "item",
+                "label": "Windows-1252",
+                "raw_label": "Windows-1252",
+                "cmd": "IDM_FORMAT_WIN_1252"
+              }
+            ]
+          },
+          {
+            "kind": "popup",
+            "label": "Vietnamese",
+            "raw_label": "Vietnamese",
+            "children": [
+              {
+                "kind": "item",
+                "label": "Windows-1258",
+                "raw_label": "Windows-1258",
+                "cmd": "IDM_FORMAT_WIN_1258"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Convert to ANSI",
+        "raw_label": "Convert to ANSI",
+        "cmd": "IDM_FORMAT_CONV2_ANSI"
+      },
+      {
+        "kind": "item",
+        "label": "Convert to UTF-8",
+        "raw_label": "Convert to UTF-8",
+        "cmd": "IDM_FORMAT_CONV2_AS_UTF_8"
+      },
+      {
+        "kind": "item",
+        "label": "Convert to UTF-8-BOM",
+        "raw_label": "Convert to UTF-8-BOM",
+        "cmd": "IDM_FORMAT_CONV2_UTF_8"
+      },
+      {
+        "kind": "item",
+        "label": "Convert to UTF-16 BE BOM",
+        "raw_label": "Convert to UTF-16 BE BOM",
+        "cmd": "IDM_FORMAT_CONV2_UTF_16BE"
+      },
+      {
+        "kind": "item",
+        "label": "Convert to UTF-16 LE BOM",
+        "raw_label": "Convert to UTF-16 LE BOM",
+        "cmd": "IDM_FORMAT_CONV2_UTF_16LE"
+      }
+    ]
+  },
+  {
+    "kind": "popup",
+    "label": "Language",
+    "raw_label": "&Language",
+    "children": [
+      {
+        "kind": "item",
+        "label": "None (Normal Text)",
+        "raw_label": "None (Normal Text)",
+        "cmd": "IDM_LANG_TEXT"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "ActionScript",
+        "raw_label": "ActionScript",
+        "cmd": "IDM_LANG_FLASH"
+      },
+      {
+        "kind": "item",
+        "label": "Ada",
+        "raw_label": "Ada",
+        "cmd": "IDM_LANG_ADA"
+      },
+      {
+        "kind": "item",
+        "label": "ASN.1",
+        "raw_label": "ASN.1",
+        "cmd": "IDM_LANG_ASN1"
+      },
+      {
+        "kind": "item",
+        "label": "ASP",
+        "raw_label": "ASP",
+        "cmd": "IDM_LANG_ASP"
+      },
+      {
+        "kind": "item",
+        "label": "Assembly",
+        "raw_label": "Assembly",
+        "cmd": "IDM_LANG_ASM"
+      },
+      {
+        "kind": "item",
+        "label": "AutoIt",
+        "raw_label": "AutoIt",
+        "cmd": "IDM_LANG_AU3"
+      },
+      {
+        "kind": "item",
+        "label": "AviSynth",
+        "raw_label": "AviSynth",
+        "cmd": "IDM_LANG_AVS"
+      },
+      {
+        "kind": "item",
+        "label": "BaanC",
+        "raw_label": "BaanC",
+        "cmd": "IDM_LANG_BAANC"
+      },
+      {
+        "kind": "item",
+        "label": "Batch",
+        "raw_label": "Batch",
+        "cmd": "IDM_LANG_BATCH"
+      },
+      {
+        "kind": "item",
+        "label": "Blitzbasic",
+        "raw_label": "Blitzbasic",
+        "cmd": "IDM_LANG_BLITZBASIC"
+      },
+      {
+        "kind": "item",
+        "label": "C",
+        "raw_label": "C",
+        "cmd": "IDM_LANG_C"
+      },
+      {
+        "kind": "item",
+        "label": "C#",
+        "raw_label": "C#",
+        "cmd": "IDM_LANG_CS"
+      },
+      {
+        "kind": "item",
+        "label": "C++",
+        "raw_label": "C++",
+        "cmd": "IDM_LANG_CPP"
+      },
+      {
+        "kind": "item",
+        "label": "Caml",
+        "raw_label": "Caml",
+        "cmd": "IDM_LANG_CAML"
+      },
+      {
+        "kind": "item",
+        "label": "CMake",
+        "raw_label": "CMake",
+        "cmd": "IDM_LANG_CMAKE"
+      },
+      {
+        "kind": "item",
+        "label": "COBOL",
+        "raw_label": "COBOL",
+        "cmd": "IDM_LANG_COBOL"
+      },
+      {
+        "kind": "item",
+        "label": "CSound",
+        "raw_label": "CSound",
+        "cmd": "IDM_LANG_CSOUND"
+      },
+      {
+        "kind": "item",
+        "label": "CoffeeScript",
+        "raw_label": "CoffeeScript",
+        "cmd": "IDM_LANG_COFFEESCRIPT"
+      },
+      {
+        "kind": "item",
+        "label": "CSS",
+        "raw_label": "CSS",
+        "cmd": "IDM_LANG_CSS"
+      },
+      {
+        "kind": "item",
+        "label": "D",
+        "raw_label": "D",
+        "cmd": "IDM_LANG_D"
+      },
+      {
+        "kind": "item",
+        "label": "Diff",
+        "raw_label": "Diff",
+        "cmd": "IDM_LANG_DIFF"
+      },
+      {
+        "kind": "item",
+        "label": "Erlang",
+        "raw_label": "Erlang",
+        "cmd": "IDM_LANG_ERLANG"
+      },
+      {
+        "kind": "item",
+        "label": "ErrorList",
+        "raw_label": "ErrorList",
+        "cmd": "IDM_LANG_ERRORLIST"
+      },
+      {
+        "kind": "item",
+        "label": "Escape Sequence (ANSI)",
+        "raw_label": "Escape Sequence (ANSI)",
+        "cmd": "IDM_LANG_ESCSEQ"
+      },
+      {
+        "kind": "item",
+        "label": "ESCRIPT",
+        "raw_label": "ESCRIPT",
+        "cmd": "IDM_LANG_ESCRIPT"
+      },
+      {
+        "kind": "item",
+        "label": "Forth",
+        "raw_label": "Forth",
+        "cmd": "IDM_LANG_FORTH"
+      },
+      {
+        "kind": "item",
+        "label": "Fortran (free form)",
+        "raw_label": "Fortran (free form)",
+        "cmd": "IDM_LANG_FORTRAN"
+      },
+      {
+        "kind": "item",
+        "label": "Fortran (fixed form)",
+        "raw_label": "Fortran (fixed form)",
+        "cmd": "IDM_LANG_FORTRAN_77"
+      },
+      {
+        "kind": "item",
+        "label": "Freebasic",
+        "raw_label": "Freebasic",
+        "cmd": "IDM_LANG_FREEBASIC"
+      },
+      {
+        "kind": "item",
+        "label": "GDScript",
+        "raw_label": "GDScript",
+        "cmd": "IDM_LANG_GDSCRIPT"
+      },
+      {
+        "kind": "item",
+        "label": "Go",
+        "raw_label": "Go",
+        "cmd": "IDM_LANG_GOLANG"
+      },
+      {
+        "kind": "item",
+        "label": "Gui4Cli",
+        "raw_label": "Gui4Cli",
+        "cmd": "IDM_LANG_GUI4CLI"
+      },
+      {
+        "kind": "item",
+        "label": "Haskell",
+        "raw_label": "Haskell",
+        "cmd": "IDM_LANG_HASKELL"
+      },
+      {
+        "kind": "item",
+        "label": "Hollywood",
+        "raw_label": "Hollywood",
+        "cmd": "IDM_LANG_HOLLYWOOD"
+      },
+      {
+        "kind": "item",
+        "label": "HTML",
+        "raw_label": "HTML",
+        "cmd": "IDM_LANG_HTML"
+      },
+      {
+        "kind": "item",
+        "label": "INI file",
+        "raw_label": "INI file",
+        "cmd": "IDM_LANG_INI"
+      },
+      {
+        "kind": "item",
+        "label": "Inno Setup",
+        "raw_label": "Inno Setup",
+        "cmd": "IDM_LANG_INNO"
+      },
+      {
+        "kind": "item",
+        "label": "Intel HEX",
+        "raw_label": "Intel HEX",
+        "cmd": "IDM_LANG_IHEX"
+      },
+      {
+        "kind": "item",
+        "label": "Java",
+        "raw_label": "Java",
+        "cmd": "IDM_LANG_JAVA"
+      },
+      {
+        "kind": "item",
+        "label": "JavaScript",
+        "raw_label": "JavaScript",
+        "cmd": "IDM_LANG_JS"
+      },
+      {
+        "kind": "item",
+        "label": "JSON",
+        "raw_label": "JSON",
+        "cmd": "IDM_LANG_JSON"
+      },
+      {
+        "kind": "item",
+        "label": "JSON5",
+        "raw_label": "JSON5",
+        "cmd": "IDM_LANG_JSON5"
+      },
+      {
+        "kind": "item",
+        "label": "JSP",
+        "raw_label": "JSP",
+        "cmd": "IDM_LANG_JSP"
+      },
+      {
+        "kind": "item",
+        "label": "KIXtart",
+        "raw_label": "KIXtart",
+        "cmd": "IDM_LANG_KIX"
+      },
+      {
+        "kind": "item",
+        "label": "LISP",
+        "raw_label": "LISP",
+        "cmd": "IDM_LANG_LISP"
+      },
+      {
+        "kind": "item",
+        "label": "LaTeX",
+        "raw_label": "LaTeX",
+        "cmd": "IDM_LANG_LATEX"
+      },
+      {
+        "kind": "item",
+        "label": "Lua",
+        "raw_label": "Lua",
+        "cmd": "IDM_LANG_LUA"
+      },
+      {
+        "kind": "item",
+        "label": "Makefile",
+        "raw_label": "Makefile",
+        "cmd": "IDM_LANG_MAKEFILE"
+      },
+      {
+        "kind": "item",
+        "label": "Matlab",
+        "raw_label": "Matlab",
+        "cmd": "IDM_LANG_MATLAB"
+      },
+      {
+        "kind": "item",
+        "label": "Microsoft Transact-SQL",
+        "raw_label": "Microsoft Transact-SQL",
+        "cmd": "IDM_LANG_MSSQL"
+      },
+      {
+        "kind": "item",
+        "label": "MMIXAL",
+        "raw_label": "MMIXAL",
+        "cmd": "IDM_LANG_MMIXAL"
+      },
+      {
+        "kind": "item",
+        "label": "MS-DOS Style",
+        "raw_label": "MS-DOS Style",
+        "cmd": "IDM_LANG_ASCII"
+      },
+      {
+        "kind": "item",
+        "label": "Nim",
+        "raw_label": "Nim",
+        "cmd": "IDM_LANG_NIM"
+      },
+      {
+        "kind": "item",
+        "label": "Nncrontab",
+        "raw_label": "Nncrontab",
+        "cmd": "IDM_LANG_NNCRONTAB"
+      },
+      {
+        "kind": "item",
+        "label": "NSIS",
+        "raw_label": "NSIS",
+        "cmd": "IDM_LANG_NSIS"
+      },
+      {
+        "kind": "item",
+        "label": "Objective-C",
+        "raw_label": "Objective-C",
+        "cmd": "IDM_LANG_OBJC"
+      },
+      {
+        "kind": "item",
+        "label": "OScript",
+        "raw_label": "OScript",
+        "cmd": "IDM_LANG_OSCRIPT"
+      },
+      {
+        "kind": "item",
+        "label": "Pascal",
+        "raw_label": "Pascal",
+        "cmd": "IDM_LANG_PASCAL"
+      },
+      {
+        "kind": "item",
+        "label": "Perl",
+        "raw_label": "Perl",
+        "cmd": "IDM_LANG_PERL"
+      },
+      {
+        "kind": "item",
+        "label": "PHP",
+        "raw_label": "PHP",
+        "cmd": "IDM_LANG_PHP"
+      },
+      {
+        "kind": "item",
+        "label": "PostScript",
+        "raw_label": "PostScript",
+        "cmd": "IDM_LANG_PS"
+      },
+      {
+        "kind": "item",
+        "label": "PowerShell",
+        "raw_label": "PowerShell",
+        "cmd": "IDM_LANG_POWERSHELL"
+      },
+      {
+        "kind": "item",
+        "label": "Properties",
+        "raw_label": "Properties",
+        "cmd": "IDM_LANG_PROPS"
+      },
+      {
+        "kind": "item",
+        "label": "Purebasic",
+        "raw_label": "Purebasic",
+        "cmd": "IDM_LANG_PUREBASIC"
+      },
+      {
+        "kind": "item",
+        "label": "Python",
+        "raw_label": "Python",
+        "cmd": "IDM_LANG_PYTHON"
+      },
+      {
+        "kind": "item",
+        "label": "R",
+        "raw_label": "R",
+        "cmd": "IDM_LANG_R"
+      },
+      {
+        "kind": "item",
+        "label": "Raku",
+        "raw_label": "Raku",
+        "cmd": "IDM_LANG_RAKU"
+      },
+      {
+        "kind": "item",
+        "label": "REBOL",
+        "raw_label": "REBOL",
+        "cmd": "IDM_LANG_REBOL"
+      },
+      {
+        "kind": "item",
+        "label": "Registry",
+        "raw_label": "Registry",
+        "cmd": "IDM_LANG_REGISTRY"
+      },
+      {
+        "kind": "item",
+        "label": "Resource file",
+        "raw_label": "Resource file",
+        "cmd": "IDM_LANG_RC"
+      },
+      {
+        "kind": "item",
+        "label": "Ruby",
+        "raw_label": "Ruby",
+        "cmd": "IDM_LANG_RUBY"
+      },
+      {
+        "kind": "item",
+        "label": "Rust",
+        "raw_label": "Rust",
+        "cmd": "IDM_LANG_RUST"
+      },
+      {
+        "kind": "item",
+        "label": "SAS",
+        "raw_label": "SAS",
+        "cmd": "IDM_LANG_SAS"
+      },
+      {
+        "kind": "item",
+        "label": "Shell",
+        "raw_label": "Shell",
+        "cmd": "IDM_LANG_BASH"
+      },
+      {
+        "kind": "item",
+        "label": "Scheme",
+        "raw_label": "Scheme",
+        "cmd": "IDM_LANG_SCHEME"
+      },
+      {
+        "kind": "item",
+        "label": "Smalltalk",
+        "raw_label": "Smalltalk",
+        "cmd": "IDM_LANG_SMALLTALK"
+      },
+      {
+        "kind": "item",
+        "label": "Spice",
+        "raw_label": "Spice",
+        "cmd": "IDM_LANG_SPICE"
+      },
+      {
+        "kind": "item",
+        "label": "SQL",
+        "raw_label": "SQL",
+        "cmd": "IDM_LANG_SQL"
+      },
+      {
+        "kind": "item",
+        "label": "Swift",
+        "raw_label": "Swift",
+        "cmd": "IDM_LANG_SWIFT"
+      },
+      {
+        "kind": "item",
+        "label": "S-Record",
+        "raw_label": "S-Record",
+        "cmd": "IDM_LANG_SREC"
+      },
+      {
+        "kind": "item",
+        "label": "TCL",
+        "raw_label": "TCL",
+        "cmd": "IDM_LANG_TCL"
+      },
+      {
+        "kind": "item",
+        "label": "Tektronix extended HEX",
+        "raw_label": "Tektronix extended HEX",
+        "cmd": "IDM_LANG_TEHEX"
+      },
+      {
+        "kind": "item",
+        "label": "TeX",
+        "raw_label": "TeX",
+        "cmd": "IDM_LANG_TEX"
+      },
+      {
+        "kind": "item",
+        "label": "TOML",
+        "raw_label": "TOML",
+        "cmd": "IDM_LANG_TOML"
+      },
+      {
+        "kind": "item",
+        "label": "txt2tags",
+        "raw_label": "txt2tags",
+        "cmd": "IDM_LANG_TXT2TAGS"
+      },
+      {
+        "kind": "item",
+        "label": "TypeScript",
+        "raw_label": "TypeScript",
+        "cmd": "IDM_LANG_TYPESCRIPT"
+      },
+      {
+        "kind": "item",
+        "label": "Verilog",
+        "raw_label": "Verilog",
+        "cmd": "IDM_LANG_VERILOG"
+      },
+      {
+        "kind": "item",
+        "label": "VHDL",
+        "raw_label": "VHDL",
+        "cmd": "IDM_LANG_VHDL"
+      },
+      {
+        "kind": "item",
+        "label": "Visual Basic",
+        "raw_label": "Visual Basic",
+        "cmd": "IDM_LANG_VB"
+      },
+      {
+        "kind": "item",
+        "label": "Visual Prolog",
+        "raw_label": "Visual Prolog",
+        "cmd": "IDM_LANG_VISUALPROLOG"
+      },
+      {
+        "kind": "item",
+        "label": "XML",
+        "raw_label": "XML",
+        "cmd": "IDM_LANG_XML"
+      },
+      {
+        "kind": "item",
+        "label": "YAML",
+        "raw_label": "YAML",
+        "cmd": "IDM_LANG_YAML"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Define your language...",
+        "raw_label": "Define your language...",
+        "cmd": "IDM_LANG_USER_DLG"
+      },
+      {
+        "kind": "item",
+        "label": "Open User Defined Language folder...",
+        "raw_label": "Open User Defined Language folder...",
+        "cmd": "IDM_LANG_OPENUDLDIR"
+      },
+      {
+        "kind": "item",
+        "label": "Notepad++ User Defined Languages Collection",
+        "raw_label": "Notepad++ User Defined Languages Collection",
+        "cmd": "IDM_LANG_UDLCOLLECTION_PROJECT_SITE"
+      },
+      {
+        "kind": "item",
+        "label": "User-Defined",
+        "raw_label": "User-Defined",
+        "cmd": "IDM_LANG_USER"
+      }
+    ]
+  },
+  {
+    "kind": "popup",
+    "label": "Language",
+    "raw_label": "&Language",
+    "children": [
+      {
+        "kind": "item",
+        "label": "None (Normal Text)",
+        "raw_label": "None (Normal Text)",
+        "cmd": "IDM_LANG_TEXT"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "popup",
+        "label": "A",
+        "raw_label": "A",
+        "children": [
+          {
+            "kind": "item",
+            "label": "ActionScript",
+            "raw_label": "ActionScript",
+            "cmd": "IDM_LANG_FLASH"
+          },
+          {
+            "kind": "item",
+            "label": "Ada",
+            "raw_label": "Ada",
+            "cmd": "IDM_LANG_ADA"
+          },
+          {
+            "kind": "item",
+            "label": "ASN.1",
+            "raw_label": "ASN.1",
+            "cmd": "IDM_LANG_ASN1"
+          },
+          {
+            "kind": "item",
+            "label": "ASP",
+            "raw_label": "ASP",
+            "cmd": "IDM_LANG_ASP"
+          },
+          {
+            "kind": "item",
+            "label": "Assembly",
+            "raw_label": "Assembly",
+            "cmd": "IDM_LANG_ASM"
+          },
+          {
+            "kind": "item",
+            "label": "AutoIt",
+            "raw_label": "AutoIt",
+            "cmd": "IDM_LANG_AU3"
+          },
+          {
+            "kind": "item",
+            "label": "AviSynth",
+            "raw_label": "AviSynth",
+            "cmd": "IDM_LANG_AVS"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "B",
+        "raw_label": "B",
+        "children": [
+          {
+            "kind": "item",
+            "label": "BaanC",
+            "raw_label": "BaanC",
+            "cmd": "IDM_LANG_BAANC"
+          },
+          {
+            "kind": "item",
+            "label": "Batch",
+            "raw_label": "Batch",
+            "cmd": "IDM_LANG_BATCH"
+          },
+          {
+            "kind": "item",
+            "label": "Blitzbasic",
+            "raw_label": "Blitzbasic",
+            "cmd": "IDM_LANG_BLITZBASIC"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "C",
+        "raw_label": "C",
+        "children": [
+          {
+            "kind": "item",
+            "label": "C",
+            "raw_label": "C",
+            "cmd": "IDM_LANG_C"
+          },
+          {
+            "kind": "item",
+            "label": "C#",
+            "raw_label": "C#",
+            "cmd": "IDM_LANG_CS"
+          },
+          {
+            "kind": "item",
+            "label": "C++",
+            "raw_label": "C++",
+            "cmd": "IDM_LANG_CPP"
+          },
+          {
+            "kind": "item",
+            "label": "Caml",
+            "raw_label": "Caml",
+            "cmd": "IDM_LANG_CAML"
+          },
+          {
+            "kind": "item",
+            "label": "CMake",
+            "raw_label": "CMake",
+            "cmd": "IDM_LANG_CMAKE"
+          },
+          {
+            "kind": "item",
+            "label": "COBOL",
+            "raw_label": "COBOL",
+            "cmd": "IDM_LANG_COBOL"
+          },
+          {
+            "kind": "item",
+            "label": "CSound",
+            "raw_label": "CSound",
+            "cmd": "IDM_LANG_CSOUND"
+          },
+          {
+            "kind": "item",
+            "label": "CoffeeScript",
+            "raw_label": "CoffeeScript",
+            "cmd": "IDM_LANG_COFFEESCRIPT"
+          },
+          {
+            "kind": "item",
+            "label": "CSS",
+            "raw_label": "CSS",
+            "cmd": "IDM_LANG_CSS"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "D",
+        "raw_label": "D",
+        "children": [
+          {
+            "kind": "item",
+            "label": "D",
+            "raw_label": "D",
+            "cmd": "IDM_LANG_D"
+          },
+          {
+            "kind": "item",
+            "label": "Diff",
+            "raw_label": "Diff",
+            "cmd": "IDM_LANG_DIFF"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "E",
+        "raw_label": "E",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Erlang",
+            "raw_label": "Erlang",
+            "cmd": "IDM_LANG_ERLANG"
+          },
+          {
+            "kind": "item",
+            "label": "ErrorList",
+            "raw_label": "ErrorList",
+            "cmd": "IDM_LANG_ERRORLIST"
+          },
+          {
+            "kind": "item",
+            "label": "Escape Sequence (ANSI)",
+            "raw_label": "Escape Sequence (ANSI)",
+            "cmd": "IDM_LANG_ESCSEQ"
+          },
+          {
+            "kind": "item",
+            "label": "ESCRIPT",
+            "raw_label": "ESCRIPT",
+            "cmd": "IDM_LANG_ESCRIPT"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "F",
+        "raw_label": "F",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Forth",
+            "raw_label": "Forth",
+            "cmd": "IDM_LANG_FORTH"
+          },
+          {
+            "kind": "item",
+            "label": "Fortran (free form)",
+            "raw_label": "Fortran (free form)",
+            "cmd": "IDM_LANG_FORTRAN"
+          },
+          {
+            "kind": "item",
+            "label": "Fortran (fixed form)",
+            "raw_label": "Fortran (fixed form)",
+            "cmd": "IDM_LANG_FORTRAN_77"
+          },
+          {
+            "kind": "item",
+            "label": "Freebasic",
+            "raw_label": "Freebasic",
+            "cmd": "IDM_LANG_FREEBASIC"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "G",
+        "raw_label": "G",
+        "children": [
+          {
+            "kind": "item",
+            "label": "GDScript",
+            "raw_label": "GDScript",
+            "cmd": "IDM_LANG_GDSCRIPT"
+          },
+          {
+            "kind": "item",
+            "label": "Go",
+            "raw_label": "Go",
+            "cmd": "IDM_LANG_GOLANG"
+          },
+          {
+            "kind": "item",
+            "label": "Gui4Cli",
+            "raw_label": "Gui4Cli",
+            "cmd": "IDM_LANG_GUI4CLI"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "H",
+        "raw_label": "H",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Haskell",
+            "raw_label": "Haskell",
+            "cmd": "IDM_LANG_HASKELL"
+          },
+          {
+            "kind": "item",
+            "label": "Hollywood",
+            "raw_label": "Hollywood",
+            "cmd": "IDM_LANG_HOLLYWOOD"
+          },
+          {
+            "kind": "item",
+            "label": "HTML",
+            "raw_label": "HTML",
+            "cmd": "IDM_LANG_HTML"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "I",
+        "raw_label": "I",
+        "children": [
+          {
+            "kind": "item",
+            "label": "INI file",
+            "raw_label": "INI file",
+            "cmd": "IDM_LANG_INI"
+          },
+          {
+            "kind": "item",
+            "label": "Inno Setup",
+            "raw_label": "Inno Setup",
+            "cmd": "IDM_LANG_INNO"
+          },
+          {
+            "kind": "item",
+            "label": "Intel HEX",
+            "raw_label": "Intel HEX",
+            "cmd": "IDM_LANG_IHEX"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "J",
+        "raw_label": "J",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Java",
+            "raw_label": "Java",
+            "cmd": "IDM_LANG_JAVA"
+          },
+          {
+            "kind": "item",
+            "label": "JavaScript",
+            "raw_label": "JavaScript",
+            "cmd": "IDM_LANG_JS"
+          },
+          {
+            "kind": "item",
+            "label": "JSON",
+            "raw_label": "JSON",
+            "cmd": "IDM_LANG_JSON"
+          },
+          {
+            "kind": "item",
+            "label": "JSON5",
+            "raw_label": "JSON5",
+            "cmd": "IDM_LANG_JSON5"
+          },
+          {
+            "kind": "item",
+            "label": "JSP",
+            "raw_label": "JSP",
+            "cmd": "IDM_LANG_JSP"
+          }
+        ]
+      },
+      {
+        "kind": "item",
+        "label": "KIXtart",
+        "raw_label": "KIXtart",
+        "cmd": "IDM_LANG_KIX"
+      },
+      {
+        "kind": "popup",
+        "label": "L",
+        "raw_label": "L",
+        "children": [
+          {
+            "kind": "item",
+            "label": "LaTeX",
+            "raw_label": "LaTeX",
+            "cmd": "IDM_LANG_LATEX"
+          },
+          {
+            "kind": "item",
+            "label": "LISP",
+            "raw_label": "LISP",
+            "cmd": "IDM_LANG_LISP"
+          },
+          {
+            "kind": "item",
+            "label": "Lua",
+            "raw_label": "Lua",
+            "cmd": "IDM_LANG_LUA"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "M",
+        "raw_label": "M",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Makefile",
+            "raw_label": "Makefile",
+            "cmd": "IDM_LANG_MAKEFILE"
+          },
+          {
+            "kind": "item",
+            "label": "Matlab",
+            "raw_label": "Matlab",
+            "cmd": "IDM_LANG_MATLAB"
+          },
+          {
+            "kind": "item",
+            "label": "Microsoft Transact-SQL",
+            "raw_label": "Microsoft Transact-SQL",
+            "cmd": "IDM_LANG_MSSQL"
+          },
+          {
+            "kind": "item",
+            "label": "MMIXAL",
+            "raw_label": "MMIXAL",
+            "cmd": "IDM_LANG_MMIXAL"
+          },
+          {
+            "kind": "item",
+            "label": "MS-DOS Style",
+            "raw_label": "MS-DOS Style",
+            "cmd": "IDM_LANG_ASCII"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "N",
+        "raw_label": "N",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Nim",
+            "raw_label": "Nim",
+            "cmd": "IDM_LANG_NIM"
+          },
+          {
+            "kind": "item",
+            "label": "Nncrontab",
+            "raw_label": "Nncrontab",
+            "cmd": "IDM_LANG_NNCRONTAB"
+          },
+          {
+            "kind": "item",
+            "label": "NSIS",
+            "raw_label": "NSIS",
+            "cmd": "IDM_LANG_NSIS"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "O",
+        "raw_label": "O",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Objective-C",
+            "raw_label": "Objective-C",
+            "cmd": "IDM_LANG_OBJC"
+          },
+          {
+            "kind": "item",
+            "label": "OScript",
+            "raw_label": "OScript",
+            "cmd": "IDM_LANG_OSCRIPT"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "P",
+        "raw_label": "P",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Pascal",
+            "raw_label": "Pascal",
+            "cmd": "IDM_LANG_PASCAL"
+          },
+          {
+            "kind": "item",
+            "label": "Perl",
+            "raw_label": "Perl",
+            "cmd": "IDM_LANG_PERL"
+          },
+          {
+            "kind": "item",
+            "label": "PHP",
+            "raw_label": "PHP",
+            "cmd": "IDM_LANG_PHP"
+          },
+          {
+            "kind": "item",
+            "label": "PostScript",
+            "raw_label": "PostScript",
+            "cmd": "IDM_LANG_PS"
+          },
+          {
+            "kind": "item",
+            "label": "PowerShell",
+            "raw_label": "PowerShell",
+            "cmd": "IDM_LANG_POWERSHELL"
+          },
+          {
+            "kind": "item",
+            "label": "Properties",
+            "raw_label": "Properties",
+            "cmd": "IDM_LANG_PROPS"
+          },
+          {
+            "kind": "item",
+            "label": "Purebasic",
+            "raw_label": "Purebasic",
+            "cmd": "IDM_LANG_PUREBASIC"
+          },
+          {
+            "kind": "item",
+            "label": "Python",
+            "raw_label": "Python",
+            "cmd": "IDM_LANG_PYTHON"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "R",
+        "raw_label": "R",
+        "children": [
+          {
+            "kind": "item",
+            "label": "R",
+            "raw_label": "R",
+            "cmd": "IDM_LANG_R"
+          },
+          {
+            "kind": "item",
+            "label": "Raku",
+            "raw_label": "Raku",
+            "cmd": "IDM_LANG_RAKU"
+          },
+          {
+            "kind": "item",
+            "label": "REBOL",
+            "raw_label": "REBOL",
+            "cmd": "IDM_LANG_REBOL"
+          },
+          {
+            "kind": "item",
+            "label": "Registry",
+            "raw_label": "Registry",
+            "cmd": "IDM_LANG_REGISTRY"
+          },
+          {
+            "kind": "item",
+            "label": "Resource file",
+            "raw_label": "Resource file",
+            "cmd": "IDM_LANG_RC"
+          },
+          {
+            "kind": "item",
+            "label": "Ruby",
+            "raw_label": "Ruby",
+            "cmd": "IDM_LANG_RUBY"
+          },
+          {
+            "kind": "item",
+            "label": "Rust",
+            "raw_label": "Rust",
+            "cmd": "IDM_LANG_RUST"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "S",
+        "raw_label": "S",
+        "children": [
+          {
+            "kind": "item",
+            "label": "SAS",
+            "raw_label": "SAS",
+            "cmd": "IDM_LANG_SAS"
+          },
+          {
+            "kind": "item",
+            "label": "Shell",
+            "raw_label": "Shell",
+            "cmd": "IDM_LANG_BASH"
+          },
+          {
+            "kind": "item",
+            "label": "Scheme",
+            "raw_label": "Scheme",
+            "cmd": "IDM_LANG_SCHEME"
+          },
+          {
+            "kind": "item",
+            "label": "Smalltalk",
+            "raw_label": "Smalltalk",
+            "cmd": "IDM_LANG_SMALLTALK"
+          },
+          {
+            "kind": "item",
+            "label": "Spice",
+            "raw_label": "Spice",
+            "cmd": "IDM_LANG_SPICE"
+          },
+          {
+            "kind": "item",
+            "label": "SQL",
+            "raw_label": "SQL",
+            "cmd": "IDM_LANG_SQL"
+          },
+          {
+            "kind": "item",
+            "label": "Swift",
+            "raw_label": "Swift",
+            "cmd": "IDM_LANG_SWIFT"
+          },
+          {
+            "kind": "item",
+            "label": "S-Record",
+            "raw_label": "S-Record",
+            "cmd": "IDM_LANG_SREC"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "T",
+        "raw_label": "T",
+        "children": [
+          {
+            "kind": "item",
+            "label": "TCL",
+            "raw_label": "TCL",
+            "cmd": "IDM_LANG_TCL"
+          },
+          {
+            "kind": "item",
+            "label": "Tektronix extended HEX",
+            "raw_label": "Tektronix extended HEX",
+            "cmd": "IDM_LANG_TEHEX"
+          },
+          {
+            "kind": "item",
+            "label": "TeX",
+            "raw_label": "TeX",
+            "cmd": "IDM_LANG_TEX"
+          },
+          {
+            "kind": "item",
+            "label": "TOML",
+            "raw_label": "TOML",
+            "cmd": "IDM_LANG_TOML"
+          },
+          {
+            "kind": "item",
+            "label": "txt2tags",
+            "raw_label": "txt2tags",
+            "cmd": "IDM_LANG_TXT2TAGS"
+          },
+          {
+            "kind": "item",
+            "label": "TypeScript",
+            "raw_label": "TypeScript",
+            "cmd": "IDM_LANG_TYPESCRIPT"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "V",
+        "raw_label": "V",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Visual Basic",
+            "raw_label": "Visual Basic",
+            "cmd": "IDM_LANG_VB"
+          },
+          {
+            "kind": "item",
+            "label": "Visual Prolog",
+            "raw_label": "Visual Prolog",
+            "cmd": "IDM_LANG_VISUALPROLOG"
+          },
+          {
+            "kind": "item",
+            "label": "VHDL",
+            "raw_label": "VHDL",
+            "cmd": "IDM_LANG_VHDL"
+          },
+          {
+            "kind": "item",
+            "label": "Verilog",
+            "raw_label": "Verilog",
+            "cmd": "IDM_LANG_VERILOG"
+          }
+        ]
+      },
+      {
+        "kind": "item",
+        "label": "XML",
+        "raw_label": "XML",
+        "cmd": "IDM_LANG_XML"
+      },
+      {
+        "kind": "item",
+        "label": "YAML",
+        "raw_label": "YAML",
+        "cmd": "IDM_LANG_YAML"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "popup",
+        "label": "User Defined Language",
+        "raw_label": "User Defined Language",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Define your language...",
+            "raw_label": "Define your language...",
+            "cmd": "IDM_LANG_USER_DLG"
+          },
+          {
+            "kind": "item",
+            "label": "Open User Defined Language folder...",
+            "raw_label": "Open User Defined Language folder...",
+            "cmd": "IDM_LANG_OPENUDLDIR"
+          },
+          {
+            "kind": "item",
+            "label": "Notepad++ User Defined Languages Collection",
+            "raw_label": "Notepad++ User Defined Languages Collection",
+            "cmd": "IDM_LANG_UDLCOLLECTION_PROJECT_SITE"
+          }
+        ]
+      },
+      {
+        "kind": "item",
+        "label": "User-Defined",
+        "raw_label": "User-Defined",
+        "cmd": "IDM_LANG_USER"
+      }
+    ]
+  },
+  {
+    "kind": "popup",
+    "label": "Settings",
+    "raw_label": "Se&ttings",
+    "children": [
+      {
+        "kind": "item",
+        "label": "Preferences...",
+        "raw_label": "Preferences...",
+        "cmd": "IDM_SETTING_PREFERENCE"
+      },
+      {
+        "kind": "item",
+        "label": "Style Configurator...",
+        "raw_label": "Style Configurator...",
+        "cmd": "IDM_LANGSTYLE_CONFIG_DLG"
+      },
+      {
+        "kind": "item",
+        "label": "Shortcut Mapper...",
+        "raw_label": "Shortcut Mapper...",
+        "cmd": "IDM_SETTING_SHORTCUT_MAPPER"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "popup",
+        "label": "Import",
+        "raw_label": "Import",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Import plugin(s)...",
+            "raw_label": "Import plugin(s)...",
+            "cmd": "IDM_SETTING_IMPORTPLUGIN"
+          },
+          {
+            "kind": "item",
+            "label": "Import style theme(s)...",
+            "raw_label": "Import style theme(s)...",
+            "cmd": "IDM_SETTING_IMPORTSTYLETHEMES"
+          }
+        ]
+      },
+      {
+        "kind": "separator"
+      }
+    ]
+  },
+  {
+    "kind": "popup",
+    "label": "Tools",
+    "raw_label": "T&ools",
+    "children": [
+      {
+        "kind": "popup",
+        "label": "MD5",
+        "raw_label": "MD5",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Generate...",
+            "raw_label": "Generate...",
+            "cmd": "IDM_TOOL_MD5_GENERATE"
+          },
+          {
+            "kind": "item",
+            "label": "Generate from files...",
+            "raw_label": "Generate from files...",
+            "cmd": "IDM_TOOL_MD5_GENERATEFROMFILE"
+          },
+          {
+            "kind": "item",
+            "label": "Generate from selection into clipboard",
+            "raw_label": "Generate from selection into clipboard",
+            "cmd": "IDM_TOOL_MD5_GENERATEINTOCLIPBOARD"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "SHA-1",
+        "raw_label": "SHA-1",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Generate...",
+            "raw_label": "Generate...",
+            "cmd": "IDM_TOOL_SHA1_GENERATE"
+          },
+          {
+            "kind": "item",
+            "label": "Generate from files...",
+            "raw_label": "Generate from files...",
+            "cmd": "IDM_TOOL_SHA1_GENERATEFROMFILE"
+          },
+          {
+            "kind": "item",
+            "label": "Generate from selection into clipboard",
+            "raw_label": "Generate from selection into clipboard",
+            "cmd": "IDM_TOOL_SHA1_GENERATEINTOCLIPBOARD"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "SHA-256",
+        "raw_label": "SHA-256",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Generate...",
+            "raw_label": "Generate...",
+            "cmd": "IDM_TOOL_SHA256_GENERATE"
+          },
+          {
+            "kind": "item",
+            "label": "Generate from files...",
+            "raw_label": "Generate from files...",
+            "cmd": "IDM_TOOL_SHA256_GENERATEFROMFILE"
+          },
+          {
+            "kind": "item",
+            "label": "Generate from selection into clipboard",
+            "raw_label": "Generate from selection into clipboard",
+            "cmd": "IDM_TOOL_SHA256_GENERATEINTOCLIPBOARD"
+          }
+        ]
+      },
+      {
+        "kind": "popup",
+        "label": "SHA-512",
+        "raw_label": "SHA-512",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Generate...",
+            "raw_label": "Generate...",
+            "cmd": "IDM_TOOL_SHA512_GENERATE"
+          },
+          {
+            "kind": "item",
+            "label": "Generate from files...",
+            "raw_label": "Generate from files...",
+            "cmd": "IDM_TOOL_SHA512_GENERATEFROMFILE"
+          },
+          {
+            "kind": "item",
+            "label": "Generate from selection into clipboard",
+            "raw_label": "Generate from selection into clipboard",
+            "cmd": "IDM_TOOL_SHA512_GENERATEINTOCLIPBOARD"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "popup",
+    "label": "Macro",
+    "raw_label": "&Macro",
+    "children": [
+      {
+        "kind": "item",
+        "label": "Start Recording",
+        "raw_label": "Start Re&cording",
+        "cmd": "IDM_MACRO_STARTRECORDINGMACRO"
+      },
+      {
+        "kind": "item",
+        "label": "Stop Recording",
+        "raw_label": "S&top Recording",
+        "cmd": "IDM_MACRO_STOPRECORDINGMACRO"
+      },
+      {
+        "kind": "item",
+        "label": "Playback",
+        "raw_label": "&Playback",
+        "cmd": "IDM_MACRO_PLAYBACKRECORDEDMACRO"
+      },
+      {
+        "kind": "item",
+        "label": "Save Current Recorded Macro...",
+        "raw_label": "&Save Current Recorded Macro...",
+        "cmd": "IDM_MACRO_SAVECURRENTMACRO"
+      },
+      {
+        "kind": "item",
+        "label": "Run a Macro Multiple Times...",
+        "raw_label": "&Run a Macro Multiple Times...",
+        "cmd": "IDM_MACRO_RUNMULTIMACRODLG"
+      }
+    ]
+  },
+  {
+    "kind": "popup",
+    "label": "Run",
+    "raw_label": "&Run",
+    "children": [
+      {
+        "kind": "item",
+        "label": "Run...",
+        "raw_label": "&Run...",
+        "cmd": "IDM_EXECUTE"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Validate shortcuts.xml",
+        "raw_label": "Validate shortcuts.xml",
+        "cmd": "IDM_EXECUTE_VALIDATE_SHORTCUTSXML"
+      }
+    ]
+  },
+  {
+    "kind": "popup",
+    "label": "Plugins",
+    "raw_label": "&Plugins",
+    "children": [
+      {
+        "kind": "item",
+        "label": "Open Plugins Folder...",
+        "raw_label": "Open Plugins Folder...",
+        "cmd": "IDM_SETTING_OPENPLUGINSDIR"
+      }
+    ]
+  },
+  {
+    "kind": "popup",
+    "label": "Window",
+    "raw_label": "&Window",
+    "children": [
+      {
+        "kind": "popup",
+        "label": "Sort By",
+        "raw_label": "Sort By",
+        "children": [
+          {
+            "kind": "item",
+            "label": "Name A to Z",
+            "raw_label": "Name A to Z",
+            "cmd": "IDM_WINDOW_SORT_FN_ASC"
+          },
+          {
+            "kind": "item",
+            "label": "Name Z to A",
+            "raw_label": "Name Z to A",
+            "cmd": "IDM_WINDOW_SORT_FN_DSC"
+          },
+          {
+            "kind": "item",
+            "label": "Path A to Z",
+            "raw_label": "Path A to Z",
+            "cmd": "IDM_WINDOW_SORT_FP_ASC"
+          },
+          {
+            "kind": "item",
+            "label": "Path Z to A",
+            "raw_label": "Path Z to A",
+            "cmd": "IDM_WINDOW_SORT_FP_DSC"
+          },
+          {
+            "kind": "item",
+            "label": "Type A to Z",
+            "raw_label": "Type A to Z",
+            "cmd": "IDM_WINDOW_SORT_FT_ASC"
+          },
+          {
+            "kind": "item",
+            "label": "Type Z to A",
+            "raw_label": "Type Z to A",
+            "cmd": "IDM_WINDOW_SORT_FT_DSC"
+          },
+          {
+            "kind": "item",
+            "label": "Content Length Ascending",
+            "raw_label": "Content Length Ascending",
+            "cmd": "IDM_WINDOW_SORT_FS_ASC"
+          },
+          {
+            "kind": "item",
+            "label": "Content Length Descending",
+            "raw_label": "Content Length Descending",
+            "cmd": "IDM_WINDOW_SORT_FS_DSC"
+          },
+          {
+            "kind": "item",
+            "label": "Modified Time Ascending",
+            "raw_label": "Modified Time Ascending",
+            "cmd": "IDM_WINDOW_SORT_FD_ASC"
+          },
+          {
+            "kind": "item",
+            "label": "Modified Time Descending",
+            "raw_label": "Modified Time Descending",
+            "cmd": "IDM_WINDOW_SORT_FD_DSC"
+          }
+        ]
+      },
+      {
+        "kind": "item",
+        "label": "Windows...",
+        "raw_label": "&Windows...",
+        "cmd": "IDM_WINDOW_WINDOWS"
+      },
+      {
+        "kind": "separator"
+      }
+    ]
+  },
+  {
+    "kind": "popup",
+    "label": "?",
+    "raw_label": "&?",
+    "children": [
+      {
+        "kind": "item",
+        "label": "Command Line Arguments...",
+        "raw_label": "Command Line Arguments...",
+        "cmd": "IDM_CMDLINEARGUMENTS"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Notepad++ Home",
+        "raw_label": "Notepad++ Home",
+        "cmd": "IDM_HOMESWEETHOME"
+      },
+      {
+        "kind": "item",
+        "label": "Notepad++ Project Page",
+        "raw_label": "Notepad++ Project Page",
+        "cmd": "IDM_PROJECTPAGE"
+      },
+      {
+        "kind": "item",
+        "label": "Notepad++ Online User Manual",
+        "raw_label": "Notepad++ Online User Manual",
+        "cmd": "IDM_ONLINEDOCUMENT"
+      },
+      {
+        "kind": "item",
+        "label": "Notepad++ Community (Forum)",
+        "raw_label": "Notepad++ Community (Forum)",
+        "cmd": "IDM_FORUM"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Update Notepad++",
+        "raw_label": "Update Notepad++",
+        "cmd": "IDM_UPDATE_NPP"
+      },
+      {
+        "kind": "item",
+        "label": "Set Updater Proxy...",
+        "raw_label": "Set Updater Proxy...",
+        "cmd": "IDM_CONFUPDATERPROXY"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "label": "Debug Info...",
+        "raw_label": "Debug Info...",
+        "cmd": "IDM_DEBUGINFO"
+      },
+      {
+        "kind": "item",
+        "label": "About Notepad++",
+        "raw_label": "About Notepad++",
+        "cmd": "IDM_ABOUT"
+      }
+    ]
+  }
+]

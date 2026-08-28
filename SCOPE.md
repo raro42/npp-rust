@@ -14,12 +14,17 @@ Reference tree (read-only): [reference/notepad-plus-plus](reference/notepad-plus
 
 ## Done toward a serious editor
 
+- **Full Notepad++ main-menu tree** (574 items from `Notepad_plus.rc`) — wired commands work; others show a clear stub status
 - Double-click word / triple-click line / drag select
 - Tabs, Open Recent, Find / Replace
 - Rope buffer, undo/redo, indent/outdent, duplicate/delete line
 - Tree-sitter highlight: Rust, C, C++, Python, SQL, Markdown, JSON
 - Format Document for Python / C++ / SQL / Markdown (+ trim/EOL plugins)
-- In-process Plugins menu (builtin host; not N++ DLL plugins)
+- In-process Plugins builtins (plus N++ Plugins menu entries)
+
+## Tests
+
+See [TESTING.md](TESTING.md). CI runs `cargo test --workspace` on push; build alone does not run tests.
 
 ## Still not Notepad++
 
