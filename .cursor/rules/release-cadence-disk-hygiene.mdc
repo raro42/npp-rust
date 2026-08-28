@@ -1,0 +1,29 @@
+---
+description: Version commits, push main, daily release, keep disk clean
+alwaysApply: true
+---
+
+# Release cadence and disk hygiene
+
+## Version every meaningful commit set
+
+1. Bump `[workspace.package] version` in root `Cargo.toml` when shipping a release (semver).
+2. Put the version in the commit message when releasing, e.g. `release: v0.1.1 — menu ready colors`.
+3. Keep `CHANGELOG.md` in sync for each tagged release.
+4. Tag releases as `vMAJOR.MINOR.PATCH` and push the tag.
+
+## Push and release rhythm
+
+1. **Push to `main` at least every 12 hours** when there is unpublished work on `dev` (merge or fast-forward, then `git push origin main`).
+2. **Create a GitHub Release at least once per calendar day** when the project is active (tag + `docs/release.md` workflow). Prefer CI-built Linux and Windows binaries.
+3. Prefer branch `dev` for day-to-day work; keep `main` releasable.
+
+## Disk clean (once per day when active)
+
+1. Run `./scripts/daily-clean.sh` (or equivalent): `cargo clean`, remove local `dist/` / `release-tmp/`, stale `/tmp/npp-*` scratch, and old unzipped release folders in the repo.
+2. Do **not** keep piles of local release binaries. Prefer GitHub Release assets.
+3. Never delete the user’s unrelated Docker projects or files outside this repo.
+
+## First-party privacy
+
+Release notes and assets must not contain private paths, secrets, or emails. See `public-repo-no-exfiltration` rule.

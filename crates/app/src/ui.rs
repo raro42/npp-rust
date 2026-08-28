@@ -4,6 +4,9 @@ use crate::editor::EditorState;
 use eframe::egui::{self, Color32, FontId, Key, Pos2, Rect, RichText, Sense, Vec2};
 use highlight::color_for;
 
+/// Soft teal — ready menu items (works on light and dark themes).
+const MENU_READY: Color32 = Color32::from_rgb(42, 148, 118);
+
 pub struct EditorApp {
     state: EditorState,
     find_focus_once: bool,
@@ -221,7 +224,12 @@ impl EditorApp {
                 ui.separator();
             }
             MenuNode::Item { label, cmd } => {
-                if ui.button(label).clicked() {
+                let text = if crate::commands::is_implemented(cmd) {
+                    RichText::new(label).color(MENU_READY)
+                } else {
+                    RichText::new(label)
+                };
+                if ui.button(text).clicked() {
                     *run_cmd = Some(cmd.clone());
                     ui.close_menu();
                 }
@@ -234,7 +242,7 @@ impl EditorApp {
                     if is_file {
                         // Match N++: recent list near the end; we place after Open block via full tree,
                         // and also expose an explicit Recent submenu at the top of File for clarity.
-                        ui.menu_button("Recent Files", |ui| {
+                        ui.menu_button(RichText::new("Recent Files").color(MENU_READY), |ui| {
                             let recent_paths: Vec<_> = self.state.recent.paths().to_vec();
                             if recent_paths.is_empty() {
                                 ui.label(RichText::new("(empty)").italics().weak());
@@ -244,7 +252,7 @@ impl EditorApp {
                                     let label = crate::recent::recent_label(path);
                                     let exists = path.exists();
                                     let text = if exists {
-                                        RichText::new(format!("{}.  {label}", i + 1))
+                                        RichText::new(format!("{}.  {label}", i + 1)).color(MENU_READY)
                                     } else {
                                         RichText::new(format!("{}.  {label}  (missing)", i + 1))
                                             .weak()
@@ -258,7 +266,10 @@ impl EditorApp {
                                     }
                                 }
                                 ui.separator();
-                                if ui.button("Clear Recent Files").clicked() {
+                                if ui
+                                    .button(RichText::new("Clear Recent Files").color(MENU_READY))
+                                    .clicked()
+                                {
                                     self.state.clear_recent();
                                     ui.close_menu();
                                 }
@@ -279,11 +290,17 @@ impl EditorApp {
                         let host = plugins::PluginHost::new();
                         let mut run_id = None;
                         for p in host.list() {
-                            if ui.button(p.name()).clicked() {
+                            if ui
+                                .button(RichText::new(p.name()).color(MENU_READY))
+                                .clicked()
+                            {
                                 run_id = Some(p.id().to_string());
                             }
                         }
-                        if ui.button("Format Document").clicked() {
+                        if ui
+                            .button(RichText::new("Format Document").color(MENU_READY))
+                            .clicked()
+                        {
                             self.state.format_document();
                             ui.close_menu();
                         }

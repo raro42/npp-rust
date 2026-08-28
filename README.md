@@ -57,6 +57,18 @@ cargo test --workspace
 | `plugins` | Builtin plugin host |
 | `app` | egui UI and commands |
 
+## Docs
+
+| Doc | Topic |
+|-----|--------|
+| [SCOPE.md](SCOPE.md) | Feature boundary |
+| [TESTING.md](TESTING.md) | How tests run |
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
+| [docs/release.md](docs/release.md) | Version, CI, daily release |
+| [docs/agent-loop.md](docs/agent-loop.md) | GitHub issue agent loop |
+| [docs/security-public-repo.md](docs/security-public-repo.md) | No private data on public GitHub |
+| [AGENTS.md](AGENTS.md) | Short agent entry |
+
 ## License
 
 MIT. Separate project from Notepad++.

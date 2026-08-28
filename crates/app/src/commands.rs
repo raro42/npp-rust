@@ -30,6 +30,57 @@ pub enum CmdResult {
     Stub,
 }
 
+/// True when `dispatch` would return [`CmdResult::Handled`] (no side effects).
+pub fn is_implemented(cmd: &str) -> bool {
+    matches!(
+        cmd,
+        "IDM_FILE_NEW"
+            | "IDM_FILE_OPEN"
+            | "IDM_FILE_SAVE"
+            | "IDM_FILE_SAVEAS"
+            | "IDM_FILE_CLOSE"
+            | "IDM_FILE_CLOSEALL"
+            | "IDM_FILE_EXIT"
+            | "IDM_FILE_RELOAD"
+            | "IDM_EDIT_UNDO"
+            | "IDM_EDIT_REDO"
+            | "IDM_EDIT_CUT"
+            | "IDM_EDIT_COPY"
+            | "IDM_EDIT_PASTE"
+            | "IDM_EDIT_DELETE"
+            | "IDM_EDIT_SELECTALL"
+            | "IDM_EDIT_INS_TAB"
+            | "IDM_EDIT_RMV_TAB"
+            | "IDM_EDIT_UPPERCASE"
+            | "IDM_EDIT_LOWERCASE"
+            | "IDM_EDIT_DUP_LINE"
+            | "IDM_EDIT_TRIMTRAILING"
+            | "IDM_FORMAT_TOUNIX"
+            | "IDM_FORMAT_TODOS"
+            | "IDM_SEARCH_FIND"
+            | "IDM_SEARCH_REPLACE"
+            | "IDM_SEARCH_FINDNEXT"
+            | "IDM_SEARCH_FINDPREV"
+            | "IDM_VIEW_GOTO_START"
+            | "IDM_VIEW_GOTO_END"
+            | "IDM_LANG_C"
+            | "IDM_LANG_CPP"
+            | "IDM_LANG_JAVA"
+            | "IDM_LANG_JS"
+            | "IDM_LANG_JAVASCRIPT"
+            | "IDM_LANG_JSON"
+            | "IDM_LANG_HTML"
+            | "IDM_LANG_XML"
+            | "IDM_LANG_PYTHON"
+            | "IDM_LANG_SQL"
+            | "IDM_LANG_MD"
+            | "IDM_LANG_MARKDOWN"
+            | "IDM_LANG_RUST"
+            | "IDM_LANG_TEXT"
+            | "IDM_ABOUT"
+    ) || cmd.starts_with("IDM_LANG_")
+}
+
 /// Run a menu command. Returns whether it was implemented or only stubbed.
 pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResult {
     match cmd {
@@ -283,10 +334,6 @@ fn copy_selection(state: &mut EditorState, ui: &mut UiFlags) {
     }
 }
 
-pub fn stub_message(cmd: &str) -> String {
-    format!("Not implemented yet (Notepad++ parity stub): {cmd}")
-}
-
 /// Human-ish feature name from an `IDM_*` id.
 pub fn feature_name_from_cmd(cmd: &str) -> String {
     let raw = cmd.strip_prefix("IDM_").unwrap_or(cmd);
@@ -326,4 +373,19 @@ pub fn coming_soon_blurb(cmd: &str) -> &'static str {
         h = h.wrapping_mul(31).wrapping_add(u32::from(b));
     }
     LINES[(h as usize) % LINES.len()]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ready_commands_are_marked_implemented() {
+        assert!(is_implemented("IDM_FILE_NEW"));
+        assert!(is_implemented("IDM_ABOUT"));
+        assert!(is_implemented("IDM_LANG_RUST"));
+        assert!(is_implemented("IDM_LANG_FOO")); // language catch-all
+        assert!(!is_implemented("IDM_EDIT_CLIPBOARDHISTORY"));
+        assert!(!is_implemented("IDM_SETTING_PLUGINADM"));
+    }
 }
