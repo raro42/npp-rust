@@ -44,6 +44,8 @@ pub struct UiFlags {
     pub show_summary: bool,
     /// Show document list dialog.
     pub show_doc_list: bool,
+    /// Show Preferences dialog.
+    pub show_preferences: bool,
 }
 
 /// Content for the “working on it — come back tomorrow” dialog.

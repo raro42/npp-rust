@@ -26,10 +26,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_SETTING_PREFERENCE" => {
-            state.status = format!(
-                "Preferences: log-tail={:?} (open a .log to change)",
-                state.settings.log_tail_on_open
-            );
+            ui.show_preferences = true;
             CmdResult::Handled
         }
         "IDM_LANGSTYLE_CONFIG_DLG" => {

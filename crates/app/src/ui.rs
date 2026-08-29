@@ -15,6 +15,7 @@ pub struct EditorApp {
     /// When true, next paint scrolls so the caret stays in view.
     follow_caret: bool,
     show_about: bool,
+    show_preferences: bool,
     /// Checkbox state for the log-tail prompt.
     log_tail_remember: bool,
     /// Drag-select anchor (char index), while primary button is held.
@@ -43,6 +44,7 @@ impl EditorApp {
             scroll_line: 0.0,
             follow_caret: false,
             show_about: false,
+            show_preferences: false,
             log_tail_remember: true,
             drag_anchor: None,
             show_replace: false,
@@ -96,6 +98,7 @@ impl eframe::App for EditorApp {
         self.status_bar(ctx);
         self.editor_pane(ctx);
         self.about_window(ctx);
+        self.preferences_window(ctx);
         self.log_tail_prompt_window(ctx);
         self.unsaved_close_window(ctx);
         self.coming_soon_window(ctx);
@@ -220,6 +223,7 @@ impl EditorApp {
         let menu = crate::menu_data::load_npp_menu();
         let mut flags = crate::commands::UiFlags {
             show_about: self.show_about,
+            show_preferences: self.show_preferences,
             find_open: self.state.find_open,
             show_replace: self.show_replace,
             find_focus_once: self.find_focus_once,
@@ -249,6 +253,7 @@ impl EditorApp {
                 self.coming_soon = flags.coming_soon.take();
             }
             self.show_about = flags.show_about;
+            self.show_preferences = flags.show_preferences;
             self.state.find_open = flags.find_open;
             self.show_replace = flags.show_replace;
             self.find_focus_once = flags.find_focus_once;
@@ -534,6 +539,78 @@ Tree-sitter highlight, and a calm UI.",
             });
         if !open {
             self.show_about = false;
+        }
+    }
+
+    fn preferences_window(&mut self, ctx: &egui::Context) {
+        if !self.show_preferences {
+            return;
+        }
+        use crate::recent::LogTailOnOpen;
+        let mut open = true;
+        let mut changed = false;
+        egui::Window::new("Preferences")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .default_width(420.0)
+            .show(ctx, |ui| {
+                ui.label(RichText::new("When opening *.log files").strong());
+                ui.add_space(4.0);
+                let cur = &mut self.state.settings.log_tail_on_open;
+                if ui
+                    .radio_value(cur, LogTailOnOpen::Ask, "Ask each time")
+                    .changed()
+                {
+                    changed = true;
+                }
+                if ui
+                    .radio_value(cur, LogTailOnOpen::Always, "Always enable Monitoring (tail)")
+                    .changed()
+                {
+                    changed = true;
+                }
+                if ui
+                    .radio_value(cur, LogTailOnOpen::Never, "Never ask — open as a normal file")
+                    .changed()
+                {
+                    changed = true;
+                }
+                ui.add_space(10.0);
+                ui.label(RichText::new("Editor").strong());
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.label("Font size");
+                    if ui
+                        .add(egui::Slider::new(&mut self.font_size, 8.0..=48.0))
+                        .changed()
+                    {
+                        // Session only until we persist font size.
+                    }
+                });
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new(format!("Saved to {}", crate::recent::SETTINGS_REL))
+                        .small()
+                        .weak(),
+                );
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Close").clicked() {
+                        open = false;
+                    }
+                });
+            });
+        if changed {
+            self.state.settings.save();
+            self.state.status = format!(
+                "Preferences saved ({})",
+                crate::recent::SETTINGS_REL
+            );
+        }
+        if !open {
+            self.show_preferences = false;
         }
     }
 
