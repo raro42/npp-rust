@@ -67,6 +67,8 @@ pub struct TextBuffer {
     tx_edits: Vec<Edit>,
     /// Net line-structure change from the latest mutation (taken by Document remap).
     last_line_edit: Option<LineStructureEdit>,
+    /// Edit revision: +1 per new undo unit, -1 on undo, +1 on redo.
+    generation: u64,
 }
 
 impl Default for TextBuffer {
@@ -88,6 +90,7 @@ impl TextBuffer {
             tx_depth: 0,
             tx_edits: Vec::new(),
             last_line_edit: None,
+            generation: 0,
         }
     }
 
@@ -212,10 +215,17 @@ impl TextBuffer {
         self.break_typing_coalesce();
     }
 
-    fn break_typing_coalesce(&mut self) {
+    /// Current edit revision (Document dirty / save matching).
+    pub fn edit_generation(&self) -> u64 {
+        self.generation
+    }
+
+    /// Stop typing coalesce so the next insert is a new undo unit.
+    pub fn break_typing_coalesce(&mut self) {
         self.last_insert_end = None;
         self.last_insert_at = None;
     }
+
 
     pub fn clear_selection(&mut self) {
         self.sel_anchor = None;
@@ -929,6 +939,7 @@ impl TextBuffer {
             self.undo.pop_front();
         }
         self.undo.push_back(unit);
+        self.generation = self.generation.saturating_add(1);
     }
 
     /// Replace full document text and record one undo step (for UI sync).
@@ -975,6 +986,7 @@ impl TextBuffer {
         self.sel_anchor = None;
         self.break_typing_coalesce();
         self.last_line_edit = None;
+        self.generation = self.generation.saturating_sub(1);
         true
     }
 
@@ -994,6 +1006,7 @@ impl TextBuffer {
         self.sel_anchor = None;
         self.break_typing_coalesce();
         self.last_line_edit = None;
+        self.generation = self.generation.saturating_add(1);
         true
     }
 
@@ -1111,10 +1124,24 @@ mod tests {
         let mut b = TextBuffer::new();
         b.insert("hello");
         assert_eq!(b.to_string(), "hello");
+        assert_eq!(b.edit_generation(), 1);
         assert!(b.undo());
         assert_eq!(b.to_string(), "");
+        assert_eq!(b.edit_generation(), 0);
         assert!(b.redo());
         assert_eq!(b.to_string(), "hello");
+        assert_eq!(b.edit_generation(), 1);
+    }
+
+    #[test]
+    fn typing_coalesce_keeps_one_generation() {
+        let mut b = TextBuffer::new();
+        b.insert("a");
+        b.insert("b");
+        assert_eq!(b.edit_generation(), 1);
+        assert!(b.undo());
+        assert_eq!(b.to_string(), "");
+        assert_eq!(b.edit_generation(), 0);
     }
 
     #[test]
