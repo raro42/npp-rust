@@ -20,6 +20,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [menu-todo.md](menu-todo.md) | Menu stub inventory |
 | [whats-missing.md](whats-missing.md) | Coming Soon vs honest partials |
 | [status-bar-version.md](status-bar-version.md) | Commit hash link in the status bar |
+| [parallel-gap-sweep.md](parallel-gap-sweep.md) | Parallel agents on remaining gaps |
 | [project-taste.md](project-taste.md) | Taste / quality bar |
 | [notepad-plus-plus-github.md](notepad-plus-plus-github.md) | Upstream GitHub notes |
 | [cursor-skills.md](cursor-skills.md) | Where to put Rust vs project skills |
