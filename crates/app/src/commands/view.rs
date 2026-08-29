@@ -2,6 +2,18 @@
 use super::common::*;
 use super::{CmdResult, UiFlags};
 use crate::editor::EditorState;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Session preference for dual-view sync (no second pane yet).
+static SYNC_SCROLL_H: AtomicBool = AtomicBool::new(false);
+static SYNC_SCROLL_V: AtomicBool = AtomicBool::new(false);
+static ZOOM_SYNC: AtomicBool = AtomicBool::new(false);
+
+fn toggle_flag(flag: &AtomicBool) -> bool {
+    let next = !flag.load(Ordering::Relaxed);
+    flag.store(next, Ordering::Relaxed);
+    next
+}
 
 pub fn covers(cmd: &str) -> bool {
     cmd.starts_with("IDM_VIEW_")
@@ -150,8 +162,28 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.show_doc_list = true;
             CmdResult::Handled
         }
-        "IDM_VIEW_ZOOM_SYNC" | "IDM_VIEW_SYNSCROLLV" | "IDM_VIEW_SYNSCROLLH" => {
-            state.status = "Single view — sync has no second pane yet".into();
+        "IDM_VIEW_SYNSCROLLH" => {
+            let on = toggle_flag(&SYNC_SCROLL_H);
+            state.status = format!(
+                "Sync H scroll: {} (single view — no second pane)",
+                if on { "on" } else { "off" }
+            );
+            CmdResult::Handled
+        }
+        "IDM_VIEW_SYNSCROLLV" => {
+            let on = toggle_flag(&SYNC_SCROLL_V);
+            state.status = format!(
+                "Sync V scroll: {} (single view — no second pane)",
+                if on { "on" } else { "off" }
+            );
+            CmdResult::Handled
+        }
+        "IDM_VIEW_ZOOM_SYNC" => {
+            let on = toggle_flag(&ZOOM_SYNC);
+            state.status = format!(
+                "Zoom sync: {} (single view — no second pane)",
+                if on { "on" } else { "off" }
+            );
             CmdResult::Handled
         }
         "IDM_VIEW_IN_FIREFOX" | "IDM_VIEW_IN_CHROME" | "IDM_VIEW_IN_EDGE" | "IDM_VIEW_IN_IE" => {
@@ -217,7 +249,9 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_VIEW_GOTO_ANOTHER_VIEW" | "IDM_VIEW_SWITCHTO_OTHER_VIEW" => {
-            state.status = "Single view — no second pane yet".into();
+            // No dual view yet — document list is the useful stand-in.
+            ui.show_doc_list = true;
+            state.status = "Opened document list (no second view yet)".into();
             CmdResult::Handled
         }
         "IDM_VIEW_CLONE_TO_ANOTHER_VIEW" => {
@@ -292,16 +326,12 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             unfold_indent_level(state, level);
             CmdResult::Handled
         }
-        "IDM_VIEW_PROJECT_PANEL_1" => {
-            state.status = "Project Panel 1: not shown in this build".into();
-            CmdResult::Handled
-        }
-        "IDM_VIEW_PROJECT_PANEL_2" => {
-            state.status = "Project Panel 2: not shown in this build".into();
-            CmdResult::Handled
-        }
-        "IDM_VIEW_PROJECT_PANEL_3" => {
-            state.status = "Project Panel 3: not shown in this build".into();
+        "IDM_VIEW_PROJECT_PANEL_1"
+        | "IDM_VIEW_PROJECT_PANEL_2"
+        | "IDM_VIEW_PROJECT_PANEL_3" => {
+            // Project panels are not modelled — open the document list instead.
+            ui.show_doc_list = true;
+            state.status = "Opened document list (no project panel yet)".into();
             CmdResult::Handled
         }
         "IDM_VIEW_DOC_MAP" => {
