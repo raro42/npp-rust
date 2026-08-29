@@ -1,17 +1,19 @@
 //! Editor application state and commands.
 
 use crate::recent::{is_log_path, short_path_label, AppSettings, LogTailOnOpen, RecentFiles};
-use doc::{Document, DocumentId, FileEncoding, TabSet};
-use fs::{self, LoadChannel, LoadMsg, OpenResult, TailRead, TextEncoding, LARGE_FILE_THRESHOLD};
+use doc::{Document, FileEncoding, TabSet};
+use fs::{
+    self, LoadChannel, LoadMsg, OpenResult, TailChannel, TailMsg, TailOutcome, TextEncoding,
+    LARGE_FILE_THRESHOLD,
+};
 use highlight::SyntaxHighlighter;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-/// Pending async load keyed by document id + path (tabs can move/close).
+/// Pending async load keyed by path (not tab index — tabs can move/close).
 #[derive(Debug, Clone)]
 pub struct PendingLoad {
-    pub document_id: DocumentId,
     pub path: PathBuf,
 }
 
@@ -23,8 +25,10 @@ pub struct EditorState {
     pub highlighter: SyntaxHighlighter,
     pub load_channel: LoadChannel,
     pub pending: Vec<PendingLoad>,
-    /// Paths whose async load was cancelled (tab closed); late results drop.
-    cancelled_loads: HashSet<PathBuf>,
+    /// Background tail polls (GUI only applies [`TailMsg`]).
+    pub tail_channel: TailChannel,
+    /// Paths with an in-flight tail worker (one poll per path).
+    tail_inflight: HashSet<PathBuf>,
     /// Cached highlight spans for active doc.
     pub highlight_cache: Vec<highlight::Span>,
     pub highlight_lang: String,
@@ -35,7 +39,7 @@ pub struct EditorState {
     pub pending_log_tail_prompt: bool,
     /// UI should jump scroll to line 1 (set on open / new).
     pub reset_view: bool,
-    /// Last time we polled disk for tail follow.
+    /// Last time we scheduled disk polls for tail follow.
     tail_last_poll: Instant,
     /// Begin/End Select: first caret, or `None` when idle.
     pub begin_end_select: Option<usize>,
@@ -99,7 +103,8 @@ impl EditorState {
             highlighter: SyntaxHighlighter::new(),
             load_channel: LoadChannel::new(),
             pending: Vec::new(),
-            cancelled_loads: HashSet::new(),
+            tail_channel: TailChannel::new(),
+            tail_inflight: HashSet::new(),
             highlight_cache: Vec::new(),
             highlight_lang: String::new(),
             highlight_dirty: true,
@@ -318,15 +323,11 @@ impl EditorState {
         }
         match fs::file_size(&path) {
             Ok(size) if size >= LARGE_FILE_THRESHOLD => {
-                let id = self.tabs.alloc_id();
-                let mut doc = Document::from_path(id, path.clone(), String::new());
+                let mut doc = Document::from_path(path.clone(), String::new());
                 doc.loading = true;
                 doc.title = format!("{} (loading…)", doc.title);
                 self.tabs.open_document(doc);
-                self.pending.push(PendingLoad {
-                    document_id: id,
-                    path: path.clone(),
-                });
+                self.pending.push(PendingLoad { path: path.clone() });
                 self.recent.touch(&path);
                 fs::open_async(path.clone(), self.load_channel.tx.clone());
                 self.status = format!(
@@ -350,52 +351,36 @@ impl EditorState {
     }
 
     pub fn apply_open_result(&mut self, result: OpenResult) {
-        let pending = self
-            .pending
-            .iter()
-            .find(|p| p.path == result.path)
-            .cloned();
-        if let Some(ref p) = pending {
-            self.pending.retain(|x| x.document_id != p.document_id);
-        } else {
-            self.pending.retain(|p| p.path != result.path);
-        }
+        let was_pending = self.pending.iter().any(|p| p.path == result.path);
+        self.pending.retain(|p| p.path != result.path);
 
-        if let Some(pend) = pending {
-            // Apply only if that document id still exists and is still the
-            // loading placeholder for this path; else drop the result.
-            let ok = self.tabs.get_by_id(pend.document_id).is_some_and(|d| {
-                d.loading && d.path.as_ref() == Some(&result.path)
-            });
-            if !ok {
-                self.status = format!(
-                    "Load finished but tab was closed: {}",
-                    short_path_label(&result.path)
-                );
-                return;
-            }
-            let keep_id = pend.document_id;
-            if let Some(doc) = self.tabs.get_mut_by_id(keep_id) {
+        // Match the loading placeholder by path so tab move/sort/close cannot
+        // apply content to the wrong document.
+        let loading_idx = self
+            .tabs
+            .iter()
+            .enumerate()
+            .find(|(_, d)| d.path.as_ref() == Some(&result.path) && d.loading)
+            .map(|(i, _)| i);
+
+        if let Some(tab_index) = loading_idx {
+            if let Some(doc) = self.tabs.get_mut(tab_index) {
                 *doc = Document::from_path_with_encoding(
-                    keep_id,
                     result.path.clone(),
                     result.content,
                     file_encoding_from_fs(result.encoding),
                 );
-            }
-            if let Some(tab_index) = self.tabs.index_of_id(keep_id) {
                 self.tabs.set_active(tab_index);
             }
-        } else if self.cancelled_loads.remove(&result.path) {
+        } else if was_pending {
+            // User closed the placeholder while the load ran — do not reopen.
             self.status = format!(
                 "Load finished but tab was closed: {}",
                 short_path_label(&result.path)
             );
             return;
         } else {
-            let id = self.tabs.alloc_id();
             let doc = Document::from_path_with_encoding(
-                id,
                 result.path.clone(),
                 result.content,
                 file_encoding_from_fs(result.encoding),
@@ -488,32 +473,17 @@ impl EditorState {
         );
     }
 
-    /// Drop pending load for a closed tab (by document id; path is a backup key).
-    pub fn note_tab_closed(&mut self, document_id: DocumentId, path: Option<&std::path::Path>) {
-        let mut cancelled = Vec::new();
-        self.pending.retain(|p| {
-            let drop = p.document_id == document_id
-                || path.is_some_and(|path| p.path == path);
-            if drop {
-                cancelled.push(p.path.clone());
-                false
-            } else {
-                true
-            }
-        });
-        for p in cancelled {
-            self.cancelled_loads.insert(p);
+    /// Drop pending load and stop treating a closed tab as a load target.
+    pub fn note_tab_closed(&mut self, path: Option<&std::path::Path>) {
+        if let Some(path) = path {
+            self.pending.retain(|p| p.path != path);
         }
     }
 
-    /// Close a tab and cancel any pending load for its id/path.
+    /// Close a tab and cancel any pending load for its path.
     pub fn close_tab(&mut self, index: usize) {
-        let (id, path) = self
-            .tabs
-            .get(index)
-            .map(|d| (d.id, d.path.clone()))
-            .unwrap_or((0, None));
-        self.note_tab_closed(id, path.as_deref());
+        let path = self.tabs.get(index).and_then(|d| d.path.clone());
+        self.note_tab_closed(path.as_deref());
         self.tabs.close(index);
         self.highlight_dirty = true;
         if let Some(p) = self.pending_close {
@@ -754,24 +724,14 @@ impl EditorState {
             match msg {
                 LoadMsg::Done(result) => self.apply_open_result(result),
                 LoadMsg::Failed { path, error } => {
-                    let ids: Vec<DocumentId> = self
-                        .pending
-                        .iter()
-                        .filter(|p| p.path == path)
-                        .map(|p| p.document_id)
-                        .collect();
                     self.pending.retain(|p| p.path != path);
-                    self.cancelled_loads.remove(&path);
                     self.recent.remove(&path);
-                    let to_close: Vec<usize> = ids
-                        .into_iter()
-                        .filter_map(|id| {
-                            self.tabs.index_of_id(id).filter(|&i| {
-                                self.tabs
-                                    .get(i)
-                                    .is_some_and(|d| d.loading && d.path.as_ref() == Some(&path))
-                            })
-                        })
+                    let to_close: Vec<usize> = self
+                        .tabs
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, d)| d.path.as_ref() == Some(&path) && d.loading)
+                        .map(|(i, _)| i)
                         .collect();
                     for i in to_close.into_iter().rev() {
                         self.tabs.close(i);
@@ -1350,99 +1310,210 @@ impl EditorState {
         }
     }
 
-    /// Poll disk for growth on any tab with `tail_follow`. Returns true if active tab grew.
+    /// Apply queued tail results, then schedule background polls (~250 ms).
+    /// Returns true if the active tab grew (for scroll-follow).
     pub fn poll_tail(&mut self) -> bool {
+        let mut active_grew = self.drain_tail_msgs();
         if self.tail_last_poll.elapsed() < Duration::from_millis(250) {
-            return false;
+            return active_grew;
         }
         self.tail_last_poll = Instant::now();
+        self.schedule_tail_polls();
+        active_grew |= self.drain_tail_msgs();
+        active_grew
+    }
 
-        let active = self.tabs.active_index();
-        let mut active_grew = false;
+    fn schedule_tail_polls(&mut self) {
         let count = self.tabs.len();
         for i in 0..count {
-            let Some(doc) = self.tabs.get(i) else {
-                continue;
-            };
-            if !doc.tail_follow {
-                continue;
-            }
-            let Some(path) = doc.path.clone() else {
-                continue;
-            };
+            let Some(doc) = self.tabs.get(i) else { continue; };
+            if !doc.tail_follow { continue; }
+            let Some(path) = doc.path.clone() else { continue; };
+            if self.tail_inflight.contains(&path) { continue; }
             let offset = doc.tail_bytes;
-            let dirty = doc.dirty;
-            match fs::read_tail_since(&path, offset) {
-                Ok(TailRead::Unchanged { .. }) => {}
-                Ok(TailRead::Appended { text, size }) => {
-                    if let Some(d) = self.tabs.get_mut(i) {
-                        if dirty {
-                            d.tail_follow = false;
-                            if i == active {
-                                self.status = "Tail OFF — document has unsaved edits".into();
-                            }
-                            continue;
-                        }
-                        if !text.is_empty() {
-                            let end = d.buffer.len_chars();
-                            d.buffer.set_caret(end);
-                            d.buffer.insert(&text);
-                            // Appended bytes are already on disk.
-                            d.mark_clean();
-                            if i == active {
-                                active_grew = true;
-                                let n = text.lines().count().max(1);
-                                self.status = format!("Tail: +{n} line(s)");
-                            }
-                        }
-                        d.tail_bytes = size;
-                    }
-                    if i == active {
-                        self.highlight_dirty = true;
-                    }
-                }
-                Ok(TailRead::Rotated { .. }) => {
-                    if dirty {
-                        if let Some(d) = self.tabs.get_mut(i) {
-                            d.tail_follow = false;
-                        }
-                        if i == active {
-                            self.status =
-                                "Tail OFF — file rotated while document has unsaved edits".into();
-                        }
-                        continue;
-                    }
-                    match fs::read_file(&path) {
-                        Ok(r) => {
-                            if let Some(d) = self.tabs.get_mut(i) {
-                                d.buffer.replace_document(&r.content);
-                                d.tail_bytes = r.bytes;
-                                d.mark_clean();
-                                let end = d.buffer.len_chars();
-                                d.buffer.set_caret(end);
-                            }
-                            if i == active {
-                                self.highlight_dirty = true;
-                                active_grew = true;
-                                self.status = "Tail: file rotated — reloaded".into();
-                            }
-                        }
-                        Err(e) => {
-                            if i == active {
-                                self.status = format!("Tail reload failed: {e}");
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    if i == active {
-                        self.status = format!("Tail error: {e}");
-                    }
-                }
-            }
+            self.tail_inflight.insert(path.clone());
+            fs::poll_tail_async(path, offset, self.tail_channel.tx.clone());
+        }
+    }
+
+    fn drain_tail_msgs(&mut self) -> bool {
+        let mut active_grew = false;
+        while let Ok(msg) = self.tail_channel.rx.try_recv() {
+            active_grew |= self.apply_tail_msg(msg);
         }
         active_grew
     }
+
+    /// Apply one worker result. Keeps dirty/suspend policy; drops stale offsets.
+    pub fn apply_tail_msg(&mut self, msg: TailMsg) -> bool {
+        self.tail_inflight.remove(&msg.path);
+        let active = self.tabs.active_index();
+        let Some(i) = self
+            .tabs
+            .iter()
+            .enumerate()
+            .find(|(_, d)| d.path.as_ref() == Some(&msg.path) && d.tail_follow)
+            .map(|(i, _)| i)
+        else {
+            return false;
+        };
+        let Some(doc) = self.tabs.get(i) else { return false; };
+        if doc.tail_bytes != msg.offset {
+            return false;
+        }
+        let dirty = doc.dirty;
+        match msg.outcome {
+            Ok(TailOutcome::Unchanged { .. }) => false,
+            Ok(TailOutcome::Appended { text, size }) => {
+                if dirty {
+                    if let Some(d) = self.tabs.get_mut(i) {
+                        d.tail_follow = false;
+                    }
+                    if i == active {
+                        self.status = "Tail OFF — document has unsaved edits".into();
+                    }
+                    return false;
+                }
+                let mut grew = false;
+                if let Some(d) = self.tabs.get_mut(i) {
+                    if !text.is_empty() {
+                        let end = d.buffer.len_chars();
+                        d.buffer.set_caret(end);
+                        d.buffer.insert(&text);
+                        d.mark_clean();
+                        if i == active {
+                            grew = true;
+                            let n = text.lines().count().max(1);
+                            self.status = format!("Tail: +{n} line(s)");
+                        }
+                    }
+                    d.tail_bytes = size;
+                }
+                if i == active {
+                    self.highlight_dirty = true;
+                }
+                grew
+            }
+            Ok(TailOutcome::Rotated { content, bytes, encoding, .. }) => {
+                if dirty {
+                    if let Some(d) = self.tabs.get_mut(i) {
+                        d.tail_follow = false;
+                    }
+                    if i == active {
+                        self.status =
+                            "Tail OFF — file rotated while document has unsaved edits".into();
+                    }
+                    return false;
+                }
+                if let Some(d) = self.tabs.get_mut(i) {
+                    d.buffer.replace_document(&content);
+                    d.encoding = file_encoding_from_fs(encoding);
+                    d.tail_bytes = bytes;
+                    d.mark_clean();
+                    let end = d.buffer.len_chars();
+                    d.buffer.set_caret(end);
+                }
+                if i == active {
+                    self.highlight_dirty = true;
+                    self.status = "Tail: file rotated — reloaded".into();
+                    return true;
+                }
+                false
+            }
+            Ok(TailOutcome::RotatedReloadFailed { error, .. }) => {
+                if dirty {
+                    if let Some(d) = self.tabs.get_mut(i) {
+                        d.tail_follow = false;
+                    }
+                    if i == active {
+                        self.status =
+                            "Tail OFF — file rotated while document has unsaved edits".into();
+                    }
+                    return false;
+                }
+                if i == active {
+                    self.status = format!("Tail reload failed: {error}");
+                }
+                false
+            }
+            Err(e) => {
+                if i == active {
+                    self.status = format!("Tail error: {e}");
+                }
+                false
+            }
+        }
+    }
+
+    fn tail_doc(path: PathBuf, content: &str, offset: u64) -> Document {
+        let mut doc = Document::from_path(path, content.to_string());
+        doc.tail_follow = true;
+        doc.tail_bytes = offset;
+        doc.mark_clean();
+        doc
+    }
+
+    #[test]
+    fn apply_tail_appended_updates_buffer() {
+        let path = PathBuf::from("tail-apply-append.log");
+        let mut state = EditorState::new();
+        state.tabs.open_document(tail_doc(path.clone(), "line1\n", 6));
+        state.tail_inflight.insert(path.clone());
+        let grew = state.apply_tail_msg(TailMsg {
+            path: path.clone(),
+            offset: 6,
+            outcome: Ok(TailOutcome::Appended {
+                text: "line2\n".into(),
+                size: 12,
+            }),
+        });
+        assert!(grew);
+        assert!(!state.tail_inflight.contains(&path));
+        assert_eq!(state.tabs.active().buffer.to_string(), "line1\nline2\n");
+        assert_eq!(state.tabs.active().tail_bytes, 12);
+        assert!(state.tabs.active().tail_follow);
+        assert!(!state.tabs.active().dirty);
+    }
+
+    #[test]
+    fn apply_tail_appended_suspends_when_dirty() {
+        let path = PathBuf::from("tail-apply-dirty.log");
+        let mut state = EditorState::new();
+        let mut doc = tail_doc(path.clone(), "line1\n", 6);
+        doc.mark_dirty();
+        state.tabs.open_document(doc);
+        let grew = state.apply_tail_msg(TailMsg {
+            path: path.clone(),
+            offset: 6,
+            outcome: Ok(TailOutcome::Appended {
+                text: "line2\n".into(),
+                size: 12,
+            }),
+        });
+        assert!(!grew);
+        assert!(!state.tabs.active().tail_follow);
+        assert_eq!(state.tabs.active().buffer.to_string(), "line1\n");
+        assert!(state.status.contains("unsaved"));
+    }
+
+    #[test]
+    fn apply_tail_ignores_stale_offset() {
+        let path = PathBuf::from("tail-apply-stale.log");
+        let mut state = EditorState::new();
+        state.tabs.open_document(tail_doc(path.clone(), "line1\n", 12));
+        let grew = state.apply_tail_msg(TailMsg {
+            path,
+            offset: 6,
+            outcome: Ok(TailOutcome::Appended {
+                text: "stale\n".into(),
+                size: 12,
+            }),
+        });
+        assert!(!grew);
+        assert_eq!(state.tabs.active().buffer.to_string(), "line1\n");
+        assert_eq!(state.tabs.active().tail_bytes, 12);
+    }
+
 }
 
 fn file_encoding_from_fs(enc: TextEncoding) -> FileEncoding {
@@ -1512,74 +1583,27 @@ mod tests {
     }
 
     #[test]
-    fn pending_load_matches_by_id_after_reorder() {
+    fn pending_load_matches_by_path_not_index() {
         let mut state = EditorState::new();
         let path = PathBuf::from("pending-stability-demo.txt");
-        let id = state.tabs.alloc_id();
-        let mut placeholder = Document::from_path(id, path.clone(), String::new());
+        let mut placeholder = Document::from_path(path.clone(), String::new());
         placeholder.loading = true;
         state.tabs.open_document(placeholder);
-        state.pending.push(PendingLoad {
-            document_id: id,
-            path: path.clone(),
-        });
+        state.pending.push(PendingLoad { path: path.clone() });
+        // New tab + move: indices change; apply must still find by path.
         state.tabs.open_untitled();
-        let _ = state.tabs.move_tab(
-            state.tabs.index_of_id(id).expect("placeholder"),
-            0,
-        );
+        let _ = state.tabs.move_active_tab(-1);
         let result = OpenResult::new(path.clone(), "hello from async".into(), 16, 1);
         state.apply_open_result(result);
-        let doc = state.tabs.get_by_id(id).expect("doc by id");
+        let doc = state
+            .tabs
+            .iter()
+            .find(|d| d.path.as_ref() == Some(&path))
+            .expect("doc by path");
         assert!(!doc.loading);
         assert_eq!(doc.buffer.to_string(), "hello from async");
-        assert_eq!(doc.id, id);
     }
 
-    #[test]
-    fn pending_load_does_not_replace_wrong_tab_after_close() {
-        let mut state = EditorState::new();
-        let path_a = PathBuf::from("pending-a.txt");
-        let path_b = PathBuf::from("pending-b.txt");
-        let id_a = state.tabs.alloc_id();
-        let mut a = Document::from_path(id_a, path_a.clone(), String::new());
-        a.loading = true;
-        state.tabs.open_document(a);
-        state.pending.push(PendingLoad {
-            document_id: id_a,
-            path: path_a.clone(),
-        });
-        let id_b = state.tabs.alloc_id();
-        let mut b = Document::from_path(id_b, path_b.clone(), "other".into());
-        b.loading = false;
-        state.tabs.open_document(b);
-        let idx_a = state.tabs.index_of_id(id_a).expect("a");
-        state.close_tab(idx_a);
-        assert!(state.pending.iter().all(|p| p.document_id != id_a));
-        state.apply_open_result(OpenResult::new(path_a, "late content".into(), 12, 1));
-        assert!(state.tabs.get_by_id(id_a).is_none());
-        let doc_b = state.tabs.get_by_id(id_b).expect("b");
-        assert_eq!(doc_b.buffer.to_string(), "other");
-        assert!(state.status.contains("tab was closed"));
-    }
-
-    #[test]
-    fn pending_load_drops_when_id_no_longer_loading() {
-        let mut state = EditorState::new();
-        let path = PathBuf::from("pending-not-loading.txt");
-        let id = state.tabs.alloc_id();
-        let mut placeholder = Document::from_path(id, path.clone(), "keep".into());
-        placeholder.loading = false;
-        state.tabs.open_document(placeholder);
-        state.pending.push(PendingLoad {
-            document_id: id,
-            path: path.clone(),
-        });
-        state.apply_open_result(OpenResult::new(path, "should not apply".into(), 16, 1));
-        let doc = state.tabs.get_by_id(id).expect("doc");
-        assert_eq!(doc.buffer.to_string(), "keep");
-        assert!(state.status.contains("tab was closed"));
-    }
     #[test]
     fn opening_log_asks_to_tail_by_default() {
         let dir = std::env::temp_dir().join("npp-rs-log-ask-test");

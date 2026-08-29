@@ -103,6 +103,55 @@ impl Default for LoadChannel {
     }
 }
 
+/// Max bytes read in one tail poll (keeps bursts bounded).
+pub const TAIL_MAX_CHUNK: u64 = 1024 * 1024;
+
+/// Outcome of one background tail poll (GUI applies this; no disk I/O on UI thread).
+#[derive(Debug)]
+pub enum TailOutcome {
+    /// No new data (size == offset).
+    Unchanged { size: u64 },
+    /// Appended UTF-8 text (lossy) and new file offset after a complete decode.
+    Appended { text: String, size: u64 },
+    /// File shrank; worker already reloaded content for the GUI.
+    Rotated {
+        content: String,
+        bytes: u64,
+        encoding: TextEncoding,
+        encoding_note: Option<String>,
+    },
+    /// File shrank but reload failed.
+    RotatedReloadFailed { size: u64, error: String },
+}
+
+/// Message from a background tail worker.
+#[derive(Debug)]
+pub struct TailMsg {
+    pub path: PathBuf,
+    /// Offset the worker was asked to read from (GUI drops stale results).
+    pub offset: u64,
+    pub outcome: std::result::Result<TailOutcome, String>,
+}
+
+/// Channel pair for background tail polls.
+pub struct TailChannel {
+    pub tx: Sender<TailMsg>,
+    pub rx: Receiver<TailMsg>,
+}
+
+impl TailChannel {
+    pub fn new() -> Self {
+        let (tx, rx) = mpsc::channel();
+        Self { tx, rx }
+    }
+}
+
+impl Default for TailChannel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Decode file bytes to a UTF-8 string and an encoding label.
 pub fn decode_bytes(buf: &[u8]) -> (String, TextEncoding, Option<String>) {
     let has_bom = buf.starts_with(UTF8_BOM_BYTES);
@@ -273,8 +322,7 @@ pub fn read_tail_since(path: &Path, offset: u64) -> Result<TailRead> {
     }
     use std::io::{Seek, SeekFrom};
     // Cap one poll so a huge burst cannot freeze or OOM the UI.
-    const MAX_CHUNK: u64 = 1024 * 1024;
-    let want = (size - offset).min(MAX_CHUNK);
+    let want = (size - offset).min(TAIL_MAX_CHUNK);
     let mut file = File::open(path)?;
     file.seek(SeekFrom::Start(offset))?;
     let mut buf = vec![0u8; want as usize];
@@ -294,6 +342,34 @@ pub fn read_tail_since(path: &Path, offset: u64) -> Result<TailRead> {
         text,
         size: new_offset,
     })
+}
+
+/// Run [`read_tail_since`] (and rotate reload) on a worker thread; send [`TailMsg`].
+pub fn poll_tail_async(path: PathBuf, offset: u64, tx: Sender<TailMsg>) {
+    thread::spawn(move || {
+        let outcome = match read_tail_since(&path, offset) {
+            Ok(TailRead::Unchanged { size }) => Ok(TailOutcome::Unchanged { size }),
+            Ok(TailRead::Appended { text, size }) => Ok(TailOutcome::Appended { text, size }),
+            Ok(TailRead::Rotated { size }) => match read_file(&path) {
+                Ok(r) => Ok(TailOutcome::Rotated {
+                    content: r.content,
+                    bytes: r.bytes,
+                    encoding: r.encoding,
+                    encoding_note: r.encoding_note,
+                }),
+                Err(e) => Ok(TailOutcome::RotatedReloadFailed {
+                    size,
+                    error: e.to_string(),
+                }),
+            },
+            Err(e) => Err(e.to_string()),
+        };
+        let _ = tx.send(TailMsg {
+            path,
+            offset,
+            outcome,
+        });
+    });
 }
 
 /// Decode as much valid UTF-8 as possible from `buf`.
@@ -674,6 +750,40 @@ mod tests {
         let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o640);
         assert_eq!(read_file(&path).unwrap().content, "b");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn poll_tail_async_sends_appended() {
+        let dir = std::env::temp_dir().join(format!(
+            "npp-rs-fs-tail-async-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        let _ = fs::create_dir_all(&dir);
+        let path = dir.join("tail-async.log");
+        write_file(&path, "line1\n").unwrap();
+        let size = file_size(&path).unwrap();
+        {
+            use std::io::Write;
+            let mut f = fs::OpenOptions::new().append(true).open(&path).unwrap();
+            f.write_all(b"line2\n").unwrap();
+        }
+        let ch = TailChannel::new();
+        poll_tail_async(path.clone(), size, ch.tx.clone());
+        let msg = ch.rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert_eq!(msg.path, path);
+        assert_eq!(msg.offset, size);
+        match msg.outcome.unwrap() {
+            TailOutcome::Appended { text, size: new } => {
+                assert_eq!(text, "line2\n");
+                assert!(new > size);
+            }
+            other => panic!("expected append: {other:?}"),
+        }
         let _ = fs::remove_dir_all(&dir);
     }
 }

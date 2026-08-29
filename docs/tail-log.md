@@ -9,8 +9,9 @@ Date: 2026-08-29
 3. Check **Remember** to store `always` or `never` in `npp-rs/settings.json` (next to recent files).
 4. Or toggle tail later via **status bar `tail` / `TAIL`**, **View → Monitoring (tail -f)**, or **⌘/Ctrl+⇧+T**.
 5. Status bar shows teal **TAIL** when on, weak **tail** when off. Tab title shows `[tail]`.
-6. New lines append automatically (~250–300 ms poll). View follows the end.
-7. Choose the same menu item again to stop. Log rotate (file shrinks) reloads the buffer.
+6. New lines append automatically (~250–300 ms poll). Disk reads run on a worker thread; the UI only applies results. View follows the end.
+7. Choose the same menu item again to stop. Log rotate (file shrinks) reloads the buffer on the worker, then the UI applies it.
+8. Unsaved edits refuse/suspend Monitoring. Incomplete UTF-8 at a chunk end waits for the next poll.
 
 ## Discover logs
 
