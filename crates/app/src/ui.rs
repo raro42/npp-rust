@@ -237,6 +237,7 @@ impl eframe::App for EditorApp {
         self.about_window(ctx);
         self.preferences_window(ctx);
         self.log_tail_prompt_window(ctx);
+        self.encoding_notice_window(ctx);
         self.unsaved_close_window(ctx);
         self.coming_soon_window(ctx);
         self.goto_line_window(ctx);
@@ -912,6 +913,15 @@ Tree-sitter highlight, and a calm UI.",
             // Window closed: dismiss once; do not persist.
             self.state.pending_log_tail_prompt = false;
         }
+    }
+
+    fn encoding_notice_window(&mut self, ctx: &egui::Context) {
+        let Some(msg) = self.state.pending_encoding_notice.clone() else { return; };
+        let mut dismiss = false; let mut open = true;
+        egui::Window::new("Encoding notice").open(&mut open).collapsible(false).resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).default_width(420.0)
+            .show(ctx, |ui| { ui.label(&msg); ui.add_space(8.0); if ui.button("OK").clicked() { dismiss = true; } });
+        if dismiss || !open { self.state.pending_encoding_notice = None; }
     }
 
     fn unsaved_close_window(&mut self, ctx: &egui::Context) {

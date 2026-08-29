@@ -12,9 +12,15 @@ The editor always keeps text as UTF-8 in the buffer.
 |------------|--------|
 | Valid UTF-8 with BOM | UTF-8-BOM (keeps U+FEFF in memory) |
 | Valid UTF-8, no BOM | UTF-8 |
-| Not valid UTF-8 | Windows-1252 decode (lossy stand-in for ANSI) |
+| Not valid UTF-8 | Windows-1252 decode (no U+FFFD); tab encoding set for save |
 
-The tab stores the chosen encoding for the next save.
+Open never uses `String::from_utf8_lossy`. Invalid bytes do not become permanent UTF-8 replacement characters.
+
+The status bar reports the fallback. The tab stores the chosen encoding for the next save.
+
+## Tail follow
+
+Appended chunks keep valid UTF-8. Invalid bytes map via Windows-1252. Status shows a note when that happens.
 
 ## Save (Format menu)
 
@@ -26,6 +32,6 @@ The tab stores the chosen encoding for the next save.
 
 ## Code
 
-- `fs::write_file_with_encoding` — `crates/fs` (atomic: temp sibling + `sync_all` + rename; no auto parent dirs)
+- `fs::decode_bytes` / `fs::count_windows_1252_unmapped` — `crates/fs`
 - `Document.encoding` / `FileEncoding` — `crates/doc`
 - Format handlers — `crates/app/src/commands/format.rs`

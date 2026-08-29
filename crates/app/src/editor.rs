@@ -42,6 +42,7 @@ pub struct EditorState {
     pub settings: AppSettings,
     /// After opening `*.log`, UI may show the tail prompt.
     pub pending_log_tail_prompt: bool,
+    pub pending_encoding_notice: Option<String>,
     /// UI should jump scroll to line 1 (set on open / new).
     pub reset_view: bool,
     /// Last time we scheduled disk polls for tail follow.
@@ -74,6 +75,8 @@ pub struct EditorState {
     pub compare_stale: bool,
     /// Before-edit line snap for change-history remap (tab, snap).
     pending_edit_snap: Option<(usize, doc::LineEditSnap)>,
+    /// Folder shown in the Project panel (cwd by default).
+    pub workspace_root: PathBuf,
 }
 
 /// Bulk close mode after a dirty-tab confirm.
@@ -118,6 +121,7 @@ impl EditorState {
             recent: RecentFiles::load(),
             settings,
             pending_log_tail_prompt: false,
+            pending_encoding_notice: None,
             reset_view: false,
             tail_last_poll: Instant::now() - Duration::from_secs(1),
             begin_end_select: None,
@@ -483,6 +487,9 @@ impl EditorState {
                 result.encoding.label()
             ),
         };
+        if let Some(note) = &result.encoding_note {
+            self.pending_encoding_notice = Some(format!("{name}: {note}"));
+        }
         self.after_open_log_policy(&result.path);
     }
 
@@ -876,7 +883,8 @@ impl EditorState {
                 doc.promote_change_history_on_save();
                 self.recent.touch(path);
                 self.highlight_dirty = true;
-                self.status = format!("Saved {} ({})", path.display(), encoding.label());
+                let unmapped = if encoding == FileEncoding::Windows1252 { fs::count_windows_1252_unmapped(&content) } else { 0 };
+                self.status = if unmapped > 0 { format!("Saved {} ({}) — {} char(s) became '?'", path.display(), encoding.label(), unmapped) } else { format!("Saved {} ({})", path.display(), encoding.label()) };
                 true
             }
             Err(e) => {
@@ -1196,6 +1204,31 @@ impl EditorState {
         }
     }
 
+
+    pub fn pick_workspace_folder(&mut self) {
+        if let Some(dir) = rfd::FileDialog::new()
+            .set_title("Open Folder as Workspace")
+            .pick_folder()
+        {
+            self.workspace_root = dir;
+            self.status = format!("Workspace: {}", self.workspace_root.display());
+        } else {
+            self.status = "Workspace folder pick cancelled".into();
+        }
+    }
+
+    pub fn set_workspace_from_active(&mut self) {
+        if let Some(path) = self.tabs.active().path.clone() {
+            if let Some(parent) = path.parent() {
+                self.workspace_root = parent.to_path_buf();
+                self.status = format!("Workspace: {}", self.workspace_root.display());
+                return;
+            }
+        }
+        self.workspace_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        self.status = format!("Workspace: {} (cwd)", self.workspace_root.display());
+    }
+
     pub fn open_containing_folder(&mut self) {
         let Some(path) = self.tabs.active().path.clone() else {
             self.status = "No file path — save first".into();
@@ -1472,7 +1505,7 @@ impl EditorState {
         let dirty = doc.dirty;
         match msg.outcome {
             Ok(TailOutcome::Unchanged { .. }) => false,
-            Ok(TailOutcome::Appended { text, size }) => {
+            Ok(TailOutcome::Appended { text, size, encoding_note }) => {
                 if dirty {
                     if let Some(d) = self.tabs.get_mut(i) {
                         d.tail_follow = false;
@@ -1492,7 +1525,10 @@ impl EditorState {
                         if i == active {
                             grew = true;
                             let n = text.lines().count().max(1);
-                            self.status = format!("Tail: +{n} line(s)");
+                            self.status = match &encoding_note {
+                                Some(note) => format!("Tail: +{n} line(s) — {note}"),
+                                None => format!("Tail: +{n} line(s)"),
+                            };
                         }
                     }
                     d.tail_bytes = size;
@@ -1636,7 +1672,7 @@ mod tests {
             outcome: Ok(TailOutcome::Appended {
                 text: "line2\n".into(),
                 size: 12,
-            }),
+            , encoding_note: None }),
         });
         assert!(grew);
         assert!(!state.tail_inflight.contains(&path));
@@ -1659,7 +1695,7 @@ mod tests {
             outcome: Ok(TailOutcome::Appended {
                 text: "line2\n".into(),
                 size: 12,
-            }),
+            , encoding_note: None }),
         });
         assert!(!grew);
         assert!(!state.tabs.active().tail_follow);
@@ -1679,7 +1715,7 @@ mod tests {
             outcome: Ok(TailOutcome::Appended {
                 text: "stale\n".into(),
                 size: 12,
-            }),
+            , encoding_note: None }),
         });
         assert!(!grew);
         assert_eq!(state.tabs.active().buffer.to_string(), "line1\n");

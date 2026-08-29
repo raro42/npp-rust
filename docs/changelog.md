@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.2.10] — 2026-08-29
+
+### Encoding honesty
+
+- Open/tail never insert U+FFFD via `from_utf8_lossy`; invalid UTF-8 uses Windows-1252 with clear status
+- Tests cover invalid byte sequences (`docs/encoding.md`)
+
 ## [0.2.9] — 2026-08-29
 
 ### Undo

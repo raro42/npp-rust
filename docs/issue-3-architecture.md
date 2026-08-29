@@ -26,7 +26,7 @@ Issue: https://github.com/raro42/npp-rust/issues/3
 |-------|------|-------------|
 | F | `crates/fs` save path | **Done** — atomic save (temp sibling + `sync_all` + rename); no auto parent dirs; tests; std Windows replace |
 | G | `crates/buffer` undo | **Done** — `with_transaction`; typing coalesce (kind/adjacency/time); indent/replace/join tests |
-| H | `crates/fs` + `editor` open | Invalid UTF-8: no silent lossy permanent corruption — detect/reject or keep encoding metadata; honest status |
+| H | `crates/fs` + `editor` open | **Done** — no `from_utf8_lossy` on open/tail; Windows-1252 + encoding metadata; status; tests |
 | I | `.github/workflows/ci.yml` (+ toolchain if needed) | **Done** — `fmt --check` + `clippy -D warnings` on OS matrix; `rust-toolchain.toml` (stable + rustfmt/clippy) |
 | J | `crates/highlight` + `editor` refresh | **Done** — linear byte→char; viewport window; `docs/highlight-viewport.md` |
 

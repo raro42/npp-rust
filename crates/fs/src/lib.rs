@@ -1,7 +1,8 @@
 //! File open/save with optional background loading for large files.
 //!
 //! Text load/save uses UTF-8 in memory. On load, a UTF-8 BOM is kept as U+FEFF.
-//! Bytes that are not valid UTF-8 decode as Windows-1252 (lossy stand-in for ANSI).
+//! Bytes that are not valid UTF-8 decode as Windows-1252 (ANSI stand-in).
+//! Open and tail never use `String::from_utf8_lossy` (no silent U+FFFD corruption).
 
 use std::fs::{self, File};
 use std::io::{Read, Write};
@@ -112,7 +113,11 @@ pub enum TailOutcome {
     /// No new data (size == offset).
     Unchanged { size: u64 },
     /// Appended UTF-8 text (lossy) and new file offset after a complete decode.
-    Appended { text: String, size: u64 },
+    Appended {
+        text: String,
+        size: u64,
+        encoding_note: Option<String>,
+    },
     /// File shrank; worker already reloaded content for the GUI.
     Rotated {
         content: String,
@@ -153,6 +158,9 @@ impl Default for TailChannel {
 }
 
 /// Decode file bytes to a UTF-8 string and an encoding label.
+///
+/// Never inserts U+FFFD. Invalid UTF-8 uses Windows-1252 for the whole buffer
+/// and returns an honest `encoding_note` for the UI.
 pub fn decode_bytes(buf: &[u8]) -> (String, TextEncoding, Option<String>) {
     let has_bom = buf.starts_with(UTF8_BOM_BYTES);
     let body = if has_bom { &buf[3..] } else { buf };
@@ -173,7 +181,11 @@ pub fn decode_bytes(buf: &[u8]) -> (String, TextEncoding, Option<String>) {
 
     // Not valid UTF-8 (ignore a false BOM prefix — decode the whole buffer).
     let content = decode_windows_1252(buf);
-    let note = Some("Not valid UTF-8; decoded as Windows-1252".to_string());
+    debug_assert!(!content.contains('\u{FFFD}'), "decode must not insert UTF-8 replacement characters");
+    let note = Some(
+        "Not valid UTF-8; decoded as Windows-1252. Save keeps that encoding unless you change Format."
+            .to_string(),
+    );
     (content, TextEncoding::Windows1252, note)
 }
 
@@ -306,8 +318,13 @@ pub fn file_size(path: &Path) -> Result<u64> {
 pub enum TailRead {
     /// No new data (size == offset).
     Unchanged { size: u64 },
-    /// Appended UTF-8 text (lossy) and new file size.
-    Appended { text: String, size: u64 },
+    /// Appended text (invalid bytes use Windows-1252, not U+FFFD).
+    Appended {
+        text: String,
+        size: u64,
+        /// Set when any byte in the chunk was not valid UTF-8.
+        encoding_note: Option<String>,
+    },
     /// File smaller than offset — likely rotated/truncated.
     Rotated { size: u64 },
 }
@@ -336,11 +353,12 @@ pub fn read_tail_since(path: &Path, offset: u64) -> Result<TailRead> {
         }
     }
     buf.truncate(read_total);
-    let (text, consumed) = decode_utf8_prefix(&buf);
+    let (text, consumed, encoding_note) = decode_utf8_prefix(&buf);
     let new_offset = offset + consumed;
     Ok(TailRead::Appended {
         text,
         size: new_offset,
+        encoding_note,
     })
 }
 
@@ -349,7 +367,7 @@ pub fn poll_tail_async(path: PathBuf, offset: u64, tx: Sender<TailMsg>) {
     thread::spawn(move || {
         let outcome = match read_tail_since(&path, offset) {
             Ok(TailRead::Unchanged { size }) => Ok(TailOutcome::Unchanged { size }),
-            Ok(TailRead::Appended { text, size }) => Ok(TailOutcome::Appended { text, size }),
+            Ok(TailRead::Appended { text, size, encoding_note }) => Ok(TailOutcome::Appended { text, size, encoding_note }),
             Ok(TailRead::Rotated { size }) => match read_file(&path) {
                 Ok(r) => Ok(TailOutcome::Rotated {
                     content: r.content,
@@ -372,12 +390,48 @@ pub fn poll_tail_async(path: PathBuf, offset: u64, tx: Sender<TailMsg>) {
     });
 }
 
-/// Decode as much valid UTF-8 as possible from `buf`.
+/// Decode as much text as possible from `buf`.
 /// Incomplete trailing multi-byte sequences are left for the next poll.
-fn decode_utf8_prefix(buf: &[u8]) -> (String, u64) {
+/// Invalid complete bytes use Windows-1252 (never U+FFFD).
+fn decode_utf8_prefix(buf: &[u8]) -> (String, u64, Option<String>) {
     let end = utf8_complete_len(buf);
-    let text = String::from_utf8_lossy(&buf[..end]).into_owned();
-    (text, end as u64)
+    let slice = &buf[..end];
+    match std::str::from_utf8(slice) {
+        Ok(s) => (s.to_owned(), end as u64, None),
+        Err(_) => {
+            let (text, used_fallback) = decode_utf8_with_1252_fallback(slice);
+            let note = used_fallback.then(|| {
+                "Tail: invalid UTF-8 bytes decoded as Windows-1252 (not U+FFFD)".to_string()
+            });
+            (text, end as u64, note)
+        }
+    }
+}
+
+/// Walk `buf`: keep valid UTF-8 runs; map each invalid byte via Windows-1252.
+fn decode_utf8_with_1252_fallback(buf: &[u8]) -> (String, bool) {
+    let mut out = String::with_capacity(buf.len());
+    let mut i = 0;
+    let mut used_fallback = false;
+    while i < buf.len() {
+        match std::str::from_utf8(&buf[i..]) {
+            Ok(s) => { out.push_str(s); break; }
+            Err(e) => {
+                let valid = e.valid_up_to();
+                if valid > 0 {
+                    out.push_str(std::str::from_utf8(&buf[i..i + valid]).expect("valid_up_to"));
+                    i += valid;
+                }
+                let bad_len = e.error_len().unwrap_or(1).max(1);
+                let take = bad_len.min(buf.len() - i);
+                for &b in &buf[i..i + take] { out.push(windows_1252_char(b)); }
+                used_fallback = true;
+                i += take;
+            }
+        }
+    }
+    debug_assert!(!out.contains('\u{FFFD}'));
+    (out, used_fallback)
 }
 
 fn utf8_complete_len(buf: &[u8]) -> usize {
@@ -538,6 +592,12 @@ pub fn encode_windows_1252_lossy(text: &str) -> Vec<u8> {
     out
 }
 
+/// Count characters that become `?` under Windows-1252 encode (for honest save status).
+pub fn count_windows_1252_unmapped(text: &str) -> usize {
+    let body = text.strip_prefix(UTF8_BOM_CHAR).unwrap_or(text);
+    body.chars().filter(|c| windows_1252_byte(*c).is_none()).count()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -682,7 +742,8 @@ mod tests {
             f.write_all(b"line2\n").unwrap();
         }
         let after_append = match read_tail_since(&path, size).unwrap() {
-            TailRead::Appended { text, size: new } => {
+            TailRead::Appended { text, size: new, encoding_note } => {
+                assert!(encoding_note.is_none());
                 assert_eq!(text, "line2\n");
                 assert!(new > size);
                 new
@@ -701,9 +762,10 @@ mod tests {
     fn utf8_complete_len_drops_partial_trailing() {
         assert_eq!(utf8_complete_len(&[0x41, 0xC3]), 1);
         assert_eq!(utf8_complete_len(&[0x41, 0xC3, 0xA9]), 3);
-        let (text, n) = decode_utf8_prefix(&[0x41, 0xC3]);
+        let (text, n, note) = decode_utf8_prefix(&[0x41, 0xC3]);
         assert_eq!(text, "A");
         assert_eq!(n, 1);
+        assert!(note.is_none());
     }
 
     #[test]
@@ -778,7 +840,8 @@ mod tests {
         assert_eq!(msg.path, path);
         assert_eq!(msg.offset, size);
         match msg.outcome.unwrap() {
-            TailOutcome::Appended { text, size: new } => {
+            TailOutcome::Appended { text, size: new, encoding_note } => {
+                assert!(encoding_note.is_none());
                 assert_eq!(text, "line2\n");
                 assert!(new > size);
             }
@@ -786,4 +849,65 @@ mod tests {
         }
         let _ = fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn decode_invalid_utf8_never_inserts_fffd() {
+        let cases: &[&[u8]] = &[
+            &[0xC0, 0x80], &[0xFF], &[b'a', 0xE2, 0x82, b'b'],
+            &[0xF5, 0x80, 0x80, 0x80], &[b'h', b'i', 0x80, b'!'],
+        ];
+        for raw in cases {
+            let (content, enc, note) = decode_bytes(raw);
+            assert_eq!(enc, TextEncoding::Windows1252, "raw={raw:?}");
+            assert!(note.is_some(), "raw={raw:?}");
+            assert!(!content.contains('\u{FFFD}'), "U+FFFD in {content:?} for {raw:?}");
+        }
+    }
+
+    #[test]
+    fn load_invalid_sequence_sets_encoding_for_save() {
+        let dir = std::env::temp_dir().join("npp-rs-fs-test");
+        let _ = fs::create_dir_all(&dir);
+        let path = dir.join("bad-utf8.txt");
+        fs::write(&path, [0xC3u8, b'X']).unwrap();
+        let r = read_file(&path).unwrap();
+        assert_eq!(r.encoding, TextEncoding::Windows1252);
+        assert!(r.encoding_note.is_some());
+        assert!(!r.content.contains('\u{FFFD}'));
+        write_file_with_encoding(&path, &r.content, r.encoding).unwrap();
+        let raw = fs::read(&path).unwrap();
+        assert!(!raw.windows(3).any(|w| w == [0xEF, 0xBF, 0xBD]));
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn tail_invalid_bytes_use_1252_not_fffd() {
+        let dir = std::env::temp_dir().join("npp-rs-fs-test");
+        let _ = fs::create_dir_all(&dir);
+        let path = dir.join("tail-bad.log");
+        write_file(&path, "ok\n").unwrap();
+        let size = file_size(&path).unwrap();
+        {
+            use std::io::Write;
+            let mut f = fs::OpenOptions::new().append(true).open(&path).unwrap();
+            f.write_all(&[0x80u8, b'\n']).unwrap();
+        }
+        match read_tail_since(&path, size).unwrap() {
+            TailRead::Appended { text, encoding_note, .. } => {
+                assert_eq!(text, "\u{20AC}\n");
+                assert!(encoding_note.is_some());
+                assert!(!text.contains('\u{FFFD}'));
+            }
+            other => panic!("expected append: {other:?}"),
+        }
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn count_unmapped_for_ansi_save() {
+        assert_eq!(count_windows_1252_unmapped("ABC"), 0);
+        assert_eq!(count_windows_1252_unmapped("\u{20AC}"), 0);
+        assert_eq!(count_windows_1252_unmapped("\u{1F600}"), 1);
+    }
+
 }
