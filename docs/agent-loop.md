@@ -26,6 +26,14 @@ When `cursor-agent` is on `PATH` (usually `~/.local/bin`), the loop **runs the c
 | `AGENT_USE_CURSOR=1` | Force coder on |
 | `AGENT_USE_CURSOR=0` | Pickup only (no edits) |
 
+### GitHub labels (what you see on issues)
+
+| Label | Meaning |
+|-------|---------|
+| `agent:planned` | FEAT task file created |
+| `agent:wip` | Coder started (FEAT renamed to WIP) |
+| `agent:done` | Task finished (when agents set it) |
+
 Restart after changing the script:
 
 ```bash

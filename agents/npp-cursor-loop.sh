@@ -71,6 +71,25 @@ step_002_coder() {
     echo "----- 002: no FEAT or WIP tasks"
     return 0
   fi
+
+  # Promote FEAT → WIP and mark GitHub issue as in progress.
+  local base issue_n
+  base="$(basename "$task")"
+  if [[ "$base" == FEAT-* ]]; then
+    local wip_name="${base/FEAT-/WIP-}"
+    mv "$task" "$TASKDIR/$wip_name"
+    task="$TASKDIR/$wip_name"
+    base="$wip_name"
+    echo "----- 002: promoted to $(basename "$task")"
+  fi
+  issue_n="$(echo "$base" | sed -E 's/^(FEAT|WIP|TEST)-([0-9]+)-.*/\2/')"
+  if [[ -n "$issue_n" ]]; then
+    echo "----- 002: GitHub issue #${issue_n} → agent:wip"
+    gh issue edit "$issue_n" --repo "$GH_REPO" --add-label "agent:wip" 2>/dev/null || true
+    gh issue edit "$issue_n" --repo "$GH_REPO" --remove-label "agent:planned" 2>/dev/null || true
+    ./scripts/gh-safe.sh issue comment "$issue_n" --body "Agent 002: work in progress (\`$(basename "$task")\`)." 2>/dev/null || true
+  fi
+
   echo "----- 002: pending $(basename "$task") (AGENT_USE_CURSOR=${AGENT_USE_CURSOR})"
   if [[ "${AGENT_USE_CURSOR}" == "1" ]] && command -v cursor-agent >/dev/null 2>&1; then
     echo "----- 002: starting cursor-agent coder"

@@ -44,13 +44,53 @@ def existing_issue_numbers() -> set[int]:
         if not folder.is_dir():
             continue
         for p in folder.glob("*.md"):
-            m = re.search(r"FEAT-(\d+)-", p.name)
+            m = re.search(r"(?:FEAT|WIP|TEST|DONE)-(\d+)-", p.name)
             if m:
                 nums.add(int(m.group(1)))
             text = p.read_text(encoding="utf-8", errors="replace")
-            for m in re.finditer(r"github\.com/[^/\s]+/[^/\s]+/issues/(\d+)", text):
-                nums.add(int(m.group(1)))
+            for m2 in re.finditer(r"issues/(\d+)", text):
+                nums.add(int(m2.group(1)))
+            for m3 in re.finditer(r"^\s*-\s*\*\*(\d+)\*\*\s*$", text, re.M):
+                nums.add(int(m3.group(1)))
     return nums
+
+
+def ensure_label(name: str) -> None:
+    """Create label if missing (ignore errors if it already exists)."""
+    subprocess.run(
+        [
+            "gh",
+            "label",
+            "create",
+            name,
+            "--repo",
+            GH_REPO,
+            "--color",
+            {"agent:planned": "0E8A16", "agent:wip": "FBCA04", "agent:done": "5319E7"}.get(
+                name, "ededed"
+            ),
+            "--description",
+            name,
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+
+def add_label(issue_n: int, label: str) -> None:
+    ensure_label(label)
+    r = subprocess.run(
+        ["gh", "issue", "edit", str(issue_n), "--repo", GH_REPO, "--add-label", label],
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0:
+        print(
+            f"warning: could not add label {label} to #{issue_n}: {r.stderr.strip()}",
+            file=sys.stderr,
+        )
+    else:
+        print(f"labeled #{issue_n} with {label}")
 
 
 def list_open_issues(limit: int = 30) -> list[dict]:
@@ -161,12 +201,7 @@ def main() -> int:
         )
         if r.returncode != 0:
             print(f"warning: comment failed for #{n}: {r.stderr}", file=sys.stderr)
-        else:
-            subprocess.run(
-                ["gh", "issue", "edit", str(n), "--repo", GH_REPO, "--add-label", "agent:planned"],
-                capture_output=True,
-                text=True,
-            )
+        add_label(n, "agent:planned")
 
     stamp = ROOT / "agents" / "001-issue-reviewer" / "time-of-last-review.txt"
     stamp.parent.mkdir(parents=True, exist_ok=True)
