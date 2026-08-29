@@ -4,6 +4,61 @@ use buffer::TextBuffer;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
+/// How save writes bytes for this tab (memory stays UTF-8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FileEncoding {
+    /// UTF-8 without BOM.
+    #[default]
+    Utf8,
+    /// UTF-8 with leading BOM on disk.
+    Utf8Bom,
+    /// Windows-1252 (ANSI stand-in); lossy on save.
+    Windows1252,
+}
+
+impl FileEncoding {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Utf8 => "UTF-8",
+            Self::Utf8Bom => "UTF-8-BOM",
+            Self::Windows1252 => "Windows-1252",
+        }
+    }
+}
+
+/// Remap 0-based line indices after inserting `n` lines at `at`.
+/// Marks on lines `>= at` move down by `n`.
+pub fn remap_lines_insert(set: &mut BTreeSet<usize>, at: usize, n: usize) {
+    if n == 0 {
+        return;
+    }
+    *set = set
+        .iter()
+        .map(|&line| if line >= at { line + n } else { line })
+        .collect();
+}
+
+/// Remap after deleting `n` lines starting at `first_removed` (inclusive).
+/// Marks in the removed range drop. Marks at/after `first_removed + n` move up.
+pub fn remap_lines_delete(set: &mut BTreeSet<usize>, first_removed: usize, n: usize) {
+    if n == 0 {
+        return;
+    }
+    let end = first_removed + n;
+    *set = set
+        .iter()
+        .filter_map(|&line| {
+            if line >= first_removed && line < end {
+                None
+            } else if line >= end {
+                Some(line - n)
+            } else {
+                Some(line)
+            }
+        })
+        .collect();
+}
+
 /// One open document (one tab).
 #[derive(Debug, Clone)]
 pub struct Document {
@@ -11,6 +66,8 @@ pub struct Document {
     pub path: Option<PathBuf>,
     pub buffer: TextBuffer,
     pub dirty: bool,
+    /// Encoding used when saving this tab.
+    pub encoding: FileEncoding,
     /// Language id for highlight / format (e.g. `rust`, `python`, `plain`).
     pub language: String,
     /// True while a background load is still running.
@@ -23,8 +80,12 @@ pub struct Document {
     pub read_only: bool,
     /// Bookmarked line indices (0-based).
     pub bookmarks: BTreeSet<usize>,
-    /// Lines touched by edits since last save (change-history marks).
-    pub changed_lines: BTreeSet<usize>,
+    /// Unsaved edit marks (amber gutter). Edited since last save.
+    pub changed_unsaved: BTreeSet<usize>,
+    /// Saved edit marks (green gutter). Edited earlier, then saved.
+    pub changed_saved: BTreeSet<usize>,
+    /// Line count when line-index sets last matched the buffer (for remap).
+    pub line_mark_basis: usize,
     /// Hidden line indices (0-based); View → Hide Lines / fold light path.
     pub hidden_lines: BTreeSet<usize>,
     /// Optional tab color id 1..=5; `None` = default.
@@ -39,18 +100,23 @@ pub struct Document {
 
 impl Document {
     pub fn untitled(id: usize) -> Self {
+        let buffer = TextBuffer::new();
+        let line_mark_basis = buffer.line_count();
         Self {
             title: format!("Untitled-{id}"),
             path: None,
-            buffer: TextBuffer::new(),
+            buffer,
             dirty: false,
+            encoding: FileEncoding::Utf8,
             language: "plain".into(),
             loading: false,
             tail_follow: false,
             tail_bytes: 0,
             read_only: false,
             bookmarks: BTreeSet::new(),
-            changed_lines: BTreeSet::new(),
+            changed_unsaved: BTreeSet::new(),
+            changed_saved: BTreeSet::new(),
+            line_mark_basis,
             hidden_lines: BTreeSet::new(),
             tab_colour: None,
             pinned: false,
@@ -60,6 +126,14 @@ impl Document {
     }
 
     pub fn from_path(path: PathBuf, content: String) -> Self {
+        Self::from_path_with_encoding(path, content, FileEncoding::Utf8)
+    }
+
+    pub fn from_path_with_encoding(
+        path: PathBuf,
+        content: String,
+        encoding: FileEncoding,
+    ) -> Self {
         let title = path
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
@@ -68,24 +142,73 @@ impl Document {
         let tail_bytes = std::fs::metadata(&path)
             .map(|m| m.len())
             .unwrap_or(content.len() as u64);
+        let buffer = TextBuffer::from_str(&content);
+        let line_mark_basis = buffer.line_count();
         Self {
             title,
             path: Some(path),
-            buffer: TextBuffer::from_str(&content),
+            buffer,
             dirty: false,
+            encoding,
             language,
             loading: false,
             tail_follow: false,
             tail_bytes,
             read_only: false,
             bookmarks: BTreeSet::new(),
-            changed_lines: BTreeSet::new(),
+            changed_unsaved: BTreeSet::new(),
+            changed_saved: BTreeSet::new(),
+            line_mark_basis,
             hidden_lines: BTreeSet::new(),
             tab_colour: None,
             pinned: false,
             style_marks: Default::default(),
             multi_sels: Vec::new(),
         }
+    }
+}
+
+/// Snapshot of caret/selection line geometry before a buffer edit.
+#[derive(Debug, Clone, Copy)]
+pub struct LineEditSnap {
+    pub start_line: usize,
+    /// True when the edit starts at column 0 of `start_line`.
+    pub at_line_start: bool,
+    pub line_count: usize,
+}
+
+impl Document {
+    /// Capture line geometry before mutating the buffer.
+    pub fn snap_edit(&self) -> LineEditSnap {
+        let buf = &self.buffer;
+        let pos = buf
+            .selection()
+            .map(|(s, e)| s.min(e))
+            .unwrap_or_else(|| buf.caret());
+        let start_line = buf.char_to_line(pos);
+        let at_line_start = pos == buf.line_to_char(start_line);
+        LineEditSnap {
+            start_line,
+            at_line_start,
+            line_count: buf.line_count(),
+        }
+    }
+
+    /// Apply remap from a before-edit snapshot, then refresh `line_mark_basis`.
+    pub fn apply_line_snap(&mut self, snap: LineEditSnap) {
+        let new_count = self.buffer.line_count();
+        let delta = new_count as isize - snap.line_count as isize;
+        if delta > 0 {
+            let at = if snap.at_line_start {
+                snap.start_line.saturating_sub(1)
+            } else {
+                snap.start_line
+            };
+            self.remap_all_line_sets_insert(at, delta as usize);
+        } else if delta < 0 {
+            self.remap_all_line_sets_delete(snap.start_line + 1, (-delta) as usize);
+        }
+        self.line_mark_basis = new_count;
     }
 
     pub fn mark_dirty(&mut self) {
@@ -96,14 +219,73 @@ impl Document {
         self.dirty = false;
     }
 
-    /// Record one line as edited (change-history mark).
+    /// All change-history line indices (unsaved ∪ saved).
+    pub fn change_history_lines(&self) -> BTreeSet<usize> {
+        self.changed_unsaved
+            .union(&self.changed_saved)
+            .copied()
+            .collect()
+    }
+
+    /// Record one line as edited (unsaved amber mark).
     pub fn note_line_changed(&mut self, line: usize) {
-        self.changed_lines.insert(line);
+        self.changed_saved.remove(&line);
+        self.changed_unsaved.insert(line);
+    }
+
+    /// After save: unsaved marks become saved (green).
+    pub fn promote_change_history_on_save(&mut self) {
+        for line in std::mem::take(&mut self.changed_unsaved) {
+            self.changed_saved.insert(line);
+        }
     }
 
     /// Clear Scintilla-style change-history marks.
     pub fn clear_change_history(&mut self) {
-        self.changed_lines.clear();
+        self.changed_unsaved.clear();
+        self.changed_saved.clear();
+    }
+
+    /// Shift line-index sets after the buffer line count changes.
+    /// Uses caret position after the edit (MVP heuristic).
+    pub fn sync_line_marks_after_edit(&mut self) {
+        let new_count = self.buffer.line_count();
+        let old = self.line_mark_basis;
+        if new_count == old {
+            return;
+        }
+        let delta = new_count as isize - old as isize;
+        let caret_line = self.buffer.char_to_line(self.buffer.caret());
+        if delta > 0 {
+            let n = delta as usize;
+            let at = caret_line.saturating_sub(n);
+            self.remap_all_line_sets_insert(at, n);
+        } else {
+            let n = (-delta) as usize;
+            let first_removed = caret_line + 1;
+            self.remap_all_line_sets_delete(first_removed, n);
+        }
+        self.line_mark_basis = new_count;
+    }
+
+    fn remap_all_line_sets_insert(&mut self, at: usize, n: usize) {
+        remap_lines_insert(&mut self.bookmarks, at, n);
+        remap_lines_insert(&mut self.changed_unsaved, at, n);
+        remap_lines_insert(&mut self.changed_saved, at, n);
+        remap_lines_insert(&mut self.hidden_lines, at, n);
+        for slot in &mut self.style_marks {
+            remap_lines_insert(slot, at, n);
+        }
+    }
+
+    fn remap_all_line_sets_delete(&mut self, first_removed: usize, n: usize) {
+        remap_lines_delete(&mut self.bookmarks, first_removed, n);
+        remap_lines_delete(&mut self.changed_unsaved, first_removed, n);
+        remap_lines_delete(&mut self.changed_saved, first_removed, n);
+        remap_lines_delete(&mut self.hidden_lines, first_removed, n);
+        for slot in &mut self.style_marks {
+            remap_lines_delete(slot, first_removed, n);
+        }
     }
 }
 
@@ -345,13 +527,47 @@ mod tests {
     }
 
     #[test]
-    fn change_history_note_and_clear() {
+    fn change_history_note_promote_and_clear() {
         let mut doc = Document::untitled(1);
         doc.note_line_changed(2);
         doc.note_line_changed(5);
-        assert_eq!(doc.changed_lines.len(), 2);
+        assert_eq!(doc.changed_unsaved.len(), 2);
+        assert!(doc.changed_saved.is_empty());
+        doc.promote_change_history_on_save();
+        assert!(doc.changed_unsaved.is_empty());
+        assert_eq!(doc.changed_saved.len(), 2);
+        doc.note_line_changed(2);
+        assert!(doc.changed_unsaved.contains(&2));
+        assert!(!doc.changed_saved.contains(&2));
         doc.clear_change_history();
-        assert!(doc.changed_lines.is_empty());
+        assert!(doc.change_history_lines().is_empty());
+    }
+
+    #[test]
+    fn remap_insert_and_delete() {
+        let mut set: BTreeSet<usize> = [1usize, 3, 5].into_iter().collect();
+        remap_lines_insert(&mut set, 2, 2);
+        // Lines >= 2 shift: 3→5, 5→7; line 1 stays.
+        assert_eq!(set.iter().copied().collect::<Vec<_>>(), vec![1, 5, 7]);
+        remap_lines_delete(&mut set, 5, 1);
+        assert_eq!(set.iter().copied().collect::<Vec<_>>(), vec![1, 6]);
+    }
+
+    #[test]
+    fn sync_line_marks_shifts_on_newline() {
+        let mut doc = Document::untitled(1);
+        doc.buffer = TextBuffer::from_str("a\nb\nc\n");
+        doc.line_mark_basis = doc.buffer.line_count();
+        doc.note_line_changed(1);
+        doc.bookmarks.insert(2);
+        // Insert at start of line 1 (column 0).
+        let at = doc.buffer.line_to_char(1);
+        doc.buffer.set_caret(at);
+        let snap = doc.snap_edit();
+        doc.buffer.insert("\n");
+        doc.apply_line_snap(snap);
+        assert!(doc.changed_unsaved.contains(&2));
+        assert!(doc.bookmarks.contains(&3));
     }
 
     #[test]

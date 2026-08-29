@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-08-29
+
+### Dual view
+
+- Menu Edit (and Format) commands use the focused pane tab, not only the tab-bar active document
+
+### Encoding
+
+- Format → ANSI: save writes Windows-1252 (lossy); UTF-8 / UTF-8-BOM set per-tab save encoding
+- Open files keep the detected encoding for later save (`docs/encoding.md`)
+
+### Compare
+
+- Re-diff line tags after edits (~200 ms debounce) while Compare is on
+
+### Change history
+
+- Amber gutter ticks for unsaved edits; green after save (promote, not clear)
+- Line-index remap on insert/delete (`LineEditSnap` / `prepare_edit`)
+
 ## [0.2.2] — 2026-08-29
 
 ### Release checkpoint

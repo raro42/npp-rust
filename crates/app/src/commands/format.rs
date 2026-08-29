@@ -1,6 +1,7 @@
 //! Format menu commands.
 use super::{CmdResult, UiFlags};
 use crate::editor::EditorState;
+use doc::FileEncoding;
 use fs::UTF8_BOM_CHAR;
 
 pub fn covers(cmd: &str) -> bool {
@@ -21,8 +22,9 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Op
             CmdResult::Handled
         }
         "IDM_FORMAT_AS_UTF_8" => {
-            // UTF-8 without BOM: strip leading BOM so save writes plain UTF-8.
+            // UTF-8 without BOM: strip leading BOM; save writes plain UTF-8.
             let stripped = strip_leading_bom(state);
+            state.tabs.active_mut().encoding = FileEncoding::Utf8;
             state.status = if stripped {
                 "Encoding: UTF-8 — save writes UTF-8 without BOM (BOM removed)".into()
             } else {
@@ -33,6 +35,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Op
         "IDM_FORMAT_UTF_8" => {
             // UTF-8-BOM: keep leading U+FEFF so save writes EF BB BF.
             let added = ensure_leading_bom(state);
+            state.tabs.active_mut().encoding = FileEncoding::Utf8Bom;
             state.status = if added {
                 "Encoding: UTF-8-BOM — save writes UTF-8 with BOM".into()
             } else {
@@ -41,13 +44,13 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Op
             CmdResult::Handled
         }
         "IDM_FORMAT_ANSI" => {
-            // ANSI menu: strip BOM; memory stays UTF-8. Save path writes UTF-8 (no BOM).
-            // Load may still decode non-UTF-8 files as Windows-1252 via fs.
+            // ANSI: strip BOM; save re-encodes as Windows-1252 (lossy).
             let stripped = strip_leading_bom(state);
+            state.tabs.active_mut().encoding = FileEncoding::Windows1252;
             state.status = if stripped {
-                "Encoding: ANSI — save writes UTF-8 without BOM (BOM removed; no code-page re-encode on save)".into()
+                "Encoding: ANSI — save writes Windows-1252 (BOM removed; unmapped chars → ?)".into()
             } else {
-                "Encoding: ANSI — save writes UTF-8 without BOM (no code-page re-encode on save)".into()
+                "Encoding: ANSI — save writes Windows-1252 (unmapped chars → ?)".into()
             };
             CmdResult::Handled
         }

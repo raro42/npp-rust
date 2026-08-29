@@ -36,25 +36,37 @@ pub(crate) fn style_mark_bg(style: u8) -> Color32 {
     }
 }
 
-/// Amber tick for change-history lines (distinct from bookmark cyan).
-pub(crate) fn change_history_tick_color() -> Color32 {
+/// Amber tick for unsaved change-history lines.
+pub(crate) fn change_history_unsaved_color() -> Color32 {
     Color32::from_rgb(210, 140, 40)
 }
 
+/// Green tick for saved change-history lines.
+pub(crate) fn change_history_saved_color() -> Color32 {
+    Color32::from_rgb(70, 160, 90)
+}
+
 /// Draw a narrow gutter tick for a changed line (right of the bookmark slot).
+/// `saved`: true = green (saved session), false = amber (unsaved).
 pub(crate) fn paint_change_history_tick(
     painter: &egui::Painter,
     gutter_left: f32,
     y: f32,
     row_height: f32,
+    saved: bool,
 ) {
+    let color = if saved {
+        change_history_saved_color()
+    } else {
+        change_history_unsaved_color()
+    };
     painter.rect_filled(
         egui::Rect::from_min_max(
             Pos2::new(gutter_left + 12.0, y + 4.0),
             Pos2::new(gutter_left + 16.0, y + row_height - 4.0),
         ),
         0.5,
-        change_history_tick_color(),
+        color,
     );
 }
 

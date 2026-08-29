@@ -35,6 +35,14 @@ fn default_show_line_numbers() -> bool {
     true
 }
 
+fn default_tab_width() -> u8 {
+    4
+}
+
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppSettings {
@@ -45,6 +53,18 @@ pub struct AppSettings {
     /// Draw line numbers in the editor gutter.
     #[serde(default = "default_show_line_numbers")]
     pub show_line_numbers: bool,
+    /// Spaces inserted for Tab / indent (2..=8).
+    #[serde(default = "default_tab_width")]
+    pub tab_width: u8,
+    /// Soft word wrap (session + Preferences).
+    #[serde(default)]
+    pub word_wrap: bool,
+    /// Status bar: show language id.
+    #[serde(default = "default_true")]
+    pub status_show_lang: bool,
+    /// Status bar: show character count.
+    #[serde(default = "default_true")]
+    pub status_show_chars: bool,
 }
 
 impl Default for AppSettings {
@@ -53,6 +73,10 @@ impl Default for AppSettings {
             log_tail_on_open: LogTailOnOpen::Ask,
             font_size: default_font_size(),
             show_line_numbers: default_show_line_numbers(),
+            tab_width: default_tab_width(),
+            word_wrap: false,
+            status_show_lang: true,
+            status_show_chars: true,
         }
     }
 }

@@ -33,7 +33,7 @@ While compare is on, panes stay pinned to that pair (tab clicks do not swap the 
 
 ## Limits
 
-- Both panes stay editable. Colours do not refresh after you edit.
+- Both panes stay editable. Line tags refresh after edits (~200 ms debounce).
 - MVP max: **3000 lines** per side.
 - No gap rows for inserts (line numbers stay per-file; sync is by scroll line).
 
@@ -42,3 +42,8 @@ While compare is on, panes stay pinned to that pair (tab clicks do not swap the 
 - 3-way merge
 - Char-level inline diff
 - Shelling out to system `diff`
+
+## Code
+
+- `compare_stale` + `refresh_compare_if_stale` — `crates/app/src/editor.rs`, `crates/app/src/ui.rs`
+- Line LCS — `crates/app/src/diff.rs`

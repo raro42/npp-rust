@@ -274,7 +274,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_SEARCH_CLEAR_CHANGE_HISTORY" => {
-            let n = state.tabs.active().changed_lines.len();
+            let n = state.tabs.active().change_history_lines().len();
             state.tabs.active_mut().clear_change_history();
             state.status = if n == 0 {
                 "No change-history marks".into()
@@ -692,7 +692,7 @@ fn find_in_files(state: &mut EditorState, ui: &mut UiFlags) {
 
 /// Jump to the next/previous change-history line mark in the active document.
 fn goto_changed_line(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
-    let marks = state.tabs.active().changed_lines.clone();
+    let marks = state.tabs.active().change_history_lines();
     if let Some(l) = jump_marks(state, ui, &marks, forward) {
         state.status = format!("Change history → line {}", l + 1);
     } else {

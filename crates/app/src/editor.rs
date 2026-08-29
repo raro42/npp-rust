@@ -3,8 +3,8 @@
 use crate::recent::{
     short_path_label, AppSettings, LogTailOnOpen, RecentFiles, is_log_path,
 };
-use doc::{Document, TabSet};
-use fs::{self, LoadChannel, LoadMsg, OpenResult, TailRead, LARGE_FILE_THRESHOLD};
+use doc::{Document, FileEncoding, TabSet};
+use fs::{self, LoadChannel, LoadMsg, OpenResult, TailRead, TextEncoding, LARGE_FILE_THRESHOLD};
 use highlight::SyntaxHighlighter;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -59,6 +59,10 @@ pub struct EditorState {
     pub bulk_close: BulkClose,
     /// UI should quit when true (no dirty tabs left).
     pub want_quit: bool,
+    /// Compare tags need a rebuild after an edit.
+    pub compare_stale: bool,
+    /// Before-edit line snap for change-history remap (tab, snap).
+    pending_edit_snap: Option<(usize, doc::LineEditSnap)>,
 }
 
 /// Bulk close mode after a dirty-tab confirm.
@@ -83,6 +87,8 @@ impl Default for EditorState {
 
 impl EditorState {
     pub fn new() -> Self {
+        let settings = AppSettings::load();
+        let word_wrap = settings.word_wrap;
         Self {
             tabs: TabSet::new(),
             find_query: String::new(),
@@ -95,7 +101,7 @@ impl EditorState {
             highlight_lang: String::new(),
             highlight_dirty: true,
             recent: RecentFiles::load(),
-            settings: AppSettings::load(),
+            settings,
             pending_log_tail_prompt: false,
             reset_view: false,
             tail_last_poll: Instant::now() - Duration::from_secs(1),
@@ -105,13 +111,26 @@ impl EditorState {
             show_eol: false,
             show_npc: false,
             show_indent_guide: false,
-            word_wrap: false,
+            word_wrap,
             macro_recording: false,
             macro_cmds: Vec::new(),
             pending_close: None,
             bulk_close: BulkClose::None,
             want_quit: false,
+            compare_stale: false,
+            pending_edit_snap: None,
         }
+    }
+
+    /// Call before mutating a tab buffer so change-history marks can remap.
+    pub fn prepare_edit_at(&mut self, tab: usize) {
+        if let Some(doc) = self.tabs.get(tab) {
+            self.pending_edit_snap = Some((tab, doc.snap_edit()));
+        }
+    }
+
+    pub fn prepare_edit(&mut self) {
+        self.prepare_edit_at(self.tabs.active_index());
     }
 
     pub fn mark_text_changed(&mut self) {
@@ -120,9 +139,19 @@ impl EditorState {
 
     /// Dirty + change-history for a tab (dual view may edit the other pane).
     pub fn mark_text_changed_at(&mut self, tab: usize) {
+        let snap = self
+            .pending_edit_snap
+            .take()
+            .filter(|(t, _)| *t == tab)
+            .map(|(_, s)| s);
         let Some(doc) = self.tabs.get_mut(tab) else {
             return;
         };
+        if let Some(snap) = snap {
+            doc.apply_line_snap(snap);
+        } else {
+            doc.sync_line_marks_after_edit();
+        }
         Self::note_edit_lines(doc);
         doc.mark_dirty();
         if doc.tail_follow {
@@ -132,6 +161,7 @@ impl EditorState {
         if tab == self.tabs.active_index() {
             self.highlight_dirty = true;
         }
+        self.compare_stale = true;
     }
 
     /// Mark caret / selection lines as change-history (after an edit).
@@ -333,7 +363,11 @@ impl EditorState {
 
         if let Some(tab_index) = loading_idx {
             if let Some(doc) = self.tabs.get_mut(tab_index) {
-                *doc = Document::from_path(result.path.clone(), result.content);
+                *doc = Document::from_path_with_encoding(
+                    result.path.clone(),
+                    result.content,
+                    file_encoding_from_fs(result.encoding),
+                );
                 self.tabs.set_active(tab_index);
             }
         } else if was_pending {
@@ -344,7 +378,11 @@ impl EditorState {
             );
             return;
         } else {
-            let doc = Document::from_path(result.path.clone(), result.content);
+            let doc = Document::from_path_with_encoding(
+                result.path.clone(),
+                result.content,
+                file_encoding_from_fs(result.encoding),
+            );
             self.tabs.open_document(doc);
         }
         self.recent.touch(&result.path);
@@ -723,7 +761,9 @@ impl EditorState {
 
     fn save_to(&mut self, path: &std::path::Path) -> bool {
         let content = self.tabs.active().buffer.to_string();
-        match fs::write_file(path, &content) {
+        let encoding = self.tabs.active().encoding;
+        let fs_enc = fs_encoding_from_file(encoding);
+        match fs::write_file_with_encoding(path, &content, fs_enc) {
             Ok(()) => {
                 let doc = self.tabs.active_mut();
                 doc.path = Some(path.to_path_buf());
@@ -733,10 +773,10 @@ impl EditorState {
                     .unwrap_or_else(|| path.display().to_string());
                 doc.language = doc::detect_language(path);
                 doc.mark_clean();
-                doc.clear_change_history();
+                doc.promote_change_history_on_save();
                 self.recent.touch(path);
                 self.highlight_dirty = true;
-                self.status = format!("Saved {}", path.display());
+                self.status = format!("Saved {} ({})", path.display(), encoding.label());
                 true
             }
             Err(e) => {
@@ -971,9 +1011,14 @@ impl EditorState {
             .save_file();
         if let Some(path) = path {
             let content = self.tabs.active().buffer.to_string();
-            match fs::write_file(&path, &content) {
+            let encoding = self.tabs.active().encoding;
+            match fs::write_file_with_encoding(&path, &content, fs_encoding_from_file(encoding)) {
                 Ok(()) => {
-                    self.status = format!("Saved a copy as {}", path.display());
+                    self.status = format!(
+                        "Saved a copy as {} ({})",
+                        path.display(),
+                        encoding.label()
+                    );
                 }
                 Err(e) => self.status = format!("Save copy failed: {e}"),
             }
@@ -1461,6 +1506,31 @@ mod tests {
         state.undo_at(other);
         assert_eq!(state.tabs.get(other).unwrap().buffer.to_string(), "");
         assert_eq!(state.tabs.active().buffer.to_string(), "");
+    }
+
+    #[test]
+    fn mark_text_changed_sets_compare_stale() {
+        let mut state = EditorState::new();
+        assert!(!state.compare_stale);
+        state.tabs.active_mut().buffer.insert("a");
+        state.mark_text_changed();
+        assert!(state.compare_stale);
+    }
+}
+
+fn file_encoding_from_fs(enc: TextEncoding) -> FileEncoding {
+    match enc {
+        TextEncoding::Utf8 => FileEncoding::Utf8,
+        TextEncoding::Utf8Bom => FileEncoding::Utf8Bom,
+        TextEncoding::Windows1252 => FileEncoding::Windows1252,
+    }
+}
+
+fn fs_encoding_from_file(enc: FileEncoding) -> TextEncoding {
+    match enc {
+        FileEncoding::Utf8 => TextEncoding::Utf8,
+        FileEncoding::Utf8Bom => TextEncoding::Utf8Bom,
+        FileEncoding::Windows1252 => TextEncoding::Windows1252,
     }
 }
 

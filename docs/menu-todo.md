@@ -34,7 +34,7 @@ It is **not** a full Notepad++ Preferences clone (tabs, margins, multi-language 
 
 Cleared: Find characters in range (Find text = `ascii` / `non-ascii` / `start-end`), Find in Files (cwd scan → results tab).
 
-Change History MVP: `Document.changed_lines` (gutter amber tick). Next/Prev jump marks. Clear empties the set. Save clears marks. Edits via `EditorState::mark_text_changed` (and replace) record lines. Not full Scintilla (no line remap / saved-vs-session colours).
+Change History MVP: `changed_unsaved` (amber) / `changed_saved` (green). Next/Prev jump marks. Clear empties both sets. Save promotes unsaved→saved. Edits remap line indices via `prepare_edit` / `apply_line_snap`.
 
 ### View — Dual view (2026-08-29)
 
@@ -67,7 +67,7 @@ Paint path hides `hidden_lines` and paints `style_marks` / bookmark ticks. Menu 
 - View dual-view MVP + sync H/V / zoom sync honest status (3)
 - View switch / move / clone to other view (secondary pane); project panels 1–3: doc list (5)
 - View text direction LTR/RTL: honest status only (layout stays LTR; no doc flag) (2)
-- Encoding ANSI / UTF-8 / UTF-8-BOM: strip or keep leading U+FEFF for save; memory stays UTF-8; no ANSI convert (3)
+- Encoding ANSI / UTF-8 / UTF-8-BOM: per-tab save encoding; ANSI → Windows-1252 (lossy) (see `docs/encoding.md`) (1)
 - Edit column editor: insert clipboard text (or 0,1,2…) at caret column on selected lines / multi-carets; tip documents that path (2)
 - Edit function call tip: status tip from word under caret + cycle call-site snippets in file (no LSP) (3)
 - View Document Map: density strip; click/drag sets `scroll_line` (`UiFlags.show_doc_map`) (1)

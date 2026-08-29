@@ -71,6 +71,8 @@ pub struct EditorApp {
     compare_right_tab: usize,
     compare_left_tags: Vec<crate::diff::LineKind>,
     compare_right_tags: Vec<crate::diff::LineKind>,
+    /// When set, wait until this instant before re-diff (debounce while typing).
+    compare_refresh_at: Option<std::time::Instant>,
 }
 
 impl EditorApp {
@@ -113,6 +115,7 @@ impl EditorApp {
             compare_right_tab: 0,
             compare_left_tags: Vec::new(),
             compare_right_tags: Vec::new(),
+            compare_refresh_at: None,
         };
         app.open_argv_paths(open_paths);
         app
@@ -182,6 +185,7 @@ impl eframe::App for EditorApp {
 
         self.handle_shortcuts(ctx);
         self.menu_bar(ctx);
+        self.refresh_compare_if_stale(ctx);
         self.tab_bar(ctx);
         if self.state.find_open || self.show_replace {
             self.find_replace_bar(ctx);
@@ -266,6 +270,7 @@ impl EditorApp {
         }
         if cmd && d {
             let tab = self.focused_edit_tab();
+            self.state.prepare_edit_at(tab);
             if let Some(doc) = self.state.tabs.get_mut(tab) {
                 doc.buffer.duplicate_line();
             }
@@ -274,6 +279,7 @@ impl EditorApp {
         }
         if cmd && l && mods.shift {
             let tab = self.focused_edit_tab();
+            self.state.prepare_edit_at(tab);
             if let Some(doc) = self.state.tabs.get_mut(tab) {
                 doc.buffer.delete_line();
             }
@@ -282,16 +288,21 @@ impl EditorApp {
         }
         if cmd && close_br {
             let tab = self.focused_edit_tab();
+            self.state.prepare_edit_at(tab);
             if let Some(doc) = self.state.tabs.get_mut(tab) {
-                doc.buffer.indent_lines("    ");
+                let n = self.state.settings.tab_width.max(1) as usize;
+                let pad = " ".repeat(n);
+                doc.buffer.indent_lines(&pad);
             }
             self.state.mark_text_changed_at(tab);
             self.follow_focused_caret();
         }
         if cmd && open_br {
             let tab = self.focused_edit_tab();
+            self.state.prepare_edit_at(tab);
             if let Some(doc) = self.state.tabs.get_mut(tab) {
-                doc.buffer.outdent_lines(4);
+                let n = self.state.settings.tab_width.max(1) as usize;
+                doc.buffer.outdent_lines(n);
             }
             self.state.mark_text_changed_at(tab);
             self.follow_focused_caret();
@@ -352,7 +363,8 @@ impl EditorApp {
         });
 
         if let Some(cmd) = run_cmd {
-            let result = crate::commands::dispatch(&cmd, &mut self.state, &mut flags);
+            // Edit/Format menus mutate the focused dual-view pane, not only the tab-bar active tab.
+            let result = self.dispatch_menu_cmd(&cmd, &mut flags);
             if result == crate::commands::CmdResult::Stub {
                 self.coming_soon = Some(crate::commands::coming_soon_for(&cmd));
                 if let Some(cs) = self.coming_soon.as_ref() {
@@ -367,7 +379,11 @@ impl EditorApp {
             self.state.find_open = flags.find_open;
             self.show_replace = flags.show_replace;
             self.find_focus_once = flags.find_focus_once;
-            self.follow_caret = flags.follow_caret;
+            if flags.follow_caret {
+                self.follow_focused_caret();
+            } else {
+                self.follow_caret = false;
+            }
             if flags.show_goto_line {
                 self.show_goto_line = true;
                 let line = self.state.tabs.active().buffer.char_to_line(
@@ -729,6 +745,42 @@ Tree-sitter highlight, and a calm UI.",
                     .checkbox(
                         &mut self.state.settings.show_line_numbers,
                         "Show line numbers",
+                    )
+                    .changed()
+                {
+                    changed = true;
+                }
+                ui.horizontal(|ui| {
+                    ui.label("Tab width");
+                    let mut tw = self.state.settings.tab_width as i32;
+                    if ui.add(egui::Slider::new(&mut tw, 2..=8)).changed() {
+                        self.state.settings.tab_width = tw as u8;
+                        changed = true;
+                    }
+                });
+                if ui
+                    .checkbox(&mut self.state.settings.word_wrap, "Word wrap")
+                    .changed()
+                {
+                    self.state.word_wrap = self.state.settings.word_wrap;
+                    changed = true;
+                }
+                ui.add_space(10.0);
+                ui.label(RichText::new("Status bar").strong());
+                ui.add_space(4.0);
+                if ui
+                    .checkbox(
+                        &mut self.state.settings.status_show_lang,
+                        "Show language",
+                    )
+                    .changed()
+                {
+                    changed = true;
+                }
+                if ui
+                    .checkbox(
+                        &mut self.state.settings.status_show_chars,
+                        "Show character count",
                     )
                     .changed()
                 {
@@ -1192,6 +1244,7 @@ Tree-sitter highlight, and a calm UI.",
                 self.state.status = "Document is read-only".into();
             } else {
                 let s = c.to_string();
+                self.state.prepare_edit();
                 self.state.tabs.active_mut().buffer.insert(&s);
                 self.state.mark_text_changed();
                 self.follow_caret = true;
@@ -1457,12 +1510,16 @@ Tree-sitter highlight, and a calm UI.",
                         self.follow_caret = true;
                     }
                 }
-                ui.separator();
-                ui.label(format!("Lang: {lang}"));
+                if self.state.settings.status_show_lang {
+                    ui.separator();
+                    ui.label(format!("Lang: {lang}"));
+                }
                 ui.separator();
                 ui.label(format!("Ln {line}, Col {col}"));
-                ui.separator();
-                ui.label(format!("{chars} chars"));
+                if self.state.settings.status_show_chars {
+                    ui.separator();
+                    ui.label(format!("{chars} chars"));
+                }
 
                 // Bottom-right: package version + git commit → GitHub.
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -1742,7 +1799,8 @@ Tree-sitter highlight, and a calm UI.",
             let hl = &self.state.highlight_cache;
             let lang = self.state.tabs.active().language.clone();
             let bookmarks = self.state.tabs.active().bookmarks.clone();
-            let changed_lines = self.state.tabs.active().changed_lines.clone();
+            let changed_unsaved = self.state.tabs.active().changed_unsaved.clone();
+            let changed_saved = self.state.tabs.active().changed_saved.clone();
             let style_marks = self.state.tabs.active().style_marks.clone();
 
             for row in first_row..last_row {
@@ -1798,9 +1856,11 @@ Tree-sitter highlight, and a calm UI.",
                     );
                 }
 
-                // Change-history tick (amber; right of bookmark slot).
-                if changed_lines.contains(&line_idx) {
-                    paint_change_history_tick(&painter, rect.left(), y, row_height);
+                // Change-history tick in the gutter (amber = unsaved, green = saved).
+                if changed_unsaved.contains(&line_idx) {
+                    paint_change_history_tick(&painter, rect.left(), y, row_height, false);
+                } else if changed_saved.contains(&line_idx) {
+                    paint_change_history_tick(&painter, rect.left(), y, row_height, true);
                 }
 
                 // Line number — right-aligned inside the gutter.
@@ -1897,13 +1957,14 @@ Tree-sitter highlight, and a calm UI.",
                     let avail = (rect.right() - text_left).max(0.0);
                     let col_w = text_width(ui, &font_id, " ");
                     if col_w > 0.0 {
-                        let mut gx = text_left + col_w * 4.0;
+                        let tab_w = self.state.settings.tab_width.max(1) as f32;
+                        let mut gx = text_left + col_w * tab_w;
                         while gx < text_left + avail {
                             painter.line_segment(
                                 [Pos2::new(gx, y), Pos2::new(gx, y + row_height)],
                                 egui::Stroke::new(1.0, Color32::from_rgb(55, 55, 65)),
                             );
-                            gx += col_w * 4.0;
+                            gx += col_w * tab_w;
                         }
                     }
                 }
@@ -1978,11 +2039,39 @@ Tree-sitter highlight, and a calm UI.",
         }
     }
 
+    /// Run a menu command. Edit/Format IDs temporarily activate the focused dual-view tab.
+    fn dispatch_menu_cmd(
+        &mut self,
+        cmd: &str,
+        flags: &mut crate::commands::UiFlags,
+    ) -> crate::commands::CmdResult {
+        let retarget_menu = (cmd.starts_with("IDM_EDIT_") || cmd.starts_with("IDM_FORMAT_"))
+            && self.dual_view;
+        let focus = self.focused_edit_tab();
+        let saved = self.state.tabs.active_index();
+        let redirect = retarget_menu && focus != saved;
+        if redirect {
+            self.state.tabs.set_active(focus);
+        }
+        let result = crate::commands::dispatch(cmd, &mut self.state, flags);
+        if redirect {
+            let n = self.state.tabs.len();
+            if n > 0 && saved < n {
+                self.state.tabs.set_active(saved);
+                self.state.highlight_dirty = true;
+            }
+            self.clamp_other_view_tab();
+        }
+        result
+    }
+
     fn follow_focused_caret(&mut self) {
         if self.focused_pane == EditorPane::Secondary && self.dual_view {
             self.follow_caret_other = true;
+            self.follow_caret = false;
         } else {
             self.follow_caret = true;
+            self.follow_caret_other = false;
         }
     }
 
@@ -2092,24 +2181,63 @@ Tree-sitter highlight, and a calm UI.",
         self.compare_on = false;
         self.compare_left_tags.clear();
         self.compare_right_tags.clear();
+        self.state.compare_stale = false;
+        self.compare_refresh_at = None;
         self.state.status = "Compare cleared".into();
     }
 
-    fn start_compare(&mut self) {
-        if self.state.tabs.len() < 2 {
-            self.state.status = "Compare needs two open tabs".into();
+    /// Rebuild compare colours after an edit (debounce ~200 ms while typing).
+    fn refresh_compare_if_stale(&mut self, ctx: &egui::Context) {
+        if !self.compare_on || !self.state.compare_stale {
+            self.compare_refresh_at = None;
             return;
         }
-        // Prefer the dual-view pair when it already shows two different tabs.
-        if !(self.dual_view && self.other_view_tab != self.state.tabs.active_index()) {
-            self.ensure_other_view_tab();
-        }
-        let left = self.state.tabs.active_index();
-        let right = self.other_view_tab;
-        if left == right {
-            self.state.status = "Compare: pick a different tab for Other View first".into();
+        let now = std::time::Instant::now();
+        let due = *self
+            .compare_refresh_at
+            .get_or_insert_with(|| now + std::time::Duration::from_millis(200));
+        if now < due {
+            ctx.request_repaint_after(due.saturating_duration_since(now));
             return;
         }
+        self.compare_refresh_at = None;
+        self.state.compare_stale = false;
+        let left = self.compare_left_tab;
+        let right = self.compare_right_tab;
+        let n = self.state.tabs.len();
+        if left >= n || right >= n || left == right {
+            self.clear_compare();
+            return;
+        }
+        match self.compute_compare_tags(left, right) {
+            Some((lt, rt, del, ins)) => {
+                self.compare_left_tags = lt;
+                self.compare_right_tags = rt;
+                let lname = self
+                    .state
+                    .tabs
+                    .get(left)
+                    .map(|d| d.title.clone())
+                    .unwrap_or_else(|| "left".into());
+                let rname = self
+                    .state
+                    .tabs
+                    .get(right)
+                    .map(|d| d.title.clone())
+                    .unwrap_or_else(|| "right".into());
+                self.state.status = format!("Compare “{lname}” | “{rname}” (−{del} +{ins})");
+            }
+            None => {
+                // Too many lines or missing tabs — leave prior tags; status already set.
+            }
+        }
+    }
+
+    fn compute_compare_tags(
+        &mut self,
+        left: usize,
+        right: usize,
+    ) -> Option<(Vec<crate::diff::LineKind>, Vec<crate::diff::LineKind>, usize, usize)> {
         let left_lines: Vec<String> = self
             .state
             .tabs
@@ -2137,13 +2265,35 @@ Tree-sitter highlight, and a calm UI.",
                 "Compare MVP max is {} lines per side",
                 crate::diff::MAX_COMPARE_LINES
             );
-            return;
+            return None;
         }
         let left_refs: Vec<&str> = left_lines.iter().map(|s| s.as_str()).collect();
         let right_refs: Vec<&str> = right_lines.iter().map(|s| s.as_str()).collect();
         let (lt, rt) = crate::diff::diff_line_tags(&left_refs, &right_refs);
         let (del, ins) = crate::diff::count_changes(&lt, &rt);
+        Some((lt, rt, del, ins))
+    }
+
+    fn start_compare(&mut self) {
+        if self.state.tabs.len() < 2 {
+            self.state.status = "Compare needs two open tabs".into();
+            return;
+        }
+        // Prefer the dual-view pair when it already shows two different tabs.
+        if !(self.dual_view && self.other_view_tab != self.state.tabs.active_index()) {
+            self.ensure_other_view_tab();
+        }
+        let left = self.state.tabs.active_index();
+        let right = self.other_view_tab;
+        if left == right {
+            self.state.status = "Compare: pick a different tab for Other View first".into();
+            return;
+        }
+        let Some((lt, rt, del, ins)) = self.compute_compare_tags(left, right) else {
+            return;
+        };
         self.compare_on = true;
+        self.state.compare_stale = false;
         self.compare_left_tab = left;
         self.compare_right_tab = right;
         self.compare_left_tags = lt;
@@ -2493,9 +2643,12 @@ Tree-sitter highlight, and a calm UI.",
                         self.last_app_clipboard = Some(t.clone());
                         crate::commands::paste_over_bookmarked_lines(&mut self.state, &t);
                         changed = true;
-                    } else if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.buffer.insert(&t);
-                        changed = true;
+                    } else {
+                        self.state.prepare_edit_at(tab);
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.buffer.insert(&t);
+                            changed = true;
+                        }
                     }
                 }
                 egui::Event::Copy | egui::Event::Cut => {
@@ -2505,9 +2658,12 @@ Tree-sitter highlight, and a calm UI.",
                             if matches!(event, egui::Event::Cut) {
                                 if read_only {
                                     self.state.status = "Document is read-only".into();
-                                } else if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                    doc.buffer.delete_backward();
-                                    changed = true;
+                                } else {
+                                    self.state.prepare_edit_at(tab);
+                                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                        doc.buffer.delete_backward();
+                                        changed = true;
+                                    }
                                 }
                             }
                         }
@@ -2524,6 +2680,7 @@ Tree-sitter highlight, and a calm UI.",
                         self.state.status = "Document is read-only".into();
                         continue;
                     }
+                    self.state.prepare_edit_at(tab);
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.buffer.insert(&t);
                         changed = true;
@@ -2537,9 +2694,12 @@ Tree-sitter highlight, and a calm UI.",
                 } if !modifiers.command && !modifiers.ctrl => {
                     if read_only {
                         self.state.status = "Document is read-only".into();
-                    } else if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.buffer.insert("\n");
-                        changed = true;
+                    } else {
+                        self.state.prepare_edit_at(tab);
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.buffer.insert("\n");
+                            changed = true;
+                        }
                     }
                 }
                 egui::Event::Key {
@@ -2550,9 +2710,13 @@ Tree-sitter highlight, and a calm UI.",
                 } if !modifiers.command && !modifiers.ctrl => {
                     if read_only {
                         self.state.status = "Document is read-only".into();
-                    } else if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.buffer.insert("    ");
-                        changed = true;
+                    } else {
+                        self.state.prepare_edit_at(tab);
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            let n = self.state.settings.tab_width.max(1) as usize;
+                            doc.buffer.insert(&" ".repeat(n));
+                            changed = true;
+                        }
                     }
                 }
                 egui::Event::Key {
@@ -2562,9 +2726,12 @@ Tree-sitter highlight, and a calm UI.",
                 } => {
                     if read_only {
                         self.state.status = "Document is read-only".into();
-                    } else if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.buffer.delete_backward();
-                        changed = true;
+                    } else {
+                        self.state.prepare_edit_at(tab);
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.buffer.delete_backward();
+                            changed = true;
+                        }
                     }
                 }
                 egui::Event::Key {
@@ -2574,9 +2741,12 @@ Tree-sitter highlight, and a calm UI.",
                 } => {
                     if read_only {
                         self.state.status = "Document is read-only".into();
-                    } else if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.buffer.delete_forward();
-                        changed = true;
+                    } else {
+                        self.state.prepare_edit_at(tab);
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.buffer.delete_forward();
+                            changed = true;
+                        }
                     }
                 }
                 egui::Event::Key {
