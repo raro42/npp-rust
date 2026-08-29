@@ -27,6 +27,10 @@ pub struct EditorApp {
     goto_line_input: String,
     show_summary: bool,
     show_doc_list: bool,
+    /// Last text copied via menu (`pending_clipboard`).
+    last_app_clipboard: Option<String>,
+    /// Next Paste replaces bookmarked lines.
+    await_paste_bookmarks: bool,
 }
 
 impl EditorApp {
@@ -46,6 +50,8 @@ impl EditorApp {
             goto_line_input: String::new(),
             show_summary: false,
             show_doc_list: false,
+            last_app_clipboard: None,
+            await_paste_bookmarks: false,
         }
     }
 }
@@ -199,6 +205,7 @@ impl EditorApp {
             show_replace: self.show_replace,
             find_focus_once: self.find_focus_once,
             follow_caret: self.follow_caret,
+            last_copied: self.last_app_clipboard.clone(),
             ..Default::default()
         };
         let mut run_cmd: Option<String> = None;
@@ -257,7 +264,13 @@ impl EditorApp {
                 ));
             }
             if let Some(t) = flags.pending_clipboard.take() {
+                self.last_app_clipboard = Some(t.clone());
                 ctx.copy_text(t);
+            } else if let Some(t) = flags.last_copied.take() {
+                self.last_app_clipboard = Some(t);
+            }
+            if flags.await_paste_bookmarks {
+                self.await_paste_bookmarks = true;
             }
             if flags.request_quit {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -1180,8 +1193,15 @@ Tree-sitter highlight, and a calm UI.",
                         self.state.status = "Document is read-only".into();
                         continue;
                     }
-                    self.state.tabs.active_mut().buffer.insert(&t);
-                    changed = true;
+                    if self.await_paste_bookmarks {
+                        self.await_paste_bookmarks = false;
+                        self.last_app_clipboard = Some(t.clone());
+                        crate::commands::paste_over_bookmarked_lines(&mut self.state, &t);
+                        changed = true;
+                    } else {
+                        self.state.tabs.active_mut().buffer.insert(&t);
+                        changed = true;
+                    }
                 }
                 egui::Event::Copy | egui::Event::Cut => {
                     if let Some((s, e)) = self.state.tabs.active().buffer.selection() {

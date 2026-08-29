@@ -2,92 +2,11 @@
 
 Date: 2026-08-29
 
-Ready: **348**. Remaining stubs: **128**.
+Ready: **405**. Remaining stubs: **71**.
 
 Teal menu labels = ready.
 
-## Search (45)
-
-- [ ] `IDM_SEARCH_FINDINFILES` — Search/Find in Files...
-- [ ] `IDM_SEARCH_GOTONEXTFOUND` — Search/Next Search Result
-- [ ] `IDM_SEARCH_GOTOPREVFOUND` — Search/Previous Search Result
-- [ ] `IDM_SEARCH_MARK` — Search/Mark...
-- [ ] `IDM_SEARCH_CHANGED_NEXT` — Search/Change History/Go to Next Change
-- [ ] `IDM_SEARCH_CHANGED_PREV` — Search/Change History/Go to Previous Change
-- [ ] `IDM_SEARCH_CLEAR_CHANGE_HISTORY` — Search/Change History/Clear Change History
-- [ ] `IDM_SEARCH_MARKALLEXT1` — Search/Style All Occurrences of Token/Using 1st Style
-- [ ] `IDM_SEARCH_MARKALLEXT2` — Search/Style All Occurrences of Token/Using 2nd Style
-- [ ] `IDM_SEARCH_MARKALLEXT3` — Search/Style All Occurrences of Token/Using 3rd Style
-- [ ] `IDM_SEARCH_MARKALLEXT4` — Search/Style All Occurrences of Token/Using 4th Style
-- [ ] `IDM_SEARCH_MARKALLEXT5` — Search/Style All Occurrences of Token/Using 5th Style
-- [ ] `IDM_SEARCH_MARKONEEXT1` — Search/Style One Token/Using 1st Style
-- [ ] `IDM_SEARCH_MARKONEEXT2` — Search/Style One Token/Using 2nd Style
-- [ ] `IDM_SEARCH_MARKONEEXT3` — Search/Style One Token/Using 3rd Style
-- [ ] `IDM_SEARCH_MARKONEEXT4` — Search/Style One Token/Using 4th Style
-- [ ] `IDM_SEARCH_MARKONEEXT5` — Search/Style One Token/Using 5th Style
-- [ ] `IDM_SEARCH_UNMARKALLEXT1` — Search/Clear Style/Clear 1st Style
-- [ ] `IDM_SEARCH_UNMARKALLEXT2` — Search/Clear Style/Clear 2nd Style
-- [ ] `IDM_SEARCH_UNMARKALLEXT3` — Search/Clear Style/Clear 3rd Style
-- [ ] `IDM_SEARCH_UNMARKALLEXT4` — Search/Clear Style/Clear 4th Style
-- [ ] `IDM_SEARCH_UNMARKALLEXT5` — Search/Clear Style/Clear 5th Style
-- [ ] `IDM_SEARCH_CLEARALLMARKS` — Search/Clear Style/Clear all Styles
-- [ ] `IDM_SEARCH_GOPREVMARKER1` — Search/Jump Up/1st Style
-- [ ] `IDM_SEARCH_GOPREVMARKER2` — Search/Jump Up/2nd Style
-- [ ] `IDM_SEARCH_GOPREVMARKER3` — Search/Jump Up/3rd Style
-- [ ] `IDM_SEARCH_GOPREVMARKER4` — Search/Jump Up/4th Style
-- [ ] `IDM_SEARCH_GOPREVMARKER5` — Search/Jump Up/5th Style
-- [ ] `IDM_SEARCH_GOPREVMARKER_DEF` — Search/Jump Up/Find Mark Style
-- [ ] `IDM_SEARCH_GONEXTMARKER1` — Search/Jump Down/1st Style
-- [ ] `IDM_SEARCH_GONEXTMARKER2` — Search/Jump Down/2nd Style
-- [ ] `IDM_SEARCH_GONEXTMARKER3` — Search/Jump Down/3rd Style
-- [ ] `IDM_SEARCH_GONEXTMARKER4` — Search/Jump Down/4th Style
-- [ ] `IDM_SEARCH_GONEXTMARKER5` — Search/Jump Down/5th Style
-- [ ] `IDM_SEARCH_GONEXTMARKER_DEF` — Search/Jump Down/Find Mark Style
-- [ ] `IDM_SEARCH_STYLE1TOCLIP` — Search/Copy Styled Text/1st Style
-- [ ] `IDM_SEARCH_STYLE2TOCLIP` — Search/Copy Styled Text/2nd Style
-- [ ] `IDM_SEARCH_STYLE3TOCLIP` — Search/Copy Styled Text/3rd Style
-- [ ] `IDM_SEARCH_STYLE4TOCLIP` — Search/Copy Styled Text/4th Style
-- [ ] `IDM_SEARCH_STYLE5TOCLIP` — Search/Copy Styled Text/5th Style
-- [ ] `IDM_SEARCH_ALLSTYLESTOCLIP` — Search/Copy Styled Text/All Styles
-- [ ] `IDM_SEARCH_MARKEDTOCLIP` — Search/Copy Styled Text/Find Mark Style
-- [ ] `IDM_SEARCH_CUTMARKEDLINES` — Search/Bookmark/Cut Bookmarked Lines
-- [ ] `IDM_SEARCH_PASTEMARKEDLINES` — Search/Bookmark/Paste to (Replace) Bookmarked Lines
-- [ ] `IDM_SEARCH_FINDCHARINRANGE` — Search/Find characters in range...
-
-## Edit (32)
-
-- [ ] `IDM_EDIT_INSERT_DATETIME_CUSTOMIZED` — Edit/Insert/Date Time (customized)
-- [ ] `IDM_EDIT_BLOCK_COMMENT` — Edit/Comment/Uncomment/Toggle Single Line Comment
-- [ ] `IDM_EDIT_BLOCK_COMMENT_SET` — Edit/Comment/Uncomment/Single Line Comment
-- [ ] `IDM_EDIT_BLOCK_UNCOMMENT` — Edit/Comment/Uncomment/Single Line Uncomment
-- [ ] `IDM_EDIT_STREAM_COMMENT` — Edit/Comment/Uncomment/Block Comment
-- [ ] `IDM_EDIT_STREAM_UNCOMMENT` — Edit/Comment/Uncomment/Block Uncomment
-- [ ] `IDM_EDIT_AUTOCOMPLETE` — Edit/Auto-Completion/Function Completion
-- [ ] `IDM_EDIT_AUTOCOMPLETE_CURRENTFILE` — Edit/Auto-Completion/Word Completion
-- [ ] `IDM_EDIT_FUNCCALLTIP` — Edit/Auto-Completion/Function Parameters Hint
-- [ ] `IDM_EDIT_FUNCCALLTIP_PREVIOUS` — Edit/Auto-Completion/Function Parameters Previous Hint
-- [ ] `IDM_EDIT_FUNCCALLTIP_NEXT` — Edit/Auto-Completion/Function Parameters Next Hint
-- [ ] `IDM_EDIT_AUTOCOMPLETE_PATH` — Edit/Auto-Completion/Path Completion
-- [ ] `IDM_EDIT_PASTE_AS_HTML` — Edit/Paste Special/Paste HTML Content
-- [ ] `IDM_EDIT_PASTE_AS_RTF` — Edit/Paste Special/Paste RTF Content
-- [ ] `IDM_EDIT_COPY_BINARY` — Edit/Paste Special/Copy Binary Content
-- [ ] `IDM_EDIT_CUT_BINARY` — Edit/Paste Special/Cut Binary Content
-- [ ] `IDM_EDIT_PASTE_BINARY` — Edit/Paste Special/Paste Binary Content
-- [ ] `IDM_EDIT_MULTISELECTALL` — Edit/Multi-select All/Ignore Case  Whole Word
-- [ ] `IDM_EDIT_MULTISELECTALLMATCHCASE` — Edit/Multi-select All/Match Case Only
-- [ ] `IDM_EDIT_MULTISELECTALLWHOLEWORD` — Edit/Multi-select All/Match Whole Word Only
-- [ ] `IDM_EDIT_MULTISELECTALLMATCHCASEWHOLEWORD` — Edit/Multi-select All/Match Case  Whole Word
-- [ ] `IDM_EDIT_MULTISELECTNEXT` — Edit/Multi-select Next/Ignore Case  Whole Word
-- [ ] `IDM_EDIT_MULTISELECTNEXTMATCHCASE` — Edit/Multi-select Next/Match Case Only
-- [ ] `IDM_EDIT_MULTISELECTNEXTWHOLEWORD` — Edit/Multi-select Next/Match Whole Word Only
-- [ ] `IDM_EDIT_MULTISELECTNEXTMATCHCASEWHOLEWORD` — Edit/Multi-select Next/Match Case  Whole Word
-- [ ] `IDM_EDIT_MULTISELECTUNDO` — Edit/Undo the Latest Added Multi-Select
-- [ ] `IDM_EDIT_MULTISELECTSSKIP` — Edit/Skip Current  Go to Next Multi-select
-- [ ] `IDM_EDIT_COLUMNMODETIP` — Edit/Column Mode...
-- [ ] `IDM_EDIT_COLUMNMODE` — Edit/Column Editor...
-- [ ] `IDM_EDIT_CHAR_PANEL` — Edit/Character Panel
-- [ ] `IDM_EDIT_CLIPBOARDHISTORY_PANEL` — Edit/Clipboard History
-- [ ] `IDM_EDIT_TOGGLESYSTEMREADONLY` — Edit/Read-Only Attribute in Windows
+Parallel agents: see [agent-parallel.md](agent-parallel.md).
 
 ## View (32)
 
@@ -124,14 +43,34 @@ Teal menu labels = ready.
 - [ ] `IDM_VIEW_DOC_MAP` — View/Document Map
 - [ ] `IDM_VIEW_FUNC_LIST` — View/Function List
 
-## File (6)
+## Edit (26)
 
-- [ ] `IDM_FILE_CLOSEALL_BUT_PINNED` — File/Close Multiple Documents/Close All but Pinned Documents
-- [ ] `IDM_FILE_DELETE` — File/Move to Recycle Bin
-- [ ] `IDM_FILE_LOADSESSION` — File/Load Session...
-- [ ] `IDM_FILE_SAVESESSION` — File/Save Session...
-- [ ] `IDM_FILE_PRINT` — File/Print...
-- [ ] `IDM_FILE_PRINTNOW` — File/Print Now
+- [ ] `IDM_EDIT_AUTOCOMPLETE` — Edit/Auto-Completion/Function Completion
+- [ ] `IDM_EDIT_AUTOCOMPLETE_CURRENTFILE` — Edit/Auto-Completion/Word Completion
+- [ ] `IDM_EDIT_FUNCCALLTIP` — Edit/Auto-Completion/Function Parameters Hint
+- [ ] `IDM_EDIT_FUNCCALLTIP_PREVIOUS` — Edit/Auto-Completion/Function Parameters Previous Hint
+- [ ] `IDM_EDIT_FUNCCALLTIP_NEXT` — Edit/Auto-Completion/Function Parameters Next Hint
+- [ ] `IDM_EDIT_AUTOCOMPLETE_PATH` — Edit/Auto-Completion/Path Completion
+- [ ] `IDM_EDIT_PASTE_AS_HTML` — Edit/Paste Special/Paste HTML Content
+- [ ] `IDM_EDIT_PASTE_AS_RTF` — Edit/Paste Special/Paste RTF Content
+- [ ] `IDM_EDIT_COPY_BINARY` — Edit/Paste Special/Copy Binary Content
+- [ ] `IDM_EDIT_CUT_BINARY` — Edit/Paste Special/Cut Binary Content
+- [ ] `IDM_EDIT_PASTE_BINARY` — Edit/Paste Special/Paste Binary Content
+- [ ] `IDM_EDIT_MULTISELECTALL` — Edit/Multi-select All/Ignore Case  Whole Word
+- [ ] `IDM_EDIT_MULTISELECTALLMATCHCASE` — Edit/Multi-select All/Match Case Only
+- [ ] `IDM_EDIT_MULTISELECTALLWHOLEWORD` — Edit/Multi-select All/Match Whole Word Only
+- [ ] `IDM_EDIT_MULTISELECTALLMATCHCASEWHOLEWORD` — Edit/Multi-select All/Match Case  Whole Word
+- [ ] `IDM_EDIT_MULTISELECTNEXT` — Edit/Multi-select Next/Ignore Case  Whole Word
+- [ ] `IDM_EDIT_MULTISELECTNEXTMATCHCASE` — Edit/Multi-select Next/Match Case Only
+- [ ] `IDM_EDIT_MULTISELECTNEXTWHOLEWORD` — Edit/Multi-select Next/Match Whole Word Only
+- [ ] `IDM_EDIT_MULTISELECTNEXTMATCHCASEWHOLEWORD` — Edit/Multi-select Next/Match Case  Whole Word
+- [ ] `IDM_EDIT_MULTISELECTUNDO` — Edit/Undo the Latest Added Multi-Select
+- [ ] `IDM_EDIT_MULTISELECTSSKIP` — Edit/Skip Current  Go to Next Multi-select
+- [ ] `IDM_EDIT_COLUMNMODETIP` — Edit/Column Mode...
+- [ ] `IDM_EDIT_COLUMNMODE` — Edit/Column Editor...
+- [ ] `IDM_EDIT_CHAR_PANEL` — Edit/Character Panel
+- [ ] `IDM_EDIT_CLIPBOARDHISTORY_PANEL` — Edit/Clipboard History
+- [ ] `IDM_EDIT_TOGGLESYSTEMREADONLY` — Edit/Read-Only Attribute in Windows
 
 ## Macro (5)
 

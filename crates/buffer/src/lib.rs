@@ -256,7 +256,7 @@ impl TextBuffer {
         }
     }
 
-    fn selected_line_range(&self) -> (usize, usize) {
+    pub fn selected_line_range(&self) -> (usize, usize) {
         if let Some((s, e)) = self.selection() {
             let start_line = self.char_to_line(s);
             let end_idx = e.saturating_sub(1).max(s);
@@ -265,6 +265,155 @@ impl TextBuffer {
         } else {
             let line = self.char_to_line(self.caret);
             (line, line)
+        }
+    }
+
+    /// Prefix selected lines with a line-comment marker (e.g. `"// "`).
+    pub fn comment_lines(&mut self, prefix: &str) {
+        if prefix.is_empty() {
+            return;
+        }
+        let (start_line, end_line) = self.selected_line_range();
+        for line in (start_line..=end_line).rev() {
+            let raw = self.line(line);
+            let body = raw.trim_end_matches(['\n', '\r']);
+            if body.trim().is_empty() {
+                continue;
+            }
+            let lead = body.len() - body.trim_start().len();
+            if body[lead..].starts_with(prefix.trim_end()) {
+                continue;
+            }
+            let at = self.line_to_char(line) + lead;
+            self.rope.insert(at, prefix);
+            self.push_undo(Edit::Insert {
+                index: at,
+                text: prefix.to_string(),
+            });
+        }
+        self.redo.clear();
+        self.last_insert_end = None;
+        self.reselect_lines(start_line, end_line);
+    }
+
+    /// Strip a line-comment marker from selected lines when present.
+    pub fn uncomment_lines(&mut self, prefix: &str) {
+        if prefix.is_empty() {
+            return;
+        }
+        let bare = prefix.trim_end();
+        let (start_line, end_line) = self.selected_line_range();
+        for line in start_line..=end_line {
+            let raw = self.line(line);
+            let body = raw.trim_end_matches(['\n', '\r']);
+            let trimmed = body.trim_start();
+            let lead = body.len() - trimmed.len();
+            let remove = if trimmed.starts_with(prefix) {
+                prefix.len()
+            } else if trimmed.starts_with(bare) {
+                let after = &trimmed[bare.len()..];
+                if after.starts_with(' ') {
+                    bare.len() + 1
+                } else {
+                    bare.len()
+                }
+            } else {
+                0
+            };
+            if remove == 0 {
+                continue;
+            }
+            let at = self.line_to_char(line) + lead;
+            let removed: String = body.chars().skip(lead).take(remove).collect();
+            self.rope.remove(at..at + remove);
+            self.push_undo(Edit::Delete {
+                index: at,
+                text: removed,
+            });
+        }
+        self.redo.clear();
+        self.last_insert_end = None;
+        self.reselect_lines(start_line, end_line);
+    }
+
+    /// Toggle line comments: uncomment if every non-empty line is commented.
+    pub fn toggle_line_comments(&mut self, prefix: &str) {
+        if prefix.is_empty() {
+            return;
+        }
+        let bare = prefix.trim_end();
+        let (start_line, end_line) = self.selected_line_range();
+        let mut any = false;
+        let mut all_commented = true;
+        for line in start_line..=end_line {
+            let body = self.line(line);
+            let trimmed = body.trim_end_matches(['\n', '\r']).trim_start();
+            if trimmed.is_empty() {
+                continue;
+            }
+            any = true;
+            if !(trimmed.starts_with(prefix) || trimmed.starts_with(bare)) {
+                all_commented = false;
+                break;
+            }
+        }
+        if any && all_commented {
+            self.uncomment_lines(prefix);
+        } else {
+            self.comment_lines(prefix);
+        }
+    }
+
+    /// Wrap the selection (or insert at caret) with block comment markers.
+    pub fn stream_comment(&mut self, open: &str, close: &str) {
+        if open.is_empty() && close.is_empty() {
+            return;
+        }
+        if let Some((s, e)) = self.selection() {
+            let mid = self.slice(s, e);
+            let wrapped = format!("{open}{mid}{close}");
+            self.set_selection(s, e);
+            self.insert(&wrapped);
+            self.set_selection(s, s + wrapped.chars().count());
+        } else {
+            let at = self.caret;
+            let wrapped = format!("{open}{close}");
+            self.insert(&wrapped);
+            self.set_caret(at + open.chars().count());
+        }
+    }
+
+    /// Unwrap block comment markers around the selection when present.
+    pub fn stream_uncomment(&mut self, open: &str, close: &str) {
+        let Some((s, e)) = self.selection() else {
+            return;
+        };
+        let mid = self.slice(s, e);
+        if !(mid.starts_with(open)
+            && mid.ends_with(close)
+            && mid.len() >= open.len() + close.len())
+        {
+            return;
+        }
+        let stripped = mid[open.len()..mid.len() - close.len()].to_string();
+        self.set_selection(s, e);
+        if stripped.is_empty() {
+            self.delete_backward();
+        } else {
+            self.insert(&stripped);
+            self.set_selection(s, s + stripped.chars().count());
+        }
+    }
+
+    fn reselect_lines(&mut self, start_line: usize, end_line: usize) {
+        let new_start = self.line_to_char(start_line);
+        let new_end = if end_line + 1 < self.line_count() {
+            self.line_to_char(end_line + 1)
+        } else {
+            self.len_chars()
+        };
+        if start_line != end_line || self.selection().is_some() {
+            self.set_selection(new_start, new_end);
         }
     }
 
@@ -736,5 +885,26 @@ mod tests {
         let mut b = TextBuffer::from_str("foo bar_baz qux");
         b.select_word_at(6); // inside bar_baz
         assert_eq!(b.selection(), Some((4, 11)));
+    }
+
+    #[test]
+    fn toggle_line_comments() {
+        let mut b = TextBuffer::from_str("one\ntwo\n");
+        b.set_selection(0, b.len_chars());
+        b.toggle_line_comments("// ");
+        assert_eq!(b.to_string(), "// one\n// two\n");
+        b.set_selection(0, b.len_chars());
+        b.toggle_line_comments("// ");
+        assert_eq!(b.to_string(), "one\ntwo\n");
+    }
+
+    #[test]
+    fn stream_comment_wraps_selection() {
+        let mut b = TextBuffer::from_str("hello");
+        b.set_selection(0, 5);
+        b.stream_comment("/*", "*/");
+        assert_eq!(b.to_string(), "/*hello*/");
+        b.stream_uncomment("/*", "*/");
+        assert_eq!(b.to_string(), "hello");
     }
 }

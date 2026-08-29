@@ -25,6 +25,8 @@ pub struct Document {
     pub bookmarks: BTreeSet<usize>,
     /// Optional tab color id 1..=5; `None` = default.
     pub tab_colour: Option<u8>,
+    /// Style marks 1..=5: line indices (Search → Style).
+    pub style_marks: [BTreeSet<usize>; 5],
 }
 
 impl Document {
@@ -41,6 +43,7 @@ impl Document {
             read_only: false,
             bookmarks: BTreeSet::new(),
             tab_colour: None,
+            style_marks: Default::default(),
         }
     }
 
@@ -65,6 +68,7 @@ impl Document {
             read_only: false,
             bookmarks: BTreeSet::new(),
             tab_colour: None,
+            style_marks: Default::default(),
         }
     }
 

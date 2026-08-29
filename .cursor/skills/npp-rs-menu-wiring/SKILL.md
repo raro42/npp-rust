@@ -9,17 +9,28 @@ description: >-
 
 ## Rules
 
-1. Edit `crates/app/src/commands.rs` (`dispatch` + `is_implemented`) together.
-2. Prefer a small real behavior over a fake “done” stub.
-3. Teal menus = `is_implemented` true. Keep that list in sync.
+1. Edit the **domain file** under `crates/app/src/commands/` (see `docs/agent-parallel.md`).
+2. Keep `is_implemented` in `commands/mod.rs` in sync (teal labels).
+3. Prefer a small real behavior over a fake “done” stub.
 4. Public repo: no private paths/secrets in status or commits.
 5. Regenerate `docs/menu-todo.md` after a batch.
+
+## Domain map
+
+| File | Area |
+|------|------|
+| `file.rs` | File |
+| `edit.rs` | Edit |
+| `search.rs` | Search |
+| `view.rs` | View |
+| `format.rs` | Encoding / EOL |
+| `common.rs` | Shared helpers |
 
 ## Patterns
 
 | Kind | Approach |
 |------|----------|
-| Open URL / browser | `open_url` |
+| Open URL / browser | `common::open_url` |
 | Hash tools | shell `shasum` / `md5` on selection or file |
 | Tab order | mutate `TabSet` |
 | Complex UI | keep Coming Soon |

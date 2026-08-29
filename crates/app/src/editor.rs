@@ -656,6 +656,14 @@ impl EditorState {
         self.status = "Inserted date/time".into();
     }
 
+    /// ISO-8601 local style (custom format stand-in until Preferences exist).
+    pub fn insert_datetime_custom(&mut self) {
+        let now = chrono_lite_custom();
+        self.tabs.active_mut().buffer.insert(&now);
+        self.mark_text_changed();
+        self.status = "Inserted custom date/time".into();
+    }
+
     pub fn switch_tab(&mut self, index: usize) {
         if index < self.tabs.len() {
             self.tabs.set_active(index);
@@ -807,4 +815,16 @@ fn chrono_lite_now(long: bool) -> String {
     } else {
         "YYYY-MM-DD HH:MM".into()
     }
+}
+
+fn chrono_lite_custom() -> String {
+    if let Ok(out) = std::process::Command::new("date")
+        .args(["+%Y-%m-%dT%H:%M:%S"])
+        .output()
+    {
+        if out.status.success() {
+            return String::from_utf8_lossy(&out.stdout).trim().to_string();
+        }
+    }
+    "YYYY-MM-DDTHH:MM:SS".into()
 }
