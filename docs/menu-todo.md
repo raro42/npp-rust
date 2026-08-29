@@ -13,7 +13,7 @@ Many teal items only set a status-bar message. That inflated “Ready 477 / stub
 |-------|------:|---------|
 | Explicit handlers | 343 | Match arms in `commands/*.rs` |
 | Useful behaviour | 338 | Change buffer or UI beyond a note |
-| Placeholder / status-only | 1 | Partial or “not yet” |
+| Placeholder / status-only | 0 | Partial or “not yet” |
 | Menu IDs in export | 478 | From `npp_menu.json` |
 
 ## Preferences
@@ -27,7 +27,7 @@ Today it covers:
 
 It is **not** a full Notepad++ Preferences clone (tabs, margins, multi-language UI, …).
 
-## Placeholder / status-only (open work)
+## Remaining notes (not open stubs)
 
 ### Search — Progress note (2026-08-29)
 
