@@ -52,6 +52,20 @@ pub struct UiFlags {
     pub show_func_list: bool,
     /// Show Character Panel.
     pub show_char_panel: bool,
+    /// Dual view: `Some(true)` open second pane; `Some(false)` close it.
+    pub dual_view: Option<bool>,
+    /// Put the active tab into the secondary pane.
+    pub assign_other_view: bool,
+    /// Switch focus: swap active tab with the secondary pane tab.
+    pub switch_other_view: bool,
+    /// Optional explicit secondary tab index (e.g. after clone).
+    pub other_view_tab: Option<usize>,
+    /// Sync horizontal scroll with the other pane (session flag).
+    pub sync_scroll_h: Option<bool>,
+    /// Sync vertical scroll with the other pane (session flag).
+    pub sync_scroll_v: Option<bool>,
+    /// Keep both panes on the same zoom (session flag).
+    pub zoom_sync: Option<bool>,
 }
 
 /// Content for the “working on it — come back tomorrow” dialog.

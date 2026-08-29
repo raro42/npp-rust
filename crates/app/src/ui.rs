@@ -40,12 +40,26 @@ pub struct EditorApp {
     last_app_clipboard: Option<String>,
     /// Next Paste replaces bookmarked lines.
     await_paste_bookmarks: bool,
+    /// Second editor pane (read-only).
+    dual_view: bool,
+    /// Tab index shown in the secondary pane.
+    other_view_tab: usize,
+    /// Vertical scroll for the secondary pane (lines).
+    scroll_line_other: f32,
+    /// Sync vertical scroll between panes.
+    sync_scroll_v: bool,
+    /// Sync flag for horizontal (MVP shares line scroll with V when either is on).
+    sync_scroll_h: bool,
+    /// Session flag: both panes share font size (always true in practice).
+    zoom_sync: bool,
 }
 
 impl EditorApp {
     pub fn new(_cc: &eframe::CreationContext<'_>, open_paths: Vec<std::path::PathBuf>) -> Self {
+        let state = EditorState::new();
+        let font_size = state.settings.font_size.clamp(8.0, 48.0);
         let mut app = Self {
-            state: EditorState::new(),
+            state,
             find_focus_once: false,
             scroll_line: 0.0,
             follow_caret: false,
@@ -56,7 +70,7 @@ impl EditorApp {
             show_replace: false,
             replace_with: String::new(),
             coming_soon: None,
-            font_size: 14.0,
+            font_size,
             show_goto_line: false,
             goto_line_input: String::new(),
             show_summary: false,
@@ -66,6 +80,12 @@ impl EditorApp {
             show_char_panel: false,
             last_app_clipboard: None,
             await_paste_bookmarks: false,
+            dual_view: false,
+            other_view_tab: 0,
+            scroll_line_other: 0.0,
+            sync_scroll_v: false,
+            sync_scroll_h: false,
+            zoom_sync: false,
         };
         app.open_argv_paths(open_paths);
         app
@@ -329,11 +349,20 @@ impl EditorApp {
                 self.show_char_panel = true;
             }
             match flags.zoom_delta {
-                Some(1) => self.font_size = (self.font_size + 1.0).min(48.0),
-                Some(-1) => self.font_size = (self.font_size - 1.0).max(8.0),
-                Some(0) => self.font_size = 14.0,
+                Some(1) => {
+                    self.font_size = (self.font_size + 1.0).min(48.0);
+                    self.persist_font_size();
+                }
+                Some(-1) => {
+                    self.font_size = (self.font_size - 1.0).max(8.0);
+                    self.persist_font_size();
+                }
+                Some(0) => {
+                    self.font_size = self.state.settings.font_size.clamp(8.0, 48.0);
+                }
                 _ => {}
             }
+            self.apply_dual_view_flags(&flags);
             if let Some(on) = flags.always_on_top {
                 ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(if on {
                     egui::WindowLevel::AlwaysOnTop
@@ -650,9 +679,19 @@ Tree-sitter highlight, and a calm UI.",
                         .add(egui::Slider::new(&mut self.font_size, 8.0..=48.0))
                         .changed()
                     {
-                        // Session only until we persist font size.
+                        changed = true;
+                        self.state.settings.font_size = self.font_size;
                     }
                 });
+                if ui
+                    .checkbox(
+                        &mut self.state.settings.show_line_numbers,
+                        "Show line numbers",
+                    )
+                    .changed()
+                {
+                    changed = true;
+                }
                 ui.add_space(8.0);
                 ui.label(
                     RichText::new(format!("Saved to {}", crate::recent::SETTINGS_REL))
@@ -665,6 +704,7 @@ Tree-sitter highlight, and a calm UI.",
                 }
             });
         if changed {
+            self.state.settings.font_size = self.font_size;
             self.state.settings.save();
             self.state.status = format!(
                 "Preferences saved ({})",
@@ -1125,11 +1165,17 @@ Tree-sitter highlight, and a calm UI.",
                 let count = self.state.tabs.len();
                 let mut switch_to = None;
                 let mut close_idx = None;
+                let mut toggle_pin = None;
                 for i in 0..count {
                     let Some(doc) = self.state.tabs.get(i) else {
                         continue;
                     };
-                    let mut label = doc.title.clone();
+                    let pinned = doc.pinned;
+                    let mut label = String::new();
+                    if pinned {
+                        label.push_str("[P] ");
+                    }
+                    label.push_str(&doc.title);
                     if doc.dirty {
                         label.push('*');
                     }
@@ -1151,10 +1197,10 @@ Tree-sitter highlight, and a calm UI.",
                     let resp = if let Some(c) = colour {
                         ui.add(egui::SelectableLabel::new(
                             selected,
-                            RichText::new(label).color(c),
+                            RichText::new(&label).color(c),
                         ))
                     } else {
-                        ui.selectable_label(selected, label)
+                        ui.selectable_label(selected, &label)
                     };
                     if resp.clicked() {
                         switch_to = Some(i);
@@ -1162,6 +1208,27 @@ Tree-sitter highlight, and a calm UI.",
                     if resp.middle_clicked() {
                         close_idx = Some(i);
                     }
+                    resp.context_menu(|ui| {
+                        let pin_label = if pinned { "Unpin tab" } else { "Pin tab" };
+                        if ui.button(pin_label).clicked() {
+                            toggle_pin = Some(i);
+                            ui.close_menu();
+                        }
+                    });
+                    ui.push_id(("pin_tab", i), |ui| {
+                        let pin_btn = if pinned { "P" } else { "·" };
+                        if ui
+                            .small_button(pin_btn)
+                            .on_hover_text(if pinned {
+                                "Unpin tab"
+                            } else {
+                                "Pin tab"
+                            })
+                            .clicked()
+                        {
+                            toggle_pin = Some(i);
+                        }
+                    });
                     ui.push_id(("close_tab", i), |ui| {
                         if ui.small_button("×").on_hover_text("Close tab").clicked() {
                             close_idx = Some(i);
@@ -1170,6 +1237,36 @@ Tree-sitter highlight, and a calm UI.",
                 }
                 if ui.button("+").clicked() {
                     self.state.new_file();
+                }
+                if self.dual_view {
+                    ui.separator();
+                    let other_title = self
+                        .state
+                        .tabs
+                        .get(self.other_view_tab)
+                        .map(|d| d.title.clone())
+                        .unwrap_or_else(|| "?".into());
+                    ui.label(
+                        RichText::new(format!("| other: {other_title}"))
+                            .small()
+                            .weak(),
+                    );
+                    if ui.small_button("×dual").on_hover_text("Close dual view").clicked() {
+                        self.dual_view = false;
+                        self.state.status = "Dual view closed".into();
+                    }
+                }
+                if let Some(i) = toggle_pin {
+                    if let Some(doc) = self.state.tabs.get_mut(i) {
+                        doc.pinned = !doc.pinned;
+                        let name = doc.title.clone();
+                        let on = doc.pinned;
+                        self.state.status = if on {
+                            format!("Pinned “{name}”")
+                        } else {
+                            format!("Unpinned “{name}”")
+                        };
+                    }
                 }
                 if let Some(i) = switch_to {
                     self.state.tabs.set_active(i);
@@ -1306,6 +1403,31 @@ Tree-sitter highlight, and a calm UI.",
 
     fn editor_pane(&mut self, ctx: &egui::Context) {
         self.state.refresh_highlight_if_needed();
+        self.clamp_other_view_tab();
+
+        if self.dual_view {
+            let title = self
+                .state
+                .tabs
+                .get(self.other_view_tab)
+                .map(|d| d.title.clone())
+                .unwrap_or_else(|| "Other view".into());
+            egui::SidePanel::right("dual_other_view")
+                .resizable(true)
+                .default_width(420.0)
+                .min_width(180.0)
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(format!("Other view (read-only): {title}")).strong());
+                        if ui.small_button("Switch").on_hover_text("Swap with active tab").clicked()
+                        {
+                            self.switch_other_view_now();
+                        }
+                    });
+                    ui.separator();
+                    self.paint_secondary_pane(ui);
+                });
+        }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.state.tabs.active().loading {
@@ -1353,9 +1475,13 @@ Tree-sitter highlight, and a calm UI.",
                 self.follow_caret = false;
                 self.scroll_line =
                     (self.scroll_line - scroll / row_height).clamp(0.0, max_scroll);
+                if self.dual_view && (self.sync_scroll_v || self.sync_scroll_h) {
+                    self.scroll_line_other = self.scroll_line;
+                }
             }
 
-            let gutter_w = 56.0;
+            let show_ln = self.state.settings.show_line_numbers;
+            let gutter_w = if show_ln { 56.0 } else { 16.0 };
             // Gap between line numbers and text (was flush before).
             let gutter_gap = 12.0;
             let text_left = rect.left() + gutter_w + gutter_gap;
@@ -1572,13 +1698,15 @@ Tree-sitter highlight, and a calm UI.",
                 }
 
                 // Line number — right-aligned inside the gutter.
-                painter.text(
-                    Pos2::new(gutter_right - 6.0, y),
-                    egui::Align2::RIGHT_TOP,
-                    format!("{}", line_idx + 1),
-                    font_id.clone(),
-                    Color32::from_rgb(100, 100, 100),
-                );
+                if show_ln {
+                    painter.text(
+                        Pos2::new(gutter_right - 6.0, y),
+                        egui::Align2::RIGHT_TOP,
+                        format!("{}", line_idx + 1),
+                        font_id.clone(),
+                        Color32::from_rgb(100, 100, 100),
+                    );
+                }
 
                 let line_start = self.state.tabs.active().buffer.line_to_char(line_idx);
                 let raw = self.state.tabs.active().buffer.line(line_idx);
@@ -1717,6 +1845,201 @@ Tree-sitter highlight, and a calm UI.",
                 );
             }
         });
+    }
+
+    fn persist_font_size(&mut self) {
+        self.state.settings.font_size = self.font_size;
+        self.state.settings.save();
+    }
+
+    fn clamp_other_view_tab(&mut self) {
+        let n = self.state.tabs.len();
+        if n == 0 {
+            self.other_view_tab = 0;
+            return;
+        }
+        if self.other_view_tab >= n {
+            self.other_view_tab = n - 1;
+        }
+    }
+
+    fn ensure_other_view_tab(&mut self) {
+        self.clamp_other_view_tab();
+        let n = self.state.tabs.len();
+        if n <= 1 {
+            return;
+        }
+        let active = self.state.tabs.active_index();
+        if self.other_view_tab == active {
+            self.other_view_tab = (active + 1) % n;
+        }
+    }
+
+    fn switch_other_view_now(&mut self) {
+        self.dual_view = true;
+        self.ensure_other_view_tab();
+        let a = self.state.tabs.active_index();
+        let b = self.other_view_tab;
+        if a == b {
+            self.state.status = "Other view shows the same tab".into();
+            return;
+        }
+        self.state.tabs.set_active(b);
+        self.other_view_tab = a;
+        self.state.highlight_dirty = true;
+        std::mem::swap(&mut self.scroll_line, &mut self.scroll_line_other);
+        self.state.status = "Switched to other view".into();
+    }
+
+    fn apply_dual_view_flags(&mut self, flags: &crate::commands::UiFlags) {
+        if let Some(on) = flags.sync_scroll_h {
+            self.sync_scroll_h = on;
+        }
+        if let Some(on) = flags.sync_scroll_v {
+            self.sync_scroll_v = on;
+        }
+        if let Some(on) = flags.zoom_sync {
+            self.zoom_sync = on;
+        }
+        if let Some(on) = flags.dual_view {
+            self.dual_view = on;
+            if on {
+                self.ensure_other_view_tab();
+            }
+        }
+        if let Some(idx) = flags.other_view_tab {
+            self.other_view_tab = idx;
+            self.dual_view = true;
+            self.clamp_other_view_tab();
+        }
+        if flags.assign_other_view {
+            self.other_view_tab = self.state.tabs.active_index();
+            self.dual_view = true;
+            let n = self.state.tabs.len();
+            if n > 1 {
+                let next = (self.other_view_tab + 1) % n;
+                self.state.tabs.set_active(next);
+                self.state.highlight_dirty = true;
+            }
+        }
+        if flags.switch_other_view {
+            self.switch_other_view_now();
+        }
+    }
+
+    /// Read-only secondary pane: paints another tab buffer.
+    fn paint_secondary_pane(&mut self, ui: &mut egui::Ui) {
+        let tab = self.other_view_tab;
+        let (loading, buf_line_count, hidden) = match self.state.tabs.get(tab) {
+            None => {
+                ui.label("No tab for other view");
+                return;
+            }
+            Some(doc) => (
+                doc.loading,
+                doc.buffer.line_count().max(1),
+                doc.hidden_lines.clone(),
+            ),
+        };
+        if loading {
+            ui.label("Loading…");
+            return;
+        }
+
+        let font_id = FontId::monospace(self.font_size);
+        let row_height = ui.fonts(|f| f.row_height(&font_id)) + 2.0;
+        let visible_lines = visible_line_indices(buf_line_count, &hidden);
+        let display_count = visible_lines.len().max(1);
+        let avail = ui.available_size();
+        let (rect, response) = ui.allocate_exact_size(avail, Sense::click_and_drag());
+
+        let visible_rows = {
+            let usable = (rect.height() - row_height).max(row_height);
+            ((usable / row_height).floor() as usize).max(1)
+        };
+        let max_scroll = (display_count.saturating_sub(visible_rows) as f32).max(0.0);
+
+        let sync = self.sync_scroll_v || self.sync_scroll_h;
+        let mut scroll_line = if sync {
+            self.scroll_line
+        } else {
+            self.scroll_line_other
+        };
+
+        let scroll = if response.hovered() {
+            ui.input(|i| i.raw_scroll_delta.y)
+        } else {
+            0.0
+        };
+        if scroll != 0.0 {
+            scroll_line = (scroll_line - scroll / row_height).clamp(0.0, max_scroll);
+            if sync {
+                self.scroll_line = scroll_line;
+            }
+            self.scroll_line_other = scroll_line;
+        } else {
+            scroll_line = scroll_line.clamp(0.0, max_scroll);
+            if sync {
+                self.scroll_line_other = self.scroll_line;
+            }
+        }
+
+        let show_ln = self.state.settings.show_line_numbers;
+        let gutter_w = if show_ln { 48.0 } else { 12.0 };
+        let gutter_gap = 8.0;
+        let text_left = rect.left() + gutter_w + gutter_gap;
+        let gutter_right = rect.left() + gutter_w;
+
+        let painter = ui.painter_at(rect);
+        painter.rect_filled(rect, 0.0, Color32::from_rgb(28, 28, 32));
+        painter.rect_filled(
+            Rect::from_min_max(
+                Pos2::new(rect.left(), rect.top()),
+                Pos2::new(gutter_right, rect.bottom()),
+            ),
+            0.0,
+            Color32::from_rgb(22, 22, 26),
+        );
+
+        let first_row = scroll_line.floor() as usize;
+        let last_row = (first_row + visible_rows + 2).min(display_count);
+        let plain = Color32::from_rgb(190, 190, 190);
+
+        for row in first_row..last_row {
+            let Some(&line_idx) = visible_lines.get(row) else {
+                break;
+            };
+            let y = rect.top() + (row as f32 - scroll_line) * row_height;
+            if show_ln {
+                painter.text(
+                    Pos2::new(gutter_right - 4.0, y),
+                    egui::Align2::RIGHT_TOP,
+                    format!("{}", line_idx + 1),
+                    font_id.clone(),
+                    Color32::from_rgb(90, 90, 100),
+                );
+            }
+            let line_text = self
+                .state
+                .tabs
+                .get(tab)
+                .map(|d| {
+                    let raw = d.buffer.line(line_idx);
+                    raw.trim_end_matches(['\n', '\r']).to_string()
+                })
+                .unwrap_or_default();
+            painter.text(
+                Pos2::new(text_left, y),
+                egui::Align2::LEFT_TOP,
+                line_text,
+                font_id.clone(),
+                plain,
+            );
+        }
+
+        if response.clicked() {
+            self.state.status = "Other view is read-only — use Switch to edit".into();
+        }
     }
 
     /// Returns true if the caret moved or text changed (caller should follow caret).
