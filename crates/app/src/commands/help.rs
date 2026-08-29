@@ -93,7 +93,12 @@ fn show_cmdline_arguments(state: &mut EditorState) {
          \n\
          Options\n\
          -------\n\
-           -h, --help    Print usage to stderr and exit (no GUI)\n\
+           -h, --help         Print usage to stderr and exit (no GUI)\n\
+           -V, --version      Print version and exit\n\
+           -n <N>, --line <N> Go to 1-based line N in the first opened file\n\
+           -n<N>              Same as -n <N> (Notepad++ style)\n\
+           -ro, --read-only   Open argv files as read-only\n\
+           --                 End of options; remaining args are paths\n\
          \n\
          Other ways to open files\n\
          ------------------------\n\

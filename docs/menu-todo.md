@@ -25,6 +25,9 @@ Today it covers:
 - When opening `*.log` files (Ask / Always / Never) → `npp-rs/settings.json`
 - Editor font size (persisted in `AppSettings.font_size`)
 - Show line numbers (persisted in `AppSettings.show_line_numbers`)
+- Tab width (2–8 spaces; Tab key and Indent Tab)
+- Word wrap (also View → Word wrap; persisted)
+- Status bar: show language / character count
 
 It is **not** a full Notepad++ Preferences clone (tabs, margins, multi-language UI, …).
 
@@ -49,7 +52,7 @@ _(cleared — column editor + call tips; Character Panel egui grid inserts at ca
 
 ### Help (0)
 
-- [x] `IDM_CMDLINEARGUMENTS` — ?/Command Line Arguments... (read-only tab; no CLI flags yet; README link)
+- [x] `IDM_CMDLINEARGUMENTS` — ?/Command Line Arguments... (read-only tab; `-h`/`-V`/`-n`/`-ro`; README link)
 
 ## Cleared this batch (2026-08-29)
 

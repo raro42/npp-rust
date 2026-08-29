@@ -22,7 +22,7 @@ About **10** handlers still say the limit in the status line or use a stand-in, 
 
 ## Larger product gaps (not menu stubs)
 
-- Full Preferences (tabs, margins, multi-language UI, …). Partial: log-tail, font size, line numbers → `npp-rs/settings.json`
+- Full Preferences (tabs, margins, multi-language UI, …). Partial: log-tail, font size, line numbers, tab width, word wrap, status toggles → `npp-rs/settings.json`
 - Project panels (stand-in: doc list). Dual edit: both panes writable; Menu Edit uses the focused pane
 - File compare / diff — **2-way MVP** with re-diff after edit (~200 ms debounce). 3-way and char-level diff still open. Upstream N++ uses a plugin for compare.
 - Change history: MVP unsaved/saved colours + line remap shipped; full Scintilla parity still open

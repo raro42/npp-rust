@@ -4,11 +4,15 @@
 
 ## [0.2.4] — 2026-08-29
 
-### CLI and Preferences
+### CLI
 
 - `-V` / `--version`, `-n` / `--line`, `-ro` / `--read-only`, `--` end of options
-- Preferences: tab width, word wrap, status language / character toggles
-- Edit Indent Tab uses Preferences tab width
+- Help → Command Line Arguments documents the same flags
+
+### Preferences follow-up
+
+- View → Word wrap writes `settings.json`
+- Edit → Indent Tab uses Preferences tab width
 
 ## [0.2.3] — 2026-08-29
 
