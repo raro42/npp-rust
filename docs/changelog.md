@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-08-29
+
+### Compare fix
+
+- Move to Other View no longer undoes itself (removed extra Switch)
+- Compare pins left/right panes to the compared pair so colours stay visible
+- Switch in compare mode swaps both sides and their tags
+- Clearer compare how-to in `docs/compare.md`
+
 ## [0.2.0] — 2026-08-29
 
 Large feature batch after 0.1.2 (menu parity, dual view, compare, UX).

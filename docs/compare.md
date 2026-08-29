@@ -6,16 +6,36 @@ Date: 2026-08-29
 
 npp-rs targets macOS, Linux, and Windows. System `diff` is not always present. The UI still needs parsed line tags for colours and sync scroll. This build uses an **in-process LCS** (`crates/app/src/diff.rs`).
 
-## How to use
+## How to choose the two files
 
-1. Open two tabs.
-2. Put the second file in **Other View** (View → Move/Clone / dual view), or leave Compare to pick the other tab.
-3. **View → Compare with Other View** — opens dual view, enables sync scroll, colours deletes (red) / inserts (green).
-4. **View → Clear Compare** — removes colours.
+Compare uses **two open tabs**:
 
-Both panes stay editable. Compare colours do not refresh after you edit.
+| Pane | Source |
+|------|--------|
+| Left (main) | Active tab when you start Compare |
+| Right (Other view) | Other-view tab |
 
-MVP limit: **3000 lines** per side.
+### Example: `dummy.log` vs `dummy.log.2`
+
+1. Open both files.
+2. Click **`dummy.log.2`**.
+3. **View → Move to Other View** (puts that file on the right; leaves the other file active).
+4. Click **`dummy.log`** if it is not already the active tab.
+5. **View → Compare with Other View**.
+
+Or with only those two tabs: select `dummy.log`, then Compare — the other tab becomes the right side.
+
+Status line shows: `Compare “dummy.log” | “dummy.log.2” (−N +M)`.
+
+**View → Clear Compare** removes colours.
+
+While compare is on, panes stay pinned to that pair (tab clicks do not swap the left file away).
+
+## Limits
+
+- Both panes stay editable. Colours do not refresh after you edit.
+- MVP max: **3000 lines** per side.
+- No gap rows for inserts (line numbers stay per-file; sync is by scroll line).
 
 ## Not in MVP
 

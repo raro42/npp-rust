@@ -15,8 +15,8 @@ Ship a feature → bump the version in the same turn.
 Tag and push so CI builds release assets:
 
 ```bash
-git tag -a v0.2.0 -m "v0.2.0"
-git push origin v0.2.0
+git tag -a v0.2.1 -m "v0.2.1"
+git push origin v0.2.1
 ```
 
 Full process: `docs/release.md`.

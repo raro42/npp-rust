@@ -263,10 +263,10 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_VIEW_GOTO_ANOTHER_VIEW" => {
-            // Move active into the other pane, then switch focus to it.
+            // Put the active tab in the other pane; keep focus on a remaining tab.
+            // Do not also Switch — that undoes the move.
             ui.dual_view = Some(true);
             ui.assign_other_view = true;
-            ui.switch_other_view = true;
             state.status = "Moved tab to other view".into();
             CmdResult::Handled
         }

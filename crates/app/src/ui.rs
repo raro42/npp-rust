@@ -1481,6 +1481,7 @@ Tree-sitter highlight, and a calm UI.",
     fn editor_pane(&mut self, ctx: &egui::Context) {
         self.state.refresh_highlight_if_needed();
         self.clamp_other_view_tab();
+        self.sync_compare_panes();
 
         if self.dual_view {
             let title = self
@@ -1769,27 +1770,18 @@ Tree-sitter highlight, and a calm UI.",
                     }
                 }
 
-                // 2-way compare wash (active tab must be a compare side).
+                // 2-way compare wash (primary shows left side while comparing).
                 if self.compare_on {
-                    let tags = if self.state.tabs.active_index() == self.compare_left_tab {
-                        Some(&self.compare_left_tags)
-                    } else if self.state.tabs.active_index() == self.compare_right_tab {
-                        Some(&self.compare_right_tags)
-                    } else {
-                        None
-                    };
-                    if let Some(tags) = tags {
-                        if let Some(kind) = tags.get(line_idx) {
-                            if let Some(bg) = crate::diff::line_kind_bg(*kind) {
-                                painter.rect_filled(
-                                    Rect::from_min_max(
-                                        Pos2::new(text_left, y),
-                                        Pos2::new(rect.right(), y + row_height),
-                                    ),
-                                    0.0,
-                                    bg,
-                                );
-                            }
+                    if let Some(kind) = self.compare_left_tags.get(line_idx) {
+                        if let Some(bg) = crate::diff::line_kind_bg(*kind) {
+                            painter.rect_filled(
+                                Rect::from_min_max(
+                                    Pos2::new(text_left, y),
+                                    Pos2::new(rect.right(), y + row_height),
+                                ),
+                                0.0,
+                                bg,
+                            );
                         }
                     }
                 }
@@ -2019,7 +2011,37 @@ Tree-sitter highlight, and a calm UI.",
         self.other_view_tab = a;
         self.state.highlight_dirty = true;
         std::mem::swap(&mut self.scroll_line, &mut self.scroll_line_other);
+        if self.compare_on {
+            std::mem::swap(&mut self.compare_left_tab, &mut self.compare_right_tab);
+            std::mem::swap(&mut self.compare_left_tags, &mut self.compare_right_tags);
+        }
         self.state.status = "Switched to other view".into();
+    }
+
+    /// Keep compare panes on the compared pair (left = primary, right = other).
+    fn sync_compare_panes(&mut self) {
+        if !self.compare_on {
+            return;
+        }
+        let n = self.state.tabs.len();
+        if n == 0 {
+            self.clear_compare();
+            return;
+        }
+        if self.compare_left_tab >= n || self.compare_right_tab >= n {
+            self.clear_compare();
+            return;
+        }
+        if self.compare_left_tab == self.compare_right_tab {
+            self.clear_compare();
+            return;
+        }
+        self.dual_view = true;
+        self.other_view_tab = self.compare_right_tab;
+        if self.state.tabs.active_index() != self.compare_left_tab {
+            self.state.tabs.set_active(self.compare_left_tab);
+            self.state.highlight_dirty = true;
+        }
     }
 
     fn apply_dual_view_flags(&mut self, flags: &crate::commands::UiFlags) {
@@ -2078,7 +2100,10 @@ Tree-sitter highlight, and a calm UI.",
             self.state.status = "Compare needs two open tabs".into();
             return;
         }
-        self.ensure_other_view_tab();
+        // Prefer the dual-view pair when it already shows two different tabs.
+        if !(self.dual_view && self.other_view_tab != self.state.tabs.active_index()) {
+            self.ensure_other_view_tab();
+        }
         let left = self.state.tabs.active_index();
         let right = self.other_view_tab;
         if left == right {
@@ -2126,6 +2151,9 @@ Tree-sitter highlight, and a calm UI.",
         self.dual_view = true;
         self.sync_scroll_v = true;
         self.other_view_tab = right;
+        self.state.tabs.set_active(left);
+        self.state.highlight_dirty = true;
+        self.focused_pane = EditorPane::Primary;
         let lname = self
             .state
             .tabs
@@ -2358,21 +2386,8 @@ Tree-sitter highlight, and a calm UI.",
                 break;
             };
             let y = rect.top() + (row as f32 - scroll_line) * row_height;
-            if self.compare_on && tab == self.compare_right_tab {
+            if self.compare_on {
                 if let Some(kind) = self.compare_right_tags.get(line_idx) {
-                    if let Some(bg) = crate::diff::line_kind_bg(*kind) {
-                        painter.rect_filled(
-                            Rect::from_min_max(
-                                Pos2::new(text_left, y),
-                                Pos2::new(rect.right(), y + row_height),
-                            ),
-                            0.0,
-                            bg,
-                        );
-                    }
-                }
-            } else if self.compare_on && tab == self.compare_left_tab {
-                if let Some(kind) = self.compare_left_tags.get(line_idx) {
                     if let Some(bg) = crate::diff::line_kind_bg(*kind) {
                         painter.rect_filled(
                             Rect::from_min_max(
