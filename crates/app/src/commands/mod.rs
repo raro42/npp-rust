@@ -403,6 +403,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_ONLINEDOCUMENT"
             | "IDM_FORUM"
             | "IDM_UPDATE_NPP"
+            | "IDM_CHANGELOG"
             | "IDM_DEBUGINFO"
             | "IDM_OPEN_NPP_LOGS"
     ) || cmd.starts_with("IDM_LANG_")

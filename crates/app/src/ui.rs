@@ -455,6 +455,11 @@ impl EditorApp {
                         ui.hyperlink_to("Wiki", "https://github.com/raro42/npp-rust/wiki");
                         ui.label("·");
                         ui.hyperlink_to("Releases", "https://github.com/raro42/npp-rust/releases");
+                        ui.label("·");
+                        ui.hyperlink_to(
+                            "Changelog",
+                            "https://github.com/raro42/npp-rust/blob/dev/docs/changelog.md",
+                        );
                     });
                 });
 

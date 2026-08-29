@@ -4176,6 +4176,12 @@
         "cmd": "IDM_UPDATE_NPP"
       },
       {
+        "kind": "item",
+        "label": "Changelog",
+        "raw_label": "Changelog",
+        "cmd": "IDM_CHANGELOG"
+      },
+      {
         "kind": "separator"
       },
       {

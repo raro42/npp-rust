@@ -12,6 +12,7 @@ pub fn covers(cmd: &str) -> bool {
             | "IDM_FORUM"
             | "IDM_ONLINEDOCUMENT"
             | "IDM_UPDATE_NPP"
+            | "IDM_CHANGELOG"
             | "IDM_DEBUGINFO"
             | "IDM_OPEN_NPP_LOGS"
             | "IDM_CMDLINEARGUMENTS"
@@ -41,6 +42,13 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         }
         "IDM_UPDATE_NPP" => {
             open_url(state, "https://github.com/raro42/npp-rust/releases");
+            CmdResult::Handled
+        }
+        "IDM_CHANGELOG" => {
+            open_url(
+                state,
+                "https://github.com/raro42/npp-rust/blob/dev/docs/changelog.md",
+            );
             CmdResult::Handled
         }
         "IDM_OPEN_NPP_LOGS" => {
