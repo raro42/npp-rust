@@ -30,5 +30,6 @@ Prefer branch **`dev`**. Keep diffs small and useful.
 1. Pick the oldest `FEAT-*.md`, else continue a `WIP-`.
 2. Implement a **batch** (several related menu items or one solid feature). Update `docs/menu-todo.md` when placeholders become real.
 3. Commit + push.
-4. If the task goal is met, move the task file to `agents/tasks/done/` and label the GitHub issue `agent:done` via `gh` / `gh-safe.sh`.
-5. If blocked, write the blocker into the task file and stop — do not fake completion.
+4. Append a short **Progress** note to the task file (what changed, commit hash).
+5. **Hand off to tester:** rename `WIP-…` → `TEST-…` (same folder). Do **not** move to `done/`. Do **not** close the GitHub issue. Do **not** set `agent:done`.
+6. If blocked mid-batch, leave as `WIP-` with the blocker noted — do not fake `TEST-`.

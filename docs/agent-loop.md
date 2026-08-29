@@ -1,52 +1,63 @@
 # Agent loop (npp-rust)
 
-Date: 2026-08-28  
+Date: 2026-08-29  
 Repo: [raro42/npp-rust](https://github.com/raro42/npp-rust)  
 Branch: `dev`
 
 ## Purpose
 
-Pick up open GitHub issues, turn them into **sanitized** task files, then (optionally) code and test. Modelled after the pos2 loop, but **privacy-first** for a public repo.
+Pick up open GitHub issues, turn them into **sanitized** task files, code, **test**, then **handoff** (changelog + close). Privacy-first for a public repo.
+
+## Pipeline (what was missing before)
+
+Earlier the loop only ran **001 + 002**. It never called the tester or handoff. Coders also skipped ahead to `done/` and closed issues. That is fixed.
+
+| Step | Agent | Input | Output |
+|------|-------|-------|--------|
+| 001 | issue pickup | GitHub issues | `FEAT-*.md` |
+| 002 | coder | `FEAT-` / `WIP-` | code on `dev` + `TEST-*.md` |
+| 003 | tester | `TEST-` | `done/DONE-*.md` or back to `WIP-` |
+| 004 | handoff | `DONE-` without `Handoff: complete` | changelog + issue closed |
+
+Each `once` / loop cycle runs: sync → 001 → 004 → 003 → 002 → 003 → 004  
+(so unfinished handoffs and tests are drained before new coding).
 
 ## Run
 
 ```bash
-./agents/npp-cursor-loop.sh once    # one cycle (pickup + coder)
+./agents/npp-cursor-loop.sh once    # full cycle
 ./agents/npp-cursor-loop.sh loop    # every AGENT_LOOP_SLEEP_MINUTES (default 15)
-./agents/npp-cursor-loop.sh 001     # issue pickup only
+./agents/npp-cursor-loop.sh 001     # pickup only
+./agents/npp-cursor-loop.sh 002     # coder only
+./agents/npp-cursor-loop.sh 003     # tester only
+./agents/npp-cursor-loop.sh 004     # handoff only
 ```
 
-For a long unattended session (commit + push, honest placeholders), see [unattended-20h.md](unattended-20h.md).
+For a long unattended session, see [unattended-20h.md](unattended-20h.md). Start via Terminal: `agents/start-unattended.command`.
 
-### Auto-coder (002)
+### Auto agents
 
-When `cursor-agent` is on `PATH` (usually `~/.local/bin`), the loop **runs the coder by default**.
+When `cursor-agent` is on `PATH` (usually `~/.local/bin`), the loop **runs 002/003/004 by default**.
 
 | Env | Meaning |
 |-----|---------|
 | unset | Auto: `1` if `cursor-agent` exists, else `0` |
-| `AGENT_USE_CURSOR=1` | Force coder on |
+| `AGENT_USE_CURSOR=1` | Force agents on |
 | `AGENT_USE_CURSOR=0` | Pickup only (no edits) |
 
-### GitHub labels (what you see on issues)
+### GitHub labels
 
 | Label | Meaning |
 |-------|---------|
 | `agent:planned` | FEAT task file created |
-| `agent:wip` | Coder started (FEAT renamed to WIP) |
-| `agent:done` | Task finished (when agents set it) |
+| `agent:wip` | Coder / tester in progress |
+| `agent:done` | Handoff finished (issue usually closed) |
 
 Restart after changing the script:
 
 ```bash
 pkill -f 'npp-cursor-loop.sh loop' || true
-./agents/npp-cursor-loop.sh loop
-```
-
-Issue pickup only:
-
-```bash
-python3 agents/issue_checker.py
+open agents/start-unattended.command
 ```
 
 ## Agents
@@ -54,9 +65,10 @@ python3 agents/issue_checker.py
 | Id | File | Role |
 |----|------|------|
 | 001 | `agents/001-issue-reviewer.md` | Issues → `FEAT-*.md` |
-| 002 | `agents/002-coder.md` | Implement |
-| 003 | `agents/003-tester.md` | Verify |
-| 040 | `agents/040-committer.md` | Commit when asked |
+| 002 | `agents/002-coder.md` | Implement → `TEST-` |
+| 003 | `agents/003-tester.md` | Verify → `DONE-` |
+| 004 | `agents/004-handoff.md` | Changelog + close |
+| 040 | `agents/040-committer.md` | Extra commit hygiene |
 
 Tasks: `agents/TASKS-README.md`.
 

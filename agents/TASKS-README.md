@@ -5,9 +5,22 @@
 | Prefix | Meaning | Next agent |
 |--------|---------|------------|
 | `FEAT-` | Planned from a GitHub issue (sanitized summary only) | `002` coder |
-| `WIP-` | Work in progress | `002` / `003` |
+| `WIP-` | Coding in progress | `002` coder |
 | `TEST-` | Ready for verification | `003` tester |
-| `DONE-` | Finished (move under `done/`) | `040` committer |
+| `DONE-` | Tests passed; lives under `done/` | `004` handoff |
+
+## Pipeline (loop)
+
+Each cycle (`./agents/npp-cursor-loop.sh once` or `loop`):
+
+1. **001** — pick up issues → `FEAT-`
+2. **004** — finish any pending handoff (`DONE-` without `Handoff: complete`)
+3. **003** — test any `TEST-`
+4. **002** — code oldest `FEAT-` / `WIP-` → leave as `TEST-` when the batch is ready
+5. **003** again — catch a fresh `TEST-` from this cycle
+6. **004** again — changelog + close issue when tests passed
+
+Coder must **not** close issues or skip to `done/`. Tester must **not** close issues. Handoff updates `docs/changelog.md` and closes.
 
 ## Privacy (mandatory)
 
@@ -18,4 +31,4 @@
 
 ## Naming
 
-`FEAT-<issue>-YYYYMMDD-HHMM-<slug>.md` (UTC).
+`FEAT-<issue>-YYYYMMDD-HHMM-<slug>.md` (UTC). Same for `WIP-` / `TEST-` / `DONE-`.

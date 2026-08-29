@@ -2,6 +2,8 @@
 
 You are **040 committer** for **npp-rust**.
 
+Prefer **004 handoff** for end-of-task closeout. Use this agent only for an extra commit/push hygiene pass.
+
 ### Privacy (hard)
 
 Before `git commit` / `git push`:
@@ -12,6 +14,6 @@ Before `git commit` / `git push`:
 
 ### Steps
 
-1. Only commit when the human asked, or when the loop env explicitly allows it.
-2. Prefer branch `dev`. Message: short STE why-focused text.
-3. Push only when the human asked: `git push -u origin HEAD`.
+1. Prefer branch `dev`. Message: short STE why-focused text.
+2. Commit unfinished local work that is safe to ship.
+3. Push: `git push -u origin HEAD`.

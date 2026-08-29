@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# npp-rust agent loop — pick up GitHub issues with privacy gates.
+# npp-rust agent loop — pickup → coder → tester → handoff.
 # Run from repo root:
 #   ./agents/npp-cursor-loop.sh once
 #   ./agents/npp-cursor-loop.sh loop
@@ -14,6 +14,7 @@ set -euo pipefail
 SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPTDIR}/.." && pwd)"
 TASKDIR="${SCRIPTDIR}/tasks"
+DONEDIR="${TASKDIR}/done"
 GH_REPO="${NPP_GH_REPO:-raro42/npp-rust}"
 sleepminutes="${AGENT_LOOP_SLEEP_MINUTES:-15}"
 sleepseconds=$((sleepminutes * 60))
@@ -23,7 +24,7 @@ export PATH="${HOME}/.local/bin:/usr/local/bin:${PATH}"
 
 cd "$REPO_ROOT"
 
-# Enable auto-coder when the CLI is present, unless the user set AGENT_USE_CURSOR=0.
+# Enable agents when the CLI is present, unless the user set AGENT_USE_CURSOR=0.
 if [[ -z "${AGENT_USE_CURSOR+x}" ]]; then
   if command -v cursor-agent >/dev/null 2>&1; then
     AGENT_USE_CURSOR=1
@@ -45,7 +46,22 @@ ensure_gh_auth_env() {
 }
 ensure_gh_auth_env
 
-mkdir -p "$TASKDIR" "$TASKDIR/done" "${SCRIPTDIR}/001-issue-reviewer"
+mkdir -p "$TASKDIR" "$DONEDIR" "${SCRIPTDIR}/001-issue-reviewer"
+
+run_cursor() {
+  local role="$1"
+  local prompt="$2"
+  if [[ "${AGENT_USE_CURSOR}" != "1" ]] || ! command -v cursor-agent >/dev/null 2>&1; then
+    echo "----- ${role}: cursor-agent off (AGENT_USE_CURSOR=${AGENT_USE_CURSOR})"
+    return 0
+  fi
+  echo "----- ${role}: starting cursor-agent"
+  # Keep going even if the agent exits non-zero.
+  cursor-agent -p --force --trust --workspace "$REPO_ROOT" "$prompt" || {
+    echo "----- ${role}: cursor-agent exited $?" >&2
+    return 0
+  }
+}
 
 sync_dev() {
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -57,23 +73,26 @@ sync_dev() {
   fi
 }
 
+issue_num_from_task() {
+  local base="$1"
+  echo "$base" | sed -E 's/^(FEAT|WIP|TEST|DONE)-([0-9]+)-.*/\2/'
+}
+
 step_001_issues() {
   echo "===== 001 issue pickup ($(date -u +%Y-%m-%dT%H:%M:%SZ)) repo=$GH_REPO"
   NPP_GH_REPO="$GH_REPO" python3 "${SCRIPTDIR}/issue_checker.py"
 }
 
 step_002_coder() {
-  local feat wip
+  local feat wip task base issue_n
   feat="$(ls -1 "$TASKDIR"/FEAT-*.md 2>/dev/null | head -n 1 || true)"
   wip="$(ls -1 "$TASKDIR"/WIP-*.md 2>/dev/null | head -n 1 || true)"
-  local task="${feat:-$wip}"
+  task="${feat:-$wip}"
   if [[ -z "$task" ]]; then
     echo "----- 002: no FEAT or WIP tasks"
     return 0
   fi
 
-  # Promote FEAT → WIP and mark GitHub issue as in progress.
-  local base issue_n
   base="$(basename "$task")"
   if [[ "$base" == FEAT-* ]]; then
     local wip_name="${base/FEAT-/WIP-}"
@@ -82,29 +101,73 @@ step_002_coder() {
     base="$wip_name"
     echo "----- 002: promoted to $(basename "$task")"
   fi
-  issue_n="$(echo "$base" | sed -E 's/^(FEAT|WIP|TEST)-([0-9]+)-.*/\2/')"
+  issue_n="$(issue_num_from_task "$base")"
   if [[ -n "$issue_n" ]]; then
     echo "----- 002: GitHub issue #${issue_n} → agent:wip"
     gh issue edit "$issue_n" --repo "$GH_REPO" --add-label "agent:wip" 2>/dev/null || true
     gh issue edit "$issue_n" --repo "$GH_REPO" --remove-label "agent:planned" 2>/dev/null || true
-    ./scripts/gh-safe.sh issue comment "$issue_n" --body "Agent 002: work in progress (\`$(basename "$task")\`)." 2>/dev/null || true
+    ./scripts/gh-safe.sh issue comment "$issue_n" --body "Agent 002: coding (\`$(basename "$task")\`). Will hand to tester as TEST- when the batch is ready." 2>/dev/null || true
   fi
 
-  echo "----- 002: pending $(basename "$task") (AGENT_USE_CURSOR=${AGENT_USE_CURSOR})"
-  if [[ "${AGENT_USE_CURSOR}" == "1" ]] && command -v cursor-agent >/dev/null 2>&1; then
-    echo "----- 002: starting cursor-agent coder"
-    cursor-agent -p --force --trust --workspace "$REPO_ROOT" \
-      "Follow agents/002-coder.md. Implement the oldest FEAT or WIP under agents/tasks/. Prefer real behaviour for Placeholder items in docs/menu-todo.md (not status-only fakes). cargo check -p app must pass. Commit and push to origin/dev. Obey .cursor/rules/public-repo-no-exfiltration.mdc. Never post private data."
-  else
-    echo "----- 002: coder off — set AGENT_USE_CURSOR=1 and ensure cursor-agent is on PATH"
+  echo "----- 002: pending $(basename "$task")"
+  run_cursor "002" \
+    "Follow agents/002-coder.md. Implement the oldest FEAT or WIP under agents/tasks/. Prefer real behaviour for Placeholder items in docs/menu-todo.md (not status-only fakes). cargo check -p app must pass. Commit and push to origin/dev. When the batch is ready, rename WIP- to TEST- (do not close the issue, do not move to done/). Obey .cursor/rules/public-repo-no-exfiltration.mdc. Never post private data."
+}
+
+step_003_tester() {
+  local task base issue_n
+  task="$(ls -1 "$TASKDIR"/TEST-*.md 2>/dev/null | head -n 1 || true)"
+  if [[ -z "$task" ]]; then
+    echo "----- 003: no TEST tasks"
+    return 0
   fi
+  base="$(basename "$task")"
+  issue_n="$(issue_num_from_task "$base")"
+  echo "----- 003: testing $(basename "$task")"
+  if [[ -n "$issue_n" ]]; then
+    ./scripts/gh-safe.sh issue comment "$issue_n" --body "Agent 003: testing (\`$(basename "$task")\`)." 2>/dev/null || true
+  fi
+  run_cursor "003" \
+    "Follow agents/003-tester.md. Test the oldest TEST- task under agents/tasks/. Run cargo test --workspace and cargo check -p app. On pass: rename to DONE- and move under agents/tasks/done/. On fail: rename back to WIP- with notes. Do not close the GitHub issue (handoff does that). Obey privacy rules. Commit and push any task-file updates."
+}
+
+step_004_handoff() {
+  local task base issue_n
+  # Oldest DONE without handoff complete marker.
+  task=""
+  local f
+  for f in $(ls -1 "$DONEDIR"/DONE-*.md 2>/dev/null || true); do
+    if ! grep -q '^Handoff: complete' "$f" 2>/dev/null; then
+      task="$f"
+      break
+    fi
+  done
+  if [[ -z "$task" ]]; then
+    echo "----- 004: no DONE tasks awaiting handoff"
+    return 0
+  fi
+  base="$(basename "$task")"
+  issue_n="$(issue_num_from_task "$base")"
+  echo "----- 004: handoff $(basename "$task")"
+  if [[ -n "$issue_n" ]]; then
+    ./scripts/gh-safe.sh issue comment "$issue_n" --body "Agent 004: handoff review + changelog (\`$(basename "$task")\`)." 2>/dev/null || true
+  fi
+  run_cursor "004" \
+    "Follow agents/004-handoff.md. Review the oldest agents/tasks/done/DONE-*.md without 'Handoff: complete'. Update docs/changelog.md [Unreleased], commit and push, then close the GitHub issue with agent:done if the goal is met. Append 'Handoff: complete' to the task file. Obey privacy rules."
 }
 
 run_once() {
+  echo "===== cycle start ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
   sync_dev
   step_001_issues
+  # Prefer finishing the pipeline: handoff → test → code (so work does not pile up untested).
+  step_004_handoff
+  step_003_tester
   step_002_coder
-  echo "===== cycle done"
+  # If coder just created a TEST-, test and hand off in the same cycle.
+  step_003_tester
+  step_004_handoff
+  echo "===== cycle done ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
 }
 
 cmd="${1:-once}"
@@ -119,8 +182,11 @@ case "$cmd" in
     done
     ;;
   001) sync_dev; step_001_issues ;;
+  002) sync_dev; step_002_coder ;;
+  003) sync_dev; step_003_tester ;;
+  004) sync_dev; step_004_handoff ;;
   *)
-    echo "usage: $0 [once|loop|001]" >&2
+    echo "usage: $0 [once|loop|001|002|003|004]" >&2
     exit 2
     ;;
 esac
