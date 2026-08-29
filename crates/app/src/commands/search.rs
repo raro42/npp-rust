@@ -246,10 +246,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_SEARCH_FINDINFILES" => {
-            ui.find_open = true;
-            ui.show_replace = false;
-            ui.find_focus_once = true;
-            state.status = "Find in Files: use Find for now (folder search next)".into();
+            find_in_files(state, ui);
             CmdResult::Handled
         }
         "IDM_SEARCH_GOTONEXTFOUND" => {
@@ -268,14 +265,28 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             state.status = "Mark: find then use Style All Occurrences".into();
             CmdResult::Handled
         }
-        "IDM_SEARCH_CHANGED_NEXT" | "IDM_SEARCH_CHANGED_PREV" | "IDM_SEARCH_CLEAR_CHANGE_HISTORY" => {
-            state.status = "Change history not tracked yet".into();
+        "IDM_SEARCH_CHANGED_NEXT" => {
+            goto_dirty_tab(state, ui, true);
+            CmdResult::Handled
+        }
+        "IDM_SEARCH_CHANGED_PREV" => {
+            goto_dirty_tab(state, ui, false);
+            CmdResult::Handled
+        }
+        "IDM_SEARCH_CLEAR_CHANGE_HISTORY" => {
+            // Stand-in: clear selection. Real edit marks need editor.rs.
+            let buf = &mut state.tabs.active_mut().buffer;
+            if buf.selection().is_some() {
+                buf.clear_selection();
+                state.status = "Cleared selection (change-history stand-in)".into();
+            } else {
+                state.status =
+                    "No selection to clear (change-history stand-in)".into();
+            }
             CmdResult::Handled
         }
         "IDM_SEARCH_FINDCHARINRANGE" => {
-            ui.find_open = true;
-            ui.find_focus_once = true;
-            state.status = "Find characters in range: use Find for now".into();
+            find_char_in_range(state, ui);
             CmdResult::Handled
         }
         "IDM_SEARCH_MARKALLEXT1"
@@ -512,4 +523,206 @@ fn copy_style_lines(state: &mut EditorState, ui: &mut UiFlags, style: Option<u8>
     let n = marked.len();
     ui.pending_clipboard = Some(marked.join("\n"));
     state.status = format!("Copied {n} styled line(s)");
+}
+
+/// Parse Find text as a code-point range: `ascii`, `non-ascii`, or `start-end` (decimal).
+fn parse_char_range(query: &str) -> Option<(u32, u32)> {
+    let q = query.trim();
+    if q.is_empty() {
+        return None;
+    }
+    let lower = q.to_ascii_lowercase();
+    if lower == "ascii" {
+        return Some((0, 127));
+    }
+    if lower == "non-ascii" || lower == "nonascii" {
+        return Some((128, 255));
+    }
+    let (a, b) = q.split_once('-')?;
+    let start: u32 = a.trim().parse().ok()?;
+    let end: u32 = b.trim().parse().ok()?;
+    if start > end {
+        return None;
+    }
+    Some((start, end))
+}
+
+fn find_char_in_range(state: &mut EditorState, ui: &mut UiFlags) {
+    let Some((lo, hi)) = parse_char_range(&state.find_query) else {
+        ui.find_open = true;
+        ui.show_replace = false;
+        ui.find_focus_once = true;
+        if state.find_query.trim().is_empty() {
+            state.find_query = "0-127".into();
+        }
+        state.status =
+            "Find char range: set Find to ascii, non-ascii, or start-end (e.g. 65-90)".into();
+        return;
+    };
+    let text = state.tabs.active().buffer.to_string();
+    let from = state
+        .tabs
+        .active()
+        .buffer
+        .selection()
+        .map(|(_, e)| e)
+        .unwrap_or_else(|| state.tabs.active().buffer.caret());
+    let chars: Vec<char> = text.chars().collect();
+    let n = chars.len();
+    let mut found = None;
+    for i in from..n {
+        let cp = chars[i] as u32;
+        if cp >= lo && cp <= hi {
+            found = Some(i);
+            break;
+        }
+    }
+    if found.is_none() {
+        for i in 0..from.min(n) {
+            let cp = chars[i] as u32;
+            if cp >= lo && cp <= hi {
+                found = Some(i);
+                break;
+            }
+        }
+    }
+    if let Some(i) = found {
+        state.tabs.active_mut().buffer.set_selection(i, i + 1);
+        ui.follow_caret = true;
+        state.status = format!("Char range {lo}-{hi}: match at {i}");
+    } else {
+        state.status = format!("Char range {lo}-{hi}: no match");
+    }
+}
+
+/// Scan cwd (shallow) for `find_query`; write hits into a new untitled results tab.
+fn find_in_files(state: &mut EditorState, ui: &mut UiFlags) {
+    let q = state.find_query.clone();
+    if q.is_empty() {
+        ui.find_open = true;
+        ui.show_replace = false;
+        ui.find_focus_once = true;
+        state.status = "Find in Files: set Find text, then run again".into();
+        return;
+    }
+    let cwd = match std::env::current_dir() {
+        Ok(p) => p,
+        Err(_) => {
+            state.status = "Find in Files: cannot read working directory".into();
+            return;
+        }
+    };
+    const MAX_FILE_BYTES: u64 = 512 * 1024;
+    const MAX_MATCHES: usize = 500;
+    const MAX_FILES: usize = 200;
+
+    let mut lines_out: Vec<String> = Vec::new();
+    lines_out.push(format!("Find in Files: {q:?}"));
+    lines_out.push("Directory: . (process cwd)".into());
+    lines_out.push(String::new());
+
+    let mut files_ok = 0usize;
+    let mut match_count = 0usize;
+    let Ok(rd) = std::fs::read_dir(&cwd) else {
+        state.status = "Find in Files: cannot list working directory".into();
+        return;
+    };
+    let mut entries: Vec<_> = rd.filter_map(|e| e.ok()).collect();
+    entries.sort_by_key(|e| e.file_name());
+
+    for entry in entries {
+        if files_ok >= MAX_FILES || match_count >= MAX_MATCHES {
+            break;
+        }
+        let path = entry.path();
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.starts_with('.') {
+            continue;
+        }
+        if !path.is_file() {
+            continue;
+        }
+        let meta = match entry.metadata() {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+        if meta.len() > MAX_FILE_BYTES {
+            continue;
+        }
+        let Ok(bytes) = std::fs::read(&path) else {
+            continue;
+        };
+        if bytes.contains(&0) {
+            continue;
+        }
+        let Ok(text) = String::from_utf8(bytes) else {
+            continue;
+        };
+        files_ok += 1;
+        let rel = name.to_string();
+        for (li, line) in text.lines().enumerate() {
+            if match_count >= MAX_MATCHES {
+                break;
+            }
+            if line.contains(&q) {
+                lines_out.push(format!("{rel}:{}:{line}", li + 1));
+                match_count += 1;
+            }
+        }
+    }
+
+    lines_out.push(String::new());
+    lines_out.push(format!(
+        "— {match_count} match(es) in {files_ok} file(s) (cwd only, max {MAX_MATCHES})"
+    ));
+
+    let body = lines_out.join("\n");
+    state.tabs.open_untitled();
+    {
+        let doc = state.tabs.active_mut();
+        doc.title = "Find in Files".into();
+        doc.buffer = buffer::TextBuffer::from_str(&body);
+        doc.dirty = false;
+        doc.language = "plain".into();
+        doc.read_only = true;
+    }
+    state.highlight_dirty = true;
+    state.reset_view = true;
+    state.status = format!("Find in Files: {match_count} match(es) in {files_ok} file(s)");
+}
+
+/// Stand-in for change history: jump among dirty tabs (real marks need editor.rs).
+fn goto_dirty_tab(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
+    let dirty: Vec<usize> = (0..state.tabs.len())
+        .filter(|&i| state.tabs.get(i).map(|d| d.dirty).unwrap_or(false))
+        .collect();
+    if dirty.is_empty() {
+        state.status = "No dirty documents".into();
+        return;
+    }
+    let cur = state.tabs.active_index();
+    let next = if forward {
+        dirty
+            .iter()
+            .copied()
+            .find(|&i| i > cur)
+            .or_else(|| dirty.first().copied())
+    } else {
+        dirty
+            .iter()
+            .rev()
+            .copied()
+            .find(|&i| i < cur)
+            .or_else(|| dirty.last().copied())
+    };
+    let Some(i) = next else {
+        state.status = "No dirty documents".into();
+        return;
+    };
+    state.tabs.set_active(i);
+    state.highlight_dirty = true;
+    ui.follow_caret = true;
+    let title = state.tabs.active().title.clone();
+    state.status = format!("Dirty document: {title}");
 }
