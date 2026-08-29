@@ -155,10 +155,13 @@ impl EditorState {
         let Some(doc) = self.tabs.get_mut(tab) else {
             return;
         };
-        if let Some(snap) = snap {
-            doc.apply_line_snap(snap);
-        } else {
-            doc.sync_line_marks_after_edit();
+        // Prefer exact buffer line-structure hook over snap heuristic.
+        if !doc.consume_line_structure_edit() {
+            if let Some(snap) = snap {
+                doc.apply_line_snap(snap);
+            } else {
+                doc.sync_line_marks_after_edit();
+            }
         }
         Self::note_edit_lines(doc);
         doc.mark_dirty();

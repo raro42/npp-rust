@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.2.7] — 2026-08-29
+
+### Bookmarks
+
+- Bookmarks (and other line marks) shift when inserts or deletes change line structure
+- Buffer records `LineStructureEdit`; the editor prefers that over the snap heuristic
+
 ## [0.2.6] — 2026-08-29
 
 ### Tabs / open

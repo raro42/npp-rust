@@ -12,6 +12,15 @@ enum Edit {
     Replace { old: String, new: String },
 }
 
+/// Line-count change from the last mutating edit (for bookmark / mark remap).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineStructureEdit {
+    /// `n` lines inserted; marks at or after `at` shift down by `n`.
+    Insert { at: usize, n: usize },
+    /// `n` lines removed starting at `first`; marks in range drop; later marks shift up.
+    Delete { first: usize, n: usize },
+}
+
 /// Text buffer with caret, selection, and undo history.
 #[derive(Debug, Clone)]
 pub struct TextBuffer {
@@ -23,6 +32,8 @@ pub struct TextBuffer {
     redo: VecDeque<Edit>,
     /// Coalesce consecutive typing into one undo step.
     last_insert_end: Option<usize>,
+    /// Net line-structure change from the latest mutation (taken by Document remap).
+    last_line_edit: Option<LineStructureEdit>,
 }
 
 impl Default for TextBuffer {
@@ -40,7 +51,43 @@ impl TextBuffer {
             undo: VecDeque::new(),
             redo: VecDeque::new(),
             last_insert_end: None,
+            last_line_edit: None,
         }
+    }
+
+    /// Take the line-structure edit from the last mutation, if any.
+    pub fn take_line_structure_edit(&mut self) -> Option<LineStructureEdit> {
+        self.last_line_edit.take()
+    }
+
+    fn begin_line_edit(&mut self) {
+        self.last_line_edit = None;
+    }
+
+    fn merge_line_edit(&mut self, edit: LineStructureEdit) {
+        self.last_line_edit = match (self.last_line_edit, edit) {
+            (
+                Some(LineStructureEdit::Delete { first, n: dn }),
+                LineStructureEdit::Insert { at, n: i },
+            ) => {
+                // Replace-selection: delete then insert in one public op.
+                let net = i as isize - dn as isize;
+                if net > 0 {
+                    Some(LineStructureEdit::Insert {
+                        at: first.min(at),
+                        n: net as usize,
+                    })
+                } else if net < 0 {
+                    Some(LineStructureEdit::Delete {
+                        first,
+                        n: (-net) as usize,
+                    })
+                } else {
+                    None
+                }
+            }
+            (_, e) => Some(e),
+        };
     }
 
     #[allow(clippy::should_implement_trait)]
@@ -441,6 +488,7 @@ impl TextBuffer {
     }
 
     pub fn delete_line(&mut self) {
+        self.begin_line_edit();
         let line = self.char_to_line(self.caret);
         let start = self.line_to_char(line);
         let end = if line + 1 < self.line_count() {
@@ -458,9 +506,10 @@ impl TextBuffer {
 
     /// Insert an empty line above the caret line.
     pub fn blank_line_above(&mut self) {
+        self.begin_line_edit();
         let line = self.char_to_line(self.caret);
         let at = self.line_to_char(line);
-        self.rope.insert(at, "\n");
+        self.apply_insert(at, "\n", true);
         self.push_undo(Edit::Insert {
             index: at,
             text: "\n".into(),
@@ -495,10 +544,11 @@ impl TextBuffer {
         if chunk.ends_with('\n') {
             out.push('\n');
         }
+        self.begin_line_edit();
         self.delete_range(start, end, true);
         self.caret = start;
         self.sel_anchor = None;
-        self.insert(&out);
+        self.insert_without_begin(&out);
         self.set_caret(
             start
                 + out
@@ -645,6 +695,15 @@ impl TextBuffer {
         if text.is_empty() {
             return;
         }
+        self.begin_line_edit();
+        self.insert_without_begin(text);
+    }
+
+    /// Insert at caret (replace selection). Does not clear `last_line_edit` (for compound edits).
+    fn insert_without_begin(&mut self, text: &str) {
+        if text.is_empty() {
+            return;
+        }
         if let Some((start, end)) = self.selection() {
             self.delete_range(start, end, true);
             self.caret = start;
@@ -671,6 +730,7 @@ impl TextBuffer {
     }
 
     pub fn delete_backward(&mut self) {
+        self.begin_line_edit();
         if let Some((start, end)) = self.selection() {
             self.delete_range(start, end, true);
             self.caret = start;
@@ -689,6 +749,7 @@ impl TextBuffer {
     }
 
     pub fn delete_forward(&mut self) {
+        self.begin_line_edit();
         if let Some((start, end)) = self.selection() {
             self.delete_range(start, end, true);
             self.caret = start;
@@ -709,8 +770,20 @@ impl TextBuffer {
         if start >= end {
             return;
         }
+        let lines_before = self.line_count();
+        let start_line = self.char_to_line(start);
+        let at_line_start = start == self.line_to_char(start_line);
         let text = self.slice(start, end);
         self.rope.remove(start..end);
+        let n = lines_before.saturating_sub(self.line_count());
+        if n > 0 {
+            let first = if at_line_start {
+                start_line
+            } else {
+                start_line + 1
+            };
+            self.merge_line_edit(LineStructureEdit::Delete { first, n });
+        }
         if record_undo {
             self.push_undo(Edit::Delete { index: start, text });
             self.redo.clear();
@@ -718,7 +791,19 @@ impl TextBuffer {
     }
 
     fn apply_insert(&mut self, index: usize, text: &str, _record: bool) {
+        let lines_before = self.line_count();
+        let at_line = if self.len_chars() == 0 {
+            0
+        } else {
+            self.char_to_line(index.min(self.len_chars()))
+        };
+        let at_line_start = self.len_chars() == 0 || index == self.line_to_char(at_line);
         self.rope.insert(index, text);
+        let n = self.line_count().saturating_sub(lines_before);
+        if n > 0 {
+            let at = if at_line_start { at_line } else { at_line + 1 };
+            self.merge_line_edit(LineStructureEdit::Insert { at, n });
+        }
     }
 
     fn push_undo(&mut self, edit: Edit) {
@@ -748,6 +833,7 @@ impl TextBuffer {
             });
         }
         self.last_insert_end = None;
+        self.last_line_edit = None;
         self.redo.clear();
     }
 
@@ -773,6 +859,7 @@ impl TextBuffer {
         self.redo.push_back(edit);
         self.sel_anchor = None;
         self.last_insert_end = None;
+        self.last_line_edit = None;
         true
     }
 
@@ -798,6 +885,7 @@ impl TextBuffer {
         self.undo.push_back(edit);
         self.sel_anchor = None;
         self.last_insert_end = None;
+        self.last_line_edit = None;
         true
     }
 
@@ -926,5 +1014,27 @@ mod tests {
         b.set_selection(0, b.len_chars());
         b.uncomment_lines("// ");
         assert_eq!(b.to_string(), "\u{00A0}café\n");
+    }
+
+    #[test]
+    fn line_structure_insert_at_start() {
+        let mut b = TextBuffer::from_str("a\nb\nc\n");
+        b.set_caret(0);
+        b.insert("\n\n\n");
+        assert_eq!(
+            b.take_line_structure_edit(),
+            Some(LineStructureEdit::Insert { at: 0, n: 3 })
+        );
+    }
+
+    #[test]
+    fn line_structure_delete_line() {
+        let mut b = TextBuffer::from_str("a\nb\nc\n");
+        b.set_caret(b.line_to_char(1));
+        b.delete_line();
+        assert_eq!(
+            b.take_line_structure_edit(),
+            Some(LineStructureEdit::Delete { first: 1, n: 1 })
+        );
     }
 }

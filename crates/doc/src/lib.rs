@@ -208,15 +208,44 @@ impl Document {
         let delta = new_count as isize - snap.line_count as isize;
         if delta > 0 {
             let at = if snap.at_line_start {
-                snap.start_line.saturating_sub(1)
-            } else {
                 snap.start_line
+            } else {
+                snap.start_line + 1
             };
             self.remap_all_line_sets_insert(at, delta as usize);
         } else if delta < 0 {
-            self.remap_all_line_sets_delete(snap.start_line + 1, (-delta) as usize);
+            let first = if snap.at_line_start {
+                snap.start_line
+            } else {
+                snap.start_line + 1
+            };
+            self.remap_all_line_sets_delete(first, (-delta) as usize);
         }
         self.line_mark_basis = new_count;
+    }
+
+    /// Apply a buffer-recorded line-structure edit, then refresh `line_mark_basis`.
+    pub fn apply_line_structure_edit(&mut self, edit: buffer::LineStructureEdit) {
+        match edit {
+            buffer::LineStructureEdit::Insert { at, n } => {
+                self.remap_all_line_sets_insert(at, n);
+            }
+            buffer::LineStructureEdit::Delete { first, n } => {
+                self.remap_all_line_sets_delete(first, n);
+            }
+        }
+        self.line_mark_basis = self.buffer.line_count();
+    }
+
+    /// Prefer buffer hook when present. Returns true when a hook was applied.
+    pub fn consume_line_structure_edit(&mut self) -> bool {
+        match self.buffer.take_line_structure_edit() {
+            Some(edit) => {
+                self.apply_line_structure_edit(edit);
+                true
+            }
+            None => false,
+        }
     }
 
     pub fn mark_dirty(&mut self) {
@@ -599,6 +628,83 @@ mod tests {
         doc.apply_line_snap(snap);
         assert!(doc.changed_unsaved.contains(&2));
         assert!(doc.bookmarks.contains(&3));
+    }
+
+    #[test]
+    fn bookmark_insert_three_lines_at_start_shifts_mark() {
+        let mut doc = Document::untitled(1, 1);
+        let text: String = (0..15).map(|i| format!("L{i}\n")).collect();
+        doc.buffer = TextBuffer::from_str(&text);
+        doc.line_mark_basis = doc.buffer.line_count();
+        doc.bookmarks.insert(10);
+        doc.buffer.set_caret(0);
+        doc.buffer.insert("\n\n\n");
+        assert!(doc.consume_line_structure_edit());
+        assert!(doc.bookmarks.contains(&13));
+        assert!(!doc.bookmarks.contains(&10));
+    }
+
+    #[test]
+    fn bookmark_delete_lines_above_shifts_down() {
+        let mut doc = Document::untitled(1, 1);
+        let text: String = (0..15).map(|i| format!("L{i}\n")).collect();
+        doc.buffer = TextBuffer::from_str(&text);
+        doc.line_mark_basis = doc.buffer.line_count();
+        doc.bookmarks.insert(10);
+        // Delete lines 0..2 (three lines).
+        let end = doc.buffer.line_to_char(3);
+        doc.buffer.set_selection(0, end);
+        doc.buffer.delete_backward();
+        assert!(doc.consume_line_structure_edit());
+        assert!(doc.bookmarks.contains(&7));
+        assert!(!doc.bookmarks.contains(&10));
+    }
+
+    #[test]
+    fn bookmark_removed_when_its_line_deleted() {
+        let mut doc = Document::untitled(1, 1);
+        let text: String = (0..15).map(|i| format!("L{i}\n")).collect();
+        doc.buffer = TextBuffer::from_str(&text);
+        doc.line_mark_basis = doc.buffer.line_count();
+        doc.bookmarks.insert(10);
+        doc.buffer.set_caret(doc.buffer.line_to_char(10));
+        doc.buffer.delete_line();
+        assert!(doc.consume_line_structure_edit());
+        assert!(doc.bookmarks.is_empty());
+    }
+
+    #[test]
+    fn bookmark_remap_via_snap_when_delete_line() {
+        let mut doc = Document::untitled(1, 1);
+        let text: String = (0..8).map(|i| format!("L{i}\n")).collect();
+        doc.buffer = TextBuffer::from_str(&text);
+        doc.line_mark_basis = doc.buffer.line_count();
+        doc.bookmarks.insert(3);
+        doc.buffer.set_caret(doc.buffer.line_to_char(3));
+        let snap = doc.snap_edit();
+        doc.buffer.delete_line();
+        // Drop buffer hook so snap path is exercised.
+        let _ = doc.buffer.take_line_structure_edit();
+        doc.apply_line_snap(snap);
+        assert!(doc.bookmarks.is_empty());
+    }
+
+    #[test]
+    fn bookmark_remap_document_buffer_edit_and_hook() {
+        let mut doc = Document::untitled(1, 1);
+        let text: String = (0..12).map(|i| format!("L{i}\n")).collect();
+        doc.buffer = TextBuffer::from_str(&text);
+        doc.line_mark_basis = doc.buffer.line_count();
+        doc.bookmarks.insert(5);
+        doc.bookmarks.insert(9);
+        doc.buffer.set_caret(0);
+        let snap = doc.snap_edit();
+        doc.buffer.insert("x\ny\n");
+        // Hook wins over snap when both are available.
+        assert!(doc.consume_line_structure_edit());
+        let _ = snap;
+        assert!(doc.bookmarks.contains(&7));
+        assert!(doc.bookmarks.contains(&11));
     }
 
     #[test]

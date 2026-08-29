@@ -18,7 +18,7 @@ Issue: https://github.com/raro42/npp-rust/issues/4
 | A | `crates/doc` DocumentId; `editor.rs` PendingLoad / apply / close | Stable id on Document + pending load by id+path; tests |
 | B | `crates/buffer` + thin `doc` edit gate; `commands/edit.rs` / `format.rs` / `misc.rs` mutate paths | Read-only cannot mutate via menu; buffer API returns Err |
 | C | `editor.rs` reload + `dirty`/`saved_generation` on Document | Reload replaces content with confirm if dirty; undo-to-saved clears dirty |
-| D | `buffer` edit hooks + `Document.bookmarks` | Bookmarks shift on insert/delete lines |
+| D | `buffer` edit hooks + `Document.bookmarks` | **Done** — `LineStructureEdit` on buffer; bookmarks remap on insert/delete; tests |
 | E | `crates/fs` + `editor.rs` poll_tail | Tail reads on worker thread; UI applies TailRead events |
 
 Commit and push each batch. Bump patch version when user-visible. Update this file’s checklist when done.
@@ -45,7 +45,11 @@ Commit and push each batch. Bump patch version when user-visible. Update this fi
 
 ### Agent D — bookmarks shift
 
-- [ ] (other agent)
+- [x] `LineStructureEdit` recorded in buffer `delete_range` / `apply_insert`
+- [x] `Document` consumes via `take_line_structure_edit` in `mark_text_changed`
+- [x] Snap delete heuristic removes bookmark on deleted line
+- [x] Unit tests: insert shift, delete-above shift, delete mark line, hook path
+- [x] Patch version + changelog
 
 ### Agent E — tail worker
 
