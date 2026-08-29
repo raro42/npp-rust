@@ -1,9 +1,30 @@
 //! Rope-backed text buffer with caret and undo/redo.
+//!
+//! # Undo model
+//!
+//! One **user-level command** is one undo unit. Multi-edit helpers wrap their
+//! micro-edits in [`TextBuffer::with_transaction`].
+//!
+//! # Typing coalesce policy
+//!
+//! Plain typing may merge into the previous undo unit when **all** hold:
+//!
+//! - **Kind:** previous unit is a single `Insert` (not a group, delete, or replace).
+//! - **Adjacency:** new text starts at the end of that insert (`last_insert_end`).
+//! - **Time:** previous insert was within [`TYPING_COALESCE_MS`] (1s).
+//!
+//! Caret moves, selection changes, undo/redo, document replace, and starting a
+//! transaction break the streak. Deletes and replace-selection do not coalesce
+//! with typing.
 
 use ropey::Rope;
 use std::collections::VecDeque;
+use std::time::Instant;
 
 const MAX_UNDO: usize = 256;
+
+/// Max gap between keystrokes that still merge into one typing undo unit.
+pub const TYPING_COALESCE_MS: u128 = 1000;
 
 #[derive(Debug, Clone)]
 enum Edit {
@@ -21,6 +42,13 @@ pub enum LineStructureEdit {
     Delete { first: usize, n: usize },
 }
 
+/// One undo/redo stack entry: a single micro-edit or a transaction group.
+#[derive(Debug, Clone)]
+enum UndoUnit {
+    Single(Edit),
+    Group(Vec<Edit>),
+}
+
 /// Text buffer with caret, selection, and undo history.
 #[derive(Debug, Clone)]
 pub struct TextBuffer {
@@ -28,10 +56,15 @@ pub struct TextBuffer {
     caret: usize,
     /// Selection anchor; `None` means no selection (caret only).
     sel_anchor: Option<usize>,
-    undo: VecDeque<Edit>,
-    redo: VecDeque<Edit>,
-    /// Coalesce consecutive typing into one undo step.
+    undo: VecDeque<UndoUnit>,
+    redo: VecDeque<UndoUnit>,
+    /// Coalesce consecutive typing into one undo step (char index after last insert).
     last_insert_end: Option<usize>,
+    /// When the last coalescable insert landed (for the time window).
+    last_insert_at: Option<Instant>,
+    /// Nested transaction depth; edits go into `tx_edits` while > 0.
+    tx_depth: usize,
+    tx_edits: Vec<Edit>,
     /// Net line-structure change from the latest mutation (taken by Document remap).
     last_line_edit: Option<LineStructureEdit>,
 }
@@ -51,6 +84,9 @@ impl TextBuffer {
             undo: VecDeque::new(),
             redo: VecDeque::new(),
             last_insert_end: None,
+            last_insert_at: None,
+            tx_depth: 0,
+            tx_edits: Vec::new(),
             last_line_edit: None,
         }
     }
@@ -90,7 +126,6 @@ impl TextBuffer {
         };
     }
 
-    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         let mut buf = Self::new();
         buf.rope = Rope::from_str(s);
@@ -113,7 +148,7 @@ impl TextBuffer {
     pub fn set_caret(&mut self, index: usize) {
         self.caret = index.min(self.len_chars());
         self.sel_anchor = None;
-        self.last_insert_end = None;
+        self.break_typing_coalesce();
     }
 
     pub fn selection(&self) -> Option<(usize, usize)> {
@@ -134,7 +169,52 @@ impl TextBuffer {
         let len = self.len_chars();
         self.sel_anchor = Some(anchor.min(len));
         self.caret = caret.min(len);
+        self.break_typing_coalesce();
+    }
+
+    /// Run `f` as one undo unit. Nested calls merge into the outermost unit.
+    pub fn with_transaction<F, R>(&mut self, f: F) -> R
+    where
+        F: FnOnce(&mut Self) -> R,
+    {
+        self.begin_transaction();
+        let out = f(self);
+        self.end_transaction();
+        out
+    }
+
+    fn begin_transaction(&mut self) {
+        if self.tx_depth == 0 {
+            self.tx_edits.clear();
+            self.break_typing_coalesce();
+            self.begin_line_edit();
+        }
+        self.tx_depth += 1;
+    }
+
+    fn end_transaction(&mut self) {
+        debug_assert!(self.tx_depth > 0);
+        self.tx_depth = self.tx_depth.saturating_sub(1);
+        if self.tx_depth > 0 {
+            return;
+        }
+        let edits = std::mem::take(&mut self.tx_edits);
+        if edits.is_empty() {
+            return;
+        }
+        let unit = if edits.len() == 1 {
+            UndoUnit::Single(edits.into_iter().next().expect("len checked"))
+        } else {
+            UndoUnit::Group(edits)
+        };
+        self.push_unit(unit);
+        self.redo.clear();
+        self.break_typing_coalesce();
+    }
+
+    fn break_typing_coalesce(&mut self) {
         self.last_insert_end = None;
+        self.last_insert_at = None;
     }
 
     pub fn clear_selection(&mut self) {
@@ -166,7 +246,6 @@ impl TextBuffer {
             index
         };
         if !is_word_char(chars[i]) {
-            // Click on punctuation/space: select single char if not space, else empty.
             if chars[i].is_whitespace() {
                 return (index, index);
             }
@@ -212,7 +291,6 @@ impl TextBuffer {
             if i >= len {
                 return;
             }
-            // Skip current word chars, then whitespace.
             if i < chars.len() && is_word_char(chars[i]) {
                 while i < chars.len() && is_word_char(chars[i]) {
                     i += 1;
@@ -245,63 +323,60 @@ impl TextBuffer {
 
     /// Indent selected lines (or current line) with `prefix` (e.g. `"    "` or `"\t"`).
     pub fn indent_lines(&mut self, prefix: &str) {
-        let (start_line, end_line) = self.selected_line_range();
-        let mut offset_add = 0usize;
-        let caret_line = self.char_to_line(self.caret);
-        for line in (start_line..=end_line).rev() {
-            let at = self.line_to_char(line);
-            self.rope.insert(at, prefix);
-            self.push_undo(Edit::Insert {
-                index: at,
-                text: prefix.to_string(),
-            });
-            offset_add += prefix.chars().count();
-            let _ = caret_line;
+        if prefix.is_empty() {
+            return;
         }
-        self.redo.clear();
-        self.last_insert_end = None;
-        // Expand selection to cover indented block.
-        let new_start = self.line_to_char(start_line);
-        let new_end = if end_line + 1 < self.line_count() {
-            self.line_to_char(end_line + 1)
-        } else {
-            self.len_chars()
-        };
-        self.set_selection(new_start, new_end);
-        let _ = offset_add;
+        let (start_line, end_line) = self.selected_line_range();
+        self.with_transaction(|b| {
+            for line in (start_line..=end_line).rev() {
+                let at = b.line_to_char(line);
+                b.rope.insert(at, prefix);
+                b.push_undo(Edit::Insert {
+                    index: at,
+                    text: prefix.to_string(),
+                });
+            }
+            let new_start = b.line_to_char(start_line);
+            let new_end = if end_line + 1 < b.line_count() {
+                b.line_to_char(end_line + 1)
+            } else {
+                b.len_chars()
+            };
+            b.set_selection(new_start, new_end);
+        });
     }
 
     pub fn outdent_lines(&mut self, width: usize) {
         let (start_line, end_line) = self.selected_line_range();
-        for line in start_line..=end_line {
-            let raw = self.line(line);
-            let trim = if raw.starts_with('\t') {
-                1
-            } else {
-                raw.chars().take(width).take_while(|c| *c == ' ').count()
-            };
-            if trim == 0 {
-                continue;
+        self.with_transaction(|b| {
+            for line in start_line..=end_line {
+                let raw = b.line(line);
+                let trim = if raw.starts_with('\t') {
+                    1
+                } else {
+                    raw.chars().take(width).take_while(|c| *c == ' ').count()
+                };
+                if trim == 0 {
+                    continue;
+                }
+                let at = b.line_to_char(line);
+                let removed: String = raw.chars().take(trim).collect();
+                b.rope.remove(at..at + trim);
+                b.push_undo(Edit::Delete {
+                    index: at,
+                    text: removed,
+                });
             }
-            let at = self.line_to_char(line);
-            let removed: String = raw.chars().take(trim).collect();
-            self.rope.remove(at..at + trim);
-            self.push_undo(Edit::Delete {
-                index: at,
-                text: removed,
-            });
-        }
-        self.redo.clear();
-        self.last_insert_end = None;
-        let new_start = self.line_to_char(start_line);
-        let new_end = if end_line + 1 < self.line_count() {
-            self.line_to_char(end_line + 1)
-        } else {
-            self.len_chars()
-        };
-        if start_line != end_line || self.selection().is_some() {
-            self.set_selection(new_start, new_end);
-        }
+            let new_start = b.line_to_char(start_line);
+            let new_end = if end_line + 1 < b.line_count() {
+                b.line_to_char(end_line + 1)
+            } else {
+                b.len_chars()
+            };
+            if start_line != end_line || b.selection().is_some() {
+                b.set_selection(new_start, new_end);
+            }
+        });
     }
 
     pub fn selected_line_range(&self) -> (usize, usize) {
@@ -322,27 +397,27 @@ impl TextBuffer {
             return;
         }
         let (start_line, end_line) = self.selected_line_range();
-        for line in (start_line..=end_line).rev() {
-            let raw = self.line(line);
-            let body = raw.trim_end_matches(['\n', '\r']);
-            if body.trim().is_empty() {
-                continue;
+        self.with_transaction(|b| {
+            for line in (start_line..=end_line).rev() {
+                let raw = b.line(line);
+                let body = raw.trim_end_matches(['\n', '\r']);
+                if body.trim().is_empty() {
+                    continue;
+                }
+                let trimmed = body.trim_start();
+                let lead = body.chars().count() - trimmed.chars().count();
+                if trimmed.starts_with(prefix.trim_end()) {
+                    continue;
+                }
+                let at = b.line_to_char(line) + lead;
+                b.rope.insert(at, prefix);
+                b.push_undo(Edit::Insert {
+                    index: at,
+                    text: prefix.to_string(),
+                });
             }
-            let trimmed = body.trim_start();
-            let lead = body.chars().count() - trimmed.chars().count();
-            if trimmed.starts_with(prefix.trim_end()) {
-                continue;
-            }
-            let at = self.line_to_char(line) + lead;
-            self.rope.insert(at, prefix);
-            self.push_undo(Edit::Insert {
-                index: at,
-                text: prefix.to_string(),
-            });
-        }
-        self.redo.clear();
-        self.last_insert_end = None;
-        self.reselect_lines(start_line, end_line);
+            b.reselect_lines(start_line, end_line);
+        });
     }
 
     /// Strip a line-comment marker from selected lines when present.
@@ -352,36 +427,36 @@ impl TextBuffer {
         }
         let bare = prefix.trim_end();
         let (start_line, end_line) = self.selected_line_range();
-        for line in start_line..=end_line {
-            let raw = self.line(line);
-            let body = raw.trim_end_matches(['\n', '\r']);
-            let trimmed = body.trim_start();
-            let lead = body.chars().count() - trimmed.chars().count();
-            let remove = if trimmed.starts_with(prefix) {
-                prefix.chars().count()
-            } else if let Some(after) = trimmed.strip_prefix(bare) {
-                if after.starts_with(' ') {
-                    bare.chars().count() + 1
+        self.with_transaction(|b| {
+            for line in start_line..=end_line {
+                let raw = b.line(line);
+                let body = raw.trim_end_matches(['\n', '\r']);
+                let trimmed = body.trim_start();
+                let lead = body.chars().count() - trimmed.chars().count();
+                let remove = if trimmed.starts_with(prefix) {
+                    prefix.chars().count()
+                } else if let Some(after) = trimmed.strip_prefix(bare) {
+                    if after.starts_with(' ') {
+                        bare.chars().count() + 1
+                    } else {
+                        bare.chars().count()
+                    }
                 } else {
-                    bare.chars().count()
+                    0
+                };
+                if remove == 0 {
+                    continue;
                 }
-            } else {
-                0
-            };
-            if remove == 0 {
-                continue;
+                let at = b.line_to_char(line) + lead;
+                let removed: String = trimmed.chars().take(remove).collect();
+                b.rope.remove(at..at + remove);
+                b.push_undo(Edit::Delete {
+                    index: at,
+                    text: removed,
+                });
             }
-            let at = self.line_to_char(line) + lead;
-            let removed: String = trimmed.chars().take(remove).collect();
-            self.rope.remove(at..at + remove);
-            self.push_undo(Edit::Delete {
-                index: at,
-                text: removed,
-            });
-        }
-        self.redo.clear();
-        self.last_insert_end = None;
-        self.reselect_lines(start_line, end_line);
+            b.reselect_lines(start_line, end_line);
+        });
     }
 
     /// Toggle line comments: uncomment if every non-empty line is commented.
@@ -477,18 +552,17 @@ impl TextBuffer {
         if !chunk.ends_with('\n') {
             chunk.push('\n');
         }
-        self.rope.insert(end, &chunk);
-        self.push_undo(Edit::Insert {
-            index: end,
-            text: chunk.clone(),
+        self.with_transaction(|b| {
+            b.apply_insert(end, &chunk);
+            b.push_undo(Edit::Insert {
+                index: end,
+                text: chunk.clone(),
+            });
+            b.set_caret(end + chunk.chars().count().saturating_sub(1));
         });
-        self.redo.clear();
-        self.last_insert_end = None;
-        self.set_caret(end + chunk.chars().count().saturating_sub(1));
     }
 
     pub fn delete_line(&mut self) {
-        self.begin_line_edit();
         let line = self.char_to_line(self.caret);
         let start = self.line_to_char(line);
         let end = if line + 1 < self.line_count() {
@@ -497,26 +571,27 @@ impl TextBuffer {
             self.len_chars()
         };
         if start < end {
-            self.delete_range(start, end, true);
-            self.caret = start.min(self.len_chars());
-            self.sel_anchor = None;
-            self.last_insert_end = None;
+            self.with_transaction(|b| {
+                b.delete_range(start, end, true);
+                b.caret = start.min(b.len_chars());
+                b.sel_anchor = None;
+            });
+            self.break_typing_coalesce();
         }
     }
 
     /// Insert an empty line above the caret line.
     pub fn blank_line_above(&mut self) {
-        self.begin_line_edit();
         let line = self.char_to_line(self.caret);
         let at = self.line_to_char(line);
-        self.apply_insert(at, "\n", true);
-        self.push_undo(Edit::Insert {
-            index: at,
-            text: "\n".into(),
+        self.with_transaction(|b| {
+            b.apply_insert(at, "\n");
+            b.push_undo(Edit::Insert {
+                index: at,
+                text: "\n".into(),
+            });
+            b.set_caret(at);
         });
-        self.redo.clear();
-        self.last_insert_end = None;
-        self.set_caret(at);
     }
 
     /// Join selected lines (or current + next) with a space.
@@ -544,18 +619,19 @@ impl TextBuffer {
         if chunk.ends_with('\n') {
             out.push('\n');
         }
-        self.begin_line_edit();
-        self.delete_range(start, end, true);
-        self.caret = start;
-        self.sel_anchor = None;
-        self.insert_without_begin(&out);
-        self.set_caret(
-            start
-                + out
-                    .chars()
-                    .count()
-                    .saturating_sub(if out.ends_with('\n') { 1 } else { 0 }),
-        );
+        self.with_transaction(|b| {
+            b.delete_range(start, end, true);
+            b.caret = start;
+            b.sel_anchor = None;
+            b.insert_at_caret(&out);
+            b.set_caret(
+                start
+                    + out
+                        .chars()
+                        .count()
+                        .saturating_sub(if out.ends_with('\n') { 1 } else { 0 }),
+            );
+        });
     }
 
     pub fn move_line_up(&mut self) {
@@ -591,13 +667,10 @@ impl TextBuffer {
         };
         let line_a = self.slice(a_start, b_start);
         let line_b = self.slice(b_start, b_end);
-        // Normalize: first line always ends with \n when not last pair at EOF oddly.
         let mut first = line_b.trim_end_matches(['\r', '\n']).to_string();
         first.push('\n');
         let second = if line_a.ends_with('\n') || b + 1 >= self.line_count() {
-            // Keep second as original first line content.
             if b + 1 >= self.line_count() && !line_b.ends_with('\n') {
-                // Moving last line up: second should not force trailing nl beyond doc.
                 line_a.trim_end_matches('\n').to_string()
             } else {
                 line_a
@@ -606,10 +679,12 @@ impl TextBuffer {
             line_a
         };
         let combined = format!("{first}{second}");
-        self.delete_range(a_start, b_end, true);
-        self.caret = a_start;
-        self.sel_anchor = None;
-        self.insert(&combined);
+        self.with_transaction(|buf| {
+            buf.delete_range(a_start, b_end, true);
+            buf.caret = a_start;
+            buf.sel_anchor = None;
+            buf.insert_at_caret(&combined);
+        });
     }
 
     /// Remove empty lines in the whole document (or selection).
@@ -679,7 +754,6 @@ impl TextBuffer {
     }
 
     /// Full document as owned String (avoid for huge files in hot paths).
-    #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         self.rope.to_string()
     }
@@ -692,32 +766,62 @@ impl TextBuffer {
     }
 
     pub fn insert(&mut self, text: &str) {
+        if let Some((start, end)) = self.selection() {
+            if text.is_empty() {
+                self.with_transaction(|b| {
+                    b.delete_range(start, end, true);
+                    b.caret = start;
+                    b.sel_anchor = None;
+                });
+                return;
+            }
+            self.with_transaction(|b| {
+                b.delete_range(start, end, true);
+                b.caret = start;
+                b.sel_anchor = None;
+                b.insert_at_caret(text);
+            });
+            return;
+        }
         if text.is_empty() {
             return;
         }
-        self.begin_line_edit();
-        self.insert_without_begin(text);
+        if self.tx_depth == 0 {
+            self.begin_line_edit();
+        }
+        self.insert_at_caret(text);
     }
 
-    /// Insert at caret (replace selection). Does not clear `last_line_edit` (for compound edits).
-    fn insert_without_begin(&mut self, text: &str) {
+    /// Insert at caret with no selection handling. Honors typing coalesce outside a transaction.
+    fn insert_at_caret(&mut self, text: &str) {
         if text.is_empty() {
             return;
         }
-        if let Some((start, end)) = self.selection() {
-            self.delete_range(start, end, true);
-            self.caret = start;
-            self.sel_anchor = None;
-        }
         let index = self.caret;
-        self.apply_insert(index, text, true);
+        self.apply_insert(index, text);
         self.caret = index + text.chars().count();
         self.sel_anchor = None;
 
-        // Coalesce adjacent inserts for undo.
-        if self.last_insert_end == Some(index) {
-            if let Some(Edit::Insert { text: prev, .. }) = self.undo.back_mut() {
+        if self.tx_depth > 0 {
+            self.push_undo(Edit::Insert {
+                index,
+                text: text.to_string(),
+            });
+            return;
+        }
+
+        let time_ok = self
+            .last_insert_at
+            .map(|t| t.elapsed().as_millis() <= TYPING_COALESCE_MS)
+            .unwrap_or(false);
+        if self.last_insert_end == Some(index) && time_ok {
+            if let Some(UndoUnit::Single(Edit::Insert { text: prev, .. })) = self.undo.back_mut() {
                 prev.push_str(text);
+            } else {
+                self.push_undo(Edit::Insert {
+                    index,
+                    text: text.to_string(),
+                });
             }
         } else {
             self.push_undo(Edit::Insert {
@@ -726,44 +830,47 @@ impl TextBuffer {
             });
         }
         self.last_insert_end = Some(self.caret);
+        self.last_insert_at = Some(Instant::now());
         self.redo.clear();
     }
 
     pub fn delete_backward(&mut self) {
-        self.begin_line_edit();
         if let Some((start, end)) = self.selection() {
-            self.delete_range(start, end, true);
-            self.caret = start;
-            self.sel_anchor = None;
-            self.last_insert_end = None;
+            self.with_transaction(|b| {
+                b.delete_range(start, end, true);
+                b.caret = start;
+                b.sel_anchor = None;
+            });
             return;
         }
         if self.caret == 0 {
             return;
         }
+        self.begin_line_edit();
         let start = self.caret - 1;
         let end = self.caret;
         self.delete_range(start, end, true);
         self.caret = start;
-        self.last_insert_end = None;
+        self.break_typing_coalesce();
     }
 
     pub fn delete_forward(&mut self) {
-        self.begin_line_edit();
         if let Some((start, end)) = self.selection() {
-            self.delete_range(start, end, true);
-            self.caret = start;
-            self.sel_anchor = None;
-            self.last_insert_end = None;
+            self.with_transaction(|b| {
+                b.delete_range(start, end, true);
+                b.caret = start;
+                b.sel_anchor = None;
+            });
             return;
         }
         if self.caret >= self.len_chars() {
             return;
         }
+        self.begin_line_edit();
         let start = self.caret;
         let end = self.caret + 1;
         self.delete_range(start, end, true);
-        self.last_insert_end = None;
+        self.break_typing_coalesce();
     }
 
     fn delete_range(&mut self, start: usize, end: usize, record_undo: bool) {
@@ -786,11 +893,13 @@ impl TextBuffer {
         }
         if record_undo {
             self.push_undo(Edit::Delete { index: start, text });
-            self.redo.clear();
+            if self.tx_depth == 0 {
+                self.redo.clear();
+            }
         }
     }
 
-    fn apply_insert(&mut self, index: usize, text: &str, _record: bool) {
+    fn apply_insert(&mut self, index: usize, text: &str) {
         let lines_before = self.line_count();
         let at_line = if self.len_chars() == 0 {
             0
@@ -807,10 +916,19 @@ impl TextBuffer {
     }
 
     fn push_undo(&mut self, edit: Edit) {
+        if self.tx_depth > 0 {
+            self.tx_edits.push(edit);
+            return;
+        }
+        self.push_unit(UndoUnit::Single(edit));
+        self.redo.clear();
+    }
+
+    fn push_unit(&mut self, unit: UndoUnit) {
         if self.undo.len() >= MAX_UNDO {
             self.undo.pop_front();
         }
-        self.undo.push_back(edit);
+        self.undo.push_back(unit);
     }
 
     /// Replace full document text and record one undo step (for UI sync).
@@ -823,25 +941,64 @@ impl TextBuffer {
         self.rope = Rope::from_str(new_text);
         self.caret = self.caret.min(self.len_chars());
         self.sel_anchor = None;
-        // Coalesce: keep original `old` from the first replace in a streak.
-        if let Some(Edit::Replace { new, .. }) = self.undo.back_mut() {
+        if self.tx_depth > 0 {
+            self.push_undo(Edit::Replace {
+                old,
+                new: new_text.to_string(),
+            });
+        } else if let Some(UndoUnit::Single(Edit::Replace { new, .. })) = self.undo.back_mut() {
             *new = new_text.to_string();
+            self.redo.clear();
         } else {
             self.push_undo(Edit::Replace {
                 old,
                 new: new_text.to_string(),
             });
         }
-        self.last_insert_end = None;
+        self.break_typing_coalesce();
         self.last_line_edit = None;
-        self.redo.clear();
     }
 
     pub fn undo(&mut self) -> bool {
-        let Some(edit) = self.undo.pop_back() else {
+        let Some(unit) = self.undo.pop_back() else {
             return false;
         };
-        match &edit {
+        match &unit {
+            UndoUnit::Single(edit) => self.apply_undo_edit(edit),
+            UndoUnit::Group(edits) => {
+                for edit in edits.iter().rev() {
+                    self.apply_undo_edit(edit);
+                }
+            }
+        }
+        self.redo.push_back(unit);
+        self.sel_anchor = None;
+        self.break_typing_coalesce();
+        self.last_line_edit = None;
+        true
+    }
+
+    pub fn redo(&mut self) -> bool {
+        let Some(unit) = self.redo.pop_back() else {
+            return false;
+        };
+        match &unit {
+            UndoUnit::Single(edit) => self.apply_redo_edit(edit),
+            UndoUnit::Group(edits) => {
+                for edit in edits {
+                    self.apply_redo_edit(edit);
+                }
+            }
+        }
+        self.undo.push_back(unit);
+        self.sel_anchor = None;
+        self.break_typing_coalesce();
+        self.last_line_edit = None;
+        true
+    }
+
+    fn apply_undo_edit(&mut self, edit: &Edit) {
+        match edit {
             Edit::Insert { index, text } => {
                 let end = index + text.chars().count();
                 self.rope.remove(*index..end);
@@ -856,18 +1013,10 @@ impl TextBuffer {
                 self.caret = self.caret.min(self.len_chars());
             }
         }
-        self.redo.push_back(edit);
-        self.sel_anchor = None;
-        self.last_insert_end = None;
-        self.last_line_edit = None;
-        true
     }
 
-    pub fn redo(&mut self) -> bool {
-        let Some(edit) = self.redo.pop_back() else {
-            return false;
-        };
-        match &edit {
+    fn apply_redo_edit(&mut self, edit: &Edit) {
+        match edit {
             Edit::Insert { index, text } => {
                 self.rope.insert(*index, text);
                 self.caret = index + text.chars().count();
@@ -882,11 +1031,12 @@ impl TextBuffer {
                 self.caret = self.caret.min(self.len_chars());
             }
         }
-        self.undo.push_back(edit);
-        self.sel_anchor = None;
-        self.last_insert_end = None;
-        self.last_line_edit = None;
-        true
+    }
+
+    /// Number of undo units (tests / diagnostics).
+    #[cfg(test)]
+    fn undo_len(&self) -> usize {
+        self.undo.len()
     }
 
     /// Find next plain-text match starting after `from` (char index). Wraps around.
@@ -896,8 +1046,8 @@ impl TextBuffer {
         }
         let text = self.to_string();
         let q_len = query.chars().count();
-        if let Some(byte_pos) =
-            text[char_to_byte(&text, from.min(text.chars().count()))..].find(query)
+        if let Some(byte_pos) = text[char_to_byte(&text, from.min(text.chars().count()))..]
+            .find(query)
         {
             let abs_byte = char_to_byte(&text, from.min(text.chars().count())) + byte_pos;
             let start = byte_to_char(&text, abs_byte);
@@ -968,6 +1118,53 @@ mod tests {
     }
 
     #[test]
+    fn typing_coalesce_one_undo() {
+        let mut b = TextBuffer::new();
+        b.insert("a");
+        b.insert("b");
+        assert_eq!(b.undo_len(), 1);
+        assert!(b.undo());
+        assert_eq!(b.to_string(), "");
+    }
+
+    #[test]
+    fn indent_multiline_one_undo() {
+        let mut b = TextBuffer::from_str("one\ntwo\nthree\n");
+        b.set_selection(0, b.len_chars());
+        b.indent_lines("    ");
+        assert_eq!(b.to_string(), "    one\n    two\n    three\n");
+        assert_eq!(b.undo_len(), 1);
+        assert!(b.undo());
+        assert_eq!(b.to_string(), "one\ntwo\nthree\n");
+        assert!(!b.undo());
+        assert!(b.redo());
+        assert_eq!(b.to_string(), "    one\n    two\n    three\n");
+    }
+
+    #[test]
+    fn replace_selection_one_undo() {
+        let mut b = TextBuffer::from_str("hello world");
+        b.set_selection(6, 11);
+        b.insert("there");
+        assert_eq!(b.to_string(), "hello there");
+        assert_eq!(b.undo_len(), 1);
+        assert!(b.undo());
+        assert_eq!(b.to_string(), "hello world");
+        assert!(b.redo());
+        assert_eq!(b.to_string(), "hello there");
+    }
+
+    #[test]
+    fn join_lines_one_undo() {
+        let mut b = TextBuffer::from_str("a\nb\nc\n");
+        b.set_selection(0, 4);
+        b.join_lines();
+        assert_eq!(b.undo_len(), 1);
+        assert!(b.undo());
+        assert_eq!(b.to_string(), "a\nb\nc\n");
+    }
+
+    #[test]
     fn find_next_wraps() {
         let b = TextBuffer::from_str("abc def abc");
         let (s, e) = b.find_next("abc", 4, true).unwrap();
@@ -979,7 +1176,7 @@ mod tests {
     #[test]
     fn select_word_at_middle() {
         let mut b = TextBuffer::from_str("foo bar_baz qux");
-        b.select_word_at(6); // inside bar_baz
+        b.select_word_at(6);
         assert_eq!(b.selection(), Some((4, 11)));
     }
 
@@ -989,9 +1186,13 @@ mod tests {
         b.set_selection(0, b.len_chars());
         b.toggle_line_comments("// ");
         assert_eq!(b.to_string(), "// one\n// two\n");
+        assert_eq!(b.undo_len(), 1);
         b.set_selection(0, b.len_chars());
         b.toggle_line_comments("// ");
         assert_eq!(b.to_string(), "one\ntwo\n");
+        assert_eq!(b.undo_len(), 2);
+        assert!(b.undo());
+        assert_eq!(b.to_string(), "// one\n// two\n");
     }
 
     #[test]
@@ -1000,13 +1201,13 @@ mod tests {
         b.set_selection(0, 5);
         b.stream_comment("/*", "*/");
         assert_eq!(b.to_string(), "/*hello*/");
+        assert_eq!(b.undo_len(), 1);
         b.stream_uncomment("/*", "*/");
         assert_eq!(b.to_string(), "hello");
     }
 
     #[test]
     fn comment_lines_with_leading_unicode_whitespace() {
-        // Non-breaking space before text: byte offset != char offset.
         let mut b = TextBuffer::from_str("\u{00A0}café\n");
         b.set_selection(0, b.len_chars());
         b.comment_lines("// ");

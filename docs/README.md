@@ -23,6 +23,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [execute-dont-ask.md](execute-dont-ask.md) | Do not ask permission to proceed |
 | [compare.md](compare.md) | Built-in 2-way file compare |
 | [tab-drag.md](tab-drag.md) | Mouse drag-reorder on the tab bar |
+| [undo-transactions.md](undo-transactions.md) | Transactional undo / typing coalesce |
 | [bump-version.md](bump-version.md) | Bump semver when shipping features |
 | [overnight-gaps.md](overnight-gaps.md) | Overnight gap loop (issue #6) |
 | [dual-view.md](dual-view.md) | Writable dual view + pane focus |

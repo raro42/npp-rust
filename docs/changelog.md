@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.2.9] — 2026-08-29
+
+### Undo
+
+- One user command is one undo unit (`with_transaction` for multi-edit helpers)
+- Typing coalesce: same kind (insert), adjacent caret, within 1s
+- Notes: `docs/undo-transactions.md`
+
 ## [0.2.8] — 2026-08-29
 
 ### Highlight
