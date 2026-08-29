@@ -22,14 +22,14 @@ Yes — GitHub Actions compiles for **Linux** and **Windows** (and macOS).
 ## Ship a release
 
 ```bash
-# 1. Bump version in Cargo.toml + docs/changelog.md
+# 1. Bump version in Cargo.toml + docs/changelog.md (required on every feature ship — see docs/bump-version.md)
 # 2. Commit on dev, merge to main
 git checkout main && git merge --ff-only dev
 git push origin main
 
 # 3. Tag and push (starts release workflow)
-git tag -a v0.1.0 -m "v0.1.0"
-git push origin v0.1.0
+git tag -a v0.2.0 -m "v0.2.0"
+git push origin v0.2.0
 ```
 
 Watch: Actions → Release. Assets appear on the GitHub Releases page.

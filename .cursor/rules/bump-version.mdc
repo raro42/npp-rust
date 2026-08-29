@@ -1,0 +1,29 @@
+---
+description: Bump semver when shipping new features; never leave version stale
+alwaysApply: true
+---
+
+# Bump version on new work
+
+When you ship a **new user-visible feature**, a meaningful behaviour change, or a finished feature batch in this repo:
+
+1. **Bump** `[workspace.package] version` in the root `Cargo.toml` in the **same turn** as the feature commit (or a follow-up commit in that turn).
+2. **Update** `docs/changelog.md`: move items under a new `## [X.Y.Z] — YYYY-MM-DD` section. Leave `## [Unreleased]` for the next work.
+3. **Do not ask** whether to bump. Do it.
+4. After merge to `main` (or when releasing): create annotated tag `vX.Y.Z` and `git push origin vX.Y.Z` so the release workflow runs.
+
+## Semver for this project
+
+| Change | Bump |
+|--------|------|
+| Small feature, UX fix, docs-only product note tied to code | patch (`0.2.1`) |
+| New capability batch (compare, dual edit, menu sweep, …) | minor (`0.3.0`) |
+| Breaking public CLI / settings / data format | major (`1.0.0`) |
+
+## Do not
+
+- Leave `Cargo.toml` on an old version after “tons of features”
+- Bump only in chat or only in the changelog
+- Skip the tag when the user asked to release or merge a versioned ship to `main`
+
+See also: `docs/release.md`, `docs/bump-version.md`.

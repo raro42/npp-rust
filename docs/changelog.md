@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-08-29
+
+Large feature batch after 0.1.2 (menu parity, dual view, compare, UX).
+
 ### Dual view edit
 
 - Other view pane is writable (type, delete, clipboard, caret, selection)
@@ -20,7 +24,7 @@
 - Style-mark washes and bookmark ticks in the gutter
 - Search: style mark, jump, clear, and copy-styled helpers
 - Edit Cut / Copy / Paste use the session clipboard
-- Placeholder / status-only menus: 141 → 35 (`docs/menu-todo.md`)
+- Placeholder / status-only menus cleared; Coming Soon stubs gone (`docs/menu-todo.md`)
 
 ### Editor UX
 
@@ -28,10 +32,12 @@
 - Prompt before closing unsaved tabs (Save / Don't Save / Cancel), including Close All variants, Exit, and window close
 - Keep the last editor line clear of the status bar (status panel before editor + bottom padding)
 - Help (?) → Changelog opens `docs/changelog.md` on GitHub
+- Status bar shows `v{version}` and git short hash
+- Preferences: log-tail, font size, line numbers
+- CLI: open path args + `-h` / `--help`
 
 ### Earlier on `dev` (after 0.1.2)
 
-- Menu stubs largely cleared (Ready inventory in `docs/menu-todo.md`)
 - Command split by domain for parallel agents (`docs/agent-parallel.md`)
 - Log open dialog, Help → Debug Info / Open Logs, dirty-safe tail stability
 
