@@ -12,7 +12,14 @@
 cargo test --workspace
 ```
 
-GitHub Actions CI (`.github/workflows/ci.yml`) runs `cargo test --workspace` and a release build on every push/PR to `main` (macOS + Ubuntu).
+GitHub Actions CI (`.github/workflows/ci.yml`) runs on Ubuntu, Windows, and macOS for pushes to `main`/`dev` and PRs to `main`:
+
+1. `cargo fmt --all -- --check`
+2. `cargo clippy --workspace --all-targets -- -D warnings`
+3. `cargo test --workspace`
+4. `cargo build -p app --release`
+
+Toolchain: `rust-toolchain.toml` pins stable with `rustfmt` and `clippy`.
 
 ## Menu parity test
 

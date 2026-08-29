@@ -27,7 +27,7 @@ Issue: https://github.com/raro42/npp-rust/issues/3
 | F | `crates/fs` save path | Atomic save: temp sibling + flush + rename; tests; Windows-safe as far as std allows |
 | G | `crates/buffer` undo | Transactional undo (one user command = one undo); typing coalesce policy; tests |
 | H | `crates/fs` + `editor` open | Invalid UTF-8: no silent lossy permanent corruption — detect/reject or keep encoding metadata; honest status |
-| I | `.github/workflows/ci.yml` (+ toolchain if needed) | `fmt --check`, `clippy -D warnings` (fix warnings first if needed in small commits), keep OS matrix |
+| I | `.github/workflows/ci.yml` (+ toolchain if needed) | **Done** — `fmt --check` + `clippy -D warnings` on OS matrix; `rust-toolchain.toml` (stable + rustfmt/clippy) |
 | J | `crates/highlight` + `editor` refresh | Viewport-oriented highlight / avoid per-span quadratic `chars().count`; tests or bench note |
 
 Pull/rebase often. Small commits. Push `origin/dev`. Bump patch when user-visible. Update this checklist when done.
