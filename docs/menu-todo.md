@@ -12,8 +12,8 @@ Many teal items only set a status-bar message. That inflated “Ready 477 / stub
 | Class | Count | Meaning |
 |-------|------:|---------|
 | Explicit handlers | 343 | Match arms in `commands/*.rs` |
-| Useful behaviour | 328 | Change buffer or UI beyond a note |
-| Placeholder / status-only | 10 | Partial or “not yet” |
+| Useful behaviour | 333 | Change buffer or UI beyond a note |
+| Placeholder / status-only | 6 | Partial or “not yet” |
 | Menu IDs in export | 478 | From `npp_menu.json` |
 
 ## Preferences
@@ -41,13 +41,14 @@ It is **not** a full Notepad++ Preferences clone (tabs, margins, multi-language 
 
 _(cleared — Document Map + Function List open egui panels)_
 
-### Edit (5)
+### Edit (1)
 
-- [ ] `IDM_EDIT_FUNCCALLTIP` — Edit/Auto-Completion/Function Parameters Hint
-- [ ] `IDM_EDIT_FUNCCALLTIP_NEXT` — Edit/Auto-Completion/Function Parameters Next Hint
-- [ ] `IDM_EDIT_FUNCCALLTIP_PREVIOUS` — Edit/Auto-Completion/Function Parameters Previous Hint
-- [ ] `IDM_EDIT_COLUMNMODE` — Edit/Column Editor...
-- [ ] `IDM_EDIT_COLUMNMODETIP` — Edit/Column Mode...
+- [ ] `IDM_EDIT_CHAR_PANEL` — Edit/Character Panel (no `show_char_panel` UiFlag yet; status shows char at caret; UI agent owns panel)
+
+
+### Help (0)
+
+- [x] `IDM_CMDLINEARGUMENTS` — ?/Command Line Arguments... (read-only tab; no CLI flags yet; README link)
 
 ## Cleared this batch (2026-08-29)
 
@@ -65,5 +66,7 @@ Paint path hides `hidden_lines` and paints `style_marks` / bookmark ticks. Menu 
 - View switch / move to other view + project panels 1–3: open document list (5)
 - View text direction LTR/RTL: honest status only (layout stays LTR; no doc flag) (2)
 - Encoding ANSI / UTF-8 / UTF-8-BOM: strip or keep leading U+FEFF for save; memory stays UTF-8; no ANSI convert (3)
+- Edit column editor: insert clipboard text (or 0,1,2…) at caret column on selected lines / multi-carets; tip documents that path (2)
+- Edit function call tip: status tip from word under caret + cycle call-site snippets in file (no LSP) (3)
 - Settings Shortcut Mapper / Style Config tabs; Import plugins+themes open folders; Plugin Admin list (5)
 - Run… (rfd pick or shell-here) + validate shortcuts.xml absence (2)

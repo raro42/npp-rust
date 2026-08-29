@@ -780,7 +780,8 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_CHAR_PANEL" => {
-            char_panel_status(state);
+            ui.show_char_panel = true;
+            state.status = "Character Panel".into();
             CmdResult::Handled
         }
         "IDM_EDIT_CLIPBOARDHISTORY_PANEL" => {
@@ -984,37 +985,6 @@ fn multi_select_next(
     state.status = format!("Multi-select {verb}: {n} ranges");
 }
 
-fn char_panel_status(state: &mut EditorState) {
-    let buf = &state.tabs.active().buffer;
-    let caret = buf.caret();
-    let text = buf.to_string();
-    let chars: Vec<char> = text.chars().collect();
-    if chars.is_empty() {
-        state.status = "Character panel: empty document".into();
-        return;
-    }
-    let i = caret.min(chars.len().saturating_sub(1));
-    let c = chars[i];
-    let name = if c == ' ' {
-        "SPACE".into()
-    } else if c == '\t' {
-        "TAB".into()
-    } else if c == '\n' {
-        "LF".into()
-    } else if c == '\r' {
-        "CR".into()
-    } else if c.is_control() {
-        format!("control")
-    } else {
-        c.to_string()
-    };
-    state.status = format!(
-        "Character: '{}' U+{:04X} (offset {i}, line {})",
-        name,
-        c as u32,
-        buf.char_to_line(i) + 1
-    );
-}
 
 fn toggle_system_readonly(state: &mut EditorState) {
     let Some(path) = state.tabs.active().path.clone() else {
