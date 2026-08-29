@@ -9,7 +9,7 @@ alwaysApply: true
 
 1. Bump `[workspace.package] version` in root `Cargo.toml` when shipping a release (semver).
 2. Put the version in the commit message when releasing, e.g. `release: v0.1.1 — menu ready colors`.
-3. Keep `CHANGELOG.md` in sync for each tagged release.
+3. Keep `docs/changelog.md` in sync for each tagged release.
 4. Tag releases as `vMAJOR.MINOR.PATCH` and push the tag.
 
 ## Push and release rhythm

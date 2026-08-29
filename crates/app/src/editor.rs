@@ -2,9 +2,10 @@
 
 use crate::recent::RecentFiles;
 use doc::{Document, TabSet};
-use fs::{self, LoadChannel, LoadMsg, OpenResult, LARGE_FILE_THRESHOLD};
+use fs::{self, LoadChannel, LoadMsg, OpenResult, TailRead, LARGE_FILE_THRESHOLD};
 use highlight::SyntaxHighlighter;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 /// Pending placeholder tab index waiting for async load.
 #[derive(Debug, Clone)]
@@ -28,6 +29,12 @@ pub struct EditorState {
     pub recent: RecentFiles,
     /// UI should jump scroll to line 1 (set on open / new).
     pub reset_view: bool,
+    /// Last time we polled disk for tail follow.
+    tail_last_poll: Instant,
+    /// Begin/End Select: first caret, or `None` when idle.
+    pub begin_end_select: Option<usize>,
+    /// Search-on-Internet base URL (query is appended).
+    pub search_engine: String,
 }
 
 impl Default for EditorState {
@@ -51,6 +58,9 @@ impl EditorState {
             highlight_dirty: true,
             recent: RecentFiles::load(),
             reset_view: false,
+            tail_last_poll: Instant::now() - Duration::from_secs(1),
+            begin_end_select: None,
+            search_engine: "https://duckduckgo.com/?q=".into(),
         }
     }
 
@@ -146,6 +156,8 @@ impl EditorState {
         self.reset_view = true;
         // Ensure caret is at the top after open.
         self.tabs.active_mut().buffer.set_caret(0);
+        self.tabs.active_mut().tail_bytes = result.bytes;
+        self.tabs.active_mut().tail_follow = false;
         self.status = format!(
             "Opened {} ({:.1} KiB, {} ms)",
             result.path.display(),
@@ -653,6 +665,110 @@ impl EditorState {
         }
         let i = (self.tabs.active_index() + n - 1) % n;
         self.switch_tab(i);
+    }
+
+    /// Toggle log-tail follow on the active saved document.
+    pub fn toggle_tail_follow(&mut self) -> bool {
+        if self.tabs.active().path.is_none() {
+            self.status = "Tail: save or open a file on disk first".into();
+            return false;
+        }
+        let on = !self.tabs.active().tail_follow;
+        if on {
+            let path = self.tabs.active().path.clone().unwrap();
+            match fs::file_size(&path) {
+                Ok(size) => {
+                    self.tabs.active_mut().tail_bytes = size;
+                    self.tabs.active_mut().tail_follow = true;
+                    // Jump to end so new lines appear in view.
+                    let end = self.tabs.active().buffer.len_chars();
+                    self.tabs.active_mut().buffer.set_caret(end);
+                    self.status = "Tail ON — following log (poll ~250ms)".into();
+                    true
+                }
+                Err(e) => {
+                    self.status = format!("Tail failed: {e}");
+                    false
+                }
+            }
+        } else {
+            self.tabs.active_mut().tail_follow = false;
+            self.status = "Tail OFF".into();
+            false
+        }
+    }
+
+    /// Poll disk for growth on any tab with `tail_follow`. Returns true if active tab grew.
+    pub fn poll_tail(&mut self) -> bool {
+        if self.tail_last_poll.elapsed() < Duration::from_millis(250) {
+            return false;
+        }
+        self.tail_last_poll = Instant::now();
+
+        let active = self.tabs.active_index();
+        let mut active_grew = false;
+        let count = self.tabs.len();
+        for i in 0..count {
+            let Some(doc) = self.tabs.get(i) else {
+                continue;
+            };
+            if !doc.tail_follow {
+                continue;
+            }
+            let Some(path) = doc.path.clone() else {
+                continue;
+            };
+            let offset = doc.tail_bytes;
+            match fs::read_tail_since(&path, offset) {
+                Ok(TailRead::Unchanged { .. }) => {}
+                Ok(TailRead::Appended { text, size }) => {
+                    if let Some(d) = self.tabs.get_mut(i) {
+                        if !text.is_empty() {
+                            let end = d.buffer.len_chars();
+                            d.buffer.set_caret(end);
+                            d.buffer.insert(&text);
+                            d.mark_clean();
+                            if i == active {
+                                active_grew = true;
+                                let n = text.lines().count().max(1);
+                                self.status = format!("Tail: +{n} line(s)");
+                            }
+                        }
+                        d.tail_bytes = size;
+                    }
+                    if i == active {
+                        self.highlight_dirty = true;
+                    }
+                }
+                Ok(TailRead::Rotated { .. }) => match fs::read_file(&path) {
+                    Ok(r) => {
+                        if let Some(d) = self.tabs.get_mut(i) {
+                            d.buffer.replace_document(&r.content);
+                            d.tail_bytes = r.bytes;
+                            d.mark_clean();
+                            let end = d.buffer.len_chars();
+                            d.buffer.set_caret(end);
+                        }
+                        if i == active {
+                            self.highlight_dirty = true;
+                            active_grew = true;
+                            self.status = "Tail: file rotated — reloaded".into();
+                        }
+                    }
+                    Err(e) => {
+                        if i == active {
+                            self.status = format!("Tail reload failed: {e}");
+                        }
+                    }
+                },
+                Err(e) => {
+                    if i == active {
+                        self.status = format!("Tail error: {e}");
+                    }
+                }
+            }
+        }
+        active_grew
     }
 }
 

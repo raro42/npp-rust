@@ -49,8 +49,14 @@ impl EditorApp {
 impl eframe::App for EditorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.state.poll_loads();
-        if !self.state.pending.is_empty() {
-            ctx.request_repaint();
+        if self.state.poll_tail() {
+            self.follow_caret = true;
+        }
+        if !self.state.pending.is_empty()
+            || self.state.tabs.iter().any(|d| d.tail_follow)
+        {
+            // Steady poll while tailing; avoid hammering every frame.
+            ctx.request_repaint_after(std::time::Duration::from_millis(300));
         }
 
         self.handle_shortcuts(ctx);
@@ -84,16 +90,22 @@ impl EditorApp {
                 i.key_pressed(Key::D),
                 i.key_pressed(Key::L),
                 i.key_pressed(Key::I),
+                i.key_pressed(Key::T),
                 i.key_pressed(Key::ArrowLeft), // reserved
                 i.key_pressed(Key::ArrowRight),
                 i.key_pressed(Key::CloseBracket),
                 i.key_pressed(Key::OpenBracket),
             )
         });
-        let (mods, n, o, s, f, z, y, w, g, a, d, l, i_key, _left, _right, close_br, open_br) =
+        let (mods, n, o, s, f, z, y, w, g, a, d, l, i_key, t, _left, _right, close_br, open_br) =
             input;
         let cmd = mods.command || mods.ctrl;
 
+        if cmd && mods.shift && t {
+            if self.state.toggle_tail_follow() {
+                self.follow_caret = true;
+            }
+        }
         if cmd && n {
             self.state.new_file();
         }
@@ -227,6 +239,11 @@ impl EditorApp {
                     egui::WindowLevel::Normal
                 }));
             }
+            if flags.fullscreen_toggle {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(
+                    !ctx.input(|i| i.viewport().fullscreen.unwrap_or(false)),
+                ));
+            }
             if let Some(t) = flags.pending_clipboard.take() {
                 ctx.copy_text(t);
             }
@@ -347,7 +364,7 @@ impl EditorApp {
             return;
         }
         let mut open = true;
-        egui::Window::new("About npp-rs")
+        egui::Window::new("About npp-rust")
             .open(&mut open)
             .collapsible(false)
             .resizable(true)
@@ -357,7 +374,7 @@ impl EditorApp {
                 ui.vertical_centered(|ui| {
                     ui.add_space(8.0);
                     ui.heading(
-                        RichText::new("npp-rs")
+                        RichText::new("npp-rust")
                             .size(28.0)
                             .color(Color32::from_rgb(120, 200, 255)),
                     );
@@ -367,7 +384,22 @@ impl EditorApp {
                             .color(Color32::from_rgb(180, 180, 190)),
                     );
                     ui.add_space(6.0);
-                    ui.label(RichText::new("v0.1.0 · Rust · macOS / Linux / Windows").small());
+                    ui.label(RichText::new("v0.1.2 · Rust · macOS / Linux / Windows").small());
+                    ui.add_space(8.0);
+                    ui.horizontal_wrapped(|ui| {
+                        ui.hyperlink_to("GitHub", "https://github.com/raro42/npp-rust");
+                        ui.label("·");
+                        ui.hyperlink_to("Issues", "https://github.com/raro42/npp-rust/issues");
+                        ui.label("·");
+                        ui.hyperlink_to(
+                            "Discussions",
+                            "https://github.com/raro42/npp-rust/discussions",
+                        );
+                        ui.label("·");
+                        ui.hyperlink_to("Wiki", "https://github.com/raro42/npp-rust/wiki");
+                        ui.label("·");
+                        ui.hyperlink_to("Releases", "https://github.com/raro42/npp-rust/releases");
+                    });
                 });
 
                 ui.add_space(12.0);
@@ -562,6 +594,9 @@ Tree-sitter highlight, and a calm UI.",
                     if doc.dirty {
                         label.push('*');
                     }
+                    if doc.tail_follow {
+                        label.push_str(" [tail]");
+                    }
                     if doc.loading {
                         label.push_str(" …");
                     }
@@ -573,9 +608,11 @@ Tree-sitter highlight, and a calm UI.",
                     if resp.middle_clicked() {
                         close_idx = Some(i);
                     }
-                    if ui.small_button(format!("×##close{i}")).clicked() {
-                        close_idx = Some(i);
-                    }
+                    ui.push_id(("close_tab", i), |ui| {
+                        if ui.small_button("×").on_hover_text("Close tab").clicked() {
+                            close_idx = Some(i);
+                        }
+                    });
                 }
                 if ui.button("+").clicked() {
                     self.state.new_file();
@@ -657,18 +694,48 @@ Tree-sitter highlight, and a calm UI.",
 
     fn status_bar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
-            ui.horizontal(|ui| {
+            let (lang, line, col, chars, on, status) = {
                 let doc = self.state.tabs.active();
                 let caret = doc.buffer.caret();
                 let line = doc.buffer.char_to_line(caret);
                 let col = caret - doc.buffer.line_to_char(line) + 1;
-                ui.label(&self.state.status);
+                (
+                    doc.language.clone(),
+                    line + 1,
+                    col,
+                    doc.buffer.len_chars(),
+                    doc.tail_follow,
+                    self.state.status.clone(),
+                )
+            };
+            ui.horizontal(|ui| {
+                ui.label(&status);
                 ui.separator();
-                ui.label(format!("Lang: {}", doc.language));
+                // Clickable tail toggle (same as View → Monitoring).
+                let tail_text = if on {
+                    RichText::new("TAIL").strong().color(MENU_READY)
+                } else {
+                    RichText::new("tail").weak()
+                };
+                if ui
+                    .add(egui::Button::new(tail_text).frame(false))
+                    .on_hover_text(if on {
+                        "Tail ON — click to stop following the file"
+                    } else {
+                        "Click to tail this file (Monitoring / ⌘⇧T)"
+                    })
+                    .clicked()
+                {
+                    if self.state.toggle_tail_follow() {
+                        self.follow_caret = true;
+                    }
+                }
                 ui.separator();
-                ui.label(format!("Ln {}, Col {}", line + 1, col));
+                ui.label(format!("Lang: {lang}"));
                 ui.separator();
-                ui.label(format!("{} chars", doc.buffer.len_chars()));
+                ui.label(format!("Ln {line}, Col {col}"));
+                ui.separator();
+                ui.label(format!("{chars} chars"));
             });
         });
     }
@@ -927,10 +994,15 @@ Tree-sitter highlight, and a calm UI.",
         let mut copy_text: Option<String> = None;
         let events: Vec<egui::Event> = ui.input(|i| i.events.clone());
         let mods = ui.input(|i| i.modifiers);
+        let read_only = self.state.tabs.active().read_only;
 
         for event in events {
             match event {
                 egui::Event::Paste(t) => {
+                    if read_only {
+                        self.state.status = "Document is read-only".into();
+                        continue;
+                    }
                     self.state.tabs.active_mut().buffer.insert(&t);
                     changed = true;
                 }
@@ -938,8 +1010,12 @@ Tree-sitter highlight, and a calm UI.",
                     if let Some((s, e)) = self.state.tabs.active().buffer.selection() {
                         copy_text = Some(self.state.tabs.active().buffer.slice(s, e));
                         if matches!(event, egui::Event::Cut) {
-                            self.state.tabs.active_mut().buffer.delete_backward();
-                            changed = true;
+                            if read_only {
+                                self.state.status = "Document is read-only".into();
+                            } else {
+                                self.state.tabs.active_mut().buffer.delete_backward();
+                                changed = true;
+                            }
                         }
                     }
                 }
@@ -948,6 +1024,10 @@ Tree-sitter highlight, and a calm UI.",
                         continue;
                     }
                     if mods.command || mods.ctrl {
+                        continue;
+                    }
+                    if read_only {
+                        self.state.status = "Document is read-only".into();
                         continue;
                     }
                     self.state.tabs.active_mut().buffer.insert(&t);
@@ -959,8 +1039,12 @@ Tree-sitter highlight, and a calm UI.",
                     modifiers,
                     ..
                 } if !modifiers.command && !modifiers.ctrl => {
-                    self.state.tabs.active_mut().buffer.insert("\n");
-                    changed = true;
+                    if read_only {
+                        self.state.status = "Document is read-only".into();
+                    } else {
+                        self.state.tabs.active_mut().buffer.insert("\n");
+                        changed = true;
+                    }
                 }
                 egui::Event::Key {
                     key: Key::Tab,
@@ -968,24 +1052,36 @@ Tree-sitter highlight, and a calm UI.",
                     modifiers,
                     ..
                 } if !modifiers.command && !modifiers.ctrl => {
-                    self.state.tabs.active_mut().buffer.insert("    ");
-                    changed = true;
+                    if read_only {
+                        self.state.status = "Document is read-only".into();
+                    } else {
+                        self.state.tabs.active_mut().buffer.insert("    ");
+                        changed = true;
+                    }
                 }
                 egui::Event::Key {
                     key: Key::Backspace,
                     pressed: true,
                     ..
                 } => {
-                    self.state.tabs.active_mut().buffer.delete_backward();
-                    changed = true;
+                    if read_only {
+                        self.state.status = "Document is read-only".into();
+                    } else {
+                        self.state.tabs.active_mut().buffer.delete_backward();
+                        changed = true;
+                    }
                 }
                 egui::Event::Key {
                     key: Key::Delete,
                     pressed: true,
                     ..
                 } => {
-                    self.state.tabs.active_mut().buffer.delete_forward();
-                    changed = true;
+                    if read_only {
+                        self.state.status = "Document is read-only".into();
+                    } else {
+                        self.state.tabs.active_mut().buffer.delete_forward();
+                        changed = true;
+                    }
                 }
                 egui::Event::Key {
                     key: Key::ArrowLeft,

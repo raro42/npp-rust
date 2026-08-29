@@ -18,8 +18,22 @@ pub enum MenuNode {
 }
 
 pub fn load_npp_menu() -> Vec<MenuNode> {
-    serde_json::from_str(include_str!("../data/npp_menu.json"))
-        .expect("npp_menu.json must parse")
+    let mut menu: Vec<MenuNode> = serde_json::from_str(include_str!("../data/npp_menu.json"))
+        .expect("npp_menu.json must parse");
+    // Upstream RC exports two top-level Language menus (flat list + A–Z groups).
+    // Keep only the second (grouped) entry.
+    let lang_idxs: Vec<usize> = menu
+        .iter()
+        .enumerate()
+        .filter_map(|(i, n)| match n {
+            MenuNode::Popup { label, .. } if label == "Language" => Some(i),
+            _ => None,
+        })
+        .collect();
+    if lang_idxs.len() >= 2 {
+        menu.remove(lang_idxs[0]);
+    }
+    menu
 }
 
 pub fn count_items(nodes: &[MenuNode]) -> usize {
@@ -57,7 +71,6 @@ mod tests {
                 "View",
                 "Encoding",
                 "Language",
-                "Language",
                 "Settings",
                 "Tools",
                 "Macro",
@@ -67,6 +80,8 @@ mod tests {
                 "?",
             ]
         );
-        assert_eq!(count_items(&menu), 574);
+        // Raw export has 574 items across two Language menus; we drop the flat one.
+        assert!(count_items(&menu) < 574);
+        assert_eq!(tops.iter().filter(|&&t| t == "Language").count(), 1);
     }
 }

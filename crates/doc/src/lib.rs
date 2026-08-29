@@ -1,6 +1,7 @@
 //! Document tabs and metadata.
 
 use buffer::TextBuffer;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 /// One open document (one tab).
@@ -14,6 +15,14 @@ pub struct Document {
     pub language: String,
     /// True while a background load is still running.
     pub loading: bool,
+    /// Follow file growth (log tail).
+    pub tail_follow: bool,
+    /// Last synced on-disk byte length while tailing.
+    pub tail_bytes: u64,
+    /// App-level read-only (blocks edits in the UI).
+    pub read_only: bool,
+    /// Bookmarked line indices (0-based).
+    pub bookmarks: BTreeSet<usize>,
 }
 
 impl Document {
@@ -25,6 +34,10 @@ impl Document {
             dirty: false,
             language: "plain".into(),
             loading: false,
+            tail_follow: false,
+            tail_bytes: 0,
+            read_only: false,
+            bookmarks: BTreeSet::new(),
         }
     }
 
@@ -34,6 +47,9 @@ impl Document {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| path.display().to_string());
         let language = detect_language(&path);
+        let tail_bytes = std::fs::metadata(&path)
+            .map(|m| m.len())
+            .unwrap_or(content.len() as u64);
         Self {
             title,
             path: Some(path),
@@ -41,6 +57,10 @@ impl Document {
             dirty: false,
             language,
             loading: false,
+            tail_follow: false,
+            tail_bytes,
+            read_only: false,
+            bookmarks: BTreeSet::new(),
         }
     }
 
@@ -157,6 +177,30 @@ impl TabSet {
             self.active -= 1;
         }
         true
+    }
+
+    /// Sort open tabs. Keeps the same document active when possible.
+    pub fn sort_tabs<F>(&mut self, mut cmp: F)
+    where
+        F: FnMut(&Document, &Document) -> std::cmp::Ordering,
+    {
+        if self.docs.len() < 2 {
+            return;
+        }
+        let key_path = self.docs[self.active].path.clone();
+        let key_title = self.docs[self.active].title.clone();
+        self.docs.sort_by(|a, b| cmp(a, b));
+        self.active = self
+            .docs
+            .iter()
+            .position(|d| {
+                if let (Some(ap), Some(bp)) = (key_path.as_ref(), d.path.as_ref()) {
+                    ap == bp
+                } else {
+                    d.title == key_title && d.path == key_path
+                }
+            })
+            .unwrap_or(0);
     }
 }
 

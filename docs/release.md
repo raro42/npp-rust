@@ -22,7 +22,7 @@ Yes — GitHub Actions compiles for **Linux** and **Windows** (and macOS).
 ## Ship a release
 
 ```bash
-# 1. Bump version in Cargo.toml + CHANGELOG.md
+# 1. Bump version in Cargo.toml + docs/changelog.md
 # 2. Commit on dev, merge to main
 git checkout main && git merge --ff-only dev
 git push origin main

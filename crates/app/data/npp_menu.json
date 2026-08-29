@@ -4147,42 +4147,33 @@
       },
       {
         "kind": "item",
-        "label": "Notepad++ Home",
-        "raw_label": "Notepad++ Home",
+        "label": "npp-rust on GitHub",
+        "raw_label": "npp-rust on GitHub",
         "cmd": "IDM_HOMESWEETHOME"
       },
       {
         "kind": "item",
-        "label": "Notepad++ Project Page",
-        "raw_label": "Notepad++ Project Page",
+        "label": "Issues",
+        "raw_label": "Issues",
         "cmd": "IDM_PROJECTPAGE"
       },
       {
         "kind": "item",
-        "label": "Notepad++ Online User Manual",
-        "raw_label": "Notepad++ Online User Manual",
+        "label": "Discussions",
+        "raw_label": "Discussions",
+        "cmd": "IDM_FORUM"
+      },
+      {
+        "kind": "item",
+        "label": "Wiki",
+        "raw_label": "Wiki",
         "cmd": "IDM_ONLINEDOCUMENT"
       },
       {
         "kind": "item",
-        "label": "Notepad++ Community (Forum)",
-        "raw_label": "Notepad++ Community (Forum)",
-        "cmd": "IDM_FORUM"
-      },
-      {
-        "kind": "separator"
-      },
-      {
-        "kind": "item",
-        "label": "Update Notepad++",
-        "raw_label": "Update Notepad++",
+        "label": "Releases",
+        "raw_label": "Releases",
         "cmd": "IDM_UPDATE_NPP"
-      },
-      {
-        "kind": "item",
-        "label": "Set Updater Proxy...",
-        "raw_label": "Set Updater Proxy...",
-        "cmd": "IDM_CONFUPDATERPROXY"
       },
       {
         "kind": "separator"
@@ -4195,8 +4186,8 @@
       },
       {
         "kind": "item",
-        "label": "About Notepad++",
-        "raw_label": "About Notepad++",
+        "label": "About npp-rust",
+        "raw_label": "About npp-rust",
         "cmd": "IDM_ABOUT"
       }
     ]

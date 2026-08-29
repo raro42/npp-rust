@@ -90,6 +90,51 @@ pub fn file_size(path: &Path) -> Result<u64> {
     Ok(fs::metadata(path)?.len())
 }
 
+/// Read new bytes from `offset` to EOF (for log tail). Empty if no growth.
+/// If the file shrank (rotation), returns [`TailRead::Rotated`] so the caller can reload.
+#[derive(Debug)]
+pub enum TailRead {
+    /// No new data (size == offset).
+    Unchanged { size: u64 },
+    /// Appended UTF-8 text (lossy) and new file size.
+    Appended { text: String, size: u64 },
+    /// File smaller than offset — likely rotated/truncated.
+    Rotated { size: u64 },
+}
+
+pub fn read_tail_since(path: &Path, offset: u64) -> Result<TailRead> {
+    let size = file_size(path)?;
+    if size < offset {
+        return Ok(TailRead::Rotated { size });
+    }
+    if size == offset {
+        return Ok(TailRead::Unchanged { size });
+    }
+    use std::io::{Seek, SeekFrom};
+    // Cap one poll so a huge burst cannot freeze or OOM the UI.
+    const MAX_CHUNK: u64 = 1024 * 1024;
+    let want = (size - offset).min(MAX_CHUNK);
+    let mut file = File::open(path)?;
+    file.seek(SeekFrom::Start(offset))?;
+    let mut buf = vec![0u8; want as usize];
+    let mut read_total = 0usize;
+    while read_total < buf.len() {
+        match file.read(&mut buf[read_total..]) {
+            Ok(0) => break,
+            Ok(n) => read_total += n,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e.into()),
+        }
+    }
+    buf.truncate(read_total);
+    let text = String::from_utf8_lossy(&buf).into_owned();
+    let new_offset = offset + read_total as u64;
+    Ok(TailRead::Appended {
+        text,
+        size: new_offset,
+    })
+}
+
 /// Open on a background thread and send [`LoadMsg`] when done.
 pub fn open_async(path: PathBuf, tx: Sender<LoadMsg>) {
     thread::spawn(move || match read_file(&path) {
@@ -173,6 +218,38 @@ mod tests {
                 assert!(r.elapsed_ms < 60_000);
             }
             LoadMsg::Failed { error, .. } => panic!("{error}"),
+        }
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn tail_appends_and_detects_rotation() {
+        let dir = std::env::temp_dir().join("npp-rs-fs-test");
+        let _ = fs::create_dir_all(&dir);
+        let path = dir.join("tail.log");
+        write_file(&path, "line1\n").unwrap();
+        let size = file_size(&path).unwrap();
+        match read_tail_since(&path, size).unwrap() {
+            TailRead::Unchanged { .. } => {}
+            other => panic!("expected unchanged: {other:?}"),
+        }
+        {
+            use std::io::Write;
+            let mut f = fs::OpenOptions::new().append(true).open(&path).unwrap();
+            f.write_all(b"line2\n").unwrap();
+        }
+        let after_append = match read_tail_since(&path, size).unwrap() {
+            TailRead::Appended { text, size: new } => {
+                assert_eq!(text, "line2\n");
+                assert!(new > size);
+                new
+            }
+            other => panic!("expected append: {other:?}"),
+        };
+        write_file(&path, "x\n").unwrap();
+        match read_tail_since(&path, after_append).unwrap() {
+            TailRead::Rotated { .. } => {}
+            other => panic!("expected rotated: {other:?}"),
         }
         let _ = fs::remove_file(&path);
     }

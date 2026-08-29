@@ -1,0 +1,3 @@
+Source: https://github.com/leonardomso/rust-skills
+License: MIT (Leonardo Maldonado) — see LICENSE
+Copied into this repo so agents on any machine get the same Rust idioms.

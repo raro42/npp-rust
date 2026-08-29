@@ -1,14 +1,15 @@
 # npp-rs
 
-Notepad++-inspired text editor. OS-agnostic. Written in Rust.
+Notepad++ inspired text editor. OS-agnostic. Written in Rust.
 
-See [SCOPE.md](SCOPE.md) for an honest feature boundary. This is **not** a drop-in Windows Notepad++ binary clone.
+See [docs/scope.md](docs/scope.md) for an honest feature boundary. This is **not** a drop-in Windows Notepad++ binary clone.
+
+npp-rs takes inspiration from [Notepad++](https://github.com/notepad-plus-plus/notepad-plus-plus), created and maintained for over twenty years by **Don Ho**. Thank you for that work. This project is separate (MIT) and is not affiliated with Notepad++.
 
 ## Features
 
 - **Full Notepad++ menu bar** (574 commands from upstream `Notepad_plus.rc`; unimplemented items show a status stub)
-- CI runs `cargo test --workspace` on push (see [TESTING.md](TESTING.md))
-
+- CI runs `cargo test --workspace` on push (see [docs/testing.md](docs/testing.md))
 - Multi-tab open / edit / save (UTF-8)
 - **Open Recent** (persisted)
 - Find + **Replace** / Replace All
@@ -18,8 +19,7 @@ See [SCOPE.md](SCOPE.md) for an honest feature boundary. This is **not** a drop-
 - **Format Document** (Python / C++ / SQL / Markdown helpers)
 - **Plugins** menu (in-process builtins: format, trim, case, EOL)
 - Background open for files ≥ 2 MiB
-
-Upstream reference clone: [reference/notepad-plus-plus](reference/notepad-plus-plus).
+- **Tail log** — **View → Monitoring (tail -f)** or ⌘/Ctrl+⇧+T; status bar **tail** / **TAIL** toggle
 
 ## Build and run
 
@@ -27,7 +27,7 @@ Upstream reference clone: [reference/notepad-plus-plus](reference/notepad-plus-p
 cargo run -p app --release
 ```
 
-Binary name: `npp-rs`.
+Binary name: `npp-rs`. Or: `./scripts/run-npp-rust.command`
 
 ```bash
 cargo test --workspace
@@ -44,6 +44,7 @@ cargo test --workspace
 | Format document | Ctrl/Cmd+Shift+I |
 | Word jump | Alt+← / → |
 | Indent / Outdent | Ctrl/Cmd+] / [ |
+| Tail log | Ctrl/Cmd+Shift+T |
 
 ## Crates
 
@@ -59,15 +60,7 @@ cargo test --workspace
 
 ## Docs
 
-| Doc | Topic |
-|-----|--------|
-| [SCOPE.md](SCOPE.md) | Feature boundary |
-| [TESTING.md](TESTING.md) | How tests run |
-| [CHANGELOG.md](CHANGELOG.md) | Release history |
-| [docs/release.md](docs/release.md) | Version, CI, daily release |
-| [docs/agent-loop.md](docs/agent-loop.md) | GitHub issue agent loop |
-| [docs/security-public-repo.md](docs/security-public-repo.md) | No private data on public GitHub |
-| [AGENTS.md](AGENTS.md) | Short agent entry |
+See [docs/README.md](docs/README.md). Contribute via [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

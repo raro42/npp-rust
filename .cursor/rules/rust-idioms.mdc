@@ -1,0 +1,26 @@
+---
+description: Idiomatic Rust via rust-skills when editing npp-rs .rs files
+globs: "**/*.rs"
+alwaysApply: false
+---
+
+# Rust idioms (project)
+
+When writing or reviewing Rust here, use the project skill **rust-skills**:
+
+- `.cursor/skills/rust-skills/SKILL.md`
+- Matching files under `.cursor/skills/rust-skills/rules/`
+
+Do not paste all 265 rules into the chat. Open only rules that match the change.
+
+## Critical checklist
+
+1. Prefer `&T` / `&str` / `&[T]` over needless `.clone()` and `&String` / `&Vec<T>`
+2. Prefer `Result` + `?` over `.unwrap()` / `.expect()` outside tests
+3. Prefer clear errors with source chains for libraries
+4. Prefer `with_capacity` when size is known
+5. Mark `unsafe` with a safety comment; keep unsafe small
+6. Prefer `impl Trait` when hiding a concrete type is enough
+7. Prefer exhaustive `match` on enums
+
+Still obey STE (user-facing text), public-repo privacy, and menu-wiring rules.

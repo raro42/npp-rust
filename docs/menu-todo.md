@@ -2,85 +2,13 @@
 
 Date: 2026-08-28
 
-Ready: **337**. Remaining stubs: **237**.
+Ready: **324**. Remaining stubs: **152**.
 
 Teal menu labels = ready.
 
-## Edit (63)
+## View (56)
 
-- [ ] `IDM_EDIT_BEGINENDSELECT` — Edit/Begin/End Select
-- [ ] `IDM_EDIT_BEGINENDSELECT_COLUMNMODE` — Edit/Begin/End Select in Column Mode
-- [ ] `IDM_EDIT_INSERT_DATETIME_CUSTOMIZED` — Edit/Insert/Date Time (customized)
-- [ ] `IDM_EDIT_PROPERCASE_BLEND` — Edit/Convert Case to/Proper Case (blend)
-- [ ] `IDM_EDIT_SENTENCECASE_BLEND` — Edit/Convert Case to/Sentence case (blend)
-- [ ] `IDM_EDIT_RANDOMCASE` — Edit/Convert Case to/ranDOm CasE
-- [ ] `IDM_EDIT_SORTLINES_RANDOMLY` — Edit/Line Operations/Randomize Line Order
-- [ ] `IDM_EDIT_SORTLINES_INTEGER_ASCENDING` — Edit/Line Operations/Sort Lines As Integers Ascending
-- [ ] `IDM_EDIT_SORTLINES_DECIMALCOMMA_ASCENDING` — Edit/Line Operations/Sort Lines As Decimals (Comma) Ascending
-- [ ] `IDM_EDIT_SORTLINES_DECIMALDOT_ASCENDING` — Edit/Line Operations/Sort Lines As Decimals (Dot) Ascending
-- [ ] `IDM_EDIT_SORTLINES_LEXICOGRAPHIC_DESCENDING` — Edit/Line Operations/Sort Lines Lexicographically Descending
-- [ ] `IDM_EDIT_SORTLINES_LEXICO_CASE_INSENS_DESCENDING` — Edit/Line Operations/Sort Lines Lex. Descending Ignoring Case
-- [ ] `IDM_EDIT_SORTLINES_LOCALE_DESCENDING` — Edit/Line Operations/Sort Lines In Locale Order Descending
-- [ ] `IDM_EDIT_SORTLINES_INTEGER_DESCENDING` — Edit/Line Operations/Sort Lines As Integers Descending
-- [ ] `IDM_EDIT_SORTLINES_DECIMALCOMMA_DESCENDING` — Edit/Line Operations/Sort Lines As Decimals (Comma) Descending
-- [ ] `IDM_EDIT_SORTLINES_DECIMALDOT_DESCENDING` — Edit/Line Operations/Sort Lines As Decimals (Dot) Descending
-- [ ] `IDM_EDIT_SORTLINES_LENGTH_DESCENDING` — Edit/Line Operations/Sort Lines By Length Descending
-- [ ] `IDM_EDIT_BLOCK_COMMENT` — Edit/Comment/Uncomment/Toggle Single Line Comment
-- [ ] `IDM_EDIT_BLOCK_COMMENT_SET` — Edit/Comment/Uncomment/Single Line Comment
-- [ ] `IDM_EDIT_BLOCK_UNCOMMENT` — Edit/Comment/Uncomment/Single Line Uncomment
-- [ ] `IDM_EDIT_STREAM_COMMENT` — Edit/Comment/Uncomment/Block Comment
-- [ ] `IDM_EDIT_STREAM_UNCOMMENT` — Edit/Comment/Uncomment/Block Uncomment
-- [ ] `IDM_EDIT_AUTOCOMPLETE` — Edit/Auto-Completion/Function Completion
-- [ ] `IDM_EDIT_AUTOCOMPLETE_CURRENTFILE` — Edit/Auto-Completion/Word Completion
-- [ ] `IDM_EDIT_FUNCCALLTIP` — Edit/Auto-Completion/Function Parameters Hint
-- [ ] `IDM_EDIT_FUNCCALLTIP_PREVIOUS` — Edit/Auto-Completion/Function Parameters Previous Hint
-- [ ] `IDM_EDIT_FUNCCALLTIP_NEXT` — Edit/Auto-Completion/Function Parameters Next Hint
-- [ ] `IDM_EDIT_AUTOCOMPLETE_PATH` — Edit/Auto-Completion/Path Completion
-- [ ] `IDM_EDIT_TRIMLINEHEAD` — Edit/Blank Operations/Trim Leading Space
-- [ ] `IDM_EDIT_TRIM_BOTH` — Edit/Blank Operations/Trim Leading and Trailing Space
-- [ ] `IDM_EDIT_EOL2WS` — Edit/Blank Operations/EOL to Space
-- [ ] `IDM_EDIT_TRIMALL` — Edit/Blank Operations/Trim both and EOL to Space
-- [ ] `IDM_EDIT_TAB2SW` — Edit/Blank Operations/TAB to Space
-- [ ] `IDM_EDIT_SW2TAB_ALL` — Edit/Blank Operations/Space to TAB (All)
-- [ ] `IDM_EDIT_SW2TAB_LEADING` — Edit/Blank Operations/Space to TAB (Leading)
-- [ ] `IDM_EDIT_PASTE_AS_HTML` — Edit/Paste Special/Paste HTML Content
-- [ ] `IDM_EDIT_PASTE_AS_RTF` — Edit/Paste Special/Paste RTF Content
-- [ ] `IDM_EDIT_COPY_BINARY` — Edit/Paste Special/Copy Binary Content
-- [ ] `IDM_EDIT_CUT_BINARY` — Edit/Paste Special/Cut Binary Content
-- [ ] `IDM_EDIT_PASTE_BINARY` — Edit/Paste Special/Paste Binary Content
-- [ ] `IDM_EDIT_OPENSELECTEDFILETOEDIT` — Edit/On Selection/Open File
-- [ ] `IDM_EDIT_OPENSELECTEDFILEFOLDERINEXPLORER` — Edit/On Selection/Open Containing Folder in Explorer
-- [ ] `IDM_EDIT_REDACT_SELECTION` — Edit/On Selection/Redact Selection █ (Shift: ●)
-- [ ] `IDM_EDIT_SEARCHONINTERNET` — Edit/On Selection/Search on Internet
-- [ ] `IDM_EDIT_CHANGESEARCHENGINE` — Edit/On Selection/Change Search Engine...
-- [ ] `IDM_EDIT_MULTISELECTALL` — Edit/Multi-select All/Ignore Case  Whole Word
-- [ ] `IDM_EDIT_MULTISELECTALLMATCHCASE` — Edit/Multi-select All/Match Case Only
-- [ ] `IDM_EDIT_MULTISELECTALLWHOLEWORD` — Edit/Multi-select All/Match Whole Word Only
-- [ ] `IDM_EDIT_MULTISELECTALLMATCHCASEWHOLEWORD` — Edit/Multi-select All/Match Case  Whole Word
-- [ ] `IDM_EDIT_MULTISELECTNEXT` — Edit/Multi-select Next/Ignore Case  Whole Word
-- [ ] `IDM_EDIT_MULTISELECTNEXTMATCHCASE` — Edit/Multi-select Next/Match Case Only
-- [ ] `IDM_EDIT_MULTISELECTNEXTWHOLEWORD` — Edit/Multi-select Next/Match Whole Word Only
-- [ ] `IDM_EDIT_MULTISELECTNEXTMATCHCASEWHOLEWORD` — Edit/Multi-select Next/Match Case  Whole Word
-- [ ] `IDM_EDIT_MULTISELECTUNDO` — Edit/Undo the Latest Added Multi-Select
-- [ ] `IDM_EDIT_MULTISELECTSSKIP` — Edit/Skip Current  Go to Next Multi-select
-- [ ] `IDM_EDIT_COLUMNMODETIP` — Edit/Column Mode...
-- [ ] `IDM_EDIT_COLUMNMODE` — Edit/Column Editor...
-- [ ] `IDM_EDIT_CHAR_PANEL` — Edit/Character Panel
-- [ ] `IDM_EDIT_CLIPBOARDHISTORY_PANEL` — Edit/Clipboard History
-- [ ] `IDM_EDIT_TOGGLEREADONLY` — Edit/Read-Only in Notepad++/Read-Only on Current Document
-- [ ] `IDM_EDIT_SETREADONLYFORALLDOCS` — Edit/Read-Only in Notepad++/Read-Only for All Documents
-- [ ] `IDM_EDIT_CLEARREADONLYFORALLDOCS` — Edit/Read-Only in Notepad++/Clear Read-Only for All Documents
-- [ ] `IDM_EDIT_TOGGLESYSTEMREADONLY` — Edit/Read-Only Attribute in Windows
-
-## View (63)
-
-- [ ] `IDM_VIEW_FULLSCREENTOGGLE` — View/Toggle Full Screen Mode
 - [ ] `IDM_VIEW_POSTIT` — View/Post-It
-- [ ] `IDM_VIEW_DISTRACTIONFREE` — View/Distraction Free Mode
-- [ ] `IDM_VIEW_IN_FIREFOX` — View/View Current File in/Firefox
-- [ ] `IDM_VIEW_IN_CHROME` — View/View Current File in/Chrome
-- [ ] `IDM_VIEW_IN_EDGE` — View/View Current File in/Edge
-- [ ] `IDM_VIEW_IN_IE` — View/View Current File in/IE
 - [ ] `IDM_VIEW_TAB_SPACE` — View/Show Symbol/Show Space and Tab
 - [ ] `IDM_VIEW_EOL` — View/Show Symbol/Show End of Line
 - [ ] `IDM_VIEW_NPC` — View/Show Symbol/Show Non-Printing Characters
@@ -136,19 +64,12 @@ Teal menu labels = ready.
 - [ ] `IDM_VIEW_SYNSCROLLH` — View/Synchronize Horizontal Scrolling
 - [ ] `IDM_EDIT_RTL` — View/Text Direction RTL
 - [ ] `IDM_EDIT_LTR` — View/Text Direction LTR
-- [ ] `IDM_VIEW_MONITORING` — View/Monitoring (tail -f)
 
-## Search (59)
+## Search (45)
 
 - [ ] `IDM_SEARCH_FINDINFILES` — Search/Find in Files...
-- [ ] `IDM_SEARCH_VOLATILE_FINDNEXT` — Search/Find (Volatile) Next
-- [ ] `IDM_SEARCH_VOLATILE_FINDPREV` — Search/Find (Volatile) Previous
-- [ ] `IDM_SEARCH_FINDINCREMENT` — Search/Incremental Search
-- [ ] `IDM_FOCUS_ON_FOUND_RESULTS` — Search/Search Results Window
 - [ ] `IDM_SEARCH_GOTONEXTFOUND` — Search/Next Search Result
 - [ ] `IDM_SEARCH_GOTOPREVFOUND` — Search/Previous Search Result
-- [ ] `IDM_SEARCH_GOTOMATCHINGBRACE` — Search/Go to Matching Brace
-- [ ] `IDM_SEARCH_SELECTMATCHINGBRACES` — Search/Select All In-between {} [] or ()
 - [ ] `IDM_SEARCH_MARK` — Search/Mark...
 - [ ] `IDM_SEARCH_CHANGED_NEXT` — Search/Change History/Go to Next Change
 - [ ] `IDM_SEARCH_CHANGED_PREV` — Search/Change History/Go to Previous Change
@@ -188,76 +109,53 @@ Teal menu labels = ready.
 - [ ] `IDM_SEARCH_STYLE5TOCLIP` — Search/Copy Styled Text/5th Style
 - [ ] `IDM_SEARCH_ALLSTYLESTOCLIP` — Search/Copy Styled Text/All Styles
 - [ ] `IDM_SEARCH_MARKEDTOCLIP` — Search/Copy Styled Text/Find Mark Style
-- [ ] `IDM_SEARCH_TOGGLE_BOOKMARK` — Search/Bookmark/Toggle Bookmark
-- [ ] `IDM_SEARCH_NEXT_BOOKMARK` — Search/Bookmark/Next Bookmark
-- [ ] `IDM_SEARCH_PREV_BOOKMARK` — Search/Bookmark/Previous Bookmark
-- [ ] `IDM_SEARCH_CLEAR_BOOKMARKS` — Search/Bookmark/Clear All Bookmarks
 - [ ] `IDM_SEARCH_CUTMARKEDLINES` — Search/Bookmark/Cut Bookmarked Lines
-- [ ] `IDM_SEARCH_COPYMARKEDLINES` — Search/Bookmark/Copy Bookmarked Lines
 - [ ] `IDM_SEARCH_PASTEMARKEDLINES` — Search/Bookmark/Paste to (Replace) Bookmarked Lines
-- [ ] `IDM_SEARCH_DELETEMARKEDLINES` — Search/Bookmark/Remove Bookmarked Lines
-- [ ] `IDM_SEARCH_DELETEUNMARKEDLINES` — Search/Bookmark/Remove Non-Bookmarked Lines
-- [ ] `IDM_SEARCH_INVERSEMARKS` — Search/Bookmark/Inverse Bookmarks
 - [ ] `IDM_SEARCH_FINDCHARINRANGE` — Search/Find characters in range...
 
-## Tools (12)
+## Edit (32)
 
-- [ ] `IDM_TOOL_MD5_GENERATE` — Tools/MD5/Generate...
-- [ ] `IDM_TOOL_MD5_GENERATEFROMFILE` — Tools/MD5/Generate from files...
-- [ ] `IDM_TOOL_MD5_GENERATEINTOCLIPBOARD` — Tools/MD5/Generate from selection into clipboard
-- [ ] `IDM_TOOL_SHA1_GENERATE` — Tools/SHA-1/Generate...
-- [ ] `IDM_TOOL_SHA1_GENERATEFROMFILE` — Tools/SHA-1/Generate from files...
-- [ ] `IDM_TOOL_SHA1_GENERATEINTOCLIPBOARD` — Tools/SHA-1/Generate from selection into clipboard
-- [ ] `IDM_TOOL_SHA256_GENERATE` — Tools/SHA-256/Generate...
-- [ ] `IDM_TOOL_SHA256_GENERATEFROMFILE` — Tools/SHA-256/Generate from files...
-- [ ] `IDM_TOOL_SHA256_GENERATEINTOCLIPBOARD` — Tools/SHA-256/Generate from selection into clipboard
-- [ ] `IDM_TOOL_SHA512_GENERATE` — Tools/SHA-512/Generate...
-- [ ] `IDM_TOOL_SHA512_GENERATEFROMFILE` — Tools/SHA-512/Generate from files...
-- [ ] `IDM_TOOL_SHA512_GENERATEINTOCLIPBOARD` — Tools/SHA-512/Generate from selection into clipboard
+- [ ] `IDM_EDIT_INSERT_DATETIME_CUSTOMIZED` — Edit/Insert/Date Time (customized)
+- [ ] `IDM_EDIT_BLOCK_COMMENT` — Edit/Comment/Uncomment/Toggle Single Line Comment
+- [ ] `IDM_EDIT_BLOCK_COMMENT_SET` — Edit/Comment/Uncomment/Single Line Comment
+- [ ] `IDM_EDIT_BLOCK_UNCOMMENT` — Edit/Comment/Uncomment/Single Line Uncomment
+- [ ] `IDM_EDIT_STREAM_COMMENT` — Edit/Comment/Uncomment/Block Comment
+- [ ] `IDM_EDIT_STREAM_UNCOMMENT` — Edit/Comment/Uncomment/Block Uncomment
+- [ ] `IDM_EDIT_AUTOCOMPLETE` — Edit/Auto-Completion/Function Completion
+- [ ] `IDM_EDIT_AUTOCOMPLETE_CURRENTFILE` — Edit/Auto-Completion/Word Completion
+- [ ] `IDM_EDIT_FUNCCALLTIP` — Edit/Auto-Completion/Function Parameters Hint
+- [ ] `IDM_EDIT_FUNCCALLTIP_PREVIOUS` — Edit/Auto-Completion/Function Parameters Previous Hint
+- [ ] `IDM_EDIT_FUNCCALLTIP_NEXT` — Edit/Auto-Completion/Function Parameters Next Hint
+- [ ] `IDM_EDIT_AUTOCOMPLETE_PATH` — Edit/Auto-Completion/Path Completion
+- [ ] `IDM_EDIT_PASTE_AS_HTML` — Edit/Paste Special/Paste HTML Content
+- [ ] `IDM_EDIT_PASTE_AS_RTF` — Edit/Paste Special/Paste RTF Content
+- [ ] `IDM_EDIT_COPY_BINARY` — Edit/Paste Special/Copy Binary Content
+- [ ] `IDM_EDIT_CUT_BINARY` — Edit/Paste Special/Cut Binary Content
+- [ ] `IDM_EDIT_PASTE_BINARY` — Edit/Paste Special/Paste Binary Content
+- [ ] `IDM_EDIT_MULTISELECTALL` — Edit/Multi-select All/Ignore Case  Whole Word
+- [ ] `IDM_EDIT_MULTISELECTALLMATCHCASE` — Edit/Multi-select All/Match Case Only
+- [ ] `IDM_EDIT_MULTISELECTALLWHOLEWORD` — Edit/Multi-select All/Match Whole Word Only
+- [ ] `IDM_EDIT_MULTISELECTALLMATCHCASEWHOLEWORD` — Edit/Multi-select All/Match Case  Whole Word
+- [ ] `IDM_EDIT_MULTISELECTNEXT` — Edit/Multi-select Next/Ignore Case  Whole Word
+- [ ] `IDM_EDIT_MULTISELECTNEXTMATCHCASE` — Edit/Multi-select Next/Match Case Only
+- [ ] `IDM_EDIT_MULTISELECTNEXTWHOLEWORD` — Edit/Multi-select Next/Match Whole Word Only
+- [ ] `IDM_EDIT_MULTISELECTNEXTMATCHCASEWHOLEWORD` — Edit/Multi-select Next/Match Case  Whole Word
+- [ ] `IDM_EDIT_MULTISELECTUNDO` — Edit/Undo the Latest Added Multi-Select
+- [ ] `IDM_EDIT_MULTISELECTSSKIP` — Edit/Skip Current  Go to Next Multi-select
+- [ ] `IDM_EDIT_COLUMNMODETIP` — Edit/Column Mode...
+- [ ] `IDM_EDIT_COLUMNMODE` — Edit/Column Editor...
+- [ ] `IDM_EDIT_CHAR_PANEL` — Edit/Character Panel
+- [ ] `IDM_EDIT_CLIPBOARDHISTORY_PANEL` — Edit/Clipboard History
+- [ ] `IDM_EDIT_TOGGLESYSTEMREADONLY` — Edit/Read-Only Attribute in Windows
 
-## Window (11)
+## File (6)
 
-- [ ] `IDM_WINDOW_SORT_FN_ASC` — Window/Sort By/Name A to Z
-- [ ] `IDM_WINDOW_SORT_FN_DSC` — Window/Sort By/Name Z to A
-- [ ] `IDM_WINDOW_SORT_FP_ASC` — Window/Sort By/Path A to Z
-- [ ] `IDM_WINDOW_SORT_FP_DSC` — Window/Sort By/Path Z to A
-- [ ] `IDM_WINDOW_SORT_FT_ASC` — Window/Sort By/Type A to Z
-- [ ] `IDM_WINDOW_SORT_FT_DSC` — Window/Sort By/Type Z to A
-- [ ] `IDM_WINDOW_SORT_FS_ASC` — Window/Sort By/Content Length Ascending
-- [ ] `IDM_WINDOW_SORT_FS_DSC` — Window/Sort By/Content Length Descending
-- [ ] `IDM_WINDOW_SORT_FD_ASC` — Window/Sort By/Modified Time Ascending
-- [ ] `IDM_WINDOW_SORT_FD_DSC` — Window/Sort By/Modified Time Descending
-- [ ] `IDM_WINDOW_WINDOWS` — Window/Windows...
-
-## File (8)
-
-- [ ] `IDM_FILE_CONTAININGFOLDERASWORKSPACE` — File/Open Containing Folder/Folder as Workspace
-- [ ] `IDM_FILE_OPENFOLDERASWORKSPACE` — File/Open Folder as Workspace...
 - [ ] `IDM_FILE_CLOSEALL_BUT_PINNED` — File/Close Multiple Documents/Close All but Pinned Documents
 - [ ] `IDM_FILE_DELETE` — File/Move to Recycle Bin
 - [ ] `IDM_FILE_LOADSESSION` — File/Load Session...
 - [ ] `IDM_FILE_SAVESESSION` — File/Save Session...
 - [ ] `IDM_FILE_PRINT` — File/Print...
 - [ ] `IDM_FILE_PRINTNOW` — File/Print Now
-
-## ? (8)
-
-- [ ] `IDM_CMDLINEARGUMENTS` — ?/Command Line Arguments...
-- [ ] `IDM_HOMESWEETHOME` — ?/Notepad++ Home
-- [ ] `IDM_PROJECTPAGE` — ?/Notepad++ Project Page
-- [ ] `IDM_ONLINEDOCUMENT` — ?/Notepad++ Online User Manual
-- [ ] `IDM_FORUM` — ?/Notepad++ Community (Forum)
-- [ ] `IDM_UPDATE_NPP` — ?/Update Notepad++
-- [ ] `IDM_CONFUPDATERPROXY` — ?/Set Updater Proxy...
-- [ ] `IDM_DEBUGINFO` — ?/Debug Info...
-
-## Settings (5)
-
-- [ ] `IDM_SETTING_PREFERENCE` — Settings/Preferences...
-- [ ] `IDM_LANGSTYLE_CONFIG_DLG` — Settings/Style Configurator...
-- [ ] `IDM_SETTING_SHORTCUT_MAPPER` — Settings/Shortcut Mapper...
-- [ ] `IDM_SETTING_IMPORTPLUGIN` — Settings/Import/Import plugin(s)...
-- [ ] `IDM_SETTING_IMPORTSTYLETHEMES` — Settings/Import/Import style theme(s)...
 
 ## Macro (5)
 
@@ -267,12 +165,20 @@ Teal menu labels = ready.
 - [ ] `IDM_MACRO_SAVECURRENTMACRO` — Macro/Save Current Recorded Macro...
 - [ ] `IDM_MACRO_RUNMULTIMACRODLG` — Macro/Run a Macro Multiple Times...
 
+## Settings (5)
+
+- [ ] `IDM_SETTING_PREFERENCE` — Settings/Preferences...
+- [ ] `IDM_LANGSTYLE_CONFIG_DLG` — Settings/Style Configurator...
+- [ ] `IDM_SETTING_SHORTCUT_MAPPER` — Settings/Shortcut Mapper...
+- [ ] `IDM_SETTING_IMPORTPLUGIN` — Settings/Import/Import plugin(s)...
+- [ ] `IDM_SETTING_IMPORTSTYLETHEMES` — Settings/Import/Import style theme(s)...
+
 ## Run (2)
 
 - [ ] `IDM_EXECUTE` — Run/Run...
 - [ ] `IDM_EXECUTE_VALIDATE_SHORTCUTSXML` — Run/Validate shortcuts.xml
 
-## Plugins (1)
+## Window (1)
 
-- [ ] `IDM_SETTING_OPENPLUGINSDIR` — Plugins/Open Plugins Folder...
+- [ ] `IDM_WINDOW_WINDOWS` — Window/Windows...
 
