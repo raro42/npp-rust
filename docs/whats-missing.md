@@ -23,10 +23,10 @@ About **14** handlers still say the limit in the status line or use a stand-in, 
 
 - Full Preferences (tabs, margins, multi-language UI, …)
 - Real dual view + project panels
-- File compare / diff (2-way or 3-way) with sync scroll — **not started** (sync menu only toggles a flag; `IDM_LANG_DIFF` is syntax highlight for `.diff` files, not a compare tool)
+- File compare / diff (2-way or 3-way) with sync scroll — **not started**. Upstream Notepad++ also has **no built-in compare**; users install a plugin (Compare / ComparePlus). Core N++ does ship dual view + sync scroll. `IDM_LANG_DIFF` here is only syntax highlight for `.diff` files.
 - Scintilla-style change history marks
 - Pin toggle in the tab UI
-- CLI path args / flags (Help tab documents the limit)
+- Rich CLI flags (only `-h`/`--help` + open existing path args today)
 - LSP / rich call tips
 - True ANSI / multi-encoding load-save
 
