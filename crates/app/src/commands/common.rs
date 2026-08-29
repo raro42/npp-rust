@@ -3,7 +3,41 @@
 
 use super::{ComingSoon, UiFlags};
 use crate::editor::EditorState;
+use doc::EditDenied;
 use std::path::{Path, PathBuf};
+
+
+/// Run `f` on tab `tab`'s buffer when editable. Sets status when blocked.
+pub(crate) fn with_editable_buffer<R>(
+    state: &mut EditorState,
+    tab: usize,
+    f: impl FnOnce(&mut buffer::TextBuffer) -> R,
+) -> Result<R, EditDenied> {
+    let denied = state.tabs.get(tab).and_then(|d| d.edit_denied());
+    if let Some(denied) = denied {
+        state.status = denied.status_message().into();
+        return Err(denied);
+    }
+    let Some(doc) = state.tabs.get_mut(tab) else {
+        return Err(EditDenied::Loading);
+    };
+    Ok(f(&mut doc.buffer))
+}
+
+/// Active-tab variant of [`with_editable_buffer`].
+pub(crate) fn with_active_editable_buffer<R>(
+    state: &mut EditorState,
+    f: impl FnOnce(&mut buffer::TextBuffer) -> R,
+) -> Result<R, EditDenied> {
+    let tab = state.tabs.active_index();
+    with_editable_buffer(state, tab, f)
+}
+
+/// True when the active document may be edited. Sets status when blocked.
+pub(crate) fn ensure_editable(state: &mut EditorState) -> bool {
+    with_active_editable_buffer(state, |_| ()).is_ok()
+}
+
 
 pub(crate) fn open_url(state: &mut EditorState, url: &str) {
     let result = {
@@ -146,7 +180,7 @@ pub(crate) fn hash_selection_or_doc(
             if to_clip {
                 ui.pending_clipboard = Some(h.clone());
                 state.status = format!("{algo}: copied to clipboard");
-            } else {
+            } else if ensure_editable(state) {
                 state.tabs.active_mut().buffer.insert(&format!("\n{h}\n"));
                 state.mark_text_changed();
                 state.status = format!("{algo}: inserted");
@@ -171,6 +205,9 @@ pub(crate) fn hash_active_file(state: &mut EditorState, ui: &mut UiFlags, algo: 
 }
 
 pub(crate) fn cut_selection(state: &mut EditorState, ui: &mut UiFlags) {
+    if !ensure_editable(state) {
+        return;
+    }
     if let Some((s, e)) = state.tabs.active().buffer.selection() {
         let text = state.tabs.active().buffer.slice(s, e);
         ui.pending_clipboard = Some(text.clone());
@@ -367,6 +404,9 @@ pub(crate) fn brace_span(text: &str, caret: usize) -> Option<(usize, usize)> {
 }
 
 pub(crate) fn filter_lines_by_bookmarks(state: &mut EditorState, keep_unmarked: bool) {
+    if !ensure_editable(state) {
+        return;
+    }
     let text = state.tabs.active().buffer.to_string();
     let marks = state.tabs.active().bookmarks.clone();
     let mut kept = Vec::new();
@@ -396,6 +436,9 @@ pub(crate) fn filter_lines_by_bookmarks(state: &mut EditorState, keep_unmarked: 
 
 /// Replace each bookmarked line with `clip` (Notepad++ Paste to Bookmarked Lines).
 pub fn paste_over_bookmarked_lines(state: &mut EditorState, clip: &str) {
+    if !ensure_editable(state) {
+        return;
+    }
     let marks = state.tabs.active().bookmarks.clone();
     if marks.is_empty() {
         state.status = "No bookmarks".into();

@@ -12,9 +12,55 @@ pub fn covers(cmd: &str) -> bool {
     cmd.starts_with("IDM_EDIT_")
 }
 
+/// True when this edit command may change buffer text.
+fn mutates_buffer(cmd: &str) -> bool {
+    !matches!(
+        cmd,
+        "IDM_EDIT_COPY"
+            | "IDM_EDIT_SELECTALL"
+            | "IDM_EDIT_FULLPATHTOCLIP"
+            | "IDM_EDIT_FILENAMETOCLIP"
+            | "IDM_EDIT_CURRENTDIRTOCLIP"
+            | "IDM_EDIT_COPY_ALL_NAMES"
+            | "IDM_EDIT_COPY_ALL_PATHS"
+            | "IDM_EDIT_BEGINENDSELECT"
+            | "IDM_EDIT_BEGINENDSELECT_COLUMNMODE"
+            | "IDM_EDIT_OPENSELECTEDFILETOEDIT"
+            | "IDM_EDIT_OPENSELECTEDFILEFOLDERINEXPLORER"
+            | "IDM_EDIT_SEARCHONINTERNET"
+            | "IDM_EDIT_CHANGESEARCHENGINE"
+            | "IDM_EDIT_TOGGLEREADONLY"
+            | "IDM_EDIT_SETREADONLYFORALLDOCS"
+            | "IDM_EDIT_CLEARREADONLYFORALLDOCS"
+            | "IDM_EDIT_RTL"
+            | "IDM_EDIT_LTR"
+            | "IDM_EDIT_COPY_BINARY"
+            | "IDM_EDIT_MULTISELECTALL"
+            | "IDM_EDIT_MULTISELECTALLMATCHCASE"
+            | "IDM_EDIT_MULTISELECTALLWHOLEWORD"
+            | "IDM_EDIT_MULTISELECTALLMATCHCASEWHOLEWORD"
+            | "IDM_EDIT_MULTISELECTNEXT"
+            | "IDM_EDIT_MULTISELECTNEXTMATCHCASE"
+            | "IDM_EDIT_MULTISELECTNEXTWHOLEWORD"
+            | "IDM_EDIT_MULTISELECTNEXTMATCHCASEWHOLEWORD"
+            | "IDM_EDIT_MULTISELECTUNDO"
+            | "IDM_EDIT_MULTISELECTSSKIP"
+            | "IDM_EDIT_COLUMNMODETIP"
+            | "IDM_EDIT_CHAR_PANEL"
+            | "IDM_EDIT_CLIPBOARDHISTORY_PANEL"
+            | "IDM_EDIT_TOGGLESYSTEMREADONLY"
+            | "IDM_EDIT_FUNCCALLTIP"
+            | "IDM_EDIT_FUNCCALLTIP_PREVIOUS"
+            | "IDM_EDIT_FUNCCALLTIP_NEXT"
+    )
+}
+
 pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Option<CmdResult> {
     if !covers(cmd) {
         return None;
+    }
+    if mutates_buffer(cmd) && !ensure_editable(state) {
+        return Some(CmdResult::Handled);
     }
     Some(match cmd {
         "IDM_EDIT_UNDO" => {
@@ -34,9 +80,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_PASTE" => {
-            if state.tabs.active().read_only {
-                state.status = "Document is read-only".into();
-            } else if let Some(t) = ui.last_copied.clone() {
+            if let Some(t) = ui.last_copied.clone() {
                 if t.is_empty() {
                     state.status = "Paste: clipboard empty".into();
                 } else {
@@ -392,10 +436,6 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_BLOCK_COMMENT" => {
-            if state.tabs.active().read_only {
-                state.status = "Document is read-only".into();
-                return Some(CmdResult::Handled);
-            }
             let lang = state.tabs.active().language.clone();
             if let Some(prefix) = line_comment_prefix(&lang) {
                 state.tabs.active_mut().buffer.toggle_line_comments(prefix);
@@ -407,10 +447,6 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_BLOCK_COMMENT_SET" => {
-            if state.tabs.active().read_only {
-                state.status = "Document is read-only".into();
-                return Some(CmdResult::Handled);
-            }
             let lang = state.tabs.active().language.clone();
             if let Some(prefix) = line_comment_prefix(&lang) {
                 state.tabs.active_mut().buffer.comment_lines(prefix);
@@ -422,10 +458,6 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_BLOCK_UNCOMMENT" => {
-            if state.tabs.active().read_only {
-                state.status = "Document is read-only".into();
-                return Some(CmdResult::Handled);
-            }
             let lang = state.tabs.active().language.clone();
             if let Some(prefix) = line_comment_prefix(&lang) {
                 state.tabs.active_mut().buffer.uncomment_lines(prefix);
@@ -437,10 +469,6 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_STREAM_COMMENT" => {
-            if state.tabs.active().read_only {
-                state.status = "Document is read-only".into();
-                return Some(CmdResult::Handled);
-            }
             let lang = state.tabs.active().language.clone();
             if let Some((open, close)) = stream_comment_delims(&lang) {
                 state.tabs.active_mut().buffer.stream_comment(open, close);
@@ -452,10 +480,6 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_STREAM_UNCOMMENT" => {
-            if state.tabs.active().read_only {
-                state.status = "Document is read-only".into();
-                return Some(CmdResult::Handled);
-            }
             let lang = state.tabs.active().language.clone();
             if let Some((open, close)) = stream_comment_delims(&lang) {
                 state.tabs.active_mut().buffer.stream_uncomment(open, close);
@@ -587,10 +611,6 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_REDACT_SELECTION" => {
-            if state.tabs.active().read_only {
-                state.status = "Document is read-only".into();
-                return Some(CmdResult::Handled);
-            }
             if let Some((s, e)) = state.tabs.active().buffer.selection() {
                 let n = e.saturating_sub(s);
                 let block = "█".repeat(n.max(1));
@@ -712,10 +732,6 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_CUT_BINARY" => {
-            if state.tabs.active().read_only {
-                state.status = "Document is read-only".into();
-                return Some(CmdResult::Handled);
-            }
             if let Some((s, e)) = state.tabs.active().buffer.selection() {
                 let text = state.tabs.active().buffer.slice(s, e);
                 ui.pending_clipboard = Some(text);
@@ -836,8 +852,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
 }
 
 fn paste_plain_fallback(state: &mut EditorState, ui: &mut UiFlags, cmd: &str) {
-    if state.tabs.active().read_only {
-        state.status = "Document is read-only".into();
+    if !ensure_editable(state) {
         return;
     }
     let Some(text) = ui.last_copied.clone() else {
@@ -1001,8 +1016,7 @@ fn multi_select_next(
 /// Insert clipboard text (or 0,1,2…) at the caret column on each selected line,
 /// or at each multi-select start.
 fn column_editor_insert(state: &mut EditorState, ui: &mut UiFlags) {
-    if state.tabs.active().read_only {
-        state.status = "Document is read-only".into();
+    if !ensure_editable(state) {
         return;
     }
     let clip = ui
@@ -1367,8 +1381,7 @@ fn toggle_system_readonly(state: &mut EditorState) {
 }
 
 fn word_complete(state: &mut EditorState) {
-    if state.tabs.active().read_only {
-        state.status = "Document is read-only".into();
+    if !ensure_editable(state) {
         return;
     }
     let buf = &state.tabs.active().buffer;
@@ -1430,8 +1443,7 @@ fn word_complete(state: &mut EditorState) {
 }
 
 fn path_complete(state: &mut EditorState) {
-    if state.tabs.active().read_only {
-        state.status = "Document is read-only".into();
+    if !ensure_editable(state) {
         return;
     }
     let buf = &state.tabs.active().buffer;

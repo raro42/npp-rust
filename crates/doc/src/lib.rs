@@ -62,6 +62,25 @@ pub fn remap_lines_delete(set: &mut BTreeSet<usize>, first_removed: usize, n: us
         .collect();
 }
 
+/// Why a buffer mutation was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EditDenied {
+    /// App or system read-only flag is on.
+    ReadOnly,
+    /// Background load has not finished.
+    Loading,
+}
+
+impl EditDenied {
+    /// Status-bar text for a blocked edit.
+    pub fn status_message(self) -> &'static str {
+        match self {
+            Self::ReadOnly => "Document is read-only",
+            Self::Loading => "Document is still loading",
+        }
+    }
+}
+
 /// One open document (one tab).
 #[derive(Debug, Clone)]
 pub struct Document {
@@ -186,6 +205,31 @@ pub struct LineEditSnap {
 }
 
 impl Document {
+    /// True when menu/typing may change the buffer.
+    pub fn is_editable(&self) -> bool {
+        !self.read_only && !self.loading
+    }
+
+    /// Reason edits are blocked, if any.
+    pub fn edit_denied(&self) -> Option<EditDenied> {
+        if self.loading {
+            Some(EditDenied::Loading)
+        } else if self.read_only {
+            Some(EditDenied::ReadOnly)
+        } else {
+            None
+        }
+    }
+
+    /// Mutable buffer access. Fails when read-only or still loading.
+    pub fn try_buffer_mut(&mut self) -> Result<&mut TextBuffer, EditDenied> {
+        if let Some(denied) = self.edit_denied() {
+            Err(denied)
+        } else {
+            Ok(&mut self.buffer)
+        }
+    }
+
     /// Capture line geometry before mutating the buffer.
     pub fn snap_edit(&self) -> LineEditSnap {
         let buf = &self.buffer;
@@ -555,6 +599,20 @@ mod tests {
         assert_eq!(tabs.len(), 2);
         tabs.close(0);
         assert_eq!(tabs.len(), 1);
+    }
+
+    #[test]
+    fn try_buffer_mut_blocks_read_only_and_loading() {
+        let mut doc = Document::untitled(1, 1);
+        assert!(doc.try_buffer_mut().is_ok());
+        doc.read_only = true;
+        assert_eq!(doc.try_buffer_mut().err(), Some(EditDenied::ReadOnly));
+        doc.read_only = false;
+        doc.loading = true;
+        assert_eq!(doc.try_buffer_mut().err(), Some(EditDenied::Loading));
+        doc.loading = false;
+        doc.try_buffer_mut().unwrap().insert("ok");
+        assert_eq!(doc.buffer.to_string(), "ok");
     }
 
     #[test]

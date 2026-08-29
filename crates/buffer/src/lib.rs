@@ -1,4 +1,7 @@
 //! Rope-backed text buffer with caret and undo/redo.
+//!
+//! App-level read-only / loading gates live on `doc::Document::try_buffer_mut`
+//! (and command helpers). Prefer those over calling mutate methods directly from menus.
 
 use ropey::Rope;
 use std::collections::VecDeque;

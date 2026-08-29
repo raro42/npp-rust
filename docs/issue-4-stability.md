@@ -62,3 +62,19 @@ Commit and push each batch. Bump patch version when user-visible. Update this fi
 - One worker thread per in-flight path (not a shared pool).
 - Append still capped at `TAIL_MAX_CHUNK` (1 MiB); rotate reload reads the whole file on the worker.
 
+## Agent B checklist (read-only mutate gate)
+
+Date: 2026-08-29
+
+- [x] `doc::EditDenied` + `Document::try_buffer_mut()` / `edit_denied()` / `is_editable()`
+- [x] `EditorState::ensure_editable` + `with_editable_buffer(tab, …)`
+- [x] Command helpers: `commands/common::ensure_editable`
+- [x] `commands/edit.rs` early gate via `mutates_buffer`
+- [x] `commands/format.rs` gated
+- [x] `editor` undo/redo/plugin/replace/datetime gated
+- [x] Tests: doc + app read-only command
+
+### Still ungated (caller-owned)
+
+- Direct egui typing in `ui.rs` (already checks `read_only` locally)
+- Any direct buffer mutates in `search.rs` / `view.rs` / `file.rs` outside gated helpers
