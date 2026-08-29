@@ -23,6 +23,7 @@ About **14** handlers still say the limit in the status line or use a stand-in, 
 
 - Full Preferences (tabs, margins, multi-language UI, …)
 - Real dual view + project panels
+- File compare / diff (2-way or 3-way) with sync scroll — **not started** (sync menu only toggles a flag; `IDM_LANG_DIFF` is syntax highlight for `.diff` files, not a compare tool)
 - Scintilla-style change history marks
 - Pin toggle in the tab UI
 - CLI path args / flags (Help tab documents the limit)
