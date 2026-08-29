@@ -75,6 +75,8 @@ pub struct EditorState {
     pub compare_stale: bool,
     /// Before-edit line snap for change-history remap (tab, snap).
     pending_edit_snap: Option<(usize, doc::LineEditSnap)>,
+    /// Folder shown in the Project panel (cwd by default).
+    pub workspace_root: PathBuf,
 }
 
 /// Bulk close mode after a dirty-tab confirm.
@@ -136,6 +138,7 @@ impl EditorState {
             want_quit: false,
             compare_stale: false,
             pending_edit_snap: None,
+            workspace_root: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
         }
     }
 
@@ -1243,6 +1246,31 @@ impl EditorState {
         if self.pending_close.is_none() {
             self.status = "Closed unchanged documents".into();
         }
+    }
+
+
+    pub fn pick_workspace_folder(&mut self) {
+        if let Some(dir) = rfd::FileDialog::new()
+            .set_title("Open Folder as Workspace")
+            .pick_folder()
+        {
+            self.workspace_root = dir;
+            self.status = format!("Workspace: {}", self.workspace_root.display());
+        } else {
+            self.status = "Workspace folder pick cancelled".into();
+        }
+    }
+
+    pub fn set_workspace_from_active(&mut self) {
+        if let Some(path) = self.tabs.active().path.clone() {
+            if let Some(parent) = path.parent() {
+                self.workspace_root = parent.to_path_buf();
+                self.status = format!("Workspace: {}", self.workspace_root.display());
+                return;
+            }
+        }
+        self.workspace_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        self.status = format!("Workspace: {} (cwd)", self.workspace_root.display());
     }
 
     pub fn open_containing_folder(&mut self) {

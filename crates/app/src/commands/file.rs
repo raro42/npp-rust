@@ -88,8 +88,14 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             state.reveal_in_os();
             CmdResult::Handled
         }
-        "IDM_FILE_OPENFOLDERASWORKSPACE" | "IDM_FILE_CONTAININGFOLDERASWORKSPACE" => {
-            state.open_containing_folder();
+        "IDM_FILE_OPENFOLDERASWORKSPACE" => {
+            state.pick_workspace_folder();
+            ui.show_project_panel = true;
+            CmdResult::Handled
+        }
+        "IDM_FILE_CONTAININGFOLDERASWORKSPACE" => {
+            state.set_workspace_from_active();
+            ui.show_project_panel = true;
             CmdResult::Handled
         }
         "IDM_FILE_OPEN_CMD" | "IDM_FILE_OPEN_POWERSHELL" => {

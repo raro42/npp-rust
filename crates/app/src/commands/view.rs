@@ -332,9 +332,8 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_VIEW_PROJECT_PANEL_1" | "IDM_VIEW_PROJECT_PANEL_2" | "IDM_VIEW_PROJECT_PANEL_3" => {
-            // Project panels are not modelled — open the document list instead.
-            ui.show_doc_list = true;
-            state.status = "Opened document list (no project panel yet)".into();
+            ui.show_project_panel = true;
+            state.status = format!("Project panel: {}", state.workspace_root.display());
             CmdResult::Handled
         }
         "IDM_VIEW_DOC_MAP" => {

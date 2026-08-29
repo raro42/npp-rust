@@ -37,7 +37,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_SETTING_IMPORTSTYLETHEMES" => {
-            import_themes(state);
+            import_themes(state, ui);
             CmdResult::Handled
         }
         "IDM_WINDOW_WINDOWS" => {
@@ -444,39 +444,14 @@ What you can do
     );
 }
 
-fn import_themes(state: &mut EditorState) {
-    let dir = cwd().join("themes");
-    let _ = std::fs::create_dir_all(&dir);
+fn import_themes(state: &mut EditorState, ui: &mut UiFlags) {
+    let dir = crate::theme::ensure_themes_dir();
     open_path_in_os(state, &dir);
-
-    let (disk_n, disk_list) = list_folder_entries(&dir);
-
-    let text = format!(
-        "\
-npp-rs Import Style Theme(s)
-============================
-Opened folder: {path}
-
-Apply API
----------
-No theme apply API exists in this build.
-The editor uses the egui default look. Preferences only changes font size and log-tail policy.
-
-themes/ on disk ({disk_n})
---------------------------
-{disk}
-What you can do
----------------
-1. Drop Notepad++-style theme XML (or any files) into themes/ for later work.
-2. Re-run Import Style Theme(s) to refresh this listing.
-3. Style Configurator shows language highlight coverage (not colours).
-4. Preferences → font size for a small look change today.
-",
-        path = dir.display(),
-        disk = disk_list,
+    ui.show_theme_picker = true;
+    let n = crate::theme::list_theme_choices().len();
+    state.status = format!(
+        "Themes: opened themes/ — {n} choice(s). Use the Theme window to apply (MVP)."
     );
-    open_info_tab(state, "Import Style Themes", &text);
-    state.status = format!("Import themes: opened themes/ — {disk_n} file(s); no apply API yet");
 }
 
 fn run_execute(state: &mut EditorState) {

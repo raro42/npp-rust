@@ -43,6 +43,10 @@ fn default_true() -> bool {
     true
 }
 
+fn default_theme_id() -> String {
+    "dark".into()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppSettings {
@@ -65,6 +69,9 @@ pub struct AppSettings {
     /// Status bar: show character count.
     #[serde(default = "default_true")]
     pub status_show_chars: bool,
+    /// Theme id: `dark`, `light`, or `file:<name>.json`.
+    #[serde(default = "default_theme_id")]
+    pub theme_id: String,
 }
 
 impl Default for AppSettings {
@@ -77,6 +84,7 @@ impl Default for AppSettings {
             word_wrap: false,
             status_show_lang: true,
             status_show_chars: true,
+            theme_id: default_theme_id(),
         }
     }
 }

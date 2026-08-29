@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.2.13] — 2026-08-29
+
+### Themes / project / RTL
+
+- Theme MVP: built-in Dark/Light + `themes/*.json`; Preferences and Import Style Theme(s) apply egui visuals and editor bg/fg/gutter
+- Project panel lists the workspace folder and opens files on click; Open Folder as Workspace sets the root
+- RTL/LTR mirrors editor line anchors and shows an RTL status cue
+
 ## [0.2.12] — 2026-08-29
 
 ### Read-only

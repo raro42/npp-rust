@@ -3,8 +3,8 @@
 //! Split by menu area so agents can edit in parallel:
 //! `file`, `edit`, `search`, `view`, `format`, `lang`, `misc`, `help`.
 
-mod common;
-mod edit;
+pub(crate) mod common;
+pub(crate) mod edit;
 mod file;
 mod format;
 mod help;
@@ -44,6 +44,10 @@ pub struct UiFlags {
     pub show_summary: bool,
     /// Show document list dialog.
     pub show_doc_list: bool,
+    /// Show project / workspace file panel.
+    pub show_project_panel: bool,
+    /// Show theme picker window.
+    pub show_theme_picker: bool,
     /// Show Preferences dialog.
     pub show_preferences: bool,
     /// Show Document Map panel.

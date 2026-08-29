@@ -111,23 +111,35 @@ pub(crate) fn paint_line_text(
     line_start_char: usize,
     spans: &[highlight::Span],
     language: &str,
+    plain_fg: Color32,
+    rtl: bool,
 ) {
     if line_text.is_empty() {
         return;
     }
 
+    let align = if rtl {
+        egui::Align2::RIGHT_TOP
+    } else {
+        egui::Align2::LEFT_TOP
+    };
+
     if language == "plain" || spans.is_empty() {
         painter.text(
             Pos2::new(x0, y),
-            egui::Align2::LEFT_TOP,
+            align,
             line_text,
             font_id.clone(),
-            Color32::from_rgb(220, 220, 220),
+            plain_fg,
         );
         return;
     }
 
-    let mut x = x0;
+    let mut x = if rtl {
+        x0 - text_width(ui, font_id, line_text)
+    } else {
+        x0
+    };
     let chars: Vec<char> = line_text.chars().collect();
     let mut i = 0usize;
     while i < chars.len() {

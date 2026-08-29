@@ -8,6 +8,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// Session text-direction preference. Layout paint stays LTR until ui_paint reads this.
 static TEXT_RTL: AtomicBool = AtomicBool::new(false);
 
+/// True when the session asks for right-to-left layout.
+pub fn text_is_rtl() -> bool {
+    TEXT_RTL.load(Ordering::Relaxed)
+}
+
 pub fn covers(cmd: &str) -> bool {
     cmd.starts_with("IDM_EDIT_")
 }
@@ -737,13 +742,12 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         }
         "IDM_EDIT_RTL" => {
             TEXT_RTL.store(true, Ordering::Relaxed);
-            state.status =
-                "Text direction: RTL (session flag on; layout stays LTR — needs ui_paint)".into();
+            state.status = "Text direction: RTL (layout + status cue)".into();
             CmdResult::Handled
         }
         "IDM_EDIT_LTR" => {
             TEXT_RTL.store(false, Ordering::Relaxed);
-            state.status = "Text direction: LTR (session flag off; layout is LTR)".into();
+            state.status = "Text direction: LTR".into();
             CmdResult::Handled
         }
         "IDM_EDIT_PASTE_AS_HTML" | "IDM_EDIT_PASTE_AS_RTF" | "IDM_EDIT_PASTE_BINARY" => {

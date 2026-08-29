@@ -5,6 +5,7 @@ mod diff;
 mod editor;
 mod menu_data;
 mod recent;
+mod theme;
 mod ui;
 mod ui_paint;
 
