@@ -327,11 +327,20 @@ impl EditorState {
         self.tabs.active_mut().tail_bytes = result.bytes;
         self.tabs.active_mut().tail_follow = false;
         let name = short_path_label(&result.path);
-        self.status = format!(
-            "Opened {name} ({:.1} KiB, {} ms)",
-            result.bytes as f64 / 1024.0,
-            result.elapsed_ms
-        );
+        self.status = match &result.encoding_note {
+            Some(note) => format!(
+                "Opened {name} ({:.1} KiB, {} ms, {}) — {note}",
+                result.bytes as f64 / 1024.0,
+                result.elapsed_ms,
+                result.encoding.label()
+            ),
+            None => format!(
+                "Opened {name} ({:.1} KiB, {} ms, {})",
+                result.bytes as f64 / 1024.0,
+                result.elapsed_ms,
+                result.encoding.label()
+            ),
+        };
         self.after_open_log_policy(&result.path);
     }
 
@@ -1315,12 +1324,7 @@ mod tests {
         // New tab + move: indices change; apply must still find by path.
         state.tabs.open_untitled();
         let _ = state.tabs.move_active_tab(-1);
-        let result = OpenResult {
-            path: path.clone(),
-            content: "hello from async".into(),
-            bytes: 16,
-            elapsed_ms: 1,
-        };
+        let result = OpenResult::new(path.clone(), "hello from async".into(), 16, 1);
         state.apply_open_result(result);
         let doc = state
             .tabs
@@ -1340,12 +1344,7 @@ mod tests {
 
         let mut state = EditorState::new();
         state.settings.log_tail_on_open = LogTailOnOpen::Ask;
-        state.apply_open_result(OpenResult {
-            path: path.clone(),
-            content: "line1\n".into(),
-            bytes: 6,
-            elapsed_ms: 1,
-        });
+        state.apply_open_result(OpenResult::new(path.clone(), "line1\n".into(), 6, 1));
         assert!(state.pending_log_tail_prompt);
         assert!(!state.tabs.active().tail_follow);
 
@@ -1360,12 +1359,7 @@ mod tests {
     fn opening_log_always_enables_tail_without_prompt() {
         let mut state = EditorState::new();
         state.settings.log_tail_on_open = LogTailOnOpen::Always;
-        state.apply_open_result(OpenResult {
-            path: PathBuf::from("always.log"),
-            content: "x\n".into(),
-            bytes: 2,
-            elapsed_ms: 1,
-        });
+        state.apply_open_result(OpenResult::new(PathBuf::from("always.log"), "x\n".into(), 2, 1));
         assert!(!state.pending_log_tail_prompt);
         // enable_tail_follow needs a real file on disk — without it, follow stays off.
         // Policy still must not queue the ask dialog.
@@ -1375,12 +1369,7 @@ mod tests {
     fn opening_log_never_skips_prompt() {
         let mut state = EditorState::new();
         state.settings.log_tail_on_open = LogTailOnOpen::Never;
-        state.apply_open_result(OpenResult {
-            path: PathBuf::from("skip.log"),
-            content: "x\n".into(),
-            bytes: 2,
-            elapsed_ms: 1,
-        });
+        state.apply_open_result(OpenResult::new(PathBuf::from("skip.log"), "x\n".into(), 2, 1));
         assert!(!state.pending_log_tail_prompt);
         assert!(!state.tabs.active().tail_follow);
     }
