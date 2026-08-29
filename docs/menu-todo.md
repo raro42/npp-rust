@@ -12,8 +12,8 @@ Many teal items only set a status-bar message. That inflated “Ready 477 / stub
 | Class | Count | Meaning |
 |-------|------:|---------|
 | Explicit handlers | 343 | Match arms in `commands/*.rs` |
-| Useful behaviour | 333 | Change buffer or UI beyond a note |
-| Placeholder / status-only | 6 | Partial or “not yet” |
+| Useful behaviour | 338 | Change buffer or UI beyond a note |
+| Placeholder / status-only | 1 | Partial or “not yet” |
 | Menu IDs in export | 478 | From `npp_menu.json` |
 
 ## Preferences
@@ -29,13 +29,11 @@ It is **not** a full Notepad++ Preferences clone (tabs, margins, multi-language 
 
 ## Placeholder / status-only (open work)
 
-### Search (5)
+### Search — Progress note (2026-08-29)
 
-- [ ] `IDM_SEARCH_CLEAR_CHANGE_HISTORY` — Search/Change History/Clear Change History
-- [ ] `IDM_SEARCH_CHANGED_NEXT` — Search/Change History/Go to Next Change
-- [ ] `IDM_SEARCH_CHANGED_PREV` — Search/Change History/Go to Previous Change
-- [ ] `IDM_SEARCH_FINDCHARINRANGE` — Search/Find characters in range...
-- [ ] `IDM_SEARCH_FINDINFILES` — Search/Find in Files...
+Cleared: Find characters in range (Find text = `ascii` / `non-ascii` / `start-end`), Find in Files (cwd scan → results tab), Change History stand-in (next/prev dirty tab; clear selection).
+
+Real Scintilla-style change marks need `editor.rs`. Do not expect per-edit marks from Search alone.
 
 ### View (0)
 
@@ -43,7 +41,7 @@ _(cleared — Document Map + Function List open egui panels)_
 
 ### Edit (0)
 
-_(cleared — column editor + call tips in `edit.rs`; Character Panel sets `show_char_panel`)_
+_(cleared — column editor + call tips; Character Panel egui grid inserts at caret)_
 
 ### Help (0)
 
@@ -53,6 +51,7 @@ _(cleared — column editor + call tips in `edit.rs`; Character Panel sets `show
 
 Paint path hides `hidden_lines` and paints `style_marks` / bookmark ticks. Menu Cut/Copy/Paste use the session clipboard. Find-mark jump uses bookmarks.
 
+- Search Find in Files / char range / change-history stand-in (5)
 - Search style mark / jump / clear / copy-styled (34)
 - View fold / unfold / hide lines / open in browser / new instance (27)
 - Edit Cut / Copy / Paste / paste-special / autocomplete / multi-select / system read-only / open folder on selection (20)
