@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Editor UX
+
+- Prompt before closing unsaved tabs (Save / Don't Save / Cancel), including Close All variants, Exit, and window close
+- Keep the last editor line clear of the status bar (status panel before editor + bottom padding)
+- Help (?) → Changelog opens `docs/changelog.md` on GitHub
+
+### Earlier on `dev` (after 0.1.2)
+
+- Menu stubs largely cleared (Ready inventory in `docs/menu-todo.md`)
+- Command split by domain for parallel agents (`docs/agent-parallel.md`)
+- Log open dialog, Help → Debug Info / Open Logs, dirty-safe tail stability
+
 ## [0.1.2] — 2026-08-28
 
 ### Menu parity (issue #1)
