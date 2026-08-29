@@ -32,5 +32,7 @@ Commit and push to origin/dev after each batch. Update docs/menu-todo.md.
 - Changelog updated under [Unreleased] for fold/style paint and clipboard.
 - Issue #1 stays open: 35 Placeholder / status-only items remain (Search change history, View panels/map, Edit calltips, …).
 - Do not close until placeholders are cleared (issue goal).
+- Batch handoff finished; new work needs a new task. Do not re-pick this DONE file.
 
 Handoff: deferred
+Handoff: complete
