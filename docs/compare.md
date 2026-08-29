@@ -13,6 +13,8 @@ npp-rs targets macOS, Linux, and Windows. System `diff` is not always present. T
 3. **View → Compare with Other View** — opens dual view, enables sync scroll, colours deletes (red) / inserts (green).
 4. **View → Clear Compare** — removes colours.
 
+Both panes stay editable. Compare colours do not refresh after you edit.
+
 MVP limit: **3000 lines** per side.
 
 ## Not in MVP

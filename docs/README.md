@@ -23,6 +23,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [execute-dont-ask.md](execute-dont-ask.md) | Do not ask permission to proceed |
 | [compare.md](compare.md) | Built-in 2-way file compare |
 | [tab-drag.md](tab-drag.md) | Mouse drag-reorder on the tab bar |
+| [dual-view.md](dual-view.md) | Writable dual view + pane focus |
 | [parallel-gap-sweep.md](parallel-gap-sweep.md) | Parallel agents on remaining gaps |
 | [pin-tab-file.md](pin-tab-file.md) | Pin via `IDM_PINTAB` + Close All but Pinned |
 | [project-taste.md](project-taste.md) | Taste / quality bar |

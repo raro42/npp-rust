@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Dual view edit
+
+- Other view pane is writable (type, delete, clipboard, caret, selection)
+- Click a pane to focus keyboard input; undo shortcuts follow the focused pane
+- Sync scroll / zoom sync / compare washes unchanged
+
 ### Built-in compare
 
 - View → Compare with Other View: 2-way side-by-side colours (red delete / green insert) + sync scroll

@@ -36,11 +36,11 @@ Cleared: Find characters in range (Find text = `ascii` / `non-ascii` / `start-en
 
 Change History MVP: `Document.changed_lines` (gutter amber tick). Next/Prev jump marks. Clear empties the set. Save clears marks. Edits via `EditorState::mark_text_changed` (and replace) record lines. Not full Scintilla (no line remap / saved-vs-session colours).
 
-### View — Dual view MVP (2026-08-29)
+### View — Dual view (2026-08-29)
 
-- Right-hand **Other view** pane (read-only) shows a second tab
+- Right-hand **Other view** pane is a writable editor for its tab
+- Click a pane to focus typing; sync H/V / zoom sync share scroll / font size
 - Move / Switch / Clone to other view wire that pane
-- Sync H/V scroll + zoom sync open dual view and share line scroll / font size
 - Project panels 1–3 still open the document list
 
 ### Edit (0)

@@ -267,7 +267,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.dual_view = Some(true);
             ui.assign_other_view = true;
             ui.switch_other_view = true;
-            state.status = "Moved tab to other view (secondary is read-only)".into();
+            state.status = "Moved tab to other view".into();
             CmdResult::Handled
         }
         "IDM_VIEW_SWITCHTO_OTHER_VIEW" => {
@@ -290,7 +290,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             state.highlight_dirty = true;
             ui.dual_view = Some(true);
             ui.other_view_tab = Some(clone_idx);
-            state.status = "Cloned document to other view (read-only pane)".into();
+            state.status = "Cloned document to other view".into();
             CmdResult::Handled
         }
         "IDM_VIEW_GOTO_NEW_INSTANCE" => {

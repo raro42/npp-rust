@@ -115,14 +115,23 @@ impl EditorState {
     }
 
     pub fn mark_text_changed(&mut self) {
-        let doc = self.tabs.active_mut();
+        self.mark_text_changed_at(self.tabs.active_index());
+    }
+
+    /// Dirty + change-history for a tab (dual view may edit the other pane).
+    pub fn mark_text_changed_at(&mut self, tab: usize) {
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return;
+        };
         Self::note_edit_lines(doc);
         doc.mark_dirty();
         if doc.tail_follow {
             doc.tail_follow = false;
             self.status = "Tail OFF — editing suspended follow".into();
         }
-        self.highlight_dirty = true;
+        if tab == self.tabs.active_index() {
+            self.highlight_dirty = true;
+        }
     }
 
     /// Mark caret / selection lines as change-history (after an edit).
@@ -908,15 +917,29 @@ impl EditorState {
     }
 
     pub fn undo(&mut self) {
-        if self.tabs.active_mut().buffer.undo() {
-            self.mark_text_changed();
+        self.undo_at(self.tabs.active_index());
+    }
+
+    pub fn redo(&mut self) {
+        self.redo_at(self.tabs.active_index());
+    }
+
+    pub fn undo_at(&mut self, tab: usize) {
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return;
+        };
+        if doc.buffer.undo() {
+            self.mark_text_changed_at(tab);
             self.status = "Undo".into();
         }
     }
 
-    pub fn redo(&mut self) {
-        if self.tabs.active_mut().buffer.redo() {
-            self.mark_text_changed();
+    pub fn redo_at(&mut self, tab: usize) {
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return;
+        };
+        if doc.buffer.redo() {
+            self.mark_text_changed_at(tab);
             self.status = "Redo".into();
         }
     }
@@ -1405,6 +1428,39 @@ mod tests {
         state.apply_open_result(OpenResult::new(PathBuf::from("skip.log"), "x\n".into(), 2, 1));
         assert!(!state.pending_log_tail_prompt);
         assert!(!state.tabs.active().tail_follow);
+    }
+
+    #[test]
+    fn mark_text_changed_at_dirties_other_tab() {
+        let mut state = EditorState::new();
+        state.tabs.open_untitled();
+        let other = state.tabs.len() - 1;
+        state.tabs.set_active(0);
+        state.highlight_dirty = false;
+        assert!(!state.tabs.get(other).unwrap().dirty);
+        if let Some(doc) = state.tabs.get_mut(other) {
+            doc.buffer.insert("x");
+        }
+        state.mark_text_changed_at(other);
+        assert!(state.tabs.get(other).unwrap().dirty);
+        assert!(!state.tabs.active().dirty);
+        assert!(!state.highlight_dirty);
+    }
+
+    #[test]
+    fn undo_at_targets_named_tab() {
+        let mut state = EditorState::new();
+        state.tabs.open_untitled();
+        let other = state.tabs.len() - 1;
+        state.tabs.set_active(0);
+        if let Some(doc) = state.tabs.get_mut(other) {
+            doc.buffer.insert("hello");
+        }
+        state.mark_text_changed_at(other);
+        assert_eq!(state.tabs.get(other).unwrap().buffer.to_string(), "hello");
+        state.undo_at(other);
+        assert_eq!(state.tabs.get(other).unwrap().buffer.to_string(), "");
+        assert_eq!(state.tabs.active().buffer.to_string(), "");
     }
 }
 

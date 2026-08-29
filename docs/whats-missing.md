@@ -12,7 +12,7 @@ About **12** handlers still say the limit in the status line or use a stand-in, 
 
 | Area | Gap |
 |------|-----|
-| View | Dual view MVP: read-only secondary pane + switch/move/clone/sync. Not two full editors. Project panels still open the doc list |
+| View | Dual view: both panes writable; click focuses a pane. Menu Edit still targets the active tab. Project panels still open the doc list |
 | Edit | RTL/LTR toggles session flag; layout stays LTR until ui_paint |
 | Encoding | ANSI menu strips BOM; save stays UTF-8 (no BOM). No per-tab code-page re-encode on save. Load falls back to Windows-1252 when bytes are not UTF-8 |
 | Search | Change History next/prev/clear use per-line marks (MVP; no Scintilla save-vs-session colours) |
@@ -23,7 +23,7 @@ About **12** handlers still say the limit in the status line or use a stand-in, 
 ## Larger product gaps (not menu stubs)
 
 - Full Preferences (tabs, margins, multi-language UI, …). Partial: log-tail, font size, line numbers → `npp-rs/settings.json`
-- Full dual edit (both panes writable) + project panels
+- Project panels (stand-in: doc list). Dual edit: both panes writable (menu Edit still hits active tab)
 - File compare / diff (2-way or 3-way) with sync scroll — **2-way MVP shipped** (View → Compare with Other View; in-process LCS, not system `diff`). 3-way and char-level diff still open. Upstream N++ uses a plugin for compare.
 - Change history: line remap on insert/delete; saved-vs-unsaved colours (MVP marks exist)
 - Rich CLI flags (only `-h`/`--help` + open existing path args today)
