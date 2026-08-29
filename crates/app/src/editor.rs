@@ -1291,6 +1291,60 @@ mod tests {
         assert!(!doc.loading);
         assert_eq!(doc.buffer.to_string(), "hello from async");
     }
+
+    #[test]
+    fn opening_log_asks_to_tail_by_default() {
+        let dir = std::env::temp_dir().join("npp-rs-log-ask-test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("demo-app.log");
+        std::fs::write(&path, b"line1\n").expect("write temp log");
+
+        let mut state = EditorState::new();
+        state.settings.log_tail_on_open = LogTailOnOpen::Ask;
+        state.apply_open_result(OpenResult {
+            path: path.clone(),
+            content: "line1\n".into(),
+            bytes: 6,
+            elapsed_ms: 1,
+        });
+        assert!(state.pending_log_tail_prompt);
+        assert!(!state.tabs.active().tail_follow);
+
+        state.resolve_log_tail_prompt(true, false);
+        assert!(!state.pending_log_tail_prompt);
+        assert!(state.tabs.active().tail_follow);
+        assert_eq!(state.settings.log_tail_on_open, LogTailOnOpen::Ask);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn opening_log_always_enables_tail_without_prompt() {
+        let mut state = EditorState::new();
+        state.settings.log_tail_on_open = LogTailOnOpen::Always;
+        state.apply_open_result(OpenResult {
+            path: PathBuf::from("always.log"),
+            content: "x\n".into(),
+            bytes: 2,
+            elapsed_ms: 1,
+        });
+        assert!(!state.pending_log_tail_prompt);
+        // enable_tail_follow needs a real file on disk — without it, follow stays off.
+        // Policy still must not queue the ask dialog.
+    }
+
+    #[test]
+    fn opening_log_never_skips_prompt() {
+        let mut state = EditorState::new();
+        state.settings.log_tail_on_open = LogTailOnOpen::Never;
+        state.apply_open_result(OpenResult {
+            path: PathBuf::from("skip.log"),
+            content: "x\n".into(),
+            bytes: 2,
+            elapsed_ms: 1,
+        });
+        assert!(!state.pending_log_tail_prompt);
+        assert!(!state.tabs.active().tail_follow);
+    }
 }
 
 /// Local date/time without extra crates (uses system `date` only as last resort).

@@ -12,6 +12,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [agent-loop.md](agent-loop.md) | GitHub issue agent loop |
 | [security-public-repo.md](security-public-repo.md) | No private data on public GitHub |
 | [tail-log.md](tail-log.md) | Log tail / Monitoring |
+| [issue-5-log-tail.md](issue-5-log-tail.md) | Issue #5 status and failure mode |
 | [help-debug.md](help-debug.md) | Help → Debug Info and Open Logs |
 | [close-unsaved.md](close-unsaved.md) | Prompt before closing dirty tabs |
 | [unattended-20h.md](unattended-20h.md) | How to run the agent loop for hours |
