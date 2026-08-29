@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-08-29
+
+### Release checkpoint
+
+- About tagline: “a Notepad++ inspired editor, rebuilt for fun”
+- Overnight gap loop started on issue #6 (`docs/overnight-gaps.md`)
+
 ## [0.2.1] — 2026-08-29
 
 ### Compare fix

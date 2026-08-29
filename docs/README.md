@@ -24,6 +24,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [compare.md](compare.md) | Built-in 2-way file compare |
 | [tab-drag.md](tab-drag.md) | Mouse drag-reorder on the tab bar |
 | [bump-version.md](bump-version.md) | Bump semver when shipping features |
+| [overnight-gaps.md](overnight-gaps.md) | Overnight gap loop (issue #6) |
 | [dual-view.md](dual-view.md) | Writable dual view + pane focus |
 | [parallel-gap-sweep.md](parallel-gap-sweep.md) | Parallel agents on remaining gaps |
 | [pin-tab-file.md](pin-tab-file.md) | Pin via `IDM_PINTAB` + Close All but Pinned |
