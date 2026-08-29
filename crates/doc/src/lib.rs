@@ -7,6 +7,24 @@ use std::path::{Path, PathBuf};
 /// Stable id for one open document. Survives tab move, sort, and reorder.
 pub type DocumentId = u64;
 
+/// Why [`Document::try_buffer_mut`] refused a mutation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EditDenied {
+    /// App-level read-only flag.
+    ReadOnly,
+    /// Async open still in progress.
+    Loading,
+}
+
+impl EditDenied {
+    pub fn status_message(self) -> &'static str {
+        match self {
+            Self::ReadOnly => "Document is read-only",
+            Self::Loading => "Document is still loading",
+        }
+    }
+}
+
 /// How save writes bytes for this tab (memory stays UTF-8).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FileEncoding {
@@ -71,6 +89,8 @@ pub struct Document {
     pub path: Option<PathBuf>,
     pub buffer: TextBuffer,
     pub dirty: bool,
+    /// `buffer.edit_generation()` at last save / clean load.
+    pub saved_generation: u64,
     /// Encoding used when saving this tab.
     pub encoding: FileEncoding,
     /// Language id for highlight / format (e.g. `rust`, `python`, `plain`).
@@ -113,6 +133,7 @@ impl Document {
             path: None,
             buffer,
             dirty: false,
+            saved_generation: 0,
             encoding: FileEncoding::Utf8,
             language: "plain".into(),
             loading: false,
@@ -157,6 +178,7 @@ impl Document {
             path: Some(path),
             buffer,
             dirty: false,
+            saved_generation: 0,
             encoding,
             language,
             loading: false,
@@ -252,8 +274,36 @@ impl Document {
         self.dirty = true;
     }
 
+    /// Mark clean and record the current buffer revision as saved.
     pub fn mark_clean(&mut self) {
+        self.buffer.break_typing_coalesce();
+        self.saved_generation = self.buffer.edit_generation();
         self.dirty = false;
+    }
+
+    /// Set dirty from whether the buffer revision matches the last save.
+    pub fn sync_dirty_from_revision(&mut self) {
+        self.dirty = self.buffer.edit_generation() != self.saved_generation;
+    }
+
+    /// Reason edits are blocked, if any.
+    pub fn edit_denied(&self) -> Option<EditDenied> {
+        if self.loading {
+            Some(EditDenied::Loading)
+        } else if self.read_only {
+            Some(EditDenied::ReadOnly)
+        } else {
+            None
+        }
+    }
+
+    /// Mutable buffer access when the document allows edits.
+    pub fn try_buffer_mut(&mut self) -> Result<&mut TextBuffer, EditDenied> {
+        if let Some(denied) = self.edit_denied() {
+            Err(denied)
+        } else {
+            Ok(&mut self.buffer)
+        }
     }
 
     /// All change-history line indices (unsaved ∪ saved).
@@ -726,5 +776,39 @@ mod tests {
         assert_eq!(detect_language(Path::new("h.go")), "go");
         assert_eq!(detect_language(Path::new("i.java")), "java");
         assert_eq!(detect_language(Path::new("j.txt")), "plain");
+    }
+
+    #[test]
+    fn try_buffer_mut_blocks_read_only_and_loading() {
+        let mut doc = Document::untitled(1, 1);
+        assert!(doc.try_buffer_mut().is_ok());
+        doc.read_only = true;
+        assert_eq!(doc.try_buffer_mut().err(), Some(EditDenied::ReadOnly));
+        doc.read_only = false;
+        doc.loading = true;
+        assert_eq!(doc.try_buffer_mut().err(), Some(EditDenied::Loading));
+        doc.loading = false;
+        doc.try_buffer_mut().unwrap().insert("ok");
+        assert_eq!(doc.buffer.to_string(), "ok");
+    }
+
+    #[test]
+    fn undo_to_saved_generation_clears_dirty() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer.insert("hello");
+        doc.sync_dirty_from_revision();
+        assert!(doc.dirty);
+        doc.mark_clean();
+        assert!(!doc.dirty);
+        assert_eq!(doc.saved_generation, 1);
+        doc.buffer.insert("!");
+        doc.sync_dirty_from_revision();
+        assert!(doc.dirty);
+        assert!(doc.buffer.undo());
+        doc.sync_dirty_from_revision();
+        assert!(!doc.dirty);
+        assert!(doc.buffer.redo());
+        doc.sync_dirty_from_revision();
+        assert!(doc.dirty);
     }
 }
