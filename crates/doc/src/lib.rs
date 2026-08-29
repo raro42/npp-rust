@@ -23,6 +23,8 @@ pub struct Document {
     pub read_only: bool,
     /// Bookmarked line indices (0-based).
     pub bookmarks: BTreeSet<usize>,
+    /// Lines touched by edits since last save (change-history marks).
+    pub changed_lines: BTreeSet<usize>,
     /// Hidden line indices (0-based); View → Hide Lines / fold light path.
     pub hidden_lines: BTreeSet<usize>,
     /// Optional tab color id 1..=5; `None` = default.
@@ -48,6 +50,7 @@ impl Document {
             tail_bytes: 0,
             read_only: false,
             bookmarks: BTreeSet::new(),
+            changed_lines: BTreeSet::new(),
             hidden_lines: BTreeSet::new(),
             tab_colour: None,
             pinned: false,
@@ -76,6 +79,7 @@ impl Document {
             tail_bytes,
             read_only: false,
             bookmarks: BTreeSet::new(),
+            changed_lines: BTreeSet::new(),
             hidden_lines: BTreeSet::new(),
             tab_colour: None,
             pinned: false,
@@ -90,6 +94,16 @@ impl Document {
 
     pub fn mark_clean(&mut self) {
         self.dirty = false;
+    }
+
+    /// Record one line as edited (change-history mark).
+    pub fn note_line_changed(&mut self, line: usize) {
+        self.changed_lines.insert(line);
+    }
+
+    /// Clear Scintilla-style change-history marks.
+    pub fn clear_change_history(&mut self) {
+        self.changed_lines.clear();
     }
 }
 
@@ -284,6 +298,16 @@ mod tests {
         assert_eq!(tabs.len(), 2);
         tabs.close(0);
         assert_eq!(tabs.len(), 1);
+    }
+
+    #[test]
+    fn change_history_note_and_clear() {
+        let mut doc = Document::untitled(1);
+        doc.note_line_changed(2);
+        doc.note_line_changed(5);
+        assert_eq!(doc.changed_lines.len(), 2);
+        doc.clear_change_history();
+        assert!(doc.changed_lines.is_empty());
     }
 
     #[test]

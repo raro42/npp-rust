@@ -36,6 +36,28 @@ pub(crate) fn style_mark_bg(style: u8) -> Color32 {
     }
 }
 
+/// Amber tick for change-history lines (distinct from bookmark cyan).
+pub(crate) fn change_history_tick_color() -> Color32 {
+    Color32::from_rgb(210, 140, 40)
+}
+
+/// Draw a narrow gutter tick for a changed line (right of the bookmark slot).
+pub(crate) fn paint_change_history_tick(
+    painter: &egui::Painter,
+    gutter_left: f32,
+    y: f32,
+    row_height: f32,
+) {
+    painter.rect_filled(
+        egui::Rect::from_min_max(
+            Pos2::new(gutter_left + 12.0, y + 4.0),
+            Pos2::new(gutter_left + 16.0, y + row_height - 4.0),
+        ),
+        0.5,
+        change_history_tick_color(),
+    );
+}
+
 pub(crate) fn text_width(ui: &egui::Ui, font_id: &FontId, text: &str) -> f32 {
     ui.fonts(|f| f.layout_no_wrap(text.to_owned(), font_id.clone(), Color32::WHITE).size().x)
 }

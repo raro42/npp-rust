@@ -23,7 +23,8 @@ Many teal items only set a status-bar message. That inflated “Ready 477 / stub
 Today it covers:
 
 - When opening `*.log` files (Ask / Always / Never) → `npp-rs/settings.json`
-- Editor font size (session only for now)
+- Editor font size (persisted in `AppSettings.font_size`)
+- Show line numbers (persisted in `AppSettings.show_line_numbers`)
 
 It is **not** a full Notepad++ Preferences clone (tabs, margins, multi-language UI, …).
 
@@ -31,13 +32,16 @@ It is **not** a full Notepad++ Preferences clone (tabs, margins, multi-language 
 
 ### Search — Progress note (2026-08-29)
 
-Cleared: Find characters in range (Find text = `ascii` / `non-ascii` / `start-end`), Find in Files (cwd scan → results tab), Change History stand-in (next/prev dirty tab; clear selection).
+Cleared: Find characters in range (Find text = `ascii` / `non-ascii` / `start-end`), Find in Files (cwd scan → results tab).
 
-Real Scintilla-style change marks need `editor.rs`. Do not expect per-edit marks from Search alone.
+Change History MVP: `Document.changed_lines` (gutter amber tick). Next/Prev jump marks. Clear empties the set. Save clears marks. Edits via `EditorState::mark_text_changed` (and replace) record lines. Not full Scintilla (no line remap / saved-vs-session colours).
 
-### View (0)
+### View — Dual view MVP (2026-08-29)
 
-_(cleared — Document Map + Function List open egui panels)_
+- Right-hand **Other view** pane (read-only) shows a second tab
+- Move / Switch / Clone to other view wire that pane
+- Sync H/V scroll + zoom sync open dual view and share line scroll / font size
+- Project panels 1–3 still open the document list
 
 ### Edit (0)
 
@@ -51,17 +55,17 @@ _(cleared — column editor + call tips; Character Panel egui grid inserts at ca
 
 Paint path hides `hidden_lines` and paints `style_marks` / bookmark ticks. Menu Cut/Copy/Paste use the session clipboard. Find-mark jump uses bookmarks.
 
-- Search Find in Files / char range / change-history stand-in (5)
+- Search Find in Files / char range / change-history marks MVP (5)
 - Search style mark / jump / clear / copy-styled (34)
 - View fold / unfold / hide lines / open in browser / new instance (27)
 - Edit Cut / Copy / Paste / paste-special / autocomplete / multi-select / system read-only / open folder on selection (20)
 - Tools hash suite (12)
 - Help URLs + Changelog (6)
-- Preferences + Open Plugins Folder (2)
+- Preferences: log-tail + **persisted font size** + **line numbers** (2)
 - File delete / print / session load-save (5)
-- File Close All but Pinned + `IDM_PINTAB` toggle (`Document.pinned`; status names keep/closed counts) (1)
-- View sync H/V / zoom sync: session toggle + honest single-view status (3)
-- View switch / move to other view + project panels 1–3: open document list (5)
+- File Close All but Pinned + `IDM_PINTAB` + **tab UI pin** (`[P]` marker, pin button, context menu) (1)
+- View dual-view MVP + sync H/V / zoom sync honest status (3)
+- View switch / move / clone to other view (secondary pane); project panels 1–3: doc list (5)
 - View text direction LTR/RTL: honest status only (layout stays LTR; no doc flag) (2)
 - Encoding ANSI / UTF-8 / UTF-8-BOM: strip or keep leading U+FEFF for save; memory stays UTF-8; no ANSI convert (3)
 - Edit column editor: insert clipboard text (or 0,1,2…) at caret column on selected lines / multi-carets; tip documents that path (2)

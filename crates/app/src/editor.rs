@@ -116,12 +116,31 @@ impl EditorState {
 
     pub fn mark_text_changed(&mut self) {
         let doc = self.tabs.active_mut();
+        Self::note_edit_lines(doc);
         doc.mark_dirty();
         if doc.tail_follow {
             doc.tail_follow = false;
             self.status = "Tail OFF — editing suspended follow".into();
         }
         self.highlight_dirty = true;
+    }
+
+    /// Mark caret / selection lines as change-history (after an edit).
+    fn note_edit_lines(doc: &mut doc::Document) {
+        let buf = &doc.buffer;
+        if let Some((s, e)) = buf.selection() {
+            let lo = s.min(e);
+            let hi = s.max(e);
+            let end = if hi > lo { hi - 1 } else { lo };
+            let ls = buf.char_to_line(lo);
+            let le = buf.char_to_line(end);
+            for line in ls..=le {
+                doc.note_line_changed(line);
+            }
+        } else {
+            let line = buf.char_to_line(buf.caret());
+            doc.note_line_changed(line);
+        }
     }
 
     pub fn refresh_highlight_if_needed(&mut self) {
@@ -705,6 +724,7 @@ impl EditorState {
                     .unwrap_or_else(|| path.display().to_string());
                 doc.language = doc::detect_language(path);
                 doc.mark_clean();
+                doc.clear_change_history();
                 self.recent.touch(path);
                 self.highlight_dirty = true;
                 self.status = format!("Saved {}", path.display());
@@ -758,14 +778,19 @@ impl EditorState {
             let buf = self.tabs.active_mut();
             buf.buffer.set_selection(s, e);
             buf.buffer.insert(&out); // replaces selection
-            buf.mark_dirty();
         } else {
             let caret = self.tabs.active().buffer.caret();
             self.tabs.active_mut().buffer.replace_document(&out);
-            self.tabs.active_mut().buffer.set_caret(caret.min(out.chars().count()));
-            self.tabs.active_mut().mark_dirty();
+            self.tabs
+                .active_mut()
+                .buffer
+                .set_caret(caret.min(out.chars().count()));
+            let n = self.tabs.active().buffer.line_count();
+            for line in 0..n {
+                self.tabs.active_mut().note_line_changed(line);
+            }
         }
-        self.highlight_dirty = true;
+        self.mark_text_changed();
         self.status = format!("{} applied", plugin.name());
     }
 
@@ -802,8 +827,7 @@ impl EditorState {
             }
         }
         self.tabs.active_mut().buffer.insert(replacement);
-        self.tabs.active_mut().mark_dirty();
-        self.highlight_dirty = true;
+        self.mark_text_changed();
         self.status = "Replaced once".into();
     }
 
@@ -818,9 +842,18 @@ impl EditorState {
             self.status = "Replace All: no match".into();
             return;
         }
+        let mut touched = std::collections::BTreeSet::new();
+        let mut from = 0usize;
+        while let Some((s, e)) = self.tabs.active().buffer.find_next(&q, from, true) {
+            touched.insert(self.tabs.active().buffer.char_to_line(s));
+            from = if e > s { e } else { s + 1 };
+        }
         let count = text.matches(&q).count();
         let new_text = text.replace(&q, replacement);
         self.tabs.active_mut().buffer.replace_document(&new_text);
+        for line in touched {
+            self.tabs.active_mut().note_line_changed(line);
+        }
         self.tabs.active_mut().mark_dirty();
         self.highlight_dirty = true;
         self.status = format!("Replace All: {count} replacement(s)");

@@ -2,7 +2,8 @@
 
 use crate::editor::EditorState;
 use crate::ui_paint::{
-    col_from_x, display_row_for, paint_line_text, style_mark_bg, text_width, visible_line_indices,
+    col_from_x, display_row_for, paint_change_history_tick, paint_line_text, style_mark_bg,
+    text_width, visible_line_indices,
 };
 use eframe::egui::{self, Color32, FontId, Key, Pos2, Rect, RichText, Sense, Vec2};
 
@@ -1525,6 +1526,7 @@ Tree-sitter highlight, and a calm UI.",
             let hl = &self.state.highlight_cache;
             let lang = self.state.tabs.active().language.clone();
             let bookmarks = self.state.tabs.active().bookmarks.clone();
+            let changed_lines = self.state.tabs.active().changed_lines.clone();
             let style_marks = self.state.tabs.active().style_marks.clone();
 
             for row in first_row..last_row {
@@ -1562,6 +1564,11 @@ Tree-sitter highlight, and a calm UI.",
                         1.0,
                         Color32::from_rgb(80, 180, 220),
                     );
+                }
+
+                // Change-history tick (amber; right of bookmark slot).
+                if changed_lines.contains(&line_idx) {
+                    paint_change_history_tick(&painter, rect.left(), y, row_height);
                 }
 
                 // Line number — right-aligned inside the gutter.

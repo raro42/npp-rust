@@ -266,23 +266,21 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_SEARCH_CHANGED_NEXT" => {
-            goto_dirty_tab(state, ui, true);
+            goto_changed_line(state, ui, true);
             CmdResult::Handled
         }
         "IDM_SEARCH_CHANGED_PREV" => {
-            goto_dirty_tab(state, ui, false);
+            goto_changed_line(state, ui, false);
             CmdResult::Handled
         }
         "IDM_SEARCH_CLEAR_CHANGE_HISTORY" => {
-            // Stand-in: clear selection. Real edit marks need editor.rs.
-            let buf = &mut state.tabs.active_mut().buffer;
-            if buf.selection().is_some() {
-                buf.clear_selection();
-                state.status = "Cleared selection (change-history stand-in)".into();
+            let n = state.tabs.active().changed_lines.len();
+            state.tabs.active_mut().clear_change_history();
+            state.status = if n == 0 {
+                "No change-history marks".into()
             } else {
-                state.status =
-                    "No selection to clear (change-history stand-in)".into();
-            }
+                format!("Cleared {n} change-history mark(s)")
+            };
             CmdResult::Handled
         }
         "IDM_SEARCH_FINDCHARINRANGE" => {
@@ -692,37 +690,12 @@ fn find_in_files(state: &mut EditorState, ui: &mut UiFlags) {
     state.status = format!("Find in Files: {match_count} match(es) in {files_ok} file(s)");
 }
 
-/// Stand-in for change history: jump among dirty tabs (real marks need editor.rs).
-fn goto_dirty_tab(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
-    let dirty: Vec<usize> = (0..state.tabs.len())
-        .filter(|&i| state.tabs.get(i).map(|d| d.dirty).unwrap_or(false))
-        .collect();
-    if dirty.is_empty() {
-        state.status = "No dirty documents".into();
-        return;
-    }
-    let cur = state.tabs.active_index();
-    let next = if forward {
-        dirty
-            .iter()
-            .copied()
-            .find(|&i| i > cur)
-            .or_else(|| dirty.first().copied())
+/// Jump to the next/previous change-history line mark in the active document.
+fn goto_changed_line(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
+    let marks = state.tabs.active().changed_lines.clone();
+    if let Some(l) = jump_marks(state, ui, &marks, forward) {
+        state.status = format!("Change history → line {}", l + 1);
     } else {
-        dirty
-            .iter()
-            .rev()
-            .copied()
-            .find(|&i| i < cur)
-            .or_else(|| dirty.last().copied())
-    };
-    let Some(i) = next else {
-        state.status = "No dirty documents".into();
-        return;
-    };
-    state.tabs.set_active(i);
-    state.highlight_dirty = true;
-    ui.follow_caret = true;
-    let title = state.tabs.active().title.clone();
-    state.status = format!("Dirty document: {title}");
+        state.status = "No change-history marks".into();
+    }
 }
