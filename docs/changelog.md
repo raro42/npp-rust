@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-08-29
+
+Stability and architecture batch for issues #3 / #4 / #6:
+
+- Atomic saves; DocumentId async loads; tail worker; bookmark remap
+- Read-only edit gate; reload + saved revision; transactional undo
+- Honest UTF-8/Windows-1252 open; CI fmt/clippy; highlight viewport
+- Theme apply MVP; project file panel; RTL layout cue
+
+
 ## [0.2.14] — 2026-08-29
 
 ### Stability (issue #4)
