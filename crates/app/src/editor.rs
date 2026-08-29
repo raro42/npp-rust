@@ -150,6 +150,33 @@ impl EditorState {
         self.prepare_edit_at(self.tabs.active_index());
     }
 
+    /// True when the active document may be edited. Sets status when blocked.
+    pub fn ensure_editable(&mut self) -> bool {
+        if let Some(denied) = self.tabs.active().edit_denied() {
+            self.status = denied.status_message().into();
+            false
+        } else {
+            true
+        }
+    }
+
+    /// Run `f` on tab `tab`'s buffer when editable. Sets status when blocked.
+    pub fn with_editable_buffer<R>(
+        &mut self,
+        tab: usize,
+        f: impl FnOnce(&mut buffer::TextBuffer) -> R,
+    ) -> Result<R, doc::EditDenied> {
+        let denied = self.tabs.get(tab).and_then(|d| d.edit_denied());
+        if let Some(denied) = denied {
+            self.status = denied.status_message().into();
+            return Err(denied);
+        }
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return Err(doc::EditDenied::Loading);
+        };
+        Ok(f(&mut doc.buffer))
+    }
+
     pub fn mark_text_changed(&mut self) {
         self.mark_text_changed_at(self.tabs.active_index());
     }
@@ -918,6 +945,9 @@ impl EditorState {
 
     /// Apply plugin transform to whole document (or selection if present for case plugins).
     pub fn run_plugin(&mut self, plugin_id: &str) {
+        if !self.ensure_editable() {
+            return;
+        }
         let host = plugins::PluginHost::new();
         let Some(plugin) = host.get(plugin_id) else {
             self.status = format!("Unknown plugin: {plugin_id}");
@@ -967,6 +997,9 @@ impl EditorState {
     }
 
     pub fn replace_next(&mut self, replacement: &str) {
+        if !self.ensure_editable() {
+            return;
+        }
         let q = self.find_query.clone();
         if q.is_empty() {
             self.status = "Replace: empty find".into();
@@ -1000,6 +1033,9 @@ impl EditorState {
     }
 
     pub fn replace_all(&mut self, replacement: &str) {
+        if !self.ensure_editable() {
+            return;
+        }
         let q = self.find_query.clone();
         if q.is_empty() {
             self.status = "Replace All: empty find".into();
@@ -1084,20 +1120,14 @@ impl EditorState {
     }
 
     pub fn undo_at(&mut self, tab: usize) {
-        let Some(doc) = self.tabs.get_mut(tab) else {
-            return;
-        };
-        if doc.buffer.undo() {
+        if self.with_editable_buffer(tab, |buf| buf.undo()).unwrap_or(false) {
             self.mark_text_changed_at(tab);
             self.status = "Undo".into();
         }
     }
 
     pub fn redo_at(&mut self, tab: usize) {
-        let Some(doc) = self.tabs.get_mut(tab) else {
-            return;
-        };
-        if doc.buffer.redo() {
+        if self.with_editable_buffer(tab, |buf| buf.redo()).unwrap_or(false) {
             self.mark_text_changed_at(tab);
             self.status = "Redo".into();
         }
@@ -1345,6 +1375,9 @@ impl EditorState {
     }
 
     pub fn insert_datetime(&mut self, long: bool) {
+        if !self.ensure_editable() {
+            return;
+        }
         let now = chrono_lite_now(long);
         self.tabs.active_mut().buffer.insert(&now);
         self.mark_text_changed();
@@ -1353,6 +1386,9 @@ impl EditorState {
 
     /// ISO-8601 local style (custom format stand-in until Preferences exist).
     pub fn insert_datetime_custom(&mut self) {
+        if !self.ensure_editable() {
+            return;
+        }
         let now = chrono_lite_custom();
         self.tabs.active_mut().buffer.insert(&now);
         self.mark_text_changed();
@@ -1897,6 +1933,33 @@ mod tests {
         let first_len = state.highlight_cache.len();
         state.refresh_highlight_if_needed(0);
         assert_eq!(state.highlight_cache.len(), first_len);
+    }
+
+    #[test]
+    fn read_only_blocks_edit_command_and_toggle_still_works() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer.insert("hello");
+        state.mark_text_changed();
+        let before = state.tabs.active().buffer.to_string();
+        state.tabs.active_mut().read_only = true;
+        let mut ui = crate::commands::UiFlags::default();
+        assert_eq!(
+            crate::commands::dispatch("IDM_EDIT_DELETE", &mut state, &mut ui),
+            crate::commands::CmdResult::Handled
+        );
+        assert_eq!(state.tabs.active().buffer.to_string(), before);
+        assert_eq!(state.status, "Document is read-only");
+        assert_eq!(
+            crate::commands::dispatch("IDM_EDIT_TOGGLEREADONLY", &mut state, &mut ui),
+            crate::commands::CmdResult::Handled
+        );
+        assert!(!state.tabs.active().read_only);
+        state.tabs.active_mut().buffer.select_all();
+        assert_eq!(
+            crate::commands::dispatch("IDM_EDIT_DELETE", &mut state, &mut ui),
+            crate::commands::CmdResult::Handled
+        );
+        assert_ne!(state.tabs.active().buffer.to_string(), before);
     }
 
     #[test]

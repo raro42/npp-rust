@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.2.12] — 2026-08-29
+
+### Read-only
+
+- Menu mutate paths refuse edits when the document is read-only or still loading (`Document::try_buffer_mut`, command `ensure_editable`)
+- Toggle / clear read-only commands still work
+
+
 ## [0.2.11] — 2026-08-29
 
 ### Build / CI

@@ -38,7 +38,18 @@ Commit and push each batch. Bump patch version when user-visible. Update this fi
 
 ### Agent B — read-only edit gate
 
-- [ ] (other agent)
+- [x] `doc::EditDenied` + `Document::try_buffer_mut` / `edit_denied` / `is_editable`
+- [x] `EditorState::ensure_editable` + `with_editable_buffer(tab, …)`
+- [x] `commands/common::ensure_editable` + `with_editable_buffer`
+- [x] `commands/edit.rs` early `mutates_buffer` gate (toggle/clear read-only allowed)
+- [x] `commands/format.rs` gated
+- [x] `editor` undo/redo/plugin/replace/datetime gated
+- [x] Tests: doc `try_buffer_mut_*`; app `read_only_blocks_edit_command_and_toggle_still_works`
+
+#### Still ungated (caller-owned)
+
+- Direct egui typing in `ui.rs` (already checks `read_only` locally)
+- Any direct buffer mutates in `search.rs` / `view.rs` / `file.rs` outside gated helpers
 
 ### Agent C — reload / dirty generation
 

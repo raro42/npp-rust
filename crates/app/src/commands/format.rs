@@ -1,4 +1,5 @@
 //! Format menu commands.
+use super::common::ensure_editable;
 use super::{CmdResult, UiFlags};
 use crate::editor::EditorState;
 use doc::FileEncoding;
@@ -11,6 +12,9 @@ pub fn covers(cmd: &str) -> bool {
 pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Option<CmdResult> {
     if !covers(cmd) {
         return None;
+    }
+    if !ensure_editable(state) {
+        return Some(CmdResult::Handled);
     }
     Some(match cmd {
         "IDM_FORMAT_TOUNIX" => {
