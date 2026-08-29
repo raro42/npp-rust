@@ -79,6 +79,8 @@ pub struct EditorState {
     pending_edit_snap: Option<(usize, doc::LineEditSnap)>,
     /// Folder shown in the Project panel (cwd by default).
     pub workspace_root: PathBuf,
+    /// Confirm ANSI save that would map chars to `?` (path to write).
+    pub pending_lossy_ansi: Option<PathBuf>,
 }
 
 /// Bulk close mode after a dirty-tab confirm.
@@ -106,6 +108,19 @@ impl EditorState {
         let settings = AppSettings::load();
         let word_wrap = settings.word_wrap;
         let find_query = settings.find_query.clone();
+        let workspace_root = {
+            let from_settings = settings.workspace_root.trim();
+            if !from_settings.is_empty() {
+                let p = PathBuf::from(from_settings);
+                if p.is_dir() {
+                    p
+                } else {
+                    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                }
+            } else {
+                std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+            }
+        };
         Self {
             tabs: TabSet::new(),
             find_query,
@@ -142,7 +157,8 @@ impl EditorState {
             want_quit: false,
             compare_stale: false,
             pending_edit_snap: None,
-            workspace_root: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            workspace_root,
+            pending_lossy_ansi: None,
         }
     }
 
@@ -995,6 +1011,17 @@ impl EditorState {
     fn save_to(&mut self, path: &std::path::Path) -> bool {
         let content = self.tabs.active().buffer.to_string();
         let encoding = self.tabs.active().encoding;
+        if encoding == FileEncoding::Windows1252 {
+            let unmapped = fs::count_windows_1252_unmapped(&content);
+            if unmapped > 0 && self.pending_lossy_ansi.as_deref() != Some(path) {
+                self.pending_lossy_ansi = Some(path.to_path_buf());
+                self.status = format!(
+                    "ANSI save: {unmapped} char(s) become '?' — confirm in dialog"
+                );
+                return false;
+            }
+        }
+        self.pending_lossy_ansi = None;
         let fs_enc = fs_encoding_from_file(encoding);
         match fs::write_file_with_encoding(path, &content, fs_enc) {
             Ok(()) => {
@@ -1031,6 +1058,23 @@ impl EditorState {
                 false
             }
         }
+    }
+
+    pub fn confirm_lossy_ansi_save(&mut self) {
+        if let Some(path) = self.pending_lossy_ansi.clone() {
+            let _ = self.save_to(&path);
+        }
+    }
+
+    pub fn cancel_lossy_ansi_save(&mut self) {
+        self.pending_lossy_ansi = None;
+        self.status = "ANSI save cancelled".into();
+    }
+
+    /// Persist workspace root into settings.json.
+    pub fn persist_workspace_root(&mut self) {
+        self.settings.workspace_root = self.workspace_root.display().to_string();
+        self.settings.save();
     }
 
     pub fn open_dialog(&mut self) {
@@ -1486,6 +1530,7 @@ impl EditorState {
             .pick_folder()
         {
             self.workspace_root = dir;
+            self.persist_workspace_root();
             self.status = format!("Workspace: {}", self.workspace_root.display());
         } else {
             self.status = "Workspace folder pick cancelled".into();
@@ -1496,11 +1541,13 @@ impl EditorState {
         if let Some(path) = self.tabs.active().path.clone() {
             if let Some(parent) = path.parent() {
                 self.workspace_root = parent.to_path_buf();
+                self.persist_workspace_root();
                 self.status = format!("Workspace: {}", self.workspace_root.display());
                 return;
             }
         }
         self.workspace_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        self.persist_workspace_root();
         self.status = format!("Workspace: {} (cwd)", self.workspace_root.display());
     }
 

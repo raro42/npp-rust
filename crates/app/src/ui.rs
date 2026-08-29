@@ -250,6 +250,7 @@ impl eframe::App for EditorApp {
         self.preferences_window(ctx);
         self.log_tail_prompt_window(ctx);
         self.encoding_notice_window(ctx);
+        self.lossy_ansi_confirm_window(ctx);
         self.unsaved_close_window(ctx);
         self.unsaved_reload_window(ctx);
         self.coming_soon_window(ctx);
@@ -1337,6 +1338,8 @@ Tree-sitter highlight, and a calm UI.",
         let mut enter_dir: Option<std::path::PathBuf> = None;
         let mut pick_folder = false;
         let mut close = false;
+        let mut persist_filter = false;
+        let mut refresh = false;
         let root = self.state.workspace_root.clone();
         egui::Window::new("Project")
             .open(&mut open)
@@ -1353,8 +1356,25 @@ Tree-sitter highlight, and a calm UI.",
                             enter_dir = Some(parent.to_path_buf());
                         }
                     }
+                    if ui.small_button("Refresh").clicked() {
+                        refresh = true;
+                    }
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Filter");
+                    if ui
+                        .add(
+                            egui::TextEdit::singleline(&mut self.state.settings.project_filter)
+                                .desired_width(180.0)
+                                .hint_text("name contains…"),
+                        )
+                        .changed()
+                    {
+                        persist_filter = true;
+                    }
                 });
                 ui.separator();
+                let filter = self.state.settings.project_filter.to_ascii_lowercase();
                 egui::ScrollArea::vertical().max_height(340.0).show(ui, |ui| {
                     let mut entries: Vec<std::path::PathBuf> = Vec::new();
                     if let Ok(rd) = std::fs::read_dir(&root) {
@@ -1362,6 +1382,11 @@ Tree-sitter highlight, and a calm UI.",
                             let p = ent.path();
                             let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
                             if name.starts_with('.') {
+                                continue;
+                            }
+                            if !filter.is_empty()
+                                && !name.to_ascii_lowercase().contains(&filter)
+                            {
                                 continue;
                             }
                             entries.push(p);
@@ -1373,7 +1398,11 @@ Tree-sitter highlight, and a calm UI.",
                             .then(a.file_name().cmp(&b.file_name()))
                     });
                     if entries.is_empty() {
-                        ui.label("(empty folder)");
+                        ui.label(if filter.is_empty() {
+                            "(empty folder)"
+                        } else {
+                            "(no matches)"
+                        });
                     }
                     for p in entries {
                         let is_dir = p.is_dir();
@@ -1399,17 +1428,60 @@ Tree-sitter highlight, and a calm UI.",
                     close = true;
                 }
             });
+        let _ = refresh;
         if pick_folder {
             self.state.pick_workspace_folder();
         }
         if let Some(dir) = enter_dir {
             self.state.workspace_root = dir;
+            self.state.persist_workspace_root();
+        }
+        if persist_filter {
+            self.state.settings.save();
         }
         if let Some(p) = open_path {
             self.state.open_path(p);
             self.scroll_line = 0.0;
         }
         self.show_project_panel = open && !close;
+    }
+
+    fn lossy_ansi_confirm_window(&mut self, ctx: &egui::Context) {
+        let Some(path) = self.state.pending_lossy_ansi.clone() else {
+            return;
+        };
+        let unmapped =
+            ::fs::count_windows_1252_unmapped(&self.state.tabs.active().buffer.to_string());
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path.display().to_string());
+        let mut save = false;
+        let mut cancel = false;
+        egui::Window::new("ANSI save warning")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
+                ui.label(format!(
+                    "Saving “{name}” as Windows-1252 will turn {unmapped} character(s) into '?'."
+                ));
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Save anyway").clicked() {
+                        save = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        cancel = true;
+                    }
+                });
+            });
+        if save {
+            self.state.confirm_lossy_ansi_save();
+        }
+        if cancel {
+            self.state.cancel_lossy_ansi_save();
+        }
     }
 
     fn theme_picker_window(&mut self, ctx: &egui::Context) {

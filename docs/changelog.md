@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.2] — 2026-08-29
+
+Issue #8 (partial P1):
+
+- Project panel: name filter, Refresh, persist workspace root in settings.json
+- ANSI (Windows-1252) save: confirm dialog when characters would become `?`
+
 ## [0.3.1] — 2026-08-29
 
 Issue #7 P0 gap batch:
