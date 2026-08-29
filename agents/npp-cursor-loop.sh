@@ -51,17 +51,20 @@ step_001_issues() {
 }
 
 step_002_coder_hint() {
-  local feat
+  local feat wip
   feat="$(ls -1 "$TASKDIR"/FEAT-*.md 2>/dev/null | head -n 1 || true)"
-  if [[ -z "$feat" ]]; then
-    echo "----- 002: no FEAT tasks"
+  wip="$(ls -1 "$TASKDIR"/WIP-*.md 2>/dev/null | head -n 1 || true)"
+  local task="${feat:-$wip}"
+  if [[ -z "$task" ]]; then
+    echo "----- 002: no FEAT or WIP tasks"
     return 0
   fi
-  echo "----- 002: pending $(basename "$feat")"
+  echo "----- 002: pending $(basename "$task")"
   if [[ "${AGENT_USE_CURSOR:-0}" == "1" ]] && command -v cursor-agent >/dev/null 2>&1; then
-    cursor-agent -p --force "Follow agents/002-coder.md. Implement the oldest FEAT task under agents/tasks/. Obey .cursor/rules/public-repo-no-exfiltration.mdc. Never post private data."
+    cursor-agent -p --force "Follow agents/002-coder.md. Implement the oldest FEAT or WIP task under agents/tasks/. Obey .cursor/rules/public-repo-no-exfiltration.mdc. Never post private data."
   else
-    echo "----- 002: set AGENT_USE_CURSOR=1 and install cursor-agent to auto-run coder"
+    echo "----- 002: pickup only — set AGENT_USE_CURSOR=1 and install cursor-agent to auto-code"
+    echo "----- 002: (session agents must clear WIP; this loop does not edit code by default)"
   fi
 }
 
