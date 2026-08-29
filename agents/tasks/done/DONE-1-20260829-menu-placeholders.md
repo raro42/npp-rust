@@ -19,5 +19,11 @@ Commit and push to origin/dev after each batch. Update docs/menu-todo.md.
 - `cargo check -p app` pass; `ui_paint` unit tests pass.
 - Hand off to tester as `TEST-`.
 
+## Tester (2026-08-29)
+- Verified commit `b5913d5` and `docs/menu-todo.md` placeholder count **35**.
+- `cargo test --workspace` — pass (9 app + crate tests).
+- `cargo check -p app` — pass (warnings only: unused imports / dead code).
+- Result: **PASS** → `DONE-`; leave issue open for handoff.
+
 ## Privacy
 - Do not paste private paths into GitHub.
