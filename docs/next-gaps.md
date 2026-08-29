@@ -1,40 +1,31 @@
-# Next gaps (post v0.3.1)
+# Next gaps (post v0.3.2)
 
 Date: 2026-08-29  
-Status: **P0 from issue #7 shipped in v0.3.1.** Remaining items below.
+Status: **P0 done (v0.3.1).** Partial P1 in **v0.3.2** (project filter + ANSI warn).
 
-## Done in v0.3.1 (was P0)
+## Done recently
 
-- Preferences depth (gutter, caret blink, EOL, recent count, session, find, compare WS)
-- Find / Replace polish (case/word, match count, persist, Replace All undo/stale)
-- Opt-in session restore (`npp-rs/session.txt`)
-- Compare sync scroll on start + ignore whitespace
+- v0.3.1: Preferences / Find / session / compare P0
+- v0.3.2: Project panel filter + remember root; ANSI lossy-save confirm
 
 ## Priority backlog
 
-### P1 — depth on existing MVPs
+### P1 — remaining
 
-1. **Themes** — load simple colour maps (JSON or subset of N++ XML) for editor + egui chrome
-2. **Project panel** — remember folder roots; filter; open selected; refresh
-3. **Change history** — gutter ticks closer to Scintilla (block marks on edit spans)
-4. **Encoding** — optional UTF-16 LE/BE; warn before lossy ANSI save
+1. **Themes** — deeper colour maps (JSON / subset of N++ XML)
+2. **Change history** — closer to Scintilla block marks
+3. **Encoding** — UTF-16 LE/BE open/save (warn on lossy ANSI is done)
 
 ### P2 — larger / later
 
-5. Char-level / 3-way compare
-6. Drop-in plugins
-7. LSP beyond in-file call tips
-8. Full UI RTL chrome
-9. Architecture: `editor-core` rename, sealed Document API, property/fuzz suite
+4. Char-level / 3-way compare
+5. Drop-in plugins
+6. LSP beyond in-file call tips
+7. Full UI RTL chrome
+8. Architecture: `editor-core` rename, sealed Document API, property/fuzz suite
 
 ## How to pick work
 
 1. Take the lowest open P1 item.
-2. Open or update a GitHub issue. Point here or to `whats-missing.md`.
-3. Work on `dev`. Test. Changelog. Version bump. Push. Merge `main` when ready to release.
-
-## Sources
-
-- `docs/whats-missing.md`
-- `docs/menu-todo.md`
-- `docs/compare.md`, `docs/themes.md`, `docs/encoding.md`
+2. Track on GitHub issue #8 (or a new issue).
+3. Work on `dev`. Test. Changelog. Version bump. Push. Merge `main`.
