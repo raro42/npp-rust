@@ -59,8 +59,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Op
                 .buffer
                 .to_string()
                 .replace("\r\n", "\n")
-                .replace('
-', "");
+                .replace('\n', "\r");
             state.tabs.active_mut().buffer.replace_document(&text);
             state.mark_text_changed();
             state.status = "EOL: Macintosh (CR)".into();
