@@ -232,6 +232,35 @@ impl TabSet {
         true
     }
 
+    /// Remap a tab index after `move_tab(from, to)`.
+    pub fn remap_index(idx: usize, from: usize, to: usize) -> usize {
+        if idx == from {
+            return to;
+        }
+        if from < to {
+            if idx > from && idx <= to {
+                idx - 1
+            } else {
+                idx
+            }
+        } else if idx >= to && idx < from {
+            idx + 1
+        } else {
+            idx
+        }
+    }
+
+    /// Move tab at `from` to index `to` (same length). Updates the active index.
+    pub fn move_tab(&mut self, from: usize, to: usize) -> bool {
+        if from == to || from >= self.docs.len() || to >= self.docs.len() {
+            return false;
+        }
+        let doc = self.docs.remove(from);
+        self.docs.insert(to, doc);
+        self.active = Self::remap_index(self.active, from, to);
+        true
+    }
+
     /// Sort open tabs. Keeps the same document active when possible.
     pub fn sort_tabs<F>(&mut self, mut cmp: F)
     where
@@ -298,6 +327,21 @@ mod tests {
         assert_eq!(tabs.len(), 2);
         tabs.close(0);
         assert_eq!(tabs.len(), 1);
+    }
+
+    #[test]
+    fn move_tab_keeps_active_and_order() {
+        let mut tabs = TabSet::new();
+        tabs.open_untitled();
+        tabs.open_untitled();
+        assert_eq!(tabs.len(), 3);
+        tabs.set_active(0);
+        assert!(tabs.move_tab(0, 2));
+        assert_eq!(tabs.active_index(), 2);
+        assert_eq!(TabSet::remap_index(1, 0, 2), 0);
+        assert_eq!(TabSet::remap_index(2, 0, 2), 1);
+        assert!(tabs.move_tab(2, 0));
+        assert_eq!(tabs.active_index(), 0);
     }
 
     #[test]

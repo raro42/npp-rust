@@ -23,6 +23,8 @@ pub struct EditorApp {
     log_tail_remember: bool,
     /// Drag-select anchor (char index), while primary button is held.
     drag_anchor: Option<usize>,
+    /// Tab bar drag-reorder: source index while the pointer drags a tab.
+    tab_drag_from: Option<usize>,
     show_replace: bool,
     replace_with: String,
     /// Friendly dialog for menu items not wired yet.
@@ -73,6 +75,7 @@ impl EditorApp {
             show_preferences: false,
             log_tail_remember: true,
             drag_anchor: None,
+            tab_drag_from: None,
             show_replace: false,
             replace_with: String::new(),
             coming_soon: None,
@@ -1177,6 +1180,7 @@ Tree-sitter highlight, and a calm UI.",
                 let mut switch_to = None;
                 let mut close_idx = None;
                 let mut toggle_pin = None;
+                let mut pending_move: Option<(usize, usize)> = None;
                 for i in 0..count {
                     let Some(doc) = self.state.tabs.get(i) else {
                         continue;
@@ -1205,14 +1209,30 @@ Tree-sitter highlight, and a calm UI.",
                         Some(5) => Some(Color32::from_rgb(140, 70, 160)),
                         _ => None,
                     };
-                    let resp = if let Some(c) = colour {
-                        ui.add(egui::SelectableLabel::new(
-                            selected,
-                            RichText::new(&label).color(c),
-                        ))
+                    let text = if let Some(c) = colour {
+                        RichText::new(&label).color(c)
                     } else {
-                        ui.selectable_label(selected, &label)
+                        RichText::new(&label)
                     };
+                    let resp = ui.add(
+                        egui::Button::new(text)
+                            .selected(selected)
+                            .sense(Sense::click_and_drag()),
+                    );
+                    if resp.drag_started() {
+                        self.tab_drag_from = Some(i);
+                        switch_to = Some(i);
+                    }
+                    if resp.dragged() {
+                        ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
+                    }
+                    if self.tab_drag_from.is_some() && resp.hovered() {
+                        if let Some(from) = self.tab_drag_from {
+                            if from != i {
+                                pending_move = Some((from, i));
+                            }
+                        }
+                    }
                     if resp.clicked() {
                         switch_to = Some(i);
                     }
@@ -1245,6 +1265,16 @@ Tree-sitter highlight, and a calm UI.",
                             close_idx = Some(i);
                         }
                     });
+                }
+                if let Some((from, to)) = pending_move {
+                    if self.state.tabs.move_tab(from, to) {
+                        self.remap_tab_indices(from, to);
+                        self.tab_drag_from = Some(to);
+                        self.state.status = "Tab moved".into();
+                    }
+                }
+                if !ui.input(|i| i.pointer.any_down()) {
+                    self.tab_drag_from = None;
                 }
                 if ui.button("+").clicked() {
                     self.state.new_file();
@@ -1290,6 +1320,13 @@ Tree-sitter highlight, and a calm UI.",
                 }
             });
         });
+    }
+
+    fn remap_tab_indices(&mut self, from: usize, to: usize) {
+        use doc::TabSet;
+        self.other_view_tab = TabSet::remap_index(self.other_view_tab, from, to);
+        self.compare_left_tab = TabSet::remap_index(self.compare_left_tab, from, to);
+        self.compare_right_tab = TabSet::remap_index(self.compare_right_tab, from, to);
     }
 
     fn seed_find_from_selection(&mut self) {

@@ -18,6 +18,7 @@ About **12** handlers still say the limit in the status line or use a stand-in, 
 | Search | Change History next/prev/clear use per-line marks (MVP; no Scintilla save-vs-session colours) |
 | Settings | Themes: no apply API — Import lists `themes/` + opens folder; plugins: builtins listed, drop-in not loaded |
 | File | Pin works from tab chrome (`[P]` / context / button) and `IDM_PINTAB` — Close All but Pinned keeps pinned tabs |
+| View | Tab drag-reorder on the tab bar; Move Tab Forward / Backward still available |
 
 ## Larger product gaps (not menu stubs)
 

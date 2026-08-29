@@ -18,6 +18,7 @@
 
 ### Editor UX
 
+- Drag tabs on the tab bar to reorder (live slide; dual/compare indices remap)
 - Prompt before closing unsaved tabs (Save / Don't Save / Cancel), including Close All variants, Exit, and window close
 - Keep the last editor line clear of the status bar (status panel before editor + bottom padding)
 - Help (?) → Changelog opens `docs/changelog.md` on GitHub
