@@ -1,10 +1,17 @@
 //! File menu commands.
-use super::common::*;
 use super::{CmdResult, UiFlags};
 use crate::editor::EditorState;
 
 pub fn covers(cmd: &str) -> bool {
-    cmd.starts_with("IDM_FILE_")
+    cmd.starts_with("IDM_FILE_") || is_pin_toggle_idm(cmd)
+}
+
+/// Upstream tab-context pin (`IDM_PINTAB`). Any `*PIN*` that is not Close All but Pinned.
+fn is_pin_toggle_idm(cmd: &str) -> bool {
+    if cmd.contains("CLOSEALL_BUT_PINNED") {
+        return false;
+    }
+    cmd.contains("PIN")
 }
 
 pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Option<CmdResult> {
@@ -94,7 +101,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_FILE_CLOSEALL_BUT_PINNED" => {
-            state.close_all_but_pinned();
+            close_all_but_pinned_with_status(state);
             CmdResult::Handled
         }
         "IDM_FILE_DELETE" => {
@@ -114,8 +121,40 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
 
+        other if is_pin_toggle_idm(other) => {
+            toggle_active_pin(state);
+            CmdResult::Handled
+        }
         _ => CmdResult::Stub,
     })
+}
+
+/// Toggle `Document.pinned` on the active tab. Used by `IDM_PINTAB` and any `*PIN*` IDM.
+fn toggle_active_pin(state: &mut EditorState) {
+    let doc = state.tabs.active_mut();
+    let title = doc.title.clone();
+    doc.pinned = !doc.pinned;
+    if doc.pinned {
+        state.status = format!("Pinned tab: {title}");
+    } else {
+        state.status = format!("Unpinned tab: {title}");
+    }
+}
+
+/// Close unpinned tabs. Clear status when none are pinned (pin via `IDM_PINTAB`).
+fn close_all_but_pinned_with_status(state: &mut EditorState) {
+    let pinned = state.tabs.iter().filter(|d| d.pinned).count();
+    if pinned == 0 {
+        state.status = "Close all but pinned: no tabs are pinned — pin first (IDM_PINTAB)".into();
+        return;
+    }
+    let before = state.tabs.len();
+    state.close_all_but_pinned();
+    if state.pending_close.is_none() {
+        let after = state.tabs.len();
+        let closed = before.saturating_sub(after);
+        state.status = format!("Close all but pinned: kept {pinned} pinned, closed {closed}");
+    }
 }
 
 fn move_active_to_trash(state: &mut EditorState) {

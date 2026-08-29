@@ -4,6 +4,7 @@
 
 ### Menu parity (issue #1)
 
+- File: `IDM_PINTAB` toggles active-tab pin; Close All but Pinned reports keep/closed counts
 - Fold / hide lines: hidden lines leave the viewport
 - Style-mark washes and bookmark ticks in the gutter
 - Search: style mark, jump, clear, and copy-styled helpers
