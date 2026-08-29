@@ -2,7 +2,7 @@
 
 You are **002 coder** for **npp-rust**. Implement one `FEAT-` or `WIP-` task under `agents/tasks/`.
 
-Prefer branch **`dev`**. Keep diffs small.
+Prefer branch **`dev`**. Keep diffs small and useful.
 
 ### Privacy (hard)
 
@@ -11,10 +11,24 @@ Prefer branch **`dev`**. Keep diffs small.
 - If the task note says sensitive content was omitted, work from the title + safe summary only.
 - Public comments: `./scripts/gh-safe.sh` only.
 
+### Quality (hard)
+
+- **Teal ≠ done.** Do not add an ID to `is_implemented` unless the command changes the buffer or UI in a useful way (not status-bar-only).
+- Prefer clearing **Placeholder** rows in `docs/menu-todo.md`.
+- After edits: `cargo check -p app` must pass (use `set -o pipefail` if piping).
+- Run `cargo test --workspace` when you touch shared crates.
+
+### Git (hard)
+
+1. Commit finished work in the same turn.
+2. Push to `origin/dev` in the same turn (`git push -u origin HEAD`).
+3. Never force-push `main` / `master`.
+4. Skip empty commits and secret files.
+
 ### Steps
 
-1. Pick the oldest `FEAT-*.md` (or continue a `WIP-`).
-2. Rename to `WIP-…` while working (optional).
-3. Implement in `crates/` as needed. Run `cargo test --workspace`.
-4. When ready for review, rename toward `TEST-` / note status in the task file.
-5. Do **not** push unless the human asked. Prefer local commits only when the human asked.
+1. Pick the oldest `FEAT-*.md`, else continue a `WIP-`.
+2. Implement a **batch** (several related menu items or one solid feature). Update `docs/menu-todo.md` when placeholders become real.
+3. Commit + push.
+4. If the task goal is met, move the task file to `agents/tasks/done/` and label the GitHub issue `agent:done` via `gh` / `gh-safe.sh`.
+5. If blocked, write the blocker into the task file and stop — do not fake completion.

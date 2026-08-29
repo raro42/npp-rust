@@ -94,7 +94,7 @@ step_002_coder() {
   if [[ "${AGENT_USE_CURSOR}" == "1" ]] && command -v cursor-agent >/dev/null 2>&1; then
     echo "----- 002: starting cursor-agent coder"
     cursor-agent -p --force --trust --workspace "$REPO_ROOT" \
-      "Follow agents/002-coder.md. Implement the oldest FEAT or WIP task under agents/tasks/. Prefer clearing menu stubs in docs/menu-todo.md for issue #1. Obey .cursor/rules/public-repo-no-exfiltration.mdc. Never post private data. Do not push unless the task says so."
+      "Follow agents/002-coder.md. Implement the oldest FEAT or WIP under agents/tasks/. Prefer real behaviour for Placeholder items in docs/menu-todo.md (not status-only fakes). cargo check -p app must pass. Commit and push to origin/dev. Obey .cursor/rules/public-repo-no-exfiltration.mdc. Never post private data."
   else
     echo "----- 002: coder off — set AGENT_USE_CURSOR=1 and ensure cursor-agent is on PATH"
   fi

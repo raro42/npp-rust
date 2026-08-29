@@ -14,6 +14,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [tail-log.md](tail-log.md) | Log tail / Monitoring |
 | [help-debug.md](help-debug.md) | Help → Debug Info and Open Logs |
 | [close-unsaved.md](close-unsaved.md) | Prompt before closing dirty tabs |
+| [unattended-20h.md](unattended-20h.md) | How to run the agent loop for hours |
 | [update-check.md](update-check.md) | How Notepad++ updates; our plan |
 | [menu-todo.md](menu-todo.md) | Menu stub inventory |
 | [project-taste.md](project-taste.md) | Taste / quality bar |
