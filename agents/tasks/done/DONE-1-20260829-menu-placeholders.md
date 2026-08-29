@@ -27,3 +27,10 @@ Commit and push to origin/dev after each batch. Update docs/menu-todo.md.
 
 ## Privacy
 - Do not paste private paths into GitHub.
+
+## Handoff (2026-08-29)
+- Changelog updated under [Unreleased] for fold/style paint and clipboard.
+- Issue #1 stays open: 35 Placeholder / status-only items remain (Search change history, View panels/map, Edit calltips, …).
+- Do not close until placeholders are cleared (issue goal).
+
+Handoff: deferred

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Menu parity (issue #1)
+
+- Fold / hide lines: hidden lines leave the viewport
+- Style-mark washes and bookmark ticks in the gutter
+- Search: style mark, jump, clear, and copy-styled helpers
+- Edit Cut / Copy / Paste use the session clipboard
+- Placeholder / status-only menus: 141 → 35 (`docs/menu-todo.md`)
+
 ### Editor UX
 
 - Prompt before closing unsaved tabs (Save / Don't Save / Cancel), including Close All variants, Exit, and window close
