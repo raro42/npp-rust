@@ -465,7 +465,14 @@ impl EditorApp {
                             .color(Color32::from_rgb(180, 180, 190)),
                     );
                     ui.add_space(6.0);
-                    ui.label(RichText::new("v0.1.2 · Rust · macOS / Linux / Windows").small());
+                    ui.label(
+                        RichText::new(format!(
+                            "v{} · {} · Rust · macOS / Linux / Windows",
+                            env!("CARGO_PKG_VERSION"),
+                            env!("NPP_GIT_HASH")
+                        ))
+                        .small(),
+                    );
                     ui.add_space(8.0);
                     ui.horizontal_wrapped(|ui| {
                         ui.hyperlink_to("GitHub", "https://github.com/raro42/npp-rust");
@@ -1245,6 +1252,17 @@ Tree-sitter highlight, and a calm UI.",
                 ui.label(format!("Ln {line}, Col {col}"));
                 ui.separator();
                 ui.label(format!("{chars} chars"));
+
+                // Bottom-right: package version + git commit → GitHub.
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let short = env!("NPP_GIT_HASH");
+                    let full = env!("NPP_GIT_HASH_FULL");
+                    let ver = env!("CARGO_PKG_VERSION");
+                    let label = format!("v{ver} · {short}");
+                    let url = format!("https://github.com/raro42/npp-rust/commit/{full}");
+                    ui.hyperlink_to(RichText::new(label).small().weak(), url)
+                        .on_hover_text("Open this build’s commit on GitHub (raro42/npp-rust)");
+                });
             });
         });
     }

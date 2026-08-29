@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 description = "Notepad++-inspired OS-agnostic text editor"
 default-run = "npp-rs"
+build = "build.rs"
 
 [[bin]]
 name = "npp-rs"
