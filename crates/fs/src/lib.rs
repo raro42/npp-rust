@@ -181,7 +181,10 @@ pub fn decode_bytes(buf: &[u8]) -> (String, TextEncoding, Option<String>) {
 
     // Not valid UTF-8 (ignore a false BOM prefix — decode the whole buffer).
     let content = decode_windows_1252(buf);
-    debug_assert!(!content.contains('\u{FFFD}'), "decode must not insert UTF-8 replacement characters");
+    debug_assert!(
+        !content.contains('\u{FFFD}'),
+        "decode must not insert UTF-8 replacement characters"
+    );
     let note = Some(
         "Not valid UTF-8; decoded as Windows-1252. Save keeps that encoding unless you change Format."
             .to_string(),
@@ -367,7 +370,15 @@ pub fn poll_tail_async(path: PathBuf, offset: u64, tx: Sender<TailMsg>) {
     thread::spawn(move || {
         let outcome = match read_tail_since(&path, offset) {
             Ok(TailRead::Unchanged { size }) => Ok(TailOutcome::Unchanged { size }),
-            Ok(TailRead::Appended { text, size, encoding_note }) => Ok(TailOutcome::Appended { text, size, encoding_note }),
+            Ok(TailRead::Appended {
+                text,
+                size,
+                encoding_note,
+            }) => Ok(TailOutcome::Appended {
+                text,
+                size,
+                encoding_note,
+            }),
             Ok(TailRead::Rotated { size }) => match read_file(&path) {
                 Ok(r) => Ok(TailOutcome::Rotated {
                     content: r.content,
@@ -415,7 +426,10 @@ fn decode_utf8_with_1252_fallback(buf: &[u8]) -> (String, bool) {
     let mut used_fallback = false;
     while i < buf.len() {
         match std::str::from_utf8(&buf[i..]) {
-            Ok(s) => { out.push_str(s); break; }
+            Ok(s) => {
+                out.push_str(s);
+                break;
+            }
             Err(e) => {
                 let valid = e.valid_up_to();
                 if valid > 0 {
@@ -424,7 +438,9 @@ fn decode_utf8_with_1252_fallback(buf: &[u8]) -> (String, bool) {
                 }
                 let bad_len = e.error_len().unwrap_or(1).max(1);
                 let take = bad_len.min(buf.len() - i);
-                for &b in &buf[i..i + take] { out.push(windows_1252_char(b)); }
+                for &b in &buf[i..i + take] {
+                    out.push(windows_1252_char(b));
+                }
                 used_fallback = true;
                 i += take;
             }
@@ -595,7 +611,9 @@ pub fn encode_windows_1252_lossy(text: &str) -> Vec<u8> {
 /// Count characters that become `?` under Windows-1252 encode (for honest save status).
 pub fn count_windows_1252_unmapped(text: &str) -> usize {
     let body = text.strip_prefix(UTF8_BOM_CHAR).unwrap_or(text);
-    body.chars().filter(|c| windows_1252_byte(*c).is_none()).count()
+    body.chars()
+        .filter(|c| windows_1252_byte(*c).is_none())
+        .count()
 }
 
 #[cfg(test)]
@@ -742,7 +760,11 @@ mod tests {
             f.write_all(b"line2\n").unwrap();
         }
         let after_append = match read_tail_since(&path, size).unwrap() {
-            TailRead::Appended { text, size: new, encoding_note } => {
+            TailRead::Appended {
+                text,
+                size: new,
+                encoding_note,
+            } => {
                 assert!(encoding_note.is_none());
                 assert_eq!(text, "line2\n");
                 assert!(new > size);
@@ -840,7 +862,11 @@ mod tests {
         assert_eq!(msg.path, path);
         assert_eq!(msg.offset, size);
         match msg.outcome.unwrap() {
-            TailOutcome::Appended { text, size: new, encoding_note } => {
+            TailOutcome::Appended {
+                text,
+                size: new,
+                encoding_note,
+            } => {
                 assert!(encoding_note.is_none());
                 assert_eq!(text, "line2\n");
                 assert!(new > size);
@@ -853,14 +879,20 @@ mod tests {
     #[test]
     fn decode_invalid_utf8_never_inserts_fffd() {
         let cases: &[&[u8]] = &[
-            &[0xC0, 0x80], &[0xFF], &[b'a', 0xE2, 0x82, b'b'],
-            &[0xF5, 0x80, 0x80, 0x80], &[b'h', b'i', 0x80, b'!'],
+            &[0xC0, 0x80],
+            &[0xFF],
+            &[b'a', 0xE2, 0x82, b'b'],
+            &[0xF5, 0x80, 0x80, 0x80],
+            &[b'h', b'i', 0x80, b'!'],
         ];
         for raw in cases {
             let (content, enc, note) = decode_bytes(raw);
             assert_eq!(enc, TextEncoding::Windows1252, "raw={raw:?}");
             assert!(note.is_some(), "raw={raw:?}");
-            assert!(!content.contains('\u{FFFD}'), "U+FFFD in {content:?} for {raw:?}");
+            assert!(
+                !content.contains('\u{FFFD}'),
+                "U+FFFD in {content:?} for {raw:?}"
+            );
         }
     }
 
@@ -893,7 +925,11 @@ mod tests {
             f.write_all(&[0x80u8, b'\n']).unwrap();
         }
         match read_tail_since(&path, size).unwrap() {
-            TailRead::Appended { text, encoding_note, .. } => {
+            TailRead::Appended {
+                text,
+                encoding_note,
+                ..
+            } => {
                 assert_eq!(text, "\u{20AC}\n");
                 assert!(encoding_note.is_some());
                 assert!(!text.contains('\u{FFFD}'));
@@ -909,5 +945,4 @@ mod tests {
         assert_eq!(count_windows_1252_unmapped("\u{20AC}"), 0);
         assert_eq!(count_windows_1252_unmapped("\u{1F600}"), 1);
     }
-
 }

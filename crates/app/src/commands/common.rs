@@ -394,6 +394,20 @@ pub(crate) fn filter_lines_by_bookmarks(state: &mut EditorState, keep_unmarked: 
     };
 }
 
+/// Return false and set status when the active document cannot be edited.
+pub(crate) fn ensure_editable(state: &mut EditorState) -> bool {
+    let doc = state.tabs.active();
+    if doc.loading {
+        state.status = "Document is still loading".into();
+        return false;
+    }
+    if doc.read_only {
+        state.status = "Document is read-only".into();
+        return false;
+    }
+    true
+}
+
 /// Replace each bookmarked line with `clip` (Notepad++ Paste to Bookmarked Lines).
 pub fn paste_over_bookmarked_lines(state: &mut EditorState, clip: &str) {
     let marks = state.tabs.active().bookmarks.clone();

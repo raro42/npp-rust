@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.2.11] — 2026-08-29
+
+### Build / CI
+
+- Fix TailMsg test initializers, `EditorState::workspace_root`, and edit `ensure_editable` gate
+- Restore clippy allows on buffer `from_str` / `to_string`
+- Mark issue #4 Agent E checklist done
+
 ## [0.2.10] — 2026-08-29
 
 ### Encoding honesty

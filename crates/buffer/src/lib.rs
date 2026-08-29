@@ -129,6 +129,7 @@ impl TextBuffer {
         };
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         let mut buf = Self::new();
         buf.rope = Rope::from_str(s);
@@ -764,6 +765,7 @@ impl TextBuffer {
     }
 
     /// Full document as owned String (avoid for huge files in hot paths).
+    #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         self.rope.to_string()
     }
@@ -1059,8 +1061,8 @@ impl TextBuffer {
         }
         let text = self.to_string();
         let q_len = query.chars().count();
-        if let Some(byte_pos) = text[char_to_byte(&text, from.min(text.chars().count()))..]
-            .find(query)
+        if let Some(byte_pos) =
+            text[char_to_byte(&text, from.min(text.chars().count()))..].find(query)
         {
             let abs_byte = char_to_byte(&text, from.min(text.chars().count())) + byte_pos;
             let start = byte_to_char(&text, abs_byte);

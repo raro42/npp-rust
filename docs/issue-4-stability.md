@@ -20,7 +20,7 @@ Issue: https://github.com/raro42/npp-rust/issues/4
 | B | `crates/buffer` + thin `doc` edit gate; `commands/edit.rs` / `format.rs` / `misc.rs` mutate paths | Read-only cannot mutate via menu; buffer API returns Err |
 | C | `editor.rs` reload + `dirty`/`saved_generation` on Document | Reload replaces content with confirm if dirty; undo-to-saved clears dirty |
 | D | `buffer` edit hooks + `Document.bookmarks` | **Done** — `LineStructureEdit` on buffer; bookmarks remap on insert/delete; tests |
-| E | `crates/fs` + `editor.rs` poll_tail | Tail reads on worker thread; UI applies TailRead events — **done** |
+| E | `crates/fs` + `editor.rs` poll_tail | **Done** — `TailChannel` / `poll_tail_async`; UI applies `TailMsg` only |
 
 Commit and push each batch. Bump patch version when user-visible. Update this file’s checklist when done.
 
@@ -54,7 +54,12 @@ Commit and push each batch. Bump patch version when user-visible. Update this fi
 
 ### Agent E — tail worker
 
-- [ ] (other agent)
+- [x] `TailChannel` / `TailMsg` / `TailOutcome` in `crates/fs`
+- [x] `poll_tail_async` worker; rotate reload on worker
+- [x] `EditorState::poll_tail` schedules + `drain_tail_msgs` / `apply_tail_msg` only (no sync disk on UI)
+- [x] Dirty/suspend policy kept
+- [x] Unit tests for async append
+- [x] Patch version + changelog
 
 ## Agent E leftover limits
 

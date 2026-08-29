@@ -75,8 +75,6 @@ pub struct EditorState {
     pub compare_stale: bool,
     /// Before-edit line snap for change-history remap (tab, snap).
     pending_edit_snap: Option<(usize, doc::LineEditSnap)>,
-    /// Folder shown in the Project panel (cwd by default).
-    pub workspace_root: PathBuf,
 }
 
 /// Bulk close mode after a dirty-tab confirm.
@@ -883,8 +881,21 @@ impl EditorState {
                 doc.promote_change_history_on_save();
                 self.recent.touch(path);
                 self.highlight_dirty = true;
-                let unmapped = if encoding == FileEncoding::Windows1252 { fs::count_windows_1252_unmapped(&content) } else { 0 };
-                self.status = if unmapped > 0 { format!("Saved {} ({}) — {} char(s) became '?'", path.display(), encoding.label(), unmapped) } else { format!("Saved {} ({})", path.display(), encoding.label()) };
+                let unmapped = if encoding == FileEncoding::Windows1252 {
+                    fs::count_windows_1252_unmapped(&content)
+                } else {
+                    0
+                };
+                self.status = if unmapped > 0 {
+                    format!(
+                        "Saved {} ({}) — {} char(s) became '?'",
+                        path.display(),
+                        encoding.label(),
+                        unmapped
+                    )
+                } else {
+                    format!("Saved {} ({})", path.display(), encoding.label())
+                };
                 true
             }
             Err(e) => {
@@ -1204,31 +1215,6 @@ impl EditorState {
         }
     }
 
-
-    pub fn pick_workspace_folder(&mut self) {
-        if let Some(dir) = rfd::FileDialog::new()
-            .set_title("Open Folder as Workspace")
-            .pick_folder()
-        {
-            self.workspace_root = dir;
-            self.status = format!("Workspace: {}", self.workspace_root.display());
-        } else {
-            self.status = "Workspace folder pick cancelled".into();
-        }
-    }
-
-    pub fn set_workspace_from_active(&mut self) {
-        if let Some(path) = self.tabs.active().path.clone() {
-            if let Some(parent) = path.parent() {
-                self.workspace_root = parent.to_path_buf();
-                self.status = format!("Workspace: {}", self.workspace_root.display());
-                return;
-            }
-        }
-        self.workspace_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        self.status = format!("Workspace: {} (cwd)", self.workspace_root.display());
-    }
-
     pub fn open_containing_folder(&mut self) {
         let Some(path) = self.tabs.active().path.clone() else {
             self.status = "No file path — save first".into();
@@ -1505,7 +1491,11 @@ impl EditorState {
         let dirty = doc.dirty;
         match msg.outcome {
             Ok(TailOutcome::Unchanged { .. }) => false,
-            Ok(TailOutcome::Appended { text, size, encoding_note }) => {
+            Ok(TailOutcome::Appended {
+                text,
+                size,
+                encoding_note,
+            }) => {
                 if dirty {
                     if let Some(d) = self.tabs.get_mut(i) {
                         d.tail_follow = false;
@@ -1672,7 +1662,8 @@ mod tests {
             outcome: Ok(TailOutcome::Appended {
                 text: "line2\n".into(),
                 size: 12,
-            , encoding_note: None }),
+                encoding_note: None,
+            }),
         });
         assert!(grew);
         assert!(!state.tail_inflight.contains(&path));
@@ -1695,7 +1686,8 @@ mod tests {
             outcome: Ok(TailOutcome::Appended {
                 text: "line2\n".into(),
                 size: 12,
-            , encoding_note: None }),
+                encoding_note: None,
+            }),
         });
         assert!(!grew);
         assert!(!state.tabs.active().tail_follow);
@@ -1715,7 +1707,8 @@ mod tests {
             outcome: Ok(TailOutcome::Appended {
                 text: "stale\n".into(),
                 size: 12,
-            , encoding_note: None }),
+                encoding_note: None,
+            }),
         });
         assert!(!grew);
         assert_eq!(state.tabs.active().buffer.to_string(), "line1\n");

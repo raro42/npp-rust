@@ -48,5 +48,6 @@ git clone --depth 1 https://github.com/notepad-plus-plus/notepad-plus-plus.git r
 | [agent-parallel.md](agent-parallel.md) | File ownership for parallel agents |
 | [issue-4-stability.md](issue-4-stability.md) | Parallel finish of issue #4 |
 
+| [issue-3-4-ship-status.md](issue-3-4-ship-status.md) | #3/#4 finish checklist snapshot |
 | [issue-3-architecture.md](issue-3-architecture.md) | Parallel finish of issue #3 |
 | [highlight-viewport.md](highlight-viewport.md) | Linear byte→char + viewport highlight window |

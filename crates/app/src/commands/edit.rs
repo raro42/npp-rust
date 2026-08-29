@@ -1075,16 +1075,12 @@ fn column_editor_insert(state: &mut EditorState, ui: &mut UiFlags) {
                 (pos, piece)
             })
             .collect();
-        state
-            .tabs
-            .active_mut()
-            .buffer
-            .with_transaction(|buf| {
-                for (pos, piece) in pieces {
-                    buf.set_caret(pos);
-                    buf.insert(&piece);
-                }
-            });
+        state.tabs.active_mut().buffer.with_transaction(|buf| {
+            for (pos, piece) in pieces {
+                buf.set_caret(pos);
+                buf.insert(&piece);
+            }
+        });
         state.mark_text_changed();
         ui.follow_caret = true;
         state.status = if clip.is_some() {
@@ -1117,27 +1113,23 @@ fn column_editor_insert(state: &mut EditorState, ui: &mut UiFlags) {
             (line, piece)
         })
         .collect();
-    state
-        .tabs
-        .active_mut()
-        .buffer
-        .with_transaction(|buf| {
-            for (line, piece) in line_ops {
-                let line_start = buf.line_to_char(line);
-                let raw = buf.line(line);
-                let body_len = raw.trim_end_matches(['\n', '\r']).chars().count();
-                if col > body_len {
-                    let pad = col - body_len;
-                    buf.set_caret(line_start + body_len);
-                    let mut s = " ".repeat(pad);
-                    s.push_str(&piece);
-                    buf.insert(&s);
-                } else {
-                    buf.set_caret(line_start + col);
-                    buf.insert(&piece);
-                }
+    state.tabs.active_mut().buffer.with_transaction(|buf| {
+        for (line, piece) in line_ops {
+            let line_start = buf.line_to_char(line);
+            let raw = buf.line(line);
+            let body_len = raw.trim_end_matches(['\n', '\r']).chars().count();
+            if col > body_len {
+                let pad = col - body_len;
+                buf.set_caret(line_start + body_len);
+                let mut s = " ".repeat(pad);
+                s.push_str(&piece);
+                buf.insert(&s);
+            } else {
+                buf.set_caret(line_start + col);
+                buf.insert(&piece);
             }
-        });
+        }
+    });
     state.mark_text_changed();
     ui.follow_caret = true;
     let n_lines = end_line - start_line + 1;

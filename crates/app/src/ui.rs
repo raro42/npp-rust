@@ -916,12 +916,27 @@ Tree-sitter highlight, and a calm UI.",
     }
 
     fn encoding_notice_window(&mut self, ctx: &egui::Context) {
-        let Some(msg) = self.state.pending_encoding_notice.clone() else { return; };
-        let mut dismiss = false; let mut open = true;
-        egui::Window::new("Encoding notice").open(&mut open).collapsible(false).resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).default_width(420.0)
-            .show(ctx, |ui| { ui.label(&msg); ui.add_space(8.0); if ui.button("OK").clicked() { dismiss = true; } });
-        if dismiss || !open { self.state.pending_encoding_notice = None; }
+        let Some(msg) = self.state.pending_encoding_notice.clone() else {
+            return;
+        };
+        let mut dismiss = false;
+        let mut open = true;
+        egui::Window::new("Encoding notice")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .default_width(420.0)
+            .show(ctx, |ui| {
+                ui.label(&msg);
+                ui.add_space(8.0);
+                if ui.button("OK").clicked() {
+                    dismiss = true;
+                }
+            });
+        if dismiss || !open {
+            self.state.pending_encoding_notice = None;
+        }
     }
 
     fn unsaved_close_window(&mut self, ctx: &egui::Context) {
