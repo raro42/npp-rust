@@ -568,7 +568,7 @@ impl EditorApp {
                             .color(Color32::from_rgb(120, 200, 255)),
                     );
                     ui.label(
-                        RichText::new("a Notepad++-inspired editor, rebuilt for fun")
+                        RichText::new("a Notepad++ inspired editor, rebuilt for fun")
                             .italics()
                             .color(Color32::from_rgb(180, 180, 190)),
                     );
