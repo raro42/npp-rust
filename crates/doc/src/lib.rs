@@ -23,10 +23,14 @@ pub struct Document {
     pub read_only: bool,
     /// Bookmarked line indices (0-based).
     pub bookmarks: BTreeSet<usize>,
+    /// Hidden line indices (0-based); View → Hide Lines / fold light path.
+    pub hidden_lines: BTreeSet<usize>,
     /// Optional tab color id 1..=5; `None` = default.
     pub tab_colour: Option<u8>,
     /// Style marks 1..=5: line indices (Search → Style).
     pub style_marks: [BTreeSet<usize>; 5],
+    /// Extra multi-select ranges (char indices), newest last. Primary selection is separate.
+    pub multi_sels: Vec<(usize, usize)>,
 }
 
 impl Document {
@@ -42,8 +46,10 @@ impl Document {
             tail_bytes: 0,
             read_only: false,
             bookmarks: BTreeSet::new(),
+            hidden_lines: BTreeSet::new(),
             tab_colour: None,
             style_marks: Default::default(),
+            multi_sels: Vec::new(),
         }
     }
 
@@ -67,8 +73,10 @@ impl Document {
             tail_bytes,
             read_only: false,
             bookmarks: BTreeSet::new(),
+            hidden_lines: BTreeSet::new(),
             tab_colour: None,
             style_marks: Default::default(),
+            multi_sels: Vec::new(),
         }
     }
 

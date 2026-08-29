@@ -497,3 +497,174 @@ pub fn coming_soon_blurb(cmd: &str) -> &'static str {
     }
     LINES[(h as usize) % LINES.len()]
 }
+
+/// Launch another process of this app; optionally pass the active file path.
+pub(crate) fn open_in_new_instance(state: &mut EditorState, move_doc: bool) {
+    let path = state.tabs.active().path.clone();
+    let Ok(exe) = std::env::current_exe() else {
+        state.status = "New instance: cannot find this app".into();
+        return;
+    };
+    let mut cmd = std::process::Command::new(&exe);
+    if let Some(ref p) = path {
+        cmd.arg(p);
+    }
+    match cmd.spawn() {
+        Ok(_) => {
+            if move_doc {
+                let idx = state.tabs.active_index();
+                state.tabs.close(idx);
+                state.highlight_dirty = true;
+                state.status = "Moved to new instance".into();
+            } else {
+                state.status = "Opened in new instance".into();
+            }
+        }
+        Err(e) => state.status = format!("New instance failed: {e}"),
+    }
+}
+
+/// Indent depth in units of 4 spaces (tabs count as 4).
+pub(crate) fn line_indent_level(line: &str) -> usize {
+    let mut spaces = 0usize;
+    for c in line.chars() {
+        match c {
+            ' ' => spaces += 1,
+            '\t' => spaces += 4,
+            _ => break,
+        }
+    }
+    spaces / 4
+}
+
+pub(crate) fn hide_selected_or_current_lines(state: &mut EditorState) {
+    let (start_line, end_line) = {
+        let buf = &state.tabs.active().buffer;
+        if let Some((s, e)) = buf.selection() {
+            let a = buf.char_to_line(s.min(e));
+            let end = s.max(e);
+            let line = buf.char_to_line(end);
+            let b = if end > 0 && end == buf.line_to_char(line) && line > a {
+                line - 1
+            } else {
+                line
+            };
+            (a, b)
+        } else {
+            let line = buf.char_to_line(buf.caret());
+            (line, line)
+        }
+    };
+    let hidden = &mut state.tabs.active_mut().hidden_lines;
+    for i in start_line..=end_line {
+        hidden.insert(i);
+    }
+    let n = end_line.saturating_sub(start_line) + 1;
+    state.status = format!("Hidden {n} line(s)");
+}
+
+pub(crate) fn fold_all_by_indent(state: &mut EditorState) {
+    let n = state.tabs.active().buffer.line_count();
+    let mut to_hide = Vec::new();
+    for i in 0..n {
+        let raw = state.tabs.active().buffer.line(i);
+        if line_indent_level(&raw) > 0 {
+            to_hide.push(i);
+        }
+    }
+    let hidden = &mut state.tabs.active_mut().hidden_lines;
+    for i in to_hide {
+        hidden.insert(i);
+    }
+    let count = state.tabs.active().hidden_lines.len();
+    state.status = format!("Fold all (indent): {count} line(s) hidden");
+}
+
+pub(crate) fn unfold_all_hidden(state: &mut EditorState) {
+    let n = state.tabs.active().hidden_lines.len();
+    state.tabs.active_mut().hidden_lines.clear();
+    state.status = format!("Unfold all: showed {n} line(s)");
+}
+
+fn current_indent_block(state: &EditorState) -> (usize, usize) {
+    let buf = &state.tabs.active().buffer;
+    let start = buf.char_to_line(buf.caret());
+    let base = line_indent_level(&buf.line(start));
+    let n = buf.line_count();
+    let mut end = start;
+    for i in (start + 1)..n {
+        let raw = buf.line(i);
+        if raw.trim().is_empty() {
+            end = i;
+            continue;
+        }
+        if line_indent_level(&raw) > base {
+            end = i;
+        } else {
+            break;
+        }
+    }
+    (start, end)
+}
+
+pub(crate) fn fold_current_block(state: &mut EditorState) {
+    let (start, end) = current_indent_block(state);
+    if end <= start {
+        state.status = "Fold current: nothing to fold".into();
+        return;
+    }
+    let hidden = &mut state.tabs.active_mut().hidden_lines;
+    for i in (start + 1)..=end {
+        hidden.insert(i);
+    }
+    state.status = format!("Folded {} line(s)", end - start);
+}
+
+pub(crate) fn unfold_current_block(state: &mut EditorState) {
+    let (start, end) = current_indent_block(state);
+    let hidden = &mut state.tabs.active_mut().hidden_lines;
+    let before = hidden.len();
+    for i in start..=end {
+        hidden.remove(&i);
+    }
+    let shown = before.saturating_sub(hidden.len());
+    state.status = format!("Unfolded {shown} line(s)");
+}
+
+pub(crate) fn fold_indent_level(state: &mut EditorState, level: usize) {
+    let n = state.tabs.active().buffer.line_count();
+    let mut to_hide = Vec::new();
+    for i in 0..n {
+        let raw = state.tabs.active().buffer.line(i);
+        if line_indent_level(&raw) >= level {
+            to_hide.push(i);
+        }
+    }
+    let hidden = &mut state.tabs.active_mut().hidden_lines;
+    let mut added = 0usize;
+    for i in to_hide {
+        if hidden.insert(i) {
+            added += 1;
+        }
+    }
+    state.status = format!("Fold level {level}: hid {added} line(s)");
+}
+
+pub(crate) fn unfold_indent_level(state: &mut EditorState, level: usize) {
+    let n = state.tabs.active().buffer.line_count();
+    let mut to_show = Vec::new();
+    for i in 0..n {
+        let raw = state.tabs.active().buffer.line(i);
+        if line_indent_level(&raw) == level {
+            to_show.push(i);
+        }
+    }
+    let hidden = &mut state.tabs.active_mut().hidden_lines;
+    let mut shown = 0usize;
+    for i in to_show {
+        if hidden.remove(&i) {
+            shown += 1;
+        }
+    }
+    state.status = format!("Unfold level {level}: showed {shown} line(s)");
+}

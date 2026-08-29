@@ -211,6 +211,107 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             state.switch_tab(last);
             CmdResult::Handled
         }
+        "IDM_VIEW_POSTIT" => {
+            ui.fullscreen_toggle = true;
+            state.status = "Post-It (distraction-free) toggled".into();
+            CmdResult::Handled
+        }
+        "IDM_VIEW_GOTO_ANOTHER_VIEW" | "IDM_VIEW_SWITCHTO_OTHER_VIEW" => {
+            state.status = "Single view — no second pane yet".into();
+            CmdResult::Handled
+        }
+        "IDM_VIEW_CLONE_TO_ANOTHER_VIEW" => {
+            let mut clone = state.tabs.active().clone();
+            clone.path = None;
+            clone.title = format!("{} (clone)", clone.title);
+            clone.dirty = true;
+            clone.loading = false;
+            clone.tail_follow = false;
+            state.tabs.open_document(clone);
+            state.highlight_dirty = true;
+            state.status = "Cloned document to new tab".into();
+            CmdResult::Handled
+        }
+        "IDM_VIEW_GOTO_NEW_INSTANCE" => {
+            open_in_new_instance(state, true);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_LOAD_IN_NEW_INSTANCE" => {
+            open_in_new_instance(state, false);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_HIDELINES" => {
+            hide_selected_or_current_lines(state);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_FOLDALL" => {
+            fold_all_by_indent(state);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_UNFOLDALL" => {
+            unfold_all_hidden(state);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_FOLD_CURRENT" => {
+            fold_current_block(state);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_UNFOLD_CURRENT" => {
+            unfold_current_block(state);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_FOLD_1"
+        | "IDM_VIEW_FOLD_2"
+        | "IDM_VIEW_FOLD_3"
+        | "IDM_VIEW_FOLD_4"
+        | "IDM_VIEW_FOLD_5"
+        | "IDM_VIEW_FOLD_6"
+        | "IDM_VIEW_FOLD_7"
+        | "IDM_VIEW_FOLD_8" => {
+            let level = cmd
+                .chars()
+                .last()
+                .and_then(|c| c.to_digit(10))
+                .unwrap_or(1) as usize;
+            fold_indent_level(state, level);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_UNFOLD_1"
+        | "IDM_VIEW_UNFOLD_2"
+        | "IDM_VIEW_UNFOLD_3"
+        | "IDM_VIEW_UNFOLD_4"
+        | "IDM_VIEW_UNFOLD_5"
+        | "IDM_VIEW_UNFOLD_6"
+        | "IDM_VIEW_UNFOLD_7"
+        | "IDM_VIEW_UNFOLD_8" => {
+            let level = cmd
+                .chars()
+                .last()
+                .and_then(|c| c.to_digit(10))
+                .unwrap_or(1) as usize;
+            unfold_indent_level(state, level);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_PROJECT_PANEL_1" => {
+            state.status = "Project Panel 1: not shown in this build".into();
+            CmdResult::Handled
+        }
+        "IDM_VIEW_PROJECT_PANEL_2" => {
+            state.status = "Project Panel 2: not shown in this build".into();
+            CmdResult::Handled
+        }
+        "IDM_VIEW_PROJECT_PANEL_3" => {
+            state.status = "Project Panel 3: not shown in this build".into();
+            CmdResult::Handled
+        }
+        "IDM_VIEW_DOC_MAP" => {
+            state.status = "Document Map: not shown in this build".into();
+            CmdResult::Handled
+        }
+        "IDM_VIEW_FUNC_LIST" => {
+            state.status = "Function List: not shown in this build".into();
+            CmdResult::Handled
+        }
 
         _ => CmdResult::Stub,
     })

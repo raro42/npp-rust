@@ -676,7 +676,496 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             state.status = "Text direction LTR".into();
             CmdResult::Handled
         }
+        "IDM_EDIT_PASTE_AS_HTML" | "IDM_EDIT_PASTE_AS_RTF" | "IDM_EDIT_PASTE_BINARY" => {
+            paste_plain_fallback(state, ui, cmd);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_COPY_BINARY" => {
+            copy_selection(state, ui);
+            if ui.pending_clipboard.is_some() {
+                state.status = "Binary copy (plain text to clipboard)".into();
+            }
+            CmdResult::Handled
+        }
+        "IDM_EDIT_CUT_BINARY" => {
+            if state.tabs.active().read_only {
+                state.status = "Document is read-only".into();
+                return Some(CmdResult::Handled);
+            }
+            if let Some((s, e)) = state.tabs.active().buffer.selection() {
+                let text = state.tabs.active().buffer.slice(s, e);
+                ui.pending_clipboard = Some(text);
+                state.tabs.active_mut().buffer.delete_backward();
+                state.mark_text_changed();
+                state.status = "Binary cut (plain text to clipboard)".into();
+            } else {
+                state.status = "Binary cut: select text first".into();
+            }
+            CmdResult::Handled
+        }
+        "IDM_EDIT_MULTISELECTALL" => {
+            multi_select_all(state, ui, false, false);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_MULTISELECTALLMATCHCASE" => {
+            multi_select_all(state, ui, true, false);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_MULTISELECTALLWHOLEWORD" => {
+            multi_select_all(state, ui, false, true);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_MULTISELECTALLMATCHCASEWHOLEWORD" => {
+            multi_select_all(state, ui, true, true);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_MULTISELECTNEXT" => {
+            multi_select_next(state, ui, false, false, false);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_MULTISELECTNEXTMATCHCASE" => {
+            multi_select_next(state, ui, true, false, false);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_MULTISELECTNEXTWHOLEWORD" => {
+            multi_select_next(state, ui, false, true, false);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_MULTISELECTNEXTMATCHCASEWHOLEWORD" => {
+            multi_select_next(state, ui, true, true, false);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_MULTISELECTUNDO" => {
+            let doc = state.tabs.active_mut();
+            if let Some((s, e)) = doc.multi_sels.pop() {
+                if let Some(&(ps, pe)) = doc.multi_sels.last() {
+                    doc.buffer.set_selection(ps, pe);
+                } else {
+                    doc.buffer.set_selection(s, e);
+                }
+                let n = doc.multi_sels.len();
+                state.status = format!("Multi-select undo: {n} left");
+                ui.follow_caret = true;
+            } else {
+                state.status = "Multi-select undo: nothing to undo".into();
+            }
+            CmdResult::Handled
+        }
+        "IDM_EDIT_MULTISELECTSSKIP" => {
+            multi_select_next(state, ui, false, false, true);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_COLUMNMODETIP" => {
+            state.status =
+                "Column mode tip: hold Alt while dragging to select a rectangle (editor later)"
+                    .into();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_COLUMNMODE" => {
+            state.status =
+                "Column editor: not wired yet — use Alt+drag tip for now".into();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_CHAR_PANEL" => {
+            char_panel_status(state);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_CLIPBOARDHISTORY_PANEL" => {
+            if let Some(t) = ui.last_copied.as_ref() {
+                let preview: String = t.chars().take(40).collect();
+                let more = if t.chars().count() > 40 { "…" } else { "" };
+                state.status = format!(
+                    "Clipboard history (1 entry): \"{preview}{more}\" ({} chars)",
+                    t.chars().count()
+                );
+            } else {
+                state.status = "Clipboard history: empty (copy text first)".into();
+            }
+            CmdResult::Handled
+        }
+        "IDM_EDIT_TOGGLESYSTEMREADONLY" => {
+            toggle_system_readonly(state);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_AUTOCOMPLETE" | "IDM_EDIT_AUTOCOMPLETE_CURRENTFILE" => {
+            word_complete(state);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_AUTOCOMPLETE_PATH" => {
+            path_complete(state);
+            CmdResult::Handled
+        }
+        "IDM_EDIT_FUNCCALLTIP" => {
+            state.status =
+                "Function tip: place caret inside call args; full tip UI later".into();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_FUNCCALLTIP_PREVIOUS" => {
+            state.status = "Function tip: previous overload (tip UI later)".into();
+            CmdResult::Handled
+        }
+        "IDM_EDIT_FUNCCALLTIP_NEXT" => {
+            state.status = "Function tip: next overload (tip UI later)".into();
+            CmdResult::Handled
+        }
 
         _ => CmdResult::Stub,
     })
+}
+
+fn paste_plain_fallback(state: &mut EditorState, ui: &mut UiFlags, cmd: &str) {
+    if state.tabs.active().read_only {
+        state.status = "Document is read-only".into();
+        return;
+    }
+    let Some(text) = ui.last_copied.clone() else {
+        state.status = "Paste special: copy text first (plain-text fallback)".into();
+        return;
+    };
+    state.tabs.active_mut().buffer.insert(&text);
+    state.mark_text_changed();
+    let kind = if cmd.contains("HTML") {
+        "HTML"
+    } else if cmd.contains("RTF") {
+        "RTF"
+    } else {
+        "binary"
+    };
+    state.status = format!("Pasted as plain text ({kind} fallback)");
+}
+
+fn multi_query(state: &EditorState) -> Option<String> {
+    if let Some((s, e)) = state.tabs.active().buffer.selection() {
+        let t = state.tabs.active().buffer.slice(s, e);
+        if !t.is_empty() && !t.contains('\n') {
+            return Some(t);
+        }
+    }
+    if let Some(&(s, e)) = state.tabs.active().multi_sels.first() {
+        let t = state.tabs.active().buffer.slice(s, e);
+        if !t.is_empty() {
+            return Some(t);
+        }
+    }
+    let caret = state.tabs.active().buffer.caret();
+    let (ws, we) = state.tabs.active().buffer.word_bounds_at(caret);
+    if ws < we {
+        Some(state.tabs.active().buffer.slice(ws, we))
+    } else {
+        None
+    }
+}
+
+fn find_all_matches(text: &str, query: &str, match_case: bool, whole_word: bool) -> Vec<(usize, usize)> {
+    if query.is_empty() {
+        return Vec::new();
+    }
+    let chars: Vec<char> = text.chars().collect();
+    let q: Vec<char> = query.chars().collect();
+    let qlen = q.len();
+    if qlen == 0 || qlen > chars.len() {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    let mut i = 0usize;
+    while i + qlen <= chars.len() {
+        let matched = if match_case {
+            chars[i..i + qlen] == q[..]
+        } else {
+            chars[i..i + qlen]
+                .iter()
+                .zip(q.iter())
+                .all(|(a, b)| a.eq_ignore_ascii_case(b))
+        };
+        if matched {
+            let ok = if whole_word {
+                let before_ok = i == 0 || !is_word_char(chars[i - 1]);
+                let after_ok = i + qlen >= chars.len() || !is_word_char(chars[i + qlen]);
+                before_ok && after_ok
+            } else {
+                true
+            };
+            if ok {
+                out.push((i, i + qlen));
+                i += qlen;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    out
+}
+
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+fn multi_select_all(state: &mut EditorState, ui: &mut UiFlags, match_case: bool, whole_word: bool) {
+    let Some(query) = multi_query(state) else {
+        state.status = "Multi-select all: select a word first".into();
+        return;
+    };
+    let text = state.tabs.active().buffer.to_string();
+    let matches = find_all_matches(&text, &query, match_case, whole_word);
+    if matches.is_empty() {
+        state.status = "Multi-select all: no matches".into();
+        return;
+    }
+    let n = matches.len();
+    let first = matches[0];
+    {
+        let doc = state.tabs.active_mut();
+        doc.multi_sels = matches;
+        doc.buffer.set_selection(first.0, first.1);
+    }
+    ui.follow_caret = true;
+    state.status = format!("Multi-select all: {n} matches");
+}
+
+fn multi_select_next(
+    state: &mut EditorState,
+    ui: &mut UiFlags,
+    match_case: bool,
+    whole_word: bool,
+    skip: bool,
+) {
+    let Some(query) = multi_query(state) else {
+        state.status = "Multi-select next: select a word first".into();
+        return;
+    };
+    if skip {
+        let _ = state.tabs.active_mut().multi_sels.pop();
+    }
+    let text = state.tabs.active().buffer.to_string();
+    let all = find_all_matches(&text, &query, match_case, whole_word);
+    if all.is_empty() {
+        state.status = "Multi-select next: no matches".into();
+        return;
+    }
+    let from = state
+        .tabs
+        .active()
+        .buffer
+        .selection()
+        .map(|(_, e)| e)
+        .unwrap_or_else(|| state.tabs.active().buffer.caret());
+    let next = all
+        .iter()
+        .copied()
+        .find(|(s, _)| *s >= from)
+        .or_else(|| all.first().copied());
+    let Some((s, e)) = next else {
+        state.status = "Multi-select next: no further match".into();
+        return;
+    };
+    {
+        let doc = state.tabs.active_mut();
+        if !doc.multi_sels.iter().any(|&r| r == (s, e)) {
+            doc.multi_sels.push((s, e));
+        }
+        doc.buffer.set_selection(s, e);
+    }
+    ui.follow_caret = true;
+    let n = state.tabs.active().multi_sels.len();
+    let verb = if skip { "skip" } else { "next" };
+    state.status = format!("Multi-select {verb}: {n} ranges");
+}
+
+fn char_panel_status(state: &mut EditorState) {
+    let buf = &state.tabs.active().buffer;
+    let caret = buf.caret();
+    let text = buf.to_string();
+    let chars: Vec<char> = text.chars().collect();
+    if chars.is_empty() {
+        state.status = "Character panel: empty document".into();
+        return;
+    }
+    let i = caret.min(chars.len().saturating_sub(1));
+    let c = chars[i];
+    let name = if c == ' ' {
+        "SPACE".into()
+    } else if c == '\t' {
+        "TAB".into()
+    } else if c == '\n' {
+        "LF".into()
+    } else if c == '\r' {
+        "CR".into()
+    } else if c.is_control() {
+        format!("control")
+    } else {
+        c.to_string()
+    };
+    state.status = format!(
+        "Character: '{}' U+{:04X} (offset {i}, line {})",
+        name,
+        c as u32,
+        buf.char_to_line(i) + 1
+    );
+}
+
+fn toggle_system_readonly(state: &mut EditorState) {
+    let Some(path) = state.tabs.active().path.clone() else {
+        state.status = "System read-only: save the file first".into();
+        return;
+    };
+    match std::fs::metadata(&path) {
+        Ok(meta) => {
+            let mut perms = meta.permissions();
+            let next = !perms.readonly();
+            perms.set_readonly(next);
+            match std::fs::set_permissions(&path, perms) {
+                Ok(()) => {
+                    state.tabs.active_mut().read_only = next;
+                    state.status = if next {
+                        "System read-only: on (file + app)".into()
+                    } else {
+                        "System read-only: off".into()
+                    };
+                }
+                Err(_) => state.status = "System read-only: permission change failed".into(),
+            }
+        }
+        Err(_) => state.status = "System read-only: cannot read file metadata".into(),
+    }
+}
+
+fn word_complete(state: &mut EditorState) {
+    if state.tabs.active().read_only {
+        state.status = "Document is read-only".into();
+        return;
+    }
+    let buf = &state.tabs.active().buffer;
+    let caret = buf.caret();
+    let (ws, we) = buf.word_bounds_at(caret.saturating_sub(1.min(caret)));
+    if ws >= we || caret < ws || caret > we {
+        state.status = "Word completion: type a prefix first".into();
+        return;
+    }
+    let prefix = buf.slice(ws, caret);
+    if prefix.is_empty() {
+        state.status = "Word completion: type a prefix first".into();
+        return;
+    }
+    let text = buf.to_string();
+    let mut cands = std::collections::BTreeSet::new();
+    let chars: Vec<char> = text.chars().collect();
+    let mut i = 0usize;
+    while i < chars.len() {
+        if is_word_char(chars[i]) {
+            let start = i;
+            while i < chars.len() && is_word_char(chars[i]) {
+                i += 1;
+            }
+            let word: String = chars[start..i].iter().collect();
+            let ok = if prefix.chars().all(|c| c.is_ascii()) {
+                word.len() > prefix.len() && word.to_ascii_lowercase().starts_with(&prefix.to_ascii_lowercase())
+            } else {
+                word.len() > prefix.len() && word.starts_with(&prefix)
+            };
+            if ok {
+                cands.insert(word);
+            }
+        } else {
+            i += 1;
+        }
+    }
+    if cands.is_empty() {
+        state.status = format!("Word completion: no match for '{prefix}'");
+        return;
+    }
+    if cands.len() == 1 {
+        let word = cands.iter().next().unwrap().clone();
+        let rest: String = word.chars().skip(prefix.chars().count()).collect();
+        state.tabs.active_mut().buffer.insert(&rest);
+        state.mark_text_changed();
+        state.status = format!("Word completion: {word}");
+    } else {
+        let preview: Vec<_> = cands.iter().take(5).cloned().collect();
+        state.status = format!(
+            "Word completion: {} matches — {}",
+            cands.len(),
+            preview.join(", ")
+        );
+    }
+}
+
+fn path_complete(state: &mut EditorState) {
+    if state.tabs.active().read_only {
+        state.status = "Document is read-only".into();
+        return;
+    }
+    let buf = &state.tabs.active().buffer;
+    let caret = buf.caret();
+    let text = buf.to_string();
+    let chars: Vec<char> = text.chars().collect();
+    if caret == 0 || caret > chars.len() {
+        state.status = "Path completion: type a path prefix first".into();
+        return;
+    }
+    let mut start = caret;
+    while start > 0 {
+        let c = chars[start - 1];
+        if c.is_whitespace() || matches!(c, '"' | '\'' | '<' | '>' | '|' | '\n' | '\r') {
+            break;
+        }
+        start -= 1;
+    }
+    let partial: String = chars[start..caret].iter().collect();
+    if partial.is_empty() {
+        state.status = "Path completion: type a path prefix first".into();
+        return;
+    }
+    let path = std::path::Path::new(&partial);
+    let (dir, file_prefix) = if partial.ends_with('/') || partial.ends_with('\\') {
+        (path.to_path_buf(), String::new())
+    } else {
+        (
+            path.parent()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| std::path::PathBuf::from(".")),
+            path.file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+        )
+    };
+    let base = if dir.as_os_str().is_empty() {
+        std::path::PathBuf::from(".")
+    } else {
+        dir
+    };
+    let Ok(rd) = std::fs::read_dir(&base) else {
+        state.status = "Path completion: directory not found".into();
+        return;
+    };
+    let mut names: Vec<String> = rd
+        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if file_prefix.is_empty() || name.starts_with(&file_prefix) {
+                Some(name)
+            } else {
+                None
+            }
+        })
+        .collect();
+    names.sort();
+    names.dedup();
+    if names.is_empty() {
+        state.status = "Path completion: no match".into();
+        return;
+    }
+    if names.len() == 1 {
+        let name = &names[0];
+        let rest: String = name.chars().skip(file_prefix.chars().count()).collect();
+        state.tabs.active_mut().buffer.insert(&rest);
+        state.mark_text_changed();
+        state.status = format!("Path completion: {name}");
+    } else {
+        let preview: Vec<_> = names.iter().take(5).cloned().collect();
+        state.status = format!(
+            "Path completion: {} matches — {}",
+            names.len(),
+            preview.join(", ")
+        );
+    }
 }
