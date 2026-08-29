@@ -1,9 +1,7 @@
 //! Format menu commands.
 use super::{CmdResult, UiFlags};
 use crate::editor::EditorState;
-
-/// UTF-8 BOM as a Unicode character. Save writes it as `EF BB BF`.
-const UTF8_BOM: char = '\u{FEFF}';
+use fs::UTF8_BOM_CHAR;
 
 pub fn covers(cmd: &str) -> bool {
     cmd.starts_with("IDM_FORMAT_")
@@ -23,33 +21,33 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Op
             CmdResult::Handled
         }
         "IDM_FORMAT_AS_UTF_8" => {
-            // Encode in UTF-8 without BOM: strip leading BOM; leave EOL alone.
+            // UTF-8 without BOM: strip leading BOM so save writes plain UTF-8.
             let stripped = strip_leading_bom(state);
             state.status = if stripped {
-                "Encoding: UTF-8 (no BOM) — memory is UTF-8; BOM removed from start".into()
+                "Encoding: UTF-8 — save writes UTF-8 without BOM (BOM removed)".into()
             } else {
-                "Encoding: UTF-8 (no BOM) — memory is UTF-8".into()
+                "Encoding: UTF-8 — save writes UTF-8 without BOM".into()
             };
             CmdResult::Handled
         }
         "IDM_FORMAT_UTF_8" => {
-            // Encode in UTF-8-BOM: keep a leading U+FEFF so save writes a BOM.
+            // UTF-8-BOM: keep leading U+FEFF so save writes EF BB BF.
             let added = ensure_leading_bom(state);
             state.status = if added {
-                "Encoding: UTF-8-BOM — memory is UTF-8; BOM at start for save".into()
+                "Encoding: UTF-8-BOM — save writes UTF-8 with BOM".into()
             } else {
-                "Encoding: UTF-8-BOM — memory is UTF-8; BOM already at start".into()
+                "Encoding: UTF-8-BOM — save writes UTF-8 with BOM (already set)".into()
             };
             CmdResult::Handled
         }
         "IDM_FORMAT_ANSI" => {
-            // npp-rs has no ANSI code-page convert. Strip BOM; stay UTF-8 in memory.
+            // ANSI menu: strip BOM; memory stays UTF-8. Save path writes UTF-8 (no BOM).
+            // Load may still decode non-UTF-8 files as Windows-1252 via fs.
             let stripped = strip_leading_bom(state);
             state.status = if stripped {
-                "Encoding: ANSI chosen — stays UTF-8 in memory; BOM removed (no ANSI convert)"
-                    .into()
+                "Encoding: ANSI — save writes UTF-8 without BOM (BOM removed; no code-page re-encode on save)".into()
             } else {
-                "Encoding: ANSI chosen — stays UTF-8 in memory (no ANSI convert)".into()
+                "Encoding: ANSI — save writes UTF-8 without BOM (no code-page re-encode on save)".into()
             };
             CmdResult::Handled
         }
@@ -61,7 +59,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Op
                 .buffer
                 .to_string()
                 .replace("\r\n", "\n")
-                .replace('\n', "\r");
+                .replace('\n', '\r');
             state.tabs.active_mut().buffer.replace_document(&text);
             state.mark_text_changed();
             state.status = "EOL: Macintosh (CR)".into();
@@ -75,7 +73,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Op
 /// Remove a leading UTF-8 BOM character. Does not change EOL. Returns true if removed.
 fn strip_leading_bom(state: &mut EditorState) -> bool {
     let text = state.tabs.active().buffer.to_string();
-    let Some(rest) = text.strip_prefix(UTF8_BOM) else {
+    let Some(rest) = text.strip_prefix(UTF8_BOM_CHAR) else {
         return false;
     };
     state.tabs.active_mut().buffer.replace_document(rest);
@@ -86,11 +84,11 @@ fn strip_leading_bom(state: &mut EditorState) -> bool {
 /// Ensure a leading UTF-8 BOM character. Does not change EOL. Returns true if added.
 fn ensure_leading_bom(state: &mut EditorState) -> bool {
     let text = state.tabs.active().buffer.to_string();
-    if text.starts_with(UTF8_BOM) {
+    if text.starts_with(UTF8_BOM_CHAR) {
         return false;
     }
-    let mut with_bom = String::with_capacity(text.len() + UTF8_BOM.len_utf8());
-    with_bom.push(UTF8_BOM);
+    let mut with_bom = String::with_capacity(text.len() + UTF8_BOM_CHAR.len_utf8());
+    with_bom.push(UTF8_BOM_CHAR);
     with_bom.push_str(&text);
     state.tabs.active_mut().buffer.replace_document(&with_bom);
     state.mark_text_changed();
