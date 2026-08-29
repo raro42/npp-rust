@@ -23,6 +23,8 @@ pub struct Document {
     pub read_only: bool,
     /// Bookmarked line indices (0-based).
     pub bookmarks: BTreeSet<usize>,
+    /// Optional tab color id 1..=5; `None` = default.
+    pub tab_colour: Option<u8>,
 }
 
 impl Document {
@@ -38,6 +40,7 @@ impl Document {
             tail_bytes: 0,
             read_only: false,
             bookmarks: BTreeSet::new(),
+            tab_colour: None,
         }
     }
 
@@ -61,6 +64,7 @@ impl Document {
             tail_bytes,
             read_only: false,
             bookmarks: BTreeSet::new(),
+            tab_colour: None,
         }
     }
 
@@ -176,6 +180,22 @@ impl TabSet {
         } else if index < self.active {
             self.active -= 1;
         }
+        true
+    }
+
+    /// Move the active tab by `delta` (-1 or +1). Returns true if it moved.
+    pub fn move_active_tab(&mut self, delta: isize) -> bool {
+        if self.docs.len() < 2 || delta == 0 {
+            return false;
+        }
+        let from = self.active;
+        let to = from as isize + delta;
+        if to < 0 || to as usize >= self.docs.len() {
+            return false;
+        }
+        let to = to as usize;
+        self.docs.swap(from, to);
+        self.active = to;
         true
     }
 

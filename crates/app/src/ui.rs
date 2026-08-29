@@ -25,6 +25,8 @@ pub struct EditorApp {
     font_size: f32,
     show_goto_line: bool,
     goto_line_input: String,
+    show_summary: bool,
+    show_doc_list: bool,
 }
 
 impl EditorApp {
@@ -42,6 +44,8 @@ impl EditorApp {
             font_size: 14.0,
             show_goto_line: false,
             goto_line_input: String::new(),
+            show_summary: false,
+            show_doc_list: false,
         }
     }
 }
@@ -70,6 +74,8 @@ impl eframe::App for EditorApp {
         self.about_window(ctx);
         self.coming_soon_window(ctx);
         self.goto_line_window(ctx);
+        self.summary_window(ctx);
+        self.doc_list_window(ctx);
     }
 }
 
@@ -225,6 +231,12 @@ impl EditorApp {
                     self.state.tabs.active().buffer.caret(),
                 ) + 1;
                 self.goto_line_input = line.to_string();
+            }
+            if flags.show_summary {
+                self.show_summary = true;
+            }
+            if flags.show_doc_list {
+                self.show_doc_list = true;
             }
             match flags.zoom_delta {
                 Some(1) => self.font_size = (self.font_size + 1.0).min(48.0),
@@ -582,6 +594,87 @@ Tree-sitter highlight, and a calm UI.",
         }
     }
 
+    fn summary_window(&mut self, ctx: &egui::Context) {
+        if !self.show_summary {
+            return;
+        }
+        let doc = self.state.tabs.active();
+        let text = doc.buffer.to_string();
+        let lines = doc.buffer.line_count();
+        let chars = doc.buffer.len_chars();
+        let bytes = text.len();
+        let words = text.split_whitespace().count();
+        let path = doc
+            .path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "(untitled)".into());
+        let title = doc.title.clone();
+        let language = doc.language.clone();
+        let dirty = doc.dirty;
+        let read_only = doc.read_only;
+        let marks = doc.bookmarks.len();
+        let mut open = self.show_summary;
+        let mut close = false;
+        egui::Window::new("Summary")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.label(format!("Title: {title}"));
+                ui.label(format!("Path: {path}"));
+                ui.label(format!("Language: {language}"));
+                ui.label(format!("Lines: {lines}"));
+                ui.label(format!("Words: {words}"));
+                ui.label(format!("Characters: {chars}"));
+                ui.label(format!("Bytes: {bytes}"));
+                ui.label(format!("Dirty: {dirty}"));
+                ui.label(format!("Read-only: {read_only}"));
+                ui.label(format!("Bookmarks: {marks}"));
+                if ui.button("Close").clicked() {
+                    close = true;
+                }
+            });
+        self.show_summary = open && !close;
+    }
+
+    fn doc_list_window(&mut self, ctx: &egui::Context) {
+        if !self.show_doc_list {
+            return;
+        }
+        let mut open = self.show_doc_list;
+        let mut switch_to = None;
+        let mut close = false;
+        egui::Window::new("Document List")
+            .open(&mut open)
+            .default_width(420.0)
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
+                    for i in 0..self.state.tabs.len() {
+                        let doc = self.state.tabs.get(i).unwrap();
+                        let mut label = doc.title.clone();
+                        if doc.dirty {
+                            label.push('*');
+                        }
+                        if ui
+                            .selectable_label(i == self.state.tabs.active_index(), label)
+                            .clicked()
+                        {
+                            switch_to = Some(i);
+                        }
+                    }
+                });
+                if ui.button("Close").clicked() {
+                    close = true;
+                }
+            });
+        if let Some(i) = switch_to {
+            self.state.switch_tab(i);
+            close = true;
+        }
+        self.show_doc_list = open && !close;
+    }
+
     fn tab_bar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("tabs").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -601,7 +694,22 @@ Tree-sitter highlight, and a calm UI.",
                         label.push_str(" …");
                     }
                     let selected = i == self.state.tabs.active_index();
-                    let resp = ui.selectable_label(selected, label);
+                    let colour = match doc.tab_colour {
+                        Some(1) => Some(Color32::from_rgb(180, 70, 70)),
+                        Some(2) => Some(Color32::from_rgb(70, 140, 80)),
+                        Some(3) => Some(Color32::from_rgb(70, 110, 180)),
+                        Some(4) => Some(Color32::from_rgb(160, 120, 40)),
+                        Some(5) => Some(Color32::from_rgb(140, 70, 160)),
+                        _ => None,
+                    };
+                    let resp = if let Some(c) = colour {
+                        ui.add(egui::SelectableLabel::new(
+                            selected,
+                            RichText::new(label).color(c),
+                        ))
+                    } else {
+                        ui.selectable_label(selected, label)
+                    };
                     if resp.clicked() {
                         switch_to = Some(i);
                     }
@@ -953,6 +1061,75 @@ Tree-sitter highlight, and a calm UI.",
                     hl,
                     &lang,
                 );
+
+                // Whitespace / NPC / EOL overlays
+                let ws_color = Color32::from_rgb(90, 110, 140);
+                if self.state.show_whitespace || self.state.show_npc {
+                    let mut col = 0usize;
+                    for ch in line_text.chars() {
+                        let x = text_left
+                            + text_width(
+                                ui,
+                                &font_id,
+                                &line_text.chars().take(col).collect::<String>(),
+                            );
+                        let mark = if self.state.show_whitespace && ch == ' ' {
+                            Some("·")
+                        } else if self.state.show_whitespace && ch == '\t' {
+                            Some("→")
+                        } else if self.state.show_npc && ch.is_control() {
+                            Some("·")
+                        } else {
+                            None
+                        };
+                        if let Some(m) = mark {
+                            painter.text(
+                                Pos2::new(x, y),
+                                egui::Align2::LEFT_TOP,
+                                m,
+                                font_id.clone(),
+                                ws_color,
+                            );
+                        }
+                        col += 1;
+                    }
+                }
+                if self.state.show_eol {
+                    let x = text_left + text_width(ui, &font_id, line_text);
+                    painter.text(
+                        Pos2::new(x, y),
+                        egui::Align2::LEFT_TOP,
+                        "¶",
+                        font_id.clone(),
+                        ws_color,
+                    );
+                }
+                if self.state.show_indent_guide {
+                    let avail = (rect.right() - text_left).max(0.0);
+                    let col_w = text_width(ui, &font_id, " ");
+                    if col_w > 0.0 {
+                        let mut gx = text_left + col_w * 4.0;
+                        while gx < text_left + avail {
+                            painter.line_segment(
+                                [Pos2::new(gx, y), Pos2::new(gx, y + row_height)],
+                                egui::Stroke::new(1.0, Color32::from_rgb(55, 55, 65)),
+                            );
+                            gx += col_w * 4.0;
+                        }
+                    }
+                }
+                if self.state.word_wrap {
+                    let max_w = (rect.right() - text_left - 8.0).max(40.0);
+                    if text_width(ui, &font_id, line_text) > max_w {
+                        painter.text(
+                            Pos2::new(rect.right() - 14.0, y),
+                            egui::Align2::LEFT_TOP,
+                            "↩",
+                            font_id.clone(),
+                            ws_color,
+                        );
+                    }
+                }
 
                 // Caret
                 let caret = self.state.tabs.active().buffer.caret();

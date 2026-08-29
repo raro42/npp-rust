@@ -35,6 +35,16 @@ pub struct EditorState {
     pub begin_end_select: Option<usize>,
     /// Search-on-Internet base URL (query is appended).
     pub search_engine: String,
+    /// Show space/tab glyphs in the editor.
+    pub show_whitespace: bool,
+    /// Show end-of-line marks.
+    pub show_eol: bool,
+    /// Show other non-printing / control characters.
+    pub show_npc: bool,
+    /// Draw vertical indent guides (every 4 columns).
+    pub show_indent_guide: bool,
+    /// Soft word wrap (visual; hit-test stays line-based for now).
+    pub word_wrap: bool,
 }
 
 impl Default for EditorState {
@@ -61,6 +71,11 @@ impl EditorState {
             tail_last_poll: Instant::now() - Duration::from_secs(1),
             begin_end_select: None,
             search_engine: "https://duckduckgo.com/?q=".into(),
+            show_whitespace: false,
+            show_eol: false,
+            show_npc: false,
+            show_indent_guide: false,
+            word_wrap: false,
         }
     }
 

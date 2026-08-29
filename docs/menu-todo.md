@@ -1,69 +1,10 @@
 # Menu implementation todo
 
-Date: 2026-08-28
+Date: 2026-08-29
 
-Ready: **324**. Remaining stubs: **152**.
+Ready: **348**. Remaining stubs: **128**.
 
 Teal menu labels = ready.
-
-## View (56)
-
-- [ ] `IDM_VIEW_POSTIT` — View/Post-It
-- [ ] `IDM_VIEW_TAB_SPACE` — View/Show Symbol/Show Space and Tab
-- [ ] `IDM_VIEW_EOL` — View/Show Symbol/Show End of Line
-- [ ] `IDM_VIEW_NPC` — View/Show Symbol/Show Non-Printing Characters
-- [ ] `IDM_VIEW_NPC_CCUNIEOL` — View/Show Symbol/Show Control Characters  Unicode EOL
-- [ ] `IDM_VIEW_ALL_CHARACTERS` — View/Show Symbol/Show All Characters
-- [ ] `IDM_VIEW_INDENT_GUIDE` — View/Show Symbol/Show Indent Guide
-- [ ] `IDM_VIEW_WRAP_SYMBOL` — View/Show Symbol/Show Wrap Symbol
-- [ ] `IDM_VIEW_ZOOM_SYNC` — View/Zoom/Synchronize Across Views
-- [ ] `IDM_VIEW_GOTO_ANOTHER_VIEW` — View/Move/Clone Current Document/Move to Other View
-- [ ] `IDM_VIEW_CLONE_TO_ANOTHER_VIEW` — View/Move/Clone Current Document/Clone to Other View
-- [ ] `IDM_VIEW_GOTO_NEW_INSTANCE` — View/Move/Clone Current Document/Move to New Instance
-- [ ] `IDM_VIEW_LOAD_IN_NEW_INSTANCE` — View/Move/Clone Current Document/Open in New Instance
-- [ ] `IDM_VIEW_TAB_MOVEFORWARD` — View/Tab/Move Tab Forward
-- [ ] `IDM_VIEW_TAB_MOVEBACKWARD` — View/Tab/Move Tab Backward
-- [ ] `IDM_VIEW_TAB_COLOUR_1` — View/Tab/Apply Color 1
-- [ ] `IDM_VIEW_TAB_COLOUR_2` — View/Tab/Apply Color 2
-- [ ] `IDM_VIEW_TAB_COLOUR_3` — View/Tab/Apply Color 3
-- [ ] `IDM_VIEW_TAB_COLOUR_4` — View/Tab/Apply Color 4
-- [ ] `IDM_VIEW_TAB_COLOUR_5` — View/Tab/Apply Color 5
-- [ ] `IDM_VIEW_TAB_COLOUR_NONE` — View/Tab/Remove Color
-- [ ] `IDM_VIEW_WRAP` — View/Word wrap
-- [ ] `IDM_VIEW_SWITCHTO_OTHER_VIEW` — View/Focus on Another View
-- [ ] `IDM_VIEW_HIDELINES` — View/Hide Lines
-- [ ] `IDM_VIEW_FOLDALL` — View/Fold All
-- [ ] `IDM_VIEW_UNFOLDALL` — View/Unfold All
-- [ ] `IDM_VIEW_FOLD_CURRENT` — View/Fold Current Level
-- [ ] `IDM_VIEW_UNFOLD_CURRENT` — View/Unfold Current Level
-- [ ] `IDM_VIEW_FOLD_1` — View/Fold Level/1
-- [ ] `IDM_VIEW_FOLD_2` — View/Fold Level/2
-- [ ] `IDM_VIEW_FOLD_3` — View/Fold Level/3
-- [ ] `IDM_VIEW_FOLD_4` — View/Fold Level/4
-- [ ] `IDM_VIEW_FOLD_5` — View/Fold Level/5
-- [ ] `IDM_VIEW_FOLD_6` — View/Fold Level/6
-- [ ] `IDM_VIEW_FOLD_7` — View/Fold Level/7
-- [ ] `IDM_VIEW_FOLD_8` — View/Fold Level/8
-- [ ] `IDM_VIEW_UNFOLD_1` — View/Unfold Level/1
-- [ ] `IDM_VIEW_UNFOLD_2` — View/Unfold Level/2
-- [ ] `IDM_VIEW_UNFOLD_3` — View/Unfold Level/3
-- [ ] `IDM_VIEW_UNFOLD_4` — View/Unfold Level/4
-- [ ] `IDM_VIEW_UNFOLD_5` — View/Unfold Level/5
-- [ ] `IDM_VIEW_UNFOLD_6` — View/Unfold Level/6
-- [ ] `IDM_VIEW_UNFOLD_7` — View/Unfold Level/7
-- [ ] `IDM_VIEW_UNFOLD_8` — View/Unfold Level/8
-- [ ] `IDM_VIEW_SUMMARY` — View/Summary...
-- [ ] `IDM_VIEW_PROJECT_PANEL_1` — View/Project Panels/Project Panel 1
-- [ ] `IDM_VIEW_PROJECT_PANEL_2` — View/Project Panels/Project Panel 2
-- [ ] `IDM_VIEW_PROJECT_PANEL_3` — View/Project Panels/Project Panel 3
-- [ ] `IDM_VIEW_FILEBROWSER` — View/Folder as Workspace
-- [ ] `IDM_VIEW_DOC_MAP` — View/Document Map
-- [ ] `IDM_VIEW_DOCLIST` — View/Document List
-- [ ] `IDM_VIEW_FUNC_LIST` — View/Function List
-- [ ] `IDM_VIEW_SYNSCROLLV` — View/Synchronize Vertical Scrolling
-- [ ] `IDM_VIEW_SYNSCROLLH` — View/Synchronize Horizontal Scrolling
-- [ ] `IDM_EDIT_RTL` — View/Text Direction RTL
-- [ ] `IDM_EDIT_LTR` — View/Text Direction LTR
 
 ## Search (45)
 
@@ -147,6 +88,41 @@ Teal menu labels = ready.
 - [ ] `IDM_EDIT_CHAR_PANEL` — Edit/Character Panel
 - [ ] `IDM_EDIT_CLIPBOARDHISTORY_PANEL` — Edit/Clipboard History
 - [ ] `IDM_EDIT_TOGGLESYSTEMREADONLY` — Edit/Read-Only Attribute in Windows
+
+## View (32)
+
+- [ ] `IDM_VIEW_POSTIT` — View/Post-It
+- [ ] `IDM_VIEW_GOTO_ANOTHER_VIEW` — View/Move/Clone Current Document/Move to Other View
+- [ ] `IDM_VIEW_CLONE_TO_ANOTHER_VIEW` — View/Move/Clone Current Document/Clone to Other View
+- [ ] `IDM_VIEW_GOTO_NEW_INSTANCE` — View/Move/Clone Current Document/Move to New Instance
+- [ ] `IDM_VIEW_LOAD_IN_NEW_INSTANCE` — View/Move/Clone Current Document/Open in New Instance
+- [ ] `IDM_VIEW_SWITCHTO_OTHER_VIEW` — View/Focus on Another View
+- [ ] `IDM_VIEW_HIDELINES` — View/Hide Lines
+- [ ] `IDM_VIEW_FOLDALL` — View/Fold All
+- [ ] `IDM_VIEW_UNFOLDALL` — View/Unfold All
+- [ ] `IDM_VIEW_FOLD_CURRENT` — View/Fold Current Level
+- [ ] `IDM_VIEW_UNFOLD_CURRENT` — View/Unfold Current Level
+- [ ] `IDM_VIEW_FOLD_1` — View/Fold Level/1
+- [ ] `IDM_VIEW_FOLD_2` — View/Fold Level/2
+- [ ] `IDM_VIEW_FOLD_3` — View/Fold Level/3
+- [ ] `IDM_VIEW_FOLD_4` — View/Fold Level/4
+- [ ] `IDM_VIEW_FOLD_5` — View/Fold Level/5
+- [ ] `IDM_VIEW_FOLD_6` — View/Fold Level/6
+- [ ] `IDM_VIEW_FOLD_7` — View/Fold Level/7
+- [ ] `IDM_VIEW_FOLD_8` — View/Fold Level/8
+- [ ] `IDM_VIEW_UNFOLD_1` — View/Unfold Level/1
+- [ ] `IDM_VIEW_UNFOLD_2` — View/Unfold Level/2
+- [ ] `IDM_VIEW_UNFOLD_3` — View/Unfold Level/3
+- [ ] `IDM_VIEW_UNFOLD_4` — View/Unfold Level/4
+- [ ] `IDM_VIEW_UNFOLD_5` — View/Unfold Level/5
+- [ ] `IDM_VIEW_UNFOLD_6` — View/Unfold Level/6
+- [ ] `IDM_VIEW_UNFOLD_7` — View/Unfold Level/7
+- [ ] `IDM_VIEW_UNFOLD_8` — View/Unfold Level/8
+- [ ] `IDM_VIEW_PROJECT_PANEL_1` — View/Project Panels/Project Panel 1
+- [ ] `IDM_VIEW_PROJECT_PANEL_2` — View/Project Panels/Project Panel 2
+- [ ] `IDM_VIEW_PROJECT_PANEL_3` — View/Project Panels/Project Panel 3
+- [ ] `IDM_VIEW_DOC_MAP` — View/Document Map
+- [ ] `IDM_VIEW_FUNC_LIST` — View/Function List
 
 ## File (6)
 
