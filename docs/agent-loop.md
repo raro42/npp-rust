@@ -11,9 +11,26 @@ Pick up open GitHub issues, turn them into **sanitized** task files, then (optio
 ## Run
 
 ```bash
-./agents/npp-cursor-loop.sh once    # one cycle
+./agents/npp-cursor-loop.sh once    # one cycle (pickup + coder)
 ./agents/npp-cursor-loop.sh loop    # every AGENT_LOOP_SLEEP_MINUTES (default 15)
 ./agents/npp-cursor-loop.sh 001     # issue pickup only
+```
+
+### Auto-coder (002)
+
+When `cursor-agent` is on `PATH` (usually `~/.local/bin`), the loop **runs the coder by default**.
+
+| Env | Meaning |
+|-----|---------|
+| unset | Auto: `1` if `cursor-agent` exists, else `0` |
+| `AGENT_USE_CURSOR=1` | Force coder on |
+| `AGENT_USE_CURSOR=0` | Pickup only (no edits) |
+
+Restart after changing the script:
+
+```bash
+pkill -f 'npp-cursor-loop.sh loop' || true
+./agents/npp-cursor-loop.sh loop
 ```
 
 Issue pickup only:

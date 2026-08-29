@@ -7,7 +7,7 @@
 # Env:
 #   NPP_GH_REPO=raro42/npp-rust
 #   AGENT_LOOP_SLEEP_MINUTES=15
-#   AGENT_USE_CURSOR=1   # if cursor-agent is on PATH, run 002 after issue pickup
+#   AGENT_USE_CURSOR=1|0   # default: 1 when cursor-agent is on PATH
 
 set -euo pipefail
 
@@ -18,7 +18,19 @@ GH_REPO="${NPP_GH_REPO:-raro42/npp-rust}"
 sleepminutes="${AGENT_LOOP_SLEEP_MINUTES:-15}"
 sleepseconds=$((sleepminutes * 60))
 
+# cursor-agent often lives in ~/.local/bin
+export PATH="${HOME}/.local/bin:/usr/local/bin:${PATH}"
+
 cd "$REPO_ROOT"
+
+# Enable auto-coder when the CLI is present, unless the user set AGENT_USE_CURSOR=0.
+if [[ -z "${AGENT_USE_CURSOR+x}" ]]; then
+  if command -v cursor-agent >/dev/null 2>&1; then
+    AGENT_USE_CURSOR=1
+  else
+    AGENT_USE_CURSOR=0
+  fi
+fi
 
 ensure_gh_auth_env() {
   command -v gh >/dev/null 2>&1 || return 0
@@ -50,7 +62,7 @@ step_001_issues() {
   NPP_GH_REPO="$GH_REPO" python3 "${SCRIPTDIR}/issue_checker.py"
 }
 
-step_002_coder_hint() {
+step_002_coder() {
   local feat wip
   feat="$(ls -1 "$TASKDIR"/FEAT-*.md 2>/dev/null | head -n 1 || true)"
   wip="$(ls -1 "$TASKDIR"/WIP-*.md 2>/dev/null | head -n 1 || true)"
@@ -59,19 +71,20 @@ step_002_coder_hint() {
     echo "----- 002: no FEAT or WIP tasks"
     return 0
   fi
-  echo "----- 002: pending $(basename "$task")"
-  if [[ "${AGENT_USE_CURSOR:-0}" == "1" ]] && command -v cursor-agent >/dev/null 2>&1; then
-    cursor-agent -p --force "Follow agents/002-coder.md. Implement the oldest FEAT or WIP task under agents/tasks/. Obey .cursor/rules/public-repo-no-exfiltration.mdc. Never post private data."
+  echo "----- 002: pending $(basename "$task") (AGENT_USE_CURSOR=${AGENT_USE_CURSOR})"
+  if [[ "${AGENT_USE_CURSOR}" == "1" ]] && command -v cursor-agent >/dev/null 2>&1; then
+    echo "----- 002: starting cursor-agent coder"
+    cursor-agent -p --force --trust --workspace "$REPO_ROOT" \
+      "Follow agents/002-coder.md. Implement the oldest FEAT or WIP task under agents/tasks/. Prefer clearing menu stubs in docs/menu-todo.md for issue #1. Obey .cursor/rules/public-repo-no-exfiltration.mdc. Never post private data. Do not push unless the task says so."
   else
-    echo "----- 002: pickup only — set AGENT_USE_CURSOR=1 and install cursor-agent to auto-code"
-    echo "----- 002: (session agents must clear WIP; this loop does not edit code by default)"
+    echo "----- 002: coder off — set AGENT_USE_CURSOR=1 and ensure cursor-agent is on PATH"
   fi
 }
 
 run_once() {
   sync_dev
   step_001_issues
-  step_002_coder_hint
+  step_002_coder
   echo "===== cycle done"
 }
 
@@ -79,6 +92,7 @@ cmd="${1:-once}"
 case "$cmd" in
   once) run_once ;;
   loop)
+    echo "===== npp loop start AGENT_USE_CURSOR=${AGENT_USE_CURSOR} sleep=${sleepminutes}m"
     while true; do
       run_once || true
       echo "----- sleep ${sleepminutes}m"
