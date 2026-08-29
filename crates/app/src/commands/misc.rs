@@ -8,7 +8,6 @@ pub fn covers(cmd: &str) -> bool {
     cmd.starts_with("IDM_TOOL_")
         || cmd.starts_with("IDM_WINDOW_")
         || cmd.starts_with("IDM_SETTING_")
-        || cmd.starts_with("IDM_CMDLINE")
         || cmd.starts_with("IDM_EXECUTE")
 }
 
@@ -155,12 +154,6 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             open_path_in_os(state, &dir);
             CmdResult::Handled
         }
-        "IDM_CMDLINEARGUMENTS" => {
-            state.status =
-                "npp-rs: open files via OS / drag-drop; no CLI flags yet (see README)".into();
-            CmdResult::Handled
-        }
-
         _ => CmdResult::Stub,
     })
 }

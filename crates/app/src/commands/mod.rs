@@ -437,10 +437,10 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
     if let Some(r) = lang::try_dispatch(cmd, state, ui) {
         return r;
     }
-    if let Some(r) = misc::try_dispatch(cmd, state, ui) {
+    if let Some(r) = help::try_dispatch(cmd, state, ui) {
         return r;
     }
-    if let Some(r) = help::try_dispatch(cmd, state, ui) {
+    if let Some(r) = misc::try_dispatch(cmd, state, ui) {
         return r;
     }
     if let Some(r) = macro_cmds::try_dispatch(cmd, state, ui) {

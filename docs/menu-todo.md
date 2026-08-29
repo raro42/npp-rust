@@ -41,7 +41,9 @@ It is **not** a full Notepad++ Preferences clone (tabs, margins, multi-language 
 
 _(cleared — Document Map + Function List open egui panels)_
 
-### Edit (1)
+_(cleared — Document Map + Function List open egui panels)_
+
+### Edit (0)
 
 - [ ] `IDM_EDIT_CHAR_PANEL` — Edit/Character Panel (no `show_char_panel` UiFlag yet; status shows char at caret; UI agent owns panel)
 
@@ -68,5 +70,8 @@ Paint path hides `hidden_lines` and paints `style_marks` / bookmark ticks. Menu 
 - Encoding ANSI / UTF-8 / UTF-8-BOM: strip or keep leading U+FEFF for save; memory stays UTF-8; no ANSI convert (3)
 - Edit column editor: insert clipboard text (or 0,1,2…) at caret column on selected lines / multi-carets; tip documents that path (2)
 - Edit function call tip: status tip from word under caret + cycle call-site snippets in file (no LSP) (3)
+- View Document Map: density strip; click/drag sets `scroll_line` (`UiFlags.show_doc_map`) (1)
+- View Function List: fn/class-like line list; click jumps caret (`UiFlags.show_func_list`) (1)
+- Edit Character Panel: egui grid inserts basic/unicode at caret (`UiFlags.show_char_panel`) (1)
 - Settings Shortcut Mapper / Style Config tabs; Import plugins+themes open folders; Plugin Admin list (5)
 - Run… (rfd pick or shell-here) + validate shortcuts.xml absence (2)
