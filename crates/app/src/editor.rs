@@ -68,6 +68,7 @@ pub enum BulkClose {
     None,
     All,
     AllButCurrent,
+    AllButPinned,
     AllToLeft,
     AllToRight,
     AllUnchanged,
@@ -536,6 +537,31 @@ impl EditorState {
                     }
                     self.close_tab(idx);
                 }
+                BulkClose::AllButPinned => {
+                    let mut found = None;
+                    for i in 0..self.tabs.len() {
+                        if !self.tabs.get(i).map(|d| d.pinned).unwrap_or(false) {
+                            found = Some(i);
+                            break;
+                        }
+                    }
+                    match found {
+                        Some(idx) => {
+                            let dirty = self.tabs.get(idx).map(|d| d.dirty).unwrap_or(false);
+                            if dirty {
+                                self.tabs.set_active(idx);
+                                self.pending_close = Some(idx);
+                                self.status = "Document has unsaved changes".into();
+                                return;
+                            }
+                            self.close_tab(idx);
+                        }
+                        None => {
+                            self.bulk_close = BulkClose::None;
+                            return;
+                        }
+                    }
+                }
                 BulkClose::AllToLeft => {
                     let keep = self.tabs.active_index();
                     if keep == 0 {
@@ -926,6 +952,19 @@ impl EditorState {
         self.start_bulk_close(BulkClose::AllButCurrent);
         if self.pending_close.is_none() {
             self.status = "Closed all but active".into();
+        }
+    }
+
+    /// Close tabs with `pinned == false`. Keeps pinned tabs.
+    /// Pin UI may be missing; with no pins, closes nothing.
+    pub fn close_all_but_pinned(&mut self) {
+        if !self.tabs.iter().any(|d| d.pinned) {
+            self.status = "Nothing pinned — closed none".into();
+            return;
+        }
+        self.start_bulk_close(BulkClose::AllButPinned);
+        if self.pending_close.is_none() {
+            self.status = "Closed all but pinned".into();
         }
     }
 

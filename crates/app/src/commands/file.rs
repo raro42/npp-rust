@@ -94,9 +94,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_FILE_CLOSEALL_BUT_PINNED" => {
-            // Pins not modelled yet — same as close all but current.
-            state.close_all_but_current();
-            state.status = "Closed all but current (pins not supported yet)".into();
+            state.close_all_but_pinned();
             CmdResult::Handled
         }
         "IDM_FILE_DELETE" => {

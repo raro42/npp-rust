@@ -27,6 +27,8 @@ pub struct Document {
     pub hidden_lines: BTreeSet<usize>,
     /// Optional tab color id 1..=5; `None` = default.
     pub tab_colour: Option<u8>,
+    /// Pinned tab: kept by Close All but Pinned. Default false. Pin UI may be missing.
+    pub pinned: bool,
     /// Style marks 1..=5: line indices (Search → Style).
     pub style_marks: [BTreeSet<usize>; 5],
     /// Extra multi-select ranges (char indices), newest last. Primary selection is separate.
@@ -48,6 +50,7 @@ impl Document {
             bookmarks: BTreeSet::new(),
             hidden_lines: BTreeSet::new(),
             tab_colour: None,
+            pinned: false,
             style_marks: Default::default(),
             multi_sels: Vec::new(),
         }
@@ -75,6 +78,7 @@ impl Document {
             bookmarks: BTreeSet::new(),
             hidden_lines: BTreeSet::new(),
             tab_colour: None,
+            pinned: false,
             style_marks: Default::default(),
             multi_sels: Vec::new(),
         }

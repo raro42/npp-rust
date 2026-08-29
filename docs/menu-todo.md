@@ -12,8 +12,8 @@ Many teal items only set a status-bar message. That inflated “Ready 477 / stub
 | Class | Count | Meaning |
 |-------|------:|---------|
 | Explicit handlers | 343 | Match arms in `commands/*.rs` |
-| Useful behaviour | 308 | Change buffer or UI beyond a note |
-| Placeholder / status-only | 35 | Partial or “not yet” |
+| Useful behaviour | 309 | Change buffer or UI beyond a note |
+| Placeholder / status-only | 34 | Partial or “not yet” |
 | Menu IDs in export | 478 | From `npp_menu.json` |
 
 ## Preferences
@@ -84,10 +84,6 @@ It is **not** a full Notepad++ Preferences clone (tabs, margins, multi-language 
 - [ ] `IDM_CMDLINEARGUMENTS` — ?/Command Line Arguments...
 - [ ] `IDM_SETTING_PLUGINADM` — IDM_SETTING_PLUGINADM
 
-### File (1)
-
-- [ ] `IDM_FILE_CLOSEALL_BUT_PINNED` — File/Close Multiple Documents/Close All but Pinned Documents
-
 ## Cleared this batch (2026-08-29)
 
 Paint path hides `hidden_lines` and paints `style_marks` / bookmark ticks. Menu Cut/Copy/Paste use the session clipboard. Find-mark jump uses bookmarks.
@@ -99,3 +95,4 @@ Paint path hides `hidden_lines` and paints `style_marks` / bookmark ticks. Menu 
 - Help URLs + Changelog (6)
 - Preferences + Open Plugins Folder (2)
 - File delete / print / session load-save (5)
+- File Close All but Pinned (`Document.pinned`; no pin UI yet → status “Nothing pinned — closed none”) (1)
