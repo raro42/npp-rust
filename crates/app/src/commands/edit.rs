@@ -769,14 +769,12 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_COLUMNMODETIP" => {
-            state.status =
-                "Column mode tip: hold Alt while dragging to select a rectangle (editor later)"
-                    .into();
+            state.status = "Column tip: select lines (or multi-carets), copy one-line text, then                 Column Editor inserts it at the caret column. Empty clipboard inserts 0,1,2…"
+                .into();
             CmdResult::Handled
         }
         "IDM_EDIT_COLUMNMODE" => {
-            state.status =
-                "Column editor: not wired yet — use Alt+drag tip for now".into();
+            column_editor_insert(state, ui);
             CmdResult::Handled
         }
         "IDM_EDIT_CHAR_PANEL" => {
@@ -810,16 +808,15 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_FUNCCALLTIP" => {
-            state.status =
-                "Function tip: place caret inside call args; full tip UI later".into();
+            func_call_tip(state, 0);
             CmdResult::Handled
         }
         "IDM_EDIT_FUNCCALLTIP_PREVIOUS" => {
-            state.status = "Function tip: previous overload (tip UI later)".into();
+            func_call_tip(state, -1);
             CmdResult::Handled
         }
         "IDM_EDIT_FUNCCALLTIP_NEXT" => {
-            state.status = "Function tip: next overload (tip UI later)".into();
+            func_call_tip(state, 1);
             CmdResult::Handled
         }
 
@@ -985,6 +982,194 @@ fn multi_select_next(
     state.status = format!("Multi-select {verb}: {n} ranges");
 }
 
+
+
+/// Insert clipboard text (or 0,1,2…) at the caret column on each selected line,
+/// or at each multi-select start.
+fn column_editor_insert(state: &mut EditorState, ui: &mut UiFlags) {
+    if state.tabs.active().read_only {
+        state.status = "Document is read-only".into();
+        return;
+    }
+    let clip = ui
+        .last_copied
+        .as_ref()
+        .filter(|s| !s.is_empty() && !s.contains('\n'))
+        .cloned();
+    let multi = state.tabs.active().multi_sels.clone();
+
+    if multi.len() >= 2 {
+        let mut starts: Vec<usize> = multi.iter().map(|&(s, _)| s).collect();
+        starts.sort_unstable();
+        starts.dedup();
+        let n = starts.len();
+        for (ord, &pos) in starts.iter().enumerate().rev() {
+            let piece = match &clip {
+                Some(t) => t.clone(),
+                None => format!("{ord}"),
+            };
+            state.tabs.active_mut().buffer.set_caret(pos);
+            state.tabs.active_mut().buffer.insert(&piece);
+        }
+        state.mark_text_changed();
+        ui.follow_caret = true;
+        state.status = if clip.is_some() {
+            format!("Column editor: inserted clipboard text at {n} carets")
+        } else {
+            format!("Column editor: inserted numbers at {n} carets")
+        };
+        return;
+    }
+
+    let (start_line, end_line, col) = {
+        let buf = &state.tabs.active().buffer;
+        let (start_line, end_line) = buf.selected_line_range();
+        let col = if let Some((s, _)) = buf.selection() {
+            s.saturating_sub(buf.line_to_char(buf.char_to_line(s)))
+        } else {
+            let c = buf.caret();
+            c.saturating_sub(buf.line_to_char(buf.char_to_line(c)))
+        };
+        (start_line, end_line, col)
+    };
+
+    for line in (start_line..=end_line).rev() {
+        let piece = match &clip {
+            Some(t) => t.clone(),
+            None => format!("{}", line - start_line),
+        };
+        let line_start = state.tabs.active().buffer.line_to_char(line);
+        let raw = state.tabs.active().buffer.line(line);
+        let body_len = raw.trim_end_matches(['\n', '\r']).chars().count();
+        if col > body_len {
+            let pad = col - body_len;
+            state
+                .tabs
+                .active_mut()
+                .buffer
+                .set_caret(line_start + body_len);
+            let mut s = " ".repeat(pad);
+            s.push_str(&piece);
+            state.tabs.active_mut().buffer.insert(&s);
+        } else {
+            state
+                .tabs
+                .active_mut()
+                .buffer
+                .set_caret(line_start + col);
+            state.tabs.active_mut().buffer.insert(&piece);
+        }
+    }
+    state.mark_text_changed();
+    ui.follow_caret = true;
+    let n_lines = end_line - start_line + 1;
+    state.status = if clip.is_some() {
+        format!("Column editor: inserted clipboard text on {n_lines} lines (col {col})")
+    } else {
+        format!("Column editor: inserted numbers on {n_lines} lines (col {col})")
+    };
+}
+
+thread_local! {
+    static CALL_TIP_WORD: std::cell::RefCell<String> = std::cell::RefCell::new(String::new());
+    static CALL_TIP_IDX: std::cell::Cell<usize> = std::cell::Cell::new(0);
+}
+
+/// Minimal function call tip from the word under the caret (no LSP).
+fn func_call_tip(state: &mut EditorState, delta: i8) {
+    let word = call_tip_word(state);
+    if word.is_empty() {
+        state.status = "Call tip: place caret on a function name".into();
+        return;
+    }
+    let hints = call_tip_hints(state, &word);
+    if hints.is_empty() {
+        state.status = format!("Call tip: {word}(…) — no call sites in this file");
+        return;
+    }
+    let mut idx = CALL_TIP_WORD.with(|w| {
+        let mut stored = w.borrow_mut();
+        if *stored != word {
+            *stored = word.clone();
+            CALL_TIP_IDX.set(0);
+        }
+        CALL_TIP_IDX.get()
+    });
+    let n = hints.len();
+    if delta > 0 {
+        idx = (idx + 1) % n;
+    } else if delta < 0 {
+        idx = if idx == 0 { n - 1 } else { idx - 1 };
+    }
+    CALL_TIP_IDX.set(idx);
+    state.status = format!("Call tip [{}/{n}]: {}", idx + 1, hints[idx]);
+}
+
+fn call_tip_word(state: &EditorState) -> String {
+    let buf = &state.tabs.active().buffer;
+    let caret = buf.caret();
+    let text = buf.to_string();
+    let chars: Vec<char> = text.chars().collect();
+    if chars.is_empty() {
+        return String::new();
+    }
+    // Prefer the name before '(' when the caret is inside call arguments.
+    let mut i = caret.min(chars.len());
+    while i > 0 {
+        let c = chars[i - 1];
+        if c == '(' {
+            let before = i.saturating_sub(2);
+            let (ws, we) = buf.word_bounds_at(before);
+            if ws < we {
+                return buf.slice(ws, we);
+            }
+            break;
+        }
+        if c == ')' || c == ';' || c == '{' || c == '\n' || c == '\r' {
+            break;
+        }
+        i -= 1;
+    }
+    let last = chars.len().saturating_sub(1);
+    let probe = if caret > 0 && caret <= chars.len() && !is_word_char(chars[caret.min(last)]) {
+        caret.saturating_sub(1)
+    } else {
+        caret.min(last)
+    };
+    let (ws, we) = buf.word_bounds_at(probe);
+    if ws < we {
+        buf.slice(ws, we)
+    } else {
+        String::new()
+    }
+}
+
+fn call_tip_hints(state: &EditorState, word: &str) -> Vec<String> {
+    let text = state.tabs.active().buffer.to_string();
+    let needle = format!("{word}(");
+    let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for (line_no, line) in text.lines().enumerate() {
+        if let Some(at) = line.find(&needle) {
+            let after = &line[at + word.len()..];
+            let close = after.find(')').map(|i| i + 1).unwrap_or(after.len().min(48));
+            let snippet: String = after.chars().take(close.max(1)).collect();
+            let tip = format!("{word}{snippet}");
+            let tip = if tip.chars().count() > 72 {
+                format!("{}…", tip.chars().take(71).collect::<String>())
+            } else {
+                tip
+            };
+            if seen.insert(tip.clone()) {
+                out.push(format!("L{} {tip}", line_no + 1));
+            }
+        }
+    }
+    if out.is_empty() {
+        out.push(format!("{word}(…)"));
+    }
+    out
+}
 
 fn toggle_system_readonly(state: &mut EditorState) {
     let Some(path) = state.tabs.active().path.clone() else {
