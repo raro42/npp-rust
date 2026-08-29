@@ -67,6 +67,8 @@ pub struct EditorState {
     pub macro_cmds: Vec<String>,
     /// Tab index waiting for save/discard/cancel before close.
     pub pending_close: Option<usize>,
+    /// Active tab waiting for save/discard/cancel before reload-from-disk.
+    pub pending_reload: Option<usize>,
     /// After resolving `pending_close`, continue this bulk operation.
     pub bulk_close: BulkClose,
     /// UI should quit when true (no dirty tabs left).
@@ -134,6 +136,7 @@ impl EditorState {
             macro_recording: false,
             macro_cmds: Vec::new(),
             pending_close: None,
+            pending_reload: None,
             bulk_close: BulkClose::None,
             want_quit: false,
             compare_stale: false,
@@ -203,7 +206,7 @@ impl EditorState {
             }
         }
         Self::note_edit_lines(doc);
-        doc.mark_dirty();
+        doc.sync_dirty_from_revision();
         if doc.tail_follow {
             doc.tail_follow = false;
             self.status = "Tail OFF — editing suspended follow".into();
@@ -616,6 +619,13 @@ impl EditorState {
                 self.pending_close = Some(p - 1);
             }
         }
+        if let Some(p) = self.pending_reload {
+            if p == index {
+                self.pending_reload = None;
+            } else if p > index {
+                self.pending_reload = Some(p - 1);
+            }
+        }
     }
 
     /// Close tab, or open the unsaved-changes prompt when dirty.
@@ -675,6 +685,93 @@ impl EditorState {
         self.pending_close = None;
         self.bulk_close = BulkClose::None;
         self.status = "Close cancelled".into();
+    }
+
+        /// File → Reload from Disk. Confirms when dirty (Save / Don't Save / Cancel).
+    pub fn request_reload(&mut self) {
+        if self.tabs.active().path.is_none() {
+            self.status = "Reload: untitled buffer".into();
+            return;
+        }
+        if self.tabs.active().dirty {
+            self.pending_reload = Some(self.tabs.active_index());
+            self.status = "Reload: document has unsaved changes".into();
+            return;
+        }
+        self.reload_from_disk();
+    }
+
+    /// Replace active tab contents from disk. Resets undo and clears dirty.
+    pub fn reload_from_disk(&mut self) {
+        let Some(path) = self.tabs.active().path.clone() else {
+            self.status = "Reload: untitled buffer".into();
+            return;
+        };
+        if !path.exists() {
+            self.status = format!(
+                "Reload failed: file not found ({})",
+                short_path_label(&path)
+            );
+            return;
+        }
+        match fs::read_file(&path) {
+            Ok(result) => {
+                let doc = self.tabs.active_mut();
+                doc.buffer = buffer::TextBuffer::from_str(&result.content);
+                doc.encoding = file_encoding_from_fs(result.encoding);
+                doc.language = doc::detect_language(&path);
+                doc.line_mark_basis = doc.buffer.line_count();
+                doc.clear_change_history();
+                doc.loading = false;
+                doc.tail_bytes = result.bytes;
+                doc.tail_follow = false;
+                doc.buffer.set_caret(0);
+                doc.mark_clean();
+                self.pending_reload = None;
+                self.highlight_dirty = true;
+                self.reset_view = true;
+                let name = short_path_label(&path);
+                self.status = format!(
+                    "Reloaded {name} ({:.1} KiB)",
+                    result.bytes as f64 / 1024.0
+                );
+            }
+            Err(e) => {
+                self.status = format!("Reload failed: {e}");
+            }
+        }
+    }
+
+    pub fn confirm_reload_save(&mut self) -> bool {
+        let Some(index) = self.pending_reload else {
+            return false;
+        };
+        if index >= self.tabs.len() {
+            self.pending_reload = None;
+            return false;
+        }
+        self.tabs.set_active(index);
+        if !self.save() {
+            return false;
+        }
+        self.pending_reload = None;
+        self.reload_from_disk();
+        true
+    }
+
+    pub fn confirm_reload_discard(&mut self) {
+        let Some(index) = self.pending_reload.take() else {
+            return;
+        };
+        if index < self.tabs.len() {
+            self.tabs.set_active(index);
+            self.reload_from_disk();
+        }
+    }
+
+    pub fn confirm_reload_cancel(&mut self) {
+        self.pending_reload = None;
+        self.status = "Reload cancelled".into();
     }
 
     pub fn request_quit(&mut self, ui: &mut crate::commands::UiFlags) {
@@ -2013,5 +2110,57 @@ mod tests {
         state.tabs.active_mut().buffer.insert("a");
         state.mark_text_changed();
         assert!(state.compare_stale);
+    }
+
+    #[test]
+    fn reload_replaces_document_text() {
+        let dir = std::env::temp_dir().join("npp-rs-reload-test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("reload-demo.txt");
+        std::fs::write(&path, b"on disk v1\n").expect("write");
+        let mut state = EditorState::new();
+        state.apply_open_result(OpenResult::new(
+            path.clone(),
+            "on disk v1\n".into(),
+            11,
+            1,
+        ));
+        assert_eq!(state.tabs.active().buffer.to_string(), "on disk v1\n");
+        state.tabs.active_mut().buffer.insert("edited ");
+        state.mark_text_changed();
+        assert!(state.tabs.active().dirty);
+        state.request_reload();
+        assert!(state.pending_reload.is_some());
+        assert!(state.tabs.active().buffer.to_string().contains("edited"));
+        state.confirm_reload_discard();
+        assert_eq!(state.tabs.active().buffer.to_string(), "on disk v1\n");
+        assert!(!state.tabs.active().dirty);
+        std::fs::write(&path, b"on disk v2\n").expect("rewrite");
+        state.request_reload();
+        assert_eq!(state.tabs.active().buffer.to_string(), "on disk v2\n");
+        assert!(!state.tabs.active().dirty);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn undo_to_saved_clears_dirty_flag() {
+        let mut state = EditorState::new();
+        {
+            let doc = state.tabs.active_mut();
+            doc.path = Some(PathBuf::from("mem-save-rev.txt"));
+            doc.buffer.insert("base");
+        }
+        state.mark_text_changed();
+        assert!(state.tabs.active().dirty);
+        state.tabs.active_mut().mark_clean();
+        assert!(!state.tabs.active().dirty);
+        state.tabs.active_mut().buffer.insert("!");
+        state.mark_text_changed();
+        assert!(state.tabs.active().dirty);
+        state.undo();
+        assert!(!state.tabs.active().dirty);
+        assert_eq!(state.tabs.active().buffer.to_string(), "base");
+        state.redo();
+        assert!(state.tabs.active().dirty);
     }
 }

@@ -49,11 +49,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_FILE_RELOAD" => {
-            if let Some(path) = state.tabs.active().path.clone() {
-                state.open_path(path);
-            } else {
-                state.status = "Reload: untitled buffer".into();
-            }
+            state.request_reload();
             CmdResult::Handled
         }
         "IDM_FILE_SAVEALL" => {

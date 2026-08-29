@@ -244,6 +244,7 @@ impl eframe::App for EditorApp {
         self.log_tail_prompt_window(ctx);
         self.encoding_notice_window(ctx);
         self.unsaved_close_window(ctx);
+        self.unsaved_reload_window(ctx);
         self.coming_soon_window(ctx);
         self.goto_line_window(ctx);
         self.summary_window(ctx);
@@ -1015,6 +1016,51 @@ Tree-sitter highlight, and a calm UI.",
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
         self.scroll_line = 0.0;
+    }
+
+    fn unsaved_reload_window(&mut self, ctx: &egui::Context) {
+        if self.state.pending_reload.is_none() {
+            return;
+        }
+        let title = self.state.tabs.active().title.clone();
+        let mut save = false;
+        let mut discard = false;
+        let mut cancel = false;
+        let mut open = true;
+        egui::Window::new("Reload from disk?")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .default_width(400.0)
+            .show(ctx, |ui| {
+                ui.label(format!(
+                    "\"{title}\" has unsaved changes. Reload and lose them?"
+                ));
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Save").clicked() {
+                        save = true;
+                    }
+                    if ui.button("Don't Save").clicked() {
+                        discard = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        cancel = true;
+                    }
+                });
+            });
+        if !open {
+            cancel = true;
+        }
+        if save {
+            let _ = self.state.confirm_reload_save();
+        } else if discard {
+            self.state.confirm_reload_discard();
+            self.scroll_line = 0.0;
+        } else if cancel {
+            self.state.confirm_reload_cancel();
+        }
     }
 
     fn coming_soon_window(&mut self, ctx: &egui::Context) {

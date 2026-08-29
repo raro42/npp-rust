@@ -53,7 +53,12 @@ Commit and push each batch. Bump patch version when user-visible. Update this fi
 
 ### Agent C — reload / dirty generation
 
-- [ ] (other agent)
+- [x] `edit_generation` / `saved_generation` + sync dirty
+- [x] Reload replaces content; dirty confirm
+- [x] Undo-to-saved clears dirty
+- [x] Tests
+- [x] Patch version + changelog
+
 
 ### Agent D — bookmarks shift
 

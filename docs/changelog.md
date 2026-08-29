@@ -2,7 +2,20 @@
 
 ## [Unreleased]
 
+## [0.2.14] — 2026-08-29
+
+### Stability (issue #4)
+
+- File → Reload from Disk replaces buffer contents (dirty confirm)
+- Dirty follows `saved_generation` vs `edit_generation` (undo-to-saved clears dirty)
+
+
 ## [0.2.13] — 2026-08-29
+
+### Stability (issue #4)
+
+- File → Reload from Disk replaces buffer contents (dirty confirm)
+- Dirty follows saved vs edit generation (undo-to-saved clears dirty)
 
 ### Themes / project / RTL
 
