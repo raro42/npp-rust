@@ -52,6 +52,12 @@ pub struct EditorApp {
     sync_scroll_h: bool,
     /// Session flag: both panes share font size (always true in practice).
     zoom_sync: bool,
+    /// 2-way compare mode (colours + dual view).
+    compare_on: bool,
+    compare_left_tab: usize,
+    compare_right_tab: usize,
+    compare_left_tags: Vec<crate::diff::LineKind>,
+    compare_right_tags: Vec<crate::diff::LineKind>,
 }
 
 impl EditorApp {
@@ -86,6 +92,11 @@ impl EditorApp {
             sync_scroll_v: false,
             sync_scroll_h: false,
             zoom_sync: false,
+            compare_on: false,
+            compare_left_tab: 0,
+            compare_right_tab: 0,
+            compare_left_tags: Vec::new(),
+            compare_right_tags: Vec::new(),
         };
         app.open_argv_paths(open_paths);
         app
@@ -1680,6 +1691,31 @@ Tree-sitter highlight, and a calm UI.",
                     }
                 }
 
+                // 2-way compare wash (active tab must be a compare side).
+                if self.compare_on {
+                    let tags = if self.state.tabs.active_index() == self.compare_left_tab {
+                        Some(&self.compare_left_tags)
+                    } else if self.state.tabs.active_index() == self.compare_right_tab {
+                        Some(&self.compare_right_tags)
+                    } else {
+                        None
+                    };
+                    if let Some(tags) = tags {
+                        if let Some(kind) = tags.get(line_idx) {
+                            if let Some(bg) = crate::diff::line_kind_bg(*kind) {
+                                painter.rect_filled(
+                                    Rect::from_min_max(
+                                        Pos2::new(text_left, y),
+                                        Pos2::new(rect.right(), y + row_height),
+                                    ),
+                                    0.0,
+                                    bg,
+                                );
+                            }
+                        }
+                    }
+                }
+
                 // Bookmark tick in the gutter.
                 if bookmarks.contains(&line_idx) {
                     painter.rect_filled(
@@ -1925,6 +1961,87 @@ Tree-sitter highlight, and a calm UI.",
         if flags.switch_other_view {
             self.switch_other_view_now();
         }
+        if flags.clear_compare {
+            self.clear_compare();
+        }
+        if flags.start_compare {
+            self.start_compare();
+        }
+    }
+
+    fn clear_compare(&mut self) {
+        self.compare_on = false;
+        self.compare_left_tags.clear();
+        self.compare_right_tags.clear();
+        self.state.status = "Compare cleared".into();
+    }
+
+    fn start_compare(&mut self) {
+        if self.state.tabs.len() < 2 {
+            self.state.status = "Compare needs two open tabs".into();
+            return;
+        }
+        self.ensure_other_view_tab();
+        let left = self.state.tabs.active_index();
+        let right = self.other_view_tab;
+        if left == right {
+            self.state.status = "Compare: pick a different tab for Other View first".into();
+            return;
+        }
+        let left_lines: Vec<String> = self
+            .state
+            .tabs
+            .get(left)
+            .map(|d| {
+                (0..d.buffer.line_count())
+                    .map(|i| d.buffer.line(i).trim_end_matches(['\n', '\r']).to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let right_lines: Vec<String> = self
+            .state
+            .tabs
+            .get(right)
+            .map(|d| {
+                (0..d.buffer.line_count())
+                    .map(|i| d.buffer.line(i).trim_end_matches(['\n', '\r']).to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+        if left_lines.len() > crate::diff::MAX_COMPARE_LINES
+            || right_lines.len() > crate::diff::MAX_COMPARE_LINES
+        {
+            self.state.status = format!(
+                "Compare MVP max is {} lines per side",
+                crate::diff::MAX_COMPARE_LINES
+            );
+            return;
+        }
+        let left_refs: Vec<&str> = left_lines.iter().map(|s| s.as_str()).collect();
+        let right_refs: Vec<&str> = right_lines.iter().map(|s| s.as_str()).collect();
+        let (lt, rt) = crate::diff::diff_line_tags(&left_refs, &right_refs);
+        let (del, ins) = crate::diff::count_changes(&lt, &rt);
+        self.compare_on = true;
+        self.compare_left_tab = left;
+        self.compare_right_tab = right;
+        self.compare_left_tags = lt;
+        self.compare_right_tags = rt;
+        self.dual_view = true;
+        self.sync_scroll_v = true;
+        self.other_view_tab = right;
+        let lname = self
+            .state
+            .tabs
+            .get(left)
+            .map(|d| d.title.clone())
+            .unwrap_or_else(|| "left".into());
+        let rname = self
+            .state
+            .tabs
+            .get(right)
+            .map(|d| d.title.clone())
+            .unwrap_or_else(|| "right".into());
+        self.state.status = format!("Compare “{lname}” | “{rname}” (−{del} +{ins})");
     }
 
     /// Read-only secondary pane: paints another tab buffer.
@@ -2010,6 +2127,33 @@ Tree-sitter highlight, and a calm UI.",
                 break;
             };
             let y = rect.top() + (row as f32 - scroll_line) * row_height;
+            if self.compare_on && tab == self.compare_right_tab {
+                if let Some(kind) = self.compare_right_tags.get(line_idx) {
+                    if let Some(bg) = crate::diff::line_kind_bg(*kind) {
+                        painter.rect_filled(
+                            Rect::from_min_max(
+                                Pos2::new(text_left, y),
+                                Pos2::new(rect.right(), y + row_height),
+                            ),
+                            0.0,
+                            bg,
+                        );
+                    }
+                }
+            } else if self.compare_on && tab == self.compare_left_tab {
+                if let Some(kind) = self.compare_left_tags.get(line_idx) {
+                    if let Some(bg) = crate::diff::line_kind_bg(*kind) {
+                        painter.rect_filled(
+                            Rect::from_min_max(
+                                Pos2::new(text_left, y),
+                                Pos2::new(rect.right(), y + row_height),
+                            ),
+                            0.0,
+                            bg,
+                        );
+                    }
+                }
+            }
             if show_ln {
                 painter.text(
                     Pos2::new(gutter_right - 4.0, y),

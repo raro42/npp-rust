@@ -2003,6 +2003,21 @@
       },
       {
         "kind": "item",
+        "label": "Compare with Other View",
+        "raw_label": "Com&pare with Other View",
+        "cmd": "IDM_VIEW_COMPARE"
+      },
+      {
+        "kind": "item",
+        "label": "Clear Compare",
+        "raw_label": "Clear Com&pare",
+        "cmd": "IDM_VIEW_CLEARCOMPARE"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
         "label": "Text Direction RTL",
         "raw_label": "T&ext Direction RTL",
         "cmd": "IDM_EDIT_RTL"

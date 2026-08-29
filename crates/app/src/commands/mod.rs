@@ -66,6 +66,10 @@ pub struct UiFlags {
     pub sync_scroll_v: Option<bool>,
     /// Keep both panes on the same zoom (session flag).
     pub zoom_sync: Option<bool>,
+    /// Start 2-way compare (active vs other view).
+    pub start_compare: bool,
+    /// Clear compare highlights and mode.
+    pub clear_compare: bool,
 }
 
 /// Content for the “working on it — come back tomorrow” dialog.
@@ -229,6 +233,8 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_ZOOM_SYNC"
             | "IDM_VIEW_SYNSCROLLV"
             | "IDM_VIEW_SYNSCROLLH"
+            | "IDM_VIEW_COMPARE"
+            | "IDM_VIEW_CLEARCOMPARE"
             | "IDM_EDIT_RTL"
             | "IDM_EDIT_LTR"
             | "IDM_EDIT_PASTE_AS_HTML"

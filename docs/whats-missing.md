@@ -23,7 +23,7 @@ About **12** handlers still say the limit in the status line or use a stand-in, 
 
 - Full Preferences (tabs, margins, multi-language UI, …). Partial: log-tail, font size, line numbers → `npp-rs/settings.json`
 - Full dual edit (both panes writable) + project panels
-- File compare / diff (2-way or 3-way) with sync scroll — **not started**. Upstream Notepad++ also has **no built-in compare**; users install a plugin (Compare / ComparePlus). Core N++ does ship dual view + sync scroll. `IDM_LANG_DIFF` here is only syntax highlight for `.diff` files.
+- File compare / diff (2-way or 3-way) with sync scroll — **2-way MVP shipped** (View → Compare with Other View; in-process LCS, not system `diff`). 3-way and char-level diff still open. Upstream N++ uses a plugin for compare.
 - Change history: line remap on insert/delete; saved-vs-unsaved colours (MVP marks exist)
 - Rich CLI flags (only `-h`/`--help` + open existing path args today)
 - LSP (call tips: word under caret + nearby `fn`/`def` line snippets in file only)

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Built-in compare
+
+- View → Compare with Other View: 2-way side-by-side colours (red delete / green insert) + sync scroll
+- In-process line LCS (`diff.rs`); Clear Compare to exit; max 3000 lines/side
+
 ### Menu parity (issue #1)
 
 - File: `IDM_PINTAB` toggles active-tab pin; Close All but Pinned reports keep/closed counts

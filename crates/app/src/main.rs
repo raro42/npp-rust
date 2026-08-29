@@ -6,6 +6,7 @@ mod menu_data;
 mod recent;
 mod ui;
 mod ui_paint;
+mod diff;
 
 use eframe::egui;
 use std::io::Write;
