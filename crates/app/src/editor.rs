@@ -53,6 +53,25 @@ pub struct EditorState {
     pub macro_recording: bool,
     /// Recorded menu command ids.
     pub macro_cmds: Vec<String>,
+    /// Tab index waiting for save/discard/cancel before close.
+    pub pending_close: Option<usize>,
+    /// After resolving `pending_close`, continue this bulk operation.
+    pub bulk_close: BulkClose,
+    /// UI should quit when true (no dirty tabs left).
+    pub want_quit: bool,
+}
+
+/// Bulk close mode after a dirty-tab confirm.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BulkClose {
+    #[default]
+    None,
+    All,
+    AllButCurrent,
+    AllToLeft,
+    AllToRight,
+    AllUnchanged,
+    Quit,
 }
 
 impl Default for EditorState {
@@ -88,6 +107,9 @@ impl EditorState {
             word_wrap: false,
             macro_recording: false,
             macro_cmds: Vec::new(),
+            pending_close: None,
+            bulk_close: BulkClose::None,
+            want_quit: false,
         }
     }
 
@@ -386,6 +408,212 @@ impl EditorState {
         self.note_tab_closed(path.as_deref());
         self.tabs.close(index);
         self.highlight_dirty = true;
+        if let Some(p) = self.pending_close {
+            if p == index {
+                self.pending_close = None;
+            } else if p > index {
+                self.pending_close = Some(p - 1);
+            }
+        }
+    }
+
+    /// Close tab, or open the unsaved-changes prompt when dirty.
+    pub fn request_close_tab(&mut self, index: usize) {
+        if index >= self.tabs.len() {
+            return;
+        }
+        if self.tabs.get(index).map(|d| d.dirty).unwrap_or(false) {
+            self.tabs.set_active(index);
+            self.pending_close = Some(index);
+            self.status = "Document has unsaved changes".into();
+            return;
+        }
+        self.close_tab(index);
+        self.continue_bulk_close();
+    }
+
+    pub fn confirm_close_save(&mut self) -> bool {
+        let Some(index) = self.pending_close else {
+            return false;
+        };
+        if index >= self.tabs.len() {
+            self.pending_close = None;
+            return false;
+        }
+        self.tabs.set_active(index);
+        if !self.save() {
+            return false;
+        }
+        self.pending_close = None;
+        self.close_tab(index);
+        self.continue_bulk_close();
+        true
+    }
+
+    pub fn confirm_close_discard(&mut self) {
+        let Some(index) = self.pending_close.take() else {
+            return;
+        };
+        if index < self.tabs.len() {
+            self.close_tab(index);
+        }
+        self.continue_bulk_close();
+    }
+
+    /// True when quit was requested and all dirty tabs are resolved.
+    pub fn take_want_quit(&mut self) -> bool {
+        if self.want_quit {
+            self.want_quit = false;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn confirm_close_cancel(&mut self) {
+        self.pending_close = None;
+        self.bulk_close = BulkClose::None;
+        self.status = "Close cancelled".into();
+    }
+
+    pub fn request_quit(&mut self, ui: &mut crate::commands::UiFlags) {
+        self.want_quit = false;
+        self.bulk_close = BulkClose::Quit;
+        self.continue_bulk_close();
+        if self.want_quit {
+            ui.request_quit = true;
+            self.want_quit = false;
+        }
+    }
+
+    pub fn start_bulk_close(&mut self, mode: BulkClose) {
+        self.bulk_close = mode;
+        self.continue_bulk_close();
+    }
+
+    fn any_dirty(&self) -> bool {
+        self.tabs.iter().any(|d| d.dirty)
+    }
+
+    fn continue_bulk_close(&mut self) {
+        loop {
+            if self.pending_close.is_some() {
+                return;
+            }
+            match self.bulk_close {
+                BulkClose::None => return,
+                BulkClose::All => {
+                    // Closing the last tab recreates untitled — stop when one clean untitled remains.
+                    if self.tabs.len() == 1
+                        && self.tabs.active().path.is_none()
+                        && !self.tabs.active().dirty
+                    {
+                        self.bulk_close = BulkClose::None;
+                        return;
+                    }
+                    let dirty = self.tabs.get(0).map(|d| d.dirty).unwrap_or(false);
+                    if dirty {
+                        self.tabs.set_active(0);
+                        self.pending_close = Some(0);
+                        self.status = "Document has unsaved changes".into();
+                        return;
+                    }
+                    self.close_tab(0);
+                }
+                BulkClose::AllButCurrent => {
+                    if self.tabs.len() <= 1 {
+                        self.bulk_close = BulkClose::None;
+                        return;
+                    }
+                    let keep = self.tabs.active_index();
+                    let idx = if keep == 0 { 1 } else { 0 };
+                    let dirty = self.tabs.get(idx).map(|d| d.dirty).unwrap_or(false);
+                    if dirty {
+                        self.tabs.set_active(idx);
+                        self.pending_close = Some(idx);
+                        self.status = "Document has unsaved changes".into();
+                        return;
+                    }
+                    self.close_tab(idx);
+                }
+                BulkClose::AllToLeft => {
+                    let keep = self.tabs.active_index();
+                    if keep == 0 {
+                        self.bulk_close = BulkClose::None;
+                        return;
+                    }
+                    let dirty = self.tabs.get(0).map(|d| d.dirty).unwrap_or(false);
+                    if dirty {
+                        self.tabs.set_active(0);
+                        self.pending_close = Some(0);
+                        self.status = "Document has unsaved changes".into();
+                        return;
+                    }
+                    self.close_tab(0);
+                }
+                BulkClose::AllToRight => {
+                    let keep = self.tabs.active_index();
+                    if keep + 1 >= self.tabs.len() {
+                        self.bulk_close = BulkClose::None;
+                        return;
+                    }
+                    let idx = keep + 1;
+                    let dirty = self.tabs.get(idx).map(|d| d.dirty).unwrap_or(false);
+                    if dirty {
+                        self.tabs.set_active(idx);
+                        self.pending_close = Some(idx);
+                        self.status = "Document has unsaved changes".into();
+                        return;
+                    }
+                    self.close_tab(idx);
+                }
+                BulkClose::AllUnchanged => {
+                    let mut found = None;
+                    for i in 0..self.tabs.len() {
+                        if !self.tabs.get(i).map(|d| d.dirty).unwrap_or(true) {
+                            found = Some(i);
+                            break;
+                        }
+                    }
+                    match found {
+                        Some(i) => self.close_tab(i),
+                        None => {
+                            self.bulk_close = BulkClose::None;
+                            return;
+                        }
+                    }
+                }
+                BulkClose::Quit => {
+                    if !self.any_dirty() {
+                        self.bulk_close = BulkClose::None;
+                        self.want_quit = true;
+                        return;
+                    }
+                    let Some(i) = (0..self.tabs.len())
+                        .rev()
+                        .find(|&i| self.tabs.get(i).map(|d| d.dirty).unwrap_or(false))
+                    else {
+                        self.bulk_close = BulkClose::None;
+                        self.want_quit = true;
+                        return;
+                    };
+                    self.tabs.set_active(i);
+                    self.pending_close = Some(i);
+                    self.status = "Document has unsaved changes".into();
+                    return;
+                }
+            }
+        }
+    }
+
+    pub fn close_tab_title(&self) -> String {
+        let Some(i) = self.pending_close else {
+            return String::new();
+        };
+        self.tabs
+            .get(i)
+            .map(|d| d.title.clone())
+            .unwrap_or_default()
     }
 
     pub fn poll_loads(&mut self) {
@@ -695,42 +923,31 @@ impl EditorState {
     }
 
     pub fn close_all_but_current(&mut self) {
-        let keep = self.tabs.active_index();
-        let mut i = self.tabs.len();
-        while i > 0 {
-            i -= 1;
-            if i != keep {
-                self.close_tab(i);
-            }
+        self.start_bulk_close(BulkClose::AllButCurrent);
+        if self.pending_close.is_none() {
+            self.status = "Closed all but active".into();
         }
-        self.status = "Closed all but active".into();
     }
 
     pub fn close_all_to_left(&mut self) {
-        let keep = self.tabs.active_index();
-        for i in (0..keep).rev() {
-            self.close_tab(i);
+        self.start_bulk_close(BulkClose::AllToLeft);
+        if self.pending_close.is_none() {
+            self.status = "Closed tabs to the left".into();
         }
-        self.status = "Closed tabs to the left".into();
     }
 
     pub fn close_all_to_right(&mut self) {
-        let keep = self.tabs.active_index();
-        while self.tabs.len() > keep + 1 {
-            self.close_tab(keep + 1);
+        self.start_bulk_close(BulkClose::AllToRight);
+        if self.pending_close.is_none() {
+            self.status = "Closed tabs to the right".into();
         }
-        self.status = "Closed tabs to the right".into();
     }
 
     pub fn close_all_unchanged(&mut self) {
-        let mut i = self.tabs.len();
-        while i > 0 {
-            i -= 1;
-            if !self.tabs.get(i).map(|d| d.dirty).unwrap_or(true) {
-                self.close_tab(i);
-            }
+        self.start_bulk_close(BulkClose::AllUnchanged);
+        if self.pending_close.is_none() {
+            self.status = "Closed unchanged documents".into();
         }
-        self.status = "Closed unchanged documents".into();
     }
 
     pub fn open_containing_folder(&mut self) {

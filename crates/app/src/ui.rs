@@ -61,6 +61,20 @@ impl EditorApp {
 
 impl eframe::App for EditorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if ctx.input(|i| i.viewport().close_requested()) {
+            let dirty = self.state.tabs.iter().any(|d| d.dirty);
+            if dirty || self.state.pending_close.is_some() {
+                ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+                if self.state.pending_close.is_none() {
+                    let mut flags = crate::commands::UiFlags::default();
+                    self.state.request_quit(&mut flags);
+                    if flags.request_quit {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                }
+            }
+        }
+
         self.state.poll_loads();
         if self.state.poll_tail() {
             self.follow_caret = true;
@@ -82,6 +96,7 @@ impl eframe::App for EditorApp {
         self.status_bar(ctx);
         self.about_window(ctx);
         self.log_tail_prompt_window(ctx);
+        self.unsaved_close_window(ctx);
         self.coming_soon_window(ctx);
         self.goto_line_window(ctx);
         self.summary_window(ctx);
@@ -182,7 +197,7 @@ impl EditorApp {
         }
         if cmd && w {
             let idx = self.state.tabs.active_index();
-            self.state.close_tab(idx);
+            self.state.request_close_tab(idx);
             self.scroll_line = 0.0;
         }
         if (self.state.find_open || self.show_replace) && cmd && g && mods.shift {
@@ -572,6 +587,57 @@ Tree-sitter highlight, and a calm UI.",
         }
     }
 
+    fn unsaved_close_window(&mut self, ctx: &egui::Context) {
+        if self.state.pending_close.is_none() {
+            return;
+        }
+        let title = self.state.close_tab_title();
+        let mut save = false;
+        let mut discard = false;
+        let mut cancel = false;
+        let mut open = true;
+        egui::Window::new("Save changes?")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .default_width(380.0)
+            .show(ctx, |ui| {
+                ui.label(format!("Save changes to \"{title}\"?"));
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Save").clicked() {
+                        save = true;
+                    }
+                    if ui.button("Don't Save").clicked() {
+                        discard = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        cancel = true;
+                    }
+                });
+            });
+        if !open {
+            cancel = true;
+        }
+        if save {
+            if !self.state.confirm_close_save() {
+                return;
+            }
+        } else if discard {
+            self.state.confirm_close_discard();
+        } else if cancel {
+            self.state.confirm_close_cancel();
+            return;
+        } else {
+            return;
+        }
+        if self.state.take_want_quit() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+        self.scroll_line = 0.0;
+    }
+
     fn coming_soon_window(&mut self, ctx: &egui::Context) {
         let Some(info) = self.coming_soon.clone() else {
             return;
@@ -820,7 +886,7 @@ Tree-sitter highlight, and a calm UI.",
                     self.scroll_line = 0.0;
                 }
                 if let Some(i) = close_idx {
-                    self.state.close_tab(i);
+                    self.state.request_close_tab(i);
                     self.scroll_line = 0.0;
                 }
             });

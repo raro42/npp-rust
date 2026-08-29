@@ -30,17 +30,15 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         }
         "IDM_FILE_CLOSE" => {
             let idx = state.tabs.active_index();
-            state.close_tab(idx);
+            state.request_close_tab(idx);
             CmdResult::Handled
         }
         "IDM_FILE_CLOSEALL" => {
-            while state.tabs.len() > 0 {
-                state.close_tab(0);
-            }
+            state.start_bulk_close(crate::editor::BulkClose::All);
             CmdResult::Handled
         }
         "IDM_FILE_EXIT" => {
-            ui.request_quit = true;
+            state.request_quit(ui);
             CmdResult::Handled
         }
         "IDM_FILE_RELOAD" => {

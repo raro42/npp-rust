@@ -13,6 +13,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [security-public-repo.md](security-public-repo.md) | No private data on public GitHub |
 | [tail-log.md](tail-log.md) | Log tail / Monitoring |
 | [help-debug.md](help-debug.md) | Help → Debug Info and Open Logs |
+| [close-unsaved.md](close-unsaved.md) | Prompt before closing dirty tabs |
 | [update-check.md](update-check.md) | How Notepad++ updates; our plan |
 | [menu-todo.md](menu-todo.md) | Menu stub inventory |
 | [project-taste.md](project-taste.md) | Taste / quality bar |
