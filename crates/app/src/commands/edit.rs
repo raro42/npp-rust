@@ -3,6 +3,10 @@ use super::common::*;
 use super::{CmdResult, UiFlags};
 use crate::editor::EditorState;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Session text-direction preference. Layout paint stays LTR until ui_paint reads this.
+static TEXT_RTL: AtomicBool = AtomicBool::new(false);
 
 pub fn covers(cmd: &str) -> bool {
     cmd.starts_with("IDM_EDIT_")
@@ -682,11 +686,14 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_RTL" => {
-            state.status = "Text direction RTL noted (layout stays LTR for now)".into();
+            TEXT_RTL.store(true, Ordering::Relaxed);
+            state.status =
+                "Text direction: RTL (session flag on; layout stays LTR — needs ui_paint)".into();
             CmdResult::Handled
         }
         "IDM_EDIT_LTR" => {
-            state.status = "Text direction LTR".into();
+            TEXT_RTL.store(false, Ordering::Relaxed);
+            state.status = "Text direction: LTR (session flag off; layout is LTR)".into();
             CmdResult::Handled
         }
         "IDM_EDIT_PASTE_AS_HTML" | "IDM_EDIT_PASTE_AS_RTF" | "IDM_EDIT_PASTE_BINARY" => {
@@ -1075,7 +1082,7 @@ thread_local! {
     static CALL_TIP_IDX: std::cell::Cell<usize> = std::cell::Cell::new(0);
 }
 
-/// Minimal function call tip from the word under the caret (no LSP).
+/// Function call tip from word under caret + nearby `fn`/`def` lines (no LSP).
 fn func_call_tip(state: &mut EditorState, delta: i8) {
     let word = call_tip_word(state);
     if word.is_empty() {
@@ -1084,7 +1091,7 @@ fn func_call_tip(state: &mut EditorState, delta: i8) {
     }
     let hints = call_tip_hints(state, &word);
     if hints.is_empty() {
-        state.status = format!("Call tip: {word}(…) — no call sites in this file");
+        state.status = format!("Call tip: {word}(…) — no def or call in this file");
         return;
     }
     let mut idx = CALL_TIP_WORD.with(|w| {
@@ -1113,62 +1120,214 @@ fn call_tip_word(state: &EditorState) -> String {
     if chars.is_empty() {
         return String::new();
     }
-    // Prefer the name before '(' when the caret is inside call arguments.
-    let mut i = caret.min(chars.len());
+    let len = chars.len();
+    let caret = caret.min(len);
+
+    // Prefer the callee name before '(' when the caret is inside call arguments.
+    let mut depth = 0i32;
+    let mut i = caret;
     while i > 0 {
         let c = chars[i - 1];
-        if c == '(' {
-            let before = i.saturating_sub(2);
-            let (ws, we) = buf.word_bounds_at(before);
-            if ws < we {
-                return buf.slice(ws, we);
+        if c == ')' {
+            depth += 1;
+        } else if c == '(' {
+            if depth == 0 {
+                let before = i.saturating_sub(1);
+                if let Some(name) = ident_ending_at(&chars, before) {
+                    return name;
+                }
+                break;
             }
-            break;
-        }
-        if c == ')' || c == ';' || c == '{' || c == '\n' || c == '\r' {
+            depth -= 1;
+        } else if depth == 0 && matches!(c, ';' | '{' | '}' | '\n' | '\r') {
             break;
         }
         i -= 1;
     }
-    let last = chars.len().saturating_sub(1);
-    let probe = if caret > 0 && caret <= chars.len() && !is_word_char(chars[caret.min(last)]) {
+
+    // Word under caret, or the identifier just left of the caret / of `.` / `::`.
+    let mut probe = if caret < len && is_ident_char(chars[caret]) {
+        caret
+    } else {
         caret.saturating_sub(1)
-    } else {
-        caret.min(last)
     };
-    let (ws, we) = buf.word_bounds_at(probe);
-    if ws < we {
-        buf.slice(ws, we)
+    while probe > 0 && matches!(chars[probe], '.' | ':') {
+        probe = probe.saturating_sub(1);
+    }
+    if probe < len && is_ident_char(chars[probe]) {
+        let mut end = probe + 1;
+        while end < len && is_ident_char(chars[end]) {
+            end += 1;
+        }
+        if let Some(name) = ident_ending_at(&chars, end) {
+            return name;
+        }
+    }
+    String::new()
+}
+
+fn is_ident_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+/// Identifier that ends at `end` (exclusive char index into `chars`).
+fn ident_ending_at(chars: &[char], end: usize) -> Option<String> {
+    if end == 0 || end > chars.len() {
+        return None;
+    }
+    let mut i = end;
+    while i > 0 && is_ident_char(chars[i - 1]) {
+        i -= 1;
+    }
+    if i >= end {
+        return None;
+    }
+    // Skip leading digits-only tokens.
+    let name: String = chars[i..end].iter().collect();
+    if name.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    Some(name)
+}
+
+fn trim_tip(s: &str, max: usize) -> String {
+    let t = s.trim();
+    if t.chars().count() > max {
+        format!("{}…", t.chars().take(max.saturating_sub(1)).collect::<String>())
     } else {
-        String::new()
+        t.to_string()
     }
 }
 
 fn call_tip_hints(state: &EditorState, word: &str) -> Vec<String> {
     let text = state.tabs.active().buffer.to_string();
-    let needle = format!("{word}(");
-    let mut out = Vec::new();
+    let caret_line = {
+        let buf = &state.tabs.active().buffer;
+        buf.char_to_line(buf.caret())
+    };
+    let mut defs = Vec::new();
+    let mut calls = Vec::new();
     let mut seen = std::collections::HashSet::new();
+
     for (line_no, line) in text.lines().enumerate() {
-        if let Some(at) = line.find(&needle) {
-            let after = &line[at + word.len()..];
-            let close = after.find(')').map(|i| i + 1).unwrap_or(after.len().min(48));
-            let snippet: String = after.chars().take(close.max(1)).collect();
-            let tip = format!("{word}{snippet}");
-            let tip = if tip.chars().count() > 72 {
-                format!("{}…", tip.chars().take(71).collect::<String>())
-            } else {
-                tip
-            };
+        let trimmed = line.trim_start();
+        if let Some(snip) = def_line_snippet(trimmed, word) {
+            let tip = format!("L{} def {}", line_no + 1, trim_tip(&snip, 64));
             if seen.insert(tip.clone()) {
-                out.push(format!("L{} {tip}", line_no + 1));
+                let dist = line_no.abs_diff(caret_line);
+                defs.push((dist, tip));
+            }
+            continue;
+        }
+        if let Some(at) = find_call_site(line, word) {
+            let after = &line[at + word.len()..];
+            let close = after.find(')').map(|i| i + 1).unwrap_or(after.chars().count().min(48));
+            let snippet: String = after.chars().take(close.max(1)).collect();
+            let tip = format!("L{} {}{}", line_no + 1, word, trim_tip(&snippet, 56));
+            if seen.insert(tip.clone()) {
+                let dist = line_no.abs_diff(caret_line);
+                calls.push((dist, tip));
             }
         }
+    }
+
+    // Prefer defs near the caret, then nearby call sites.
+    defs.sort_by_key(|(d, _)| *d);
+    calls.sort_by_key(|(d, _)| *d);
+    let mut out: Vec<String> = defs.into_iter().map(|(_, t)| t).collect();
+    for (_, t) in calls {
+        if out.len() >= 24 {
+            break;
+        }
+        out.push(t);
     }
     if out.is_empty() {
         out.push(format!("{word}(…)"));
     }
     out
+}
+
+/// Match `fn name`, `def name`, `function name`, `func name` (optional `(` / `<`).
+fn def_line_snippet(trimmed: &str, word: &str) -> Option<String> {
+    const KEYWORDS: &[&str] = &["fn", "def", "function", "func", "sub", "proc"];
+    for kw in KEYWORDS {
+        let rest = if let Some(r) = trimmed.strip_prefix(kw) {
+            r
+        } else {
+            continue;
+        };
+        if rest.is_empty() || is_ident_char(rest.chars().next()?) {
+            continue;
+        }
+        let after_kw = rest.trim_start();
+        // Rust: `fn name<…>` / `pub async fn name(`
+        let name_start = after_kw;
+        // Allow `pub ` / `async ` / `static ` already stripped if keyword is mid-line.
+        if !name_start.starts_with(word) {
+            continue;
+        }
+        let after_name = &name_start[word.len()..];
+        let ok_boundary = after_name
+            .chars()
+            .next()
+            .map(|c| matches!(c, '(' | '<' | ' ' | '\t' | '{' | ':') || !is_ident_char(c))
+            .unwrap_or(true);
+        if !ok_boundary {
+            continue;
+        }
+        return Some(trimmed.chars().take(72).collect());
+    }
+    // Also: `pub fn word` / `async fn word` / `pub async fn word`
+    for prefix in ["pub ", "async ", "static ", "export "] {
+        if let Some(rest) = trimmed.strip_prefix(prefix) {
+            if let Some(s) = def_line_snippet(rest.trim_start(), word) {
+                return Some(s);
+            }
+        }
+    }
+    // Mid-line: look for " fn word" / " def word"
+    for kw in KEYWORDS {
+        let pat = format!(" {kw} ");
+        if let Some(at) = trimmed.find(&pat) {
+            let after = trimmed[at + pat.len()..].trim_start();
+            if after.starts_with(word) {
+                let after_name = &after[word.len()..];
+                let ok = after_name
+                    .chars()
+                    .next()
+                    .map(|c| matches!(c, '(' | '<' | '{' | ':') || c.is_whitespace() || !is_ident_char(c))
+                    .unwrap_or(true);
+                if ok {
+                    return Some(trimmed.chars().take(72).collect());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn find_call_site(line: &str, word: &str) -> Option<usize> {
+    let needle = format!("{word}(");
+    let mut from = 0;
+    while let Some(rel) = line[from..].find(&needle) {
+        let at = from + rel;
+        let ok_before = at == 0 || {
+            let c = line[..at].chars().next_back().unwrap_or('\0');
+            !is_ident_char(c)
+        };
+        if ok_before {
+            // Skip obvious defs already handled.
+            let before = line[..at].trim_end();
+            let is_def = ["fn", "def", "function", "func", "sub", "proc"]
+                .iter()
+                .any(|kw| before.ends_with(kw));
+            if !is_def {
+                return Some(at);
+            }
+        }
+        from = at + word.len();
+    }
+    None
 }
 
 fn toggle_system_readonly(state: &mut EditorState) {

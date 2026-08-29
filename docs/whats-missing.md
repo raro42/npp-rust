@@ -13,11 +13,11 @@ About **14** handlers still say the limit in the status line or use a stand-in, 
 | Area | Gap |
 |------|-----|
 | View | No second pane — sync / other view / project panels open doc list or toggle a flag |
-| Edit | RTL noted; layout stays LTR |
+| Edit | RTL/LTR toggles session flag; layout stays LTR until ui_paint |
 | Encoding | ANSI choice does not convert code page; memory stays UTF-8 |
 | Search | Change History = dirty-tab stand-in (no per-edit marks) |
-| Settings | Import plugin/theme = open folder only |
-| File | Pins exist in model; no pin UI yet → Close All but Pinned often does nothing |
+| Settings | Themes: no apply API — Import lists `themes/` + opens folder; plugins: builtins listed, drop-in not loaded |
+| File | Pin toggle via `IDM_PINTAB` (not in File menu export); tab chrome pin UI still separate |
 
 ## Larger product gaps (not menu stubs)
 
@@ -25,9 +25,9 @@ About **14** handlers still say the limit in the status line or use a stand-in, 
 - Real dual view + project panels
 - File compare / diff (2-way or 3-way) with sync scroll — **not started**. Upstream Notepad++ also has **no built-in compare**; users install a plugin (Compare / ComparePlus). Core N++ does ship dual view + sync scroll. `IDM_LANG_DIFF` here is only syntax highlight for `.diff` files.
 - Scintilla-style change history marks
-- Pin toggle in the tab UI
+- Pin toggle in the tab UI (command path: `IDM_PINTAB` in `commands/file.rs`)
 - Rich CLI flags (only `-h`/`--help` + open existing path args today)
-- LSP / rich call tips
+- LSP (call tips: word under caret + nearby `fn`/`def` line snippets in file only)
 - True ANSI / multi-encoding load-save
 
 Inventory: `docs/menu-todo.md`.
