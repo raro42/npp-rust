@@ -33,18 +33,11 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_SETTING_IMPORTPLUGIN" => {
-            let dir = cwd().join("plugins");
-            let _ = std::fs::create_dir_all(&dir);
-            open_path_in_os(state, &dir);
-            state.status =
-                "Import plugins: drop-in plugins not supported — opened plugins/".into();
+            import_plugins(state);
             CmdResult::Handled
         }
         "IDM_SETTING_IMPORTSTYLETHEMES" => {
-            let dir = cwd().join("themes");
-            let _ = std::fs::create_dir_all(&dir);
-            open_path_in_os(state, &dir);
-            state.status = "Import themes: not supported yet — opened themes/".into();
+            import_themes(state);
             CmdResult::Handled
         }
         "IDM_WINDOW_WINDOWS" => {
@@ -183,6 +176,7 @@ fn show_shortcut_mapper(state: &mut EditorState) {
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts (hard-wired; no shortcuts.xml yet).
+Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
 --------------
@@ -203,7 +197,7 @@ Cmd+D                 Duplicate line
 Cmd+Shift+L           Delete line
 Cmd+]                 Indent lines (4 spaces)
 Cmd+[                 Outdent lines (4 spaces)
-Cmd+Shift+I           Format Document
+Cmd+Shift+I           Format Document (format.document plugin)
 
 Find
 ----
@@ -217,9 +211,11 @@ View / monitoring
 -----------------
 Cmd+Shift+T           Toggle log tail follow
 
-Language
---------
+Language / style
+----------------
 Use the Language menu (IDM_LANG_*) to set highlight via EditorState::set_language.
+Style Configurator lists which langs have tree-sitter grammars.
+Preferences (Settings → Preferences) sets log-tail policy and font size.
 ";
     open_info_tab(state, "Shortcut Mapper", text);
     state.status = "Shortcut Mapper opened".into();
@@ -289,45 +285,172 @@ Detected / menu langs without highlight grammar
     }
     text.push_str(
         "\n\
-How to set language
--------------------
-Use Language menu items (IDM_LANG_*). They call EditorState::set_language.
-There is no full Style Configurator UI yet.
+How to set language / look
+--------------------------
+1. Language menu (IDM_LANG_*) → EditorState::set_language.
+2. Preferences → font size (session slider; log-tail policy saves).
+3. Settings → Import Style Theme(s) lists themes/ and opens that folder.
+   There is no theme apply API yet (egui default look).
+There is no full Style Configurator colour UI yet.
 ",
     );
     open_info_tab(state, "Style Configurator", &text);
     state.status = format!("Style Config: language={current}");
 }
 
+fn format_plugin_rows(host: &plugins::PluginHost) -> String {
+    let mut text = String::new();
+    for row in host.summaries() {
+        text.push_str(&format!(
+            "  {name}\n    id:   {id}\n    menu: {menu}\n    run:  Plugins menu → {name}\n\n",
+            name = row.name,
+            id = row.id,
+            menu = row.menu_path,
+        ));
+    }
+    text
+}
+
+fn list_folder_entries(dir: &PathBuf) -> (usize, String) {
+    let mut names = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(dir) {
+        for ent in rd.flatten() {
+            let name = ent.file_name().to_string_lossy().into_owned();
+            let kind = if ent.path().is_dir() { "/" } else { "" };
+            names.push(format!("{name}{kind}"));
+        }
+    }
+    names.sort();
+    let n = names.len();
+    let body = if names.is_empty() {
+        "  (empty)\n".into()
+    } else {
+        names
+            .into_iter()
+            .map(|n| format!("  {n}\n"))
+            .collect::<String>()
+    };
+    (n, body)
+}
+
 fn show_plugin_admin(state: &mut EditorState) {
     let host = plugins::PluginHost::new();
-    let mut text = String::from(
+    let n = host.summaries().len();
+    let plugins_dir = cwd().join("plugins");
+    let _ = std::fs::create_dir_all(&plugins_dir);
+    let (disk_n, disk_list) = list_folder_entries(&plugins_dir);
+
+    let mut text = format!(
         "\
 npp-rs Plugin Admin
 ===================
-In-process plugins only (no DLL drop-in).
+In-process plugins only (crates/plugins). DLL / drop-in loaders are not supported.
 
-Installed
----------
-",
+Installed ({n})
+-------------
+"
     );
-    for p in host.list() {
-        text.push_str(&format!(
-            "  {}  id={}  menu={}\n",
-            p.name(),
-            p.id(),
-            p.menu_path()
-        ));
-    }
-    text.push_str(
-        "\n\
-Run them from the Plugins menu.
-Import / external plugin folders are not supported yet.
+    text.push_str(&format_plugin_rows(&host));
+    text.push_str(&format!(
+        "\
+plugins/ on disk ({disk_n} entries)
+--------------------------------
+Path: {path}
+
+{disk}
+Action
+------
+- Run a builtin: Plugins menu (uses PluginHost id).
+- Format Document: also Cmd+Shift+I.
+- Import Plugin: opens plugins/ and refreshes this listing in a tab.
+- Drop-in files in plugins/ are listed only; they do not load.
 ",
-    );
-    let n = host.list().len();
+        path = plugins_dir.display(),
+        disk = disk_list,
+    ));
     open_info_tab(state, "Plugin Admin", &text);
-    state.status = format!("Plugin Admin: {n} in-process plugin(s)");
+    state.status = format!("Plugin Admin: {n} in-process, {disk_n} on disk in plugins/");
+}
+
+fn import_plugins(state: &mut EditorState) {
+    let dir = cwd().join("plugins");
+    let _ = std::fs::create_dir_all(&dir);
+    open_path_in_os(state, &dir);
+
+    let host = plugins::PluginHost::new();
+    let n = host.summaries().len();
+    let (disk_n, disk_list) = list_folder_entries(&dir);
+
+    let mut text = format!(
+        "\
+npp-rs Import Plugin
+====================
+Opened folder: {path}
+
+Limit
+-----
+Drop-in / external plugins do not load. Only in-process builtins from crates/plugins run.
+
+In-process builtins ({n})
+-----------------------
+",
+        path = dir.display(),
+    );
+    text.push_str(&format_plugin_rows(&host));
+    text.push_str(&format!(
+        "\
+Current plugins/ listing ({disk_n})
+----------------------------------
+{disk}
+What you can do
+---------------
+1. Use Plugins menu items for the builtins above.
+2. Put files in plugins/ for your own notes; reopen Import Plugin to refresh this list.
+3. Plugin Admin shows the same registry + folder snapshot.
+",
+        disk = disk_list,
+    ));
+    open_info_tab(state, "Import Plugin", &text);
+    state.status = format!(
+        "Import Plugin: opened plugins/ — {n} builtin(s), {disk_n} on disk (drop-in not loaded)"
+    );
+}
+
+fn import_themes(state: &mut EditorState) {
+    let dir = cwd().join("themes");
+    let _ = std::fs::create_dir_all(&dir);
+    open_path_in_os(state, &dir);
+
+    let (disk_n, disk_list) = list_folder_entries(&dir);
+
+    let text = format!(
+        "\
+npp-rs Import Style Theme(s)
+============================
+Opened folder: {path}
+
+Apply API
+---------
+No theme apply API exists in this build.
+The editor uses the egui default look. Preferences only changes font size and log-tail policy.
+
+themes/ on disk ({disk_n})
+--------------------------
+{disk}
+What you can do
+---------------
+1. Drop Notepad++-style theme XML (or any files) into themes/ for later work.
+2. Re-run Import Style Theme(s) to refresh this listing.
+3. Style Configurator shows language highlight coverage (not colours).
+4. Preferences → font size for a small look change today.
+",
+        path = dir.display(),
+        disk = disk_list,
+    );
+    open_info_tab(state, "Import Style Themes", &text);
+    state.status = format!(
+        "Import themes: opened themes/ — {disk_n} file(s); no apply API yet"
+    );
 }
 
 fn run_execute(state: &mut EditorState) {

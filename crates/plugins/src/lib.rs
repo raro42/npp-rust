@@ -121,6 +121,14 @@ impl Plugin for ToWindowsEol {
     }
 }
 
+/// Listing row for Plugin Admin / Import Plugin tabs.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PluginSummary {
+    pub id: String,
+    pub name: String,
+    pub menu_path: String,
+}
+
 /// Host that lists builtin plugins.
 pub struct PluginHost {
     plugins: Vec<Box<dyn Plugin>>,
@@ -150,6 +158,18 @@ impl PluginHost {
         &self.plugins
     }
 
+    /// Builtin plugin rows for Settings tabs (id, name, menu path).
+    pub fn summaries(&self) -> Vec<PluginSummary> {
+        self.plugins
+            .iter()
+            .map(|p| PluginSummary {
+                id: p.id().to_string(),
+                name: p.name().to_string(),
+                menu_path: p.menu_path().to_string(),
+            })
+            .collect()
+    }
+
     pub fn get(&self, id: &str) -> Option<&dyn Plugin> {
         self.plugins.iter().find(|p| p.id() == id).map(|p| p.as_ref())
     }
@@ -174,5 +194,8 @@ mod tests {
     fn lists_builtins() {
         let host = PluginHost::new();
         assert!(host.list().len() >= 6);
+        let rows = host.summaries();
+        assert_eq!(rows.len(), host.list().len());
+        assert!(rows.iter().any(|r| r.id == "format.document"));
     }
 }
