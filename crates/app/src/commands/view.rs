@@ -4,7 +4,7 @@ use super::{CmdResult, UiFlags};
 use crate::editor::EditorState;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// Session preference for dual-view sync (no second pane yet).
+/// Session preference for dual-view sync.
 static SYNC_SCROLL_H: AtomicBool = AtomicBool::new(false);
 static SYNC_SCROLL_V: AtomicBool = AtomicBool::new(false);
 static ZOOM_SYNC: AtomicBool = AtomicBool::new(false);
@@ -164,24 +164,30 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         }
         "IDM_VIEW_SYNSCROLLH" => {
             let on = toggle_flag(&SYNC_SCROLL_H);
+            ui.sync_scroll_h = Some(on);
+            ui.dual_view = Some(true);
             state.status = format!(
-                "Sync H scroll: {} (single view — no second pane)",
+                "Sync H scroll: {} (dual view — shared line scroll)",
                 if on { "on" } else { "off" }
             );
             CmdResult::Handled
         }
         "IDM_VIEW_SYNSCROLLV" => {
             let on = toggle_flag(&SYNC_SCROLL_V);
+            ui.sync_scroll_v = Some(on);
+            ui.dual_view = Some(true);
             state.status = format!(
-                "Sync V scroll: {} (single view — no second pane)",
+                "Sync V scroll: {} (dual view)",
                 if on { "on" } else { "off" }
             );
             CmdResult::Handled
         }
         "IDM_VIEW_ZOOM_SYNC" => {
             let on = toggle_flag(&ZOOM_SYNC);
+            ui.zoom_sync = Some(on);
+            ui.dual_view = Some(true);
             state.status = format!(
-                "Zoom sync: {} (single view — no second pane)",
+                "Zoom sync: {} (both panes share font size)",
                 if on { "on" } else { "off" }
             );
             CmdResult::Handled
@@ -248,13 +254,22 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             state.status = "Post-It (distraction-free) toggled".into();
             CmdResult::Handled
         }
-        "IDM_VIEW_GOTO_ANOTHER_VIEW" | "IDM_VIEW_SWITCHTO_OTHER_VIEW" => {
-            // No dual view yet — document list is the useful stand-in.
-            ui.show_doc_list = true;
-            state.status = "Opened document list (no second view yet)".into();
+        "IDM_VIEW_GOTO_ANOTHER_VIEW" => {
+            // Move active into the other pane, then switch focus to it.
+            ui.dual_view = Some(true);
+            ui.assign_other_view = true;
+            ui.switch_other_view = true;
+            state.status = "Moved tab to other view (secondary is read-only)".into();
+            CmdResult::Handled
+        }
+        "IDM_VIEW_SWITCHTO_OTHER_VIEW" => {
+            ui.dual_view = Some(true);
+            ui.switch_other_view = true;
+            state.status = "Switched to other view".into();
             CmdResult::Handled
         }
         "IDM_VIEW_CLONE_TO_ANOTHER_VIEW" => {
+            let src = state.tabs.active_index();
             let mut clone = state.tabs.active().clone();
             clone.path = None;
             clone.title = format!("{} (clone)", clone.title);
@@ -262,8 +277,12 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             clone.loading = false;
             clone.tail_follow = false;
             state.tabs.open_document(clone);
+            let clone_idx = state.tabs.active_index();
+            state.tabs.set_active(src);
             state.highlight_dirty = true;
-            state.status = "Cloned document to new tab".into();
+            ui.dual_view = Some(true);
+            ui.other_view_tab = Some(clone_idx);
+            state.status = "Cloned document to other view (read-only pane)".into();
             CmdResult::Handled
         }
         "IDM_VIEW_GOTO_NEW_INSTANCE" => {

@@ -27,16 +27,32 @@ pub enum LogTailOnOpen {
     Never,
 }
 
+fn default_font_size() -> f32 {
+    14.0
+}
+
+fn default_show_line_numbers() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppSettings {
     pub log_tail_on_open: LogTailOnOpen,
+    /// Editor monospace size (also used as zoom restore target).
+    #[serde(default = "default_font_size")]
+    pub font_size: f32,
+    /// Draw line numbers in the editor gutter.
+    #[serde(default = "default_show_line_numbers")]
+    pub show_line_numbers: bool,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
             log_tail_on_open: LogTailOnOpen::Ask,
+            font_size: default_font_size(),
+            show_line_numbers: default_show_line_numbers(),
         }
     }
 }
