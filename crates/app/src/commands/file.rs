@@ -196,41 +196,12 @@ fn move_active_to_trash(state: &mut EditorState) {
     }
 }
 
-fn session_path() -> std::path::PathBuf {
-    std::env::current_dir()
-        .unwrap_or_else(|_| std::path::PathBuf::from("."))
-        .join("npp-rs-session.txt")
-}
-
 fn save_session(state: &mut EditorState) {
-    let mut lines = Vec::new();
-    for d in state.tabs.iter() {
-        if let Some(p) = &d.path {
-            lines.push(p.display().to_string());
-        }
-    }
-    let path = session_path();
-    match std::fs::write(&path, lines.join("\n")) {
-        Ok(()) => state.status = format!("Session saved: {}", path.display()),
-        Err(e) => state.status = format!("Save session failed: {e}"),
-    }
+    state.save_session_now();
 }
 
 fn load_session(state: &mut EditorState) {
-    let path = session_path();
-    let Ok(text) = std::fs::read_to_string(&path) else {
-        state.status = format!("Load session: missing {}", path.display());
-        return;
-    };
-    let mut n = 0usize;
-    for line in text.lines() {
-        let p = std::path::PathBuf::from(line.trim());
-        if p.exists() {
-            state.open_path(p);
-            n += 1;
-        }
-    }
-    state.status = format!("Session loaded: {n} file(s)");
+    state.load_session_now();
 }
 
 fn print_active(state: &mut EditorState) {

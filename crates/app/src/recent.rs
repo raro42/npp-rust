@@ -5,7 +5,7 @@ use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
-const MAX_RECENT: usize = 15;
+const DEFAULT_RECENT_MAX: u8 = 15;
 const FILENAME: &str = "recent.txt";
 const SETTINGS_FILE: &str = "settings.json";
 
@@ -27,6 +27,31 @@ pub enum LogTailOnOpen {
     Never,
 }
 
+/// Default newline for Enter on new / edited text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DefaultEol {
+    #[default]
+    Lf,
+    Crlf,
+}
+
+impl DefaultEol {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Lf => "\n",
+            Self::Crlf => "\r\n",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Lf => "LF (Unix)",
+            Self::Crlf => "CRLF (Windows)",
+        }
+    }
+}
+
 fn default_font_size() -> f32 {
     14.0
 }
@@ -45,6 +70,14 @@ fn default_true() -> bool {
 
 fn default_theme_id() -> String {
     "dark".into()
+}
+
+fn default_recent_max() -> u8 {
+    DEFAULT_RECENT_MAX
+}
+
+fn default_find_match_case() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,6 +105,36 @@ pub struct AppSettings {
     /// Theme id: `dark`, `light`, or `file:<name>.json`.
     #[serde(default = "default_theme_id")]
     pub theme_id: String,
+    /// Extra gutter width in pixels (0..=40).
+    #[serde(default)]
+    pub gutter_extra: u8,
+    /// Blink the text caret.
+    #[serde(default = "default_true")]
+    pub caret_blink: bool,
+    /// Newline inserted by Enter.
+    #[serde(default)]
+    pub default_eol: DefaultEol,
+    /// Max recent-file entries (5..=40).
+    #[serde(default = "default_recent_max")]
+    pub recent_max: u8,
+    /// Reopen last session paths on launch (when argv has no files).
+    #[serde(default)]
+    pub restore_session: bool,
+    /// Find: match case.
+    #[serde(default = "default_find_match_case")]
+    pub find_match_case: bool,
+    /// Find: whole word only.
+    #[serde(default)]
+    pub find_whole_word: bool,
+    /// Last Find query (restored into the find bar).
+    #[serde(default)]
+    pub find_query: String,
+    /// Last Replace string.
+    #[serde(default)]
+    pub replace_with: String,
+    /// Compare: treat runs of whitespace as equal.
+    #[serde(default)]
+    pub compare_ignore_ws: bool,
 }
 
 impl Default for AppSettings {
@@ -85,7 +148,23 @@ impl Default for AppSettings {
             status_show_lang: true,
             status_show_chars: true,
             theme_id: default_theme_id(),
+            gutter_extra: 0,
+            caret_blink: true,
+            default_eol: DefaultEol::Lf,
+            recent_max: default_recent_max(),
+            restore_session: false,
+            find_match_case: true,
+            find_whole_word: false,
+            find_query: String::new(),
+            replace_with: String::new(),
+            compare_ignore_ws: false,
         }
+    }
+}
+
+impl AppSettings {
+    pub fn recent_limit(&self) -> usize {
+        (self.recent_max.clamp(5, 40)) as usize
     }
 }
 
@@ -134,7 +213,7 @@ impl RecentFiles {
                 continue;
             }
             recent.paths.push(PathBuf::from(line));
-            if recent.paths.len() >= MAX_RECENT {
+            if recent.paths.len() >= DEFAULT_RECENT_MAX as usize {
                 break;
             }
         }
@@ -145,12 +224,13 @@ impl RecentFiles {
         &self.paths
     }
 
-    /// Push path to the front. Dedupes. Persists.
-    pub fn touch(&mut self, path: &Path) {
+    /// Push path to the front with a custom cap from Preferences.
+    pub fn touch_limited(&mut self, path: &Path, max: usize) {
         let path = canonicalize_best_effort(path);
+        let max = max.clamp(5, 40);
         self.paths.retain(|p| p != &path);
         self.paths.insert(0, path);
-        self.paths.truncate(MAX_RECENT);
+        self.paths.truncate(max);
         self.save();
     }
 
@@ -210,7 +290,8 @@ pub fn short_path_label(path: &Path) -> String {
         .unwrap_or_else(|| path.display().to_string())
 }
 
-fn config_dir() -> Option<PathBuf> {
+/// Config base dir (Application Support / APPDATA / XDG).
+pub(crate) fn config_dir() -> Option<PathBuf> {
     #[cfg(target_os = "macos")]
     {
         let home = std::env::var_os("HOME")?;

@@ -105,9 +105,10 @@ impl EditorState {
     pub fn new() -> Self {
         let settings = AppSettings::load();
         let word_wrap = settings.word_wrap;
+        let find_query = settings.find_query.clone();
         Self {
             tabs: TabSet::new(),
-            find_query: String::new(),
+            find_query,
             find_open: false,
             status: "Ready".into(),
             highlighter: SyntaxHighlighter::new(),
@@ -424,7 +425,7 @@ impl EditorState {
                     document_id: id,
                     path: path.clone(),
                 });
-                self.recent.touch(&path);
+                self.touch_recent(&path);
                 fs::open_async(path.clone(), self.load_channel.tx.clone());
                 self.status = format!(
                     "Loading large file in background ({:.1} MiB)…",
@@ -496,7 +497,7 @@ impl EditorState {
             );
             self.tabs.open_document(doc);
         }
-        self.recent.touch(&result.path);
+        self.touch_recent(&result.path);
         self.highlight_dirty = true;
         self.reset_view = true;
         // Ensure caret is at the top after open.
@@ -1006,7 +1007,7 @@ impl EditorState {
                 doc.language = doc::detect_language(path);
                 doc.mark_clean();
                 doc.promote_change_history_on_save();
-                self.recent.touch(path);
+                self.touch_recent(path);
                 self.highlight_dirty = true;
                 let unmapped = if encoding == FileEncoding::Windows1252 {
                     fs::count_windows_1252_unmapped(&content)
@@ -1105,22 +1106,32 @@ impl EditorState {
             self.status = "Replace: empty find".into();
             return;
         }
-        // If current selection is the find match, replace it; else find next first.
-        let is_match = self
+        let match_case = self.settings.find_match_case;
+        let whole_word = self.settings.find_whole_word;
+        let selection_is_match = self
             .tabs
             .active()
             .buffer
             .selection()
-            .map(|(s, e)| self.tabs.active().buffer.slice(s, e) == q)
+            .map(|(s, e)| {
+                let slice = self.tabs.active().buffer.slice(s, e);
+                let hits = crate::search_util::find_all_matches(&slice, &q, match_case, whole_word);
+                hits.len() == 1 && hits[0] == (0, slice.chars().count())
+            })
             .unwrap_or(false);
-        if !is_match {
+        if !selection_is_match {
             self.find_next();
             let ok = self
                 .tabs
                 .active()
                 .buffer
                 .selection()
-                .map(|(s, e)| self.tabs.active().buffer.slice(s, e) == q)
+                .map(|(s, e)| {
+                    let slice = self.tabs.active().buffer.slice(s, e);
+                    let hits =
+                        crate::search_util::find_all_matches(&slice, &q, match_case, whole_word);
+                    hits.len() == 1 && hits[0] == (0, slice.chars().count())
+                })
                 .unwrap_or(false);
             if !ok {
                 self.status = "Replace: no match".into();
@@ -1141,25 +1152,24 @@ impl EditorState {
             self.status = "Replace All: empty find".into();
             return;
         }
+        let match_case = self.settings.find_match_case;
+        let whole_word = self.settings.find_whole_word;
         let text = self.tabs.active().buffer.to_string();
-        if !text.contains(&q) {
+        let (new_text, count) =
+            crate::search_util::replace_all(&text, &q, replacement, match_case, whole_word);
+        if count == 0 {
             self.status = "Replace All: no match".into();
             return;
         }
         let mut touched = std::collections::BTreeSet::new();
-        let mut from = 0usize;
-        while let Some((s, e)) = self.tabs.active().buffer.find_next(&q, from, true) {
+        for (s, _) in crate::search_util::find_all_matches(&text, &q, match_case, whole_word) {
             touched.insert(self.tabs.active().buffer.char_to_line(s));
-            from = if e > s { e } else { s + 1 };
         }
-        let count = text.matches(&q).count();
-        let new_text = text.replace(&q, replacement);
         self.tabs.active_mut().buffer.replace_document(&new_text);
         for line in touched {
             self.tabs.active_mut().note_line_changed(line);
         }
-        self.tabs.active_mut().mark_dirty();
-        self.highlight_dirty = true;
+        self.mark_text_changed();
         self.status = format!("Replace All: {count} replacement(s)");
     }
 
@@ -1167,6 +1177,21 @@ impl EditorState {
         self.tabs.active_mut().language = lang.to_string();
         self.highlight_dirty = true;
         self.status = format!("Language: {lang}");
+    }
+
+    pub fn find_match_count(&self) -> usize {
+        let q = self.find_query.as_str();
+        if q.is_empty() {
+            return 0;
+        }
+        let text = self.tabs.active().buffer.to_string();
+        crate::search_util::find_all_matches(
+            &text,
+            q,
+            self.settings.find_match_case,
+            self.settings.find_whole_word,
+        )
+        .len()
     }
 
     pub fn find_next(&mut self) {
@@ -1182,9 +1207,34 @@ impl EditorState {
             .selection()
             .map(|(_, e)| e)
             .unwrap_or_else(|| self.tabs.active().buffer.caret());
-        if let Some((s, e)) = self.tabs.active().buffer.find_next(&q, from, true) {
+        let text = self.tabs.active().buffer.to_string();
+        let total = crate::search_util::find_all_matches(
+            &text,
+            &q,
+            self.settings.find_match_case,
+            self.settings.find_whole_word,
+        )
+        .len();
+        if let Some((s, e)) = crate::search_util::find_next(
+            &text,
+            &q,
+            from,
+            true,
+            self.settings.find_match_case,
+            self.settings.find_whole_word,
+        ) {
             self.tabs.active_mut().buffer.set_selection(s, e);
-            self.status = format!("Find: match at {s}");
+            let idx = crate::search_util::find_all_matches(
+                &text,
+                &q,
+                self.settings.find_match_case,
+                self.settings.find_whole_word,
+            )
+            .iter()
+            .position(|(a, _)| *a == s)
+            .map(|i| i + 1)
+            .unwrap_or(1);
+            self.status = format!("Find: {idx}/{total}");
         } else {
             self.status = "Find: no match".into();
         }
@@ -1203,12 +1253,96 @@ impl EditorState {
             .selection()
             .map(|(s, _)| s)
             .unwrap_or_else(|| self.tabs.active().buffer.caret());
-        if let Some((s, e)) = self.tabs.active().buffer.find_prev(&q, from, true) {
+        let text = self.tabs.active().buffer.to_string();
+        let total = crate::search_util::find_all_matches(
+            &text,
+            &q,
+            self.settings.find_match_case,
+            self.settings.find_whole_word,
+        )
+        .len();
+        if let Some((s, e)) = crate::search_util::find_prev(
+            &text,
+            &q,
+            from,
+            true,
+            self.settings.find_match_case,
+            self.settings.find_whole_word,
+        ) {
             self.tabs.active_mut().buffer.set_selection(s, e);
-            self.status = format!("Find: match at {s}");
+            let idx = crate::search_util::find_all_matches(
+                &text,
+                &q,
+                self.settings.find_match_case,
+                self.settings.find_whole_word,
+            )
+            .iter()
+            .position(|(a, _)| *a == s)
+            .map(|i| i + 1)
+            .unwrap_or(1);
+            self.status = format!("Find: {idx}/{total}");
         } else {
             self.status = "Find: no match".into();
         }
+    }
+
+    /// Push a path onto recent files using Preferences max.
+    pub fn touch_recent(&mut self, path: &std::path::Path) {
+        let max = self.settings.recent_limit();
+        self.recent.touch_limited(path, max);
+    }
+
+    /// Write open paths when restore-session is on.
+    pub fn persist_session_if_enabled(&mut self) {
+        if !self.settings.restore_session {
+            return;
+        }
+        let paths: Vec<_> = self
+            .tabs
+            .iter()
+            .filter_map(|d| d.path.clone())
+            .collect();
+        let _ = crate::session::save_paths(&paths);
+    }
+
+    /// Open paths from the config-dir session file.
+    pub fn restore_session_from_disk(&mut self) {
+        let paths = crate::session::load_existing_paths();
+        if paths.is_empty() {
+            self.status = format!("No session in {}", crate::session::SESSION_REL);
+            return;
+        }
+        let mut n = 0usize;
+        for p in paths {
+            self.open_path(p);
+            n += 1;
+        }
+        if n > 0 && self.tabs.len() > 1 {
+            if let Some(doc) = self.tabs.get(0) {
+                if doc.path.is_none() && !doc.dirty && doc.buffer.is_empty() {
+                    self.close_tab(0);
+                }
+            }
+        }
+        self.status = format!("Session restored: {n} file(s)");
+    }
+
+    pub fn save_session_now(&mut self) {
+        let paths: Vec<_> = self
+            .tabs
+            .iter()
+            .filter_map(|d| d.path.clone())
+            .collect();
+        match crate::session::save_paths(&paths) {
+            Ok(()) => {
+                self.status = format!("Session saved ({})", crate::session::SESSION_REL);
+            }
+            Err(e) => self.status = format!("Save session failed: {e}"),
+        }
+    }
+
+    pub fn load_session_now(&mut self) {
+        self.restore_session_from_disk();
     }
 
     pub fn undo(&mut self) {
@@ -1296,7 +1430,7 @@ impl EditorState {
                     .unwrap_or_else(|| new_path.display().to_string());
                 doc.language = doc::detect_language(&new_path);
                 self.recent.remove(&old);
-                self.recent.touch(&new_path);
+                self.touch_recent(&new_path);
                 self.highlight_dirty = true;
                 self.status = format!("Renamed to {}", new_path.display());
             }

@@ -131,7 +131,12 @@ impl EditorApp {
             compare_right_tags: Vec::new(),
             compare_refresh_at: None,
         };
+        let had_argv = !cli.paths.is_empty();
+        app.replace_with = app.state.settings.replace_with.clone();
         app.open_argv_paths(cli);
+        if !had_argv && app.state.settings.restore_session {
+            app.state.restore_session_from_disk();
+        }
         app
     }
 
@@ -206,6 +211,7 @@ impl EditorApp {
 impl eframe::App for EditorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if ctx.input(|i| i.viewport().close_requested()) {
+            self.state.persist_session_if_enabled();
             let dirty = self.state.tabs.iter().any(|d| d.dirty);
             if dirty || self.state.pending_close.is_some() {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
@@ -213,6 +219,7 @@ impl eframe::App for EditorApp {
                     let mut flags = crate::commands::UiFlags::default();
                     self.state.request_quit(&mut flags);
                     if flags.request_quit {
+                        self.state.persist_session_if_enabled();
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 }
@@ -755,16 +762,17 @@ Tree-sitter highlight, and a calm UI.",
         if !self.show_preferences {
             return;
         }
-        use crate::recent::LogTailOnOpen;
+        use crate::recent::{DefaultEol, LogTailOnOpen};
         let mut open = true;
         let mut changed = false;
         egui::Window::new("Preferences")
             .open(&mut open)
             .collapsible(false)
-            .resizable(false)
+            .resizable(true)
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .default_width(420.0)
+            .default_width(440.0)
             .show(ctx, |ui| {
+                egui::ScrollArea::vertical().max_height(480.0).show(ui, |ui| {
                 ui.label(RichText::new("When opening *.log files").strong());
                 ui.add_space(4.0);
                 let cur = &mut self.state.settings.log_tail_on_open;
@@ -817,6 +825,20 @@ Tree-sitter highlight, and a calm UI.",
                     changed = true;
                 }
                 ui.horizontal(|ui| {
+                    ui.label("Gutter extra");
+                    let mut g = self.state.settings.gutter_extra as i32;
+                    if ui.add(egui::Slider::new(&mut g, 0..=40)).changed() {
+                        self.state.settings.gutter_extra = g as u8;
+                        changed = true;
+                    }
+                });
+                if ui
+                    .checkbox(&mut self.state.settings.caret_blink, "Caret blink")
+                    .changed()
+                {
+                    changed = true;
+                }
+                ui.horizontal(|ui| {
                     ui.label("Tab width");
                     let mut tw = self.state.settings.tab_width as i32;
                     if ui.add(egui::Slider::new(&mut tw, 2..=8)).changed() {
@@ -830,6 +852,78 @@ Tree-sitter highlight, and a calm UI.",
                 {
                     self.state.word_wrap = self.state.settings.word_wrap;
                     changed = true;
+                }
+                ui.label("Default EOL (Enter key)");
+                let eol = &mut self.state.settings.default_eol;
+                if ui
+                    .radio_value(eol, DefaultEol::Lf, DefaultEol::Lf.label())
+                    .changed()
+                {
+                    changed = true;
+                }
+                if ui
+                    .radio_value(eol, DefaultEol::Crlf, DefaultEol::Crlf.label())
+                    .changed()
+                {
+                    changed = true;
+                }
+                ui.add_space(10.0);
+                ui.label(RichText::new("Files").strong());
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.label("Recent file count");
+                    let mut rm = self.state.settings.recent_max as i32;
+                    if ui.add(egui::Slider::new(&mut rm, 5..=40)).changed() {
+                        self.state.settings.recent_max = rm as u8;
+                        changed = true;
+                    }
+                });
+                if ui
+                    .checkbox(
+                        &mut self.state.settings.restore_session,
+                        "Restore last session on launch",
+                    )
+                    .changed()
+                {
+                    changed = true;
+                    if self.state.settings.restore_session {
+                        self.state.persist_session_if_enabled();
+                    }
+                }
+                ui.label(
+                    RichText::new(format!("Session file: {}", crate::session::SESSION_REL))
+                        .small()
+                        .weak(),
+                );
+                ui.add_space(10.0);
+                ui.label(RichText::new("Find").strong());
+                ui.add_space(4.0);
+                if ui
+                    .checkbox(&mut self.state.settings.find_match_case, "Match case")
+                    .changed()
+                {
+                    changed = true;
+                }
+                if ui
+                    .checkbox(&mut self.state.settings.find_whole_word, "Whole word")
+                    .changed()
+                {
+                    changed = true;
+                }
+                ui.add_space(10.0);
+                ui.label(RichText::new("Compare").strong());
+                ui.add_space(4.0);
+                if ui
+                    .checkbox(
+                        &mut self.state.settings.compare_ignore_ws,
+                        "Ignore whitespace differences",
+                    )
+                    .changed()
+                {
+                    changed = true;
+                    if self.compare_on {
+                        self.state.compare_stale = true;
+                    }
                 }
                 ui.add_space(10.0);
                 ui.label(RichText::new("Status bar").strong());
@@ -873,6 +967,7 @@ Tree-sitter highlight, and a calm UI.",
                 if ui.button("Close").clicked() {
                     self.show_preferences = false;
                 }
+                });
             });
         if changed {
             self.state.settings.font_size = self.font_size;
@@ -1723,13 +1818,17 @@ Tree-sitter highlight, and a calm UI.",
 
     fn find_replace_bar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("find").show(ctx, |ui| {
+            let mut persist = false;
             ui.horizontal(|ui| {
                 ui.label("Find:");
                 let resp = ui.add(
                     egui::TextEdit::singleline(&mut self.state.find_query)
-                        .desired_width(220.0)
+                        .desired_width(180.0)
                         .hint_text("search text"),
                 );
+                if resp.changed() {
+                    persist = true;
+                }
                 let enter = ui.input(|i| i.key_pressed(Key::Enter));
                 if resp.has_focus() && enter {
                     self.state.find_next();
@@ -1743,10 +1842,32 @@ Tree-sitter highlight, and a calm UI.",
                     self.state.find_prev();
                     self.follow_caret = true;
                 }
+                if ui
+                    .checkbox(&mut self.state.settings.find_match_case, "Case")
+                    .changed()
+                {
+                    persist = true;
+                }
+                if ui
+                    .checkbox(&mut self.state.settings.find_whole_word, "Word")
+                    .changed()
+                {
+                    persist = true;
+                }
+                let n = self.state.find_match_count();
+                if self.state.find_query.is_empty() {
+                    ui.label(RichText::new("0 matches").weak());
+                } else {
+                    ui.label(format!("{n} match{}", if n == 1 { "" } else { "es" }));
+                }
                 if self.show_replace {
                     ui.separator();
                     ui.label("Replace:");
-                    ui.add(egui::TextEdit::singleline(&mut self.replace_with).desired_width(140.0));
+                    let rresp =
+                        ui.add(egui::TextEdit::singleline(&mut self.replace_with).desired_width(120.0));
+                    if rresp.changed() {
+                        persist = true;
+                    }
                     if ui.button("Replace").clicked() {
                         let r = self.replace_with.clone();
                         self.state.replace_next(&r);
@@ -1760,6 +1881,7 @@ Tree-sitter highlight, and a calm UI.",
                     self.show_replace = true;
                 }
                 if ui.button("Close").clicked() {
+                    persist = true;
                     self.state.find_open = false;
                     self.show_replace = false;
                 }
@@ -1768,6 +1890,11 @@ Tree-sitter highlight, and a calm UI.",
                     self.find_focus_once = false;
                 }
             });
+            if persist {
+                self.state.settings.find_query = self.state.find_query.clone();
+                self.state.settings.replace_with = self.replace_with.clone();
+                self.state.settings.save();
+            }
         });
     }
 
@@ -1927,7 +2054,8 @@ Tree-sitter highlight, and a calm UI.",
             }
 
             let show_ln = self.state.settings.show_line_numbers;
-            let gutter_w = if show_ln { 56.0 } else { 16.0 };
+            let gutter_w = if show_ln { 56.0 } else { 16.0 }
+                + f32::from(self.state.settings.gutter_extra);
             // Gap between line numbers and text (was flush before).
             let gutter_gap = 12.0;
             let text_left = rect.left() + gutter_w + gutter_gap;
@@ -2302,13 +2430,21 @@ Tree-sitter highlight, and a calm UI.",
                 let caret = self.state.tabs.active().buffer.caret();
                 let line_end = line_start + line_text.chars().count();
                 if caret >= line_start && caret <= line_end {
-                    let col = caret - line_start;
-                    let prefix: String = line_text.chars().take(col).collect();
-                    let cx = text_left + text_width(ui, &font_id, &prefix);
-                    painter.line_segment(
-                        [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
-                        egui::Stroke::new(1.0, Color32::from_rgb(220, 220, 220)),
-                    );
+                    let blink_on = if self.state.settings.caret_blink {
+                        ctx.request_repaint_after(std::time::Duration::from_millis(500));
+                        ((ctx.input(|i| i.time) * 2.0) as i64).rem_euclid(2) == 0
+                    } else {
+                        true
+                    };
+                    if blink_on {
+                        let col = caret - line_start;
+                        let prefix: String = line_text.chars().take(col).collect();
+                        let cx = text_left + text_width(ui, &font_id, &prefix);
+                        painter.line_segment(
+                            [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
+                            egui::Stroke::new(1.0, Color32::from_rgb(220, 220, 220)),
+                        );
+                    }
                 }
 
                 let _ = line_rect;
@@ -2589,8 +2725,29 @@ Tree-sitter highlight, and a calm UI.",
             );
             return None;
         }
-        let left_refs: Vec<&str> = left_lines.iter().map(|s| s.as_str()).collect();
-        let right_refs: Vec<&str> = right_lines.iter().map(|s| s.as_str()).collect();
+        let ignore_ws = self.state.settings.compare_ignore_ws;
+        let left_keys: Vec<String> = left_lines
+            .iter()
+            .map(|s| {
+                if ignore_ws {
+                    s.split_whitespace().collect::<Vec<_>>().join(" ")
+                } else {
+                    s.clone()
+                }
+            })
+            .collect();
+        let right_keys: Vec<String> = right_lines
+            .iter()
+            .map(|s| {
+                if ignore_ws {
+                    s.split_whitespace().collect::<Vec<_>>().join(" ")
+                } else {
+                    s.clone()
+                }
+            })
+            .collect();
+        let left_refs: Vec<&str> = left_keys.iter().map(|s| s.as_str()).collect();
+        let right_refs: Vec<&str> = right_keys.iter().map(|s| s.as_str()).collect();
         let (lt, rt) = crate::diff::diff_line_tags(&left_refs, &right_refs);
         let (del, ins) = crate::diff::count_changes(&lt, &rt);
         Some((lt, rt, del, ins))
@@ -2622,6 +2779,7 @@ Tree-sitter highlight, and a calm UI.",
         self.compare_right_tags = rt;
         self.dual_view = true;
         self.sync_scroll_v = true;
+        self.sync_scroll_h = true;
         self.other_view_tab = right;
         self.state.tabs.set_active(left);
         self.state.highlight_dirty = true;
@@ -2706,7 +2864,8 @@ Tree-sitter highlight, and a calm UI.",
         }
 
         let show_ln = self.state.settings.show_line_numbers;
-        let gutter_w = if show_ln { 48.0 } else { 12.0 };
+        let gutter_w = if show_ln { 48.0 } else { 12.0 }
+            + f32::from(self.state.settings.gutter_extra);
         let gutter_gap = 8.0;
         let text_left = rect.left() + gutter_w + gutter_gap;
         let gutter_right = rect.left() + gutter_w;
@@ -2932,13 +3091,22 @@ Tree-sitter highlight, and a calm UI.",
             let caret = doc.buffer.caret();
             let line_end = line_start + line_text.chars().count();
             if caret >= line_start && caret <= line_end {
-                let col = caret - line_start;
-                let prefix: String = line_text.chars().take(col).collect();
-                let cx = text_left + text_width(ui, &font_id, &prefix);
-                painter.line_segment(
-                    [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
-                    egui::Stroke::new(1.0, Color32::from_rgb(220, 220, 220)),
-                );
+                let blink_on = if self.state.settings.caret_blink {
+                    ui.ctx()
+                        .request_repaint_after(std::time::Duration::from_millis(500));
+                    ((ui.input(|i| i.time) * 2.0) as i64).rem_euclid(2) == 0
+                } else {
+                    true
+                };
+                if blink_on {
+                    let col = caret - line_start;
+                    let prefix: String = line_text.chars().take(col).collect();
+                    let cx = text_left + text_width(ui, &font_id, &prefix);
+                    painter.line_segment(
+                        [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
+                        egui::Stroke::new(1.0, Color32::from_rgb(220, 220, 220)),
+                    );
+                }
             }
         }
     }
@@ -3023,7 +3191,7 @@ Tree-sitter highlight, and a calm UI.",
                     } else {
                         self.state.prepare_edit_at(tab);
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.buffer.insert("\n");
+                            doc.buffer.insert(self.state.settings.default_eol.as_str());
                             changed = true;
                         }
                     }

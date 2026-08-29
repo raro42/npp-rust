@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-08-29
+
+Issue #7 P0 gap batch:
+
+- Preferences: gutter extra, caret blink, default EOL, recent count, restore session, find options, compare ignore-whitespace
+- Find/Replace: Match case / Whole word, live match count, persisted query; Replace All is one undo + marks compare stale
+- Session: config-dir `npp-rs/session.txt`; opt-in restore on launch; save on quit
+- Compare: sync H+V scroll on start; optional ignore whitespace
+
 ## [0.3.0] — 2026-08-29
 
 Stability and architecture batch for issues #3 / #4 / #6:

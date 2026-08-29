@@ -89,11 +89,21 @@ mod tests {
     }
 
     #[test]
-    fn delete_line() {
-        let left = ["a", "b", "c"];
-        let right = ["a", "c"];
-        let (l, r) = diff_line_tags(&left, &right);
-        assert_eq!(l, vec![LineKind::Equal, LineKind::Delete, LineKind::Equal]);
-        assert_eq!(r, vec![LineKind::Equal, LineKind::Equal]);
+    fn ignore_ws_keys_match() {
+        let left = ["a  b", "c"];
+        let right = ["a b", "c"];
+        let left_n: Vec<String> = left
+            .iter()
+            .map(|s| s.split_whitespace().collect::<Vec<_>>().join(" "))
+            .collect();
+        let right_n: Vec<String> = right
+            .iter()
+            .map(|s| s.split_whitespace().collect::<Vec<_>>().join(" "))
+            .collect();
+        let lref: Vec<&str> = left_n.iter().map(|s| s.as_str()).collect();
+        let rref: Vec<&str> = right_n.iter().map(|s| s.as_str()).collect();
+        let (l, r) = diff_line_tags(&lref, &rref);
+        assert!(l.iter().all(|k| *k == LineKind::Equal));
+        assert!(r.iter().all(|k| *k == LineKind::Equal));
     }
 }

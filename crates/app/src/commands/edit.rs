@@ -934,47 +934,11 @@ fn find_all_matches(
     match_case: bool,
     whole_word: bool,
 ) -> Vec<(usize, usize)> {
-    if query.is_empty() {
-        return Vec::new();
-    }
-    let chars: Vec<char> = text.chars().collect();
-    let q: Vec<char> = query.chars().collect();
-    let qlen = q.len();
-    if qlen == 0 || qlen > chars.len() {
-        return Vec::new();
-    }
-    let mut out = Vec::new();
-    let mut i = 0usize;
-    while i + qlen <= chars.len() {
-        let matched = if match_case {
-            chars[i..i + qlen] == q[..]
-        } else {
-            chars[i..i + qlen]
-                .iter()
-                .zip(q.iter())
-                .all(|(a, b)| a.eq_ignore_ascii_case(b))
-        };
-        if matched {
-            let ok = if whole_word {
-                let before_ok = i == 0 || !is_word_char(chars[i - 1]);
-                let after_ok = i + qlen >= chars.len() || !is_word_char(chars[i + qlen]);
-                before_ok && after_ok
-            } else {
-                true
-            };
-            if ok {
-                out.push((i, i + qlen));
-                i += qlen;
-                continue;
-            }
-        }
-        i += 1;
-    }
-    out
+    crate::search_util::find_all_matches(text, query, match_case, whole_word)
 }
 
 fn is_word_char(c: char) -> bool {
-    c.is_alphanumeric() || c == '_'
+    crate::search_util::is_word_char(c)
 }
 
 fn multi_select_all(state: &mut EditorState, ui: &mut UiFlags, match_case: bool, whole_word: bool) {
