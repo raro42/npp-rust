@@ -42,8 +42,8 @@ pub struct EditorApp {
 }
 
 impl EditorApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        Self {
+    pub fn new(_cc: &eframe::CreationContext<'_>, open_paths: Vec<std::path::PathBuf>) -> Self {
+        let mut app = Self {
             state: EditorState::new(),
             find_focus_once: false,
             scroll_line: 0.0,
@@ -65,6 +65,42 @@ impl EditorApp {
             show_char_panel: false,
             last_app_clipboard: None,
             await_paste_bookmarks: false,
+        };
+        app.open_argv_paths(open_paths);
+        app
+    }
+
+    /// Open existing argv paths; skip missing and report on the status line.
+    fn open_argv_paths(&mut self, paths: Vec<std::path::PathBuf>) {
+        if paths.is_empty() {
+            return;
+        }
+        let mut opened = 0usize;
+        let mut missing: Vec<String> = Vec::new();
+        for path in paths {
+            if path.exists() {
+                self.state.open_path(path);
+                opened += 1;
+            } else {
+                missing.push(path.display().to_string());
+            }
+        }
+        if opened > 0 && self.state.tabs.len() > 1 {
+            if let Some(doc) = self.state.tabs.get(0) {
+                if doc.path.is_none() && !doc.dirty && doc.buffer.is_empty() {
+                    self.state.close_tab(0);
+                }
+            }
+        }
+        if !missing.is_empty() {
+            let skip = missing.join(", ");
+            self.state.status = if opened > 0 {
+                format!("Opened {opened} file(s); skipped missing: {skip}")
+            } else {
+                format!("Skipped missing: {skip}")
+            };
+        } else if opened > 1 {
+            self.state.status = format!("Opened {opened} file(s) from command line");
         }
     }
 }

@@ -72,10 +72,49 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
     })
 }
 
-/// Read-only tab: honest argv docs (no CLI flags yet). Same pattern as Debug Info.
+/// Read-only tab: argv usage (paths + -h/--help). Same pattern as Debug Info.
 fn show_cmdline_arguments(state: &mut EditorState) {
     let text = format!(
-        "npp-rs command line arguments\n         ============================\n         \n         Current support\n         ---------------\n         npp-rs does not parse CLI flags yet.\n         The process ignores argv after the program name.\n         \n         Open paths as args\n         ------------------\n         Passing file paths on the command line is not supported yet.\n         Planned form (not active):\n           npp-rs path/to/file.txt [more paths…]\n         \n         How to open files today\n         -----------------------\n         - File → Open\n         - File → Open Recent\n         \n         How to run\n         ----------\n           cargo run -p app --release\n           ./scripts/run-npp-rust.command\n         \n         Binary name: npp-rs\n         \n         More\n         ----\n         See README for build and run notes:\n         https://github.com/raro42/npp-rust/blob/dev/README.md\n         \n         version: {}\n         os: {}\n         arch: {}\n",
+        "npp-rs command line arguments\n\
+         ============================\n\
+         \n\
+         Usage\n\
+         -----\n\
+           npp-rs [OPTIONS] [FILE]...\n\
+         \n\
+         Open paths\n\
+         ----------\n\
+         Each FILE after the program name opens in a tab when the path exists.\n\
+         Missing paths are skipped. The status line lists them.\n\
+         The app does not create missing files from argv.\n\
+         \n\
+           npp-rs path/to/file.txt [more paths…]\n\
+           cargo run -p app --release -- path/to/file.txt\n\
+         \n\
+         Options\n\
+         -------\n\
+           -h, --help    Print usage to stderr and exit (no GUI)\n\
+         \n\
+         Other ways to open files\n\
+         ------------------------\n\
+         - File → Open\n\
+         - File → Open Recent\n\
+         \n\
+         How to run\n\
+         ----------\n\
+           cargo run -p app --release\n\
+           ./scripts/run-npp-rust.command\n\
+         \n\
+         Binary name: npp-rs\n\
+         \n\
+         More\n\
+         ----\n\
+         See README for build and run notes:\n\
+         https://github.com/raro42/npp-rust/blob/dev/README.md\n\
+         \n\
+         version: {}\n\
+         os: {}\n\
+         arch: {}\n",
         env!("CARGO_PKG_VERSION"),
         std::env::consts::OS,
         std::env::consts::ARCH,
