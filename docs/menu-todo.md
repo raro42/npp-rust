@@ -12,8 +12,8 @@ Many teal items only set a status-bar message. That inflated “Ready 477 / stub
 | Class | Count | Meaning |
 |-------|------:|---------|
 | Explicit handlers | 343 | Match arms in `commands/*.rs` |
-| Useful behaviour | 321 | Change buffer or UI beyond a note |
-| Placeholder / status-only | 17 | Partial or “not yet” |
+| Useful behaviour | 328 | Change buffer or UI beyond a note |
+| Placeholder / status-only | 10 | Partial or “not yet” |
 | Menu IDs in export | 478 | From `npp_menu.json` |
 
 ## Preferences
@@ -53,7 +53,6 @@ _(cleared — Document Map + Function List open egui panels)_
 
 Paint path hides `hidden_lines` and paints `style_marks` / bookmark ticks. Menu Cut/Copy/Paste use the session clipboard. Find-mark jump uses bookmarks.
 
-- Search Find in Files / char range / change-history stand-in (5)
 - Search style mark / jump / clear / copy-styled (34)
 - View fold / unfold / hide lines / open in browser / new instance (27)
 - Edit Cut / Copy / Paste / paste-special / autocomplete / multi-select / system read-only / open folder on selection (20)

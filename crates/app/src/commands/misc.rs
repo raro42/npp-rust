@@ -18,11 +18,11 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
     }
     Some(match cmd {
         "IDM_SETTING_PLUGINADM" => {
-            state.status = "Plugin Admin: use Plugins menu (in-process only)".into();
+            show_plugin_admin(state);
             CmdResult::Handled
         }
         "IDM_SETTING_SHORTCUT_MAPPER" => {
-            state.status = "Shortcut Mapper: see keyboard shortcuts in Help / README".into();
+            show_shortcut_mapper(state);
             CmdResult::Handled
         }
         "IDM_SETTING_PREFERENCE" => {
@@ -30,15 +30,22 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_LANGSTYLE_CONFIG_DLG" => {
-            state.status = "Style Configurator: language menu sets highlight for now".into();
+            show_style_config(state);
             CmdResult::Handled
         }
         "IDM_SETTING_IMPORTPLUGIN" => {
-            state.status = "Import plugins: drop-in plugins not supported yet".into();
+            let dir = cwd().join("plugins");
+            let _ = std::fs::create_dir_all(&dir);
+            open_path_in_os(state, &dir);
+            state.status =
+                "Import plugins: drop-in plugins not supported — opened plugins/".into();
             CmdResult::Handled
         }
         "IDM_SETTING_IMPORTSTYLETHEMES" => {
-            state.status = "Import themes: not supported yet".into();
+            let dir = cwd().join("themes");
+            let _ = std::fs::create_dir_all(&dir);
+            open_path_in_os(state, &dir);
+            state.status = "Import themes: not supported yet — opened themes/".into();
             CmdResult::Handled
         }
         "IDM_WINDOW_WINDOWS" => {
@@ -46,11 +53,11 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EXECUTE" => {
-            state.status = "Run: open a shell here from File → Open containing folder / terminal".into();
+            run_execute(state);
             CmdResult::Handled
         }
         "IDM_EXECUTE_VALIDATE_SHORTCUTSXML" => {
-            state.status = "Validate shortcuts.xml: npp-rs has no shortcuts.xml yet".into();
+            validate_shortcuts_xml(state);
             CmdResult::Handled
         }
         "IDM_TOOL_MD5_GENERATE" | "IDM_TOOL_MD5_GENERATEINTOCLIPBOARD" => {
@@ -144,7 +151,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_SETTING_OPENPLUGINSDIR" => {
-            let dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            let dir = cwd();
             open_path_in_os(state, &dir);
             CmdResult::Handled
         }
@@ -156,4 +163,212 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
 
         _ => CmdResult::Stub,
     })
+}
+
+fn cwd() -> PathBuf {
+    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+}
+
+/// Open an untitled read-only info tab (same pattern as Debug Info).
+fn open_info_tab(state: &mut EditorState, title: &str, text: &str) {
+    state.tabs.open_untitled();
+    {
+        let doc = state.tabs.active_mut();
+        doc.title = title.into();
+        doc.buffer = buffer::TextBuffer::from_str(text);
+        doc.dirty = false;
+        doc.language = "plain".into();
+        doc.read_only = true;
+    }
+    state.highlight_dirty = true;
+    state.reset_view = true;
+}
+
+fn show_shortcut_mapper(state: &mut EditorState) {
+    // Mirrors crates/app/src/ui.rs handle_shortcuts (read-only dump).
+    let text = "\
+npp-rs keyboard shortcuts
+=========================
+Source: ui.rs handle_shortcuts (hard-wired; no shortcuts.xml yet).
+
+modifier notes
+--------------
+- Cmd on macOS, Ctrl elsewhere (egui command/ctrl).
+- Shift means Shift held with the key.
+
+File / edit
+-----------
+Cmd+N                 New file
+Cmd+O                 Open…
+Cmd+S                 Save
+Cmd+Shift+S           Save As…
+Cmd+W                 Close tab
+Cmd+Z                 Undo
+Cmd+Shift+Z / Cmd+Y   Redo
+Cmd+A                 Select all
+Cmd+D                 Duplicate line
+Cmd+Shift+L           Delete line
+Cmd+]                 Indent lines (4 spaces)
+Cmd+[                 Outdent lines (4 spaces)
+Cmd+Shift+I           Format Document
+
+Find
+----
+Cmd+F                 Find
+Cmd+Shift+F           Replace
+Cmd+G                 Find next (when Find/Replace open)
+Cmd+Shift+G           Find previous (when Find/Replace open)
+Escape                Close Find/Replace
+
+View / monitoring
+-----------------
+Cmd+Shift+T           Toggle log tail follow
+
+Language
+--------
+Use the Language menu (IDM_LANG_*) to set highlight via EditorState::set_language.
+";
+    open_info_tab(state, "Shortcut Mapper", text);
+    state.status = "Shortcut Mapper opened".into();
+}
+
+fn show_style_config(state: &mut EditorState) {
+    let current = state.tabs.active().language.clone();
+    let candidates = [
+        "rust",
+        "c",
+        "cpp",
+        "json",
+        "python",
+        "sql",
+        "markdown",
+        "plain",
+        "toml",
+        "yaml",
+        "shell",
+        "javascript",
+        "typescript",
+        "html",
+        "css",
+        "go",
+        "java",
+    ];
+    let mut with_hl = Vec::new();
+    let mut without_hl = Vec::new();
+    for lang in candidates {
+        if lang == "plain" || state.highlighter.supports(lang) {
+            with_hl.push(lang);
+        } else {
+            without_hl.push(lang);
+        }
+    }
+    let mut text = format!(
+        "\
+npp-rs Style Configurator
+=========================
+Current document language: {current}
+
+Tree-sitter highlight (highlighter.supports)
+--------------------------------------------
+"
+    );
+    for lang in &with_hl {
+        let mark = if *lang == current.as_str() {
+            "  ← current"
+        } else {
+            ""
+        };
+        text.push_str(&format!("  {lang}{mark}\n"));
+    }
+    text.push_str(
+        "\n\
+Detected / menu langs without highlight grammar
+-----------------------------------------------
+",
+    );
+    for lang in &without_hl {
+        let mark = if *lang == current.as_str() {
+            "  ← current"
+        } else {
+            ""
+        };
+        text.push_str(&format!("  {lang}{mark}\n"));
+    }
+    text.push_str(
+        "\n\
+How to set language
+-------------------
+Use Language menu items (IDM_LANG_*). They call EditorState::set_language.
+There is no full Style Configurator UI yet.
+",
+    );
+    open_info_tab(state, "Style Configurator", &text);
+    state.status = format!("Style Config: language={current}");
+}
+
+fn show_plugin_admin(state: &mut EditorState) {
+    let host = plugins::PluginHost::new();
+    let mut text = String::from(
+        "\
+npp-rs Plugin Admin
+===================
+In-process plugins only (no DLL drop-in).
+
+Installed
+---------
+",
+    );
+    for p in host.list() {
+        text.push_str(&format!(
+            "  {}  id={}  menu={}\n",
+            p.name(),
+            p.id(),
+            p.menu_path()
+        ));
+    }
+    text.push_str(
+        "\n\
+Run them from the Plugins menu.
+Import / external plugin folders are not supported yet.
+",
+    );
+    let n = host.list().len();
+    open_info_tab(state, "Plugin Admin", &text);
+    state.status = format!("Plugin Admin: {n} in-process plugin(s)");
+}
+
+fn run_execute(state: &mut EditorState) {
+    if let Some(path) = rfd::FileDialog::new().set_title("Run…").pick_file() {
+        let label = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "program".into());
+        match std::process::Command::new(&path).spawn() {
+            Ok(_) => state.status = format!("Started {label}"),
+            Err(e) => state.status = format!("Run failed: {e}"),
+        }
+    } else {
+        state.open_shell_here();
+    }
+}
+
+fn validate_shortcuts_xml(state: &mut EditorState) {
+    let root = cwd();
+    let candidates = [
+        "shortcuts.xml",
+        "npp-rs/shortcuts.xml",
+        "crates/app/data/shortcuts.xml",
+    ];
+    for rel in candidates {
+        let path = root.join(rel);
+        if path.is_file() {
+            state.status = format!(
+                "Found {rel} — XML validator not wired yet (shortcuts still hard-coded in ui.rs)"
+            );
+            return;
+        }
+    }
+    state.status =
+        "Validate shortcuts.xml: file absent (checked shortcuts.xml, npp-rs/, crates/app/data/)"
+            .into();
 }
