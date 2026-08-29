@@ -29,8 +29,13 @@ Menu command code lives under `crates/app/src/commands/`. **One agent owns one d
 
 | File | Owns |
 |------|------|
-| `ui.rs` | egui shell, paint, dialogs |
+| `ui.rs` | egui shell, menus, tabs, dialogs, input |
+| `ui_paint.rs` | Viewport text metrics + highlighted line paint (hot path) |
 | `editor.rs` | `EditorState`, tabs I/O |
 | `doc` / `buffer` crates | document model |
 
-Avoid two agents editing `ui.rs` at once. Split further later if needed.
+Avoid two agents editing `ui.rs` at once. Prefer paint changes in `ui_paint.rs`.
+
+## Do not undo
+
+Keep menu commands under `crates/app/src/commands/*.rs`. Do not fold them back into one file.

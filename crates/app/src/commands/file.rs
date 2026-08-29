@@ -30,15 +30,13 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         }
         "IDM_FILE_CLOSE" => {
             let idx = state.tabs.active_index();
-            state.tabs.close(idx);
-            state.highlight_dirty = true;
+            state.close_tab(idx);
             CmdResult::Handled
         }
         "IDM_FILE_CLOSEALL" => {
             while state.tabs.len() > 0 {
-                state.tabs.close(0);
+                state.close_tab(0);
             }
-            state.highlight_dirty = true;
             CmdResult::Handled
         }
         "IDM_FILE_EXIT" => {
@@ -154,8 +152,7 @@ fn move_active_to_trash(state: &mut EditorState) {
     match std::fs::rename(&path, &dest) {
         Ok(()) => {
             let idx = state.tabs.active_index();
-            state.tabs.close(idx);
-            state.highlight_dirty = true;
+            state.close_tab(idx);
             state.status = format!("Moved to Trash: {}", dest.display());
         }
         Err(e) => state.status = format!("Move to trash failed: {e}"),

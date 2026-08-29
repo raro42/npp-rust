@@ -133,11 +133,14 @@ impl TabSet {
     }
 
     pub fn active(&self) -> &Document {
-        &self.docs[self.active]
+        let idx = self.active.min(self.docs.len().saturating_sub(1));
+        &self.docs[idx]
     }
 
     pub fn active_mut(&mut self) -> &mut Document {
-        &mut self.docs[self.active]
+        let idx = self.active.min(self.docs.len().saturating_sub(1));
+        self.active = idx;
+        &mut self.docs[idx]
     }
 
     pub fn get(&self, index: usize) -> Option<&Document> {

@@ -4180,6 +4180,12 @@
       },
       {
         "kind": "item",
+        "label": "Open npp-rust Logs",
+        "raw_label": "Open npp-rust Logs",
+        "cmd": "IDM_OPEN_NPP_LOGS"
+      },
+      {
+        "kind": "item",
         "label": "Debug Info...",
         "raw_label": "Debug Info...",
         "cmd": "IDM_DEBUGINFO"

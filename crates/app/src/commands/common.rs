@@ -513,8 +513,7 @@ pub(crate) fn open_in_new_instance(state: &mut EditorState, move_doc: bool) {
         Ok(_) => {
             if move_doc {
                 let idx = state.tabs.active_index();
-                state.tabs.close(idx);
-                state.highlight_dirty = true;
+                state.close_tab(idx);
                 state.status = "Moved to new instance".into();
             } else {
                 state.status = "Opened in new instance".into();

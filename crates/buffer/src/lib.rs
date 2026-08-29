@@ -280,8 +280,9 @@ impl TextBuffer {
             if body.trim().is_empty() {
                 continue;
             }
-            let lead = body.len() - body.trim_start().len();
-            if body[lead..].starts_with(prefix.trim_end()) {
+            let trimmed = body.trim_start();
+            let lead = body.chars().count() - trimmed.chars().count();
+            if trimmed.starts_with(prefix.trim_end()) {
                 continue;
             }
             let at = self.line_to_char(line) + lead;
@@ -307,15 +308,14 @@ impl TextBuffer {
             let raw = self.line(line);
             let body = raw.trim_end_matches(['\n', '\r']);
             let trimmed = body.trim_start();
-            let lead = body.len() - trimmed.len();
+            let lead = body.chars().count() - trimmed.chars().count();
             let remove = if trimmed.starts_with(prefix) {
-                prefix.len()
-            } else if trimmed.starts_with(bare) {
-                let after = &trimmed[bare.len()..];
+                prefix.chars().count()
+            } else if let Some(after) = trimmed.strip_prefix(bare) {
                 if after.starts_with(' ') {
-                    bare.len() + 1
+                    bare.chars().count() + 1
                 } else {
-                    bare.len()
+                    bare.chars().count()
                 }
             } else {
                 0
@@ -324,7 +324,7 @@ impl TextBuffer {
                 continue;
             }
             let at = self.line_to_char(line) + lead;
-            let removed: String = body.chars().skip(lead).take(remove).collect();
+            let removed: String = trimmed.chars().take(remove).collect();
             self.rope.remove(at..at + remove);
             self.push_undo(Edit::Delete {
                 index: at,
@@ -389,13 +389,13 @@ impl TextBuffer {
             return;
         };
         let mid = self.slice(s, e);
-        if !(mid.starts_with(open)
-            && mid.ends_with(close)
-            && mid.len() >= open.len() + close.len())
-        {
+        let Some(stripped) = mid
+            .strip_prefix(open)
+            .and_then(|r| r.strip_suffix(close))
+            .map(|s| s.to_string())
+        else {
             return;
-        }
-        let stripped = mid[open.len()..mid.len() - close.len()].to_string();
+        };
         self.set_selection(s, e);
         if stripped.is_empty() {
             self.delete_backward();
@@ -906,5 +906,17 @@ mod tests {
         assert_eq!(b.to_string(), "/*hello*/");
         b.stream_uncomment("/*", "*/");
         assert_eq!(b.to_string(), "hello");
+    }
+
+    #[test]
+    fn comment_lines_with_leading_unicode_whitespace() {
+        // Non-breaking space before text: byte offset != char offset.
+        let mut b = TextBuffer::from_str("\u{00A0}café\n");
+        b.set_selection(0, b.len_chars());
+        b.comment_lines("// ");
+        assert_eq!(b.to_string(), "\u{00A0}// café\n");
+        b.set_selection(0, b.len_chars());
+        b.uncomment_lines("// ");
+        assert_eq!(b.to_string(), "\u{00A0}café\n");
     }
 }

@@ -5,6 +5,7 @@ mod commands;
 mod menu_data;
 mod recent;
 mod ui;
+mod ui_paint;
 
 use eframe::egui;
 use std::io::Write;

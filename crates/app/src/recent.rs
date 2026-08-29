@@ -1,11 +1,70 @@
-//! Recent files list with simple disk persistence.
+//! Recent files list and small app settings with disk persistence.
 
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
 const MAX_RECENT: usize = 15;
 const FILENAME: &str = "recent.txt";
+const SETTINGS_FILE: &str = "settings.json";
+
+/// Repo-relative / portable label for status (never a home absolute path).
+pub const SETTINGS_REL: &str = "npp-rs/settings.json";
+/// Panic log written under the process working directory.
+pub const PANIC_LOG_REL: &str = "logs/panic.log";
+
+/// Preference when opening `*.log` files.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum LogTailOnOpen {
+    /// Show a small dialog each time.
+    #[default]
+    Ask,
+    /// Enable Monitoring (tail) immediately.
+    Always,
+    /// Open like a normal file; no prompt.
+    Never,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AppSettings {
+    pub log_tail_on_open: LogTailOnOpen,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            log_tail_on_open: LogTailOnOpen::Ask,
+        }
+    }
+}
+
+impl AppSettings {
+    pub fn load() -> Self {
+        let Ok(path) = settings_store_path() else {
+            return Self::default();
+        };
+        let Ok(text) = fs::read_to_string(&path) else {
+            return Self::default();
+        };
+        serde_json::from_str(&text).unwrap_or_default()
+    }
+
+    pub fn save(&self) {
+        let Ok(path) = settings_store_path() else {
+            return;
+        };
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let Ok(text) = serde_json::to_string_pretty(self) else {
+            return;
+        };
+        let _ = fs::write(path, text);
+    }
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct RecentFiles {
@@ -81,6 +140,26 @@ fn canonicalize_best_effort(path: &Path) -> PathBuf {
 fn recent_store_path() -> Result<PathBuf, ()> {
     let base = config_dir().ok_or(())?;
     Ok(base.join("npp-rs").join(FILENAME))
+}
+
+fn settings_store_path() -> Result<PathBuf, ()> {
+    let base = config_dir().ok_or(())?;
+    Ok(base.join("npp-rs").join(SETTINGS_FILE))
+}
+
+/// True when the path looks like a log file (`*.log`).
+pub fn is_log_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("log"))
+        .unwrap_or(false)
+}
+
+/// File name only — safe for status bar (no home absolute path).
+pub fn short_path_label(path: &Path) -> String {
+    path.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.display().to_string())
 }
 
 fn config_dir() -> Option<PathBuf> {

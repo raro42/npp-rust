@@ -1,16 +1,17 @@
 //! Editor application state and commands.
 
-use crate::recent::RecentFiles;
+use crate::recent::{
+    short_path_label, AppSettings, LogTailOnOpen, RecentFiles, is_log_path,
+};
 use doc::{Document, TabSet};
 use fs::{self, LoadChannel, LoadMsg, OpenResult, TailRead, LARGE_FILE_THRESHOLD};
 use highlight::SyntaxHighlighter;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-/// Pending placeholder tab index waiting for async load.
+/// Pending async load keyed by path (not tab index — tabs can move/close).
 #[derive(Debug, Clone)]
 pub struct PendingLoad {
-    pub tab_index: usize,
     pub path: PathBuf,
 }
 
@@ -27,6 +28,9 @@ pub struct EditorState {
     pub highlight_lang: String,
     pub highlight_dirty: bool,
     pub recent: RecentFiles,
+    pub settings: AppSettings,
+    /// After opening `*.log`, UI may show the tail prompt.
+    pub pending_log_tail_prompt: bool,
     /// UI should jump scroll to line 1 (set on open / new).
     pub reset_view: bool,
     /// Last time we polled disk for tail follow.
@@ -45,6 +49,10 @@ pub struct EditorState {
     pub show_indent_guide: bool,
     /// Soft word wrap (visual; hit-test stays line-based for now).
     pub word_wrap: bool,
+    /// Macro recording active.
+    pub macro_recording: bool,
+    /// Recorded menu command ids.
+    pub macro_cmds: Vec<String>,
 }
 
 impl Default for EditorState {
@@ -67,6 +75,8 @@ impl EditorState {
             highlight_lang: String::new(),
             highlight_dirty: true,
             recent: RecentFiles::load(),
+            settings: AppSettings::load(),
+            pending_log_tail_prompt: false,
             reset_view: false,
             tail_last_poll: Instant::now() - Duration::from_secs(1),
             begin_end_select: None,
@@ -76,11 +86,18 @@ impl EditorState {
             show_npc: false,
             show_indent_guide: false,
             word_wrap: false,
+            macro_recording: false,
+            macro_cmds: Vec::new(),
         }
     }
 
     pub fn mark_text_changed(&mut self) {
-        self.tabs.active_mut().mark_dirty();
+        let doc = self.tabs.active_mut();
+        doc.mark_dirty();
+        if doc.tail_follow {
+            doc.tail_follow = false;
+            self.status = "Tail OFF — editing suspended follow".into();
+        }
         self.highlight_dirty = true;
     }
 
@@ -114,10 +131,109 @@ impl EditorState {
         self.status = "New file".into();
     }
 
+    /// Open `logs/*.log` relative to the process working directory (e.g. `logs/panic.log`).
+    pub fn open_npp_logs(&mut self) {
+        let dir = PathBuf::from("logs");
+        let mut paths: Vec<PathBuf> = Vec::new();
+        let panic = dir.join("panic.log");
+        if panic.is_file() {
+            paths.push(panic);
+        }
+        if let Ok(rd) = std::fs::read_dir(&dir) {
+            for entry in rd.flatten() {
+                let p = entry.path();
+                if !p.is_file() {
+                    continue;
+                }
+                let is_log = p
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .is_some_and(|e| e.eq_ignore_ascii_case("log"));
+                if is_log && !paths.iter().any(|x| x == &p) {
+                    paths.push(p);
+                }
+            }
+        }
+        paths.sort();
+        if paths.is_empty() {
+            self.status =
+                "No logs under logs/ (cwd). Panic hook writes logs/panic.log when present."
+                    .into();
+            return;
+        }
+        let n = paths.len();
+        for p in paths {
+            self.open_path(p);
+        }
+        self.status = format!("Opened {n} log file(s) from logs/");
+    }
+
+    /// Open a read-only tab with build / runtime facts (Help → Debug Info).
+    pub fn show_debug_info(&mut self) {
+        let panic_log = PathBuf::from(crate::recent::PANIC_LOG_REL);
+        let panic_state = if panic_log.is_file() {
+            "present"
+        } else {
+            "not found"
+        };
+        let pref = match self.settings.log_tail_on_open {
+            LogTailOnOpen::Ask => "ask",
+            LogTailOnOpen::Always => "always",
+            LogTailOnOpen::Never => "never",
+        };
+        let text = format!(
+            "npp-rust debug info\n\
+             ==================\n\
+             \n\
+             version: {}\n\
+             os: {}\n\
+             arch: {}\n\
+             \n\
+             Working directory: process cwd (paths below are relative to it).\n\
+             Panic log: {} ({panic_state})\n\
+             Settings: {} (log_tail_on_open = {pref})\n\
+             \n\
+             What this command does\n\
+             ----------------------\n\
+             Debug Info opens this tab. It shows build and runtime facts.\n\
+             It does not send data anywhere.\n\
+             \n\
+             Logs\n\
+             ----\n\
+             Use ? → Open npp-rust Logs to load logs/*.log from the cwd.\n\
+             The panic hook appends to logs/panic.log when the process panics.\n\
+             Opening any *.log file offers a Monitoring (tail) prompt.\n\
+             Remember stores ask/always/never in {}.\n\
+             View → Monitoring or Ctrl/Cmd+Shift+T toggles tail follow.\n\
+             To ask again: delete npp-rs/settings.json or set log_tail_on_open to ask.\n",
+            env!("CARGO_PKG_VERSION"),
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+            crate::recent::PANIC_LOG_REL,
+            crate::recent::SETTINGS_REL,
+            crate::recent::SETTINGS_REL,
+        );
+        self.tabs.open_untitled();
+        {
+            let doc = self.tabs.active_mut();
+            doc.title = "Debug Info".into();
+            doc.buffer = buffer::TextBuffer::from_str(&text);
+            doc.dirty = false;
+            doc.language = "plain".into();
+            doc.read_only = true;
+        }
+        self.highlight_dirty = true;
+        self.reset_view = true;
+        self.status = "Debug Info opened (? → Debug Info)".into();
+    }
+
     pub fn open_path(&mut self, path: PathBuf) {
         if !path.exists() {
             self.recent.remove(&path);
-            self.status = format!("File not found (removed from Recent): {}", path.display());
+            self.status = format!(
+                "File not found (removed from Recent): {}",
+                short_path_label(&path)
+            );
             return;
         }
         match fs::file_size(&path) {
@@ -125,9 +241,8 @@ impl EditorState {
                 let mut doc = Document::from_path(path.clone(), String::new());
                 doc.loading = true;
                 doc.title = format!("{} (loading…)", doc.title);
-                let idx = self.tabs.open_document(doc);
+                self.tabs.open_document(doc);
                 self.pending.push(PendingLoad {
-                    tab_index: idx,
                     path: path.clone(),
                 });
                 self.recent.touch(&path);
@@ -153,15 +268,30 @@ impl EditorState {
     }
 
     pub fn apply_open_result(&mut self, result: OpenResult) {
-        if let Some(pos) = self.pending.iter().position(|p| p.path == result.path) {
-            let PendingLoad { tab_index, .. } = self.pending.remove(pos);
+        let was_pending = self.pending.iter().any(|p| p.path == result.path);
+        self.pending.retain(|p| p.path != result.path);
+
+        // Match the loading placeholder by path so tab move/sort/close cannot
+        // apply content to the wrong document.
+        let loading_idx = self
+            .tabs
+            .iter()
+            .enumerate()
+            .find(|(_, d)| d.path.as_ref() == Some(&result.path) && d.loading)
+            .map(|(i, _)| i);
+
+        if let Some(tab_index) = loading_idx {
             if let Some(doc) = self.tabs.get_mut(tab_index) {
                 *doc = Document::from_path(result.path.clone(), result.content);
                 self.tabs.set_active(tab_index);
-            } else {
-                let doc = Document::from_path(result.path.clone(), result.content);
-                self.tabs.open_document(doc);
             }
+        } else if was_pending {
+            // User closed the placeholder while the load ran — do not reopen.
+            self.status = format!(
+                "Load finished but tab was closed: {}",
+                short_path_label(&result.path)
+            );
+            return;
         } else {
             let doc = Document::from_path(result.path.clone(), result.content);
             self.tabs.open_document(doc);
@@ -173,12 +303,89 @@ impl EditorState {
         self.tabs.active_mut().buffer.set_caret(0);
         self.tabs.active_mut().tail_bytes = result.bytes;
         self.tabs.active_mut().tail_follow = false;
+        let name = short_path_label(&result.path);
         self.status = format!(
-            "Opened {} ({:.1} KiB, {} ms)",
-            result.path.display(),
+            "Opened {name} ({:.1} KiB, {} ms)",
             result.bytes as f64 / 1024.0,
             result.elapsed_ms
         );
+        self.after_open_log_policy(&result.path);
+    }
+
+    /// Apply remembered log-tail preference, or queue the prompt dialog.
+    fn after_open_log_policy(&mut self, path: &std::path::Path) {
+        self.pending_log_tail_prompt = false;
+        if !is_log_path(path) {
+            return;
+        }
+        match self.settings.log_tail_on_open {
+            LogTailOnOpen::Always => {
+                let _ = self.enable_tail_follow();
+            }
+            LogTailOnOpen::Never => {}
+            LogTailOnOpen::Ask => {
+                self.pending_log_tail_prompt = true;
+            }
+        }
+    }
+
+    /// Persist log-open preference and optionally enable tail now.
+    pub fn resolve_log_tail_prompt(&mut self, enable: bool, remember: bool) {
+        self.pending_log_tail_prompt = false;
+        if remember {
+            self.settings.log_tail_on_open = if enable {
+                LogTailOnOpen::Always
+            } else {
+                LogTailOnOpen::Never
+            };
+            self.settings.save();
+            let pref = match self.settings.log_tail_on_open {
+                LogTailOnOpen::Always => "always",
+                LogTailOnOpen::Never => "never",
+                LogTailOnOpen::Ask => "ask",
+            };
+            self.status = format!(
+                "Remembered log tail = {pref} ({})",
+                crate::recent::SETTINGS_REL
+            );
+        }
+        if enable {
+            let _ = self.enable_tail_follow();
+        } else if !remember {
+            let name = self
+                .tabs
+                .active()
+                .path
+                .as_ref()
+                .map(|p| short_path_label(p))
+                .unwrap_or_else(|| "*.log".into());
+            self.status = format!("Opened {name} without tail");
+        }
+    }
+
+    /// Clear remembered preference so the next `*.log` open asks again.
+    pub fn reset_log_tail_preference(&mut self) {
+        self.settings.log_tail_on_open = LogTailOnOpen::Ask;
+        self.settings.save();
+        self.status = format!(
+            "Log tail preference reset to ask ({})",
+            crate::recent::SETTINGS_REL
+        );
+    }
+
+    /// Drop pending load and stop treating a closed tab as a load target.
+    pub fn note_tab_closed(&mut self, path: Option<&std::path::Path>) {
+        if let Some(path) = path {
+            self.pending.retain(|p| p.path != path);
+        }
+    }
+
+    /// Close a tab and cancel any pending load for its path.
+    pub fn close_tab(&mut self, index: usize) {
+        let path = self.tabs.get(index).and_then(|d| d.path.clone());
+        self.note_tab_closed(path.as_deref());
+        self.tabs.close(index);
+        self.highlight_dirty = true;
     }
 
     pub fn poll_loads(&mut self) {
@@ -493,28 +700,25 @@ impl EditorState {
         while i > 0 {
             i -= 1;
             if i != keep {
-                self.tabs.close(i);
+                self.close_tab(i);
             }
         }
-        self.highlight_dirty = true;
         self.status = "Closed all but active".into();
     }
 
     pub fn close_all_to_left(&mut self) {
         let keep = self.tabs.active_index();
         for i in (0..keep).rev() {
-            self.tabs.close(i);
+            self.close_tab(i);
         }
-        self.highlight_dirty = true;
         self.status = "Closed tabs to the left".into();
     }
 
     pub fn close_all_to_right(&mut self) {
         let keep = self.tabs.active_index();
         while self.tabs.len() > keep + 1 {
-            self.tabs.close(keep + 1);
+            self.close_tab(keep + 1);
         }
-        self.highlight_dirty = true;
         self.status = "Closed tabs to the right".into();
     }
 
@@ -523,10 +727,9 @@ impl EditorState {
         while i > 0 {
             i -= 1;
             if !self.tabs.get(i).map(|d| d.dirty).unwrap_or(true) {
-                self.tabs.close(i);
+                self.close_tab(i);
             }
         }
-        self.highlight_dirty = true;
         self.status = "Closed unchanged documents".into();
     }
 
@@ -690,34 +893,45 @@ impl EditorState {
         self.switch_tab(i);
     }
 
+    /// Enable log-tail follow on the active saved document.
+    pub fn enable_tail_follow(&mut self) -> bool {
+        let Some(path) = self.tabs.active().path.clone() else {
+            self.status = "Tail: save or open a file on disk first".into();
+            return false;
+        };
+        if self.tabs.active().dirty {
+            self.status = "Tail: save changes before enabling follow".into();
+            return false;
+        }
+        match fs::file_size(&path) {
+            Ok(size) => {
+                self.tabs.active_mut().tail_bytes = size;
+                self.tabs.active_mut().tail_follow = true;
+                // Jump to end so new lines appear in view.
+                let end = self.tabs.active().buffer.len_chars();
+                self.tabs.active_mut().buffer.set_caret(end);
+                self.status = "Tail ON — following log (poll ~250ms)".into();
+                true
+            }
+            Err(e) => {
+                self.status = format!("Tail failed: {e}");
+                false
+            }
+        }
+    }
+
     /// Toggle log-tail follow on the active saved document.
     pub fn toggle_tail_follow(&mut self) -> bool {
         if self.tabs.active().path.is_none() {
             self.status = "Tail: save or open a file on disk first".into();
             return false;
         }
-        let on = !self.tabs.active().tail_follow;
-        if on {
-            let path = self.tabs.active().path.clone().unwrap();
-            match fs::file_size(&path) {
-                Ok(size) => {
-                    self.tabs.active_mut().tail_bytes = size;
-                    self.tabs.active_mut().tail_follow = true;
-                    // Jump to end so new lines appear in view.
-                    let end = self.tabs.active().buffer.len_chars();
-                    self.tabs.active_mut().buffer.set_caret(end);
-                    self.status = "Tail ON — following log (poll ~250ms)".into();
-                    true
-                }
-                Err(e) => {
-                    self.status = format!("Tail failed: {e}");
-                    false
-                }
-            }
-        } else {
+        if self.tabs.active().tail_follow {
             self.tabs.active_mut().tail_follow = false;
             self.status = "Tail OFF".into();
             false
+        } else {
+            self.enable_tail_follow()
         }
     }
 
@@ -742,14 +956,24 @@ impl EditorState {
                 continue;
             };
             let offset = doc.tail_bytes;
+            let dirty = doc.dirty;
             match fs::read_tail_since(&path, offset) {
                 Ok(TailRead::Unchanged { .. }) => {}
                 Ok(TailRead::Appended { text, size }) => {
                     if let Some(d) = self.tabs.get_mut(i) {
+                        if dirty {
+                            d.tail_follow = false;
+                            if i == active {
+                                self.status =
+                                    "Tail OFF — document has unsaved edits".into();
+                            }
+                            continue;
+                        }
                         if !text.is_empty() {
                             let end = d.buffer.len_chars();
                             d.buffer.set_caret(end);
                             d.buffer.insert(&text);
+                            // Appended bytes are already on disk.
                             d.mark_clean();
                             if i == active {
                                 active_grew = true;
@@ -763,27 +987,40 @@ impl EditorState {
                         self.highlight_dirty = true;
                     }
                 }
-                Ok(TailRead::Rotated { .. }) => match fs::read_file(&path) {
-                    Ok(r) => {
+                Ok(TailRead::Rotated { .. }) => {
+                    if dirty {
                         if let Some(d) = self.tabs.get_mut(i) {
-                            d.buffer.replace_document(&r.content);
-                            d.tail_bytes = r.bytes;
-                            d.mark_clean();
-                            let end = d.buffer.len_chars();
-                            d.buffer.set_caret(end);
+                            d.tail_follow = false;
                         }
                         if i == active {
-                            self.highlight_dirty = true;
-                            active_grew = true;
-                            self.status = "Tail: file rotated — reloaded".into();
+                            self.status =
+                                "Tail OFF — file rotated while document has unsaved edits"
+                                    .into();
+                        }
+                        continue;
+                    }
+                    match fs::read_file(&path) {
+                        Ok(r) => {
+                            if let Some(d) = self.tabs.get_mut(i) {
+                                d.buffer.replace_document(&r.content);
+                                d.tail_bytes = r.bytes;
+                                d.mark_clean();
+                                let end = d.buffer.len_chars();
+                                d.buffer.set_caret(end);
+                            }
+                            if i == active {
+                                self.highlight_dirty = true;
+                                active_grew = true;
+                                self.status = "Tail: file rotated — reloaded".into();
+                            }
+                        }
+                        Err(e) => {
+                            if i == active {
+                                self.status = format!("Tail reload failed: {e}");
+                            }
                         }
                     }
-                    Err(e) => {
-                        if i == active {
-                            self.status = format!("Tail reload failed: {e}");
-                        }
-                    }
-                },
+                }
                 Err(e) => {
                     if i == active {
                         self.status = format!("Tail error: {e}");
@@ -792,6 +1029,50 @@ impl EditorState {
             }
         }
         active_grew
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn open_missing_file_is_safe() {
+        let mut state = EditorState::new();
+        let missing = PathBuf::from("definitely-missing-npp-stability-test-file-xyz.txt");
+        let before_tabs = state.tabs.len();
+        state.open_path(missing.clone());
+        assert!(!missing.exists());
+        assert_eq!(state.tabs.len(), before_tabs);
+        assert!(state.status.contains("File not found"));
+    }
+
+    #[test]
+    fn pending_load_matches_by_path_not_index() {
+        let mut state = EditorState::new();
+        let path = PathBuf::from("pending-stability-demo.txt");
+        let mut placeholder = Document::from_path(path.clone(), String::new());
+        placeholder.loading = true;
+        state.tabs.open_document(placeholder);
+        state.pending.push(PendingLoad { path: path.clone() });
+        // New tab + move: indices change; apply must still find by path.
+        state.tabs.open_untitled();
+        let _ = state.tabs.move_active_tab(-1);
+        let result = OpenResult {
+            path: path.clone(),
+            content: "hello from async".into(),
+            bytes: 16,
+            elapsed_ms: 1,
+        };
+        state.apply_open_result(result);
+        let doc = state
+            .tabs
+            .iter()
+            .find(|d| d.path.as_ref() == Some(&path))
+            .expect("doc by path");
+        assert!(!doc.loading);
+        assert_eq!(doc.buffer.to_string(), "hello from async");
     }
 }
 

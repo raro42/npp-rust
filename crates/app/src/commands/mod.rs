@@ -12,6 +12,7 @@ mod view;
 mod lang;
 mod misc;
 mod help;
+mod macro_cmds;
 
 use crate::editor::EditorState;
 
@@ -318,6 +319,20 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_SEARCH_ALLSTYLESTOCLIP"
             | "IDM_SEARCH_MARKEDTOCLIP"
             | "IDM_SETTING_OPENPLUGINSDIR"
+            | "IDM_SETTING_PREFERENCE"
+            | "IDM_SETTING_PLUGINADM"
+            | "IDM_SETTING_SHORTCUT_MAPPER"
+            | "IDM_LANGSTYLE_CONFIG_DLG"
+            | "IDM_SETTING_IMPORTPLUGIN"
+            | "IDM_SETTING_IMPORTSTYLETHEMES"
+            | "IDM_WINDOW_WINDOWS"
+            | "IDM_EXECUTE"
+            | "IDM_EXECUTE_VALIDATE_SHORTCUTSXML"
+            | "IDM_MACRO_STARTRECORDINGMACRO"
+            | "IDM_MACRO_STOPRECORDINGMACRO"
+            | "IDM_MACRO_PLAYBACKRECORDEDMACRO"
+            | "IDM_MACRO_SAVECURRENTMACRO"
+            | "IDM_MACRO_RUNMULTIMACRODLG"
             | "IDM_CMDLINEARGUMENTS"
             | "IDM_EDIT_SORTLINES_LEXICOGRAPHIC_DESCENDING"
             | "IDM_EDIT_SORTLINES_LEXICO_CASE_INSENS_DESCENDING"
@@ -389,6 +404,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_FORUM"
             | "IDM_UPDATE_NPP"
             | "IDM_DEBUGINFO"
+            | "IDM_OPEN_NPP_LOGS"
     ) || cmd.starts_with("IDM_LANG_")
         || cmd.starts_with("IDM_FORMAT_")
 }
@@ -397,6 +413,9 @@ pub fn is_implemented(cmd: &str) -> bool {
 
 /// Run a menu command. Returns whether it was implemented or only stubbed.
 pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResult {
+    if state.macro_recording && !cmd.starts_with("IDM_MACRO_") {
+        state.macro_cmds.push(cmd.to_string());
+    }
     if let Some(r) = file::try_dispatch(cmd, state, ui) {
         return r;
     }
@@ -419,6 +438,9 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
         return r;
     }
     if let Some(r) = help::try_dispatch(cmd, state, ui) {
+        return r;
+    }
+    if let Some(r) = macro_cmds::try_dispatch(cmd, state, ui) {
         return r;
     }
     // Fallback: language / encoding catch-alls (same as before).
@@ -476,6 +498,7 @@ mod tests {
         assert!(is_implemented("IDM_ABOUT"));
         assert!(is_implemented("IDM_LANG_RUST"));
         assert!(is_implemented("IDM_LANG_FOO"));
-        assert!(!is_implemented("IDM_SETTING_PLUGINADM"));
+        assert!(is_implemented("IDM_SETTING_PLUGINADM"));
+        assert!(is_implemented("IDM_MACRO_STARTRECORDINGMACRO"));
     }
 }

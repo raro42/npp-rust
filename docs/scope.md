@@ -36,3 +36,9 @@ See [testing.md](testing.md). CI runs `cargo test --workspace` on push; build al
 ## Principle
 
 Ship **nice, working essentials** first. Grow features from the upstream reference when useful — do not fake “100% clone” in the About box.
+
+## App crate layout (2026-08-29)
+
+- Menu commands live under `crates/app/src/commands/` (one domain file per menu area). See [agent-parallel.md](agent-parallel.md).
+- Viewport paint hot path lives in `crates/app/src/ui_paint.rs`; shell/UI stays in `ui.rs`.
+- Further splits should stay small and keep ownership clear for parallel agents.

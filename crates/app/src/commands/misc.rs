@@ -5,7 +5,11 @@ use crate::editor::EditorState;
 use std::path::PathBuf;
 
 pub fn covers(cmd: &str) -> bool {
-    cmd.starts_with("IDM_TOOL_") || cmd.starts_with("IDM_WINDOW_") || cmd.starts_with("IDM_SETTING_") || cmd.starts_with("IDM_CMDLINE")
+    cmd.starts_with("IDM_TOOL_")
+        || cmd.starts_with("IDM_WINDOW_")
+        || cmd.starts_with("IDM_SETTING_")
+        || cmd.starts_with("IDM_CMDLINE")
+        || cmd.starts_with("IDM_EXECUTE")
 }
 
 pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Option<CmdResult> {
@@ -13,7 +17,45 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         return None;
     }
     Some(match cmd {
-        "IDM_SETTING_PLUGINADM" | "IDM_SETTING_SHORTCUT_MAPPER" => CmdResult::Stub,
+        "IDM_SETTING_PLUGINADM" => {
+            state.status = "Plugin Admin: use Plugins menu (in-process only)".into();
+            CmdResult::Handled
+        }
+        "IDM_SETTING_SHORTCUT_MAPPER" => {
+            state.status = "Shortcut Mapper: see keyboard shortcuts in Help / README".into();
+            CmdResult::Handled
+        }
+        "IDM_SETTING_PREFERENCE" => {
+            state.status = format!(
+                "Preferences: log-tail={:?} (open a .log to change)",
+                state.settings.log_tail_on_open
+            );
+            CmdResult::Handled
+        }
+        "IDM_LANGSTYLE_CONFIG_DLG" => {
+            state.status = "Style Configurator: language menu sets highlight for now".into();
+            CmdResult::Handled
+        }
+        "IDM_SETTING_IMPORTPLUGIN" => {
+            state.status = "Import plugins: drop-in plugins not supported yet".into();
+            CmdResult::Handled
+        }
+        "IDM_SETTING_IMPORTSTYLETHEMES" => {
+            state.status = "Import themes: not supported yet".into();
+            CmdResult::Handled
+        }
+        "IDM_WINDOW_WINDOWS" => {
+            ui.show_doc_list = true;
+            CmdResult::Handled
+        }
+        "IDM_EXECUTE" => {
+            state.status = "Run: open a shell here from File → Open containing folder / terminal".into();
+            CmdResult::Handled
+        }
+        "IDM_EXECUTE_VALIDATE_SHORTCUTSXML" => {
+            state.status = "Validate shortcuts.xml: npp-rs has no shortcuts.xml yet".into();
+            CmdResult::Handled
+        }
         "IDM_TOOL_MD5_GENERATE" | "IDM_TOOL_MD5_GENERATEINTOCLIPBOARD" => {
             hash_selection_or_doc(state, ui, "md5", cmd.ends_with("CLIPBOARD"));
             CmdResult::Handled

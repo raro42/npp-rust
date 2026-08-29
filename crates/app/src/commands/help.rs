@@ -13,6 +13,7 @@ pub fn covers(cmd: &str) -> bool {
             | "IDM_ONLINEDOCUMENT"
             | "IDM_UPDATE_NPP"
             | "IDM_DEBUGINFO"
+            | "IDM_OPEN_NPP_LOGS"
             | "IDM_CMDLINEARGUMENTS"
     )
 }
@@ -42,12 +43,12 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             open_url(state, "https://github.com/raro42/npp-rust/releases");
             CmdResult::Handled
         }
+        "IDM_OPEN_NPP_LOGS" => {
+            state.open_npp_logs();
+            CmdResult::Handled
+        }
         "IDM_DEBUGINFO" => {
-            state.status = format!(
-                "npp-rust {} · Rust · {}",
-                env!("CARGO_PKG_VERSION"),
-                std::env::consts::OS
-            );
+            state.show_debug_info();
             CmdResult::Handled
         }
         "IDM_ABOUT" => {

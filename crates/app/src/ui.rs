@@ -1,8 +1,8 @@
 //! egui shell: menus, tabs, viewport editor, find bar.
 
 use crate::editor::EditorState;
+use crate::ui_paint::{col_from_x, paint_line_text, text_width};
 use eframe::egui::{self, Color32, FontId, Key, Pos2, Rect, RichText, Sense, Vec2};
-use highlight::color_for;
 
 /// Soft teal — ready menu items (works on light and dark themes).
 const MENU_READY: Color32 = Color32::from_rgb(42, 148, 118);
@@ -15,6 +15,8 @@ pub struct EditorApp {
     /// When true, next paint scrolls so the caret stays in view.
     follow_caret: bool,
     show_about: bool,
+    /// Checkbox state for the log-tail prompt.
+    log_tail_remember: bool,
     /// Drag-select anchor (char index), while primary button is held.
     drag_anchor: Option<usize>,
     show_replace: bool,
@@ -41,6 +43,7 @@ impl EditorApp {
             scroll_line: 0.0,
             follow_caret: false,
             show_about: false,
+            log_tail_remember: true,
             drag_anchor: None,
             show_replace: false,
             replace_with: String::new(),
@@ -78,6 +81,7 @@ impl eframe::App for EditorApp {
         self.editor_pane(ctx);
         self.status_bar(ctx);
         self.about_window(ctx);
+        self.log_tail_prompt_window(ctx);
         self.coming_soon_window(ctx);
         self.goto_line_window(ctx);
         self.summary_window(ctx);
@@ -178,8 +182,7 @@ impl EditorApp {
         }
         if cmd && w {
             let idx = self.state.tabs.active_index();
-            self.state.tabs.close(idx);
-            self.state.highlight_dirty = true;
+            self.state.close_tab(idx);
             self.scroll_line = 0.0;
         }
         if (self.state.find_open || self.show_replace) && cmd && g && mods.shift {
@@ -222,7 +225,9 @@ impl EditorApp {
             let result = crate::commands::dispatch(&cmd, &mut self.state, &mut flags);
             if result == crate::commands::CmdResult::Stub {
                 self.coming_soon = Some(crate::commands::coming_soon_for(&cmd));
-                self.state.status = format!("Coming soon: {}", self.coming_soon.as_ref().unwrap().feature);
+                if let Some(cs) = self.coming_soon.as_ref() {
+                    self.state.status = format!("Coming soon: {}", cs.feature);
+                }
             }
             if flags.coming_soon.is_some() {
                 self.coming_soon = flags.coming_soon.take();
@@ -299,7 +304,17 @@ impl EditorApp {
                 } else {
                     RichText::new(label)
                 };
-                if ui.button(text).clicked() {
+                let response = ui.button(text);
+                let response = match cmd.as_str() {
+                    "IDM_OPEN_NPP_LOGS" => response.on_hover_text(
+                        "Open logs/*.log relative to the process cwd (e.g. logs/panic.log)",
+                    ),
+                    "IDM_DEBUGINFO" => {
+                        response.on_hover_text("Open a tab with version, OS, and log status")
+                    }
+                    _ => response,
+                };
+                if response.clicked() {
                     *run_cmd = Some(cmd.clone());
                     ui.close_menu();
                 }
@@ -468,6 +483,7 @@ Tree-sitter highlight, and a calm UI.",
                             ("⌘/Ctrl D", "Duplicate line"),
                             ("⌘/Ctrl ] / [", "Indent / Outdent"),
                             ("⌘/Ctrl ⇧ I", "Format document"),
+                            ("⌘/Ctrl ⇧ T", "Toggle log tail"),
                             ("Alt ←/→", "Word jump"),
                             ("Double-click", "Select word"),
                             ("⌘/Ctrl Z / Y", "Undo / Redo"),
@@ -497,6 +513,62 @@ Tree-sitter highlight, and a calm UI.",
             });
         if !open {
             self.show_about = false;
+        }
+    }
+
+    fn log_tail_prompt_window(&mut self, ctx: &egui::Context) {
+        if !self.state.pending_log_tail_prompt {
+            return;
+        }
+        let name = self
+            .state
+            .tabs
+            .active()
+            .path
+            .as_ref()
+            .map(|p| crate::recent::short_path_label(p))
+            .unwrap_or_else(|| "*.log".into());
+        let mut enable = false;
+        let mut skip = false;
+        let mut open = true;
+        egui::Window::new("Follow this log?")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .default_width(360.0)
+            .show(ctx, |ui| {
+                ui.label(format!("You opened {name}."));
+                ui.label("Enable Monitoring (tail -f) now?");
+                ui.add_space(6.0);
+                ui.checkbox(&mut self.log_tail_remember, "Remember for future *.log files");
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Enable tail").clicked() {
+                        enable = true;
+                    }
+                    if ui.button("Not now").clicked() {
+                        skip = true;
+                    }
+                });
+                if ui
+                    .small_button("Reset remembered preference to ask")
+                    .on_hover_text(crate::recent::SETTINGS_REL)
+                    .clicked()
+                {
+                    self.state.reset_log_tail_preference();
+                }
+            });
+        if enable {
+            self.state
+                .resolve_log_tail_prompt(true, self.log_tail_remember);
+            self.follow_caret = true;
+        } else if skip {
+            self.state
+                .resolve_log_tail_prompt(false, self.log_tail_remember);
+        } else if !open {
+            // Window closed: dismiss once; do not persist.
+            self.state.pending_log_tail_prompt = false;
         }
     }
 
@@ -664,7 +736,9 @@ Tree-sitter highlight, and a calm UI.",
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
                     for i in 0..self.state.tabs.len() {
-                        let doc = self.state.tabs.get(i).unwrap();
+                        let Some(doc) = self.state.tabs.get(i) else {
+                            continue;
+                        };
                         let mut label = doc.title.clone();
                         if doc.dirty {
                             label.push('*');
@@ -695,7 +769,9 @@ Tree-sitter highlight, and a calm UI.",
                 let mut switch_to = None;
                 let mut close_idx = None;
                 for i in 0..count {
-                    let doc = self.state.tabs.get(i).unwrap();
+                    let Some(doc) = self.state.tabs.get(i) else {
+                        continue;
+                    };
                     let mut label = doc.title.clone();
                     if doc.dirty {
                         label.push('*');
@@ -744,8 +820,7 @@ Tree-sitter highlight, and a calm UI.",
                     self.scroll_line = 0.0;
                 }
                 if let Some(i) = close_idx {
-                    self.state.tabs.close(i);
-                    self.state.highlight_dirty = true;
+                    self.state.close_tab(i);
                     self.scroll_line = 0.0;
                 }
             });
@@ -1467,86 +1542,5 @@ fn go_doc_end(state: &mut EditorState, select: bool) {
         b.buffer.set_selection(anchor, end);
     } else {
         b.buffer.set_caret(end);
-    }
-}
-
-fn text_width(ui: &egui::Ui, font_id: &FontId, text: &str) -> f32 {
-    ui.fonts(|f| f.layout_no_wrap(text.to_owned(), font_id.clone(), Color32::WHITE).size().x)
-}
-
-fn col_from_x(ui: &egui::Ui, font_id: &FontId, line: &str, x: f32) -> usize {
-    if x <= 0.0 || line.is_empty() {
-        return 0;
-    }
-    let chars: Vec<char> = line.chars().collect();
-    let mut best = 0usize;
-    let mut best_dist = f32::MAX;
-    for i in 0..=chars.len() {
-        let prefix: String = chars.iter().take(i).collect();
-        let w = text_width(ui, font_id, &prefix);
-        let d = (w - x).abs();
-        if d < best_dist {
-            best_dist = d;
-            best = i;
-        }
-        if w > x + 2.0 {
-            break;
-        }
-    }
-    best
-}
-
-fn paint_line_text(
-    painter: &egui::Painter,
-    ui: &egui::Ui,
-    font_id: &FontId,
-    x0: f32,
-    y: f32,
-    line_text: &str,
-    line_start_char: usize,
-    spans: &[highlight::Span],
-    language: &str,
-) {
-    if line_text.is_empty() {
-        return;
-    }
-
-    if language == "plain" || spans.is_empty() {
-        painter.text(
-            Pos2::new(x0, y),
-            egui::Align2::LEFT_TOP,
-            line_text,
-            font_id.clone(),
-            Color32::from_rgb(220, 220, 220),
-        );
-        return;
-    }
-
-    let mut x = x0;
-    let chars: Vec<char> = line_text.chars().collect();
-    let mut i = 0usize;
-    while i < chars.len() {
-        let global = line_start_char + i;
-        let name = spans
-            .iter()
-            .find(|s| s.start <= global && global < s.end)
-            .map(|s| s.name.as_str())
-            .unwrap_or("");
-        let (r, g, b) = if name.is_empty() {
-            (0.85, 0.85, 0.85)
-        } else {
-            color_for(name)
-        };
-        let ch = chars[i].to_string();
-        let w = text_width(ui, font_id, &ch);
-        painter.text(
-            Pos2::new(x, y),
-            egui::Align2::LEFT_TOP,
-            &ch,
-            font_id.clone(),
-            Color32::from_rgb((r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8),
-        );
-        x += w;
-        i += 1;
     }
 }

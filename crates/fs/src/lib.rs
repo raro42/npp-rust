@@ -127,12 +127,54 @@ pub fn read_tail_since(path: &Path, offset: u64) -> Result<TailRead> {
         }
     }
     buf.truncate(read_total);
-    let text = String::from_utf8_lossy(&buf).into_owned();
-    let new_offset = offset + read_total as u64;
+    let (text, consumed) = decode_utf8_prefix(&buf);
+    let new_offset = offset + consumed;
     Ok(TailRead::Appended {
         text,
         size: new_offset,
     })
+}
+
+/// Decode as much valid UTF-8 as possible from `buf`.
+/// Incomplete trailing multi-byte sequences are left for the next poll.
+fn decode_utf8_prefix(buf: &[u8]) -> (String, u64) {
+    let end = utf8_complete_len(buf);
+    let text = String::from_utf8_lossy(&buf[..end]).into_owned();
+    (text, end as u64)
+}
+
+fn utf8_complete_len(buf: &[u8]) -> usize {
+    if buf.is_empty() {
+        return 0;
+    }
+    let mut i = buf.len();
+    // Walk back over continuation bytes (10xxxxxx).
+    while i > 0 && (buf[i - 1] & 0xC0) == 0x80 {
+        i -= 1;
+    }
+    if i == 0 {
+        // All continuation — nothing complete.
+        return 0;
+    }
+    let lead = buf[i - 1];
+    let need = if lead & 0x80 == 0 {
+        1
+    } else if lead & 0xE0 == 0xC0 {
+        2
+    } else if lead & 0xF0 == 0xE0 {
+        3
+    } else if lead & 0xF8 == 0xF0 {
+        4
+    } else {
+        // Invalid lead; drop it so the next poll can recover.
+        return i - 1;
+    };
+    let have = buf.len() - (i - 1);
+    if have < need {
+        i - 1
+    } else {
+        buf.len()
+    }
 }
 
 /// Open on a background thread and send [`LoadMsg`] when done.
@@ -252,5 +294,15 @@ mod tests {
             other => panic!("expected rotated: {other:?}"),
         }
         let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn utf8_complete_len_drops_partial_trailing() {
+        // "é" is C3 A9; leave only C3.
+        assert_eq!(utf8_complete_len(&[0x41, 0xC3]), 1);
+        assert_eq!(utf8_complete_len(&[0x41, 0xC3, 0xA9]), 3);
+        let (text, n) = decode_utf8_prefix(&[0x41, 0xC3]);
+        assert_eq!(text, "A");
+        assert_eq!(n, 1);
     }
 }
