@@ -316,24 +316,30 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             state.status = "Cleared all styles".into();
             CmdResult::Handled
         }
+        "IDM_SEARCH_GOPREVMARKER_DEF" => {
+            jump_bookmarks(state, ui, false);
+            CmdResult::Handled
+        }
+        "IDM_SEARCH_GONEXTMARKER_DEF" => {
+            jump_bookmarks(state, ui, true);
+            CmdResult::Handled
+        }
         "IDM_SEARCH_GOPREVMARKER1"
         | "IDM_SEARCH_GOPREVMARKER2"
         | "IDM_SEARCH_GOPREVMARKER3"
         | "IDM_SEARCH_GOPREVMARKER4"
-        | "IDM_SEARCH_GOPREVMARKER5"
-        | "IDM_SEARCH_GOPREVMARKER_DEF" => {
-            let style = style_from_cmd(cmd).or(Some(1));
-            jump_style(state, ui, style.unwrap_or(1), false);
+        | "IDM_SEARCH_GOPREVMARKER5" => {
+            let style = style_from_cmd(cmd).unwrap_or(1);
+            jump_style(state, ui, style, false);
             CmdResult::Handled
         }
         "IDM_SEARCH_GONEXTMARKER1"
         | "IDM_SEARCH_GONEXTMARKER2"
         | "IDM_SEARCH_GONEXTMARKER3"
         | "IDM_SEARCH_GONEXTMARKER4"
-        | "IDM_SEARCH_GONEXTMARKER5"
-        | "IDM_SEARCH_GONEXTMARKER_DEF" => {
-            let style = style_from_cmd(cmd).or(Some(1));
-            jump_style(state, ui, style.unwrap_or(1), true);
+        | "IDM_SEARCH_GONEXTMARKER5" => {
+            let style = style_from_cmd(cmd).unwrap_or(1);
+            jump_style(state, ui, style, true);
             CmdResult::Handled
         }
         "IDM_SEARCH_STYLE1TOCLIP"
@@ -435,11 +441,14 @@ fn mark_all_token(state: &mut EditorState, style: Option<u8>, _one: bool) {
     state.status = format!("Styled {count} line(s) with style {style}");
 }
 
-fn jump_style(state: &mut EditorState, ui: &mut UiFlags, style: u8, forward: bool) {
-    let marks = state.tabs.active().style_marks[(style as usize) - 1].clone();
+fn jump_marks(
+    state: &mut EditorState,
+    ui: &mut UiFlags,
+    marks: &std::collections::BTreeSet<usize>,
+    forward: bool,
+) -> Option<usize> {
     if marks.is_empty() {
-        state.status = format!("No marks for style {style}");
-        return;
+        return None;
     }
     let line = state
         .tabs
@@ -464,7 +473,25 @@ fn jump_style(state: &mut EditorState, ui: &mut UiFlags, style: u8, forward: boo
         let at = state.tabs.active().buffer.line_to_char(l);
         state.tabs.active_mut().buffer.set_caret(at);
         ui.follow_caret = true;
+    }
+    next
+}
+
+fn jump_style(state: &mut EditorState, ui: &mut UiFlags, style: u8, forward: bool) {
+    let marks = state.tabs.active().style_marks[(style as usize) - 1].clone();
+    if let Some(l) = jump_marks(state, ui, &marks, forward) {
         state.status = format!("Style {style} → line {}", l + 1);
+    } else {
+        state.status = format!("No marks for style {style}");
+    }
+}
+
+fn jump_bookmarks(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
+    let marks = state.tabs.active().bookmarks.clone();
+    if let Some(l) = jump_marks(state, ui, &marks, forward) {
+        state.status = format!("Find mark → line {}", l + 1);
+    } else {
+        state.status = "No find marks (bookmarks)".into();
     }
 }
 

@@ -1,7 +1,9 @@
 //! egui shell: menus, tabs, viewport editor, find bar.
 
 use crate::editor::EditorState;
-use crate::ui_paint::{col_from_x, paint_line_text, text_width};
+use crate::ui_paint::{
+    col_from_x, display_row_for, paint_line_text, style_mark_bg, text_width, visible_line_indices,
+};
 use eframe::egui::{self, Color32, FontId, Key, Pos2, Rect, RichText, Sense, Vec2};
 
 /// Soft teal — ready menu items (works on light and dark themes).
@@ -1096,7 +1098,12 @@ Tree-sitter highlight, and a calm UI.",
 
             let font_id = FontId::monospace(self.font_size);
             let row_height = ui.fonts(|f| f.row_height(&font_id)) + 2.0;
-            let total_lines = self.state.tabs.active().buffer.line_count().max(1);
+            let buf_line_count = self.state.tabs.active().buffer.line_count().max(1);
+            let visible_lines = visible_line_indices(
+                buf_line_count,
+                &self.state.tabs.active().hidden_lines,
+            );
+            let display_count = visible_lines.len().max(1);
             let avail = ui.available_size();
             let (rect, response) = ui.allocate_exact_size(avail, Sense::click_and_drag());
             // Do not steal focus every frame — that breaks Find (Ctrl/Cmd+F).
@@ -1119,7 +1126,7 @@ Tree-sitter highlight, and a calm UI.",
                 let usable = (rect.height() - row_height).max(row_height);
                 ((usable / row_height).floor() as usize).max(1)
             };
-            let max_scroll = (total_lines.saturating_sub(visible_rows) as f32).max(0.0);
+            let max_scroll = (display_count.saturating_sub(visible_rows) as f32).max(0.0);
 
             // Mouse-wheel scroll must not be overridden by caret-follow.
             let scroll = ui.input(|i| i.raw_scroll_delta.y);
@@ -1134,11 +1141,17 @@ Tree-sitter highlight, and a calm UI.",
             let gutter_gap = 12.0;
             let text_left = rect.left() + gutter_w + gutter_gap;
 
-            let hit_index = |ui: &egui::Ui, pos: Pos2, buf: &buffer::TextBuffer, scroll: f32| -> usize {
+            let hit_index = |ui: &egui::Ui,
+                             pos: Pos2,
+                             buf: &buffer::TextBuffer,
+                             scroll: f32,
+                             visible: &[usize]|
+             -> usize {
                 let first = scroll.floor() as usize;
-                let line = first
+                let row = first
                     + ((pos.y - rect.top()) / row_height).floor().max(0.0) as usize;
-                let line = line.min(total_lines.saturating_sub(1));
+                let row = row.min(visible.len().saturating_sub(1));
+                let line = visible.get(row).copied().unwrap_or(0);
                 let line_start = buf.line_to_char(line);
                 let line_text = buf.line(line);
                 let line_body = line_text.trim_end_matches(['\n', '\r']);
@@ -1149,21 +1162,39 @@ Tree-sitter highlight, and a calm UI.",
             // Double-click → word; triple-click → line; click → caret; drag → select.
             if response.triple_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
-                    let idx = hit_index(ui, pos, &self.state.tabs.active().buffer, self.scroll_line);
+                    let idx = hit_index(
+                        ui,
+                        pos,
+                        &self.state.tabs.active().buffer,
+                        self.scroll_line,
+                        &visible_lines,
+                    );
                     self.state.tabs.active_mut().buffer.select_line_at(idx);
                     self.drag_anchor = None;
                     self.follow_caret = false;
                 }
             } else if response.double_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
-                    let idx = hit_index(ui, pos, &self.state.tabs.active().buffer, self.scroll_line);
+                    let idx = hit_index(
+                        ui,
+                        pos,
+                        &self.state.tabs.active().buffer,
+                        self.scroll_line,
+                        &visible_lines,
+                    );
                     self.state.tabs.active_mut().buffer.select_word_at(idx);
                     self.drag_anchor = None;
                     self.follow_caret = false;
                 }
             } else if response.drag_started() {
                 if let Some(pos) = response.interact_pointer_pos() {
-                    let idx = hit_index(ui, pos, &self.state.tabs.active().buffer, self.scroll_line);
+                    let idx = hit_index(
+                        ui,
+                        pos,
+                        &self.state.tabs.active().buffer,
+                        self.scroll_line,
+                        &visible_lines,
+                    );
                     let shift = ui.input(|i| i.modifiers.shift);
                     if shift {
                         let anchor = self
@@ -1185,13 +1216,25 @@ Tree-sitter highlight, and a calm UI.",
             } else if response.dragged() {
                 if let (Some(anchor), Some(pos)) = (self.drag_anchor, response.interact_pointer_pos())
                 {
-                    let idx = hit_index(ui, pos, &self.state.tabs.active().buffer, self.scroll_line);
+                    let idx = hit_index(
+                        ui,
+                        pos,
+                        &self.state.tabs.active().buffer,
+                        self.scroll_line,
+                        &visible_lines,
+                    );
                     self.state.tabs.active_mut().buffer.set_selection(anchor, idx);
                     self.follow_caret = false;
                 }
             } else if response.clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
-                    let idx = hit_index(ui, pos, &self.state.tabs.active().buffer, self.scroll_line);
+                    let idx = hit_index(
+                        ui,
+                        pos,
+                        &self.state.tabs.active().buffer,
+                        self.scroll_line,
+                        &visible_lines,
+                    );
                     let shift = ui.input(|i| i.modifiers.shift);
                     if shift {
                         let anchor = self
@@ -1229,19 +1272,19 @@ Tree-sitter highlight, and a calm UI.",
                     .active()
                     .buffer
                     .char_to_line(self.state.tabs.active().buffer.caret());
-                let caret_line = caret_line as f32;
-                if caret_line < self.scroll_line {
-                    self.scroll_line = caret_line;
-                } else if caret_line >= self.scroll_line + visible_rows as f32 {
-                    self.scroll_line = caret_line - visible_rows as f32 + 1.0;
+                let caret_row = display_row_for(&visible_lines, caret_line) as f32;
+                if caret_row < self.scroll_line {
+                    self.scroll_line = caret_row;
+                } else if caret_row >= self.scroll_line + visible_rows as f32 {
+                    self.scroll_line = caret_row - visible_rows as f32 + 1.0;
                 }
                 self.scroll_line = self.scroll_line.clamp(0.0, max_scroll);
                 self.follow_caret = false;
             }
 
-            let first_line = self.scroll_line.floor() as usize;
+            let first_row = self.scroll_line.floor() as usize;
             let visible = visible_rows + 2;
-            let last_line = (first_line + visible).min(total_lines);
+            let last_row = (first_row + visible).min(display_count);
 
             let painter = ui.painter_at(rect);
             painter.rect_filled(rect, 0.0, Color32::from_rgb(30, 30, 30));
@@ -1263,13 +1306,46 @@ Tree-sitter highlight, and a calm UI.",
 
             let hl = &self.state.highlight_cache;
             let lang = self.state.tabs.active().language.clone();
+            let bookmarks = self.state.tabs.active().bookmarks.clone();
+            let style_marks = self.state.tabs.active().style_marks.clone();
 
-            for line_idx in first_line..last_line {
-                let y = rect.top() + (line_idx as f32 - self.scroll_line) * row_height;
+            for row in first_row..last_row {
+                let Some(&line_idx) = visible_lines.get(row) else {
+                    break;
+                };
+                let y = rect.top() + (row as f32 - self.scroll_line) * row_height;
                 let line_rect = Rect::from_min_size(
                     Pos2::new(rect.left(), y),
                     Vec2::new(rect.width(), row_height),
                 );
+
+                // Style-mark soft wash (first matching slot wins for paint).
+                for (slot, marks) in style_marks.iter().enumerate() {
+                    if marks.contains(&line_idx) {
+                        painter.rect_filled(
+                            Rect::from_min_max(
+                                Pos2::new(text_left, y),
+                                Pos2::new(rect.right(), y + row_height),
+                            ),
+                            0.0,
+                            style_mark_bg((slot as u8) + 1),
+                        );
+                        break;
+                    }
+                }
+
+                // Bookmark tick in the gutter.
+                if bookmarks.contains(&line_idx) {
+                    painter.rect_filled(
+                        Rect::from_min_max(
+                            Pos2::new(rect.left() + 4.0, y + 3.0),
+                            Pos2::new(rect.left() + 10.0, y + row_height - 3.0),
+                        ),
+                        1.0,
+                        Color32::from_rgb(80, 180, 220),
+                    );
+                }
+
                 // Line number — right-aligned inside the gutter.
                 painter.text(
                     Pos2::new(gutter_right - 6.0, y),
@@ -1407,7 +1483,7 @@ Tree-sitter highlight, and a calm UI.",
                 let bar_x = rect.right() - bar_w - 2.0;
                 let frac = (self.scroll_line / max_scroll).clamp(0.0, 1.0);
                 let thumb_h =
-                    (rect.height() * (visible_rows as f32 / total_lines as f32)).max(20.0);
+                    (rect.height() * (visible_rows as f32 / display_count as f32)).max(20.0);
                 let thumb_y = rect.top() + frac * (rect.height() - thumb_h);
                 painter.rect_filled(
                     Rect::from_min_size(Pos2::new(bar_x, thumb_y), Vec2::new(bar_w, thumb_h)),
@@ -1662,6 +1738,7 @@ Tree-sitter highlight, and a calm UI.",
             }
         }
         if let Some(t) = copy_text {
+            self.last_app_clipboard = Some(t.clone());
             ui.ctx().copy_text(t);
         }
         if changed {

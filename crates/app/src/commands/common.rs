@@ -163,13 +163,14 @@ pub(crate) fn hash_active_file(state: &mut EditorState, ui: &mut UiFlags, algo: 
     }
 }
 
-pub(crate) fn cut_selection(state: &mut EditorState) {
+pub(crate) fn cut_selection(state: &mut EditorState, ui: &mut UiFlags) {
     if let Some((s, e)) = state.tabs.active().buffer.selection() {
         let text = state.tabs.active().buffer.slice(s, e);
+        ui.pending_clipboard = Some(text.clone());
+        ui.last_copied = Some(text.clone());
         state.tabs.active_mut().buffer.delete_backward();
         state.mark_text_changed();
-        // Clipboard set by UI layer via pending_clipboard
-        state.status = format!("Cut {} chars (clipboard via UI)", text.chars().count());
+        state.status = format!("Cut {} chars", text.chars().count());
     }
 }
 
@@ -452,7 +453,9 @@ pub(crate) fn tab_mtime(doc: &doc::Document) -> u64 {
 
 pub(crate) fn copy_selection(state: &mut EditorState, ui: &mut UiFlags) {
     if let Some((s, e)) = state.tabs.active().buffer.selection() {
-        ui.pending_clipboard = Some(state.tabs.active().buffer.slice(s, e));
+        let text = state.tabs.active().buffer.slice(s, e);
+        ui.pending_clipboard = Some(text.clone());
+        ui.last_copied = Some(text);
         state.status = "Copied".into();
     }
 }

@@ -2,6 +2,39 @@
 
 use eframe::egui::{self, Color32, FontId, Pos2};
 use highlight::color_for;
+use std::collections::BTreeSet;
+
+/// Document line indices that are not folded/hidden (display order).
+pub(crate) fn visible_line_indices(line_count: usize, hidden: &BTreeSet<usize>) -> Vec<usize> {
+    if hidden.is_empty() {
+        return (0..line_count).collect();
+    }
+    (0..line_count).filter(|i| !hidden.contains(i)).collect()
+}
+
+/// Display row for a document line (nearest visible row if the line is hidden).
+pub(crate) fn display_row_for(visible: &[usize], doc_line: usize) -> usize {
+    if visible.is_empty() {
+        return 0;
+    }
+    match visible.binary_search(&doc_line) {
+        Ok(i) => i,
+        Err(0) => 0,
+        Err(i) => i - 1,
+    }
+}
+
+/// Soft background for Search → Style mark slots 1..=5.
+pub(crate) fn style_mark_bg(style: u8) -> Color32 {
+    match style {
+        1 => Color32::from_rgba_unmultiplied(200, 170, 40, 55),
+        2 => Color32::from_rgba_unmultiplied(40, 170, 90, 55),
+        3 => Color32::from_rgba_unmultiplied(40, 150, 190, 55),
+        4 => Color32::from_rgba_unmultiplied(190, 70, 150, 55),
+        5 => Color32::from_rgba_unmultiplied(130, 90, 190, 55),
+        _ => Color32::from_rgba_unmultiplied(80, 80, 80, 40),
+    }
+}
 
 pub(crate) fn text_width(ui: &egui::Ui, font_id: &FontId, text: &str) -> f32 {
     ui.fonts(|f| f.layout_no_wrap(text.to_owned(), font_id.clone(), Color32::WHITE).size().x)
@@ -81,5 +114,25 @@ pub(crate) fn paint_line_text(
         );
         x += w;
         i += 1;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    #[test]
+    fn visible_lines_skip_hidden() {
+        let hidden: BTreeSet<usize> = [1usize, 3].into_iter().collect();
+        assert_eq!(visible_line_indices(5, &hidden), vec![0, 2, 4]);
+    }
+
+    #[test]
+    fn display_row_nearest_when_hidden() {
+        let visible = vec![0usize, 2, 4];
+        assert_eq!(display_row_for(&visible, 2), 1);
+        assert_eq!(display_row_for(&visible, 3), 1);
+        assert_eq!(display_row_for(&visible, 0), 0);
     }
 }

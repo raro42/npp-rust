@@ -22,7 +22,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_CUT" => {
-            cut_selection(state);
+            cut_selection(state, ui);
             CmdResult::Handled
         }
         "IDM_EDIT_COPY" => {
@@ -30,7 +30,20 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_PASTE" => {
-            state.status = "Paste: use ⌘/Ctrl+V in the editor".into();
+            if state.tabs.active().read_only {
+                state.status = "Document is read-only".into();
+            } else if let Some(t) = ui.last_copied.clone() {
+                if t.is_empty() {
+                    state.status = "Paste: clipboard empty".into();
+                } else {
+                    state.tabs.active_mut().buffer.insert(&t);
+                    state.mark_text_changed();
+                    ui.follow_caret = true;
+                    state.status = "Pasted".into();
+                }
+            } else {
+                state.status = "Paste: copy text first, or use ⌘/Ctrl+V".into();
+            }
             CmdResult::Handled
         }
         "IDM_EDIT_DELETE" => {
