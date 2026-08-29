@@ -335,11 +335,13 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_VIEW_DOC_MAP" => {
-            state.status = "Document Map: not shown in this build".into();
+            ui.show_doc_map = true;
+            state.status = "Document Map".into();
             CmdResult::Handled
         }
         "IDM_VIEW_FUNC_LIST" => {
-            state.status = "Function List: not shown in this build".into();
+            ui.show_func_list = true;
+            state.status = "Function List".into();
             CmdResult::Handled
         }
 

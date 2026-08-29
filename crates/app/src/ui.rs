@@ -32,6 +32,9 @@ pub struct EditorApp {
     goto_line_input: String,
     show_summary: bool,
     show_doc_list: bool,
+    show_doc_map: bool,
+    show_func_list: bool,
+    show_char_panel: bool,
     /// Last text copied via menu (`pending_clipboard`).
     last_app_clipboard: Option<String>,
     /// Next Paste replaces bookmarked lines.
@@ -57,6 +60,9 @@ impl EditorApp {
             goto_line_input: String::new(),
             show_summary: false,
             show_doc_list: false,
+            show_doc_map: false,
+            show_func_list: false,
+            show_char_panel: false,
             last_app_clipboard: None,
             await_paste_bookmarks: false,
         }
@@ -107,6 +113,9 @@ impl eframe::App for EditorApp {
         self.goto_line_window(ctx);
         self.summary_window(ctx);
         self.doc_list_window(ctx);
+        self.doc_map_window(ctx);
+        self.func_list_window(ctx);
+        self.char_panel_window(ctx);
     }
 }
 
@@ -272,6 +281,15 @@ impl EditorApp {
             }
             if flags.show_doc_list {
                 self.show_doc_list = true;
+            }
+            if flags.show_doc_map {
+                self.show_doc_map = true;
+            }
+            if flags.show_func_list {
+                self.show_func_list = true;
+            }
+            if flags.show_char_panel {
+                self.show_char_panel = true;
             }
             match flags.zoom_delta {
                 Some(1) => self.font_size = (self.font_size + 1.0).min(48.0),
@@ -909,6 +927,152 @@ Tree-sitter highlight, and a calm UI.",
             close = true;
         }
         self.show_doc_list = open && !close;
+    }
+
+    fn doc_map_window(&mut self, ctx: &egui::Context) {
+        if !self.show_doc_map {
+            return;
+        }
+        let line_count = self.state.tabs.active().buffer.line_count().max(1);
+        let max_scroll = (line_count.saturating_sub(1) as f32).max(0.0);
+        let mut open = self.show_doc_map;
+        let mut jump_line: Option<f32> = None;
+        egui::Window::new("Document Map")
+            .open(&mut open)
+            .default_width(72.0)
+            .default_height(360.0)
+            .resizable(true)
+            .show(ctx, |ui| {
+                ui.label(format!("{line_count} lines"));
+                let (resp, painter) = ui.allocate_painter(
+                    Vec2::new(ui.available_width().max(40.0), ui.available_height().max(120.0)),
+                    Sense::click_and_drag(),
+                );
+                let rect = resp.rect;
+                painter.rect_filled(rect, 0.0, Color32::from_rgb(28, 28, 32));
+                let sample_n = 128.min(line_count);
+                for i in 0..sample_n {
+                    let line_idx = i * line_count / sample_n;
+                    let raw = self.state.tabs.active().buffer.line(line_idx);
+                    let dens = (raw.trim_end_matches(['\n', '\r']).chars().count() as f32 / 80.0)
+                        .clamp(0.05, 1.0);
+                    let y0 = rect.top() + (i as f32 / sample_n as f32) * rect.height();
+                    let y1 = rect.top() + ((i + 1) as f32 / sample_n as f32) * rect.height();
+                    let g = (40.0 + dens * 140.0) as u8;
+                    painter.rect_filled(
+                        Rect::from_min_max(Pos2::new(rect.left(), y0), Pos2::new(rect.right(), y1)),
+                        0.0,
+                        Color32::from_rgb(g, g, g.saturating_add(8)),
+                    );
+                }
+                if max_scroll > 0.0 {
+                    let frac = (self.scroll_line / max_scroll).clamp(0.0, 1.0);
+                    let mark_h = (rect.height() * 0.08).max(6.0);
+                    let mark_y = rect.top() + frac * (rect.height() - mark_h);
+                    painter.rect_stroke(
+                        Rect::from_min_size(
+                            Pos2::new(rect.left() + 1.0, mark_y),
+                            Vec2::new(rect.width() - 2.0, mark_h),
+                        ),
+                        0.0,
+                        egui::Stroke::new(1.5, Color32::from_rgb(80, 180, 140)),
+                        egui::StrokeKind::Outside,
+                    );
+                }
+                if let Some(pos) = resp.interact_pointer_pos() {
+                    if resp.clicked() || resp.dragged() {
+                        let t = ((pos.y - rect.top()) / rect.height()).clamp(0.0, 1.0);
+                        jump_line = Some(t * max_scroll);
+                    }
+                }
+            });
+        if let Some(line) = jump_line {
+            self.scroll_line = line;
+            self.follow_caret = false;
+            self.state.status = format!("Document Map → line {}", line as usize + 1);
+        }
+        self.show_doc_map = open;
+    }
+
+    fn func_list_window(&mut self, ctx: &egui::Context) {
+        if !self.show_func_list {
+            return;
+        }
+        let entries = collect_func_like_lines(&self.state.tabs.active().buffer);
+        let mut open = self.show_func_list;
+        let mut jump: Option<usize> = None;
+        egui::Window::new("Function List")
+            .open(&mut open)
+            .default_width(360.0)
+            .default_height(320.0)
+            .show(ctx, |ui| {
+                if entries.is_empty() {
+                    ui.label("No fn/class-like lines found.");
+                } else {
+                    egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
+                        for (line_idx, preview) in &entries {
+                            let label = format!("{}: {preview}", line_idx + 1);
+                            if ui.selectable_label(false, label).clicked() {
+                                jump = Some(*line_idx);
+                            }
+                        }
+                    });
+                }
+            });
+        if let Some(line) = jump {
+            let at = self.state.tabs.active().buffer.line_to_char(line);
+            self.state.tabs.active_mut().buffer.set_caret(at);
+            self.follow_caret = true;
+            self.state.status = format!("Function List → line {}", line + 1);
+        }
+        self.show_func_list = open;
+    }
+
+    fn char_panel_window(&mut self, ctx: &egui::Context) {
+        if !self.show_char_panel {
+            return;
+        }
+        let mut open = self.show_char_panel;
+        let mut insert: Option<char> = None;
+        const CHARS: &[char] = &[
+            '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+',
+            '[', ']', '{', '}', '\\', '|', ';', ':', '\'', '"', ',', '.', '<', '>',
+            '/', '?', '~', '`', '©', '®', '™', '€', '£', '¥', '§', '¶', '°', '±',
+            '×', '÷', '½', '¼', '¾', '…', '–', '—', '‘', '’', '“', '”', '«', '»',
+            '•', '†', '‡', 'α', 'β', 'γ', 'δ', 'π', 'μ', 'Ω', '←', '→', '↑', '↓',
+            '✓', '✗', '★', '☆', '♠', '♣', '♥', '♦', '☺', '☻', '♪', '♫', '∞', '≈',
+            '≠', '≤', '≥', '√', '∑', '∏', '∫', '∂', '∆', '∈', '∉', '∩', '∪', '⊂',
+        ];
+        egui::Window::new("Character Panel")
+            .open(&mut open)
+            .default_width(320.0)
+            .show(ctx, |ui| {
+                ui.label("Click a character to insert at the caret.");
+                egui::ScrollArea::vertical().max_height(240.0).show(ui, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        for &c in CHARS {
+                            if ui
+                                .add_sized([28.0, 28.0], egui::Button::new(c.to_string()))
+                                .clicked()
+                            {
+                                insert = Some(c);
+                            }
+                        }
+                    });
+                });
+            });
+        if let Some(c) = insert {
+            if self.state.tabs.active().read_only {
+                self.state.status = "Document is read-only".into();
+            } else {
+                let s = c.to_string();
+                self.state.tabs.active_mut().buffer.insert(&s);
+                self.state.mark_text_changed();
+                self.follow_caret = true;
+                self.state.status = format!("Inserted U+{:04X}", c as u32);
+            }
+        }
+        self.show_char_panel = open;
     }
 
     fn tab_bar(&mut self, ctx: &egui::Context) {
@@ -1746,6 +1910,47 @@ Tree-sitter highlight, and a calm UI.",
         }
         changed || caret_moved
     }
+}
+
+
+/// Lines that look like fn / class / struct / def declarations (simple prefix match).
+fn collect_func_like_lines(buf: &buffer::TextBuffer) -> Vec<(usize, String)> {
+    const KEYS: &[&str] = &[
+        "fn ", "def ", "function ", "class ", "struct ", "impl ", "impl<", "trait ",
+        "interface ", "enum ", "mod ", "type ",
+    ];
+    const MODS: &[&str] = &[
+        "pub ", "async ", "static ", "export ", "private ", "protected ", "public ",
+        "crate ", "super ",
+    ];
+    let mut out = Vec::new();
+    for i in 0..buf.line_count() {
+        let raw = buf.line(i);
+        let trimmed = raw.trim_end_matches(['\n', '\r']);
+        let mut s = trimmed.trim_start();
+        if s.is_empty() || s.starts_with("//") || s.starts_with('#') || s.starts_with("/*") {
+            continue;
+        }
+        for _ in 0..4 {
+            let mut hit = false;
+            for m in MODS {
+                if let Some(rest) = s.strip_prefix(m) {
+                    s = rest.trim_start();
+                    hit = true;
+                    break;
+                }
+            }
+            if !hit {
+                break;
+            }
+        }
+        let lower = s.to_ascii_lowercase();
+        if KEYS.iter().any(|k| lower.starts_with(k)) {
+            let preview: String = trimmed.chars().take(72).collect();
+            out.push((i, preview));
+        }
+    }
+    out
 }
 
 fn move_caret_vert(state: &mut EditorState, delta: i32) {

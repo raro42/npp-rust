@@ -46,6 +46,12 @@ pub struct UiFlags {
     pub show_doc_list: bool,
     /// Show Preferences dialog.
     pub show_preferences: bool,
+    /// Show Document Map panel.
+    pub show_doc_map: bool,
+    /// Show Function List panel.
+    pub show_func_list: bool,
+    /// Show Character Panel.
+    pub show_char_panel: bool,
 }
 
 /// Content for the “working on it — come back tomorrow” dialog.

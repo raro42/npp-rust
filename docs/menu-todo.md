@@ -41,12 +41,9 @@ It is **not** a full Notepad++ Preferences clone (tabs, margins, multi-language 
 
 _(cleared — Document Map + Function List open egui panels)_
 
-_(cleared — Document Map + Function List open egui panels)_
-
 ### Edit (0)
 
 _(cleared — column editor + call tips in `edit.rs`; Character Panel sets `show_char_panel`)_
-
 
 ### Help (0)
 
@@ -75,4 +72,3 @@ Paint path hides `hidden_lines` and paints `style_marks` / bookmark ticks. Menu 
 - Edit Character Panel: egui grid inserts basic/unicode at caret (`UiFlags.show_char_panel`) (1)
 - Settings Shortcut Mapper / Style Config tabs; Import plugins+themes open folders; Plugin Admin list (5)
 - Run… (rfd pick or shell-here) + validate shortcuts.xml absence (2)
-- Edit Character Panel: sets `UiFlags.show_char_panel` (UI owns panel) (1)
