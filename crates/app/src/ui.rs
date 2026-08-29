@@ -596,11 +596,9 @@ Tree-sitter highlight, and a calm UI.",
                         .weak(),
                 );
                 ui.add_space(8.0);
-                ui.horizontal(|ui| {
-                    if ui.button("Close").clicked() {
-                        open = false;
-                    }
-                });
+                if ui.button("Close").clicked() {
+                    self.show_preferences = false;
+                }
             });
         if changed {
             self.state.settings.save();
