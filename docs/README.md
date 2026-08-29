@@ -18,6 +18,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [unattended-20h.md](unattended-20h.md) | How to run the agent loop for hours |
 | [update-check.md](update-check.md) | How Notepad++ updates; our plan |
 | [menu-todo.md](menu-todo.md) | Menu stub inventory |
+| [whats-missing.md](whats-missing.md) | Coming Soon vs honest partials |
 | [project-taste.md](project-taste.md) | Taste / quality bar |
 | [notepad-plus-plus-github.md](notepad-plus-plus-github.md) | Upstream GitHub notes |
 | [cursor-skills.md](cursor-skills.md) | Where to put Rust vs project skills |
