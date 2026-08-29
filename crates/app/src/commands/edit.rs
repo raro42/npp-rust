@@ -12,9 +12,55 @@ pub fn covers(cmd: &str) -> bool {
     cmd.starts_with("IDM_EDIT_")
 }
 
+/// True when this edit command may change buffer text.
+fn mutates_buffer(cmd: &str) -> bool {
+    !matches!(
+        cmd,
+        "IDM_EDIT_COPY"
+            | "IDM_EDIT_SELECTALL"
+            | "IDM_EDIT_FULLPATHTOCLIP"
+            | "IDM_EDIT_FILENAMETOCLIP"
+            | "IDM_EDIT_CURRENTDIRTOCLIP"
+            | "IDM_EDIT_COPY_ALL_NAMES"
+            | "IDM_EDIT_COPY_ALL_PATHS"
+            | "IDM_EDIT_BEGINENDSELECT"
+            | "IDM_EDIT_BEGINENDSELECT_COLUMNMODE"
+            | "IDM_EDIT_OPENSELECTEDFILETOEDIT"
+            | "IDM_EDIT_OPENSELECTEDFILEFOLDERINEXPLORER"
+            | "IDM_EDIT_SEARCHONINTERNET"
+            | "IDM_EDIT_CHANGESEARCHENGINE"
+            | "IDM_EDIT_TOGGLEREADONLY"
+            | "IDM_EDIT_SETREADONLYFORALLDOCS"
+            | "IDM_EDIT_CLEARREADONLYFORALLDOCS"
+            | "IDM_EDIT_RTL"
+            | "IDM_EDIT_LTR"
+            | "IDM_EDIT_COPY_BINARY"
+            | "IDM_EDIT_MULTISELECTALL"
+            | "IDM_EDIT_MULTISELECTALLMATCHCASE"
+            | "IDM_EDIT_MULTISELECTALLWHOLEWORD"
+            | "IDM_EDIT_MULTISELECTALLMATCHCASEWHOLEWORD"
+            | "IDM_EDIT_MULTISELECTNEXT"
+            | "IDM_EDIT_MULTISELECTNEXTMATCHCASE"
+            | "IDM_EDIT_MULTISELECTNEXTWHOLEWORD"
+            | "IDM_EDIT_MULTISELECTNEXTMATCHCASEWHOLEWORD"
+            | "IDM_EDIT_MULTISELECTUNDO"
+            | "IDM_EDIT_MULTISELECTSSKIP"
+            | "IDM_EDIT_COLUMNMODETIP"
+            | "IDM_EDIT_CHAR_PANEL"
+            | "IDM_EDIT_CLIPBOARDHISTORY_PANEL"
+            | "IDM_EDIT_TOGGLESYSTEMREADONLY"
+            | "IDM_EDIT_FUNCCALLTIP"
+            | "IDM_EDIT_FUNCCALLTIP_PREVIOUS"
+            | "IDM_EDIT_FUNCCALLTIP_NEXT"
+    )
+}
+
 pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Option<CmdResult> {
     if !covers(cmd) {
         return None;
+    }
+    if mutates_buffer(cmd) && !ensure_editable(state) {
+        return Some(CmdResult::Handled);
     }
     Some(match cmd {
         "IDM_EDIT_UNDO" => {
@@ -1017,14 +1063,28 @@ fn column_editor_insert(state: &mut EditorState, ui: &mut UiFlags) {
         starts.sort_unstable();
         starts.dedup();
         let n = starts.len();
-        for (ord, &pos) in starts.iter().enumerate().rev() {
-            let piece = match &clip {
-                Some(t) => t.clone(),
-                None => format!("{ord}"),
-            };
-            state.tabs.active_mut().buffer.set_caret(pos);
-            state.tabs.active_mut().buffer.insert(&piece);
-        }
+        let pieces: Vec<(usize, String)> = starts
+            .iter()
+            .enumerate()
+            .rev()
+            .map(|(ord, &pos)| {
+                let piece = match &clip {
+                    Some(t) => t.clone(),
+                    None => format!("{ord}"),
+                };
+                (pos, piece)
+            })
+            .collect();
+        state
+            .tabs
+            .active_mut()
+            .buffer
+            .with_transaction(|buf| {
+                for (pos, piece) in pieces {
+                    buf.set_caret(pos);
+                    buf.insert(&piece);
+                }
+            });
         state.mark_text_changed();
         ui.follow_caret = true;
         state.status = if clip.is_some() {
@@ -1047,29 +1107,37 @@ fn column_editor_insert(state: &mut EditorState, ui: &mut UiFlags) {
         (start_line, end_line, col)
     };
 
-    for line in (start_line..=end_line).rev() {
-        let piece = match &clip {
-            Some(t) => t.clone(),
-            None => format!("{}", line - start_line),
-        };
-        let line_start = state.tabs.active().buffer.line_to_char(line);
-        let raw = state.tabs.active().buffer.line(line);
-        let body_len = raw.trim_end_matches(['\n', '\r']).chars().count();
-        if col > body_len {
-            let pad = col - body_len;
-            state
-                .tabs
-                .active_mut()
-                .buffer
-                .set_caret(line_start + body_len);
-            let mut s = " ".repeat(pad);
-            s.push_str(&piece);
-            state.tabs.active_mut().buffer.insert(&s);
-        } else {
-            state.tabs.active_mut().buffer.set_caret(line_start + col);
-            state.tabs.active_mut().buffer.insert(&piece);
-        }
-    }
+    let line_ops: Vec<(usize, String)> = (start_line..=end_line)
+        .rev()
+        .map(|line| {
+            let piece = match &clip {
+                Some(t) => t.clone(),
+                None => format!("{}", line - start_line),
+            };
+            (line, piece)
+        })
+        .collect();
+    state
+        .tabs
+        .active_mut()
+        .buffer
+        .with_transaction(|buf| {
+            for (line, piece) in line_ops {
+                let line_start = buf.line_to_char(line);
+                let raw = buf.line(line);
+                let body_len = raw.trim_end_matches(['\n', '\r']).chars().count();
+                if col > body_len {
+                    let pad = col - body_len;
+                    buf.set_caret(line_start + body_len);
+                    let mut s = " ".repeat(pad);
+                    s.push_str(&piece);
+                    buf.insert(&s);
+                } else {
+                    buf.set_caret(line_start + col);
+                    buf.insert(&piece);
+                }
+            }
+        });
     state.mark_text_changed();
     ui.follow_caret = true;
     let n_lines = end_line - start_line + 1;
