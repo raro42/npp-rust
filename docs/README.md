@@ -48,3 +48,4 @@ git clone --depth 1 https://github.com/notepad-plus-plus/notepad-plus-plus.git r
 | [issue-4-stability.md](issue-4-stability.md) | Parallel finish of issue #4 |
 
 | [issue-3-architecture.md](issue-3-architecture.md) | Parallel finish of issue #3 |
+| [highlight-viewport.md](highlight-viewport.md) | Linear byte→char + viewport highlight window |

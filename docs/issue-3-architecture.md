@@ -28,7 +28,7 @@ Issue: https://github.com/raro42/npp-rust/issues/3
 | G | `crates/buffer` undo | Transactional undo (one user command = one undo); typing coalesce policy; tests |
 | H | `crates/fs` + `editor` open | Invalid UTF-8: no silent lossy permanent corruption — detect/reject or keep encoding metadata; honest status |
 | I | `.github/workflows/ci.yml` (+ toolchain if needed) | **Done** — `fmt --check` + `clippy -D warnings` on OS matrix; `rust-toolchain.toml` (stable + rustfmt/clippy) |
-| J | `crates/highlight` + `editor` refresh | Viewport-oriented highlight / avoid per-span quadratic `chars().count`; tests or bench note |
+| J | `crates/highlight` + `editor` refresh | **Done** — linear byte→char; viewport window; `docs/highlight-viewport.md` |
 
 Pull/rebase often. Small commits. Push `origin/dev`. Bump patch when user-visible. Update this checklist when done.
 

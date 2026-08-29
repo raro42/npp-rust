@@ -32,10 +32,12 @@ pub struct EditorState {
     pub tail_channel: TailChannel,
     /// Paths with an in-flight tail worker (one poll per path).
     tail_inflight: HashSet<PathBuf>,
-    /// Cached highlight spans for active doc.
+    /// Cached highlight spans for active doc (absolute char offsets).
     pub highlight_cache: Vec<highlight::Span>,
     pub highlight_lang: String,
     pub highlight_dirty: bool,
+    /// Line range covered by `highlight_cache` (start inclusive, end exclusive).
+    pub highlight_cover: (usize, usize),
     pub recent: RecentFiles,
     pub settings: AppSettings,
     /// After opening `*.log`, UI may show the tail prompt.
@@ -112,6 +114,7 @@ impl EditorState {
             highlight_cache: Vec::new(),
             highlight_lang: String::new(),
             highlight_dirty: true,
+            highlight_cover: (0, 0),
             recent: RecentFiles::load(),
             settings,
             pending_log_tail_prompt: false,
@@ -197,23 +200,70 @@ impl EditorState {
         }
     }
 
-    pub fn refresh_highlight_if_needed(&mut self) {
+    /// Recompute syntax spans for a window around `view_first_line` (display line).
+    ///
+    /// Small files: whole buffer. Large files: capped byte window near the viewport.
+    /// Scroll outside the covered inner range triggers a new pass without an edit.
+    pub fn refresh_highlight_if_needed(&mut self, view_first_line: usize) {
+        const WINDOW_BYTES: usize = 512 * 1024;
+        const MARGIN_LINES: usize = 64;
+        const AHEAD_LINES: usize = 96;
+
+        let line_count = self.tabs.active().buffer.line_count().max(1);
+        let view = view_first_line.min(line_count.saturating_sub(1));
+
         if !self.highlight_dirty {
-            return;
-        }
-        let lang = self.tabs.active().language.clone();
-        let text = self.tabs.active().buffer.to_string();
-        let slice = if text.len() > 512 * 1024 {
-            let mut end = 512 * 1024;
-            while end > 0 && !text.is_char_boundary(end) {
-                end -= 1;
+            let (lo, hi) = self.highlight_cover;
+            if lo == 0 && hi >= line_count {
+                return;
             }
-            &text[..end]
-        } else {
-            text.as_str()
+            let inner_lo = lo.saturating_add(MARGIN_LINES / 2);
+            let inner_hi = hi.saturating_sub(MARGIN_LINES / 2).max(inner_lo);
+            if view >= inner_lo && view < inner_hi {
+                return;
+            }
+        }
+
+        let lang = self.tabs.active().language.clone();
+        let start_line = view.saturating_sub(MARGIN_LINES);
+        let min_end = (view + AHEAD_LINES).min(line_count);
+        let (start_char, end_line, slice) = {
+            let buf = &self.tabs.active().buffer;
+            let start_char = buf.line_to_char(start_line);
+            let mut end_line = start_line;
+            let mut nbytes = 0usize;
+            while end_line < line_count {
+                let add = buf.line(end_line).len();
+                if end_line >= min_end && nbytes + add > WINDOW_BYTES && end_line > start_line {
+                    break;
+                }
+                nbytes += add;
+                end_line += 1;
+                if nbytes >= WINDOW_BYTES && end_line >= min_end {
+                    break;
+                }
+            }
+            let end_char = if end_line >= line_count {
+                buf.len_chars()
+            } else {
+                buf.line_to_char(end_line)
+            };
+            (start_char, end_line, buf.slice(start_char, end_char))
         };
-        self.highlight_cache = self.highlighter.highlight(&lang, slice).unwrap_or_default();
+
+        let mut spans = self
+            .highlighter
+            .highlight(&lang, &slice)
+            .unwrap_or_default();
+        if start_char > 0 {
+            for s in &mut spans {
+                s.start += start_char;
+                s.end += start_char;
+            }
+        }
+        self.highlight_cache = spans;
         self.highlight_lang = lang;
+        self.highlight_cover = (start_line, end_line.min(line_count));
         self.highlight_dirty = false;
     }
 
@@ -362,11 +412,7 @@ impl EditorState {
     }
 
     pub fn apply_open_result(&mut self, result: OpenResult) {
-        let pending = self
-            .pending
-            .iter()
-            .find(|p| p.path == result.path)
-            .cloned();
+        let pending = self.pending.iter().find(|p| p.path == result.path).cloned();
         if let Some(ref p) = pending {
             self.pending.retain(|x| x.document_id != p.document_id);
         } else {
@@ -376,9 +422,10 @@ impl EditorState {
         if let Some(pend) = pending {
             // Apply only if that document id still exists and is still the
             // loading placeholder for this path; else drop the result.
-            let ok = self.tabs.get_by_id(pend.document_id).is_some_and(|d| {
-                d.loading && d.path.as_ref() == Some(&result.path)
-            });
+            let ok = self
+                .tabs
+                .get_by_id(pend.document_id)
+                .is_some_and(|d| d.loading && d.path.as_ref() == Some(&result.path));
             if !ok {
                 self.status = format!(
                     "Load finished but tab was closed: {}",
@@ -504,8 +551,7 @@ impl EditorState {
     pub fn note_tab_closed(&mut self, document_id: DocumentId, path: Option<&std::path::Path>) {
         let mut cancelled = Vec::new();
         self.pending.retain(|p| {
-            let drop = p.document_id == document_id
-                || path.is_some_and(|path| p.path == path);
+            let drop = p.document_id == document_id || path.is_some_and(|path| p.path == path);
             if drop {
                 cancelled.push(p.path.clone());
                 false
@@ -1378,10 +1424,18 @@ impl EditorState {
     fn schedule_tail_polls(&mut self) {
         let count = self.tabs.len();
         for i in 0..count {
-            let Some(doc) = self.tabs.get(i) else { continue; };
-            if !doc.tail_follow { continue; }
-            let Some(path) = doc.path.clone() else { continue; };
-            if self.tail_inflight.contains(&path) { continue; }
+            let Some(doc) = self.tabs.get(i) else {
+                continue;
+            };
+            if !doc.tail_follow {
+                continue;
+            }
+            let Some(path) = doc.path.clone() else {
+                continue;
+            };
+            if self.tail_inflight.contains(&path) {
+                continue;
+            }
             let offset = doc.tail_bytes;
             self.tail_inflight.insert(path.clone());
             fs::poll_tail_async(path, offset, self.tail_channel.tx.clone());
@@ -1409,7 +1463,9 @@ impl EditorState {
         else {
             return false;
         };
-        let Some(doc) = self.tabs.get(i) else { return false; };
+        let Some(doc) = self.tabs.get(i) else {
+            return false;
+        };
         if doc.tail_bytes != msg.offset {
             return false;
         }
@@ -1446,7 +1502,12 @@ impl EditorState {
                 }
                 grew
             }
-            Ok(TailOutcome::Rotated { content, bytes, encoding, .. }) => {
+            Ok(TailOutcome::Rotated {
+                content,
+                bytes,
+                encoding,
+                ..
+            }) => {
                 if dirty {
                     if let Some(d) = self.tabs.get_mut(i) {
                         d.tail_follow = false;
@@ -1496,6 +1557,62 @@ impl EditorState {
             }
         }
     }
+}
+
+fn file_encoding_from_fs(enc: TextEncoding) -> FileEncoding {
+    match enc {
+        TextEncoding::Utf8 => FileEncoding::Utf8,
+        TextEncoding::Utf8Bom => FileEncoding::Utf8Bom,
+        TextEncoding::Windows1252 => FileEncoding::Windows1252,
+    }
+}
+
+fn fs_encoding_from_file(enc: FileEncoding) -> TextEncoding {
+    match enc {
+        FileEncoding::Utf8 => TextEncoding::Utf8,
+        FileEncoding::Utf8Bom => TextEncoding::Utf8Bom,
+        FileEncoding::Windows1252 => TextEncoding::Windows1252,
+    }
+}
+
+/// Local date/time without extra crates (uses system `date` only as last resort).
+fn chrono_lite_now(long: bool) -> String {
+    use std::time::SystemTime;
+    let _ = SystemTime::now();
+    // Prefer OS locale formatting via `date`.
+    let args: &[&str] = if long {
+        &["+%A, %d %B %Y %H:%M:%S"]
+    } else {
+        &["+%Y-%m-%d %H:%M"]
+    };
+    if let Ok(out) = std::process::Command::new("date").args(args).output() {
+        if out.status.success() {
+            return String::from_utf8_lossy(&out.stdout).trim().to_string();
+        }
+    }
+    if long {
+        "DateTime".into()
+    } else {
+        "YYYY-MM-DD HH:MM".into()
+    }
+}
+
+fn chrono_lite_custom() -> String {
+    if let Ok(out) = std::process::Command::new("date")
+        .args(["+%Y-%m-%dT%H:%M:%S"])
+        .output()
+    {
+        if out.status.success() {
+            return String::from_utf8_lossy(&out.stdout).trim().to_string();
+        }
+    }
+    "YYYY-MM-DDTHH:MM:SS".into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
 
     fn tail_doc(state: &mut EditorState, path: PathBuf, content: &str, offset: u64) -> Document {
         let id = state.tabs.alloc_id();
@@ -1569,63 +1686,6 @@ impl EditorState {
         assert_eq!(state.tabs.active().tail_bytes, 12);
     }
 
-}
-
-fn file_encoding_from_fs(enc: TextEncoding) -> FileEncoding {
-    match enc {
-        TextEncoding::Utf8 => FileEncoding::Utf8,
-        TextEncoding::Utf8Bom => FileEncoding::Utf8Bom,
-        TextEncoding::Windows1252 => FileEncoding::Windows1252,
-    }
-}
-
-fn fs_encoding_from_file(enc: FileEncoding) -> TextEncoding {
-    match enc {
-        FileEncoding::Utf8 => TextEncoding::Utf8,
-        FileEncoding::Utf8Bom => TextEncoding::Utf8Bom,
-        FileEncoding::Windows1252 => TextEncoding::Windows1252,
-    }
-}
-
-/// Local date/time without extra crates (uses system `date` only as last resort).
-fn chrono_lite_now(long: bool) -> String {
-    use std::time::SystemTime;
-    let _ = SystemTime::now();
-    // Prefer OS locale formatting via `date`.
-    let args: &[&str] = if long {
-        &["+%A, %d %B %Y %H:%M:%S"]
-    } else {
-        &["+%Y-%m-%d %H:%M"]
-    };
-    if let Ok(out) = std::process::Command::new("date").args(args).output() {
-        if out.status.success() {
-            return String::from_utf8_lossy(&out.stdout).trim().to_string();
-        }
-    }
-    if long {
-        "DateTime".into()
-    } else {
-        "YYYY-MM-DD HH:MM".into()
-    }
-}
-
-fn chrono_lite_custom() -> String {
-    if let Ok(out) = std::process::Command::new("date")
-        .args(["+%Y-%m-%dT%H:%M:%S"])
-        .output()
-    {
-        if out.status.success() {
-            return String::from_utf8_lossy(&out.stdout).trim().to_string();
-        }
-    }
-    "YYYY-MM-DDTHH:MM:SS".into()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::PathBuf;
-
     #[test]
     fn open_missing_file_is_safe() {
         let mut state = EditorState::new();
@@ -1650,10 +1710,9 @@ mod tests {
             path: path.clone(),
         });
         state.tabs.open_untitled();
-        let _ = state.tabs.move_tab(
-            state.tabs.index_of_id(id).expect("placeholder"),
-            0,
-        );
+        let _ = state
+            .tabs
+            .move_tab(state.tabs.index_of_id(id).expect("placeholder"), 0);
         let result = OpenResult::new(path.clone(), "hello from async".into(), 16, 1);
         state.apply_open_result(result);
         let doc = state.tabs.get_by_id(id).expect("doc by id");
@@ -1770,6 +1829,45 @@ mod tests {
         assert!(state.tabs.get(other).unwrap().dirty);
         assert!(!state.tabs.active().dirty);
         assert!(!state.highlight_dirty);
+    }
+
+    #[test]
+    fn highlight_window_follows_view_line() {
+        let mut state = EditorState::new();
+        let mut body = String::new();
+        for i in 0..800 {
+            body.push_str(&format!("fn f{i}() {{ let x = {i}; }}\n"));
+        }
+        {
+            let doc = state.tabs.active_mut();
+            doc.buffer = buffer::TextBuffer::from_str(&body);
+            doc.language = "rust".into();
+        }
+        state.highlight_dirty = true;
+        state.refresh_highlight_if_needed(600);
+        let (lo, hi) = state.highlight_cover;
+        assert!(lo > 0, "cover should not stay at file start for deep view");
+        assert!(lo <= 600);
+        assert!(hi > 600);
+        assert!(!state.highlight_cache.is_empty());
+        let start_char = state.tabs.active().buffer.line_to_char(lo);
+        assert!(state.highlight_cache.iter().any(|s| s.start >= start_char));
+    }
+
+    #[test]
+    fn highlight_skips_when_view_inside_cover() {
+        let mut state = EditorState::new();
+        {
+            let doc = state.tabs.active_mut();
+            doc.buffer = buffer::TextBuffer::from_str("fn a() {}\nfn b() {}\n");
+            doc.language = "rust".into();
+        }
+        state.highlight_dirty = true;
+        state.refresh_highlight_if_needed(0);
+        assert!(!state.highlight_dirty);
+        let first_len = state.highlight_cache.len();
+        state.refresh_highlight_if_needed(0);
+        assert_eq!(state.highlight_cache.len(), first_len);
     }
 
     #[test]

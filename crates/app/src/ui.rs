@@ -1598,7 +1598,8 @@ Tree-sitter highlight, and a calm UI.",
     }
 
     fn editor_pane(&mut self, ctx: &egui::Context) {
-        self.state.refresh_highlight_if_needed();
+        self.state
+            .refresh_highlight_if_needed(self.scroll_line.floor() as usize);
         self.clamp_other_view_tab();
         self.sync_compare_panes();
 

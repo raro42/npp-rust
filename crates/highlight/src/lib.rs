@@ -115,7 +115,7 @@ impl SyntaxHighlighter {
             .highlight(config, source.as_bytes(), None, |_| None)
             .map_err(|e| HighlightError::Failed(e.to_string()))?;
 
-        let mut spans = Vec::new();
+        let mut raw: Vec<(usize, usize, String)> = Vec::new();
         let mut active: Vec<usize> = Vec::new();
 
         for event in events {
@@ -130,13 +130,7 @@ impl SyntaxHighlighter {
                             .to_string();
                         let start_b = floor_char_boundary(source, start);
                         let end_b = floor_char_boundary(source, end);
-                        let start_c = source[..start_b].chars().count();
-                        let end_c = source[..end_b].chars().count();
-                        spans.push(Span {
-                            start: start_c,
-                            end: end_c,
-                            name,
-                        });
+                        raw.push((start_b, end_b, name));
                     }
                 }
                 HighlightEvent::HighlightStart(idx) => {
@@ -148,7 +142,57 @@ impl SyntaxHighlighter {
             }
         }
 
-        Ok(spans)
+        Ok(spans_from_byte_ranges(source, raw))
+    }
+}
+
+/// Convert tree-sitter byte ranges to char spans with one forward scan.
+///
+/// Avoids per-span `source[..offset].chars().count()` (quadratic on long files).
+fn spans_from_byte_ranges(source: &str, raw: Vec<(usize, usize, String)>) -> Vec<Span> {
+    if raw.is_empty() {
+        return Vec::new();
+    }
+    let mut spans = Vec::with_capacity(raw.len());
+    let mut cursor = ByteCharCursor::new(source);
+    for (start_b, end_b, name) in raw {
+        let start = cursor.char_at(start_b);
+        let end = cursor.char_at(end_b);
+        spans.push(Span { start, end, name });
+    }
+    spans
+}
+
+/// Monotonic byte→char cursor (restarts if a target moves backward).
+struct ByteCharCursor<'a> {
+    source: &'a str,
+    byte: usize,
+    char: usize,
+}
+
+impl<'a> ByteCharCursor<'a> {
+    fn new(source: &'a str) -> Self {
+        Self {
+            source,
+            byte: 0,
+            char: 0,
+        }
+    }
+
+    fn char_at(&mut self, target_byte: usize) -> usize {
+        let target = target_byte.min(self.source.len());
+        if target < self.byte {
+            self.byte = 0;
+            self.char = 0;
+        }
+        while self.byte < target {
+            let Some(c) = self.source[self.byte..].chars().next() else {
+                break;
+            };
+            self.byte += c.len_utf8();
+            self.char += 1;
+        }
+        self.char
     }
 }
 
@@ -304,5 +348,50 @@ mod tests {
     fn color_for_keyword() {
         let (r, g, b) = color_for("keyword");
         assert!(r > 0.0 && g > 0.0 && b > 0.0);
+    }
+
+    #[test]
+    fn spans_use_char_offsets_with_multibyte() {
+        let mut h = SyntaxHighlighter::new();
+        let source = "fn 猫() { let x = 1; }";
+        let spans = h.highlight("rust", source).unwrap();
+        let n = source.chars().count();
+        assert!(!spans.is_empty());
+        for s in &spans {
+            assert!(s.start <= s.end);
+            assert!(s.end <= n);
+        }
+    }
+
+    #[test]
+    fn byte_char_cursor_matches_naive_count() {
+        let source = "abc猫def🦀ghi";
+        let targets = [0usize, 1, 3, 6, 9, source.len()];
+        let mut cursor = ByteCharCursor::new(source);
+        for &b in &targets {
+            let boundary = floor_char_boundary(source, b);
+            assert_eq!(cursor.char_at(boundary), source[..boundary].chars().count());
+        }
+    }
+
+    #[test]
+    fn spans_from_byte_ranges_one_pass() {
+        let source = "αβγ";
+        let b0 = 0;
+        let b1 = source.char_indices().nth(1).unwrap().0;
+        let b2 = source.char_indices().nth(2).unwrap().0;
+        let b3 = source.len();
+        let spans = spans_from_byte_ranges(
+            source,
+            vec![
+                (b0, b1, "a".into()),
+                (b1, b2, "b".into()),
+                (b2, b3, "c".into()),
+            ],
+        );
+        assert_eq!(spans.len(), 3);
+        assert_eq!((spans[0].start, spans[0].end), (0, 1));
+        assert_eq!((spans[1].start, spans[1].end), (1, 2));
+        assert_eq!((spans[2].start, spans[2].end), (2, 3));
     }
 }

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.2.8] — 2026-08-29
+
+### Highlight
+
+- Byte→char conversion is one forward pass (no per-span full rescans)
+- Refresh uses a viewport-oriented window (still capped at 512 KiB)
+- Notes: `docs/highlight-viewport.md`
+
 ## [0.2.7] — 2026-08-29
 
 ### Bookmarks
