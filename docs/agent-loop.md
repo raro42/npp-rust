@@ -16,6 +16,8 @@ Pick up open GitHub issues, turn them into **sanitized** task files, then (optio
 ./agents/npp-cursor-loop.sh 001     # issue pickup only
 ```
 
+For a long unattended session (commit + push, honest placeholders), see [unattended-20h.md](unattended-20h.md).
+
 ### Auto-coder (002)
 
 When `cursor-agent` is on `PATH` (usually `~/.local/bin`), the loop **runs the coder by default**.
