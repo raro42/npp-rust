@@ -26,6 +26,6 @@ The tab stores the chosen encoding for the next save.
 
 ## Code
 
-- `fs::write_file_with_encoding` — `crates/fs`
+- `fs::write_file_with_encoding` — `crates/fs` (atomic: temp sibling + `sync_all` + rename; no auto parent dirs)
 - `Document.encoding` / `FileEncoding` — `crates/doc`
 - Format handlers — `crates/app/src/commands/format.rs`

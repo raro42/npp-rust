@@ -24,7 +24,7 @@ Issue: https://github.com/raro42/npp-rust/issues/3
 
 | Agent | Owns | Deliverable |
 |-------|------|-------------|
-| F | `crates/fs` save path | Atomic save: temp sibling + flush + rename; tests; Windows-safe as far as std allows |
+| F | `crates/fs` save path | **Done** — atomic save (temp sibling + `sync_all` + rename); no auto parent dirs; tests; std Windows replace |
 | G | `crates/buffer` undo | Transactional undo (one user command = one undo); typing coalesce policy; tests |
 | H | `crates/fs` + `editor` open | Invalid UTF-8: no silent lossy permanent corruption — detect/reject or keep encoding metadata; honest status |
 | I | `.github/workflows/ci.yml` (+ toolchain if needed) | **Done** — `fmt --check` + `clippy -D warnings` on OS matrix; `rust-toolchain.toml` (stable + rustfmt/clippy) |

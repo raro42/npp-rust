@@ -162,31 +162,88 @@ pub fn write_file(path: &Path, content: &str) -> Result<()> {
 /// - [`TextEncoding::Utf8`]: UTF-8 bytes, no BOM (strips a leading U+FEFF).
 /// - [`TextEncoding::Utf8Bom`]: UTF-8 with `EF BB BF` prefix.
 /// - [`TextEncoding::Windows1252`]: lossy Windows-1252 (ANSI stand-in); no BOM.
+///
+/// Saves write a sibling temp file, flush (`sync_all`), then rename over the target.
+/// Missing parent directories are not created.
 pub fn write_file_with_encoding(path: &Path, content: &str, encoding: TextEncoding) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
-    }
-    let mut file = File::create(path)?;
+    write_bytes_atomic(path, &encode_content(content, encoding))
+}
+
+/// Encode in-memory text to on-disk bytes for `encoding`.
+fn encode_content(content: &str, encoding: TextEncoding) -> Vec<u8> {
+    let body = content.strip_prefix(UTF8_BOM_CHAR).unwrap_or(content);
     match encoding {
-        TextEncoding::Utf8 => {
-            let body = content.strip_prefix(UTF8_BOM_CHAR).unwrap_or(content);
-            file.write_all(body.as_bytes())?;
-        }
+        TextEncoding::Utf8 => body.as_bytes().to_vec(),
         TextEncoding::Utf8Bom => {
-            file.write_all(UTF8_BOM_BYTES)?;
-            let body = content.strip_prefix(UTF8_BOM_CHAR).unwrap_or(content);
-            file.write_all(body.as_bytes())?;
+            let mut out = Vec::with_capacity(UTF8_BOM_BYTES.len() + body.len());
+            out.extend_from_slice(UTF8_BOM_BYTES);
+            out.extend_from_slice(body.as_bytes());
+            out
         }
-        TextEncoding::Windows1252 => {
-            let body = content.strip_prefix(UTF8_BOM_CHAR).unwrap_or(content);
-            let bytes = encode_windows_1252_lossy(body);
-            file.write_all(&bytes)?;
-        }
+        TextEncoding::Windows1252 => encode_windows_1252_lossy(body),
     }
-    file.flush()?;
-    Ok(())
+}
+
+/// Directory that holds `path`. A bare file name uses `.`.
+fn parent_dir(path: &Path) -> Result<&Path> {
+    match path.parent() {
+        None => Err(FsError::NoParent),
+        Some(p) if p.as_os_str().is_empty() => Ok(Path::new(".")),
+        Some(p) => Ok(p),
+    }
+}
+
+/// Write `bytes` via temp sibling + `sync_all` + rename. Does not create parents.
+fn write_bytes_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
+    let dir = parent_dir(path)?;
+    let file_name = path.file_name().ok_or_else(|| {
+        FsError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "path has no file name",
+        ))
+    })?;
+
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let temp_name = format!(
+        ".{}.{}.{}.tmp",
+        file_name.to_string_lossy(),
+        std::process::id(),
+        nanos
+    );
+    let temp_path = dir.join(temp_name);
+
+    let result = (|| -> Result<()> {
+        {
+            let mut file = File::create(&temp_path)?;
+            file.write_all(bytes)?;
+            // Durable contents before the rename replaces the target.
+            file.sync_all()?;
+        }
+
+        // Keep mode / readonly bit when the target already exists.
+        if let Ok(meta) = fs::metadata(path) {
+            let _ = fs::set_permissions(&temp_path, meta.permissions());
+        }
+
+        // Unix: atomic replace. Windows: std rename replaces via MoveFileEx / fallback.
+        fs::rename(&temp_path, path)?;
+
+        // Best-effort durable directory entry (often a no-op or error on Windows).
+        let _ = sync_parent_dir(dir);
+        Ok(())
+    })();
+
+    if result.is_err() {
+        let _ = fs::remove_file(&temp_path);
+    }
+    result
+}
+
+fn sync_parent_dir(dir: &Path) -> std::io::Result<()> {
+    File::open(dir)?.sync_all()
 }
 
 /// File size in bytes, if the path exists.
@@ -410,23 +467,37 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
+    /// Unique temp directory for one test (cleaned by the OS later).
+    fn temp_test_dir(label: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let dir = std::env::temp_dir().join(format!(
+            "npp-rs-fs-{}-{}-{}",
+            label,
+            std::process::id(),
+            nanos
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
     #[test]
     fn roundtrip_temp() {
-        let dir = std::env::temp_dir().join("npp-rs-fs-test");
-        let _ = fs::create_dir_all(&dir);
+        let dir = temp_test_dir("roundtrip");
         let path = dir.join("hello.txt");
         write_file(&path, "hi").unwrap();
         let r = read_file(&path).unwrap();
         assert_eq!(r.content, "hi");
         assert_eq!(r.encoding, TextEncoding::Utf8);
         assert!(r.encoding_note.is_none());
-        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn load_utf8_bom_keeps_bom_char() {
-        let dir = std::env::temp_dir().join("npp-rs-fs-test");
-        let _ = fs::create_dir_all(&dir);
+        let dir = temp_test_dir("bom-load");
         let path = dir.join("bom.txt");
         let mut raw = Vec::from(UTF8_BOM_BYTES);
         raw.extend_from_slice(b"hello");
@@ -435,13 +506,12 @@ mod tests {
         assert_eq!(r.encoding, TextEncoding::Utf8Bom);
         assert!(r.content.starts_with(UTF8_BOM_CHAR));
         assert_eq!(&r.content[UTF8_BOM_CHAR.len_utf8()..], "hello");
-        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn save_utf8_bom_writes_bom_bytes() {
-        let dir = std::env::temp_dir().join("npp-rs-fs-test");
-        let _ = fs::create_dir_all(&dir);
+        let dir = temp_test_dir("bom-save");
         let path = dir.join("save-bom.txt");
         let mut text = String::new();
         text.push(UTF8_BOM_CHAR);
@@ -453,37 +523,34 @@ mod tests {
         write_file_with_encoding(&path, &text, TextEncoding::Utf8).unwrap();
         let raw2 = fs::read(&path).unwrap();
         assert_eq!(raw2, b"x");
-        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn load_windows_1252_when_not_utf8() {
-        let dir = std::env::temp_dir().join("npp-rs-fs-test");
-        let _ = fs::create_dir_all(&dir);
+        let dir = temp_test_dir("ansi-load");
         let path = dir.join("ansi.txt");
         fs::write(&path, [0x80u8, b' ', b'E']).unwrap();
         let r = read_file(&path).unwrap();
         assert_eq!(r.encoding, TextEncoding::Windows1252);
         assert!(r.encoding_note.is_some());
         assert_eq!(r.content, "\u{20AC} E");
-        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn save_windows_1252_lossy() {
-        let dir = std::env::temp_dir().join("npp-rs-fs-test");
-        let _ = fs::create_dir_all(&dir);
+        let dir = temp_test_dir("ansi-save");
         let path = dir.join("ansi-out.txt");
         write_file_with_encoding(&path, "\u{20AC}?\u{1F600}", TextEncoding::Windows1252).unwrap();
         let raw = fs::read(&path).unwrap();
         assert_eq!(raw, [0x80, b'?', b'?']);
-        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn async_open() {
-        let dir = std::env::temp_dir().join("npp-rs-fs-test");
-        let _ = fs::create_dir_all(&dir);
+        let dir = temp_test_dir("async");
         let path = dir.join("async.txt");
         write_file(&path, "async-data").unwrap();
         let ch = LoadChannel::new();
@@ -493,13 +560,12 @@ mod tests {
             LoadMsg::Done(r) => assert_eq!(r.content, "async-data"),
             LoadMsg::Failed { error, .. } => panic!("{error}"),
         }
-        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn large_file_uses_async_path() {
-        let dir = std::env::temp_dir().join("npp-rs-fs-test");
-        let _ = fs::create_dir_all(&dir);
+        let dir = temp_test_dir("large");
         let path = dir.join("large.bin.txt");
         let chunk = "x".repeat(1024);
         let mut content = String::new();
@@ -521,13 +587,12 @@ mod tests {
             }
             LoadMsg::Failed { error, .. } => panic!("{error}"),
         }
-        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn tail_appends_and_detects_rotation() {
-        let dir = std::env::temp_dir().join("npp-rs-fs-test");
-        let _ = fs::create_dir_all(&dir);
+        let dir = temp_test_dir("tail");
         let path = dir.join("tail.log");
         write_file(&path, "line1\n").unwrap();
         let size = file_size(&path).unwrap();
@@ -553,7 +618,7 @@ mod tests {
             TailRead::Rotated { .. } => {}
             other => panic!("expected rotated: {other:?}"),
         }
-        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -563,5 +628,52 @@ mod tests {
         let (text, n) = decode_utf8_prefix(&[0x41, 0xC3]);
         assert_eq!(text, "A");
         assert_eq!(n, 1);
+    }
+
+    #[test]
+    fn atomic_overwrite_replaces_contents() {
+        let dir = temp_test_dir("atomic-ow");
+        let path = dir.join("doc.txt");
+        write_file(&path, "old-content").unwrap();
+        write_file(&path, "new-content").unwrap();
+        let r = read_file(&path).unwrap();
+        assert_eq!(r.content, "new-content");
+        let leftovers: Vec<_> = fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
+            .collect();
+        assert!(leftovers.is_empty(), "temp siblings left: {leftovers:?}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn atomic_save_does_not_create_missing_parent() {
+        let dir = temp_test_dir("atomic-noparent");
+        let missing = dir.join("no-such-dir").join("file.txt");
+        let err = write_file(&missing, "x").unwrap_err();
+        match err {
+            FsError::Io(e) => assert_eq!(e.kind(), std::io::ErrorKind::NotFound),
+            other => panic!("expected NotFound io error, got {other:?}"),
+        }
+        assert!(!missing.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_overwrite_preserves_unix_mode() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_test_dir("atomic-mode");
+        let path = dir.join("mode.txt");
+        write_file(&path, "a").unwrap();
+        let mut perms = fs::metadata(&path).unwrap().permissions();
+        perms.set_mode(0o640);
+        fs::set_permissions(&path, perms).unwrap();
+        write_file(&path, "b").unwrap();
+        let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o640);
+        assert_eq!(read_file(&path).unwrap().content, "b");
+        let _ = fs::remove_dir_all(&dir);
     }
 }

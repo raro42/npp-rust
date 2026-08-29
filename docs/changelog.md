@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.2.5] — 2026-08-29
+
+### Save
+
+- Atomic save: write a sibling temp file, `sync_all`, then rename over the target (std rename replaces on Windows)
+- Save no longer creates missing parent directories
+
 ## [0.2.4] — 2026-08-29
 
 ### CLI
