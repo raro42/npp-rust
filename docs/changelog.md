@@ -11,6 +11,10 @@
 
 ## [0.2.6] — 2026-08-29
 
+### Stability (issue #4)
+
+- Log tail: disk reads and rotate reload run on a background worker; the UI only applies `TailMsg` (dirty/suspend policy unchanged)
+
 ### Tabs / open
 
 - Async large-file load binds to a stable `DocumentId` (not tab index)

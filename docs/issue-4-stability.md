@@ -10,6 +10,7 @@ Issue: https://github.com/raro42/npp-rust/issues/4
 - Tail refuse/suspend when dirty (MVP)
 - Command split under `commands/`
 - Partial UTF-8 tail carry
+- **Agent E:** Tail reads on worker (`TailChannel` / `poll_tail_async`); GUI `poll_tail` applies `TailMsg` only
 
 ## Parallel ownership (only edit your rows)
 
@@ -19,7 +20,7 @@ Issue: https://github.com/raro42/npp-rust/issues/4
 | B | `crates/buffer` + thin `doc` edit gate; `commands/edit.rs` / `format.rs` / `misc.rs` mutate paths | Read-only cannot mutate via menu; buffer API returns Err |
 | C | `editor.rs` reload + `dirty`/`saved_generation` on Document | Reload replaces content with confirm if dirty; undo-to-saved clears dirty |
 | D | `buffer` edit hooks + `Document.bookmarks` | **Done** — `LineStructureEdit` on buffer; bookmarks remap on insert/delete; tests |
-| E | `crates/fs` + `editor.rs` poll_tail | Tail reads on worker thread; UI applies TailRead events |
+| E | `crates/fs` + `editor.rs` poll_tail | Tail reads on worker thread; UI applies TailRead events — **done** |
 
 Commit and push each batch. Bump patch version when user-visible. Update this file’s checklist when done.
 
@@ -54,3 +55,10 @@ Commit and push each batch. Bump patch version when user-visible. Update this fi
 ### Agent E — tail worker
 
 - [ ] (other agent)
+
+## Agent E leftover limits
+
+- `enable_tail_follow` still calls `file_size` on the GUI thread (one-shot user action).
+- One worker thread per in-flight path (not a shared pool).
+- Append still capped at `TAIL_MAX_CHUNK` (1 MiB); rotate reload reads the whole file on the worker.
+
