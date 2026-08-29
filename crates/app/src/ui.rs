@@ -92,8 +92,9 @@ impl eframe::App for EditorApp {
         if self.state.find_open || self.show_replace {
             self.find_replace_bar(ctx);
         }
-        self.editor_pane(ctx);
+        // Bottom panel before CentralPanel so the editor height excludes the status bar.
         self.status_bar(ctx);
+        self.editor_pane(ctx);
         self.about_window(ctx);
         self.log_tail_prompt_window(ctx);
         self.unsaved_close_window(ctx);
@@ -1033,8 +1034,11 @@ Tree-sitter highlight, and a calm UI.",
                 self.follow_caret = false;
                 self.state.reset_view = false;
             }
-            let visible_rows =
-                ((rect.height() / row_height).floor() as usize).max(1);
+            let visible_rows = {
+                // One extra row of air above the status bar — last line must stay fully visible.
+                let usable = (rect.height() - row_height).max(row_height);
+                ((usable / row_height).floor() as usize).max(1)
+            };
             let max_scroll = (total_lines.saturating_sub(visible_rows) as f32).max(0.0);
 
             // Mouse-wheel scroll must not be overridden by caret-follow.
