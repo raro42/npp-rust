@@ -48,24 +48,25 @@ Prefer Settings/Preferences depth, Search styles that already have partial state
 EOF
 ```
 
-5. **Start the loop and walk away:**
+5. **Start the loop in Terminal** (IDE shells kill background `nohup` jobs):
+
+Double-click `agents/start-unattended.command`, or:
 
 ```bash
-pkill -f 'npp-cursor-loop.sh loop' 2>/dev/null || true
+open /Users/raro42/projects/notepad-plus-plus/agents/start-unattended.command
+```
+
+Or from Terminal.app:
+
+```bash
 export PATH="$HOME/.local/bin:$PATH"
-export AGENT_USE_CURSOR=1
-export AGENT_LOOP_SLEEP_MINUTES=5
+export AGENT_USE_CURSOR=1 AGENT_LOOP_SLEEP_MINUTES=5
 cd /Users/raro42/projects/notepad-plus-plus
 nohup ./agents/npp-cursor-loop.sh loop >>/tmp/npp-agent-loop.log 2>&1 &
-echo "pid=$!"
-tail -f /tmp/npp-agent-loop.log
+caffeinate -dimsu -t 72000 &
 ```
 
-6. **Optional — keep awake (macOS):**
-
-```bash
-caffeinate -dimsu -t 72000 &   # 20 hours
-```
+Do **not** rely on Cursor chat `nohup` — that session often dies and takes the loop with it.
 
 ## What you do not need to do
 

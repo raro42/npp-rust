@@ -10,8 +10,10 @@ Date: 2026-08-29
 
 1. Code landed (dialog + Remember → `npp-rs/settings.json` + Preferences).
 2. Agent wrote “implemented (not committed)” into `WIP-5` and left the GitHub issue **open** with `agent:wip`.
-3. The agent loop **died**, so nothing closed the issue or moved the task to `done/`.
+3. The agent loop died before issue close: IDE/`nohup` sessions were torn down, and `cursor-agent` runs are long — cycles looked “stuck” at WIP labels.
 4. Fake “menu stubs 0” work stole attention; nobody finished issue hygiene.
+
+**Fix applied 2026-08-29:** unit tests, issue closed, task moved to `agents/tasks/done/`, docs updated.
 
 ## Behaviour
 
