@@ -85,19 +85,31 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_WINDOW_SORT_FN_ASC" => {
-            state.tabs.sort_tabs(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+            state
+                .tabs
+                .sort_tabs(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
             state.status = "Tabs sorted by name ↑".into();
             CmdResult::Handled
         }
         "IDM_WINDOW_SORT_FN_DSC" => {
-            state.tabs.sort_tabs(|a, b| b.title.to_lowercase().cmp(&a.title.to_lowercase()));
+            state
+                .tabs
+                .sort_tabs(|a, b| b.title.to_lowercase().cmp(&a.title.to_lowercase()));
             state.status = "Tabs sorted by name ↓".into();
             CmdResult::Handled
         }
         "IDM_WINDOW_SORT_FP_ASC" => {
             state.tabs.sort_tabs(|a, b| {
-                let ap = a.path.as_ref().map(|p| p.to_string_lossy().to_lowercase()).unwrap_or_default();
-                let bp = b.path.as_ref().map(|p| p.to_string_lossy().to_lowercase()).unwrap_or_default();
+                let ap = a
+                    .path
+                    .as_ref()
+                    .map(|p| p.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
+                let bp = b
+                    .path
+                    .as_ref()
+                    .map(|p| p.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
                 ap.cmp(&bp)
             });
             state.status = "Tabs sorted by path ↑".into();
@@ -105,30 +117,46 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         }
         "IDM_WINDOW_SORT_FP_DSC" => {
             state.tabs.sort_tabs(|a, b| {
-                let ap = a.path.as_ref().map(|p| p.to_string_lossy().to_lowercase()).unwrap_or_default();
-                let bp = b.path.as_ref().map(|p| p.to_string_lossy().to_lowercase()).unwrap_or_default();
+                let ap = a
+                    .path
+                    .as_ref()
+                    .map(|p| p.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
+                let bp = b
+                    .path
+                    .as_ref()
+                    .map(|p| p.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
                 bp.cmp(&ap)
             });
             state.status = "Tabs sorted by path ↓".into();
             CmdResult::Handled
         }
         "IDM_WINDOW_SORT_FT_ASC" => {
-            state.tabs.sort_tabs(|a, b| tab_type_key(a).cmp(&tab_type_key(b)));
+            state
+                .tabs
+                .sort_tabs(|a, b| tab_type_key(a).cmp(&tab_type_key(b)));
             state.status = "Tabs sorted by type ↑".into();
             CmdResult::Handled
         }
         "IDM_WINDOW_SORT_FT_DSC" => {
-            state.tabs.sort_tabs(|a, b| tab_type_key(b).cmp(&tab_type_key(a)));
+            state
+                .tabs
+                .sort_tabs(|a, b| tab_type_key(b).cmp(&tab_type_key(a)));
             state.status = "Tabs sorted by type ↓".into();
             CmdResult::Handled
         }
         "IDM_WINDOW_SORT_FS_ASC" => {
-            state.tabs.sort_tabs(|a, b| a.buffer.len_chars().cmp(&b.buffer.len_chars()));
+            state
+                .tabs
+                .sort_tabs(|a, b| a.buffer.len_chars().cmp(&b.buffer.len_chars()));
             state.status = "Tabs sorted by size ↑".into();
             CmdResult::Handled
         }
         "IDM_WINDOW_SORT_FS_DSC" => {
-            state.tabs.sort_tabs(|a, b| b.buffer.len_chars().cmp(&a.buffer.len_chars()));
+            state
+                .tabs
+                .sort_tabs(|a, b| b.buffer.len_chars().cmp(&a.buffer.len_chars()));
             state.status = "Tabs sorted by size ↓".into();
             CmdResult::Handled
         }
@@ -448,9 +476,7 @@ What you can do
         disk = disk_list,
     );
     open_info_tab(state, "Import Style Themes", &text);
-    state.status = format!(
-        "Import themes: opened themes/ — {disk_n} file(s); no apply API yet"
-    );
+    state.status = format!("Import themes: opened themes/ — {disk_n} file(s); no apply API yet");
 }
 
 fn run_execute(state: &mut EditorState) {

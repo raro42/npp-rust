@@ -445,7 +445,7 @@ mod tests {
         let path = dir.join("save-bom.txt");
         let mut text = String::new();
         text.push(UTF8_BOM_CHAR);
-        text.push_str("x");
+        text.push('x');
         write_file(&path, &text).unwrap();
         let raw = fs::read(&path).unwrap();
         assert!(raw.starts_with(UTF8_BOM_BYTES));

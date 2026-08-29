@@ -18,7 +18,8 @@ fn git(args: &[&str]) -> Option<String> {
 
 fn main() {
     // Workspace root is two levels above crates/app.
-    let short = git(&["-C", "../..", "rev-parse", "--short=7", "HEAD"]).unwrap_or_else(|| "unknown".into());
+    let short =
+        git(&["-C", "../..", "rev-parse", "--short=7", "HEAD"]).unwrap_or_else(|| "unknown".into());
     let full = git(&["-C", "../..", "rev-parse", "HEAD"]).unwrap_or_else(|| short.clone());
     println!("cargo:rustc-env=NPP_GIT_HASH={short}");
     println!("cargo:rustc-env=NPP_GIT_HASH_FULL={full}");

@@ -1,12 +1,12 @@
 //! npp-rs — Notepad++-inspired OS-agnostic text editor (MVP).
 
-mod editor;
 mod commands;
+mod diff;
+mod editor;
 mod menu_data;
 mod recent;
 mod ui;
 mod ui_paint;
-mod diff;
 
 use eframe::egui;
 use std::io::Write;
@@ -16,10 +16,7 @@ use ui::{CliOptions, EditorApp};
 fn install_panic_hook() {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        let msg = format!(
-            "npp-rs panic at {}\n{info}\n",
-            chrono_stamp()
-        );
+        let msg = format!("npp-rs panic at {}\n{info}\n", chrono_stamp());
         let _ = std::fs::create_dir_all("logs");
         if let Ok(mut f) = std::fs::OpenOptions::new()
             .create(true)
@@ -62,9 +59,7 @@ fn parse_args() -> Result<CliAction, String> {
                 let Some(v) = args.next() else {
                     return Err("missing value for --line / -n".into());
                 };
-                let n: usize = v
-                    .parse()
-                    .map_err(|_| format!("invalid line number: {v}"))?;
+                let n: usize = v.parse().map_err(|_| format!("invalid line number: {v}"))?;
                 if n == 0 {
                     return Err("line number must be >= 1".into());
                 }
@@ -72,9 +67,7 @@ fn parse_args() -> Result<CliAction, String> {
             }
             a if a.starts_with("-n") && a.len() > 2 && a.as_bytes()[2].is_ascii_digit() => {
                 let v = &a[2..];
-                let n: usize = v
-                    .parse()
-                    .map_err(|_| format!("invalid line number: {v}"))?;
+                let n: usize = v.parse().map_err(|_| format!("invalid line number: {v}"))?;
                 if n == 0 {
                     return Err("line number must be >= 1".into());
                 }

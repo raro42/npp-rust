@@ -174,7 +174,11 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_BLANKLINEBELOWCURRENT" => {
-            let line = state.tabs.active().buffer.char_to_line(state.tabs.active().buffer.caret());
+            let line = state
+                .tabs
+                .active()
+                .buffer
+                .char_to_line(state.tabs.active().buffer.caret());
             let at = if line + 1 < state.tabs.active().buffer.line_count() {
                 state.tabs.active().buffer.line_to_char(line + 1)
             } else {
@@ -242,7 +246,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
                     lines.sort_by_key(|l| l.chars().count());
                 }
                 "IDM_EDIT_SORTLINES_LENGTH_DESCENDING" => {
-                    lines.sort_by(|a, b| b.chars().count().cmp(&a.chars().count()));
+                    lines.sort_by_key(|b| std::cmp::Reverse(b.chars().count()));
                 }
                 "IDM_EDIT_SORTLINES_LEXICOGRAPHIC_DESCENDING"
                 | "IDM_EDIT_SORTLINES_LOCALE_DESCENDING" => {
@@ -280,9 +284,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
                         }
                     }
                     for i in (1..lines.len()).rev() {
-                        seed = seed
-                            .wrapping_mul(6364136223846793005)
-                            .wrapping_add(1);
+                        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
                         let j = (seed as usize) % (i + 1);
                         lines.swap(i, j);
                     }
@@ -537,9 +539,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
                 let folder = if path.is_dir() {
                     path
                 } else {
-                    path.parent()
-                        .map(Path::to_path_buf)
-                        .unwrap_or(path)
+                    path.parent().map(Path::to_path_buf).unwrap_or(path)
                 };
                 open_path_in_os(state, &folder);
             } else {
@@ -878,7 +878,12 @@ fn multi_query(state: &EditorState) -> Option<String> {
     }
 }
 
-fn find_all_matches(text: &str, query: &str, match_case: bool, whole_word: bool) -> Vec<(usize, usize)> {
+fn find_all_matches(
+    text: &str,
+    query: &str,
+    match_case: bool,
+    whole_word: bool,
+) -> Vec<(usize, usize)> {
     if query.is_empty() {
         return Vec::new();
     }
@@ -982,7 +987,7 @@ fn multi_select_next(
     };
     {
         let doc = state.tabs.active_mut();
-        if !doc.multi_sels.iter().any(|&r| r == (s, e)) {
+        if !doc.multi_sels.contains(&(s, e)) {
             doc.multi_sels.push((s, e));
         }
         doc.buffer.set_selection(s, e);
@@ -992,8 +997,6 @@ fn multi_select_next(
     let verb = if skip { "skip" } else { "next" };
     state.status = format!("Multi-select {verb}: {n} ranges");
 }
-
-
 
 /// Insert clipboard text (or 0,1,2…) at the caret column on each selected line,
 /// or at each multi-select start.
@@ -1063,11 +1066,7 @@ fn column_editor_insert(state: &mut EditorState, ui: &mut UiFlags) {
             s.push_str(&piece);
             state.tabs.active_mut().buffer.insert(&s);
         } else {
-            state
-                .tabs
-                .active_mut()
-                .buffer
-                .set_caret(line_start + col);
+            state.tabs.active_mut().buffer.set_caret(line_start + col);
             state.tabs.active_mut().buffer.insert(&piece);
         }
     }
@@ -1082,8 +1081,8 @@ fn column_editor_insert(state: &mut EditorState, ui: &mut UiFlags) {
 }
 
 thread_local! {
-    static CALL_TIP_WORD: std::cell::RefCell<String> = std::cell::RefCell::new(String::new());
-    static CALL_TIP_IDX: std::cell::Cell<usize> = std::cell::Cell::new(0);
+    static CALL_TIP_WORD: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+    static CALL_TIP_IDX: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 /// Function call tip from word under caret + nearby `fn`/`def` lines (no LSP).
@@ -1197,7 +1196,10 @@ fn ident_ending_at(chars: &[char], end: usize) -> Option<String> {
 fn trim_tip(s: &str, max: usize) -> String {
     let t = s.trim();
     if t.chars().count() > max {
-        format!("{}…", t.chars().take(max.saturating_sub(1)).collect::<String>())
+        format!(
+            "{}…",
+            t.chars().take(max.saturating_sub(1)).collect::<String>()
+        )
     } else {
         t.to_string()
     }
@@ -1225,7 +1227,10 @@ fn call_tip_hints(state: &EditorState, word: &str) -> Vec<String> {
         }
         if let Some(at) = find_call_site(line, word) {
             let after = &line[at + word.len()..];
-            let close = after.find(')').map(|i| i + 1).unwrap_or(after.chars().count().min(48));
+            let close = after
+                .find(')')
+                .map(|i| i + 1)
+                .unwrap_or(after.chars().count().min(48));
             let snippet: String = after.chars().take(close.max(1)).collect();
             let tip = format!("L{} {}{}", line_no + 1, word, trim_tip(&snippet, 56));
             if seen.insert(tip.clone()) {
@@ -1294,12 +1299,13 @@ fn def_line_snippet(trimmed: &str, word: &str) -> Option<String> {
         let pat = format!(" {kw} ");
         if let Some(at) = trimmed.find(&pat) {
             let after = trimmed[at + pat.len()..].trim_start();
-            if after.starts_with(word) {
-                let after_name = &after[word.len()..];
+            if let Some(after_name) = after.strip_prefix(word) {
                 let ok = after_name
                     .chars()
                     .next()
-                    .map(|c| matches!(c, '(' | '<' | '{' | ':') || c.is_whitespace() || !is_ident_char(c))
+                    .map(|c| {
+                        matches!(c, '(' | '<' | '{' | ':') || c.is_whitespace() || !is_ident_char(c)
+                    })
                     .unwrap_or(true);
                 if ok {
                     return Some(trimmed.chars().take(72).collect());
@@ -1388,8 +1394,11 @@ fn word_complete(state: &mut EditorState) {
                 i += 1;
             }
             let word: String = chars[start..i].iter().collect();
-            let ok = if prefix.chars().all(|c| c.is_ascii()) {
-                word.len() > prefix.len() && word.to_ascii_lowercase().starts_with(&prefix.to_ascii_lowercase())
+            let ok = if prefix.is_ascii() {
+                word.len() > prefix.len()
+                    && word
+                        .to_ascii_lowercase()
+                        .starts_with(&prefix.to_ascii_lowercase())
             } else {
                 word.len() > prefix.len() && word.starts_with(&prefix)
             };

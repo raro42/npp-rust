@@ -75,7 +75,10 @@ impl SyntaxHighlighter {
     pub fn new() -> Self {
         let mut configs = HashMap::new();
         for (name, build) in [
-            ("rust", make_rust as fn() -> Result<HighlightConfiguration, String>),
+            (
+                "rust",
+                make_rust as fn() -> Result<HighlightConfiguration, String>,
+            ),
             ("c", make_c),
             ("cpp", make_cpp),
             ("json", make_json),
@@ -265,7 +268,10 @@ pub fn color_for(name: &str) -> (f32, f32, f32) {
         "function" | "function.builtin" | "constructor" => (0.35, 0.55, 0.85),
         "type" | "type.builtin" | "module" => (0.40, 0.70, 0.70),
         "property" | "attribute" | "label" => (0.60, 0.65, 0.40),
-        "operator" | "punctuation" | "punctuation.bracket" | "punctuation.delimiter"
+        "operator"
+        | "punctuation"
+        | "punctuation.bracket"
+        | "punctuation.delimiter"
         | "punctuation.special" => (0.70, 0.70, 0.70),
         "markup.heading" => (0.55, 0.70, 0.90),
         "markup.link" | "markup.link.url" | "markup.list" => (0.50, 0.65, 0.80),

@@ -138,11 +138,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         | "IDM_VIEW_TAB_COLOUR_3"
         | "IDM_VIEW_TAB_COLOUR_4"
         | "IDM_VIEW_TAB_COLOUR_5" => {
-            let n = cmd
-                .chars()
-                .last()
-                .and_then(|c| c.to_digit(10))
-                .unwrap_or(1) as u8;
+            let n = cmd.chars().last().and_then(|c| c.to_digit(10)).unwrap_or(1) as u8;
             state.tabs.active_mut().tab_colour = Some(n);
             state.status = format!("Tab colour {n}");
             CmdResult::Handled
@@ -323,41 +319,19 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             unfold_current_block(state);
             CmdResult::Handled
         }
-        "IDM_VIEW_FOLD_1"
-        | "IDM_VIEW_FOLD_2"
-        | "IDM_VIEW_FOLD_3"
-        | "IDM_VIEW_FOLD_4"
-        | "IDM_VIEW_FOLD_5"
-        | "IDM_VIEW_FOLD_6"
-        | "IDM_VIEW_FOLD_7"
-        | "IDM_VIEW_FOLD_8" => {
-            let level = cmd
-                .chars()
-                .last()
-                .and_then(|c| c.to_digit(10))
-                .unwrap_or(1) as usize;
+        "IDM_VIEW_FOLD_1" | "IDM_VIEW_FOLD_2" | "IDM_VIEW_FOLD_3" | "IDM_VIEW_FOLD_4"
+        | "IDM_VIEW_FOLD_5" | "IDM_VIEW_FOLD_6" | "IDM_VIEW_FOLD_7" | "IDM_VIEW_FOLD_8" => {
+            let level = cmd.chars().last().and_then(|c| c.to_digit(10)).unwrap_or(1) as usize;
             fold_indent_level(state, level);
             CmdResult::Handled
         }
-        "IDM_VIEW_UNFOLD_1"
-        | "IDM_VIEW_UNFOLD_2"
-        | "IDM_VIEW_UNFOLD_3"
-        | "IDM_VIEW_UNFOLD_4"
-        | "IDM_VIEW_UNFOLD_5"
-        | "IDM_VIEW_UNFOLD_6"
-        | "IDM_VIEW_UNFOLD_7"
-        | "IDM_VIEW_UNFOLD_8" => {
-            let level = cmd
-                .chars()
-                .last()
-                .and_then(|c| c.to_digit(10))
-                .unwrap_or(1) as usize;
+        "IDM_VIEW_UNFOLD_1" | "IDM_VIEW_UNFOLD_2" | "IDM_VIEW_UNFOLD_3" | "IDM_VIEW_UNFOLD_4"
+        | "IDM_VIEW_UNFOLD_5" | "IDM_VIEW_UNFOLD_6" | "IDM_VIEW_UNFOLD_7" | "IDM_VIEW_UNFOLD_8" => {
+            let level = cmd.chars().last().and_then(|c| c.to_digit(10)).unwrap_or(1) as usize;
             unfold_indent_level(state, level);
             CmdResult::Handled
         }
-        "IDM_VIEW_PROJECT_PANEL_1"
-        | "IDM_VIEW_PROJECT_PANEL_2"
-        | "IDM_VIEW_PROJECT_PANEL_3" => {
+        "IDM_VIEW_PROJECT_PANEL_1" | "IDM_VIEW_PROJECT_PANEL_2" | "IDM_VIEW_PROJECT_PANEL_3" => {
             // Project panels are not modelled — open the document list instead.
             ui.show_doc_list = true;
             state.status = "Opened document list (no project panel yet)".into();

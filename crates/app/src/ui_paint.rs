@@ -71,7 +71,11 @@ pub(crate) fn paint_change_history_tick(
 }
 
 pub(crate) fn text_width(ui: &egui::Ui, font_id: &FontId, text: &str) -> f32 {
-    ui.fonts(|f| f.layout_no_wrap(text.to_owned(), font_id.clone(), Color32::WHITE).size().x)
+    ui.fonts(|f| {
+        f.layout_no_wrap(text.to_owned(), font_id.clone(), Color32::WHITE)
+            .size()
+            .x
+    })
 }
 
 pub(crate) fn col_from_x(ui: &egui::Ui, font_id: &FontId, line: &str, x: f32) -> usize {
@@ -96,6 +100,7 @@ pub(crate) fn col_from_x(ui: &egui::Ui, font_id: &FontId, line: &str, x: f32) ->
     best
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn paint_line_text(
     painter: &egui::Painter,
     ui: &egui::Ui,

@@ -4,15 +4,15 @@
 //! `file`, `edit`, `search`, `view`, `format`, `lang`, `misc`, `help`.
 
 mod common;
-mod file;
 mod edit;
+mod file;
 mod format;
+mod help;
+mod lang;
+mod macro_cmds;
+mod misc;
 mod search;
 mod view;
-mod lang;
-mod misc;
-mod help;
-mod macro_cmds;
 
 use crate::editor::EditorState;
 
@@ -84,7 +84,6 @@ pub enum CmdResult {
     Handled,
     Stub,
 }
-
 
 pub fn is_implemented(cmd: &str) -> bool {
     matches!(
@@ -438,8 +437,6 @@ pub fn is_implemented(cmd: &str) -> bool {
         || cmd.starts_with("IDM_FORMAT_")
 }
 
-
-
 /// Run a menu command. Returns whether it was implemented or only stubbed.
 pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResult {
     if state.macro_recording && !cmd.starts_with("IDM_MACRO_") {
@@ -473,49 +470,45 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
         return r;
     }
     // Fallback: language / encoding catch-alls (same as before).
-    match cmd {
-        _ => {
-            // Language items often named IDM_LANG_*
-            if let Some(lang) = cmd.strip_prefix("IDM_LANG_") {
-                let mapped = match lang {
-                    "C" => "c",
-                    "CPP" => "cpp",
-                    "PYTHON" => "python",
-                    "SQL" => "sql",
-                    "RUST" => "rust",
-                    "JSON" => "json",
-                    "USER" => "plain",
-                    other => {
-                        state.status = format!(
-                            "Language '{other}' selected (highlight may be limited)"
-                        );
-                        state.tabs.active_mut().language = other.to_ascii_lowercase();
-                        state.highlight_dirty = true;
-                        return CmdResult::Handled;
-                    }
-                };
-                state.set_language(mapped);
-                return CmdResult::Handled;
-            }
-            // Encoding menu: npp-rs stores UTF-8; acknowledge other picks honestly.
-            if let Some(enc) = cmd.strip_prefix("IDM_FORMAT_") {
-                if matches!(enc, "TOUNIX" | "TODOS" | "TOMAC" | "UTF_8" | "AS_UTF_8" | "ANSI") {
-                    // handled above
-                } else {
-                    state.status = format!(
-                        "Encoding '{enc}' noted — document stays UTF-8 in npp-rs"
-                    );
+    {
+        // Language items often named IDM_LANG_*
+        if let Some(lang) = cmd.strip_prefix("IDM_LANG_") {
+            let mapped = match lang {
+                "C" => "c",
+                "CPP" => "cpp",
+                "PYTHON" => "python",
+                "SQL" => "sql",
+                "RUST" => "rust",
+                "JSON" => "json",
+                "USER" => "plain",
+                other => {
+                    state.status =
+                        format!("Language '{other}' selected (highlight may be limited)");
+                    state.tabs.active_mut().language = other.to_ascii_lowercase();
+                    state.highlight_dirty = true;
                     return CmdResult::Handled;
                 }
-            }
-            CmdResult::Stub
+            };
+            state.set_language(mapped);
+            return CmdResult::Handled;
         }
+        // Encoding menu: npp-rs stores UTF-8; acknowledge other picks honestly.
+        if let Some(enc) = cmd.strip_prefix("IDM_FORMAT_") {
+            if matches!(
+                enc,
+                "TOUNIX" | "TODOS" | "TOMAC" | "UTF_8" | "AS_UTF_8" | "ANSI"
+            ) {
+                // handled above
+            } else {
+                state.status = format!("Encoding '{enc}' noted — document stays UTF-8 in npp-rs");
+                return CmdResult::Handled;
+            }
+        }
+        CmdResult::Stub
     }
 }
 
-pub use common::{
-    coming_soon_blurb, coming_soon_for, feature_name_from_cmd, paste_over_bookmarked_lines,
-};
+pub use common::{coming_soon_blurb, coming_soon_for, paste_over_bookmarked_lines};
 
 #[cfg(test)]
 mod tests {

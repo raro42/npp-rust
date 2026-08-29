@@ -36,6 +36,7 @@ pub fn load_npp_menu() -> Vec<MenuNode> {
     menu
 }
 
+#[allow(dead_code)]
 pub fn count_items(nodes: &[MenuNode]) -> usize {
     nodes.iter().map(count_node).sum()
 }
@@ -65,19 +66,8 @@ mod tests {
         assert_eq!(
             tops,
             [
-                "File",
-                "Edit",
-                "Search",
-                "View",
-                "Encoding",
-                "Language",
-                "Settings",
-                "Tools",
-                "Macro",
-                "Run",
-                "Plugins",
-                "Window",
-                "?",
+                "File", "Edit", "Search", "View", "Encoding", "Language", "Settings", "Tools",
+                "Macro", "Run", "Plugins", "Window", "?",
             ]
         );
         // Raw export has 574 items across two Language menus; we drop the flat one.

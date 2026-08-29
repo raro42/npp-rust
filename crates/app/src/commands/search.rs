@@ -224,8 +224,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
                 paste_over_bookmarked_lines(state, &clip);
             } else {
                 ui.await_paste_bookmarks = true;
-                state.status =
-                    "Press ⌘V / Ctrl+V to paste onto bookmarked lines".into();
+                state.status = "Press ⌘V / Ctrl+V to paste onto bookmarked lines".into();
             }
             CmdResult::Handled
         }
@@ -385,12 +384,19 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
 }
 
 fn style_from_cmd(cmd: &str) -> Option<u8> {
-    let digits: String = cmd.chars().rev().take_while(|c| c.is_ascii_digit()).collect();
+    let digits: String = cmd
+        .chars()
+        .rev()
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
     let digits: String = digits.chars().rev().collect();
     digits.parse().ok().filter(|&n| (1..=5).contains(&n))
 }
 
-fn style_slot(state: &mut EditorState, style: Option<u8>) -> Option<&mut std::collections::BTreeSet<usize>> {
+fn style_slot(
+    state: &mut EditorState,
+    style: Option<u8>,
+) -> Option<&mut std::collections::BTreeSet<usize>> {
     let n = style? as usize;
     if (1..=5).contains(&n) {
         Some(&mut state.tabs.active_mut().style_marks[n - 1])
@@ -509,7 +515,11 @@ fn copy_style_lines(state: &mut EditorState, ui: &mut UiFlags, style: Option<u8>
     let lines: Vec<&str> = text.lines().collect();
     let mut idxs: Vec<usize> = Vec::new();
     if let Some(s) = style {
-        idxs.extend(state.tabs.active().style_marks[(s as usize) - 1].iter().copied());
+        idxs.extend(
+            state.tabs.active().style_marks[(s as usize) - 1]
+                .iter()
+                .copied(),
+        );
     } else {
         for set in &state.tabs.active().style_marks {
             idxs.extend(set.iter().copied());
@@ -568,16 +578,16 @@ fn find_char_in_range(state: &mut EditorState, ui: &mut UiFlags) {
     let chars: Vec<char> = text.chars().collect();
     let n = chars.len();
     let mut found = None;
-    for i in from..n {
-        let cp = chars[i] as u32;
+    for (i, ch) in chars.iter().enumerate().skip(from) {
+        let cp = *ch as u32;
         if cp >= lo && cp <= hi {
             found = Some(i);
             break;
         }
     }
     if found.is_none() {
-        for i in 0..from.min(n) {
-            let cp = chars[i] as u32;
+        for (i, ch) in chars.iter().enumerate().take(from.min(n)) {
+            let cp = *ch as u32;
             if cp >= lo && cp <= hi {
                 found = Some(i);
                 break;

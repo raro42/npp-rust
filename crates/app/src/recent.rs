@@ -120,7 +120,7 @@ impl RecentFiles {
         let Ok(file) = fs::File::open(&path) else {
             return recent;
         };
-        for line in BufReader::new(file).lines().flatten() {
+        for line in BufReader::new(file).lines().map_while(Result::ok) {
             let line = line.trim();
             if line.is_empty() {
                 continue;
@@ -206,7 +206,7 @@ fn config_dir() -> Option<PathBuf> {
     #[cfg(target_os = "macos")]
     {
         let home = std::env::var_os("HOME")?;
-        return Some(PathBuf::from(home).join("Library/Application Support"));
+        Some(PathBuf::from(home).join("Library/Application Support"))
     }
     #[cfg(target_os = "windows")]
     {

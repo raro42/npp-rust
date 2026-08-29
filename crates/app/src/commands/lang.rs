@@ -1,5 +1,4 @@
 //! Language menu commands.
-use super::common::*;
 use super::{CmdResult, UiFlags};
 use crate::editor::EditorState;
 
@@ -7,7 +6,7 @@ pub fn covers(cmd: &str) -> bool {
     cmd.starts_with("IDM_LANG_")
 }
 
-pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Option<CmdResult> {
+pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Option<CmdResult> {
     if !covers(cmd) {
         return None;
     }
@@ -60,7 +59,6 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             state.set_language("plain");
             CmdResult::Handled
         }
-
 
         _ => CmdResult::Stub,
     })

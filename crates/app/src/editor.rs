@@ -1,8 +1,6 @@
 //! Editor application state and commands.
 
-use crate::recent::{
-    short_path_label, AppSettings, LogTailOnOpen, RecentFiles, is_log_path,
-};
+use crate::recent::{is_log_path, short_path_label, AppSettings, LogTailOnOpen, RecentFiles};
 use doc::{Document, FileEncoding, TabSet};
 use fs::{self, LoadChannel, LoadMsg, OpenResult, TailRead, TextEncoding, LARGE_FILE_THRESHOLD};
 use highlight::SyntaxHighlighter;
@@ -197,10 +195,7 @@ impl EditorState {
         } else {
             text.as_str()
         };
-        self.highlight_cache = self
-            .highlighter
-            .highlight(&lang, slice)
-            .unwrap_or_default();
+        self.highlight_cache = self.highlighter.highlight(&lang, slice).unwrap_or_default();
         self.highlight_lang = lang;
         self.highlight_dirty = false;
     }
@@ -238,8 +233,7 @@ impl EditorState {
         paths.sort();
         if paths.is_empty() {
             self.status =
-                "No logs under logs/ (cwd). Panic hook writes logs/panic.log when present."
-                    .into();
+                "No logs under logs/ (cwd). Panic hook writes logs/panic.log when present.".into();
             return;
         }
         let n = paths.len();
@@ -323,9 +317,7 @@ impl EditorState {
                 doc.loading = true;
                 doc.title = format!("{} (loading…)", doc.title);
                 self.tabs.open_document(doc);
-                self.pending.push(PendingLoad {
-                    path: path.clone(),
-                });
+                self.pending.push(PendingLoad { path: path.clone() });
                 self.recent.touch(&path);
                 fs::open_async(path.clone(), self.load_channel.tx.clone());
                 self.status = format!(
@@ -1014,11 +1006,8 @@ impl EditorState {
             let encoding = self.tabs.active().encoding;
             match fs::write_file_with_encoding(&path, &content, fs_encoding_from_file(encoding)) {
                 Ok(()) => {
-                    self.status = format!(
-                        "Saved a copy as {} ({})",
-                        path.display(),
-                        encoding.label()
-                    );
+                    self.status =
+                        format!("Saved a copy as {} ({})", path.display(), encoding.label());
                 }
                 Err(e) => self.status = format!("Save copy failed: {e}"),
             }
@@ -1162,7 +1151,9 @@ impl EditorState {
         let result = {
             #[cfg(target_os = "macos")]
             {
-                std::process::Command::new("open").args(["-R", &path.to_string_lossy()]).status()
+                std::process::Command::new("open")
+                    .args(["-R", &path.to_string_lossy()])
+                    .status()
             }
             #[cfg(target_os = "windows")]
             {
@@ -1200,7 +1191,15 @@ impl EditorState {
             #[cfg(target_os = "windows")]
             {
                 std::process::Command::new("cmd")
-                    .args(["/C", "start", "cmd", "/K", "cd", "/D", &folder.to_string_lossy()])
+                    .args([
+                        "/C",
+                        "start",
+                        "cmd",
+                        "/K",
+                        "cd",
+                        "/D",
+                        &folder.to_string_lossy(),
+                    ])
                     .status()
             }
             #[cfg(all(unix, not(target_os = "macos")))]
@@ -1330,8 +1329,7 @@ impl EditorState {
                         if dirty {
                             d.tail_follow = false;
                             if i == active {
-                                self.status =
-                                    "Tail OFF — document has unsaved edits".into();
+                                self.status = "Tail OFF — document has unsaved edits".into();
                             }
                             continue;
                         }
@@ -1360,8 +1358,7 @@ impl EditorState {
                         }
                         if i == active {
                             self.status =
-                                "Tail OFF — file rotated while document has unsaved edits"
-                                    .into();
+                                "Tail OFF — file rotated while document has unsaved edits".into();
                         }
                         continue;
                     }
@@ -1396,6 +1393,56 @@ impl EditorState {
         }
         active_grew
     }
+}
+
+fn file_encoding_from_fs(enc: TextEncoding) -> FileEncoding {
+    match enc {
+        TextEncoding::Utf8 => FileEncoding::Utf8,
+        TextEncoding::Utf8Bom => FileEncoding::Utf8Bom,
+        TextEncoding::Windows1252 => FileEncoding::Windows1252,
+    }
+}
+
+fn fs_encoding_from_file(enc: FileEncoding) -> TextEncoding {
+    match enc {
+        FileEncoding::Utf8 => TextEncoding::Utf8,
+        FileEncoding::Utf8Bom => TextEncoding::Utf8Bom,
+        FileEncoding::Windows1252 => TextEncoding::Windows1252,
+    }
+}
+
+/// Local date/time without extra crates (uses system `date` only as last resort).
+fn chrono_lite_now(long: bool) -> String {
+    use std::time::SystemTime;
+    let _ = SystemTime::now();
+    // Prefer OS locale formatting via `date`.
+    let args: &[&str] = if long {
+        &["+%A, %d %B %Y %H:%M:%S"]
+    } else {
+        &["+%Y-%m-%d %H:%M"]
+    };
+    if let Ok(out) = std::process::Command::new("date").args(args).output() {
+        if out.status.success() {
+            return String::from_utf8_lossy(&out.stdout).trim().to_string();
+        }
+    }
+    if long {
+        "DateTime".into()
+    } else {
+        "YYYY-MM-DD HH:MM".into()
+    }
+}
+
+fn chrono_lite_custom() -> String {
+    if let Ok(out) = std::process::Command::new("date")
+        .args(["+%Y-%m-%dT%H:%M:%S"])
+        .output()
+    {
+        if out.status.success() {
+            return String::from_utf8_lossy(&out.stdout).trim().to_string();
+        }
+    }
+    "YYYY-MM-DDTHH:MM:SS".into()
 }
 
 #[cfg(test)]
@@ -1460,7 +1507,12 @@ mod tests {
     fn opening_log_always_enables_tail_without_prompt() {
         let mut state = EditorState::new();
         state.settings.log_tail_on_open = LogTailOnOpen::Always;
-        state.apply_open_result(OpenResult::new(PathBuf::from("always.log"), "x\n".into(), 2, 1));
+        state.apply_open_result(OpenResult::new(
+            PathBuf::from("always.log"),
+            "x\n".into(),
+            2,
+            1,
+        ));
         assert!(!state.pending_log_tail_prompt);
         // enable_tail_follow needs a real file on disk — without it, follow stays off.
         // Policy still must not queue the ask dialog.
@@ -1470,7 +1522,12 @@ mod tests {
     fn opening_log_never_skips_prompt() {
         let mut state = EditorState::new();
         state.settings.log_tail_on_open = LogTailOnOpen::Never;
-        state.apply_open_result(OpenResult::new(PathBuf::from("skip.log"), "x\n".into(), 2, 1));
+        state.apply_open_result(OpenResult::new(
+            PathBuf::from("skip.log"),
+            "x\n".into(),
+            2,
+            1,
+        ));
         assert!(!state.pending_log_tail_prompt);
         assert!(!state.tabs.active().tail_follow);
     }
@@ -1516,54 +1573,4 @@ mod tests {
         state.mark_text_changed();
         assert!(state.compare_stale);
     }
-}
-
-fn file_encoding_from_fs(enc: TextEncoding) -> FileEncoding {
-    match enc {
-        TextEncoding::Utf8 => FileEncoding::Utf8,
-        TextEncoding::Utf8Bom => FileEncoding::Utf8Bom,
-        TextEncoding::Windows1252 => FileEncoding::Windows1252,
-    }
-}
-
-fn fs_encoding_from_file(enc: FileEncoding) -> TextEncoding {
-    match enc {
-        FileEncoding::Utf8 => TextEncoding::Utf8,
-        FileEncoding::Utf8Bom => TextEncoding::Utf8Bom,
-        FileEncoding::Windows1252 => TextEncoding::Windows1252,
-    }
-}
-
-/// Local date/time without extra crates (uses system `date` only as last resort).
-fn chrono_lite_now(long: bool) -> String {
-    use std::time::SystemTime;
-    let _ = SystemTime::now();
-    // Prefer OS locale formatting via `date`.
-    let args: &[&str] = if long {
-        &["+%A, %d %B %Y %H:%M:%S"]
-    } else {
-        &["+%Y-%m-%d %H:%M"]
-    };
-    if let Ok(out) = std::process::Command::new("date").args(args).output() {
-        if out.status.success() {
-            return String::from_utf8_lossy(&out.stdout).trim().to_string();
-        }
-    }
-    if long {
-        "DateTime".into()
-    } else {
-        "YYYY-MM-DD HH:MM".into()
-    }
-}
-
-fn chrono_lite_custom() -> String {
-    if let Ok(out) = std::process::Command::new("date")
-        .args(["+%Y-%m-%dT%H:%M:%S"])
-        .output()
-    {
-        if out.status.success() {
-            return String::from_utf8_lossy(&out.stdout).trim().to_string();
-        }
-    }
-    "YYYY-MM-DDTHH:MM:SS".into()
 }

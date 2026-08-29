@@ -219,9 +219,7 @@ impl eframe::App for EditorApp {
         if self.state.poll_tail() {
             self.follow_caret = true;
         }
-        if !self.state.pending.is_empty()
-            || self.state.tabs.iter().any(|d| d.tail_follow)
-        {
+        if !self.state.pending.is_empty() || self.state.tabs.iter().any(|d| d.tail_follow) {
             // Steady poll while tailing; avoid hammering every frame.
             ctx.request_repaint_after(std::time::Duration::from_millis(300));
         }
@@ -278,10 +276,8 @@ impl EditorApp {
             input;
         let cmd = mods.command || mods.ctrl;
 
-        if cmd && mods.shift && t {
-            if self.state.toggle_tail_follow() {
-                self.follow_caret = true;
-            }
+        if cmd && mods.shift && t && self.state.toggle_tail_follow() {
+            self.follow_caret = true;
         }
         if cmd && n {
             self.state.new_file();
@@ -375,8 +371,7 @@ impl EditorApp {
             self.state.find_next();
             self.follow_caret = true;
         }
-        if (self.state.find_open || self.show_replace)
-            && ctx.input(|i| i.key_pressed(Key::Escape))
+        if (self.state.find_open || self.show_replace) && ctx.input(|i| i.key_pressed(Key::Escape))
         {
             self.state.find_open = false;
             self.show_replace = false;
@@ -429,9 +424,13 @@ impl EditorApp {
             }
             if flags.show_goto_line {
                 self.show_goto_line = true;
-                let line = self.state.tabs.active().buffer.char_to_line(
-                    self.state.tabs.active().buffer.caret(),
-                ) + 1;
+                let line = self
+                    .state
+                    .tabs
+                    .active()
+                    .buffer
+                    .char_to_line(self.state.tabs.active().buffer.caret())
+                    + 1;
                 self.goto_line_input = line.to_string();
             }
             if flags.show_summary {
@@ -545,7 +544,8 @@ impl EditorApp {
                                     let label = crate::recent::recent_label(path);
                                     let exists = path.exists();
                                     let text = if exists {
-                                        RichText::new(format!("{}.  {label}", i + 1)).color(MENU_READY)
+                                        RichText::new(format!("{}.  {label}", i + 1))
+                                            .color(MENU_READY)
                                     } else {
                                         RichText::new(format!("{}.  {label}  (missing)", i + 1))
                                             .weak()
@@ -760,13 +760,21 @@ Tree-sitter highlight, and a calm UI.",
                     changed = true;
                 }
                 if ui
-                    .radio_value(cur, LogTailOnOpen::Always, "Always enable Monitoring (tail)")
+                    .radio_value(
+                        cur,
+                        LogTailOnOpen::Always,
+                        "Always enable Monitoring (tail)",
+                    )
                     .changed()
                 {
                     changed = true;
                 }
                 if ui
-                    .radio_value(cur, LogTailOnOpen::Never, "Never ask — open as a normal file")
+                    .radio_value(
+                        cur,
+                        LogTailOnOpen::Never,
+                        "Never ask — open as a normal file",
+                    )
                     .changed()
                 {
                     changed = true;
@@ -812,10 +820,7 @@ Tree-sitter highlight, and a calm UI.",
                 ui.label(RichText::new("Status bar").strong());
                 ui.add_space(4.0);
                 if ui
-                    .checkbox(
-                        &mut self.state.settings.status_show_lang,
-                        "Show language",
-                    )
+                    .checkbox(&mut self.state.settings.status_show_lang, "Show language")
                     .changed()
                 {
                     changed = true;
@@ -843,10 +848,7 @@ Tree-sitter highlight, and a calm UI.",
         if changed {
             self.state.settings.font_size = self.font_size;
             self.state.settings.save();
-            self.state.status = format!(
-                "Preferences saved ({})",
-                crate::recent::SETTINGS_REL
-            );
+            self.state.status = format!("Preferences saved ({})", crate::recent::SETTINGS_REL);
         }
         if !open {
             self.show_preferences = false;
@@ -878,7 +880,10 @@ Tree-sitter highlight, and a calm UI.",
                 ui.label(format!("You opened {name}."));
                 ui.label("Enable Monitoring (tail -f) now?");
                 ui.add_space(6.0);
-                ui.checkbox(&mut self.log_tail_remember, "Remember for future *.log files");
+                ui.checkbox(
+                    &mut self.log_tail_remember,
+                    "Remember for future *.log files",
+                );
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     if ui.button("Enable tail").clicked() {
@@ -994,9 +999,11 @@ Tree-sitter highlight, and a calm UI.",
                     );
                     ui.add_space(8.0);
                     ui.label(
-                        RichText::new("We’re building npp-rs in the background — one honest menu at a time.")
-                            .small()
-                            .color(Color32::from_rgb(150, 150, 160)),
+                        RichText::new(
+                            "We’re building npp-rs in the background — one honest menu at a time.",
+                        )
+                        .small()
+                        .color(Color32::from_rgb(150, 150, 160)),
                     );
                     ui.add_space(4.0);
                     ui.label(
@@ -1053,7 +1060,14 @@ Tree-sitter highlight, and a calm UI.",
         if go {
             if let Ok(n) = self.goto_line_input.trim().parse::<usize>() {
                 if n >= 1 {
-                    let line = (n - 1).min(self.state.tabs.active().buffer.line_count().saturating_sub(1));
+                    let line = (n - 1).min(
+                        self.state
+                            .tabs
+                            .active()
+                            .buffer
+                            .line_count()
+                            .saturating_sub(1),
+                    );
                     let at = self.state.tabs.active().buffer.line_to_char(line);
                     self.state.tabs.active_mut().buffer.set_caret(at);
                     self.follow_caret = true;
@@ -1122,23 +1136,25 @@ Tree-sitter highlight, and a calm UI.",
             .open(&mut open)
             .default_width(420.0)
             .show(ctx, |ui| {
-                egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
-                    for i in 0..self.state.tabs.len() {
-                        let Some(doc) = self.state.tabs.get(i) else {
-                            continue;
-                        };
-                        let mut label = doc.title.clone();
-                        if doc.dirty {
-                            label.push('*');
+                egui::ScrollArea::vertical()
+                    .max_height(320.0)
+                    .show(ui, |ui| {
+                        for i in 0..self.state.tabs.len() {
+                            let Some(doc) = self.state.tabs.get(i) else {
+                                continue;
+                            };
+                            let mut label = doc.title.clone();
+                            if doc.dirty {
+                                label.push('*');
+                            }
+                            if ui
+                                .selectable_label(i == self.state.tabs.active_index(), label)
+                                .clicked()
+                            {
+                                switch_to = Some(i);
+                            }
                         }
-                        if ui
-                            .selectable_label(i == self.state.tabs.active_index(), label)
-                            .clicked()
-                        {
-                            switch_to = Some(i);
-                        }
-                    }
-                });
+                    });
                 if ui.button("Close").clicked() {
                     close = true;
                 }
@@ -1166,7 +1182,10 @@ Tree-sitter highlight, and a calm UI.",
             .show(ctx, |ui| {
                 ui.label(format!("{line_count} lines"));
                 let (resp, painter) = ui.allocate_painter(
-                    Vec2::new(ui.available_width().max(40.0), ui.available_height().max(120.0)),
+                    Vec2::new(
+                        ui.available_width().max(40.0),
+                        ui.available_height().max(120.0),
+                    ),
                     Sense::click_and_drag(),
                 );
                 let rect = resp.rect;
@@ -1230,14 +1249,16 @@ Tree-sitter highlight, and a calm UI.",
                 if entries.is_empty() {
                     ui.label("No fn/class-like lines found.");
                 } else {
-                    egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
-                        for (line_idx, preview) in &entries {
-                            let label = format!("{}: {preview}", line_idx + 1);
-                            if ui.selectable_label(false, label).clicked() {
-                                jump = Some(*line_idx);
+                    egui::ScrollArea::vertical()
+                        .max_height(280.0)
+                        .show(ui, |ui| {
+                            for (line_idx, preview) in &entries {
+                                let label = format!("{}: {preview}", line_idx + 1);
+                                if ui.selectable_label(false, label).clicked() {
+                                    jump = Some(*line_idx);
+                                }
                             }
-                        }
-                    });
+                        });
                 }
             });
         if let Some(line) = jump {
@@ -1256,31 +1277,32 @@ Tree-sitter highlight, and a calm UI.",
         let mut open = self.show_char_panel;
         let mut insert: Option<char> = None;
         const CHARS: &[char] = &[
-            '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+',
-            '[', ']', '{', '}', '\\', '|', ';', ':', '\'', '"', ',', '.', '<', '>',
-            '/', '?', '~', '`', '©', '®', '™', '€', '£', '¥', '§', '¶', '°', '±',
-            '×', '÷', '½', '¼', '¾', '…', '–', '—', '‘', '’', '“', '”', '«', '»',
-            '•', '†', '‡', 'α', 'β', 'γ', 'δ', 'π', 'μ', 'Ω', '←', '→', '↑', '↓',
-            '✓', '✗', '★', '☆', '♠', '♣', '♥', '♦', '☺', '☻', '♪', '♫', '∞', '≈',
-            '≠', '≤', '≥', '√', '∑', '∏', '∫', '∂', '∆', '∈', '∉', '∩', '∪', '⊂',
+            '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+', '[', ']', '{',
+            '}', '\\', '|', ';', ':', '\'', '"', ',', '.', '<', '>', '/', '?', '~', '`', '©', '®',
+            '™', '€', '£', '¥', '§', '¶', '°', '±', '×', '÷', '½', '¼', '¾', '…', '–', '—', '‘',
+            '’', '“', '”', '«', '»', '•', '†', '‡', 'α', 'β', 'γ', 'δ', 'π', 'μ', 'Ω', '←', '→',
+            '↑', '↓', '✓', '✗', '★', '☆', '♠', '♣', '♥', '♦', '☺', '☻', '♪', '♫', '∞', '≈', '≠',
+            '≤', '≥', '√', '∑', '∏', '∫', '∂', '∆', '∈', '∉', '∩', '∪', '⊂',
         ];
         egui::Window::new("Character Panel")
             .open(&mut open)
             .default_width(320.0)
             .show(ctx, |ui| {
                 ui.label("Click a character to insert at the caret.");
-                egui::ScrollArea::vertical().max_height(240.0).show(ui, |ui| {
-                    ui.horizontal_wrapped(|ui| {
-                        for &c in CHARS {
-                            if ui
-                                .add_sized([28.0, 28.0], egui::Button::new(c.to_string()))
-                                .clicked()
-                            {
-                                insert = Some(c);
+                egui::ScrollArea::vertical()
+                    .max_height(240.0)
+                    .show(ui, |ui| {
+                        ui.horizontal_wrapped(|ui| {
+                            for &c in CHARS {
+                                if ui
+                                    .add_sized([28.0, 28.0], egui::Button::new(c.to_string()))
+                                    .clicked()
+                                {
+                                    insert = Some(c);
+                                }
                             }
-                        }
+                        });
                     });
-                });
             });
         if let Some(c) = insert {
             if self.state.tabs.active().read_only {
@@ -1374,11 +1396,7 @@ Tree-sitter highlight, and a calm UI.",
                         let pin_btn = if pinned { "P" } else { "·" };
                         if ui
                             .small_button(pin_btn)
-                            .on_hover_text(if pinned {
-                                "Unpin tab"
-                            } else {
-                                "Pin tab"
-                            })
+                            .on_hover_text(if pinned { "Unpin tab" } else { "Pin tab" })
                             .clicked()
                         {
                             toggle_pin = Some(i);
@@ -1416,7 +1434,11 @@ Tree-sitter highlight, and a calm UI.",
                             .small()
                             .weak(),
                     );
-                    if ui.small_button("×dual").on_hover_text("Close dual view").clicked() {
+                    if ui
+                        .small_button("×dual")
+                        .on_hover_text("Close dual view")
+                        .clicked()
+                    {
                         self.dual_view = false;
                         self.focused_pane = EditorPane::Primary;
                         self.state.status = "Dual view closed".into();
@@ -1488,9 +1510,7 @@ Tree-sitter highlight, and a calm UI.",
                 if self.show_replace {
                     ui.separator();
                     ui.label("Replace:");
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.replace_with).desired_width(140.0),
-                    );
+                    ui.add(egui::TextEdit::singleline(&mut self.replace_with).desired_width(140.0));
                     if ui.button("Replace").clicked() {
                         let r = self.replace_with.clone();
                         self.state.replace_next(&r);
@@ -1548,10 +1568,9 @@ Tree-sitter highlight, and a calm UI.",
                         "Click to tail this file (Monitoring / ⌘⇧T)"
                     })
                     .clicked()
+                    && self.state.toggle_tail_follow()
                 {
-                    if self.state.toggle_tail_follow() {
-                        self.follow_caret = true;
-                    }
+                    self.follow_caret = true;
                 }
                 if self.state.settings.status_show_lang {
                     ui.separator();
@@ -1597,7 +1616,10 @@ Tree-sitter highlight, and a calm UI.",
                 .show(ctx, |ui| {
                     ui.horizontal(|ui| {
                         ui.label(RichText::new(format!("Other view: {title}")).strong());
-                        if ui.small_button("Switch").on_hover_text("Swap with active tab").clicked()
+                        if ui
+                            .small_button("Switch")
+                            .on_hover_text("Swap with active tab")
+                            .clicked()
                         {
                             self.switch_other_view_now();
                         }
@@ -1618,10 +1640,8 @@ Tree-sitter highlight, and a calm UI.",
             let font_id = FontId::monospace(self.font_size);
             let row_height = ui.fonts(|f| f.row_height(&font_id)) + 2.0;
             let buf_line_count = self.state.tabs.active().buffer.line_count().max(1);
-            let visible_lines = visible_line_indices(
-                buf_line_count,
-                &self.state.tabs.active().hidden_lines,
-            );
+            let visible_lines =
+                visible_line_indices(buf_line_count, &self.state.tabs.active().hidden_lines);
             let display_count = visible_lines.len().max(1);
             let avail = ui.available_size();
             let (rect, response) = ui.allocate_exact_size(avail, Sense::click_and_drag());
@@ -1658,8 +1678,7 @@ Tree-sitter highlight, and a calm UI.",
             };
             if scroll != 0.0 {
                 self.follow_caret = false;
-                self.scroll_line =
-                    (self.scroll_line - scroll / row_height).clamp(0.0, max_scroll);
+                self.scroll_line = (self.scroll_line - scroll / row_height).clamp(0.0, max_scroll);
                 if self.dual_view && (self.sync_scroll_v || self.sync_scroll_h) {
                     self.scroll_line_other = self.scroll_line;
                 }
@@ -1678,8 +1697,7 @@ Tree-sitter highlight, and a calm UI.",
                              visible: &[usize]|
              -> usize {
                 let first = scroll.floor() as usize;
-                let row = first
-                    + ((pos.y - rect.top()) / row_height).floor().max(0.0) as usize;
+                let row = first + ((pos.y - rect.top()) / row_height).floor().max(0.0) as usize;
                 let row = row.min(visible.len().saturating_sub(1));
                 let line = visible.get(row).copied().unwrap_or(0);
                 let line_start = buf.line_to_char(line);
@@ -1736,7 +1754,11 @@ Tree-sitter highlight, and a calm UI.",
                             .map(|(s, _)| s)
                             .unwrap_or_else(|| self.state.tabs.active().buffer.caret());
                         self.drag_anchor = Some(anchor);
-                        self.state.tabs.active_mut().buffer.set_selection(anchor, idx);
+                        self.state
+                            .tabs
+                            .active_mut()
+                            .buffer
+                            .set_selection(anchor, idx);
                     } else {
                         self.drag_anchor = Some(idx);
                         self.state.tabs.active_mut().buffer.set_caret(idx);
@@ -1744,7 +1766,8 @@ Tree-sitter highlight, and a calm UI.",
                     self.follow_caret = false;
                 }
             } else if response.dragged() {
-                if let (Some(anchor), Some(pos)) = (self.drag_anchor, response.interact_pointer_pos())
+                if let (Some(anchor), Some(pos)) =
+                    (self.drag_anchor, response.interact_pointer_pos())
                 {
                     let idx = hit_index(
                         ui,
@@ -1753,7 +1776,11 @@ Tree-sitter highlight, and a calm UI.",
                         self.scroll_line,
                         &visible_lines,
                     );
-                    self.state.tabs.active_mut().buffer.set_selection(anchor, idx);
+                    self.state
+                        .tabs
+                        .active_mut()
+                        .buffer
+                        .set_selection(anchor, idx);
                     self.follow_caret = false;
                 }
             } else if response.clicked() {
@@ -1775,7 +1802,11 @@ Tree-sitter highlight, and a calm UI.",
                             .selection()
                             .map(|(s, _)| s)
                             .unwrap_or_else(|| self.state.tabs.active().buffer.caret());
-                        self.state.tabs.active_mut().buffer.set_selection(anchor, idx);
+                        self.state
+                            .tabs
+                            .active_mut()
+                            .buffer
+                            .set_selection(anchor, idx);
                     } else {
                         self.state.tabs.active_mut().buffer.set_caret(idx);
                     }
@@ -1925,12 +1956,24 @@ Tree-sitter highlight, and a calm UI.",
                 if let Some((sel_s, sel_e)) = self.state.tabs.active().buffer.selection() {
                     let line_end = line_start + line_text.chars().count();
                     if sel_s < line_end && sel_e > line_start {
-                        let local_s = sel_s.saturating_sub(line_start).min(line_text.chars().count());
-                        let local_e = sel_e.saturating_sub(line_start).min(line_text.chars().count());
+                        let local_s = sel_s
+                            .saturating_sub(line_start)
+                            .min(line_text.chars().count());
+                        let local_e = sel_e
+                            .saturating_sub(line_start)
+                            .min(line_text.chars().count());
                         let x0 = text_left
-                            + text_width(ui, &font_id, &line_text.chars().take(local_s).collect::<String>());
+                            + text_width(
+                                ui,
+                                &font_id,
+                                &line_text.chars().take(local_s).collect::<String>(),
+                            );
                         let x1 = text_left
-                            + text_width(ui, &font_id, &line_text.chars().take(local_e).collect::<String>());
+                            + text_width(
+                                ui,
+                                &font_id,
+                                &line_text.chars().take(local_e).collect::<String>(),
+                            );
                         painter.rect_filled(
                             Rect::from_min_max(
                                 Pos2::new(x0, y),
@@ -1943,22 +1986,13 @@ Tree-sitter highlight, and a calm UI.",
                 }
 
                 paint_line_text(
-                    &painter,
-                    ui,
-                    &font_id,
-                    text_left,
-                    y,
-                    line_text,
-                    line_start,
-                    hl,
-                    &lang,
+                    &painter, ui, &font_id, text_left, y, line_text, line_start, hl, &lang,
                 );
 
                 // Whitespace / NPC / EOL overlays
                 let ws_color = Color32::from_rgb(90, 110, 140);
                 if self.state.show_whitespace || self.state.show_npc {
-                    let mut col = 0usize;
-                    for ch in line_text.chars() {
+                    for (col, ch) in line_text.chars().enumerate() {
                         let x = text_left
                             + text_width(
                                 ui,
@@ -1983,7 +2017,6 @@ Tree-sitter highlight, and a calm UI.",
                                 ws_color,
                             );
                         }
-                        col += 1;
                     }
                 }
                 if self.state.show_eol {
@@ -2088,8 +2121,8 @@ Tree-sitter highlight, and a calm UI.",
         cmd: &str,
         flags: &mut crate::commands::UiFlags,
     ) -> crate::commands::CmdResult {
-        let retarget_menu = (cmd.starts_with("IDM_EDIT_") || cmd.starts_with("IDM_FORMAT_"))
-            && self.dual_view;
+        let retarget_menu =
+            (cmd.starts_with("IDM_EDIT_") || cmd.starts_with("IDM_FORMAT_")) && self.dual_view;
         let focus = self.focused_edit_tab();
         let saved = self.state.tabs.active_index();
         let redirect = retarget_menu && focus != saved;
@@ -2280,7 +2313,12 @@ Tree-sitter highlight, and a calm UI.",
         &mut self,
         left: usize,
         right: usize,
-    ) -> Option<(Vec<crate::diff::LineKind>, Vec<crate::diff::LineKind>, usize, usize)> {
+    ) -> Option<(
+        Vec<crate::diff::LineKind>,
+        Vec<crate::diff::LineKind>,
+        usize,
+        usize,
+    )> {
         let left_lines: Vec<String> = self
             .state
             .tabs
@@ -2527,10 +2565,9 @@ Tree-sitter highlight, and a calm UI.",
             && self.focused_pane == EditorPane::Secondary
             && !self.state.find_open
             && !self.show_replace
+            && self.handle_editor_input(ui, tab)
         {
-            if self.handle_editor_input(ui, tab) {
-                self.follow_caret_other = true;
-            }
+            self.follow_caret_other = true;
         }
 
         if self.follow_caret_other {
@@ -2613,8 +2650,12 @@ Tree-sitter highlight, and a calm UI.",
             if let Some((sel_s, sel_e)) = doc.buffer.selection() {
                 let line_end = line_start + line_text.chars().count();
                 if sel_s < line_end && sel_e > line_start {
-                    let local_s = sel_s.saturating_sub(line_start).min(line_text.chars().count());
-                    let local_e = sel_e.saturating_sub(line_start).min(line_text.chars().count());
+                    let local_s = sel_s
+                        .saturating_sub(line_start)
+                        .min(line_text.chars().count());
+                    let local_e = sel_e
+                        .saturating_sub(line_start)
+                        .min(line_text.chars().count());
                     let x0 = text_left
                         + text_width(
                             ui,
@@ -2941,16 +2982,32 @@ Tree-sitter highlight, and a calm UI.",
     }
 }
 
-
 /// Lines that look like fn / class / struct / def declarations (simple prefix match).
 fn collect_func_like_lines(buf: &buffer::TextBuffer) -> Vec<(usize, String)> {
     const KEYS: &[&str] = &[
-        "fn ", "def ", "function ", "class ", "struct ", "impl ", "impl<", "trait ",
-        "interface ", "enum ", "mod ", "type ",
+        "fn ",
+        "def ",
+        "function ",
+        "class ",
+        "struct ",
+        "impl ",
+        "impl<",
+        "trait ",
+        "interface ",
+        "enum ",
+        "mod ",
+        "type ",
     ];
     const MODS: &[&str] = &[
-        "pub ", "async ", "static ", "export ", "private ", "protected ", "public ",
-        "crate ", "super ",
+        "pub ",
+        "async ",
+        "static ",
+        "export ",
+        "private ",
+        "protected ",
+        "public ",
+        "crate ",
+        "super ",
     ];
     let mut out = Vec::new();
     for i in 0..buf.line_count() {
@@ -3008,7 +3065,11 @@ fn go_doc_start(state: &mut EditorState, tab: usize, select: bool) {
         return;
     };
     if select {
-        let anchor = b.buffer.selection().map(|(s, _)| s).unwrap_or_else(|| b.buffer.caret());
+        let anchor = b
+            .buffer
+            .selection()
+            .map(|(s, _)| s)
+            .unwrap_or_else(|| b.buffer.caret());
         b.buffer.set_selection(anchor, 0);
     } else {
         b.buffer.set_caret(0);
@@ -3021,7 +3082,11 @@ fn go_doc_end(state: &mut EditorState, tab: usize, select: bool) {
     };
     let end = b.buffer.len_chars();
     if select {
-        let anchor = b.buffer.selection().map(|(s, _)| s).unwrap_or_else(|| b.buffer.caret());
+        let anchor = b
+            .buffer
+            .selection()
+            .map(|(s, _)| s)
+            .unwrap_or_else(|| b.buffer.caret());
         b.buffer.set_selection(anchor, end);
     } else {
         b.buffer.set_caret(end);

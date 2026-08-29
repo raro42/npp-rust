@@ -129,11 +129,7 @@ impl Document {
         Self::from_path_with_encoding(path, content, FileEncoding::Utf8)
     }
 
-    pub fn from_path_with_encoding(
-        path: PathBuf,
-        content: String,
-        encoding: FileEncoding,
-    ) -> Self {
+    pub fn from_path_with_encoding(path: PathBuf, content: String, encoding: FileEncoding) -> Self {
         let title = path
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
@@ -366,11 +362,7 @@ impl TabSet {
     pub fn open_document(&mut self, doc: Document) -> usize {
         // Reuse existing tab for same path.
         if let Some(path) = doc.path.as_ref() {
-            if let Some(i) = self
-                .docs
-                .iter()
-                .position(|d| d.path.as_ref() == Some(path))
-            {
+            if let Some(i) = self.docs.iter().position(|d| d.path.as_ref() == Some(path)) {
                 self.active = i;
                 return i;
             }

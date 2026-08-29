@@ -171,7 +171,10 @@ impl PluginHost {
     }
 
     pub fn get(&self, id: &str) -> Option<&dyn Plugin> {
-        self.plugins.iter().find(|p| p.id() == id).map(|p| p.as_ref())
+        self.plugins
+            .iter()
+            .find(|p| p.id() == id)
+            .map(|p| p.as_ref())
     }
 }
 

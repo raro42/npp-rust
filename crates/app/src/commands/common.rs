@@ -1,7 +1,7 @@
 //! Shared helpers for menu command modules.
 #![allow(dead_code)]
 
-use super::{ComingSoon, CmdResult, UiFlags};
+use super::{ComingSoon, UiFlags};
 use crate::editor::EditorState;
 use std::path::{Path, PathBuf};
 
@@ -77,7 +77,6 @@ pub(crate) fn open_active_in_browser(state: &mut EditorState, cmd: &str) {
             Ok(_) => open_url(state, &url),
             Err(_) => open_url(state, &url),
         }
-        return;
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -91,7 +90,10 @@ pub(crate) fn hash_via_cli(algo: &str, data_file: &Path) -> Result<String, Strin
         "md5" => {
             #[cfg(target_os = "macos")]
             {
-                std::process::Command::new("md5").args(["-q"]).arg(data_file).output()
+                std::process::Command::new("md5")
+                    .args(["-q"])
+                    .arg(data_file)
+                    .output()
             }
             #[cfg(not(target_os = "macos"))]
             {
@@ -122,7 +124,12 @@ pub(crate) fn hash_via_cli(algo: &str, data_file: &Path) -> Result<String, Strin
     }
 }
 
-pub(crate) fn hash_selection_or_doc(state: &mut EditorState, ui: &mut UiFlags, algo: &str, to_clip: bool) {
+pub(crate) fn hash_selection_or_doc(
+    state: &mut EditorState,
+    ui: &mut UiFlags,
+    algo: &str,
+    to_clip: bool,
+) {
     let text = if let Some((s, e)) = state.tabs.active().buffer.selection() {
         state.tabs.active().buffer.slice(s, e)
     } else {
@@ -305,7 +312,8 @@ pub(crate) fn find_matching_brace(text: &str, caret: usize) -> Option<usize> {
         }
     };
     let last = chars.len() - 1;
-    let (start, ch, dir) = try_pos(caret.min(last)).or_else(|| caret.checked_sub(1).and_then(try_pos))?;
+    let (start, ch, dir) =
+        try_pos(caret.min(last)).or_else(|| caret.checked_sub(1).and_then(try_pos))?;
     let (open, close) = match ch {
         '(' | ')' => ('(', ')'),
         '[' | ']' => ('[', ']'),
@@ -468,7 +476,9 @@ pub fn feature_name_from_cmd(cmd: &str) -> String {
             let mut c = w.chars();
             match c.next() {
                 None => String::new(),
-                Some(f) => f.to_uppercase().collect::<String>() + c.as_str().to_lowercase().as_str(),
+                Some(f) => {
+                    f.to_uppercase().collect::<String>() + c.as_str().to_lowercase().as_str()
+                }
             }
         })
         .collect::<Vec<_>>()
