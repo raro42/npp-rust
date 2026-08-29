@@ -45,3 +45,4 @@ git clone --depth 1 https://github.com/notepad-plus-plus/notepad-plus-plus.git r
 `reference/` is gitignored.
 
 | [agent-parallel.md](agent-parallel.md) | File ownership for parallel agents |
+| [issue-4-stability.md](issue-4-stability.md) | Parallel finish of issue #4 |
