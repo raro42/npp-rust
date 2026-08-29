@@ -35,3 +35,9 @@ Hand off: this file is `TEST-…` (issue stays open).
 
 ## Privacy
 - Do not paste private paths into GitHub.
+
+
+## Handoff
+
+- Status: complete (v0.3.0)
+- Handoff: complete

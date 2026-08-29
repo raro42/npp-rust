@@ -8,3 +8,9 @@ Ship remaining high-priority items from the architecture review that are not own
 
 ## Privacy
 - No private paths in GitHub.
+
+
+## Handoff
+
+- Status: complete (v0.3.0)
+- Handoff: complete

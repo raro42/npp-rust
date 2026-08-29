@@ -10,3 +10,9 @@ Close remaining merge blockers from issue #4. Real behaviour + tests. Commit/pus
 
 ## Privacy
 - No private paths in GitHub.
+
+
+## Handoff
+
+- Status: complete (v0.3.0)
+- Handoff: complete
