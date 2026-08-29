@@ -6,7 +6,7 @@ Issue: https://github.com/raro42/npp-rust/issues/4
 ## Already done (do not redo)
 
 - Dirty-close Save / Don’t Save / Cancel
-- Path-keyed pending loads (upgrade to DocumentId still needed)
+- Path-keyed pending loads (upgraded to DocumentId — Agent A)
 - Tail refuse/suspend when dirty (MVP)
 - Command split under `commands/`
 - Partial UTF-8 tail carry
@@ -22,3 +22,31 @@ Issue: https://github.com/raro42/npp-rust/issues/4
 | E | `crates/fs` + `editor.rs` poll_tail | Tail reads on worker thread; UI applies TailRead events |
 
 Commit and push each batch. Bump patch version when user-visible. Update this file’s checklist when done.
+
+## Checklist
+
+### Agent A — DocumentId pending loads
+
+- [x] `DocumentId` (u64) on `Document`; assign on create via `TabSet::alloc_id`
+- [x] `TabSet::{index_of_id,get_by_id,get_mut_by_id}`
+- [x] `PendingLoad` stores `document_id` + `path`
+- [x] `apply_open_result` / poll fail: apply only if id exists and is still loading for that path
+- [x] Tab close cancels pending by id/path
+- [x] Unit tests: reorder then apply; close then apply; not-loading then apply
+- [x] Patch version + changelog
+
+### Agent B — read-only edit gate
+
+- [ ] (other agent)
+
+### Agent C — reload / dirty generation
+
+- [ ] (other agent)
+
+### Agent D — bookmarks shift
+
+- [ ] (other agent)
+
+### Agent E — tail worker
+
+- [ ] (other agent)

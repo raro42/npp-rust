@@ -4,6 +4,9 @@ use buffer::TextBuffer;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
+/// Stable id for one open document. Survives tab move, sort, and reorder.
+pub type DocumentId = u64;
+
 /// How save writes bytes for this tab (memory stays UTF-8).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FileEncoding {
@@ -62,6 +65,8 @@ pub fn remap_lines_delete(set: &mut BTreeSet<usize>, first_removed: usize, n: us
 /// One open document (one tab).
 #[derive(Debug, Clone)]
 pub struct Document {
+    /// Stable id assigned when the tab is created.
+    pub id: DocumentId,
     pub title: String,
     pub path: Option<PathBuf>,
     pub buffer: TextBuffer,
@@ -99,11 +104,12 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn untitled(id: usize) -> Self {
+    pub fn untitled(id: DocumentId, number: usize) -> Self {
         let buffer = TextBuffer::new();
         let line_mark_basis = buffer.line_count();
         Self {
-            title: format!("Untitled-{id}"),
+            id,
+            title: format!("Untitled-{number}"),
             path: None,
             buffer,
             dirty: false,
@@ -125,11 +131,16 @@ impl Document {
         }
     }
 
-    pub fn from_path(path: PathBuf, content: String) -> Self {
-        Self::from_path_with_encoding(path, content, FileEncoding::Utf8)
+    pub fn from_path(id: DocumentId, path: PathBuf, content: String) -> Self {
+        Self::from_path_with_encoding(id, path, content, FileEncoding::Utf8)
     }
 
-    pub fn from_path_with_encoding(path: PathBuf, content: String, encoding: FileEncoding) -> Self {
+    pub fn from_path_with_encoding(
+        id: DocumentId,
+        path: PathBuf,
+        content: String,
+        encoding: FileEncoding,
+    ) -> Self {
         let title = path
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
@@ -141,6 +152,7 @@ impl Document {
         let buffer = TextBuffer::from_str(&content);
         let line_mark_basis = buffer.line_count();
         Self {
+            id,
             title,
             path: Some(path),
             buffer,
@@ -291,6 +303,7 @@ pub struct TabSet {
     docs: Vec<Document>,
     active: usize,
     next_untitled: usize,
+    next_id: DocumentId,
 }
 
 impl Default for TabSet {
@@ -305,9 +318,17 @@ impl TabSet {
             docs: Vec::new(),
             active: 0,
             next_untitled: 1,
+            next_id: 1,
         };
         tabs.open_untitled();
         tabs
+    }
+
+    /// Allocate the next stable document id.
+    pub fn alloc_id(&mut self) -> DocumentId {
+        let id = self.next_id;
+        self.next_id = self.next_id.saturating_add(1);
+        id
     }
 
     pub fn len(&self) -> usize {
@@ -347,12 +368,27 @@ impl TabSet {
         self.docs.get_mut(index)
     }
 
+    /// Tab index for a document id, if that tab is still open.
+    pub fn index_of_id(&self, id: DocumentId) -> Option<usize> {
+        self.docs.iter().position(|d| d.id == id)
+    }
+
+    pub fn get_by_id(&self, id: DocumentId) -> Option<&Document> {
+        self.index_of_id(id).and_then(|i| self.docs.get(i))
+    }
+
+    pub fn get_mut_by_id(&mut self, id: DocumentId) -> Option<&mut Document> {
+        let i = self.index_of_id(id)?;
+        self.docs.get_mut(i)
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &Document> {
         self.docs.iter()
     }
 
     pub fn open_untitled(&mut self) -> usize {
-        let doc = Document::untitled(self.next_untitled);
+        let id = self.alloc_id();
+        let doc = Document::untitled(id, self.next_untitled);
         self.next_untitled += 1;
         self.docs.push(doc);
         self.active = self.docs.len() - 1;
@@ -443,20 +479,9 @@ impl TabSet {
         if self.docs.len() < 2 {
             return;
         }
-        let key_path = self.docs[self.active].path.clone();
-        let key_title = self.docs[self.active].title.clone();
+        let key_id = self.docs[self.active].id;
         self.docs.sort_by(|a, b| cmp(a, b));
-        self.active = self
-            .docs
-            .iter()
-            .position(|d| {
-                if let (Some(ap), Some(bp)) = (key_path.as_ref(), d.path.as_ref()) {
-                    ap == bp
-                } else {
-                    d.title == key_title && d.path == key_path
-                }
-            })
-            .unwrap_or(0);
+        self.active = self.index_of_id(key_id).unwrap_or(0);
     }
 }
 
@@ -519,8 +544,22 @@ mod tests {
     }
 
     #[test]
+    fn index_of_id_survives_move() {
+        let mut tabs = TabSet::new();
+        let id0 = tabs.get(0).unwrap().id;
+        tabs.open_untitled();
+        let id1 = tabs.get(1).unwrap().id;
+        assert_ne!(id0, id1);
+        tabs.set_active(0);
+        assert!(tabs.move_tab(0, 1));
+        assert_eq!(tabs.index_of_id(id0), Some(1));
+        assert_eq!(tabs.index_of_id(id1), Some(0));
+        assert_eq!(tabs.get_by_id(id0).map(|d| d.id), Some(id0));
+    }
+
+    #[test]
     fn change_history_note_promote_and_clear() {
-        let mut doc = Document::untitled(1);
+        let mut doc = Document::untitled(1, 1);
         doc.note_line_changed(2);
         doc.note_line_changed(5);
         assert_eq!(doc.changed_unsaved.len(), 2);
@@ -547,7 +586,7 @@ mod tests {
 
     #[test]
     fn sync_line_marks_shifts_on_newline() {
-        let mut doc = Document::untitled(1);
+        let mut doc = Document::untitled(1, 1);
         doc.buffer = TextBuffer::from_str("a\nb\nc\n");
         doc.line_mark_basis = doc.buffer.line_count();
         doc.note_line_changed(1);

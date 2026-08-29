@@ -1,15 +1,17 @@
 //! Editor application state and commands.
 
 use crate::recent::{is_log_path, short_path_label, AppSettings, LogTailOnOpen, RecentFiles};
-use doc::{Document, FileEncoding, TabSet};
+use doc::{Document, DocumentId, FileEncoding, TabSet};
 use fs::{self, LoadChannel, LoadMsg, OpenResult, TailRead, TextEncoding, LARGE_FILE_THRESHOLD};
 use highlight::SyntaxHighlighter;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-/// Pending async load keyed by path (not tab index — tabs can move/close).
+/// Pending async load keyed by document id + path (tabs can move/close).
 #[derive(Debug, Clone)]
 pub struct PendingLoad {
+    pub document_id: DocumentId,
     pub path: PathBuf,
 }
 
@@ -21,6 +23,8 @@ pub struct EditorState {
     pub highlighter: SyntaxHighlighter,
     pub load_channel: LoadChannel,
     pub pending: Vec<PendingLoad>,
+    /// Paths whose async load was cancelled (tab closed); late results drop.
+    cancelled_loads: HashSet<PathBuf>,
     /// Cached highlight spans for active doc.
     pub highlight_cache: Vec<highlight::Span>,
     pub highlight_lang: String,
@@ -95,6 +99,7 @@ impl EditorState {
             highlighter: SyntaxHighlighter::new(),
             load_channel: LoadChannel::new(),
             pending: Vec::new(),
+            cancelled_loads: HashSet::new(),
             highlight_cache: Vec::new(),
             highlight_lang: String::new(),
             highlight_dirty: true,
@@ -313,11 +318,15 @@ impl EditorState {
         }
         match fs::file_size(&path) {
             Ok(size) if size >= LARGE_FILE_THRESHOLD => {
-                let mut doc = Document::from_path(path.clone(), String::new());
+                let id = self.tabs.alloc_id();
+                let mut doc = Document::from_path(id, path.clone(), String::new());
                 doc.loading = true;
                 doc.title = format!("{} (loading…)", doc.title);
                 self.tabs.open_document(doc);
-                self.pending.push(PendingLoad { path: path.clone() });
+                self.pending.push(PendingLoad {
+                    document_id: id,
+                    path: path.clone(),
+                });
                 self.recent.touch(&path);
                 fs::open_async(path.clone(), self.load_channel.tx.clone());
                 self.status = format!(
@@ -341,36 +350,52 @@ impl EditorState {
     }
 
     pub fn apply_open_result(&mut self, result: OpenResult) {
-        let was_pending = self.pending.iter().any(|p| p.path == result.path);
-        self.pending.retain(|p| p.path != result.path);
-
-        // Match the loading placeholder by path so tab move/sort/close cannot
-        // apply content to the wrong document.
-        let loading_idx = self
-            .tabs
+        let pending = self
+            .pending
             .iter()
-            .enumerate()
-            .find(|(_, d)| d.path.as_ref() == Some(&result.path) && d.loading)
-            .map(|(i, _)| i);
+            .find(|p| p.path == result.path)
+            .cloned();
+        if let Some(ref p) = pending {
+            self.pending.retain(|x| x.document_id != p.document_id);
+        } else {
+            self.pending.retain(|p| p.path != result.path);
+        }
 
-        if let Some(tab_index) = loading_idx {
-            if let Some(doc) = self.tabs.get_mut(tab_index) {
+        if let Some(pend) = pending {
+            // Apply only if that document id still exists and is still the
+            // loading placeholder for this path; else drop the result.
+            let ok = self.tabs.get_by_id(pend.document_id).is_some_and(|d| {
+                d.loading && d.path.as_ref() == Some(&result.path)
+            });
+            if !ok {
+                self.status = format!(
+                    "Load finished but tab was closed: {}",
+                    short_path_label(&result.path)
+                );
+                return;
+            }
+            let keep_id = pend.document_id;
+            if let Some(doc) = self.tabs.get_mut_by_id(keep_id) {
                 *doc = Document::from_path_with_encoding(
+                    keep_id,
                     result.path.clone(),
                     result.content,
                     file_encoding_from_fs(result.encoding),
                 );
+            }
+            if let Some(tab_index) = self.tabs.index_of_id(keep_id) {
                 self.tabs.set_active(tab_index);
             }
-        } else if was_pending {
-            // User closed the placeholder while the load ran — do not reopen.
+        } else if self.cancelled_loads.remove(&result.path) {
             self.status = format!(
                 "Load finished but tab was closed: {}",
                 short_path_label(&result.path)
             );
             return;
         } else {
+            let id = self.tabs.alloc_id();
             let doc = Document::from_path_with_encoding(
+                id,
                 result.path.clone(),
                 result.content,
                 file_encoding_from_fs(result.encoding),
@@ -463,17 +488,32 @@ impl EditorState {
         );
     }
 
-    /// Drop pending load and stop treating a closed tab as a load target.
-    pub fn note_tab_closed(&mut self, path: Option<&std::path::Path>) {
-        if let Some(path) = path {
-            self.pending.retain(|p| p.path != path);
+    /// Drop pending load for a closed tab (by document id; path is a backup key).
+    pub fn note_tab_closed(&mut self, document_id: DocumentId, path: Option<&std::path::Path>) {
+        let mut cancelled = Vec::new();
+        self.pending.retain(|p| {
+            let drop = p.document_id == document_id
+                || path.is_some_and(|path| p.path == path);
+            if drop {
+                cancelled.push(p.path.clone());
+                false
+            } else {
+                true
+            }
+        });
+        for p in cancelled {
+            self.cancelled_loads.insert(p);
         }
     }
 
-    /// Close a tab and cancel any pending load for its path.
+    /// Close a tab and cancel any pending load for its id/path.
     pub fn close_tab(&mut self, index: usize) {
-        let path = self.tabs.get(index).and_then(|d| d.path.clone());
-        self.note_tab_closed(path.as_deref());
+        let (id, path) = self
+            .tabs
+            .get(index)
+            .map(|d| (d.id, d.path.clone()))
+            .unwrap_or((0, None));
+        self.note_tab_closed(id, path.as_deref());
         self.tabs.close(index);
         self.highlight_dirty = true;
         if let Some(p) = self.pending_close {
@@ -714,14 +754,24 @@ impl EditorState {
             match msg {
                 LoadMsg::Done(result) => self.apply_open_result(result),
                 LoadMsg::Failed { path, error } => {
-                    self.pending.retain(|p| p.path != path);
-                    self.recent.remove(&path);
-                    let to_close: Vec<usize> = self
-                        .tabs
+                    let ids: Vec<DocumentId> = self
+                        .pending
                         .iter()
-                        .enumerate()
-                        .filter(|(_, d)| d.path.as_ref() == Some(&path) && d.loading)
-                        .map(|(i, _)| i)
+                        .filter(|p| p.path == path)
+                        .map(|p| p.document_id)
+                        .collect();
+                    self.pending.retain(|p| p.path != path);
+                    self.cancelled_loads.remove(&path);
+                    self.recent.remove(&path);
+                    let to_close: Vec<usize> = ids
+                        .into_iter()
+                        .filter_map(|id| {
+                            self.tabs.index_of_id(id).filter(|&i| {
+                                self.tabs
+                                    .get(i)
+                                    .is_some_and(|d| d.loading && d.path.as_ref() == Some(&path))
+                            })
+                        })
                         .collect();
                     for i in to_close.into_iter().rev() {
                         self.tabs.close(i);
@@ -1462,27 +1512,74 @@ mod tests {
     }
 
     #[test]
-    fn pending_load_matches_by_path_not_index() {
+    fn pending_load_matches_by_id_after_reorder() {
         let mut state = EditorState::new();
         let path = PathBuf::from("pending-stability-demo.txt");
-        let mut placeholder = Document::from_path(path.clone(), String::new());
+        let id = state.tabs.alloc_id();
+        let mut placeholder = Document::from_path(id, path.clone(), String::new());
         placeholder.loading = true;
         state.tabs.open_document(placeholder);
-        state.pending.push(PendingLoad { path: path.clone() });
-        // New tab + move: indices change; apply must still find by path.
+        state.pending.push(PendingLoad {
+            document_id: id,
+            path: path.clone(),
+        });
         state.tabs.open_untitled();
-        let _ = state.tabs.move_active_tab(-1);
+        let _ = state.tabs.move_tab(
+            state.tabs.index_of_id(id).expect("placeholder"),
+            0,
+        );
         let result = OpenResult::new(path.clone(), "hello from async".into(), 16, 1);
         state.apply_open_result(result);
-        let doc = state
-            .tabs
-            .iter()
-            .find(|d| d.path.as_ref() == Some(&path))
-            .expect("doc by path");
+        let doc = state.tabs.get_by_id(id).expect("doc by id");
         assert!(!doc.loading);
         assert_eq!(doc.buffer.to_string(), "hello from async");
+        assert_eq!(doc.id, id);
     }
 
+    #[test]
+    fn pending_load_does_not_replace_wrong_tab_after_close() {
+        let mut state = EditorState::new();
+        let path_a = PathBuf::from("pending-a.txt");
+        let path_b = PathBuf::from("pending-b.txt");
+        let id_a = state.tabs.alloc_id();
+        let mut a = Document::from_path(id_a, path_a.clone(), String::new());
+        a.loading = true;
+        state.tabs.open_document(a);
+        state.pending.push(PendingLoad {
+            document_id: id_a,
+            path: path_a.clone(),
+        });
+        let id_b = state.tabs.alloc_id();
+        let mut b = Document::from_path(id_b, path_b.clone(), "other".into());
+        b.loading = false;
+        state.tabs.open_document(b);
+        let idx_a = state.tabs.index_of_id(id_a).expect("a");
+        state.close_tab(idx_a);
+        assert!(state.pending.iter().all(|p| p.document_id != id_a));
+        state.apply_open_result(OpenResult::new(path_a, "late content".into(), 12, 1));
+        assert!(state.tabs.get_by_id(id_a).is_none());
+        let doc_b = state.tabs.get_by_id(id_b).expect("b");
+        assert_eq!(doc_b.buffer.to_string(), "other");
+        assert!(state.status.contains("tab was closed"));
+    }
+
+    #[test]
+    fn pending_load_drops_when_id_no_longer_loading() {
+        let mut state = EditorState::new();
+        let path = PathBuf::from("pending-not-loading.txt");
+        let id = state.tabs.alloc_id();
+        let mut placeholder = Document::from_path(id, path.clone(), "keep".into());
+        placeholder.loading = false;
+        state.tabs.open_document(placeholder);
+        state.pending.push(PendingLoad {
+            document_id: id,
+            path: path.clone(),
+        });
+        state.apply_open_result(OpenResult::new(path, "should not apply".into(), 16, 1));
+        let doc = state.tabs.get_by_id(id).expect("doc");
+        assert_eq!(doc.buffer.to_string(), "keep");
+        assert!(state.status.contains("tab was closed"));
+    }
     #[test]
     fn opening_log_asks_to_tail_by_default() {
         let dir = std::env::temp_dir().join("npp-rs-log-ask-test");

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.2.6] — 2026-08-29
+
+### Tabs / open
+
+- Async large-file load binds to a stable `DocumentId` (not tab index)
+- Pending load apply drops when the id is gone or no longer the loading placeholder
+
 ## [0.2.5] — 2026-08-29
 
 ### Save
