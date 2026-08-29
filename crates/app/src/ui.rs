@@ -1129,8 +1129,10 @@ Tree-sitter highlight, and a calm UI.",
                     (self.scroll_line - scroll / row_height).clamp(0.0, max_scroll);
             }
 
-            let gutter_w = 52.0;
-            let text_left = rect.left() + gutter_w;
+            let gutter_w = 56.0;
+            // Gap between line numbers and text (was flush before).
+            let gutter_gap = 12.0;
+            let text_left = rect.left() + gutter_w + gutter_gap;
 
             let hit_index = |ui: &egui::Ui, pos: Pos2, buf: &buffer::TextBuffer, scroll: f32| -> usize {
                 let first = scroll.floor() as usize;
@@ -1243,10 +1245,24 @@ Tree-sitter highlight, and a calm UI.",
 
             let painter = ui.painter_at(rect);
             painter.rect_filled(rect, 0.0, Color32::from_rgb(30, 30, 30));
+            // Gutter band + hairline so numbers stay separate from text.
+            let gutter_right = rect.left() + gutter_w;
+            painter.rect_filled(
+                Rect::from_min_max(
+                    Pos2::new(rect.left(), rect.top()),
+                    Pos2::new(gutter_right, rect.bottom()),
+                ),
+                0.0,
+                Color32::from_rgb(24, 24, 24),
+            );
+            painter.vline(
+                gutter_right,
+                rect.y_range(),
+                egui::Stroke::new(1.0, Color32::from_rgb(55, 55, 55)),
+            );
 
             let hl = &self.state.highlight_cache;
             let lang = self.state.tabs.active().language.clone();
-            // gutter_w / text_left already set above for hit-testing
 
             for line_idx in first_line..last_line {
                 let y = rect.top() + (line_idx as f32 - self.scroll_line) * row_height;
@@ -1254,10 +1270,10 @@ Tree-sitter highlight, and a calm UI.",
                     Pos2::new(rect.left(), y),
                     Vec2::new(rect.width(), row_height),
                 );
-                // Gutter
+                // Line number — right-aligned inside the gutter.
                 painter.text(
-                    Pos2::new(rect.left() + 8.0, y),
-                    egui::Align2::LEFT_TOP,
+                    Pos2::new(gutter_right - 6.0, y),
+                    egui::Align2::RIGHT_TOP,
                     format!("{}", line_idx + 1),
                     font_id.clone(),
                     Color32::from_rgb(100, 100, 100),
