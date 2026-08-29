@@ -11,7 +11,7 @@ mod diff;
 use eframe::egui;
 use std::io::Write;
 use std::path::PathBuf;
-use ui::EditorApp;
+use ui::{CliOptions, EditorApp};
 
 fn install_panic_hook() {
     let default_hook = std::panic::take_hook();
@@ -46,18 +46,53 @@ fn chrono_stamp() -> String {
 
 enum CliAction {
     Help,
-    Run { paths: Vec<PathBuf> },
+    Version,
+    Run(CliOptions),
 }
 
-fn parse_args() -> CliAction {
-    let mut paths = Vec::new();
-    for arg in std::env::args().skip(1) {
+fn parse_args() -> Result<CliAction, String> {
+    let mut opts = CliOptions::default();
+    let mut args = std::env::args().skip(1).peekable();
+    while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--help" | "-h" => return CliAction::Help,
-            _ => paths.push(PathBuf::from(arg)),
+            "--help" | "-h" => return Ok(CliAction::Help),
+            "--version" | "-V" => return Ok(CliAction::Version),
+            "--read-only" | "-ro" => opts.read_only = true,
+            "--line" | "-n" => {
+                let Some(v) = args.next() else {
+                    return Err("missing value for --line / -n".into());
+                };
+                let n: usize = v
+                    .parse()
+                    .map_err(|_| format!("invalid line number: {v}"))?;
+                if n == 0 {
+                    return Err("line number must be >= 1".into());
+                }
+                opts.goto_line = Some(n);
+            }
+            a if a.starts_with("-n") && a.len() > 2 && a.as_bytes()[2].is_ascii_digit() => {
+                let v = &a[2..];
+                let n: usize = v
+                    .parse()
+                    .map_err(|_| format!("invalid line number: {v}"))?;
+                if n == 0 {
+                    return Err("line number must be >= 1".into());
+                }
+                opts.goto_line = Some(n);
+            }
+            "--" => {
+                for p in args {
+                    opts.paths.push(PathBuf::from(p));
+                }
+                break;
+            }
+            a if a.starts_with('-') => {
+                return Err(format!("unknown option: {a} (try --help)"));
+            }
+            _ => opts.paths.push(PathBuf::from(arg)),
         }
     }
-    CliAction::Run { paths }
+    Ok(CliAction::Run(opts))
 }
 
 fn print_usage() {
@@ -68,7 +103,12 @@ fn print_usage() {
          Missing paths are skipped (status line shows which).\n\
          \n\
          Options:\n\
-           -h, --help    Show this help and exit\n\
+           -h, --help         Show this help and exit\n\
+           -V, --version      Print version and exit\n\
+           -n <N>, --line <N> Go to 1-based line N in the first opened file\n\
+           -n<N>              Same as -n <N> (Notepad++ style)\n\
+           -ro, --read-only   Open argv files as read-only\n\
+           --                 End of options; remaining args are paths\n\
          \n\
          Also: ? → Command Line Arguments... in the app."
     );
@@ -77,11 +117,15 @@ fn print_usage() {
 fn main() -> eframe::Result<()> {
     install_panic_hook();
     match parse_args() {
-        CliAction::Help => {
+        Ok(CliAction::Help) => {
             print_usage();
-            return Ok(());
+            Ok(())
         }
-        CliAction::Run { paths } => {
+        Ok(CliAction::Version) => {
+            eprintln!("npp-rs {}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
+        Ok(CliAction::Run(opts)) => {
             let options = eframe::NativeOptions {
                 viewport: egui::ViewportBuilder::default()
                     .with_inner_size([1100.0, 720.0])
@@ -91,8 +135,13 @@ fn main() -> eframe::Result<()> {
             eframe::run_native(
                 "npp-rust",
                 options,
-                Box::new(move |cc| Ok(Box::new(EditorApp::new(cc, paths)))),
+                Box::new(move |cc| Ok(Box::new(EditorApp::new(cc, opts)))),
             )
+        }
+        Err(e) => {
+            eprintln!("npp-rs: {e}");
+            print_usage();
+            std::process::exit(2);
         }
     }
 }

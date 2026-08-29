@@ -26,7 +26,7 @@ About **10** handlers still say the limit in the status line or use a stand-in, 
 - Project panels (stand-in: doc list). Dual edit: both panes writable; Menu Edit uses the focused pane
 - File compare / diff — **2-way MVP** with re-diff after edit (~200 ms debounce). 3-way and char-level diff still open. Upstream N++ uses a plugin for compare.
 - Change history: MVP unsaved/saved colours + line remap shipped; full Scintilla parity still open
-- Rich CLI flags (only `-h`/`--help` + open existing path args today)
+- Rich CLI flags — **shipped MVP**: `-h`, `-V`, `-n`/`--line`, `-ro`, path args
 - LSP (call tips: word under caret + nearby `fn`/`def` line snippets in file only)
 
 Inventory: `docs/menu-todo.md`.

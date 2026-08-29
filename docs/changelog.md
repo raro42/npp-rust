@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.2.4] — 2026-08-29
+
+### CLI and Preferences
+
+- `-V` / `--version`, `-n` / `--line`, `-ro` / `--read-only`, `--` end of options
+- Preferences: tab width, word wrap, status language / character toggles
+- Edit Indent Tab uses Preferences tab width
+
 ## [0.2.3] — 2026-08-29
 
 ### Dual view

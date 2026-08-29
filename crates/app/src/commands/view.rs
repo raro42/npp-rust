@@ -109,6 +109,8 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         }
         "IDM_VIEW_WRAP" => {
             state.word_wrap = !state.word_wrap;
+            state.settings.word_wrap = state.word_wrap;
+            state.settings.save();
             state.status = format!(
                 "Word wrap: {} (visual wrap is approximate)",
                 if state.word_wrap { "on" } else { "off" }

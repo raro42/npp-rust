@@ -60,7 +60,11 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_INS_TAB" => {
-            state.tabs.active_mut().buffer.indent_lines("    ");
+            {
+                let n = state.settings.tab_width.max(1) as usize;
+                let pad = " ".repeat(n);
+                state.tabs.active_mut().buffer.indent_lines(&pad);
+            }
             state.mark_text_changed();
             CmdResult::Handled
         }

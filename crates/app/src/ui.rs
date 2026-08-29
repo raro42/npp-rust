@@ -10,6 +10,16 @@ use eframe::egui::{self, Color32, FontId, Key, Pos2, Rect, RichText, Sense, Vec2
 /// Soft teal — ready menu items (works on light and dark themes).
 const MENU_READY: Color32 = Color32::from_rgb(42, 148, 118);
 
+/// Argv options passed from `main` into the UI shell.
+#[derive(Debug, Clone, Default)]
+pub struct CliOptions {
+    pub paths: Vec<std::path::PathBuf>,
+    /// Jump to this 1-based line in the first opened file.
+    pub goto_line: Option<usize>,
+    /// Mark argv-opened files read-only.
+    pub read_only: bool,
+}
+
 /// Which dual-view pane receives keyboard edits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum EditorPane {
@@ -76,7 +86,7 @@ pub struct EditorApp {
 }
 
 impl EditorApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>, open_paths: Vec<std::path::PathBuf>) -> Self {
+    pub fn new(_cc: &eframe::CreationContext<'_>, cli: CliOptions) -> Self {
         let state = EditorState::new();
         let font_size = state.settings.font_size.clamp(8.0, 48.0);
         let mut app = Self {
@@ -117,20 +127,30 @@ impl EditorApp {
             compare_right_tags: Vec::new(),
             compare_refresh_at: None,
         };
-        app.open_argv_paths(open_paths);
+        app.open_argv_paths(cli);
         app
     }
 
     /// Open existing argv paths; skip missing and report on the status line.
-    fn open_argv_paths(&mut self, paths: Vec<std::path::PathBuf>) {
-        if paths.is_empty() {
+    fn open_argv_paths(&mut self, cli: CliOptions) {
+        if cli.paths.is_empty() {
             return;
         }
         let mut opened = 0usize;
         let mut missing: Vec<String> = Vec::new();
-        for path in paths {
+        let mut first_opened_tab: Option<usize> = None;
+        for path in cli.paths {
             if path.exists() {
                 self.state.open_path(path);
+                let tab = self.state.tabs.active_index();
+                if cli.read_only {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.read_only = true;
+                    }
+                }
+                if first_opened_tab.is_none() {
+                    first_opened_tab = Some(tab);
+                }
                 opened += 1;
             } else {
                 missing.push(path.display().to_string());
@@ -140,7 +160,22 @@ impl EditorApp {
             if let Some(doc) = self.state.tabs.get(0) {
                 if doc.path.is_none() && !doc.dirty && doc.buffer.is_empty() {
                     self.state.close_tab(0);
+                    if let Some(t) = first_opened_tab.as_mut() {
+                        *t = t.saturating_sub(1);
+                    }
                 }
+            }
+        }
+        if let (Some(tab), Some(line_1based)) = (first_opened_tab, cli.goto_line) {
+            if let Some(doc) = self.state.tabs.get_mut(tab) {
+                let line = line_1based.saturating_sub(1);
+                let max_line = doc.buffer.line_count().saturating_sub(1);
+                let line = line.min(max_line);
+                let pos = doc.buffer.line_to_char(line);
+                doc.buffer.set_caret(pos);
+                self.state.tabs.set_active(tab);
+                self.follow_caret = true;
+                self.scroll_line = line as f32;
             }
         }
         if !missing.is_empty() {
@@ -152,6 +187,14 @@ impl EditorApp {
             };
         } else if opened > 1 {
             self.state.status = format!("Opened {opened} file(s) from command line");
+        }
+        if cli.read_only && opened > 0 {
+            self.state.status = format!("{} (read-only)", self.state.status);
+        }
+        if let Some(n) = cli.goto_line {
+            if opened > 0 {
+                self.state.status = format!("{} → line {n}", self.state.status);
+            }
         }
     }
 }
