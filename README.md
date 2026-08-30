@@ -22,6 +22,12 @@ npp-rs takes inspiration from [Notepad++](https://github.com/notepad-plus-plus/n
 
 📋 [Changelog](docs/changelog.md) · 🗺 [What’s missing](docs/whats-missing.md) · 📘 [Docs index](docs/README.md) · 🧪 [Testing](docs/testing.md) · 🤝 [Contributing](CONTRIBUTING.md)
 
+## Demo
+
+![npp-rs feature tour](docs/screens/npp-rs-showcase.gif)
+
+Storyboard tour (editor, find, compare, tail, preferences). Rebuild or replace frames: [docs/screens/README.md](docs/screens/README.md).
+
 ## Quick start
 
 **From source** (Rust stable + GUI deps on Linux):

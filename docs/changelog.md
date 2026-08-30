@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.3] — 2026-08-30
+
+- Compare: default partner is the tab to the right (or left if last); ⌘/Ctrl-click or tab menu to pick any second tab
+- Help / About / cmdline links use `main` (not `dev`)
+- README feature-tour GIF (`docs/screens/`) + rebuild scripts
+
 ## [0.3.2] — 2026-08-29
 
 Issue #8 (partial P1):

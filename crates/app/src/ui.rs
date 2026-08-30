@@ -27,6 +27,36 @@ enum EditorPane {
     Secondary,
 }
 
+/// Choose the right-hand tab for Compare.
+///
+/// Order: marked partner → dual-view other pane → tab to the right → tab to the left.
+fn pick_compare_right(
+    n: usize,
+    active: usize,
+    partner: Option<usize>,
+    dual_view: bool,
+    other_view_tab: usize,
+) -> Option<usize> {
+    if n < 2 {
+        return None;
+    }
+    if let Some(p) = partner {
+        if p < n && p != active {
+            return Some(p);
+        }
+    }
+    if dual_view && other_view_tab < n && other_view_tab != active {
+        return Some(other_view_tab);
+    }
+    if active + 1 < n {
+        return Some(active + 1);
+    }
+    if active > 0 {
+        return Some(active - 1);
+    }
+    None
+}
+
 pub struct EditorApp {
     state: EditorState,
     find_focus_once: bool,
@@ -85,6 +115,8 @@ pub struct EditorApp {
     compare_right_tags: Vec<crate::diff::LineKind>,
     /// When set, wait until this instant before re-diff (debounce while typing).
     compare_refresh_at: Option<std::time::Instant>,
+    /// Optional second tab for Compare (⌘/Ctrl-click a tab, or context menu).
+    compare_partner_tab: Option<usize>,
 }
 
 impl EditorApp {
@@ -130,6 +162,7 @@ impl EditorApp {
             compare_left_tags: Vec::new(),
             compare_right_tags: Vec::new(),
             compare_refresh_at: None,
+            compare_partner_tab: None,
         };
         let had_argv = !cli.paths.is_empty();
         app.replace_with = app.state.settings.replace_with.clone();
@@ -680,7 +713,7 @@ impl EditorApp {
                         ui.label("·");
                         ui.hyperlink_to(
                             "Changelog",
-                            "https://github.com/raro42/npp-rust/blob/dev/docs/changelog.md",
+                            "https://github.com/raro42/npp-rust/blob/main/docs/changelog.md",
                         );
                     });
                 });
@@ -1731,6 +1764,7 @@ Tree-sitter highlight, and a calm UI.",
                 let mut close_idx = None;
                 let mut toggle_pin = None;
                 let mut pending_move: Option<(usize, usize)> = None;
+                let mut start_compare_now = false;
                 for i in 0..count {
                     let Some(doc) = self.state.tabs.get(i) else {
                         continue;
@@ -1751,6 +1785,10 @@ Tree-sitter highlight, and a calm UI.",
                         label.push_str(" …");
                     }
                     let selected = i == self.state.tabs.active_index();
+                    let is_partner = self.compare_partner_tab == Some(i) && !selected;
+                    if is_partner {
+                        label.push_str(" ⇄");
+                    }
                     let colour = match doc.tab_colour {
                         Some(1) => Some(Color32::from_rgb(180, 70, 70)),
                         Some(2) => Some(Color32::from_rgb(70, 140, 80)),
@@ -1761,6 +1799,8 @@ Tree-sitter highlight, and a calm UI.",
                     };
                     let text = if let Some(c) = colour {
                         RichText::new(&label).color(c)
+                    } else if is_partner {
+                        RichText::new(&label).color(Color32::from_rgb(40, 120, 140))
                     } else {
                         RichText::new(&label)
                     };
@@ -1784,7 +1824,21 @@ Tree-sitter highlight, and a calm UI.",
                         }
                     }
                     if resp.clicked() {
-                        switch_to = Some(i);
+                        let mod_pick = ui.input(|inp| inp.modifiers.command || inp.modifiers.ctrl);
+                        if mod_pick && i != self.state.tabs.active_index() {
+                            if self.compare_partner_tab == Some(i) {
+                                self.compare_partner_tab = None;
+                                self.state.status = "Compare partner cleared".into();
+                            } else {
+                                self.compare_partner_tab = Some(i);
+                                self.state.status = format!(
+                                    "Compare partner: “{}” — View → Compare with Other View",
+                                    doc.title
+                                );
+                            }
+                        } else {
+                            switch_to = Some(i);
+                        }
                     }
                     if resp.middle_clicked() {
                         close_idx = Some(i);
@@ -1794,6 +1848,31 @@ Tree-sitter highlight, and a calm UI.",
                         if ui.button(pin_label).clicked() {
                             toggle_pin = Some(i);
                             ui.close_menu();
+                        }
+                        if i != self.state.tabs.active_index() {
+                            let mark_label = if self.compare_partner_tab == Some(i) {
+                                "Clear compare partner"
+                            } else {
+                                "Mark for compare"
+                            };
+                            if ui.button(mark_label).clicked() {
+                                if self.compare_partner_tab == Some(i) {
+                                    self.compare_partner_tab = None;
+                                    self.state.status = "Compare partner cleared".into();
+                                } else {
+                                    self.compare_partner_tab = Some(i);
+                                    self.state.status = format!(
+                                        "Compare partner: “{}” — View → Compare with Other View",
+                                        doc.title
+                                    );
+                                }
+                                ui.close_menu();
+                            }
+                            if ui.button("Compare with this tab").clicked() {
+                                self.compare_partner_tab = Some(i);
+                                start_compare_now = true;
+                                ui.close_menu();
+                            }
                         }
                     });
                     ui.push_id(("pin_tab", i), |ui| {
@@ -1866,8 +1945,18 @@ Tree-sitter highlight, and a calm UI.",
                     self.scroll_line = 0.0;
                 }
                 if let Some(i) = close_idx {
+                    if self.compare_partner_tab == Some(i) {
+                        self.compare_partner_tab = None;
+                    } else if let Some(p) = self.compare_partner_tab {
+                        if p > i {
+                            self.compare_partner_tab = Some(p - 1);
+                        }
+                    }
                     self.state.request_close_tab(i);
                     self.scroll_line = 0.0;
+                }
+                if start_compare_now {
+                    self.start_compare();
                 }
             });
         });
@@ -1878,6 +1967,9 @@ Tree-sitter highlight, and a calm UI.",
         self.other_view_tab = TabSet::remap_index(self.other_view_tab, from, to);
         self.compare_left_tab = TabSet::remap_index(self.compare_left_tab, from, to);
         self.compare_right_tab = TabSet::remap_index(self.compare_right_tab, from, to);
+        if let Some(p) = self.compare_partner_tab {
+            self.compare_partner_tab = Some(TabSet::remap_index(p, from, to));
+        }
     }
 
     fn seed_find_from_selection(&mut self) {
@@ -2566,10 +2658,16 @@ Tree-sitter highlight, and a calm UI.",
         let n = self.state.tabs.len();
         if n == 0 {
             self.other_view_tab = 0;
+            self.compare_partner_tab = None;
             return;
         }
         if self.other_view_tab >= n {
             self.other_view_tab = n - 1;
+        }
+        if let Some(p) = self.compare_partner_tab {
+            if p >= n {
+                self.compare_partner_tab = None;
+            }
         }
     }
 
@@ -2843,21 +2941,29 @@ Tree-sitter highlight, and a calm UI.",
         Some((lt, rt, del, ins))
     }
 
+    /// Pick the right-hand tab for Compare.
+    ///
+    /// Order: marked partner → dual-view other pane → tab to the right → tab to the left.
+    fn resolve_compare_right(&self) -> Option<usize> {
+        pick_compare_right(
+            self.state.tabs.len(),
+            self.state.tabs.active_index(),
+            self.compare_partner_tab,
+            self.dual_view,
+            self.other_view_tab,
+        )
+    }
+
     fn start_compare(&mut self) {
         if self.state.tabs.len() < 2 {
             self.state.status = "Compare needs two open tabs".into();
             return;
         }
-        // Prefer the dual-view pair when it already shows two different tabs.
-        if !(self.dual_view && self.other_view_tab != self.state.tabs.active_index()) {
-            self.ensure_other_view_tab();
-        }
         let left = self.state.tabs.active_index();
-        let right = self.other_view_tab;
-        if left == right {
-            self.state.status = "Compare: pick a different tab for Other View first".into();
+        let Some(right) = self.resolve_compare_right() else {
+            self.state.status = "Compare: pick a different tab first".into();
             return;
-        }
+        };
         let Some((lt, rt, del, ins)) = self.compute_compare_tags(left, right) else {
             return;
         };
@@ -2867,6 +2973,7 @@ Tree-sitter highlight, and a calm UI.",
         self.compare_right_tab = right;
         self.compare_left_tags = lt;
         self.compare_right_tags = rt;
+        self.compare_partner_tab = None;
         self.dual_view = true;
         self.sync_scroll_v = true;
         self.sync_scroll_h = true;
@@ -3590,5 +3697,36 @@ fn go_doc_end(state: &mut EditorState, tab: usize, select: bool) {
         b.buffer.set_selection(anchor, end);
     } else {
         b.buffer.set_caret(end);
+    }
+}
+
+#[cfg(test)]
+mod compare_pair_tests {
+    use super::pick_compare_right;
+
+    #[test]
+    fn needs_two_tabs() {
+        assert_eq!(pick_compare_right(1, 0, None, false, 0), None);
+    }
+
+    #[test]
+    fn prefers_tab_to_the_right() {
+        assert_eq!(pick_compare_right(3, 0, None, false, 0), Some(1));
+        assert_eq!(pick_compare_right(3, 1, None, false, 1), Some(2));
+    }
+
+    #[test]
+    fn last_tab_uses_left_neighbor() {
+        assert_eq!(pick_compare_right(3, 2, None, false, 2), Some(1));
+    }
+
+    #[test]
+    fn marked_partner_wins() {
+        assert_eq!(pick_compare_right(4, 0, Some(3), true, 1), Some(3));
+    }
+
+    #[test]
+    fn dual_view_other_when_no_partner() {
+        assert_eq!(pick_compare_right(4, 0, None, true, 2), Some(2));
     }
 }

@@ -1,6 +1,6 @@
 # Built-in 2-way compare
 
-Date: 2026-08-29
+Date: 2026-08-30
 
 ## Why not only Linux `diff`?
 
@@ -8,22 +8,35 @@ npp-rs targets macOS, Linux, and Windows. System `diff` is not always present. T
 
 ## How to choose the two files
 
-Compare uses **two open tabs**:
+Compare uses **two open tabs**. Left pane = active tab. Right pane = resolved partner:
 
-| Pane | Source |
-|------|--------|
-| Left (main) | Active tab when you start Compare |
-| Right (Other view) | Other-view tab |
+| Priority | Right side |
+|----------|------------|
+| 1 | Marked partner (⌘/Ctrl-click a tab, or tab context menu) |
+| 2 | Other-view tab when dual view already shows a different file |
+| 3 | Tab immediately to the **right** of the active tab |
+| 4 | If active is last: tab to the **left** |
 
-### Example: `dummy.log` vs `dummy.log.2`
+### Fast path
+
+1. Open two (or more) files.
+2. Select the left file.
+3. **View → Compare with Other View** — compares against the tab to the right.
+
+### Pick any second tab
+
+1. Select the left file.
+2. **⌘-click** (macOS) or **Ctrl-click** the other tab — it shows `⇄` and becomes the partner.
+3. **View → Compare with Other View**.
+
+Or right-click the other tab → **Compare with this tab** / **Mark for compare**.
+
+### Dual-view path (still works)
 
 1. Open both files.
-2. Click **`dummy.log.2`**.
-3. **View → Move to Other View** (puts that file on the right; leaves the other file active).
-4. Click **`dummy.log`** if it is not already the active tab.
-5. **View → Compare with Other View**.
-
-Or with only those two tabs: select `dummy.log`, then Compare — the other tab becomes the right side.
+2. **View → Move to Other View** on the right-hand file.
+3. Activate the left file.
+4. **View → Compare with Other View**.
 
 Status line shows: `Compare “dummy.log” | “dummy.log.2” (−N +M)`.
 
@@ -47,5 +60,6 @@ While compare is on, panes stay pinned to that pair (tab clicks do not swap the 
 
 ## Code
 
+- `pick_compare_right` / `start_compare` — `crates/app/src/ui.rs`
 - `compare_stale` + `refresh_compare_if_stale` — `crates/app/src/editor.rs`, `crates/app/src/ui.rs`
 - Line LCS — `crates/app/src/diff.rs`

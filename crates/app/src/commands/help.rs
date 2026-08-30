@@ -47,7 +47,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         "IDM_CHANGELOG" => {
             open_url(
                 state,
-                "https://github.com/raro42/npp-rust/blob/dev/docs/changelog.md",
+                "https://github.com/raro42/npp-rust/blob/main/docs/changelog.md",
             );
             CmdResult::Handled
         }
@@ -115,7 +115,7 @@ fn show_cmdline_arguments(state: &mut EditorState) {
          More\n\
          ----\n\
          See README for build and run notes:\n\
-         https://github.com/raro42/npp-rust/blob/dev/README.md\n\
+         https://github.com/raro42/npp-rust/blob/main/README.md\n\
          \n\
          version: {}\n\
          os: {}\n\

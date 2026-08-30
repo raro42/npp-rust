@@ -24,5 +24,5 @@ fn main() {
     println!("cargo:rustc-env=NPP_GIT_HASH={short}");
     println!("cargo:rustc-env=NPP_GIT_HASH_FULL={full}");
     println!("cargo:rerun-if-changed=../../.git/HEAD");
-    println!("cargo:rerun-if-changed=../../.git/refs/heads/dev");
+    println!("cargo:rerun-if-changed=../../.git/refs/heads/main");
 }

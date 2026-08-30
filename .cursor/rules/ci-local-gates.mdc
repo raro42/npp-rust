@@ -18,6 +18,9 @@ Or run `./scripts/ci-local.sh`.
 
 Do not rely on `cargo check -p app` alone.
 
-Also run `./scripts/install-git-hooks.sh` once per clone so **pre-push** blocks a push when `./scripts/ci-local.sh` fails.
+Also run `./scripts/install-git-hooks.sh` once per clone:
+
+- **pre-commit** → fmt + clippy when Rust is staged
+- **pre-push** → full `./scripts/ci-local.sh`
 
 Windows-only `#[cfg(windows)]` code is still fully checked only on GitHub’s Windows runner — review those blocks by eye (e.g. avoid `return` in the last expression; clippy `needless_return`).
