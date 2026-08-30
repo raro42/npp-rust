@@ -1619,7 +1619,7 @@ Tree-sitter highlight, and a calm UI.",
                             Vec2::new(rect.width() - 2.0, mark_h),
                         ),
                         0.0,
-                        egui::Stroke::new(1.5, Color32::from_rgb(80, 180, 140)),
+                        egui::Stroke::new(1.5_f32, Color32::from_rgb(80, 180, 140)),
                         egui::StrokeKind::Outside,
                     );
                 }
@@ -2316,7 +2316,7 @@ Tree-sitter highlight, and a calm UI.",
             painter.vline(
                 gutter_right,
                 rect.y_range(),
-                egui::Stroke::new(1.0, theme.gutter_line),
+                egui::Stroke::new(1.0_f32, theme.gutter_line),
             );
 
             let hl = &self.state.highlight_cache;
@@ -2497,7 +2497,7 @@ Tree-sitter highlight, and a calm UI.",
                         while gx < text_left + avail {
                             painter.line_segment(
                                 [Pos2::new(gx, y), Pos2::new(gx, y + row_height)],
-                                egui::Stroke::new(1.0, Color32::from_rgb(55, 55, 65)),
+                                egui::Stroke::new(1.0_f32, Color32::from_rgb(55, 55, 65)),
                             );
                             gx += col_w * tab_w;
                         }
@@ -2522,7 +2522,7 @@ Tree-sitter highlight, and a calm UI.",
                 if caret >= line_start && caret <= line_end {
                     let blink_on = if self.state.settings.caret_blink {
                         ctx.request_repaint_after(std::time::Duration::from_millis(500));
-                        ((ctx.input(|i| i.time) * 2.0) as i64).rem_euclid(2) == 0
+                        ((ctx.input(|i| i.time) * 2.0_f64) as i64).rem_euclid(2) == 0
                     } else {
                         true
                     };
@@ -2532,7 +2532,7 @@ Tree-sitter highlight, and a calm UI.",
                         let cx = text_left + text_width(ui, &font_id, &prefix);
                         painter.line_segment(
                             [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
-                            egui::Stroke::new(1.0, Color32::from_rgb(220, 220, 220)),
+                            egui::Stroke::new(1.0_f32, Color32::from_rgb(220, 220, 220)),
                         );
                     }
                 }
@@ -3093,7 +3093,7 @@ Tree-sitter highlight, and a calm UI.",
             painter.rect_stroke(
                 rect,
                 0.0,
-                egui::Stroke::new(1.0, Color32::from_rgb(60, 100, 140)),
+                egui::Stroke::new(1.0_f32, Color32::from_rgb(60, 100, 140)),
                 egui::StrokeKind::Inside,
             );
         }
@@ -3184,7 +3184,7 @@ Tree-sitter highlight, and a calm UI.",
                 let blink_on = if self.state.settings.caret_blink {
                     ui.ctx()
                         .request_repaint_after(std::time::Duration::from_millis(500));
-                    ((ui.input(|i| i.time) * 2.0) as i64).rem_euclid(2) == 0
+                    ((ui.input(|i| i.time) * 2.0_f64) as i64).rem_euclid(2) == 0
                 } else {
                     true
                 };
@@ -3194,7 +3194,7 @@ Tree-sitter highlight, and a calm UI.",
                     let cx = text_left + text_width(ui, &font_id, &prefix);
                     painter.line_segment(
                         [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
-                        egui::Stroke::new(1.0, Color32::from_rgb(220, 220, 220)),
+                        egui::Stroke::new(1.0_f32, Color32::from_rgb(220, 220, 220)),
                     );
                 }
             }
