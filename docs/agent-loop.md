@@ -14,13 +14,15 @@ Earlier the loop only ran **001 + 002**. It never called the tester or handoff. 
 
 | Step | Agent | Input | Output |
 |------|-------|-------|--------|
+| 005 | CI watch | GitHub Actions `ci.yml` | `FEAT-ci-*-fix-github-ci.md` when red (≤1×/UTC day) |
 | 001 | issue pickup | GitHub issues | `FEAT-*.md` |
 | 002 | coder | `FEAT-` / `WIP-` | code on `dev` + `TEST-*.md` |
 | 003 | tester | `TEST-` | `done/DONE-*.md` or back to `WIP-` |
 | 004 | handoff | `DONE-` without `Handoff: complete` | changelog + issue closed |
 
-Each `once` / loop cycle runs: sync → 001 → 004 → 003 → 002 → 003 → 004  
-(so unfinished handoffs and tests are drained before new coding).
+Each `once` / loop cycle runs: sync → **005** → 001 → 004 → 003 → 002 → 003 → 004  
+
+CI watch (`scripts/ci-watch.py`) stamps `agents/state/ci-watch.stamp` so it runs at most once per UTC day unless `AGENT_CI_WATCH_FORCE=1`.
 
 ## Run
 
@@ -31,6 +33,8 @@ Each `once` / loop cycle runs: sync → 001 → 004 → 003 → 002 → 003 → 
 ./agents/npp-cursor-loop.sh 002     # coder only
 ./agents/npp-cursor-loop.sh 003     # tester only
 ./agents/npp-cursor-loop.sh 004     # handoff only
+./agents/npp-cursor-loop.sh 005     # CI watch only (respects daily stamp)
+AGENT_CI_WATCH_FORCE=1 ./agents/npp-cursor-loop.sh 005  # force CI check
 ```
 
 For a long unattended session, see [unattended-20h.md](unattended-20h.md). Start via Terminal: `agents/start-unattended.command`.
@@ -43,7 +47,8 @@ When `cursor-agent` is on `PATH` (usually `~/.local/bin`), the loop **runs 002/0
 |-----|---------|
 | unset | Auto: `1` if `cursor-agent` exists, else `0` |
 | `AGENT_USE_CURSOR=1` | Force agents on |
-| `AGENT_USE_CURSOR=0` | Pickup only (no edits) |
+| `AGENT_USE_CURSOR=0` | Pickup / CI stamp only (no edits) |
+| `AGENT_CI_WATCH_FORCE=1` | Run CI watch even if already stamped today |
 
 ### GitHub labels
 
@@ -64,6 +69,7 @@ open agents/start-unattended.command
 
 | Id | File | Role |
 |----|------|------|
+| 005 | `agents/005-ci-watcher.md` | Failing CI → `FEAT-ci-…` (daily) |
 | 001 | `agents/001-issue-reviewer.md` | Issues → `FEAT-*.md` |
 | 002 | `agents/002-coder.md` | Implement → `TEST-` |
 | 003 | `agents/003-tester.md` | Verify → `DONE-` |

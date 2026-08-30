@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# npp-rust agent loop — pickup → coder → tester → handoff.
+# npp-rust agent loop — CI watch → pickup → coder → tester → handoff.
 # Run from repo root:
 #   ./agents/npp-cursor-loop.sh once
 #   ./agents/npp-cursor-loop.sh loop
@@ -8,6 +8,7 @@
 #   NPP_GH_REPO=raro42/npp-rust
 #   AGENT_LOOP_SLEEP_MINUTES=15
 #   AGENT_USE_CURSOR=1|0   # default: 1 when cursor-agent is on PATH
+#   AGENT_CI_WATCH_FORCE=1 # ignore daily CI-watch stamp
 
 set -euo pipefail
 
@@ -46,7 +47,7 @@ ensure_gh_auth_env() {
 }
 ensure_gh_auth_env
 
-mkdir -p "$TASKDIR" "$DONEDIR" "${SCRIPTDIR}/001-issue-reviewer"
+mkdir -p "$TASKDIR" "$DONEDIR" "${SCRIPTDIR}/001-issue-reviewer" "${SCRIPTDIR}/state"
 
 run_cursor() {
   local role="$1"
@@ -78,6 +79,30 @@ issue_num_from_task() {
   echo "$base" | sed -E 's/^(FEAT|WIP|TEST|DONE)-([0-9]+)-.*/\2/'
 }
 
+step_005_ci_watch() {
+  echo "===== 005 CI watch ($(date -u +%Y-%m-%dT%H:%M:%SZ)) repo=$GH_REPO"
+  local rc=0
+  set +e
+  if [[ "${AGENT_CI_WATCH_FORCE:-0}" == "1" ]]; then
+    python3 "${REPO_ROOT}/scripts/ci-watch.py" --force
+  else
+    python3 "${REPO_ROOT}/scripts/ci-watch.py"
+  fi
+  rc=$?
+  set -e
+  # 2 = new FEAT created → kick coder prompt toward CI fix in this cycle.
+  if [[ "$rc" -eq 2 ]]; then
+    echo "----- 005: queued CI fix FEAT; coder will pick it up"
+    run_cursor "005" \
+      "Follow agents/005-ci-watcher.md and agents/002-coder.md. There is a new FEAT-ci-*-fix-github-ci.md under agents/tasks/. Fix GitHub CI (fmt/clippy/tests). Run ./scripts/ci-local.sh before push. Commit and push to origin/dev; fast-forward main if appropriate. Rename WIP to TEST when ready. Obey privacy rules."
+  elif [[ "$rc" -eq 0 ]]; then
+    echo "----- 005: CI watch OK or already stamped today"
+  else
+    echo "----- 005: CI still red but a fix task already exists (or gh error)"
+  fi
+  return 0
+}
+
 step_001_issues() {
   echo "===== 001 issue pickup ($(date -u +%Y-%m-%dT%H:%M:%SZ)) repo=$GH_REPO"
   NPP_GH_REPO="$GH_REPO" python3 "${SCRIPTDIR}/issue_checker.py"
@@ -102,7 +127,7 @@ step_002_coder() {
     echo "----- 002: promoted to $(basename "$task")"
   fi
   issue_n="$(issue_num_from_task "$base")"
-  if [[ -n "$issue_n" ]]; then
+  if [[ -n "$issue_n" ]] && [[ "$issue_n" =~ ^[0-9]+$ ]]; then
     echo "----- 002: GitHub issue #${issue_n} → agent:wip"
     gh issue edit "$issue_n" --repo "$GH_REPO" --add-label "agent:wip" 2>/dev/null || true
     gh issue edit "$issue_n" --repo "$GH_REPO" --remove-label "agent:planned" 2>/dev/null || true
@@ -124,7 +149,7 @@ step_003_tester() {
   base="$(basename "$task")"
   issue_n="$(issue_num_from_task "$base")"
   echo "----- 003: testing $(basename "$task")"
-  if [[ -n "$issue_n" ]]; then
+  if [[ -n "$issue_n" ]] && [[ "$issue_n" =~ ^[0-9]+$ ]]; then
     ./scripts/gh-safe.sh issue comment "$issue_n" --body "Agent 003: testing (\`$(basename "$task")\`)." 2>/dev/null || true
   fi
   run_cursor "003" \
@@ -149,7 +174,7 @@ step_004_handoff() {
   base="$(basename "$task")"
   issue_n="$(issue_num_from_task "$base")"
   echo "----- 004: handoff $(basename "$task")"
-  if [[ -n "$issue_n" ]]; then
+  if [[ -n "$issue_n" ]] && [[ "$issue_n" =~ ^[0-9]+$ ]]; then
     ./scripts/gh-safe.sh issue comment "$issue_n" --body "Agent 004: handoff review + changelog (\`$(basename "$task")\`)." 2>/dev/null || true
   fi
   run_cursor "004" \
@@ -159,6 +184,7 @@ step_004_handoff() {
 run_once() {
   echo "===== cycle start ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
   sync_dev
+  step_005_ci_watch
   step_001_issues
   # Prefer finishing the pipeline: handoff → test → code (so work does not pile up untested).
   step_004_handoff
@@ -185,8 +211,9 @@ case "$cmd" in
   002) sync_dev; step_002_coder ;;
   003) sync_dev; step_003_tester ;;
   004) sync_dev; step_004_handoff ;;
+  005) sync_dev; step_005_ci_watch ;;
   *)
-    echo "usage: $0 [once|loop|001|002|003|004]" >&2
+    echo "usage: $0 [once|loop|001|002|003|004|005]" >&2
     exit 2
     ;;
 esac
