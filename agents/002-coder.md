@@ -15,11 +15,11 @@ Prefer branch **`main`**. Keep diffs small and useful.
 
 - **Teal ≠ done.** Do not add an ID to `is_implemented` unless the command changes the buffer or UI in a useful way (not status-bar-only).
 - Prefer clearing **Placeholder** rows in `docs/menu-todo.md`.
-- Before commit/push, match CI:
-  - `cargo fmt --all` (then `cargo fmt --all -- --check`)
+- **Read `agents/workspace/lessons.md` first.**
+- Before commit/push, match CI: prefer `./scripts/ci-local.sh`
+  - or: `cargo fmt --all` + `cargo fmt --all -- --check`
   - `cargo clippy --workspace --all-targets -- -D warnings`
-  - `cargo check -p app` (or full `cargo test --workspace` when you touch shared crates)
-- Or run `./scripts/ci-local.sh` once before push.
+  - `cargo test --workspace` when behaviour changed
 - Use `set -o pipefail` if piping cargo output.
 
 ### Git (hard)

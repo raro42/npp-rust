@@ -13,13 +13,16 @@
 
 Each cycle (`./agents/npp-cursor-loop.sh once` or `loop`):
 
-0. **005** — daily CI watch → `FEAT-ci-*-fix-github-ci.md` when Actions are red
-1. **001** — pick up issues → `FEAT-`
-2. **004** — finish any pending handoff (`DONE-` without `Handoff: complete`)
-3. **003** — test any `TEST-`
-4. **002** — code oldest `FEAT-` / `WIP-` → leave as `TEST-` when the batch is ready
-5. **003** again — catch a fresh `TEST-` from this cycle
-6. **004** again — changelog + close issue when tests passed
+0. **005** — daily CI watch → `FEAT-ci-*-fix-github-ci.md` when Actions are red  
+0b. **006** — panic log scan → `FEAT-log-*-panic.md` on new signatures  
+0c. **007** — weekly quality scan  
+0d. **008** — daily git flush (safe dirty files)  
+1. **001** — pick up issues → `FEAT-`  
+2. **004** — finish any pending handoff (`DONE-` without `Handoff: complete`)  
+3. **003** — test any `TEST-`  
+4. **002** — code oldest `FEAT-` / `WIP-` → leave as `TEST-` when the batch is ready  
+5. **003** again — catch a fresh `TEST-` from this cycle  
+6. **004** again — changelog + close issue when tests passed  
 
 `FEAT-ci-…` tasks are created by `scripts/ci-watch.py` (≤1× per UTC day). Force with `AGENT_CI_WATCH_FORCE=1`.
 

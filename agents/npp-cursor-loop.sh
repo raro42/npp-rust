@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# npp-rust agent loop — CI watch → pickup → coder → tester → handoff.
+# npp-rust agent loop — CI → logs → quality → flush → pickup → code → test → handoff.
 # Run from repo root:
 #   ./agents/npp-cursor-loop.sh once
 #   ./agents/npp-cursor-loop.sh loop
@@ -7,8 +7,10 @@
 # Env:
 #   NPP_GH_REPO=raro42/npp-rust
 #   AGENT_LOOP_SLEEP_MINUTES=15
-#   AGENT_USE_CURSOR=1|0   # default: 1 when cursor-agent is on PATH
-#   AGENT_CI_WATCH_FORCE=1 # ignore daily CI-watch stamp
+#   AGENT_USE_CURSOR=1|0
+#   AGENT_CI_WATCH_FORCE=1
+#   AGENT_QUALITY_FORCE=1
+#   AGENT_GIT_FLUSH_FORCE=1
 
 set -euo pipefail
 
@@ -16,16 +18,15 @@ SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPTDIR}/.." && pwd)"
 TASKDIR="${SCRIPTDIR}/tasks"
 DONEDIR="${TASKDIR}/done"
+STATEDIR="${SCRIPTDIR}/state"
 GH_REPO="${NPP_GH_REPO:-raro42/npp-rust}"
 sleepminutes="${AGENT_LOOP_SLEEP_MINUTES:-15}"
 sleepseconds=$((sleepminutes * 60))
+AGENT_LOCK="${STATEDIR}/agent.pid"
 
-# cursor-agent often lives in ~/.local/bin
 export PATH="${HOME}/.local/bin:/usr/local/bin:${PATH}"
-
 cd "$REPO_ROOT"
 
-# Enable agents when the CLI is present, unless the user set AGENT_USE_CURSOR=0.
 if [[ -z "${AGENT_USE_CURSOR+x}" ]]; then
   if command -v cursor-agent >/dev/null 2>&1; then
     AGENT_USE_CURSOR=1
@@ -47,7 +48,29 @@ ensure_gh_auth_env() {
 }
 ensure_gh_auth_env
 
-mkdir -p "$TASKDIR" "$DONEDIR" "${SCRIPTDIR}/001-issue-reviewer" "${SCRIPTDIR}/state"
+mkdir -p "$TASKDIR" "$DONEDIR" "${SCRIPTDIR}/001-issue-reviewer" "$STATEDIR" \
+  "${SCRIPTDIR}/workspace" "${SCRIPTDIR}/006-log-monitor" "${SCRIPTDIR}/007-quality"
+
+tick() {
+  echo "AGENT_LOOP_TICK {\"at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"msg\":\"$*\"}"
+}
+
+acquire_agent_lock() {
+  if [[ -f "$AGENT_LOCK" ]]; then
+    local old
+    old="$(cat "$AGENT_LOCK" 2>/dev/null || true)"
+    if [[ -n "$old" ]] && kill -0 "$old" 2>/dev/null; then
+      echo "----- agent lock held by pid $old — skip cursor spawn"
+      return 1
+    fi
+  fi
+  echo $$ >"$AGENT_LOCK"
+  return 0
+}
+
+release_agent_lock() {
+  rm -f "$AGENT_LOCK"
+}
 
 run_cursor() {
   local role="$1"
@@ -56,12 +79,15 @@ run_cursor() {
     echo "----- ${role}: cursor-agent off (AGENT_USE_CURSOR=${AGENT_USE_CURSOR})"
     return 0
   fi
+  if ! acquire_agent_lock; then
+    return 0
+  fi
   echo "----- ${role}: starting cursor-agent"
-  # Keep going even if the agent exits non-zero.
   cursor-agent -p --force --trust --workspace "$REPO_ROOT" "$prompt" || {
     echo "----- ${role}: cursor-agent exited $?" >&2
-    return 0
   }
+  release_agent_lock
+  return 0
 }
 
 sync_main() {
@@ -79,6 +105,28 @@ issue_num_from_task() {
   echo "$base" | sed -E 's/^(FEAT|WIP|TEST|DONE)-([0-9]+)-.*/\2/'
 }
 
+stamp_day_file() {
+  local name="$1"
+  echo "$(date -u +%Y-%m-%d)" >"${STATEDIR}/${name}"
+}
+
+stamp_is_today() {
+  local name="$1"
+  local f="${STATEDIR}/${name}"
+  [[ -f "$f" ]] && [[ "$(cat "$f" 2>/dev/null | head -c 10)" == "$(date -u +%Y-%m-%d)" ]]
+}
+
+stamp_week_file() {
+  local name="$1"
+  echo "$(date -u +%Y-W%V)" >"${STATEDIR}/${name}"
+}
+
+stamp_is_this_week() {
+  local name="$1"
+  local f="${STATEDIR}/${name}"
+  [[ -f "$f" ]] && [[ "$(cat "$f" 2>/dev/null)" == "$(date -u +%Y-W%V)" ]]
+}
+
 step_005_ci_watch() {
   echo "===== 005 CI watch ($(date -u +%Y-%m-%dT%H:%M:%SZ)) repo=$GH_REPO"
   local rc=0
@@ -90,16 +138,69 @@ step_005_ci_watch() {
   fi
   rc=$?
   set -e
-  # 2 = new FEAT created → kick coder prompt toward CI fix in this cycle.
   if [[ "$rc" -eq 2 ]]; then
-    echo "----- 005: queued CI fix FEAT; coder will pick it up"
+    echo "----- 005: queued CI fix FEAT"
     run_cursor "005" \
-      "Follow agents/005-ci-watcher.md and agents/002-coder.md. There is a new FEAT-ci-*-fix-github-ci.md under agents/tasks/. Fix GitHub CI (fmt/clippy/tests). Run ./scripts/ci-local.sh before push. Commit and push to origin/main. Rename WIP to TEST when ready. Obey privacy rules."
+      "Follow agents/005-ci-watcher.md and agents/002-coder.md. Read agents/workspace/lessons.md. Fix GitHub CI using ./scripts/ci-local.sh. Commit and push origin/main. Rename WIP to TEST when ready. Obey privacy rules."
   elif [[ "$rc" -eq 0 ]]; then
     echo "----- 005: CI watch OK or already stamped today"
   else
-    echo "----- 005: CI still red but a fix task already exists (or gh error)"
+    echo "----- 005: CI red but task exists (or gh error)"
   fi
+  return 0
+}
+
+step_006_log_monitor() {
+  echo "===== 006 log monitor ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+  local rc=0
+  set +e
+  python3 "${REPO_ROOT}/scripts/scan_panic_log.py" --write-finding
+  rc=$?
+  set -e
+  if [[ "$rc" -eq 2 ]]; then
+    echo "----- 006: queued panic FEAT"
+    run_cursor "006" \
+      "Follow agents/006-log-monitor/PROMPT.md and agents/002-coder.md. A FEAT-log-*-panic.md was created. Investigate without putting home paths in commits. Run ./scripts/ci-local.sh before push."
+  elif [[ "$rc" -eq 0 ]]; then
+    echo "----- 006: no new panic signatures (or no log)"
+  else
+    echo "----- 006: new signatures seen (no write) or scan soft-fail"
+  fi
+  return 0
+}
+
+step_007_quality() {
+  echo "===== 007 quality ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+  if [[ "${AGENT_QUALITY_FORCE:-0}" != "1" ]] && stamp_is_this_week "quality.stamp"; then
+    echo "----- 007: already ran this UTC week"
+    return 0
+  fi
+  local rc=0
+  set +e
+  python3 "${REPO_ROOT}/scripts/scan_repo_quality.py"
+  rc=$?
+  set -e
+  stamp_week_file "quality.stamp"
+  if [[ "$rc" -ne 0 ]]; then
+    echo "----- 007: quality fails — spawn fixer"
+    run_cursor "007" \
+      "Follow agents/007-quality/PROMPT.md. Run python3 scripts/scan_repo_quality.py, fix fails, commit and push origin/main. Read agents/workspace/lessons.md. Obey privacy rules."
+  else
+    echo "----- 007: quality OK"
+  fi
+  return 0
+}
+
+step_008_git_flush() {
+  echo "===== 008 git flush ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+  if [[ "${AGENT_GIT_FLUSH_FORCE:-0}" != "1" ]] && stamp_is_today "git-flush.stamp"; then
+    echo "----- 008: already flushed today"
+    return 0
+  fi
+  set +e
+  python3 "${REPO_ROOT}/scripts/git_flush.py"
+  set -e
+  stamp_day_file "git-flush.stamp"
   return 0
 }
 
@@ -136,7 +237,7 @@ step_002_coder() {
 
   echo "----- 002: pending $(basename "$task")"
   run_cursor "002" \
-    "Follow agents/002-coder.md. Implement the oldest FEAT or WIP under agents/tasks/. Prefer real behaviour for Placeholder items in docs/menu-todo.md (not status-only fakes). Before push: cargo fmt --all, cargo clippy --workspace --all-targets -- -D warnings, cargo check -p app. Commit and push to origin/main. When the batch is ready, rename WIP- to TEST- (do not close the issue, do not move to done/). Obey .cursor/rules/public-repo-no-exfiltration.mdc. Never post private data."
+    "Follow agents/002-coder.md. Read agents/workspace/lessons.md and agents/workspace/todo.md first. Implement the oldest FEAT or WIP under agents/tasks/. Before push run ./scripts/ci-local.sh (fmt+clippy+test). Commit and push origin/main. Rename WIP- to TEST- when ready. Do not close the issue. Obey privacy rules."
 }
 
 step_003_tester() {
@@ -153,12 +254,11 @@ step_003_tester() {
     ./scripts/gh-safe.sh issue comment "$issue_n" --body "Agent 003: testing (\`$(basename "$task")\`)." 2>/dev/null || true
   fi
   run_cursor "003" \
-    "Follow agents/003-tester.md. Test the oldest TEST- task under agents/tasks/. Run cargo fmt --all -- --check, cargo clippy --workspace --all-targets -- -D warnings, and cargo test --workspace (or ./scripts/ci-local.sh). On pass: rename to DONE- and move under agents/tasks/done/. On fail: rename back to WIP- with notes. Do not close the GitHub issue (handoff does that). Obey privacy rules. Commit and push any task-file updates."
+    "Follow agents/003-tester.md. Read agents/workspace/lessons.md. Test the oldest TEST- task. Prefer ./scripts/ci-local.sh. On pass: DONE under agents/tasks/done/. On fail: back to WIP- with notes. Do not close the issue. Obey privacy rules."
 }
 
 step_004_handoff() {
   local task base issue_n
-  # Oldest DONE without handoff complete marker.
   task=""
   local f
   for f in $(ls -1 "$DONEDIR"/DONE-*.md 2>/dev/null || true); do
@@ -178,22 +278,25 @@ step_004_handoff() {
     ./scripts/gh-safe.sh issue comment "$issue_n" --body "Agent 004: handoff review + changelog (\`$(basename "$task")\`)." 2>/dev/null || true
   fi
   run_cursor "004" \
-    "Follow agents/004-handoff.md. Review the oldest agents/tasks/done/DONE-*.md without 'Handoff: complete'. Update docs/changelog.md [Unreleased], commit and push, then close the GitHub issue with agent:done if the goal is met. Append 'Handoff: complete' to the task file. Obey privacy rules."
+    "Follow agents/004-handoff.md. Review oldest DONE without Handoff: complete. Update docs/changelog.md, commit push origin/main, close issue with agent:done when met. Append Handoff: complete. Obey privacy rules."
 }
 
 run_once() {
+  tick "cycle_start"
   echo "===== cycle start ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
   sync_main
   step_005_ci_watch
+  step_006_log_monitor
+  step_007_quality
+  step_008_git_flush
   step_001_issues
-  # Prefer finishing the pipeline: handoff → test → code (so work does not pile up untested).
   step_004_handoff
   step_003_tester
   step_002_coder
-  # If coder just created a TEST-, test and hand off in the same cycle.
   step_003_tester
   step_004_handoff
   echo "===== cycle done ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+  tick "cycle_done"
 }
 
 cmd="${1:-once}"
@@ -203,6 +306,7 @@ case "$cmd" in
     echo "===== npp loop start AGENT_USE_CURSOR=${AGENT_USE_CURSOR} sleep=${sleepminutes}m"
     while true; do
       run_once || true
+      echo "AGENT_LOOP_SLEEP {\"minutes\":${sleepminutes}}"
       echo "----- sleep ${sleepminutes}m"
       sleep "$sleepseconds"
     done
@@ -212,8 +316,11 @@ case "$cmd" in
   003) sync_main; step_003_tester ;;
   004) sync_main; step_004_handoff ;;
   005) sync_main; step_005_ci_watch ;;
+  006) sync_main; step_006_log_monitor ;;
+  007) sync_main; step_007_quality ;;
+  008) sync_main; AGENT_GIT_FLUSH_FORCE=1 step_008_git_flush ;;
   *)
-    echo "usage: $0 [once|loop|001|002|003|004|005]" >&2
+    echo "usage: $0 [once|loop|001|002|003|004|005|006|007|008]" >&2
     exit 2
     ;;
 esac

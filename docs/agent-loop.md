@@ -1,55 +1,60 @@
 # Agent loop (npp-rust)
 
-Date: 2026-08-29  
+Date: 2026-08-30  
 Repo: [raro42/npp-rust](https://github.com/raro42/npp-rust)  
 Branch: `main`
 
-
 ## Purpose
 
-Pick up open GitHub issues, turn them into **sanitized** task files, code, **test**, then **handoff** (changelog + close). Privacy-first for a public repo.
+Pick up open GitHub issues, turn them into **sanitized** task files, code, **test**, then **handoff** (changelog + close). Also watch **CI**, **panic logs**, **repo quality**, and **dirty git** so the operator does not have to babysit. Privacy-first for a public repo.
 
-## Pipeline (what was missing before)
+Inspired by mac-stats agent-ops — see [agent-loop-mac-stats-inspiration.md](agent-loop-mac-stats-inspiration.md).
 
-Earlier the loop only ran **001 + 002**. It never called the tester or handoff. Coders also skipped ahead to `done/` and closed issues. That is fixed.
+## Standing rules
+
+See [agents/README.md](../agents/README.md): always test, watch CI, skim panic log, no dirty leftovers, read `agents/workspace/lessons.md`.
+
+## Pipeline
 
 | Step | Agent | Input | Output |
 |------|-------|-------|--------|
-| 005 | CI watch | GitHub Actions `ci.yml` | `FEAT-ci-*-fix-github-ci.md` when red (≤1×/UTC day) |
-| 001 | issue pickup | GitHub issues | `FEAT-*.md` |
-| 002 | coder | `FEAT-` / `WIP-` | code on `main` + `TEST-*.md` |
-| 003 | tester | `TEST-` | `done/DONE-*.md` or back to `WIP-` |
-| 004 | handoff | `DONE-` without `Handoff: complete` | changelog + issue closed |
+| 005 | CI watch | GitHub Actions `ci.yml` | `FEAT-ci-…` when red (≤1×/UTC day) |
+| 006 | Log monitor | `logs/panic.log` | `FEAT-log-…` on new signature |
+| 007 | Quality | repo layout | fix or FEAT (≤1×/UTC week) |
+| 008 | Git flush | dirty tree | commit+push safe files (≤1×/UTC day) |
+| 001 | Issue pickup | GitHub issues | `FEAT-*.md` |
+| 002 | Coder | `FEAT-` / `WIP-` | code on `main` + `TEST-*.md` |
+| 003 | Tester | `TEST-` | `done/DONE-*.md` or back to `WIP-` |
+| 004 | Handoff | `DONE-` without `Handoff: complete` | changelog + issue closed |
 
-Each `once` / loop cycle runs: sync → **005** → 001 → 004 → 003 → 002 → 003 → 004  
+Each `once` / loop cycle:
 
-CI watch (`scripts/ci-watch.py`) stamps `agents/state/ci-watch.stamp` so it runs at most once per UTC day unless `AGENT_CI_WATCH_FORCE=1`.
+`sync → 005 → 006 → 007 → 008 → 001 → 004 → 003 → 002 → 003 → 004`
+
+Observability lines: `AGENT_LOOP_TICK` / `AGENT_LOOP_SLEEP`. Cursor spawns use `agents/state/agent.pid` so two agents do not overlap.
 
 ## Run
 
 ```bash
-./agents/npp-cursor-loop.sh once    # full cycle
-./agents/npp-cursor-loop.sh loop    # every AGENT_LOOP_SLEEP_MINUTES (default 15)
-./agents/npp-cursor-loop.sh 001     # pickup only
-./agents/npp-cursor-loop.sh 002     # coder only
-./agents/npp-cursor-loop.sh 003     # tester only
-./agents/npp-cursor-loop.sh 004     # handoff only
-./agents/npp-cursor-loop.sh 005     # CI watch only (respects daily stamp)
-AGENT_CI_WATCH_FORCE=1 ./agents/npp-cursor-loop.sh 005  # force CI check
+./agents/npp-cursor-loop.sh once
+./agents/npp-cursor-loop.sh loop
+./agents/npp-cursor-loop.sh 005   # CI
+./agents/npp-cursor-loop.sh 006   # panic log
+./agents/npp-cursor-loop.sh 007   # quality
+./agents/npp-cursor-loop.sh 008   # git flush (forced)
 ```
 
-For a long unattended session, see [unattended-20h.md](unattended-20h.md). Start via Terminal: `agents/start-unattended.command`.
+Unattended: [unattended-20h.md](unattended-20h.md) · `agents/start-unattended.command`.
 
-### Auto agents
-
-When `cursor-agent` is on `PATH` (usually `~/.local/bin`), the loop **runs 002/003/004 by default**.
+### Env
 
 | Env | Meaning |
 |-----|---------|
-| unset | Auto: `1` if `cursor-agent` exists, else `0` |
-| `AGENT_USE_CURSOR=1` | Force agents on |
-| `AGENT_USE_CURSOR=0` | Pickup / CI stamp only (no edits) |
-| `AGENT_CI_WATCH_FORCE=1` | Run CI watch even if already stamped today |
+| `AGENT_USE_CURSOR` | `1`/`0` (default: auto if `cursor-agent` on PATH) |
+| `AGENT_CI_WATCH_FORCE=1` | Ignore daily CI stamp |
+| `AGENT_QUALITY_FORCE=1` | Ignore weekly quality stamp |
+| `AGENT_GIT_FLUSH_FORCE=1` | Ignore daily git-flush stamp |
+| `AGENT_LOOP_SLEEP_MINUTES` | Loop sleep (default 15) |
 
 ### GitHub labels
 
@@ -57,33 +62,13 @@ When `cursor-agent` is on `PATH` (usually `~/.local/bin`), the loop **runs 002/0
 |-------|---------|
 | `agent:planned` | FEAT task file created |
 | `agent:wip` | Coder / tester in progress |
-| `agent:done` | Handoff finished (issue usually closed) |
+| `agent:done` | Handoff finished |
 
-Restart after changing the script:
+## Privacy gates
 
-```bash
-pkill -f 'npp-cursor-loop.sh loop' || true
-open agents/start-unattended.command
-```
-
-## Agents
-
-| Id | File | Role |
-|----|------|------|
-| 005 | `agents/005-ci-watcher.md` | Failing CI → `FEAT-ci-…` (daily) |
-| 001 | `agents/001-issue-reviewer.md` | Issues → `FEAT-*.md` |
-| 002 | `agents/002-coder.md` | Implement → `TEST-` |
-| 003 | `agents/003-tester.md` | Verify → `DONE-` |
-| 004 | `agents/004-handoff.md` | Changelog + close |
-| 040 | `agents/040-committer.md` | Extra commit hygiene |
-
-Tasks: `agents/TASKS-README.md`.
-
-## Privacy gates (do not skip)
-
-1. Cursor rule: `.cursor/rules/public-repo-no-exfiltration.mdc` (always on).
-2. Scanner: `python3 scripts/redact_public_text.py`.
-3. GitHub writes: `./scripts/gh-safe.sh` (blocks comments that look private).
-4. Issue checker stores **summaries only** — never the raw issue body.
+1. `.cursor/rules/public-repo-no-exfiltration.mdc`
+2. `python3 scripts/redact_public_text.py`
+3. `./scripts/gh-safe.sh`
+4. Issue checker stores **summaries only**
 
 Details: `docs/security-public-repo.md`.
