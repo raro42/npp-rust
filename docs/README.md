@@ -40,22 +40,4 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [notepad-plus-plus-github.md](notepad-plus-plus-github.md) | Upstream GitHub notes |
 | [cursor-skills.md](cursor-skills.md) | Where to put Rust vs project skills |
 
-## Local Notepad++ reference
 
-Clone upstream locally if needed (not in git):
-
-```bash
-mkdir -p reference
-git clone --depth 1 https://github.com/notepad-plus-plus/notepad-plus-plus.git reference/notepad-plus-plus
-```
-
-`reference/` is gitignored.
-
-| [agent-parallel.md](agent-parallel.md) | File ownership for parallel agents |
-| [issue-4-stability.md
-- `reload-from-disk.md` — reload + saved revision dirty](issue-4-stability.md
-- `reload-from-disk.md` — reload + saved revision dirty) | Parallel finish of issue #4 |
-
-| [issue-3-4-ship-status.md](issue-3-4-ship-status.md) | #3/#4 finish checklist snapshot |
-| [issue-3-architecture.md](issue-3-architecture.md) | Parallel finish of issue #3 |
-| [highlight-viewport.md](highlight-viewport.md) | Linear byte→char + viewport highlight window |
