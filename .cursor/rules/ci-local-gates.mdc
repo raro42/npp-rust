@@ -1,0 +1,19 @@
+---
+description: Match GitHub CI locally before push (fmt, clippy, test)
+alwaysApply: true
+---
+
+# Local CI gates before push
+
+GitHub CI fails on format and clippy even when `cargo check` passes.
+
+Before every push to `dev` / `main`:
+
+1. `cargo fmt --all`
+2. `cargo fmt --all -- --check`
+3. `cargo clippy --workspace --all-targets -- -D warnings`
+4. Prefer `cargo test --workspace` when behaviour changed
+
+Or run `./scripts/ci-local.sh`.
+
+Do not rely on `cargo check -p app` alone.

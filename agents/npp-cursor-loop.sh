@@ -111,7 +111,7 @@ step_002_coder() {
 
   echo "----- 002: pending $(basename "$task")"
   run_cursor "002" \
-    "Follow agents/002-coder.md. Implement the oldest FEAT or WIP under agents/tasks/. Prefer real behaviour for Placeholder items in docs/menu-todo.md (not status-only fakes). cargo check -p app must pass. Commit and push to origin/dev. When the batch is ready, rename WIP- to TEST- (do not close the issue, do not move to done/). Obey .cursor/rules/public-repo-no-exfiltration.mdc. Never post private data."
+    "Follow agents/002-coder.md. Implement the oldest FEAT or WIP under agents/tasks/. Prefer real behaviour for Placeholder items in docs/menu-todo.md (not status-only fakes). Before push: cargo fmt --all, cargo clippy --workspace --all-targets -- -D warnings, cargo check -p app. Commit and push to origin/dev. When the batch is ready, rename WIP- to TEST- (do not close the issue, do not move to done/). Obey .cursor/rules/public-repo-no-exfiltration.mdc. Never post private data."
 }
 
 step_003_tester() {
@@ -128,7 +128,7 @@ step_003_tester() {
     ./scripts/gh-safe.sh issue comment "$issue_n" --body "Agent 003: testing (\`$(basename "$task")\`)." 2>/dev/null || true
   fi
   run_cursor "003" \
-    "Follow agents/003-tester.md. Test the oldest TEST- task under agents/tasks/. Run cargo test --workspace and cargo check -p app. On pass: rename to DONE- and move under agents/tasks/done/. On fail: rename back to WIP- with notes. Do not close the GitHub issue (handoff does that). Obey privacy rules. Commit and push any task-file updates."
+    "Follow agents/003-tester.md. Test the oldest TEST- task under agents/tasks/. Run cargo fmt --all -- --check, cargo clippy --workspace --all-targets -- -D warnings, and cargo test --workspace (or ./scripts/ci-local.sh). On pass: rename to DONE- and move under agents/tasks/done/. On fail: rename back to WIP- with notes. Do not close the GitHub issue (handoff does that). Obey privacy rules. Commit and push any task-file updates."
 }
 
 step_004_handoff() {

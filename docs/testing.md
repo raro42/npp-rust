@@ -1,23 +1,37 @@
 # Testing
 
-**Date:** 2026-08-28
+**Date:** 2026-08-30
 
 ## Does `cargo build` run tests?
 
 **No.** `cargo build` / `cargo build --release` only compiles.
 
-## What runs tests
+## Local compile (quick)
 
 ```bash
-cargo test --workspace
+cargo check -p app
+cargo build -p app --release
 ```
 
-GitHub Actions CI (`.github/workflows/ci.yml`) runs on Ubuntu, Windows, and macOS for pushes to `main`/`dev` and PRs to `main`:
+## Match CI before push (required)
 
-1. `cargo fmt --all -- --check`
-2. `cargo clippy --workspace --all-targets -- -D warnings`
-3. `cargo test --workspace`
-4. `cargo build -p app --release`
+GitHub Actions (`.github/workflows/ci.yml`) runs on Ubuntu, Windows, and macOS for pushes to `main`/`dev` and PRs to `main`. Run the same gates locally:
+
+```bash
+./scripts/ci-local.sh
+```
+
+Or step by step:
+
+```bash
+cargo fmt --all
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+cargo build -p app --release
+```
+
+`cargo check` alone does **not** catch rustfmt failures. That was why CI went red while local check looked fine.
 
 Toolchain: `rust-toolchain.toml` pins stable with `rustfmt` and `clippy`.
 

@@ -30,7 +30,7 @@ Write or update notes under `docs/`. See [docs/README.md](docs/README.md).
 ## Code
 
 1. Prefer branch `dev`.
-2. Run `cargo test --workspace` before a PR.
+2. Before a PR or push, run `./scripts/ci-local.sh` (fmt, clippy, test, release build). See [docs/testing.md](docs/testing.md).
 3. Do not commit secrets, home paths, or private data (public repo).
 4. Do not commit `reference/` (upstream Notepad++ clone). Clone it locally if you need it; it is gitignored.
 
