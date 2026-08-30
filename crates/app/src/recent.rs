@@ -308,15 +308,16 @@ pub(crate) fn config_dir() -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
     {
         let appdata = std::env::var_os("APPDATA")?;
-        return Some(PathBuf::from(appdata));
+        Some(PathBuf::from(appdata))
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
-            return Some(PathBuf::from(xdg));
+            Some(PathBuf::from(xdg))
+        } else {
+            let home = std::env::var_os("HOME")?;
+            Some(PathBuf::from(home).join(".config"))
         }
-        let home = std::env::var_os("HOME")?;
-        Some(PathBuf::from(home).join(".config"))
     }
 }
 

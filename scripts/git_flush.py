@@ -76,6 +76,16 @@ def main() -> int:
         return 0
 
     run(["git", "add", "--", *safe], check=False)
+    # Block flush of Rust changes without local gates.
+    rustish = any(p.endswith((".rs", "Cargo.toml", "Cargo.lock")) for p in safe)
+    if rustish and not args.dry_run:
+        print("git_flush: Rust changes — running ./scripts/ci-local.sh")
+        gate = run(["./scripts/ci-local.sh"], check=False)
+        if gate.returncode != 0:
+            print(gate.stdout)
+            print(gate.stderr, file=sys.stderr)
+            print("git_flush: refused — fix CI gates first", file=sys.stderr)
+            return 1
     msg = "Agent flush: commit pending safe work from the loop backstop."
     c = run(["git", "commit", "-m", msg], check=False)
     if c.returncode != 0:

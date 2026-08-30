@@ -29,8 +29,8 @@ Write or update notes under `docs/`. See [docs/README.md](docs/README.md).
 
 ## Code
 
-1. Work on branch `main`.
-2. Before a PR or push, run `./scripts/ci-local.sh` (fmt, clippy, test, release build). See [docs/testing.md](docs/testing.md).
+1. Prefer branch `main`.
+2. Before a PR or push, run `./scripts/ci-local.sh`. Install once: `./scripts/install-git-hooks.sh` (pre-push gate).
 3. Do not commit secrets, home paths, or private data (public repo).
 4. Do not commit `reference/` (upstream Notepad++ clone). Clone it locally if you need it; it is gitignored.
 

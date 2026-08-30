@@ -15,9 +15,10 @@ cargo build -p app --release
 
 ## Match CI before push (required)
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on Ubuntu, Windows, and macOS for pushes to `main` and PRs to `main`. Run the same gates locally:
+GitHub Actions (`.github/workflows/ci.yml`) runs on Ubuntu, Windows, and macOS for pushes to `main` and PRs to `main`. Run the same gates locally **before commit/push**:
 
 ```bash
+./scripts/install-git-hooks.sh   # once per clone — pre-push runs the gates
 ./scripts/ci-local.sh
 ```
 
@@ -32,6 +33,8 @@ cargo build -p app --release
 ```
 
 `cargo check` alone does **not** catch rustfmt failures. That was why CI went red while local check looked fine.
+
+**Windows-only code:** `#[cfg(windows)]` blocks are not clippy’d on macOS/Linux. Prefer expression style (no trailing `return`) in those blocks so Windows CI stays green.
 
 Toolchain: `rust-toolchain.toml` pins stable with `rustfmt` and `clippy`.
 

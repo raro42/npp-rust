@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Block push to main unless local CI gates pass (same as GitHub CI on this OS).
+# Enable once: ./scripts/install-git-hooks.sh
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+remote="${1:-}"
+url="${2:-}"
+
+# Only gate pushes to GitHub npp-rust (or any origin when url unknown).
+if [[ -n "$url" ]] && [[ "$url" != *npp-rust* ]] && [[ "$url" != *notepad-plus-plus* ]]; then
+  exit 0
+fi
+
+echo "pre-push: running ./scripts/ci-local.sh (fmt + clippy + test + release build)"
+exec ./scripts/ci-local.sh
