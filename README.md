@@ -10,7 +10,6 @@ Cross-platform (macOS, Linux, Windows). Full upstream-style menu tree. MIT. Not 
 [![CI](https://img.shields.io/github/actions/workflow/status/raro42/npp-rust/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/raro42/npp-rust/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/actions/workflow/status/raro42/npp-rust/release.yml?event=release&label=release&style=flat-square)](https://github.com/raro42/npp-rust/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-
 [![Rust](https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![egui](https://img.shields.io/badge/egui-1B1B1B?style=flat-square&logo=rust&logoColor=orange)](https://github.com/emilk/egui)
 [![macOS](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos/)
