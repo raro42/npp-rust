@@ -1,5 +1,7 @@
 # npp-rs
 
+> **Beta.** This project is early. Features may work — or they may not. Please [open an issue](https://github.com/raro42/npp-rust/issues/new) if something breaks, feels wrong, or is missing. Reports help a lot.
+
 **A Notepad++–inspired text editor for every desktop — fast, local, and written in Rust.**
 
 Cross-platform (macOS, Linux, Windows). Full upstream-style menu tree. MIT. Not affiliated with Notepad++.
