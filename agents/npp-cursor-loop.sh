@@ -262,7 +262,7 @@ step_004_handoff() {
   task=""
   local f
   for f in $(ls -1 "$DONEDIR"/DONE-*.md 2>/dev/null || true); do
-    if ! grep -q '^Handoff: complete' "$f" 2>/dev/null; then
+    if ! grep -qE '^[[:space:]]*-?[[:space:]]*Handoff:[[:space:]]*complete' "$f" 2>/dev/null; then
       task="$f"
       break
     fi
@@ -290,9 +290,10 @@ run_once() {
   step_007_quality
   step_008_git_flush
   step_001_issues
-  step_004_handoff
-  step_003_tester
+  # Code before handoff so stale DONE files cannot block FEAT/WIP work.
   step_002_coder
+  step_003_tester
+  step_004_handoff
   step_003_tester
   step_004_handoff
   echo "===== cycle done ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
