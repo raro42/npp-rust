@@ -36,3 +36,13 @@ No secrets or home paths in commits or issue comments.
 - Verified claims: `crates/app/src/theme.rs` (JSON tokens + XML subset), samples, docs, version 0.3.4.
 - `./scripts/ci-local.sh`: **pass** (fmt, clippy, workspace tests incl. `theme::tests::*`, release build).
 - Result: DONE. Issue left open for handoff.
+
+## Handoff (2026-08-30)
+- User-facing notes already in `docs/changelog.md` under **[0.3.4]** (not Unreleased).
+- Refreshed `docs/next-gaps.md` for v0.3.4 themes ship.
+- Task goal (themes depth) met. Issue #8 stays open: change history + UTF-16 remain.
+- Do not close #8 until remaining P1 items ship (or a new issue tracks them).
+- Batch handoff finished; do not re-pick this DONE file.
+
+Handoff: deferred
+Handoff: complete

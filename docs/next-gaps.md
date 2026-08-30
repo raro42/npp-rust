@@ -1,12 +1,13 @@
-# Next gaps (post v0.3.2)
+# Next gaps (post v0.3.4)
 
-Date: 2026-08-29  
-Status: **P0 done (v0.3.1).** Partial P1 in **v0.3.2** (project filter + ANSI warn).
+Date: 2026-08-30  
+Status: **P0 done (v0.3.1).** Partial P1: project/ANSI (**v0.3.2**), themes depth (**v0.3.4**).
 
 ## Done recently
 
 - v0.3.1: Preferences / Find / session / compare P0
 - v0.3.2: Project panel filter + remember root; ANSI lossy-save confirm
+- v0.3.4: Theme JSON tokens + chrome; Notepad++ XML subset
 
 ## Priority backlog
 
