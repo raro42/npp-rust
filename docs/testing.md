@@ -13,30 +13,24 @@ cargo check -p app
 cargo build -p app --release
 ```
 
-## Match CI before push (required)
+## Compile gates (when to run what)
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on Ubuntu, Windows, and macOS for pushes to `main` and PRs to `main`. Run the same gates locally **before commit/push**:
+| When | Gate | Who |
+|------|------|-----|
+| **Before commit** (Rust staged) | `fmt` + `clippy -D warnings` | `pre-commit` hook + coder |
+| **Before push** | full `./scripts/ci-local.sh` (fmt + clippy + test + release build) | `pre-push` hook + coder |
+| **Loop 002 coder** | fmt+clippy before commit; **ci-local before push / TEST-** | required |
+| **Loop 003 tester** | **ci-local** must pass before DONE | required |
+| **Loop 005 CI watch** | GitHub Actions after push | daily catch |
+| **Loop 008 git flush** | ci-local if Rust files dirty | before flush push |
+
+You do **not** need full `ci-local.sh` on every tiny docs-only commit. You **do** need it before any push that GitHub CI will build, and before marking a task DONE.
+
+Enable hooks once per clone:
 
 ```bash
-./scripts/install-git-hooks.sh   # once per clone — pre-push runs the gates
-./scripts/ci-local.sh
+./scripts/install-git-hooks.sh
 ```
-
-Or step by step:
-
-```bash
-cargo fmt --all
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-cargo build -p app --release
-```
-
-`cargo check` alone does **not** catch rustfmt failures. That was why CI went red while local check looked fine.
-
-**Windows-only code:** `#[cfg(windows)]` blocks are not clippy’d on macOS/Linux. Prefer expression style (no trailing `return`) in those blocks so Windows CI stays green.
-
-Toolchain: `rust-toolchain.toml` pins stable with `rustfmt` and `clippy`.
 
 ## Menu parity test
 

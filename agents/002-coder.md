@@ -16,18 +16,20 @@ Prefer branch **`main`**. Keep diffs small and useful.
 - **Teal ≠ done.** Do not add an ID to `is_implemented` unless the command changes the buffer or UI in a useful way (not status-bar-only).
 - Prefer clearing **Placeholder** rows in `docs/menu-todo.md`.
 - **Read `agents/workspace/lessons.md` first.**
-- Before commit/push, match CI: prefer `./scripts/ci-local.sh`
-  - or: `cargo fmt --all` + `cargo fmt --all -- --check`
-  - `cargo clippy --workspace --all-targets -- -D warnings`
-  - `cargo test --workspace` when behaviour changed
+- **Compile gates (must pass):**
+  1. **Before commit:** `cargo fmt --all` + `cargo clippy --workspace --all-targets -- -D warnings`  
+     (git `pre-commit` does this when Rust is staged)
+  2. **Before push / before renaming to TEST-:** `./scripts/ci-local.sh`  
+     (git `pre-push` also runs this)
 - Use `set -o pipefail` if piping cargo output.
 
 ### Git (hard)
 
-1. Commit finished work in the same turn.
-2. Push to `origin/main` in the same turn (`git push -u origin HEAD`).
+1. Commit finished work in the same turn (after fmt+clippy).
+2. Push to `origin/main` in the same turn (`git push -u origin HEAD`) — only after `./scripts/ci-local.sh`.
 3. Never force-push `main` / `master`.
 4. Skip empty commits and secret files.
+5. Ensure hooks are on: `./scripts/install-git-hooks.sh` (once per clone).
 
 ### Steps
 

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Fast gate before commit: fmt + clippy (same lints CI uses on this OS).
+# Full suite (test + release build) runs on pre-push via ci-local.sh.
+# Enable once: ./scripts/install-git-hooks.sh
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+# Skip if no Rust/Cargo changes staged
+if ! git diff --cached --name-only | rg -q '\.(rs)$|^Cargo\.(toml|lock)$|^crates/|^rust-toolchain'; then
+  exit 0
+fi
+
+echo "pre-commit: fmt + clippy (Rust staged)"
+cargo fmt --all
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+echo "pre-commit: OK"
