@@ -1319,7 +1319,6 @@ Tree-sitter highlight, and a calm UI.",
         self.show_summary = open && !close;
     }
 
-
     fn apply_theme_visuals(&mut self, ctx: &egui::Context) {
         let theme = crate::theme::resolve_theme(&self.state.settings.theme_id);
         ctx.set_visuals(theme.visuals());
@@ -1351,7 +1350,11 @@ Tree-sitter highlight, and a calm UI.",
                     if ui.button("Pick folder…").clicked() {
                         pick_folder = true;
                     }
-                    if ui.small_button("Up").on_hover_text("Parent folder").clicked() {
+                    if ui
+                        .small_button("Up")
+                        .on_hover_text("Parent folder")
+                        .clicked()
+                    {
                         if let Some(parent) = root.parent() {
                             enter_dir = Some(parent.to_path_buf());
                         }
@@ -1375,55 +1378,53 @@ Tree-sitter highlight, and a calm UI.",
                 });
                 ui.separator();
                 let filter = self.state.settings.project_filter.to_ascii_lowercase();
-                egui::ScrollArea::vertical().max_height(340.0).show(ui, |ui| {
-                    let mut entries: Vec<std::path::PathBuf> = Vec::new();
-                    if let Ok(rd) = std::fs::read_dir(&root) {
-                        for ent in rd.flatten() {
-                            let p = ent.path();
-                            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                            if name.starts_with('.') {
-                                continue;
+                egui::ScrollArea::vertical()
+                    .max_height(340.0)
+                    .show(ui, |ui| {
+                        let mut entries: Vec<std::path::PathBuf> = Vec::new();
+                        if let Ok(rd) = std::fs::read_dir(&root) {
+                            for ent in rd.flatten() {
+                                let p = ent.path();
+                                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                                if name.starts_with('.') {
+                                    continue;
+                                }
+                                if !filter.is_empty()
+                                    && !name.to_ascii_lowercase().contains(&filter)
+                                {
+                                    continue;
+                                }
+                                entries.push(p);
                             }
-                            if !filter.is_empty()
-                                && !name.to_ascii_lowercase().contains(&filter)
-                            {
-                                continue;
-                            }
-                            entries.push(p);
                         }
-                    }
-                    entries.sort_by(|a, b| {
-                        b.is_dir()
-                            .cmp(&a.is_dir())
-                            .then(a.file_name().cmp(&b.file_name()))
-                    });
-                    if entries.is_empty() {
-                        ui.label(if filter.is_empty() {
-                            "(empty folder)"
-                        } else {
-                            "(no matches)"
+                        entries.sort_by(|a, b| {
+                            b.is_dir()
+                                .cmp(&a.is_dir())
+                                .then(a.file_name().cmp(&b.file_name()))
                         });
-                    }
-                    for p in entries {
-                        let is_dir = p.is_dir();
-                        let name = p
-                            .file_name()
-                            .map(|n| n.to_string_lossy().into_owned())
-                            .unwrap_or_else(|| p.display().to_string());
-                        let label = if is_dir {
-                            format!("{name}/")
-                        } else {
-                            name
-                        };
-                        if ui.selectable_label(false, label).clicked() {
-                            if is_dir {
-                                enter_dir = Some(p);
+                        if entries.is_empty() {
+                            ui.label(if filter.is_empty() {
+                                "(empty folder)"
                             } else {
-                                open_path = Some(p);
+                                "(no matches)"
+                            });
+                        }
+                        for p in entries {
+                            let is_dir = p.is_dir();
+                            let name = p
+                                .file_name()
+                                .map(|n| n.to_string_lossy().into_owned())
+                                .unwrap_or_else(|| p.display().to_string());
+                            let label = if is_dir { format!("{name}/") } else { name };
+                            if ui.selectable_label(false, label).clicked() {
+                                if is_dir {
+                                    enter_dir = Some(p);
+                                } else {
+                                    open_path = Some(p);
+                                }
                             }
                         }
-                    }
-                });
+                    });
                 if ui.button("Close").clicked() {
                     close = true;
                 }
@@ -1935,8 +1936,9 @@ Tree-sitter highlight, and a calm UI.",
                 if self.show_replace {
                     ui.separator();
                     ui.label("Replace:");
-                    let rresp =
-                        ui.add(egui::TextEdit::singleline(&mut self.replace_with).desired_width(120.0));
+                    let rresp = ui.add(
+                        egui::TextEdit::singleline(&mut self.replace_with).desired_width(120.0),
+                    );
                     if rresp.changed() {
                         persist = true;
                     }
@@ -1990,7 +1992,11 @@ Tree-sitter highlight, and a calm UI.",
                 ui.label(&status);
                 if crate::commands::edit::text_is_rtl() {
                     ui.separator();
-                    ui.label(RichText::new("RTL").strong().color(Color32::from_rgb(42, 148, 118)));
+                    ui.label(
+                        RichText::new("RTL")
+                            .strong()
+                            .color(Color32::from_rgb(42, 148, 118)),
+                    );
                 }
 
                 ui.separator();
@@ -2126,8 +2132,8 @@ Tree-sitter highlight, and a calm UI.",
             }
 
             let show_ln = self.state.settings.show_line_numbers;
-            let gutter_w = if show_ln { 56.0 } else { 16.0 }
-                + f32::from(self.state.settings.gutter_extra);
+            let gutter_w =
+                if show_ln { 56.0 } else { 16.0 } + f32::from(self.state.settings.gutter_extra);
             // Gap between line numbers and text (was flush before).
             let gutter_gap = 12.0;
             let text_left = rect.left() + gutter_w + gutter_gap;
@@ -2428,7 +2434,19 @@ Tree-sitter highlight, and a calm UI.",
                     }
                 }
 
-                paint_line_text(&painter, ui, &font_id, text_left, y, line_text, line_start, hl, &lang, theme.plain_fg, crate::commands::edit::text_is_rtl());
+                paint_line_text(
+                    &painter,
+                    ui,
+                    &font_id,
+                    text_left,
+                    y,
+                    line_text,
+                    line_start,
+                    hl,
+                    &lang,
+                    theme.plain_fg,
+                    crate::commands::edit::text_is_rtl(),
+                );
 
                 // Whitespace / NPC / EOL overlays
                 let ws_color = Color32::from_rgb(90, 110, 140);
@@ -2936,8 +2954,8 @@ Tree-sitter highlight, and a calm UI.",
         }
 
         let show_ln = self.state.settings.show_line_numbers;
-        let gutter_w = if show_ln { 48.0 } else { 12.0 }
-            + f32::from(self.state.settings.gutter_extra);
+        let gutter_w =
+            if show_ln { 48.0 } else { 12.0 } + f32::from(self.state.settings.gutter_extra);
         let gutter_gap = 8.0;
         let text_left = rect.left() + gutter_w + gutter_gap;
         let gutter_right = rect.left() + gutter_w;

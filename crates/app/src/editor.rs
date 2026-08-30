@@ -704,7 +704,7 @@ impl EditorState {
         self.status = "Close cancelled".into();
     }
 
-        /// File → Reload from Disk. Confirms when dirty (Save / Don't Save / Cancel).
+    /// File → Reload from Disk. Confirms when dirty (Save / Don't Save / Cancel).
     pub fn request_reload(&mut self) {
         if self.tabs.active().path.is_none() {
             self.status = "Reload: untitled buffer".into();
@@ -748,10 +748,7 @@ impl EditorState {
                 self.highlight_dirty = true;
                 self.reset_view = true;
                 let name = short_path_label(&path);
-                self.status = format!(
-                    "Reloaded {name} ({:.1} KiB)",
-                    result.bytes as f64 / 1024.0
-                );
+                self.status = format!("Reloaded {name} ({:.1} KiB)", result.bytes as f64 / 1024.0);
             }
             Err(e) => {
                 self.status = format!("Reload failed: {e}");
@@ -1015,9 +1012,8 @@ impl EditorState {
             let unmapped = fs::count_windows_1252_unmapped(&content);
             if unmapped > 0 && self.pending_lossy_ansi.as_deref() != Some(path) {
                 self.pending_lossy_ansi = Some(path.to_path_buf());
-                self.status = format!(
-                    "ANSI save: {unmapped} char(s) become '?' — confirm in dialog"
-                );
+                self.status =
+                    format!("ANSI save: {unmapped} char(s) become '?' — confirm in dialog");
                 return false;
             }
         }
@@ -1341,11 +1337,7 @@ impl EditorState {
         if !self.settings.restore_session {
             return;
         }
-        let paths: Vec<_> = self
-            .tabs
-            .iter()
-            .filter_map(|d| d.path.clone())
-            .collect();
+        let paths: Vec<_> = self.tabs.iter().filter_map(|d| d.path.clone()).collect();
         let _ = crate::session::save_paths(&paths);
     }
 
@@ -1372,11 +1364,7 @@ impl EditorState {
     }
 
     pub fn save_session_now(&mut self) {
-        let paths: Vec<_> = self
-            .tabs
-            .iter()
-            .filter_map(|d| d.path.clone())
-            .collect();
+        let paths: Vec<_> = self.tabs.iter().filter_map(|d| d.path.clone()).collect();
         match crate::session::save_paths(&paths) {
             Ok(()) => {
                 self.status = format!("Session saved ({})", crate::session::SESSION_REL);
@@ -1398,14 +1386,20 @@ impl EditorState {
     }
 
     pub fn undo_at(&mut self, tab: usize) {
-        if self.with_editable_buffer(tab, |buf| buf.undo()).unwrap_or(false) {
+        if self
+            .with_editable_buffer(tab, |buf| buf.undo())
+            .unwrap_or(false)
+        {
             self.mark_text_changed_at(tab);
             self.status = "Undo".into();
         }
     }
 
     pub fn redo_at(&mut self, tab: usize) {
-        if self.with_editable_buffer(tab, |buf| buf.redo()).unwrap_or(false) {
+        if self
+            .with_editable_buffer(tab, |buf| buf.redo())
+            .unwrap_or(false)
+        {
             self.mark_text_changed_at(tab);
             self.status = "Redo".into();
         }
@@ -1522,7 +1516,6 @@ impl EditorState {
             self.status = "Closed unchanged documents".into();
         }
     }
-
 
     pub fn pick_workspace_folder(&mut self) {
         if let Some(dir) = rfd::FileDialog::new()
@@ -2300,12 +2293,7 @@ mod tests {
         let path = dir.join("reload-demo.txt");
         std::fs::write(&path, b"on disk v1\n").expect("write");
         let mut state = EditorState::new();
-        state.apply_open_result(OpenResult::new(
-            path.clone(),
-            "on disk v1\n".into(),
-            11,
-            1,
-        ));
+        state.apply_open_result(OpenResult::new(path.clone(), "on disk v1\n".into(), 11, 1));
         assert_eq!(state.tabs.active().buffer.to_string(), "on disk v1\n");
         state.tabs.active_mut().buffer.insert("edited ");
         state.mark_text_changed();

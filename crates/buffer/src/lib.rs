@@ -227,7 +227,6 @@ impl TextBuffer {
         self.last_insert_at = None;
     }
 
-
     pub fn clear_selection(&mut self) {
         self.sel_anchor = None;
     }

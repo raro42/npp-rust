@@ -449,9 +449,8 @@ fn import_themes(state: &mut EditorState, ui: &mut UiFlags) {
     open_path_in_os(state, &dir);
     ui.show_theme_picker = true;
     let n = crate::theme::list_theme_choices().len();
-    state.status = format!(
-        "Themes: opened themes/ — {n} choice(s). Use the Theme window to apply (MVP)."
-    );
+    state.status =
+        format!("Themes: opened themes/ — {n} choice(s). Use the Theme window to apply (MVP).");
 }
 
 fn run_execute(state: &mut EditorState) {
