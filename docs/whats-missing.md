@@ -17,7 +17,7 @@ Handlers that work but stay shallower than upstream N++:
 | Edit | RTL/LTR: editor line anchors + status cue; full bidi / UI chrome mirror still open |
 | Encoding | ANSI / UTF-8 / UTF-8-BOM per-tab save (Windows-1252). Unmapped chars → `?` on ANSI save |
 | Search | Change History: amber unsaved / green saved ticks; line remap (MVP). Find has case/word + match count |
-| Settings | Themes: MVP apply; N++ XML / token colours open; plugins: builtins listed, no drop-in load. Preferences deeper in v0.3.1 |
+| Settings | Themes: JSON tokens + chrome; N++ XML subset (GlobalStyles + one lexer); full stylers parity open; plugins: builtins listed, no drop-in load. Preferences deeper in v0.3.1 |
 | File | Pin from tab chrome + `IDM_PINTAB`; Close All but Pinned keeps pinned tabs; opt-in session restore |
 | View | Tab drag-reorder; Move Tab Forward / Backward still available |
 

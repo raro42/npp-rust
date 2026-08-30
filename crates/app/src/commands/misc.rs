@@ -450,7 +450,7 @@ fn import_themes(state: &mut EditorState, ui: &mut UiFlags) {
     ui.show_theme_picker = true;
     let n = crate::theme::list_theme_choices().len();
     state.status =
-        format!("Themes: opened themes/ — {n} choice(s). Use the Theme window to apply (MVP).");
+        format!("Themes: opened themes/ — {n} choice(s). Use the Theme window to apply (JSON tokens or N++ XML subset).");
 }
 
 fn run_execute(state: &mut EditorState) {

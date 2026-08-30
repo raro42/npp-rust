@@ -22,3 +22,12 @@ Deepen theme colour maps beyond MVP apply. Prefer JSON theme files and/or a usef
 
 ## Privacy
 No secrets or home paths in commits or issue comments.
+
+## Progress
+- Extended JSON themes: selection, caret, whitespace, indent guide, `tokens` map.
+- Paint path uses theme chrome + token colours (primary and secondary panes).
+- Notepad++ XML subset: GlobalStyles + preferred lexer WordsStyle → highlight tokens.
+- Samples: `themes/slate.json`, `themes/mini-dark.xml`.
+- Docs/changelog; version **0.3.4**.
+- Unit tests for JSON overrides and XML subset parse.
+- Hand off to tester as `TEST-` (issue left open).

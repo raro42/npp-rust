@@ -1,7 +1,6 @@
 //! Viewport text metrics and highlighted line paint (hot path).
 
 use eframe::egui::{self, Color32, FontId, Pos2};
-use highlight::color_for;
 use std::collections::BTreeSet;
 
 /// Document line indices that are not folded/hidden (display order).
@@ -111,7 +110,7 @@ pub(crate) fn paint_line_text(
     line_start_char: usize,
     spans: &[highlight::Span],
     language: &str,
-    plain_fg: Color32,
+    theme: &crate::theme::AppliedTheme,
     rtl: bool,
 ) {
     if line_text.is_empty() {
@@ -130,7 +129,7 @@ pub(crate) fn paint_line_text(
             align,
             line_text,
             font_id.clone(),
-            plain_fg,
+            theme.plain_fg,
         );
         return;
     }
@@ -149,11 +148,7 @@ pub(crate) fn paint_line_text(
             .find(|s| s.start <= global && global < s.end)
             .map(|s| s.name.as_str())
             .unwrap_or("");
-        let (r, g, b) = if name.is_empty() {
-            (0.85, 0.85, 0.85)
-        } else {
-            color_for(name)
-        };
+        let color = theme.token_color(name);
         let ch = chars[i].to_string();
         let w = text_width(ui, font_id, &ch);
         painter.text(
@@ -161,7 +156,7 @@ pub(crate) fn paint_line_text(
             egui::Align2::LEFT_TOP,
             &ch,
             font_id.clone(),
-            Color32::from_rgb((r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8),
+            color,
         );
         x += w;
         i += 1;

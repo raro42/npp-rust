@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.4] — 2026-08-30
+
+Issue #8 (P1 themes depth):
+
+- Theme JSON: selection, caret, whitespace, indent guide, and syntax `tokens` map
+- Notepad++ XML subset: GlobalStyles chrome + preferred lexer WordsStyle → highlight tokens
+- Samples: deeper `themes/slate.json`, `themes/mini-dark.xml`
+- Primary and secondary panes use theme chrome colours
+
+
 ## [0.3.3] — 2026-08-30
 
 - Compare: default partner is the tab to the right (or left if last); ⌘/Ctrl-click or tab menu to pick any second tab

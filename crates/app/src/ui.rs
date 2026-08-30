@@ -806,202 +806,210 @@ Tree-sitter highlight, and a calm UI.",
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
             .default_width(440.0)
             .show(ctx, |ui| {
-                egui::ScrollArea::vertical().max_height(480.0).show(ui, |ui| {
-                ui.label(RichText::new("When opening *.log files").strong());
-                ui.add_space(4.0);
-                let cur = &mut self.state.settings.log_tail_on_open;
-                if ui
-                    .radio_value(cur, LogTailOnOpen::Ask, "Ask each time")
-                    .changed()
-                {
-                    changed = true;
-                }
-                if ui
-                    .radio_value(
-                        cur,
-                        LogTailOnOpen::Always,
-                        "Always enable Monitoring (tail)",
-                    )
-                    .changed()
-                {
-                    changed = true;
-                }
-                if ui
-                    .radio_value(
-                        cur,
-                        LogTailOnOpen::Never,
-                        "Never ask — open as a normal file",
-                    )
-                    .changed()
-                {
-                    changed = true;
-                }
-                ui.add_space(10.0);
-                ui.label(RichText::new("Editor").strong());
-                ui.add_space(4.0);
-                ui.horizontal(|ui| {
-                    ui.label("Font size");
-                    if ui
-                        .add(egui::Slider::new(&mut self.font_size, 8.0..=48.0))
-                        .changed()
-                    {
-                        changed = true;
-                        self.state.settings.font_size = self.font_size;
-                    }
-                });
-                if ui
-                    .checkbox(
-                        &mut self.state.settings.show_line_numbers,
-                        "Show line numbers",
-                    )
-                    .changed()
-                {
-                    changed = true;
-                }
-                ui.horizontal(|ui| {
-                    ui.label("Gutter extra");
-                    let mut g = self.state.settings.gutter_extra as i32;
-                    if ui.add(egui::Slider::new(&mut g, 0..=40)).changed() {
-                        self.state.settings.gutter_extra = g as u8;
-                        changed = true;
-                    }
-                });
-                if ui
-                    .checkbox(&mut self.state.settings.caret_blink, "Caret blink")
-                    .changed()
-                {
-                    changed = true;
-                }
-                ui.horizontal(|ui| {
-                    ui.label("Tab width");
-                    let mut tw = self.state.settings.tab_width as i32;
-                    if ui.add(egui::Slider::new(&mut tw, 2..=8)).changed() {
-                        self.state.settings.tab_width = tw as u8;
-                        changed = true;
-                    }
-                });
-                if ui
-                    .checkbox(&mut self.state.settings.word_wrap, "Word wrap")
-                    .changed()
-                {
-                    self.state.word_wrap = self.state.settings.word_wrap;
-                    changed = true;
-                }
-                ui.label("Default EOL (Enter key)");
-                let eol = &mut self.state.settings.default_eol;
-                if ui
-                    .radio_value(eol, DefaultEol::Lf, DefaultEol::Lf.label())
-                    .changed()
-                {
-                    changed = true;
-                }
-                if ui
-                    .radio_value(eol, DefaultEol::Crlf, DefaultEol::Crlf.label())
-                    .changed()
-                {
-                    changed = true;
-                }
-                ui.add_space(10.0);
-                ui.label(RichText::new("Files").strong());
-                ui.add_space(4.0);
-                ui.horizontal(|ui| {
-                    ui.label("Recent file count");
-                    let mut rm = self.state.settings.recent_max as i32;
-                    if ui.add(egui::Slider::new(&mut rm, 5..=40)).changed() {
-                        self.state.settings.recent_max = rm as u8;
-                        changed = true;
-                    }
-                });
-                if ui
-                    .checkbox(
-                        &mut self.state.settings.restore_session,
-                        "Restore last session on launch",
-                    )
-                    .changed()
-                {
-                    changed = true;
-                    if self.state.settings.restore_session {
-                        self.state.persist_session_if_enabled();
-                    }
-                }
-                ui.label(
-                    RichText::new(format!("Session file: {}", crate::session::SESSION_REL))
-                        .small()
-                        .weak(),
-                );
-                ui.add_space(10.0);
-                ui.label(RichText::new("Find").strong());
-                ui.add_space(4.0);
-                if ui
-                    .checkbox(&mut self.state.settings.find_match_case, "Match case")
-                    .changed()
-                {
-                    changed = true;
-                }
-                if ui
-                    .checkbox(&mut self.state.settings.find_whole_word, "Whole word")
-                    .changed()
-                {
-                    changed = true;
-                }
-                ui.add_space(10.0);
-                ui.label(RichText::new("Compare").strong());
-                ui.add_space(4.0);
-                if ui
-                    .checkbox(
-                        &mut self.state.settings.compare_ignore_ws,
-                        "Ignore whitespace differences",
-                    )
-                    .changed()
-                {
-                    changed = true;
-                    if self.compare_on {
-                        self.state.compare_stale = true;
-                    }
-                }
-                ui.add_space(10.0);
-                ui.label(RichText::new("Status bar").strong());
-                ui.add_space(4.0);
-                if ui
-                    .checkbox(&mut self.state.settings.status_show_lang, "Show language")
-                    .changed()
-                {
-                    changed = true;
-                }
-                if ui
-                    .checkbox(
-                        &mut self.state.settings.status_show_chars,
-                        "Show character count",
-                    )
-                    .changed()
-                {
-                    changed = true;
-                }
-                ui.add_space(10.0);
-                ui.label(RichText::new("Theme").strong());
-                ui.add_space(4.0);
-                ui.label(RichText::new("MVP: egui chrome + editor bg/fg/gutter. Not N++ XML; highlight colours unchanged.").small().weak());
-                let mut theme_id = self.state.settings.theme_id.clone();
-                for (id, label) in crate::theme::list_theme_choices() {
-                    if ui.radio_value(&mut theme_id, id.clone(), label).changed() {
-                        self.state.settings.theme_id = theme_id.clone();
-                        changed = true;
-                    }
-                }
-                if ui.button("Open Theme picker…").clicked() {
-                    self.show_theme_picker = true;
-                }
-                ui.add_space(8.0);
-                ui.label(
-                    RichText::new(format!("Saved to {}", crate::recent::SETTINGS_REL))
-                        .small()
-                        .weak(),
-                );
-                ui.add_space(8.0);
-                if ui.button("Close").clicked() {
-                    self.show_preferences = false;
-                }
-                });
+                egui::ScrollArea::vertical()
+                    .max_height(480.0)
+                    .show(ui, |ui| {
+                        ui.label(RichText::new("When opening *.log files").strong());
+                        ui.add_space(4.0);
+                        let cur = &mut self.state.settings.log_tail_on_open;
+                        if ui
+                            .radio_value(cur, LogTailOnOpen::Ask, "Ask each time")
+                            .changed()
+                        {
+                            changed = true;
+                        }
+                        if ui
+                            .radio_value(
+                                cur,
+                                LogTailOnOpen::Always,
+                                "Always enable Monitoring (tail)",
+                            )
+                            .changed()
+                        {
+                            changed = true;
+                        }
+                        if ui
+                            .radio_value(
+                                cur,
+                                LogTailOnOpen::Never,
+                                "Never ask — open as a normal file",
+                            )
+                            .changed()
+                        {
+                            changed = true;
+                        }
+                        ui.add_space(10.0);
+                        ui.label(RichText::new("Editor").strong());
+                        ui.add_space(4.0);
+                        ui.horizontal(|ui| {
+                            ui.label("Font size");
+                            if ui
+                                .add(egui::Slider::new(&mut self.font_size, 8.0..=48.0))
+                                .changed()
+                            {
+                                changed = true;
+                                self.state.settings.font_size = self.font_size;
+                            }
+                        });
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.show_line_numbers,
+                                "Show line numbers",
+                            )
+                            .changed()
+                        {
+                            changed = true;
+                        }
+                        ui.horizontal(|ui| {
+                            ui.label("Gutter extra");
+                            let mut g = self.state.settings.gutter_extra as i32;
+                            if ui.add(egui::Slider::new(&mut g, 0..=40)).changed() {
+                                self.state.settings.gutter_extra = g as u8;
+                                changed = true;
+                            }
+                        });
+                        if ui
+                            .checkbox(&mut self.state.settings.caret_blink, "Caret blink")
+                            .changed()
+                        {
+                            changed = true;
+                        }
+                        ui.horizontal(|ui| {
+                            ui.label("Tab width");
+                            let mut tw = self.state.settings.tab_width as i32;
+                            if ui.add(egui::Slider::new(&mut tw, 2..=8)).changed() {
+                                self.state.settings.tab_width = tw as u8;
+                                changed = true;
+                            }
+                        });
+                        if ui
+                            .checkbox(&mut self.state.settings.word_wrap, "Word wrap")
+                            .changed()
+                        {
+                            self.state.word_wrap = self.state.settings.word_wrap;
+                            changed = true;
+                        }
+                        ui.label("Default EOL (Enter key)");
+                        let eol = &mut self.state.settings.default_eol;
+                        if ui
+                            .radio_value(eol, DefaultEol::Lf, DefaultEol::Lf.label())
+                            .changed()
+                        {
+                            changed = true;
+                        }
+                        if ui
+                            .radio_value(eol, DefaultEol::Crlf, DefaultEol::Crlf.label())
+                            .changed()
+                        {
+                            changed = true;
+                        }
+                        ui.add_space(10.0);
+                        ui.label(RichText::new("Files").strong());
+                        ui.add_space(4.0);
+                        ui.horizontal(|ui| {
+                            ui.label("Recent file count");
+                            let mut rm = self.state.settings.recent_max as i32;
+                            if ui.add(egui::Slider::new(&mut rm, 5..=40)).changed() {
+                                self.state.settings.recent_max = rm as u8;
+                                changed = true;
+                            }
+                        });
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.restore_session,
+                                "Restore last session on launch",
+                            )
+                            .changed()
+                        {
+                            changed = true;
+                            if self.state.settings.restore_session {
+                                self.state.persist_session_if_enabled();
+                            }
+                        }
+                        ui.label(
+                            RichText::new(format!("Session file: {}", crate::session::SESSION_REL))
+                                .small()
+                                .weak(),
+                        );
+                        ui.add_space(10.0);
+                        ui.label(RichText::new("Find").strong());
+                        ui.add_space(4.0);
+                        if ui
+                            .checkbox(&mut self.state.settings.find_match_case, "Match case")
+                            .changed()
+                        {
+                            changed = true;
+                        }
+                        if ui
+                            .checkbox(&mut self.state.settings.find_whole_word, "Whole word")
+                            .changed()
+                        {
+                            changed = true;
+                        }
+                        ui.add_space(10.0);
+                        ui.label(RichText::new("Compare").strong());
+                        ui.add_space(4.0);
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.compare_ignore_ws,
+                                "Ignore whitespace differences",
+                            )
+                            .changed()
+                        {
+                            changed = true;
+                            if self.compare_on {
+                                self.state.compare_stale = true;
+                            }
+                        }
+                        ui.add_space(10.0);
+                        ui.label(RichText::new("Status bar").strong());
+                        ui.add_space(4.0);
+                        if ui
+                            .checkbox(&mut self.state.settings.status_show_lang, "Show language")
+                            .changed()
+                        {
+                            changed = true;
+                        }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.status_show_chars,
+                                "Show character count",
+                            )
+                            .changed()
+                        {
+                            changed = true;
+                        }
+                        ui.add_space(10.0);
+                        ui.label(RichText::new("Theme").strong());
+                        ui.add_space(4.0);
+                        ui.label(
+                            RichText::new(
+                                "JSON tokens + chrome; N++ XML subset (GlobalStyles + one lexer).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        let mut theme_id = self.state.settings.theme_id.clone();
+                        for (id, label) in crate::theme::list_theme_choices() {
+                            if ui.radio_value(&mut theme_id, id.clone(), label).changed() {
+                                self.state.settings.theme_id = theme_id.clone();
+                                changed = true;
+                            }
+                        }
+                        if ui.button("Open Theme picker…").clicked() {
+                            self.show_theme_picker = true;
+                        }
+                        ui.add_space(8.0);
+                        ui.label(
+                            RichText::new(format!("Saved to {}", crate::recent::SETTINGS_REL))
+                                .small()
+                                .weak(),
+                        );
+                        ui.add_space(8.0);
+                        if ui.button("Close").clicked() {
+                            self.show_preferences = false;
+                        }
+                    });
             });
         if changed {
             self.state.settings.font_size = self.font_size;
@@ -1531,7 +1539,7 @@ Tree-sitter highlight, and a calm UI.",
             .show(ctx, |ui| {
                 ui.label(
                     RichText::new(
-                        "MVP apply: egui visuals + editor background / plain text / gutter. Notepad++ stylers.xml is not read. Syntax token colours stay on the built-in map.",
+                        "Apply: egui visuals, editor chrome, selection/caret, and syntax tokens from themes/*.json or a Notepad++ XML subset (GlobalStyles + preferred lexer).",
                     )
                     .small()
                     .weak(),
@@ -2521,7 +2529,7 @@ Tree-sitter highlight, and a calm UI.",
                                 Pos2::new(x1.max(x0 + 2.0), y + row_height),
                             ),
                             0.0,
-                            Color32::from_rgb(50, 80, 120),
+                            theme.selection_bg,
                         );
                     }
                 }
@@ -2536,12 +2544,12 @@ Tree-sitter highlight, and a calm UI.",
                     line_start,
                     hl,
                     &lang,
-                    theme.plain_fg,
+                    &theme,
                     crate::commands::edit::text_is_rtl(),
                 );
 
                 // Whitespace / NPC / EOL overlays
-                let ws_color = Color32::from_rgb(90, 110, 140);
+                let ws_color = theme.whitespace_fg;
                 if self.state.show_whitespace || self.state.show_npc {
                     for (col, ch) in line_text.chars().enumerate() {
                         let x = text_left
@@ -2589,7 +2597,7 @@ Tree-sitter highlight, and a calm UI.",
                         while gx < text_left + avail {
                             painter.line_segment(
                                 [Pos2::new(gx, y), Pos2::new(gx, y + row_height)],
-                                egui::Stroke::new(1.0_f32, Color32::from_rgb(55, 55, 65)),
+                                egui::Stroke::new(1.0_f32, theme.indent_guide),
                             );
                             gx += col_w * tab_w;
                         }
@@ -2624,7 +2632,7 @@ Tree-sitter highlight, and a calm UI.",
                         let cx = text_left + text_width(ui, &font_id, &prefix);
                         painter.line_segment(
                             [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
-                            egui::Stroke::new(1.0_f32, Color32::from_rgb(220, 220, 220)),
+                            egui::Stroke::new(1.0_f32, theme.caret_fg),
                         );
                     }
                 }
@@ -2643,7 +2651,7 @@ Tree-sitter highlight, and a calm UI.",
                 painter.rect_filled(
                     Rect::from_min_size(Pos2::new(bar_x, thumb_y), Vec2::new(bar_w, thumb_h)),
                     2.0,
-                    Color32::from_rgb(80, 80, 80),
+                    theme.gutter_line,
                 );
             }
         });
@@ -3207,7 +3215,7 @@ Tree-sitter highlight, and a calm UI.",
 
         let first_row = scroll_line.floor() as usize;
         let last_row = (first_row + visible_rows + 2).min(display_count);
-        let plain = Color32::from_rgb(190, 190, 190);
+        let plain = theme.plain_fg;
 
         for row in first_row..last_row {
             let Some(&line_idx) = visible_lines.get(row) else {
@@ -3234,7 +3242,7 @@ Tree-sitter highlight, and a calm UI.",
                     egui::Align2::RIGHT_TOP,
                     format!("{}", line_idx + 1),
                     font_id.clone(),
-                    Color32::from_rgb(90, 90, 100),
+                    theme.line_number_fg,
                 );
             }
 
@@ -3272,7 +3280,7 @@ Tree-sitter highlight, and a calm UI.",
                             Pos2::new(x1.max(x0 + 2.0), y + row_height),
                         ),
                         0.0,
-                        Color32::from_rgb(50, 80, 120),
+                        theme.selection_bg,
                     );
                 }
             }
@@ -3301,7 +3309,7 @@ Tree-sitter highlight, and a calm UI.",
                     let cx = text_left + text_width(ui, &font_id, &prefix);
                     painter.line_segment(
                         [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
-                        egui::Stroke::new(1.0_f32, Color32::from_rgb(220, 220, 220)),
+                        egui::Stroke::new(1.0_f32, theme.caret_fg),
                     );
                 }
             }

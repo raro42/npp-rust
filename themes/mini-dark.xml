@@ -1,0 +1,29 @@
+<?npp-rs name="Mini Dark (XML subset)"?>
+<!--
+  Notepad++ styler subset for npp-rs.
+  Reads GlobalStyles chrome + one LexerType WordsStyle map.
+  Full stylers.xml parity is not claimed.
+-->
+<NotepadPlus>
+  <LexerStyles>
+    <LexerType name="cpp" desc="C++" ext="cpp cxx h hpp">
+      <WordsStyle name="DEFAULT" styleID="11" fgColor="DCDCCC" bgColor="3F3F3F" />
+      <WordsStyle name="COMMENT" styleID="1" fgColor="7F9F7F" bgColor="3F3F3F" />
+      <WordsStyle name="COMMENT LINE" styleID="2" fgColor="7F9F7F" bgColor="3F3F3F" />
+      <WordsStyle name="NUMBER" styleID="4" fgColor="8CD0D3" bgColor="3F3F3F" />
+      <WordsStyle name="INSTRUCTION WORD" styleID="5" fgColor="DFC47D" bgColor="3F3F3F" />
+      <WordsStyle name="STRING" styleID="6" fgColor="CC9393" bgColor="3F3F3F" />
+      <WordsStyle name="OPERATOR" styleID="10" fgColor="DCA3A3" bgColor="3F3F3F" />
+      <WordsStyle name="TYPE WORD" styleID="16" fgColor="CEDF99" bgColor="3F3F3F" />
+      <WordsStyle name="FUNCTION" styleID="20" fgColor="EFEF8F" bgColor="3F3F3F" />
+    </LexerType>
+  </LexerStyles>
+  <GlobalStyles>
+    <WidgetStyle name="Default Style" styleID="32" fgColor="DCDCCC" bgColor="3F3F3F" />
+    <WidgetStyle name="Line number margin" styleID="33" fgColor="8A8A8A" bgColor="2A2A2A" />
+    <WidgetStyle name="Selected text colour" styleID="0" bgColor="585858" />
+    <WidgetStyle name="Caret colour" styleID="2069" fgColor="8FAF9F" />
+    <WidgetStyle name="White space symbol" styleID="0" fgColor="5F5F5F" />
+    <WidgetStyle name="Indent guideline style" styleID="37" fgColor="4F5F5F" />
+  </GlobalStyles>
+</NotepadPlus>

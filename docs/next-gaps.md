@@ -12,7 +12,7 @@ Status: **P0 done (v0.3.1).** Partial P1 in **v0.3.2** (project filter + ANSI wa
 
 ### P1 — remaining
 
-1. **Themes** — deeper colour maps (JSON / subset of N++ XML)
+1. **Themes** — deeper maps shipped in v0.3.4 (JSON tokens + N++ XML subset); full stylers.xml parity still open
 2. **Change history** — closer to Scintilla block marks
 3. **Encoding** — UTF-16 LE/BE open/save (warn on lossy ANSI is done)
 
