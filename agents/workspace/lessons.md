@@ -8,3 +8,5 @@ Patterns after operator corrections. Keep short. One lesson per bullet.
 - Do not claim “Coming Soon stubs remain” — they are cleared; depth gaps live in `docs/whats-missing.md`.
 - Parallel agents on the same files without worktrees cause lost work; prefer sequential commits on `main`.
 - Windows-only `#[cfg(windows)]` is not clippy’d on macOS — avoid needless `return` in those blocks.
+- DONE handoff lines may be `- Handoff: complete`; loop grep must accept that or 004 blocks forever.
+- Start the loop with `agents/start-unattended.command` (Terminal) so it survives; macOS has no `setsid`.

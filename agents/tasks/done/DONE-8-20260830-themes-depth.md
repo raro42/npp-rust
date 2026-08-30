@@ -31,3 +31,8 @@ No secrets or home paths in commits or issue comments.
 - Docs/changelog; version **0.3.4**.
 - Unit tests for JSON overrides and XML subset parse.
 - Hand off to tester as `TEST-` (issue left open).
+
+## Tester (003)
+- Verified claims: `crates/app/src/theme.rs` (JSON tokens + XML subset), samples, docs, version 0.3.4.
+- `./scripts/ci-local.sh`: **pass** (fmt, clippy, workspace tests incl. `theme::tests::*`, release build).
+- Result: DONE. Issue left open for handoff.
