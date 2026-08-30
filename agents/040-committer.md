@@ -14,6 +14,6 @@ Before `git commit` / `git push`:
 
 ### Steps
 
-1. Prefer branch `dev`. Message: short STE why-focused text.
+1. Prefer branch `main`. Message: short STE why-focused text.
 2. Commit unfinished local work that is safe to ship.
 3. Push: `git push -u origin HEAD`.

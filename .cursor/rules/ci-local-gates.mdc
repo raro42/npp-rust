@@ -7,7 +7,7 @@ alwaysApply: true
 
 GitHub CI fails on format and clippy even when `cargo check` passes.
 
-Before every push to `dev` / `main`:
+Before every push to `main`:
 
 1. `cargo fmt --all`
 2. `cargo fmt --all -- --check`

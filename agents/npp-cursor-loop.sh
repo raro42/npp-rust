@@ -64,12 +64,12 @@ run_cursor() {
   }
 }
 
-sync_dev() {
+sync_main() {
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git fetch origin 2>/dev/null || true
-    if git show-ref --verify --quiet refs/heads/dev; then
-      git checkout dev 2>/dev/null || true
-      git pull --rebase --autostash origin dev 2>/dev/null || true
+    if git show-ref --verify --quiet refs/heads/main; then
+      git checkout main 2>/dev/null || true
+      git pull --rebase --autostash origin main 2>/dev/null || true
     fi
   fi
 }
@@ -94,7 +94,7 @@ step_005_ci_watch() {
   if [[ "$rc" -eq 2 ]]; then
     echo "----- 005: queued CI fix FEAT; coder will pick it up"
     run_cursor "005" \
-      "Follow agents/005-ci-watcher.md and agents/002-coder.md. There is a new FEAT-ci-*-fix-github-ci.md under agents/tasks/. Fix GitHub CI (fmt/clippy/tests). Run ./scripts/ci-local.sh before push. Commit and push to origin/dev; fast-forward main if appropriate. Rename WIP to TEST when ready. Obey privacy rules."
+      "Follow agents/005-ci-watcher.md and agents/002-coder.md. There is a new FEAT-ci-*-fix-github-ci.md under agents/tasks/. Fix GitHub CI (fmt/clippy/tests). Run ./scripts/ci-local.sh before push. Commit and push to origin/main. Rename WIP to TEST when ready. Obey privacy rules."
   elif [[ "$rc" -eq 0 ]]; then
     echo "----- 005: CI watch OK or already stamped today"
   else
@@ -136,7 +136,7 @@ step_002_coder() {
 
   echo "----- 002: pending $(basename "$task")"
   run_cursor "002" \
-    "Follow agents/002-coder.md. Implement the oldest FEAT or WIP under agents/tasks/. Prefer real behaviour for Placeholder items in docs/menu-todo.md (not status-only fakes). Before push: cargo fmt --all, cargo clippy --workspace --all-targets -- -D warnings, cargo check -p app. Commit and push to origin/dev. When the batch is ready, rename WIP- to TEST- (do not close the issue, do not move to done/). Obey .cursor/rules/public-repo-no-exfiltration.mdc. Never post private data."
+    "Follow agents/002-coder.md. Implement the oldest FEAT or WIP under agents/tasks/. Prefer real behaviour for Placeholder items in docs/menu-todo.md (not status-only fakes). Before push: cargo fmt --all, cargo clippy --workspace --all-targets -- -D warnings, cargo check -p app. Commit and push to origin/main. When the batch is ready, rename WIP- to TEST- (do not close the issue, do not move to done/). Obey .cursor/rules/public-repo-no-exfiltration.mdc. Never post private data."
 }
 
 step_003_tester() {
@@ -183,7 +183,7 @@ step_004_handoff() {
 
 run_once() {
   echo "===== cycle start ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
-  sync_dev
+  sync_main
   step_005_ci_watch
   step_001_issues
   # Prefer finishing the pipeline: handoff → test → code (so work does not pile up untested).
@@ -207,11 +207,11 @@ case "$cmd" in
       sleep "$sleepseconds"
     done
     ;;
-  001) sync_dev; step_001_issues ;;
-  002) sync_dev; step_002_coder ;;
-  003) sync_dev; step_003_tester ;;
-  004) sync_dev; step_004_handoff ;;
-  005) sync_dev; step_005_ci_watch ;;
+  001) sync_main; step_001_issues ;;
+  002) sync_main; step_002_coder ;;
+  003) sync_main; step_003_tester ;;
+  004) sync_main; step_004_handoff ;;
+  005) sync_main; step_005_ci_watch ;;
   *)
     echo "usage: $0 [once|loop|001|002|003|004|005]" >&2
     exit 2

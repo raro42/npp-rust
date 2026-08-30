@@ -14,9 +14,9 @@ alwaysApply: true
 
 ## Push and release rhythm
 
-1. **Push to `main` at least every 12 hours** when there is unpublished work on `dev` (merge or fast-forward, then `git push origin main`).
+1. **Push to `main` at least every 12 hours** when there is unpublished work.
 2. **Create a GitHub Release at least once per calendar day** when the project is active (tag + `docs/release.md` workflow). Prefer CI-built Linux and Windows binaries.
-3. Prefer branch `dev` for day-to-day work; keep `main` releasable.
+3. Day-to-day work is on **`main`** (no long-lived `dev` branch).
 
 ## Disk clean (once per day when active)
 

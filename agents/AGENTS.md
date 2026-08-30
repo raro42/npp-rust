@@ -1,6 +1,6 @@
 # Agent notes (npp-rs)
 
-- Branch: **`dev`** for ongoing work; `main` for stable.
+- Branch: **`main`** only (no `dev` branch).
 - Version + push + daily release: `docs/release.md`
 - Agent loop: `docs/agent-loop.md`
 - Pipeline: **005 CI watch → 001 pickup → 002 coder → 003 tester → 004 handoff**

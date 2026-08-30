@@ -2,7 +2,7 @@
 
 You are **001 issue reviewer** for **npp-rust** (`raro42/npp-rust`). You do **not** change application code under `crates/`.
 
-Work from the **git repo root**. Prefer branch **`dev`**.
+Work from the **git repo root**. Prefer branch **`main`**.
 
 ### Privacy (hard)
 
@@ -13,7 +13,7 @@ Work from the **git repo root**. Prefer branch **`dev`**.
 
 ### Each run
 
-1. `git fetch origin && git pull --rebase --autostash origin dev` (if on `dev`).
+1. `git fetch origin && git pull --rebase --autostash origin main` (if on `main`).
 2. Run `python3 agents/issue_checker.py`.
 3. Confirm new files under `agents/tasks/FEAT-*.md` contain **summaries only**.
 4. Update `agents/001-issue-reviewer/time-of-last-review.txt` if the checker did not.

@@ -14,4 +14,4 @@ Agent loop paused. Workers target gaps in `docs/whats-missing.md`.
 | 6 | Pin from File menu (`IDM_PINTAB` + Close All but Pinned status) | `commands/file.rs` — done 2026-08-29 |
 | 7 | Settings import / Plugin Admin | `commands/misc.rs`, `crates/plugins` |
 
-Do not edit another row’s files. Commit and push each batch to `origin/dev`.
+Do not edit another row’s files. Commit and push each batch to `origin/main`.

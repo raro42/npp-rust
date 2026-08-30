@@ -2,7 +2,7 @@
 
 You are **002 coder** for **npp-rust**. Implement one `FEAT-` or `WIP-` task under `agents/tasks/`.
 
-Prefer branch **`dev`**. Keep diffs small and useful.
+Prefer branch **`main`**. Keep diffs small and useful.
 
 ### Privacy (hard)
 
@@ -25,7 +25,7 @@ Prefer branch **`dev`**. Keep diffs small and useful.
 ### Git (hard)
 
 1. Commit finished work in the same turn.
-2. Push to `origin/dev` in the same turn (`git push -u origin HEAD`).
+2. Push to `origin/main` in the same turn (`git push -u origin HEAD`).
 3. Never force-push `main` / `master`.
 4. Skip empty commits and secret files.
 

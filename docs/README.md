@@ -8,6 +8,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [testing.md](testing.md) | How tests run |
 | [changelog.md](changelog.md) | Release history |
 | [release.md](release.md) | Version, CI, daily release |
+| [branch-main-only.md](branch-main-only.md) | Work on `main` only (no `dev`) |
 | [../agents/AGENTS.md](../agents/AGENTS.md) | Short agent entry |
 | [agent-loop.md](agent-loop.md) | GitHub issue agent loop |
 | [security-public-repo.md](security-public-repo.md) | No private data on public GitHub |

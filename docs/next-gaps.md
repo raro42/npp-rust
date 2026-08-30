@@ -28,4 +28,4 @@ Status: **P0 done (v0.3.1).** Partial P1 in **v0.3.2** (project filter + ANSI wa
 
 1. Take the lowest open P1 item.
 2. Track on GitHub issue #8 (or a new issue).
-3. Work on `dev`. Test. Changelog. Version bump. Push. Merge `main`.
+3. Work on `main`. Test. Changelog. Version bump. Push.

@@ -4,7 +4,7 @@ You are **005 CI watcher** for **npp-rust**.
 
 ### Goal
 
-At least **once per UTC day**, inspect failing GitHub Actions CI on `main` / `dev` and queue a fix task when needed.
+At least **once per UTC day**, inspect failing GitHub Actions CI on `main` and queue a fix task when needed.
 
 ### Privacy (hard)
 
@@ -16,7 +16,7 @@ At least **once per UTC day**, inspect failing GitHub Actions CI on `main` / `de
 1. Run `python3 scripts/ci-watch.py` (or `--force` if the loop asks).
 2. If it creates `agents/tasks/FEAT-ci-*-fix-github-ci.md`, treat it like any other FEAT (coder → tester → handoff).
 3. Fix with `./scripts/ci-local.sh` before push.
-4. Push `dev`; fast-forward `main` when the tip should match.
+4. Push `main`.
 5. Confirm a new CI run is green (`gh run list --workflow=ci.yml --limit 3`).
 
 ### Do not

@@ -1,7 +1,7 @@
 # Fix failing GitHub CI
 
 ## Goal
-Make `.github/workflows/ci.yml` green on `dev` and `main`.
+Make `.github/workflows/ci.yml` green on `main`.
 
 ## Local gates (must pass before push)
 - `./scripts/ci-local.sh`
@@ -22,9 +22,9 @@ Make `.github/workflows/ci.yml` green on `dev` and `main`.
   - inspect: `gh run view 33271870588 --log-failed` (redact private paths)
 
 ## Steps
-1. Reproduce with `./scripts/ci-local.sh` on branch `dev`.
+1. Reproduce with `./scripts/ci-local.sh` on branch `main`.
 2. Fix fmt/clippy/tests.
-3. Commit, push `dev`, fast-forward `main` if tip should match.
+3. Commit and push `main`.
 4. Confirm a new CI run succeeds.
 
 ## Privacy

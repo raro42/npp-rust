@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Daily CI watch for the npp-rs agent loop.
 
-Looks at recent GitHub Actions CI failures on main/dev.
+Looks at recent GitHub Actions CI failures on main.
 At most once per UTC day (unless --force), writes a FEAT task when CI is red
 and no CI fix task is already open.
 
@@ -101,7 +101,7 @@ def list_failed_ci() -> list[dict]:
         if row.get("conclusion") != "failure":
             continue
         branch = row.get("headBranch") or ""
-        if branch not in ("main", "dev"):
+        if branch != "main":
             continue
         failed.append(row)
     return failed
@@ -115,7 +115,7 @@ def write_feat(failures: list[dict]) -> Path:
         "# Fix failing GitHub CI",
         "",
         "## Goal",
-        "Make `.github/workflows/ci.yml` green on `dev` and `main`.",
+        "Make `.github/workflows/ci.yml` green on `main`.",
         "",
         "## Local gates (must pass before push)",
         "- `./scripts/ci-local.sh`",
@@ -135,9 +135,9 @@ def write_feat(failures: list[dict]) -> Path:
         [
             "",
             "## Steps",
-            "1. Reproduce with `./scripts/ci-local.sh` on branch `dev`.",
+            "1. Reproduce with `./scripts/ci-local.sh` on branch `main`.",
             "2. Fix fmt/clippy/tests.",
-            "3. Commit, push `dev`, fast-forward `main` if tip should match.",
+            "3. Commit and push `main`.",
             "4. Confirm a new CI run succeeds.",
             "",
             "## Privacy",
@@ -167,12 +167,12 @@ def main() -> int:
 
     failures = list_failed_ci()
     if not failures:
-        print("ci-watch: no recent CI failures on main/dev")
+        print("ci-watch: no recent CI failures on main")
         if not args.check_only:
             write_stamp()
         return 0
 
-    print(f"ci-watch: {len(failures)} recent failure(s) on main/dev")
+    print(f"ci-watch: {len(failures)} recent failure(s) on main")
     existing = open_ci_tasks()
     if existing:
         print(f"ci-watch: open CI task already exists: {existing[0].name}")

@@ -2,7 +2,8 @@
 
 Date: 2026-08-29  
 Repo: [raro42/npp-rust](https://github.com/raro42/npp-rust)  
-Branch: `dev`
+Branch: `main`
+
 
 ## Purpose
 
@@ -16,7 +17,7 @@ Earlier the loop only ran **001 + 002**. It never called the tester or handoff. 
 |------|-------|-------|--------|
 | 005 | CI watch | GitHub Actions `ci.yml` | `FEAT-ci-*-fix-github-ci.md` when red (≤1×/UTC day) |
 | 001 | issue pickup | GitHub issues | `FEAT-*.md` |
-| 002 | coder | `FEAT-` / `WIP-` | code on `dev` + `TEST-*.md` |
+| 002 | coder | `FEAT-` / `WIP-` | code on `main` + `TEST-*.md` |
 | 003 | tester | `TEST-` | `done/DONE-*.md` or back to `WIP-` |
 | 004 | handoff | `DONE-` without `Handoff: complete` | changelog + issue closed |
 

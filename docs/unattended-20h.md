@@ -16,7 +16,7 @@ Date: 2026-08-29
 2. **Auth stays valid**
    - `gh auth status` works
    - `cursor-agent` on `PATH` (`~/.local/bin`)
-   - Git can `push` to `origin` (`dev`)
+   - Git can `push` to `origin` (`main`)
 3. **Clear the task queue** so the loop works the right goal:
 
 ```bash
@@ -40,7 +40,7 @@ cat > agents/tasks/FEAT-1-menu-placeholders.md <<'EOF'
 ## Problem / goal
 Implement real behaviour for items listed under Placeholder in docs/menu-todo.md.
 Do not mark is_implemented teal for status-only fakes.
-Commit and push to origin/dev each batch.
+Commit and push to origin/main each batch.
 Prefer Settings/Preferences depth, Search styles that already have partial state, then View fold.
 
 ## Privacy
@@ -79,11 +79,11 @@ Do **not** rely on Cursor chat `nohup` — that session often dies and takes the
 ```bash
 pgrep -fl npp-cursor-loop
 tail -50 /tmp/npp-agent-loop.log
-git log origin/dev -5 --oneline
+git log origin/main -5 --oneline
 head -40 docs/menu-todo.md
 gh issue list --repo raro42/npp-rust
 ```
 
 ## Expectation
 
-In 20 hours you get many small commits on `dev`, fewer true placeholders in `docs/menu-todo.md`, and `cargo check` still green. You will **not** get a full Notepad++ clone. Hard items (true dual view, document map, full Preferences) may stay partial on purpose.
+In 20 hours you get many small commits on `main`, fewer true placeholders in `docs/menu-todo.md`, and `cargo check` still green. You will **not** get a full Notepad++ clone. Hard items (true dual view, document map, full Preferences) may stay partial on purpose.

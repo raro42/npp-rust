@@ -11,9 +11,9 @@ You are **004 handoff** for **npp-rust** (review + changelog + close).
 ### Steps
 
 1. Pick the oldest `agents/tasks/done/DONE-*.md` that does **not** yet contain a line `Handoff: complete`.
-2. Review what shipped (task Progress + `git log` on `dev`).
+2. Review what shipped (task Progress + `git log` on `main`).
 3. Update `docs/changelog.md` under **[Unreleased]** with short STE bullets (user-facing only).
-4. Commit + push changelog (and any doc fixes) to `origin/dev`.
+4. Commit + push changelog (and any doc fixes) to `origin/main`.
 5. Close the GitHub issue if the task goal is met: label `agent:done`, remove `agent:wip` / `agent:planned`, comment a short summary via `gh-safe.sh`, `gh issue close N --reason completed`.
 6. Append to the task file:
 

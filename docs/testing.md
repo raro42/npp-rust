@@ -15,7 +15,7 @@ cargo build -p app --release
 
 ## Match CI before push (required)
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on Ubuntu, Windows, and macOS for pushes to `main`/`dev` and PRs to `main`. Run the same gates locally:
+GitHub Actions (`.github/workflows/ci.yml`) runs on Ubuntu, Windows, and macOS for pushes to `main` and PRs to `main`. Run the same gates locally:
 
 ```bash
 ./scripts/ci-local.sh
