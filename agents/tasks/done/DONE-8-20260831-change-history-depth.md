@@ -37,3 +37,13 @@ No secrets or home paths in commits or issue comments.
 - Verified: `ui_paint` bar/join/wash; `editor` undo remap test; status `CHG u/s`; version **0.3.5** + changelog.
 - `./scripts/ci-local.sh` — **PASS** (fmt, clippy `-D warnings`, workspace tests, release build).
 - Result: **PASS** → `DONE-`; leave issue #8 open for handoff (UTF-16 / Scintilla reverted markers still open).
+
+## Handoff (2026-08-31)
+- User-facing notes already in `docs/changelog.md` under **[0.3.5]** (not Unreleased).
+- `docs/next-gaps.md` already lists v0.3.5 change-history ship.
+- Task goal (change-history depth this batch) met. Issue #8 stays open: UTF-16 + Scintilla reverted markers / full stylers.xml remain.
+- Do not close #8 until remaining P1 items ship (or a new issue tracks them).
+- Batch handoff finished; do not re-pick this DONE file.
+
+Handoff: deferred
+Handoff: complete
