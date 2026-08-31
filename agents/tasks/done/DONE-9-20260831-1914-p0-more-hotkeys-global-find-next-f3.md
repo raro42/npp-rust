@@ -24,3 +24,10 @@
 - Verified: global F3/Shift+F3 and Cmd/Ctrl+G find next/prev in `crates/app/src/ui.rs`; Cmd+L goto; F2 bookmarks; zoom + Cmd+wheel; Alt+Z wrap; Cmd+H replace; Shortcut Mapper text in `crates/app/src/commands/misc.rs`; version **0.3.7**; commit `9105dd3`.
 - `./scripts/ci-local.sh` — **PASS** (fmt, clippy `-D warnings`, workspace tests, release build).
 - Result: **PASS** → `DONE-`; leave issue #9 open for handoff.
+
+## Handoff (2026-08-31)
+- User-facing notes already in `docs/changelog.md` under **[0.3.7]** (not Unreleased).
+- Task goal met: global Find next/prev, common accelerators, Shortcut Mapper sync (v0.3.7, `9105dd3`).
+- Close issue #9 with `agent:done`.
+
+Handoff: complete
