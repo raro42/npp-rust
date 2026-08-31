@@ -248,6 +248,7 @@ Cmd+-                 Zoom out
 Cmd+0                 Zoom restore (14pt)
 Cmd+mouse wheel       Zoom in / out
 Alt+Z                 Toggle word wrap
+Alt+drag              Rectangular / column select (multi-caret typing)
 Cmd+Shift+T           Toggle log tail follow
 
 Language / style

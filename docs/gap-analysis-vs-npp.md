@@ -99,7 +99,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | Session restore | Partial | Path list; not full N++ session XML |
 | Project panel | Partial | Folder list, not N++ projects |
 | Indent fold / hide lines | Partial | No lexer fold margin |
-| Column / multi-edit | Partial | Insert at columns; **no** Alt-rect; typing ignores multi-carets |
+| Column / multi-edit | Partial | Alt+rect + multi-caret typing (v0.3.9); no virtual space |
 | Autocomplete / call tips | Partial | In-file words/paths; no LSP popup |
 | Macros | Partial | Records menu IDs only; “multi” = 3 plays |
 | Plugins | Partial / Missing ABI | Builtins only |
@@ -125,7 +125,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 2. **Global Find next** (F3) — **done** in v0.3.7
 3. **File drop** onto the window — **done** in v0.3.8
 4. **Selection drag** move/copy — **done** in v0.3.8 (same-buffer; Ctrl/Cmd = copy)
-5. **True column / rectangular select** (Alt+drag) + multi-caret typing
+5. **True column / rectangular select** (Alt+drag) + multi-caret typing — **done** in v0.3.9 (no virtual space)
 
 ### P1 — power users expect from N++
 
@@ -186,4 +186,4 @@ npp-rs is a serious **early** editor with an N++ menu shell. It is **not** a 20-
 
 - **Hotkeys:** small hard-wired set — not all N++ keys.
 - **Drag marked code:** move/copy in same buffer (v0.3.8); no cross-doc drag yet.
-- **Largest holes:** remappable keys, true column/multi-caret, plugins ABI, UDL, hex, autosave, deeper search/fold/LSP.
+- **Largest holes:** remappable keys, plugins ABI, UDL, hex, autosave, deeper search/fold/LSP.

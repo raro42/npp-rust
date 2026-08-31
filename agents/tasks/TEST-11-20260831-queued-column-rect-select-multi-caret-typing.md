@@ -15,3 +15,6 @@ See GitHub issue #11 and docs/gap-analysis-vs-npp.md / docs/next-gaps.md.
 
 ## Privacy
 - No home paths or secrets in commits or comments.
+
+## Progress
+- **Coder (v0.3.9):** Alt+drag rect select → `multi_sels`; typing/Backspace/Delete/Paste/Enter/Tab via `insert_multi` / `delete_*_multi`. Column Editor kept. Docs: `docs/column-mode.md`. Commit `66a149b`. `./scripts/ci-local.sh` OK. Hand off to tester — do not close #11.

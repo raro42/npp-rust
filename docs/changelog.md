@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.9] — 2026-08-31
+
+Issue #11 (P0 column / rect select + multi-caret typing):
+
+- Alt+drag (Option+drag on macOS) builds a rectangular / column selection
+- Typing, Backspace, Delete, Paste, Enter, and Tab apply to all multi-carets (one undo)
+- Copy/Cut of multi ranges joins line slices with newlines
+- Docs: `docs/column-mode.md` (no virtual space; arrows clear multi-carets)
+
 ## [0.3.8] — 2026-08-31
 
 Issue #10 (P0 file drop + selection drag):

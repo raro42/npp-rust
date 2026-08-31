@@ -90,6 +90,10 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             } else if let Some(t) = ui.last_copied.clone() {
                 if t.is_empty() {
                     state.status = "Paste: clipboard empty".into();
+                } else if state.tabs.active_mut().insert_multi(&t) {
+                    state.mark_text_changed();
+                    ui.follow_caret = true;
+                    state.status = "Pasted (multi-caret)".into();
                 } else {
                     state.tabs.active_mut().buffer.insert(&t);
                     state.mark_text_changed();
@@ -102,7 +106,9 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_DELETE" => {
-            state.tabs.active_mut().buffer.delete_forward();
+            if !state.tabs.active_mut().delete_forward_multi() {
+                state.tabs.active_mut().buffer.delete_forward();
+            }
             state.mark_text_changed();
             CmdResult::Handled
         }
@@ -830,8 +836,10 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_COLUMNMODETIP" => {
-            state.status = "Column tip: select lines (or multi-carets), copy one-line text, then                 Column Editor inserts it at the caret column. Empty clipboard inserts 0,1,2…"
-                .into();
+            state.status =
+                "Column tip: Alt+drag for rect select; type/Backspace/Paste hits all carets. \
+Column Editor inserts clipboard (or 0,1,2…) at caret column. No virtual space past EOL."
+                    .into();
             CmdResult::Handled
         }
         "IDM_EDIT_COLUMNMODE" => {
@@ -894,7 +902,9 @@ fn paste_plain_fallback(state: &mut EditorState, ui: &mut UiFlags, cmd: &str) {
         state.status = "Paste special: copy text first (plain-text fallback)".into();
         return;
     };
-    state.tabs.active_mut().buffer.insert(&text);
+    if !state.tabs.active_mut().insert_multi(&text) {
+        state.tabs.active_mut().buffer.insert(&text);
+    }
     state.mark_text_changed();
     let kind = if cmd.contains("HTML") {
         "HTML"

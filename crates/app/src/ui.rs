@@ -79,6 +79,8 @@ pub struct EditorApp {
     log_tail_remember: bool,
     /// Drag-select anchor (char index), while primary button is held.
     drag_anchor: Option<usize>,
+    /// Alt+drag rectangular / column selection in progress.
+    rect_drag: bool,
     /// Drag selected text to move (or Ctrl/Cmd+drag to copy).
     sel_text_drag: Option<SelTextDrag>,
     /// Tab bar drag-reorder: source index while the pointer drags a tab.
@@ -142,6 +144,7 @@ impl EditorApp {
             show_preferences: false,
             log_tail_remember: true,
             drag_anchor: None,
+            rect_drag: false,
             sel_text_drag: None,
             tab_drag_from: None,
             show_replace: false,
@@ -2473,7 +2476,8 @@ Tree-sitter highlight, and a calm UI.",
             };
 
             // Double-click → word; triple-click → line; click → caret;
-            // drag inside selection → move/copy; else drag → select.
+            // Alt+drag → rect/column multi-carets; drag inside selection → move/copy;
+            // else drag → select.
             if response.triple_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let idx = hit_index(
@@ -2483,8 +2487,10 @@ Tree-sitter highlight, and a calm UI.",
                         self.scroll_line,
                         &visible_lines,
                     );
+                    self.state.tabs.active_mut().clear_multi_sels();
                     self.state.tabs.active_mut().buffer.select_line_at(idx);
                     self.drag_anchor = None;
+                    self.rect_drag = false;
                     self.sel_text_drag = None;
                     self.follow_caret = false;
                 }
@@ -2497,8 +2503,10 @@ Tree-sitter highlight, and a calm UI.",
                         self.scroll_line,
                         &visible_lines,
                     );
+                    self.state.tabs.active_mut().clear_multi_sels();
                     self.state.tabs.active_mut().buffer.select_word_at(idx);
                     self.drag_anchor = None;
+                    self.rect_drag = false;
                     self.sel_text_drag = None;
                     self.follow_caret = false;
                 }
@@ -2511,31 +2519,44 @@ Tree-sitter highlight, and a calm UI.",
                         self.scroll_line,
                         &visible_lines,
                     );
-                    let shift = ui.input(|i| i.modifiers.shift);
+                    let (shift, alt) = ui.input(|i| (i.modifiers.shift, i.modifiers.alt));
                     let tab = self.state.tabs.active_index();
                     let doc = self.state.tabs.active();
                     let inside_sel = doc
                         .buffer
                         .selection()
                         .is_some_and(|(s, e)| idx >= s && idx < e);
-                    if !shift && inside_sel && !doc.read_only {
+                    let read_only = doc.read_only;
+                    let sel_anchor = doc
+                        .buffer
+                        .selection()
+                        .map(|(s, _)| s)
+                        .unwrap_or_else(|| doc.buffer.caret());
+                    if alt {
+                        self.sel_text_drag = None;
+                        self.rect_drag = true;
+                        self.drag_anchor = Some(idx);
+                        self.state.tabs.active_mut().set_rect_selection(idx, idx);
+                        self.state.status = "Column select (Alt+drag)".into();
+                    } else if !shift && inside_sel && !read_only {
+                        self.state.tabs.active_mut().clear_multi_sels();
                         self.sel_text_drag = Some(SelTextDrag { tab, drop_at: idx });
                         self.drag_anchor = None;
+                        self.rect_drag = false;
                     } else if shift {
+                        self.state.tabs.active_mut().clear_multi_sels();
                         self.sel_text_drag = None;
-                        let anchor = doc
-                            .buffer
-                            .selection()
-                            .map(|(s, _)| s)
-                            .unwrap_or_else(|| doc.buffer.caret());
-                        self.drag_anchor = Some(anchor);
+                        self.rect_drag = false;
+                        self.drag_anchor = Some(sel_anchor);
                         self.state
                             .tabs
                             .active_mut()
                             .buffer
-                            .set_selection(anchor, idx);
+                            .set_selection(sel_anchor, idx);
                     } else {
+                        self.state.tabs.active_mut().clear_multi_sels();
                         self.sel_text_drag = None;
+                        self.rect_drag = false;
                         self.drag_anchor = Some(idx);
                         self.state.tabs.active_mut().buffer.set_caret(idx);
                     }
@@ -2561,11 +2582,15 @@ Tree-sitter highlight, and a calm UI.",
                             });
                         }
                     } else if let Some(anchor) = self.drag_anchor {
-                        self.state
-                            .tabs
-                            .active_mut()
-                            .buffer
-                            .set_selection(anchor, idx);
+                        if self.rect_drag {
+                            self.state.tabs.active_mut().set_rect_selection(anchor, idx);
+                        } else {
+                            self.state
+                                .tabs
+                                .active_mut()
+                                .buffer
+                                .set_selection(anchor, idx);
+                        }
                         self.follow_caret = false;
                     }
                 }
@@ -2580,6 +2605,7 @@ Tree-sitter highlight, and a calm UI.",
                     );
                     let shift = ui.input(|i| i.modifiers.shift);
                     if shift {
+                        self.state.tabs.active_mut().clear_multi_sels();
                         let anchor = self
                             .state
                             .tabs
@@ -2594,9 +2620,11 @@ Tree-sitter highlight, and a calm UI.",
                             .buffer
                             .set_selection(anchor, idx);
                     } else {
+                        self.state.tabs.active_mut().clear_multi_sels();
                         self.state.tabs.active_mut().buffer.set_caret(idx);
                     }
                     self.drag_anchor = None;
+                    self.rect_drag = false;
                     self.sel_text_drag = None;
                     self.follow_caret = false;
                 }
@@ -2607,6 +2635,7 @@ Tree-sitter highlight, and a calm UI.",
                     self.finish_sel_text_drag(copy);
                 }
                 self.drag_anchor = None;
+                self.rect_drag = false;
             }
 
             // Text input (arrows / typing may request caret follow)
@@ -2783,6 +2812,56 @@ Tree-sitter highlight, and a calm UI.",
                 // Selection highlight on line
                 if let Some((sel_s, sel_e)) = self.state.tabs.active().buffer.selection() {
                     let line_end = line_start + line_text.chars().count();
+                    if sel_s < line_end && sel_e > line_start {
+                        let local_s = sel_s
+                            .saturating_sub(line_start)
+                            .min(line_text.chars().count());
+                        let local_e = sel_e
+                            .saturating_sub(line_start)
+                            .min(line_text.chars().count());
+                        let x0 = text_left
+                            + text_width(
+                                ui,
+                                &font_id,
+                                &line_text.chars().take(local_s).collect::<String>(),
+                            );
+                        let x1 = text_left
+                            + text_width(
+                                ui,
+                                &font_id,
+                                &line_text.chars().take(local_e).collect::<String>(),
+                            );
+                        painter.rect_filled(
+                            Rect::from_min_max(
+                                Pos2::new(x0, y),
+                                Pos2::new(x1.max(x0 + 2.0), y + row_height),
+                            ),
+                            0.0,
+                            theme.selection_bg,
+                        );
+                    }
+                }
+                // Extra multi-caret / rect ranges (skip primary to avoid double paint)
+                let primary_sel = self.state.tabs.active().buffer.selection();
+                let multi = self.state.tabs.active().multi_sels.clone();
+                for &(sel_s, sel_e) in &multi {
+                    if primary_sel == Some((sel_s, sel_e)) {
+                        continue;
+                    }
+                    let line_end = line_start + line_text.chars().count();
+                    if sel_s == sel_e {
+                        // Zero-width caret mark
+                        if sel_s >= line_start && sel_s <= line_end {
+                            let col = sel_s - line_start;
+                            let prefix: String = line_text.chars().take(col).collect();
+                            let cx = text_left + text_width(ui, &font_id, &prefix);
+                            painter.line_segment(
+                                [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
+                                egui::Stroke::new(1.0_f32, theme.caret_fg),
+                            );
+                        }
+                        continue;
+                    }
                     if sel_s < line_end && sel_e > line_start {
                         let local_s = sel_s
                             .saturating_sub(line_start)
@@ -3398,10 +3477,12 @@ Tree-sitter highlight, and a calm UI.",
                 if let Some(doc) = self.state.tabs.get(tab) {
                     let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
                         doc.buffer.select_line_at(idx);
                     }
                 }
                 self.drag_anchor = None;
+                self.rect_drag = false;
                 self.sel_text_drag = None;
                 self.follow_caret_other = false;
             }
@@ -3410,10 +3491,12 @@ Tree-sitter highlight, and a calm UI.",
                 if let Some(doc) = self.state.tabs.get(tab) {
                     let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
                         doc.buffer.select_word_at(idx);
                     }
                 }
                 self.drag_anchor = None;
+                self.rect_drag = false;
                 self.sel_text_drag = None;
                 self.follow_caret_other = false;
             }
@@ -3421,7 +3504,7 @@ Tree-sitter highlight, and a calm UI.",
             if let Some(pos) = response.interact_pointer_pos() {
                 if let Some(doc) = self.state.tabs.get(tab) {
                     let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
-                    let shift = ui.input(|i| i.modifiers.shift);
+                    let (shift, alt) = ui.input(|i| (i.modifiers.shift, i.modifiers.alt));
                     let caret = doc.buffer.caret();
                     let sel_anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(caret);
                     let inside_sel = doc
@@ -3429,11 +3512,25 @@ Tree-sitter highlight, and a calm UI.",
                         .selection()
                         .is_some_and(|(s, e)| idx >= s && idx < e);
                     let read_only = doc.read_only;
-                    if !shift && inside_sel && !read_only {
+                    if alt {
+                        self.sel_text_drag = None;
+                        self.rect_drag = true;
+                        self.drag_anchor = Some(idx);
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.set_rect_selection(idx, idx);
+                        }
+                        self.state.status = "Column select (Alt+drag)".into();
+                    } else if !shift && inside_sel && !read_only {
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.clear_multi_sels();
+                        }
                         self.sel_text_drag = Some(SelTextDrag { tab, drop_at: idx });
                         self.drag_anchor = None;
+                        self.rect_drag = false;
                     } else if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
                         self.sel_text_drag = None;
+                        self.rect_drag = false;
                         if shift {
                             self.drag_anchor = Some(sel_anchor);
                             doc.buffer.set_selection(sel_anchor, idx);
@@ -3461,7 +3558,11 @@ Tree-sitter highlight, and a calm UI.",
                         }
                     } else if let Some(anchor) = self.drag_anchor {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.buffer.set_selection(anchor, idx);
+                            if self.rect_drag {
+                                doc.set_rect_selection(anchor, idx);
+                            } else {
+                                doc.buffer.set_selection(anchor, idx);
+                            }
                         }
                         self.follow_caret_other = false;
                     }
@@ -3475,6 +3576,7 @@ Tree-sitter highlight, and a calm UI.",
                     let caret = doc.buffer.caret();
                     let sel_anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(caret);
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
                         if shift {
                             doc.buffer.set_selection(sel_anchor, idx);
                         } else {
@@ -3483,6 +3585,7 @@ Tree-sitter highlight, and a calm UI.",
                     }
                 }
                 self.drag_anchor = None;
+                self.rect_drag = false;
                 self.sel_text_drag = None;
                 self.follow_caret_other = false;
             }
@@ -3493,6 +3596,7 @@ Tree-sitter highlight, and a calm UI.",
                 self.finish_sel_text_drag(copy);
             }
             self.drag_anchor = None;
+            self.rect_drag = false;
         }
 
         if response.has_focus()
@@ -3628,9 +3732,57 @@ Tree-sitter highlight, and a calm UI.",
             let line_start = doc.buffer.line_to_char(line_idx);
             let raw = doc.buffer.line(line_idx);
             let line_text = raw.trim_end_matches(['\n', '\r']);
+            let primary_sel = doc.buffer.selection();
+            let multi = doc.multi_sels.clone();
 
-            if let Some((sel_s, sel_e)) = doc.buffer.selection() {
+            if let Some((sel_s, sel_e)) = primary_sel {
                 let line_end = line_start + line_text.chars().count();
+                if sel_s < line_end && sel_e > line_start {
+                    let local_s = sel_s
+                        .saturating_sub(line_start)
+                        .min(line_text.chars().count());
+                    let local_e = sel_e
+                        .saturating_sub(line_start)
+                        .min(line_text.chars().count());
+                    let x0 = text_left
+                        + text_width(
+                            ui,
+                            &font_id,
+                            &line_text.chars().take(local_s).collect::<String>(),
+                        );
+                    let x1 = text_left
+                        + text_width(
+                            ui,
+                            &font_id,
+                            &line_text.chars().take(local_e).collect::<String>(),
+                        );
+                    painter.rect_filled(
+                        Rect::from_min_max(
+                            Pos2::new(x0, y),
+                            Pos2::new(x1.max(x0 + 2.0), y + row_height),
+                        ),
+                        0.0,
+                        theme.selection_bg,
+                    );
+                }
+            }
+            for &(sel_s, sel_e) in &multi {
+                if primary_sel == Some((sel_s, sel_e)) {
+                    continue;
+                }
+                let line_end = line_start + line_text.chars().count();
+                if sel_s == sel_e {
+                    if sel_s >= line_start && sel_s <= line_end {
+                        let col = sel_s - line_start;
+                        let prefix: String = line_text.chars().take(col).collect();
+                        let cx = text_left + text_width(ui, &font_id, &prefix);
+                        painter.line_segment(
+                            [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
+                            egui::Stroke::new(1.0_f32, theme.caret_fg),
+                        );
+                    }
+                    continue;
+                }
                 if sel_s < line_end && sel_e > line_start {
                     let local_s = sel_s
                         .saturating_sub(line_start)
@@ -3733,14 +3885,30 @@ Tree-sitter highlight, and a calm UI.",
                     } else {
                         self.state.prepare_edit_at(tab);
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.buffer.insert(&t);
+                            if !doc.insert_multi(&t) {
+                                doc.buffer.insert(&t);
+                            }
                             changed = true;
                         }
                     }
                 }
                 egui::Event::Copy | egui::Event::Cut => {
                     if let Some(doc) = self.state.tabs.get(tab) {
-                        if let Some((s, e)) = doc.buffer.selection() {
+                        let multi_text = doc.multi_sels_clipboard_text();
+                        if let Some(text) = multi_text {
+                            copy_text = Some(text);
+                            if matches!(event, egui::Event::Cut) {
+                                if read_only {
+                                    self.state.status = "Document is read-only".into();
+                                } else {
+                                    self.state.prepare_edit_at(tab);
+                                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                        let _ = doc.delete_backward_multi();
+                                        changed = true;
+                                    }
+                                }
+                            }
+                        } else if let Some((s, e)) = doc.buffer.selection() {
                             copy_text = Some(doc.buffer.slice(s, e));
                             if matches!(event, egui::Event::Cut) {
                                 if read_only {
@@ -3769,7 +3937,9 @@ Tree-sitter highlight, and a calm UI.",
                     }
                     self.state.prepare_edit_at(tab);
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.buffer.insert(&t);
+                        if !doc.insert_multi(&t) {
+                            doc.buffer.insert(&t);
+                        }
                         changed = true;
                     }
                 }
@@ -3783,8 +3953,11 @@ Tree-sitter highlight, and a calm UI.",
                         self.state.status = "Document is read-only".into();
                     } else {
                         self.state.prepare_edit_at(tab);
+                        let eol = self.state.settings.default_eol.as_str().to_string();
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.buffer.insert(self.state.settings.default_eol.as_str());
+                            if !doc.insert_multi(&eol) {
+                                doc.buffer.insert(&eol);
+                            }
                             changed = true;
                         }
                     }
@@ -3799,9 +3972,12 @@ Tree-sitter highlight, and a calm UI.",
                         self.state.status = "Document is read-only".into();
                     } else {
                         self.state.prepare_edit_at(tab);
+                        let n = self.state.settings.tab_width.max(1) as usize;
+                        let pad = " ".repeat(n);
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            let n = self.state.settings.tab_width.max(1) as usize;
-                            doc.buffer.insert(&" ".repeat(n));
+                            if !doc.insert_multi(&pad) {
+                                doc.buffer.insert(&pad);
+                            }
                             changed = true;
                         }
                     }
@@ -3816,7 +3992,9 @@ Tree-sitter highlight, and a calm UI.",
                     } else {
                         self.state.prepare_edit_at(tab);
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.buffer.delete_backward();
+                            if !doc.delete_backward_multi() {
+                                doc.buffer.delete_backward();
+                            }
                             changed = true;
                         }
                     }
@@ -3831,7 +4009,9 @@ Tree-sitter highlight, and a calm UI.",
                     } else {
                         self.state.prepare_edit_at(tab);
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.buffer.delete_forward();
+                            if !doc.delete_forward_multi() {
+                                doc.buffer.delete_forward();
+                            }
                             changed = true;
                         }
                     }
@@ -3842,6 +4022,9 @@ Tree-sitter highlight, and a calm UI.",
                     modifiers,
                     ..
                 } => {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
                     if modifiers.alt {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
                             doc.buffer.move_word(false, modifiers.shift);
@@ -3866,6 +4049,9 @@ Tree-sitter highlight, and a calm UI.",
                     modifiers,
                     ..
                 } => {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
                     if modifiers.alt {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
                             doc.buffer.move_word(true, modifiers.shift);
@@ -3891,6 +4077,9 @@ Tree-sitter highlight, and a calm UI.",
                     modifiers,
                     ..
                 } => {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
                     if modifiers.command || modifiers.ctrl {
                         go_doc_start(&mut self.state, tab, modifiers.shift);
                     } else {
@@ -3904,6 +4093,9 @@ Tree-sitter highlight, and a calm UI.",
                     modifiers,
                     ..
                 } => {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
                     if modifiers.command || modifiers.ctrl {
                         go_doc_end(&mut self.state, tab, modifiers.shift);
                     } else {
@@ -3917,6 +4109,9 @@ Tree-sitter highlight, and a calm UI.",
                     modifiers,
                     ..
                 } => {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
                     if modifiers.command || modifiers.ctrl {
                         go_doc_start(&mut self.state, tab, modifiers.shift);
                     } else if let Some(doc) = self.state.tabs.get_mut(tab) {

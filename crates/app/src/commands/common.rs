@@ -174,6 +174,14 @@ pub(crate) fn cut_selection(state: &mut EditorState, ui: &mut UiFlags) {
     if !ensure_editable(state) {
         return;
     }
+    if let Some(text) = state.tabs.active().multi_sels_clipboard_text() {
+        ui.pending_clipboard = Some(text.clone());
+        ui.last_copied = Some(text.clone());
+        let _ = state.tabs.active_mut().delete_backward_multi();
+        state.mark_text_changed();
+        state.status = format!("Cut {} chars (column)", text.chars().count());
+        return;
+    }
     if let Some((s, e)) = state.tabs.active().buffer.selection() {
         let text = state.tabs.active().buffer.slice(s, e);
         ui.pending_clipboard = Some(text.clone());
@@ -491,6 +499,12 @@ pub(crate) fn tab_mtime(doc: &doc::Document) -> u64 {
 }
 
 pub(crate) fn copy_selection(state: &mut EditorState, ui: &mut UiFlags) {
+    if let Some(text) = state.tabs.active().multi_sels_clipboard_text() {
+        ui.pending_clipboard = Some(text.clone());
+        ui.last_copied = Some(text);
+        state.status = "Copied (column)".into();
+        return;
+    }
     if let Some((s, e)) = state.tabs.active().buffer.selection() {
         let text = state.tabs.active().buffer.slice(s, e);
         ui.pending_clipboard = Some(text.clone());

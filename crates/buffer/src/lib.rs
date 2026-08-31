@@ -777,6 +777,46 @@ impl TextBuffer {
         self.rope.line(line_idx).to_string()
     }
 
+    /// Body length of a line (excludes trailing `\n` / `\r`).
+    pub fn line_body_len(&self, line_idx: usize) -> usize {
+        self.line(line_idx)
+            .trim_end_matches(['\n', '\r'])
+            .chars()
+            .count()
+    }
+
+    /// Rectangular (column) ranges between two char indices.
+    ///
+    /// One `(start, end)` per line from the top corner to the bottom corner.
+    /// Columns clamp to each line body (no virtual space past EOL).
+    pub fn rect_ranges(&self, a: usize, b: usize) -> Vec<(usize, usize)> {
+        let a = a.min(self.len_chars());
+        let b = b.min(self.len_chars());
+        let line_a = self.char_to_line(a);
+        let line_b = self.char_to_line(b);
+        let col_a = a.saturating_sub(self.line_to_char(line_a));
+        let col_b = b.saturating_sub(self.line_to_char(line_b));
+        let (line_lo, line_hi) = if line_a <= line_b {
+            (line_a, line_b)
+        } else {
+            (line_b, line_a)
+        };
+        let (col_lo, col_hi) = if col_a <= col_b {
+            (col_a, col_b)
+        } else {
+            (col_b, col_a)
+        };
+        let mut out = Vec::with_capacity(line_hi - line_lo + 1);
+        for line in line_lo..=line_hi {
+            let start = self.line_to_char(line);
+            let body_len = self.line_body_len(line);
+            let s_col = col_lo.min(body_len);
+            let e_col = col_hi.min(body_len);
+            out.push((start + s_col, start + e_col));
+        }
+        out
+    }
+
     /// Full document as owned String (avoid for huge files in hot paths).
     #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
@@ -1421,5 +1461,37 @@ mod tests {
         assert!(!b.drag_selection_to(4, false));
         assert_eq!(b.to_string(), "abcDEFghi");
         assert_eq!(b.undo_len(), 0);
+    }
+
+    #[test]
+    fn rect_ranges_column_block() {
+        let b = TextBuffer::from_str("abcd\nefgh\nijkl\n");
+        // Col 1..3 on lines 0..2: "bc", "fg", "jk"
+        let a = b.line_to_char(0) + 1;
+        let c = b.line_to_char(2) + 3;
+        let ranges = b.rect_ranges(a, c);
+        assert_eq!(ranges, vec![(1, 3), (6, 8), (11, 13)]);
+        assert_eq!(b.slice(1, 3), "bc");
+        assert_eq!(b.slice(6, 8), "fg");
+        assert_eq!(b.slice(11, 13), "jk");
+    }
+
+    #[test]
+    fn rect_ranges_clamp_short_line() {
+        let b = TextBuffer::from_str("abcd\nx\nijkl\n");
+        let a = b.line_to_char(0) + 1;
+        let c = b.line_to_char(2) + 3;
+        let ranges = b.rect_ranges(a, c);
+        // Line "x" body_len=1 → clamp col 1..3 to (1,1) zero-width at EOL
+        assert_eq!(ranges, vec![(1, 3), (6, 6), (8, 10)]);
+    }
+
+    #[test]
+    fn rect_ranges_zero_width_carets() {
+        let b = TextBuffer::from_str("aa\nbb\ncc\n");
+        let a = b.line_to_char(0) + 1;
+        let c = b.line_to_char(2) + 1;
+        let ranges = b.rect_ranges(a, c);
+        assert_eq!(ranges, vec![(1, 1), (4, 4), (7, 7)]);
     }
 }

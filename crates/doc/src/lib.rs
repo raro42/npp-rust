@@ -415,6 +415,178 @@ impl Document {
             remap_lines_delete(slot, first_removed, n);
         }
     }
+
+    /// True when typing / delete should hit every entry in `multi_sels`.
+    pub fn has_multi_carets(&self) -> bool {
+        self.multi_sels.len() >= 2
+    }
+
+    /// Clear extra carets / rect ranges.
+    pub fn clear_multi_sels(&mut self) {
+        self.multi_sels.clear();
+    }
+
+    /// Set rectangular selection from two char corners (Alt+drag).
+    pub fn set_rect_selection(&mut self, anchor: usize, caret: usize) {
+        let ranges = self.buffer.rect_ranges(anchor, caret);
+        self.multi_sels = ranges.clone();
+        if let Some(&(s, e)) = ranges.last() {
+            if s == e {
+                self.buffer.set_caret(s);
+            } else {
+                self.buffer.set_selection(s, e);
+            }
+        } else {
+            self.buffer.set_caret(caret);
+        }
+    }
+
+    /// Join multi-select / rect slices with newlines (column copy).
+    pub fn multi_sels_clipboard_text(&self) -> Option<String> {
+        if self.multi_sels.len() < 2 {
+            return None;
+        }
+        let mut parts = Vec::with_capacity(self.multi_sels.len());
+        let mut sorted = self.multi_sels.clone();
+        sorted.sort_by_key(|(s, _)| *s);
+        for &(s, e) in &sorted {
+            if s < e {
+                parts.push(self.buffer.slice(s, e));
+            } else {
+                parts.push(String::new());
+            }
+        }
+        Some(parts.join("\n"))
+    }
+
+    /// Insert `text` at every multi-caret (one undo). Returns false when inactive.
+    pub fn insert_multi(&mut self, text: &str) -> bool {
+        if !self.has_multi_carets() {
+            return false;
+        }
+        let mut sorted = self.multi_sels.clone();
+        sorted.sort_by_key(|(s, _)| *s);
+        sorted.dedup();
+        let n_ins = text.chars().count();
+        let mut new_sels = Vec::with_capacity(sorted.len());
+        self.buffer.with_transaction(|b| {
+            for &(s, e) in sorted.iter().rev() {
+                let len = b.len_chars();
+                let s = s.min(len);
+                let e = e.min(len).max(s);
+                let del = e - s;
+                if s < e {
+                    b.set_selection(s, e);
+                } else {
+                    b.set_caret(s);
+                }
+                b.insert(text);
+                let c = b.caret();
+                let net = n_ins as isize - del as isize;
+                for (ns, ne) in &mut new_sels {
+                    if *ns >= s {
+                        *ns = (*ns as isize + net).max(0) as usize;
+                        *ne = (*ne as isize + net).max(0) as usize;
+                    }
+                }
+                new_sels.push((c, c));
+            }
+        });
+        new_sels.reverse();
+        self.finish_multi_sels(new_sels);
+        true
+    }
+
+    /// Backspace / delete selection at every multi-caret (one undo).
+    pub fn delete_backward_multi(&mut self) -> bool {
+        if !self.has_multi_carets() {
+            return false;
+        }
+        let mut sorted = self.multi_sels.clone();
+        sorted.sort_by_key(|(s, _)| *s);
+        sorted.dedup();
+        let mut new_sels = Vec::with_capacity(sorted.len());
+        self.buffer.with_transaction(|b| {
+            for &(s, e) in sorted.iter().rev() {
+                let len = b.len_chars();
+                let s = s.min(len);
+                let e = e.min(len).max(s);
+                let before = b.len_chars();
+                if s < e {
+                    b.set_selection(s, e);
+                    b.delete_backward();
+                } else if s > 0 {
+                    b.set_caret(s);
+                    b.delete_backward();
+                } else {
+                    b.set_caret(0);
+                }
+                let c = b.caret();
+                let net = b.len_chars() as isize - before as isize;
+                for (ns, ne) in &mut new_sels {
+                    if *ns >= s {
+                        *ns = (*ns as isize + net).max(0) as usize;
+                        *ne = (*ne as isize + net).max(0) as usize;
+                    }
+                }
+                new_sels.push((c, c));
+            }
+        });
+        new_sels.reverse();
+        self.finish_multi_sels(new_sels);
+        true
+    }
+
+    /// Delete forward / selection at every multi-caret (one undo).
+    pub fn delete_forward_multi(&mut self) -> bool {
+        if !self.has_multi_carets() {
+            return false;
+        }
+        let mut sorted = self.multi_sels.clone();
+        sorted.sort_by_key(|(s, _)| *s);
+        sorted.dedup();
+        let mut new_sels = Vec::with_capacity(sorted.len());
+        self.buffer.with_transaction(|b| {
+            for &(s, e) in sorted.iter().rev() {
+                let len = b.len_chars();
+                let s = s.min(len);
+                let e = e.min(len).max(s);
+                let before = b.len_chars();
+                if s < e {
+                    b.set_selection(s, e);
+                    b.delete_forward();
+                } else if s < b.len_chars() {
+                    b.set_caret(s);
+                    b.delete_forward();
+                } else {
+                    b.set_caret(s);
+                }
+                let c = b.caret();
+                let net = b.len_chars() as isize - before as isize;
+                for (ns, ne) in &mut new_sels {
+                    if *ns > s {
+                        *ns = (*ns as isize + net).max(0) as usize;
+                        *ne = (*ne as isize + net).max(0) as usize;
+                    }
+                }
+                new_sels.push((c, c));
+            }
+        });
+        new_sels.reverse();
+        self.finish_multi_sels(new_sels);
+        true
+    }
+
+    fn finish_multi_sels(&mut self, new_sels: Vec<(usize, usize)>) {
+        self.multi_sels = new_sels;
+        if let Some(&(s, e)) = self.multi_sels.last() {
+            if s == e {
+                self.buffer.set_caret(s);
+            } else {
+                self.buffer.set_selection(s, e);
+            }
+        }
+    }
 }
 
 /// Tab strip and active document index.
@@ -713,6 +885,49 @@ mod tests {
         assert!(doc.consume_line_structure_edit());
         assert!(doc.changed_unsaved.contains(&5));
         assert!(!doc.changed_unsaved.contains(&7));
+    }
+
+    #[test]
+    fn insert_multi_at_zero_width_carets() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("aa\nbb\ncc\n");
+        doc.multi_sels = vec![(1, 1), (4, 4), (7, 7)];
+        assert!(doc.insert_multi("X"));
+        assert_eq!(doc.buffer.to_string(), "aXa\nbXb\ncXc\n");
+        assert_eq!(doc.multi_sels, vec![(2, 2), (6, 6), (10, 10)]);
+        assert!(doc.buffer.undo());
+        assert_eq!(doc.buffer.to_string(), "aa\nbb\ncc\n");
+    }
+
+    #[test]
+    fn insert_multi_replaces_rect_sels() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("abcd\nefgh\nijkl\n");
+        doc.multi_sels = vec![(1, 3), (6, 8), (11, 13)];
+        assert!(doc.insert_multi("Z"));
+        assert_eq!(doc.buffer.to_string(), "aZd\neZh\niZl\n");
+        assert!(doc.has_multi_carets());
+    }
+
+    #[test]
+    fn delete_backward_multi_and_clipboard_join() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("abcd\nefgh\nijkl\n");
+        doc.multi_sels = vec![(1, 3), (6, 8), (11, 13)];
+        assert_eq!(
+            doc.multi_sels_clipboard_text().as_deref(),
+            Some("bc\nfg\njk")
+        );
+        assert!(doc.delete_backward_multi());
+        assert_eq!(doc.buffer.to_string(), "ad\neh\nil\n");
+    }
+
+    #[test]
+    fn set_rect_selection_builds_multi_sels() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("aa\nbb\ncc\n");
+        doc.set_rect_selection(1, 7);
+        assert_eq!(doc.multi_sels, vec![(1, 1), (4, 4), (7, 7)]);
     }
 
     #[test]
