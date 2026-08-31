@@ -37,3 +37,13 @@ No secrets or home paths in commits or issue comments.
 - Verified: `Utf16Le`/`Utf16Be` in `crates/fs`, `crates/doc`; Format menu; BOM open/save; fs tests (LE/BE load, round-trip, odd byte, UTF-8 unchanged); version **0.3.6** + changelog.
 - `./scripts/ci-local.sh` — **PASS** (fmt, clippy `-D warnings`, workspace tests, release build).
 - Result: **PASS** → `DONE-`; leave issue #8 open for handoff (BOM-less UTF-16 / stylers / Scintilla remain).
+
+## Handoff (2026-08-31)
+- User-facing notes already in `docs/changelog.md` under **[0.3.6]** (not Unreleased).
+- `docs/next-gaps.md` already lists v0.3.6 UTF-16 ship.
+- Task goal (UTF-16 LE/BE BOM open/save this batch) met. Issue #8 stays open: BOM-less UTF-16 optional; full stylers.xml; Scintilla reverted markers remain.
+- Do not close #8 until remaining P1 items ship (or a new issue tracks them).
+- Batch handoff finished; do not re-pick this DONE file.
+
+Handoff: deferred
+Handoff: complete
