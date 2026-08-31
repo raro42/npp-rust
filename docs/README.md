@@ -6,6 +6,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 |-----|--------|
 | [scope.md](scope.md) | Feature boundary |
 | [testing.md](testing.md) | How tests run |
+| [ci-node24.md](ci-node24.md) | Actions Node 20→24 deprecation fix |
 | [changelog.md](changelog.md) | Release history |
 | [release.md](release.md) | Version, CI, daily release |
 | [branch-main-only.md](branch-main-only.md) | Work on `main` only (no `dev`) |
@@ -22,6 +23,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [menu-todo.md](menu-todo.md) | Menu stub inventory |
 | [themes.md](themes.md) | Theme apply MVP |
 | [whats-missing.md](whats-missing.md) | Coming Soon vs honest partials |
+| [gap-analysis-vs-npp.md](gap-analysis-vs-npp.md) | Code-backed gap analysis vs Notepad++ |
 | [next-gaps.md](next-gaps.md) | Post-v0.3.0 improvement backlog |
 | [preferences-p0.md](preferences-p0.md) | v0.3.1 Preferences / Find / Session / Compare |
 | [p0-feature-map.md](p0-feature-map.md) | Code pointers for P0 Preferences / Find / Session / Compare |
