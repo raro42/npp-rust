@@ -17,4 +17,4 @@ See GitHub issue #10 and docs/gap-analysis-vs-npp.md / docs/next-gaps.md.
 - No home paths or secrets in commits or comments.
 
 ## Progress
-- **Coder (v0.3.8):** File drop opens paths; selection drag move / Ctrl|Cmd+copy via `TextBuffer::drag_selection_to`. Docs: `docs/drag-drop.md`. `./scripts/ci-local.sh` OK. Hand off to tester — do not close #10.
+- **Coder (v0.3.8):** File drop opens paths; selection drag move / Ctrl|Cmd+copy via `TextBuffer::drag_selection_to`. Docs: `docs/drag-drop.md`. Commit `4f79398`. `./scripts/ci-local.sh` OK. Hand off to tester — do not close #10.
