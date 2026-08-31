@@ -31,20 +31,23 @@ Each `once` / loop cycle:
 
 `sync → 005 → 006 → 007 → 008 → 001 → 004 → 003 → 002 → 003 → 004`
 
-Observability lines: `AGENT_LOOP_TICK` / `AGENT_LOOP_SLEEP`. Cursor spawns use `agents/state/agent.pid` so two agents do not overlap.
+Observability lines: `AGENT_LOOP_TICK` / `AGENT_LOOP_SLEEP`.  
+**Locks:** `agents/state/loop.pid` (one loop) and `agents/state/cursor.pid` (one cursor-agent). See [agent-loop-lock.md](agent-loop-lock.md).
 
 ## Run
 
 ```bash
+./agents/npp-cursor-loop.sh status   # already running?
 ./agents/npp-cursor-loop.sh once
-./agents/npp-cursor-loop.sh loop
+./agents/npp-cursor-loop.sh loop     # refuses if loop.pid held
 ./agents/npp-cursor-loop.sh 005   # CI
 ./agents/npp-cursor-loop.sh 006   # panic log
 ./agents/npp-cursor-loop.sh 007   # quality
 ./agents/npp-cursor-loop.sh 008   # git flush (forced)
 ```
 
-Unattended: [unattended-20h.md](unattended-20h.md) · `agents/start-unattended.command`.
+Unattended: [unattended-20h.md](unattended-20h.md) · `agents/start-unattended.command` (refuses duplicates).  
+Force replace: `AGENT_LOOP_FORCE_RESTART=1 open agents/start-unattended.command`.
 
 ### Env
 
@@ -55,6 +58,7 @@ Unattended: [unattended-20h.md](unattended-20h.md) · `agents/start-unattended.c
 | `AGENT_QUALITY_FORCE=1` | Ignore weekly quality stamp |
 | `AGENT_GIT_FLUSH_FORCE=1` | Ignore daily git-flush stamp |
 | `AGENT_LOOP_SLEEP_MINUTES` | Loop sleep (default 15) |
+| `AGENT_LOOP_FORCE_RESTART=1` | Allow start-unattended to replace a live loop |
 
 ### GitHub labels
 
