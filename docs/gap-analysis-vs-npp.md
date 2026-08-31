@@ -89,7 +89,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | Multi-tab / open / save / recent | Done | Solid MVP |
 | Undo / redo / rope edits | Done | Coalesce + generations |
 | Find / Replace (in file) | Partial | Case/word/count; no full N++ regex UI depth |
-| Find in Files | Partial | Shallow cwd scan only |
+| Find in Files | Partial | Recursive workspace scan + include/exclude globs (v0.3.10); not full N++ UI |
 | Bookmarks | Partial | Strong MVP; not full N++ mark set |
 | Change history | Partial | Bars + undo remap (v0.3.5); not full Scintilla |
 | Dual / other view | Partial | Writable panes; no docking layout |
@@ -129,7 +129,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 
 ### P1 — power users expect from N++
 
-6. Deeper Find in Files (recursive, filters, workspace root)
+6. Deeper Find in Files (recursive, filters, workspace root) — **done** in v0.3.10 (MVP; not full N++ dialog)
 7. Lexer-aware folding + fold margin
 8. Popup autocomplete / call tips (then LSP)
 9. Macro: record typing + save named macros

@@ -141,6 +141,12 @@ pub struct AppSettings {
     /// Project panel name filter (substring, case-insensitive).
     #[serde(default)]
     pub project_filter: String,
+    /// Find in Files: include globs (comma/semicolon; empty = all).
+    #[serde(default)]
+    pub find_files_include: String,
+    /// Find in Files: exclude names/globs (comma/semicolon).
+    #[serde(default = "crate::search_util::default_find_files_exclude")]
+    pub find_files_exclude: String,
 }
 
 impl Default for AppSettings {
@@ -166,6 +172,8 @@ impl Default for AppSettings {
             compare_ignore_ws: false,
             workspace_root: String::new(),
             project_filter: String::new(),
+            find_files_include: String::new(),
+            find_files_exclude: crate::search_util::default_find_files_exclude(),
         }
     }
 }

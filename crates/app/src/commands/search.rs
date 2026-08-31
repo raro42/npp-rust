@@ -603,7 +603,7 @@ fn find_char_in_range(state: &mut EditorState, ui: &mut UiFlags) {
     }
 }
 
-/// Scan cwd (shallow) for `find_query`; write hits into a new untitled results tab.
+/// Scan workspace root recursively for `find_query`; write hits into a results tab.
 fn find_in_files(state: &mut EditorState, ui: &mut UiFlags) {
     let q = state.find_query.clone();
     if q.is_empty() {
@@ -613,76 +613,63 @@ fn find_in_files(state: &mut EditorState, ui: &mut UiFlags) {
         state.status = "Find in Files: set Find text, then run again".into();
         return;
     }
-    let cwd = match std::env::current_dir() {
-        Ok(p) => p,
-        Err(_) => {
-            state.status = "Find in Files: cannot read working directory".into();
-            return;
+
+    let root = if state.workspace_root.is_dir() {
+        state.workspace_root.clone()
+    } else {
+        match std::env::current_dir() {
+            Ok(p) => p,
+            Err(_) => {
+                state.status = "Find in Files: cannot read workspace root".into();
+                return;
+            }
         }
     };
-    const MAX_FILE_BYTES: u64 = 512 * 1024;
-    const MAX_MATCHES: usize = 500;
-    const MAX_FILES: usize = 200;
 
-    let mut lines_out: Vec<String> = Vec::new();
+    let include = crate::search_util::split_filters(&state.settings.find_files_include);
+    let exclude = {
+        let raw = state.settings.find_files_exclude.trim();
+        if raw.is_empty() {
+            crate::search_util::split_filters(&crate::search_util::default_find_files_exclude())
+        } else {
+            crate::search_util::split_filters(raw)
+        }
+    };
+    let caps = crate::search_util::FindInFilesCaps::default();
+    let report = crate::search_util::find_in_files_scan(
+        &root,
+        &q,
+        state.settings.find_match_case,
+        &include,
+        &exclude,
+        caps,
+    );
+
+    let mut lines_out: Vec<String> = Vec::with_capacity(report.hits.len() + 6);
     lines_out.push(format!("Find in Files: {q:?}"));
-    lines_out.push("Directory: . (process cwd)".into());
+    lines_out.push("Directory: workspace root (recursive)".into());
+    let inc_label = if include.is_empty() {
+        "*".into()
+    } else {
+        include.join(",")
+    };
+    lines_out.push(format!(
+        "Filters: include={inc_label} exclude={}",
+        exclude.join(",")
+    ));
     lines_out.push(String::new());
 
-    let mut files_ok = 0usize;
-    let mut match_count = 0usize;
-    let Ok(rd) = std::fs::read_dir(&cwd) else {
-        state.status = "Find in Files: cannot list working directory".into();
-        return;
-    };
-    let mut entries: Vec<_> = rd.filter_map(|e| e.ok()).collect();
-    entries.sort_by_key(|e| e.file_name());
-
-    for entry in entries {
-        if files_ok >= MAX_FILES || match_count >= MAX_MATCHES {
-            break;
-        }
-        let path = entry.path();
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        if name.starts_with('.') {
-            continue;
-        }
-        if !path.is_file() {
-            continue;
-        }
-        let meta = match entry.metadata() {
-            Ok(m) => m,
-            Err(_) => continue,
-        };
-        if meta.len() > MAX_FILE_BYTES {
-            continue;
-        }
-        let Ok(bytes) = std::fs::read(&path) else {
-            continue;
-        };
-        if bytes.contains(&0) {
-            continue;
-        }
-        let Ok(text) = String::from_utf8(bytes) else {
-            continue;
-        };
-        files_ok += 1;
-        let rel = name.to_string();
-        for (li, line) in text.lines().enumerate() {
-            if match_count >= MAX_MATCHES {
-                break;
-            }
-            if line.contains(&q) {
-                lines_out.push(format!("{rel}:{}:{line}", li + 1));
-                match_count += 1;
-            }
-        }
+    for hit in &report.hits {
+        lines_out.push(format!("{}:{}:{}", hit.rel_path, hit.line_no, hit.line));
     }
 
+    let match_count = report.hits.len();
+    let files_ok = report.files_scanned;
     lines_out.push(String::new());
+    let trunc = if report.truncated { ", truncated" } else { "" };
     lines_out.push(format!(
-        "— {match_count} match(es) in {files_ok} file(s) (cwd only, max {MAX_MATCHES})"
+        "— {match_count} match(es) in {files_ok} file(s) (recursive, max {}{trunc})",
+        caps.max_matches
     ));
 
     let body = lines_out.join("\n");

@@ -35,7 +35,7 @@ It is **not** a full Notepad++ Preferences clone (tabs, margins, multi-language 
 
 ### Search — Progress note (2026-08-29)
 
-Cleared: Find characters in range (Find text = `ascii` / `non-ascii` / `start-end`), Find in Files (cwd scan → results tab).
+Cleared: Find characters in range (Find text = `ascii` / `non-ascii` / `start-end`), Find in Files (workspace recursive + include/exclude → results tab).
 
 Change History: full-height gutter bars (amber unsaved / green saved) + soft wash; joined blocks; dual view. Next/Prev + Clear. Save promotes unsaved→saved. Edits and undo/redo remap via `LineStructureEdit` / `prepare_edit`. Status shows `CHG u/s`.
 

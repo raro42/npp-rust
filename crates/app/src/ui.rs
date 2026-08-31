@@ -2190,6 +2190,7 @@ Tree-sitter highlight, and a calm UI.",
     fn find_replace_bar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("find").show(ctx, |ui| {
             let mut persist = false;
+            let mut run_find_files = false;
             ui.horizontal(|ui| {
                 ui.label("Find:");
                 let resp = ui.add(
@@ -2262,10 +2263,54 @@ Tree-sitter highlight, and a calm UI.",
                     self.find_focus_once = false;
                 }
             });
+            ui.horizontal(|ui| {
+                ui.label("In files:");
+                let inc = ui.add(
+                    egui::TextEdit::singleline(&mut self.state.settings.find_files_include)
+                        .desired_width(140.0)
+                        .hint_text("*.rs,*.md (empty=all)"),
+                );
+                if inc.changed() {
+                    persist = true;
+                }
+                ui.label("Exclude:");
+                let exc = ui.add(
+                    egui::TextEdit::singleline(&mut self.state.settings.find_files_exclude)
+                        .desired_width(160.0)
+                        .hint_text("target,node_modules"),
+                );
+                if exc.changed() {
+                    persist = true;
+                }
+                if ui
+                    .button("Find in Files")
+                    .on_hover_text("Search workspace root recursively")
+                    .clicked()
+                {
+                    persist = true;
+                    run_find_files = true;
+                }
+            });
             if persist {
                 self.state.settings.find_query = self.state.find_query.clone();
                 self.state.settings.replace_with = self.replace_with.clone();
                 self.state.settings.save();
+            }
+            if run_find_files {
+                let mut flags = crate::commands::UiFlags {
+                    find_open: self.state.find_open,
+                    show_replace: self.show_replace,
+                    find_focus_once: self.find_focus_once,
+                    follow_caret: self.follow_caret,
+                    ..Default::default()
+                };
+                let _ = self.dispatch_menu_cmd("IDM_SEARCH_FINDINFILES", &mut flags);
+                self.state.find_open = flags.find_open;
+                self.show_replace = flags.show_replace;
+                self.find_focus_once = flags.find_focus_once;
+                if flags.follow_caret {
+                    self.follow_focused_caret();
+                }
             }
         });
     }

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.10] — 2026-08-31
+
+Issue #12 (P1 deeper Find in Files):
+
+- Search uses the Project / workspace root and walks folders recursively
+- Skips hidden dirs, symlinks, binary / huge files; caps matches and depth
+- Include / exclude globs on the Find bar (persisted); default exclude skips `target`, `node_modules`, and similar
+- Menu **Search → Find in Files** and the Find bar **Find in Files** button
+
 ## [0.3.9] — 2026-08-31
 
 Issue #11 (P0 column / rect select + multi-caret typing):
