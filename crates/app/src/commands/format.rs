@@ -25,7 +25,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Op
             state.run_plugin("edit.to_windows_eol");
             CmdResult::Handled
         }
-        "IDM_FORMAT_AS_UTF_8" => {
+        "IDM_FORMAT_AS_UTF_8" | "IDM_FORMAT_CONV2_AS_UTF_8" => {
             // UTF-8 without BOM: strip leading BOM; save writes plain UTF-8.
             let stripped = strip_leading_bom(state);
             state.tabs.active_mut().encoding = FileEncoding::Utf8;
@@ -36,7 +36,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Op
             };
             CmdResult::Handled
         }
-        "IDM_FORMAT_UTF_8" => {
+        "IDM_FORMAT_UTF_8" | "IDM_FORMAT_CONV2_UTF_8" => {
             // UTF-8-BOM: keep leading U+FEFF so save writes EF BB BF.
             let added = ensure_leading_bom(state);
             state.tabs.active_mut().encoding = FileEncoding::Utf8Bom;
@@ -47,7 +47,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Op
             };
             CmdResult::Handled
         }
-        "IDM_FORMAT_ANSI" => {
+        "IDM_FORMAT_ANSI" | "IDM_FORMAT_CONV2_ANSI" => {
             // ANSI: strip BOM; save re-encodes as Windows-1252 (lossy).
             let stripped = strip_leading_bom(state);
             state.tabs.active_mut().encoding = FileEncoding::Windows1252;
@@ -55,6 +55,26 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Op
                 "Encoding: ANSI — save writes Windows-1252 (BOM removed; unmapped chars → ?)".into()
             } else {
                 "Encoding: ANSI — save writes Windows-1252 (unmapped chars → ?)".into()
+            };
+            CmdResult::Handled
+        }
+        "IDM_FORMAT_UTF_16LE" | "IDM_FORMAT_CONV2_UTF_16LE" => {
+            let stripped = strip_leading_bom(state);
+            state.tabs.active_mut().encoding = FileEncoding::Utf16Le;
+            state.status = if stripped {
+                "Encoding: UTF-16 LE — save writes UTF-16 LE with BOM (UTF-8 BOM removed)".into()
+            } else {
+                "Encoding: UTF-16 LE — save writes UTF-16 LE with BOM".into()
+            };
+            CmdResult::Handled
+        }
+        "IDM_FORMAT_UTF_16BE" | "IDM_FORMAT_CONV2_UTF_16BE" => {
+            let stripped = strip_leading_bom(state);
+            state.tabs.active_mut().encoding = FileEncoding::Utf16Be;
+            state.status = if stripped {
+                "Encoding: UTF-16 BE — save writes UTF-16 BE with BOM (UTF-8 BOM removed)".into()
+            } else {
+                "Encoding: UTF-16 BE — save writes UTF-16 BE with BOM".into()
             };
             CmdResult::Handled
         }

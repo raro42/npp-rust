@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.6] — 2026-08-31
+
+Issue #8 (P1 encoding):
+
+- Open UTF-16 LE/BE with BOM; decode to Unicode in the buffer
+- Save as UTF-16 LE/BE when Format (or Convert to) sets that encoding
+- Status / docs: `docs/encoding.md`
+
 ## [0.3.5] — 2026-08-31
 
 Issue #8 (P1 change-history depth):

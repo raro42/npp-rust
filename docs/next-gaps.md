@@ -1,7 +1,7 @@
-# Next gaps (post v0.3.5)
+# Next gaps (post v0.3.6)
 
 Date: 2026-08-31  
-Status: **P0 done (v0.3.1).** Partial P1: project/ANSI (**v0.3.2**), themes depth (**v0.3.4**), change-history depth (**v0.3.5**).
+Status: **P0 done (v0.3.1).** Partial P1: project/ANSI (**v0.3.2**), themes depth (**v0.3.4**), change-history depth (**v0.3.5**), UTF-16 (**v0.3.6**).
 
 ## Done recently
 
@@ -9,6 +9,7 @@ Status: **P0 done (v0.3.1).** Partial P1: project/ANSI (**v0.3.2**), themes dept
 - v0.3.2: Project panel filter + remember root; ANSI lossy-save confirm
 - v0.3.4: Theme JSON tokens + chrome; Notepad++ XML subset
 - v0.3.5: Change-history bars, undo remap, CHG status
+- v0.3.6: UTF-16 LE/BE BOM open/save
 
 ## Priority backlog
 
@@ -16,7 +17,7 @@ Status: **P0 done (v0.3.1).** Partial P1: project/ANSI (**v0.3.2**), themes dept
 
 1. **Themes** — deeper maps shipped in v0.3.4 (JSON tokens + N++ XML subset); full stylers.xml parity still open
 2. **Change history** — bars + undo remap in v0.3.5; Scintilla reverted markers / inline indicators still open
-3. **Encoding** — UTF-16 LE/BE open/save (warn on lossy ANSI is done)
+3. **Encoding** — UTF-16 LE/BE with BOM done in v0.3.6; BOM-less UTF-16 optional later
 
 ### P2 — larger / later
 

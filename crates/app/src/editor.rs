@@ -1933,6 +1933,8 @@ fn file_encoding_from_fs(enc: TextEncoding) -> FileEncoding {
     match enc {
         TextEncoding::Utf8 => FileEncoding::Utf8,
         TextEncoding::Utf8Bom => FileEncoding::Utf8Bom,
+        TextEncoding::Utf16Le => FileEncoding::Utf16Le,
+        TextEncoding::Utf16Be => FileEncoding::Utf16Be,
         TextEncoding::Windows1252 => FileEncoding::Windows1252,
     }
 }
@@ -1941,6 +1943,8 @@ fn fs_encoding_from_file(enc: FileEncoding) -> TextEncoding {
     match enc {
         FileEncoding::Utf8 => TextEncoding::Utf8,
         FileEncoding::Utf8Bom => TextEncoding::Utf8Bom,
+        FileEncoding::Utf16Le => TextEncoding::Utf16Le,
+        FileEncoding::Utf16Be => TextEncoding::Utf16Be,
         FileEncoding::Windows1252 => TextEncoding::Windows1252,
     }
 }

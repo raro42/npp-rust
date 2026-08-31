@@ -1,6 +1,7 @@
 //! File open/save with optional background loading for large files.
 //!
 //! Text load/save uses UTF-8 in memory. On load, a UTF-8 BOM is kept as U+FEFF.
+//! UTF-16 LE/BE with BOM decode to Unicode (no BOM char kept in memory).
 //! Bytes that are not valid UTF-8 decode as Windows-1252 (ANSI stand-in).
 //! Open and tail never use `String::from_utf8_lossy` (no silent U+FFFD corruption).
 
@@ -17,9 +18,14 @@ pub const LARGE_FILE_THRESHOLD: u64 = 2 * 1024 * 1024; // 2 MiB
 /// UTF-8 BOM bytes.
 const UTF8_BOM_BYTES: &[u8] = &[0xEF, 0xBB, 0xBF];
 
+/// UTF-16 LE BOM (`FF FE`).
+const UTF16_LE_BOM_BYTES: &[u8] = &[0xFF, 0xFE];
+
+/// UTF-16 BE BOM (`FE FF`).
+const UTF16_BE_BOM_BYTES: &[u8] = &[0xFE, 0xFF];
+
 /// UTF-8 BOM as a Unicode character (save may write it as `EF BB BF`).
 pub const UTF8_BOM_CHAR: char = '\u{FEFF}';
-
 #[derive(Debug, Error)]
 pub enum FsError {
     #[error("io error: {0}")]
@@ -37,6 +43,10 @@ pub enum TextEncoding {
     Utf8,
     /// Valid UTF-8 with a leading BOM.
     Utf8Bom,
+    /// UTF-16 little-endian with BOM (`FF FE`).
+    Utf16Le,
+    /// UTF-16 big-endian with BOM (`FE FF`).
+    Utf16Be,
     /// Not valid UTF-8; decoded (or encoded) as Windows-1252.
     Windows1252,
 }
@@ -46,6 +56,8 @@ impl TextEncoding {
         match self {
             Self::Utf8 => "UTF-8",
             Self::Utf8Bom => "UTF-8-BOM",
+            Self::Utf16Le => "UTF-16 LE",
+            Self::Utf16Be => "UTF-16 BE",
             Self::Windows1252 => "Windows-1252",
         }
     }
@@ -159,9 +171,18 @@ impl Default for TailChannel {
 
 /// Decode file bytes to a UTF-8 string and an encoding label.
 ///
-/// Never inserts U+FFFD. Invalid UTF-8 uses Windows-1252 for the whole buffer
-/// and returns an honest `encoding_note` for the UI.
+/// Never inserts U+FFFD for invalid UTF-8 (uses Windows-1252 instead).
+/// UTF-16 unpaired surrogates may become U+FFFD via `from_utf16_lossy`.
 pub fn decode_bytes(buf: &[u8]) -> (String, TextEncoding, Option<String>) {
+    if buf.starts_with(UTF16_BE_BOM_BYTES) {
+        let (content, note) = decode_utf16_bom(&buf[2..], true);
+        return (content, TextEncoding::Utf16Be, note);
+    }
+    if buf.starts_with(UTF16_LE_BOM_BYTES) {
+        let (content, note) = decode_utf16_bom(&buf[2..], false);
+        return (content, TextEncoding::Utf16Le, note);
+    }
+
     let has_bom = buf.starts_with(UTF8_BOM_BYTES);
     let body = if has_bom { &buf[3..] } else { buf };
 
@@ -190,6 +211,29 @@ pub fn decode_bytes(buf: &[u8]) -> (String, TextEncoding, Option<String>) {
             .to_string(),
     );
     (content, TextEncoding::Windows1252, note)
+}
+
+/// Decode UTF-16 body (no BOM). `big_endian` selects byte order.
+/// Drops a trailing odd byte. Unpaired surrogates become U+FFFD.
+fn decode_utf16_bom(body: &[u8], big_endian: bool) -> (String, Option<String>) {
+    let mut note = None;
+    let usable = body.len() - (body.len() % 2);
+    if usable < body.len() {
+        note = Some("UTF-16 file had a trailing odd byte; it was dropped.".to_string());
+    }
+    let units: Vec<u16> = body[..usable]
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|c| {
+            if big_endian {
+                u16::from_be_bytes(*c)
+            } else {
+                u16::from_le_bytes(*c)
+            }
+        })
+        .collect();
+    (String::from_utf16_lossy(&units), note)
 }
 
 /// Read file synchronously (small files).
@@ -225,6 +269,8 @@ pub fn write_file(path: &Path, content: &str) -> Result<()> {
 ///
 /// - [`TextEncoding::Utf8`]: UTF-8 bytes, no BOM (strips a leading U+FEFF).
 /// - [`TextEncoding::Utf8Bom`]: UTF-8 with `EF BB BF` prefix.
+/// - [`TextEncoding::Utf16Le`]: UTF-16 LE with `FF FE` BOM.
+/// - [`TextEncoding::Utf16Be`]: UTF-16 BE with `FE FF` BOM.
 /// - [`TextEncoding::Windows1252`]: lossy Windows-1252 (ANSI stand-in); no BOM.
 ///
 /// Saves write a sibling temp file, flush (`sync_all`), then rename over the target.
@@ -244,8 +290,30 @@ fn encode_content(content: &str, encoding: TextEncoding) -> Vec<u8> {
             out.extend_from_slice(body.as_bytes());
             out
         }
+        TextEncoding::Utf16Le => encode_utf16(body, false),
+        TextEncoding::Utf16Be => encode_utf16(body, true),
         TextEncoding::Windows1252 => encode_windows_1252_lossy(body),
     }
+}
+
+/// Encode `text` as UTF-16 with BOM. `big_endian` selects byte order.
+fn encode_utf16(text: &str, big_endian: bool) -> Vec<u8> {
+    let bom = if big_endian {
+        UTF16_BE_BOM_BYTES
+    } else {
+        UTF16_LE_BOM_BYTES
+    };
+    let mut out = Vec::with_capacity(bom.len() + text.len().saturating_mul(2));
+    out.extend_from_slice(bom);
+    for unit in text.encode_utf16() {
+        let bytes = if big_endian {
+            unit.to_be_bytes()
+        } else {
+            unit.to_le_bytes()
+        };
+        out.extend_from_slice(&bytes);
+    }
+    out
 }
 
 /// Directory that holds `path`. A bare file name uses `.`.
@@ -944,5 +1012,81 @@ mod tests {
         assert_eq!(count_windows_1252_unmapped("ABC"), 0);
         assert_eq!(count_windows_1252_unmapped("\u{20AC}"), 0);
         assert_eq!(count_windows_1252_unmapped("\u{1F600}"), 1);
+    }
+
+    #[test]
+    fn load_utf16_le_bom() {
+        let dir = temp_test_dir("utf16-le-load");
+        let path = dir.join("le.txt");
+        // BOM FF FE + "Hi" as UTF-16 LE + euro
+        let mut raw = Vec::from(UTF16_LE_BOM_BYTES);
+        for u in "Hi\u{20AC}".encode_utf16() {
+            raw.extend_from_slice(&u.to_le_bytes());
+        }
+        fs::write(&path, &raw).unwrap();
+        let r = read_file(&path).unwrap();
+        assert_eq!(r.encoding, TextEncoding::Utf16Le);
+        assert_eq!(r.content, "Hi\u{20AC}");
+        assert!(r.encoding_note.is_none());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn load_utf16_be_bom() {
+        let dir = temp_test_dir("utf16-be-load");
+        let path = dir.join("be.txt");
+        let mut raw = Vec::from(UTF16_BE_BOM_BYTES);
+        for u in "AB".encode_utf16() {
+            raw.extend_from_slice(&u.to_be_bytes());
+        }
+        fs::write(&path, &raw).unwrap();
+        let r = read_file(&path).unwrap();
+        assert_eq!(r.encoding, TextEncoding::Utf16Be);
+        assert_eq!(r.content, "AB");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn roundtrip_utf16_le_and_be() {
+        let dir = temp_test_dir("utf16-rt");
+        let text = "café \u{1F600}\nline2";
+        let le = dir.join("le.txt");
+        write_file_with_encoding(&le, text, TextEncoding::Utf16Le).unwrap();
+        let raw_le = fs::read(&le).unwrap();
+        assert!(raw_le.starts_with(UTF16_LE_BOM_BYTES));
+        let r_le = read_file(&le).unwrap();
+        assert_eq!(r_le.encoding, TextEncoding::Utf16Le);
+        assert_eq!(r_le.content, text);
+
+        let be = dir.join("be.txt");
+        write_file_with_encoding(&be, text, TextEncoding::Utf16Be).unwrap();
+        let raw_be = fs::read(&be).unwrap();
+        assert!(raw_be.starts_with(UTF16_BE_BOM_BYTES));
+        let r_be = read_file(&be).unwrap();
+        assert_eq!(r_be.encoding, TextEncoding::Utf16Be);
+        assert_eq!(r_be.content, text);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn utf16_le_odd_trailing_byte_note() {
+        let mut raw = Vec::from(UTF16_LE_BOM_BYTES);
+        for u in "A".encode_utf16() {
+            raw.extend_from_slice(&u.to_le_bytes());
+        }
+        raw.push(0x00); // odd trailing
+        let (content, enc, note) = decode_bytes(&raw);
+        assert_eq!(enc, TextEncoding::Utf16Le);
+        assert_eq!(content, "A");
+        assert!(note.is_some());
+    }
+
+    #[test]
+    fn utf8_paths_still_prefer_utf8_over_false_utf16() {
+        // Valid UTF-8 must not be misread as UTF-16 (no UTF-16 BOM).
+        let (content, enc, note) = decode_bytes(b"hello");
+        assert_eq!(enc, TextEncoding::Utf8);
+        assert_eq!(content, "hello");
+        assert!(note.is_none());
     }
 }

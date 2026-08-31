@@ -23,3 +23,11 @@ Open and save UTF-16 LE/BE text files with a clear encoding path. Ship on `main`
 
 ## Privacy
 No secrets or home paths in commits or issue comments.
+
+## Progress
+- Added `Utf16Le` / `Utf16Be` to `fs::TextEncoding` and `doc::FileEncoding`.
+- Open: detect `FE FF` / `FF FE` BOM before UTF-8; decode via `from_utf16_lossy`.
+- Save: Format + Convert-to menu set encoding; write UTF-16 with BOM.
+- Tests: load LE/BE, round-trip, odd trailing byte, UTF-8 unchanged.
+- Version **0.3.6**; docs updated. Ready for 003 tester.
+- Handoff: do not close issue #8 (BOM-less UTF-16 / stylers / Scintilla remain).

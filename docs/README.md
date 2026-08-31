@@ -34,7 +34,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [bump-version.md](bump-version.md) | Bump semver when shipping features |
 | [overnight-gaps.md](overnight-gaps.md) | Overnight gap loop (issue #6) |
 | [dual-view.md](dual-view.md) | Writable dual view + pane focus |
-| [encoding.md](encoding.md) | Load/save UTF-8, UTF-8-BOM, ANSI (Windows-1252) |
+| [encoding.md](encoding.md) | Load/save UTF-8, UTF-8-BOM, UTF-16 LE/BE, ANSI (Windows-1252) |
 | [parallel-gap-sweep.md](parallel-gap-sweep.md) | Parallel agents on remaining gaps |
 | [pin-tab-file.md](pin-tab-file.md) | Pin via `IDM_PINTAB` + Close All but Pinned |
 | [project-taste.md](project-taste.md) | Taste / quality bar |

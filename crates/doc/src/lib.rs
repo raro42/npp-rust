@@ -33,6 +33,10 @@ pub enum FileEncoding {
     Utf8,
     /// UTF-8 with leading BOM on disk.
     Utf8Bom,
+    /// UTF-16 little-endian with BOM on disk.
+    Utf16Le,
+    /// UTF-16 big-endian with BOM on disk.
+    Utf16Be,
     /// Windows-1252 (ANSI stand-in); lossy on save.
     Windows1252,
 }
@@ -42,6 +46,8 @@ impl FileEncoding {
         match self {
             Self::Utf8 => "UTF-8",
             Self::Utf8Bom => "UTF-8-BOM",
+            Self::Utf16Le => "UTF-16 LE",
+            Self::Utf16Be => "UTF-16 BE",
             Self::Windows1252 => "Windows-1252",
         }
     }

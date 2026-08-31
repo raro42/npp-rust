@@ -70,7 +70,7 @@ Paint path hides `hidden_lines` and paints `style_marks` / bookmark ticks. Menu 
 - View dual-view MVP + sync H/V / zoom sync honest status (3)
 - View switch / move / clone to other view (secondary pane); project panels 1–3: doc list (5)
 - View text direction LTR/RTL: honest status only (layout stays LTR; no doc flag) (2)
-- Encoding ANSI / UTF-8 / UTF-8-BOM: per-tab save encoding; ANSI → Windows-1252 (lossy) (see `docs/encoding.md`) (1)
+- Encoding ANSI / UTF-8 / UTF-8-BOM / UTF-16 LE-BE: per-tab save; ANSI → Windows-1252 (lossy) (see `docs/encoding.md`) (1)
 - Edit column editor: insert clipboard text (or 0,1,2…) at caret column on selected lines / multi-carets; tip documents that path (2)
 - Edit function call tip: status tip from word under caret + cycle call-site snippets in file (no LSP) (3)
 - View Document Map: density strip; click/drag sets `scroll_line` (`UiFlags.show_doc_map`) (1)

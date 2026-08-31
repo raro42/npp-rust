@@ -192,6 +192,13 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_FORMAT_UTF_8"
             | "IDM_FORMAT_AS_UTF_8"
             | "IDM_FORMAT_ANSI"
+            | "IDM_FORMAT_UTF_16LE"
+            | "IDM_FORMAT_UTF_16BE"
+            | "IDM_FORMAT_CONV2_UTF_16LE"
+            | "IDM_FORMAT_CONV2_UTF_16BE"
+            | "IDM_FORMAT_CONV2_ANSI"
+            | "IDM_FORMAT_CONV2_AS_UTF_8"
+            | "IDM_FORMAT_CONV2_UTF_8"
             | "IDM_SEARCH_FIND"
             | "IDM_SEARCH_REPLACE"
             | "IDM_SEARCH_FINDNEXT"
@@ -500,7 +507,19 @@ pub fn dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> CmdResu
         if let Some(enc) = cmd.strip_prefix("IDM_FORMAT_") {
             if matches!(
                 enc,
-                "TOUNIX" | "TODOS" | "TOMAC" | "UTF_8" | "AS_UTF_8" | "ANSI"
+                "TOUNIX"
+                    | "TODOS"
+                    | "TOMAC"
+                    | "UTF_8"
+                    | "AS_UTF_8"
+                    | "ANSI"
+                    | "UTF_16LE"
+                    | "UTF_16BE"
+                    | "CONV2_UTF_16LE"
+                    | "CONV2_UTF_16BE"
+                    | "CONV2_ANSI"
+                    | "CONV2_AS_UTF_8"
+                    | "CONV2_UTF_8"
             ) {
                 // handled above
             } else {
