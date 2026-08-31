@@ -32,3 +32,8 @@ No secrets or home paths in commits or issue comments.
 - Status `CHG u/s`; Clear/jump name unsaved vs saved; Summary shows counts
 - Version **0.3.5**; `./scripts/ci-local.sh` passed
 - Handoff: ready for 003 tester (do not close #8 — UTF-16 / full Scintilla reverted markers remain)
+
+## Tester (2026-08-31)
+- Verified: `ui_paint` bar/join/wash; `editor` undo remap test; status `CHG u/s`; version **0.3.5** + changelog.
+- `./scripts/ci-local.sh` — **PASS** (fmt, clippy `-D warnings`, workspace tests, release build).
+- Result: **PASS** → `DONE-`; leave issue #8 open for handoff (UTF-16 / Scintilla reverted markers still open).
