@@ -19,3 +19,8 @@
 
 ## Progress
 - Coder (002): Global F3/Shift+F3 and Cmd+G find next/prev; Cmd+L goto; F2 bookmarks; zoom keys + Cmd+wheel; Alt+Z wrap; Cmd+H replace. Shortcut Mapper + About synced. Version **0.3.7**. `./scripts/ci-local.sh` OK. Commit `9105dd3`. Hand off to TEST (issue left open).
+
+## Tester (2026-08-31)
+- Verified: global F3/Shift+F3 and Cmd/Ctrl+G find next/prev in `crates/app/src/ui.rs`; Cmd+L goto; F2 bookmarks; zoom + Cmd+wheel; Alt+Z wrap; Cmd+H replace; Shortcut Mapper text in `crates/app/src/commands/misc.rs`; version **0.3.7**; commit `9105dd3`.
+- `./scripts/ci-local.sh` — **PASS** (fmt, clippy `-D warnings`, workspace tests, release build).
+- Result: **PASS** → `DONE-`; leave issue #9 open for handoff.
