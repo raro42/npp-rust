@@ -5,19 +5,16 @@ Source: run [33363479423](https://github.com/raro42/npp-rust/actions/runs/333634
 
 ## What happened
 
-CI **passed** on all three OS jobs. Annotations warned:
+CI **passed**. Annotations warned that `actions/checkout@v4` targeted Node 20 while runners force Node 24.
 
-> Node.js 20 is deprecated… actions target Node.js 20 but are being forced to run on Node.js 24: `actions/checkout@v4`
+## Fixes
 
-Not a Rust/build failure. GitHub is migrating JS actions off Node 20.
+1. Bump to `checkout@v5` / artifact `@v5` (Node 24).
+2. Cloud CI is **not** on every push: schedule **06:00 + 18:00 UTC** + `workflow_dispatch` (cost).
+3. Agent loop **005** refreshes `agents/workspace/ci-status.md` every cycle and queues a FEAT when the latest finished run is red.
 
-## Fix applied
+Local gate unchanged: pre-push `./scripts/ci-local.sh`.
 
-| Workflow | Change |
-|----------|--------|
-| `ci.yml` | `actions/checkout@v4` → `@v5` (Node 24) |
-| `release.yml` | `checkout@v5`; `upload-artifact` / `download-artifact` `@v4` → `@v5` |
-
-GitHub-hosted runners already support Node 24. Self-hosted would need runner ≥ `2.327.1`.
+Manual cloud run: `gh workflow run ci.yml --ref main`
 
 See: [Deprecation of Node 20 on GitHub Actions runners](https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/).
