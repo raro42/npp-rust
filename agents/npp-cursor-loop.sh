@@ -211,9 +211,30 @@ step_001_issues() {
 
 step_002_coder() {
   local feat wip task base issue_n
-  feat="$(ls -1 "$TASKDIR"/FEAT-*.md 2>/dev/null | head -n 1 || true)"
-  wip="$(ls -1 "$TASKDIR"/WIP-*.md 2>/dev/null | head -n 1 || true)"
-  task="${feat:-$wip}"
+  # When idle, promote the lowest-numbered queued FEAT (P0 before P1 by issue #).
+  if ! compgen -G "${TASKDIR}/FEAT-*.md" >/dev/null && ! compgen -G "${TASKDIR}/WIP-*.md" >/dev/null; then
+    local q
+    q="$(ls -1 "$TASKDIR"/queued/FEAT-*.md 2>/dev/null | sort -t- -k2,2n | head -n 1 || true)"
+    if [[ -n "$q" ]]; then
+      mv "$q" "$TASKDIR/$(basename "$q")"
+      echo "----- 002: promoted from queued $(basename "$q")"
+    fi
+  fi
+  # Lowest issue number wins (FEAT-9 before FEAT-10).
+  feat="$(ls -1 "$TASKDIR"/FEAT-*.md 2>/dev/null | sort -t- -k2,2n | head -n 1 || true)"
+  wip="$(ls -1 "$TASKDIR"/WIP-*.md 2>/dev/null | sort -t- -k2,2n | head -n 1 || true)"
+  if [[ -n "$feat" && -n "$wip" ]]; then
+    local fn wn
+    fn="$(echo "$feat" | sed -E 's|.*/FEAT-([0-9]+)-.*|\1|')"
+    wn="$(echo "$wip" | sed -E 's|.*/WIP-([0-9]+)-.*|\1|')"
+    if [[ "$wn" -lt "$fn" ]]; then
+      task="$wip"
+    else
+      task="$feat"
+    fi
+  else
+    task="${feat:-$wip}"
+  fi
   if [[ -z "$task" ]]; then
     echo "----- 002: no FEAT or WIP tasks"
     return 0
@@ -237,7 +258,7 @@ step_002_coder() {
 
   echo "----- 002: pending $(basename "$task")"
   run_cursor "002" \
-    "Follow agents/002-coder.md. Read agents/workspace/lessons.md and agents/workspace/todo.md first. Implement the oldest FEAT or WIP under agents/tasks/. Before push run ./scripts/ci-local.sh (fmt+clippy+test). Commit and push origin/main. Rename WIP- to TEST- when ready. Do not close the issue. Obey privacy rules."
+    "Follow agents/002-coder.md. Read agents/workspace/lessons.md and agents/workspace/todo.md first. Implement the oldest FEAT or WIP under agents/tasks/ (lowest issue number). Before push run ./scripts/ci-local.sh (fmt+clippy+test). Commit and push origin/main. Rename WIP- to TEST- when ready. Do not close the issue. Obey privacy rules."
 }
 
 step_003_tester() {
