@@ -34,7 +34,7 @@ if [[ -f "$LOOP_LOCK" ]]; then
       echo "Status: ./agents/npp-cursor-loop.sh status"
       echo "Force: AGENT_LOOP_FORCE_RESTART=1 open agents/start-unattended.command"
       tail -n 20 /tmp/npp-agent-loop.log 2>/dev/null || true
-      exit 0
+      exit 1
     fi
   else
     echo "Clearing stale loop lock (pid $old)"

@@ -412,7 +412,7 @@ case "$cmd" in
   once) run_once ;;
   loop)
     if ! acquire_loop_lock; then
-      exit 0
+      exit 1
     fi
     trap 'release_loop_lock' EXIT INT TERM
     echo "===== npp loop start AGENT_USE_CURSOR=${AGENT_USE_CURSOR} sleep=${sleepminutes}m pid=$$"
