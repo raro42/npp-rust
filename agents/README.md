@@ -23,7 +23,8 @@ Agent-ops for **npp-rs**. Privacy-first (public repo).
 | 003 | Tester | `003-tester.md` |
 | 004 | Handoff | `004-handoff.md` |
 
-Loop: `./agents/npp-cursor-loop.sh once|loop` — see [docs/agent-loop.md](../docs/agent-loop.md).
+Loop: `./agents/npp-cursor-loop.sh once|loop|status` — see [docs/agent-loop.md](../docs/agent-loop.md).  
+**Single instance:** `agents/state/loop.pid` — see [docs/agent-loop-lock.md](../docs/agent-loop-lock.md). Do not open `start-unattended.command` repeatedly; it refuses duplicates.
 
 ## Layout
 
@@ -31,7 +32,7 @@ Loop: `./agents/npp-cursor-loop.sh once|loop` — see [docs/agent-loop.md](../do
 |------|---------|
 | [tasks/](tasks/) | `FEAT-` / `WIP-` / `TEST-` queue; archive under `done/` |
 | [workspace/](workspace/) | Session todo + lessons |
-| [state/](state/) | Local stamps / agent lock (gitignored) |
+| [state/](state/) | Local stamps / `loop.pid` + `cursor.pid` locks (gitignored) |
 | [006-log-monitor/](006-log-monitor/) | Panic / local log scan |
 | [007-quality/](007-quality/) | Repo hygiene scan |
 

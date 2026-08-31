@@ -11,3 +11,4 @@ Patterns after operator corrections. Keep short. One lesson per bullet.
 - DONE handoff lines may be `- Handoff: complete`; loop grep must accept that or 004 blocks forever.
 - Start the loop with `agents/start-unattended.command` (Terminal) so it survives; macOS has no `setsid`.
 - Cloud CI is 2×/day only; trust pre-push `ci-local` and loop 005 (`agents/workspace/ci-status.md`).
+- Never start a second agent loop. Use `./agents/npp-cursor-loop.sh status`. Force restart only with `AGENT_LOOP_FORCE_RESTART=1`.

@@ -12,6 +12,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [branch-main-only.md](branch-main-only.md) | Work on `main` only (no `dev`) |
 | [../agents/AGENTS.md](../agents/AGENTS.md) | Short agent entry |
 | [agent-loop.md](agent-loop.md) | GitHub issue agent loop |
+| [agent-loop-lock.md](agent-loop-lock.md) | Single-instance loop lock |
 | [agent-loop-mac-stats-inspiration.md](agent-loop-mac-stats-inspiration.md) | Ideas taken from mac-stats agent-ops |
 | [security-public-repo.md](security-public-repo.md) | No private data on public GitHub |
 | [tail-log.md](tail-log.md) | Log tail / Monitoring |

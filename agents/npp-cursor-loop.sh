@@ -22,7 +22,10 @@ STATEDIR="${SCRIPTDIR}/state"
 GH_REPO="${NPP_GH_REPO:-raro42/npp-rust}"
 sleepminutes="${AGENT_LOOP_SLEEP_MINUTES:-15}"
 sleepseconds=$((sleepminutes * 60))
-AGENT_LOCK="${STATEDIR}/agent.pid"
+# Cursor-agent spawn lock (one coder/tester at a time).
+CURSOR_LOCK="${STATEDIR}/cursor.pid"
+# Single-instance loop lock (PID file). Prevents duplicate `loop` processes.
+LOOP_LOCK="${STATEDIR}/loop.pid"
 
 export PATH="${HOME}/.local/bin:/usr/local/bin:${PATH}"
 cd "$REPO_ROOT"
@@ -55,22 +58,95 @@ tick() {
   echo "AGENT_LOOP_TICK {\"at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"msg\":\"$*\"}"
 }
 
-acquire_agent_lock() {
-  if [[ -f "$AGENT_LOCK" ]]; then
-    local old
-    old="$(cat "$AGENT_LOCK" 2>/dev/null || true)"
-    if [[ -n "$old" ]] && kill -0 "$old" 2>/dev/null; then
-      echo "----- agent lock held by pid $old — skip cursor spawn"
+pid_is_alive() {
+  local pid="$1"
+  [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+}
+
+pid_is_our_loop() {
+  local pid="$1"
+  local cmd
+  cmd="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+  [[ "$cmd" == *npp-cursor-loop.sh* ]]
+}
+
+# True if another loop holds LOOP_LOCK with a live matching process.
+loop_lock_held() {
+  local old
+  [[ -f "$LOOP_LOCK" ]] || return 1
+  old="$(tr -d ' \n' <"$LOOP_LOCK" 2>/dev/null || true)"
+  if pid_is_alive "$old" && pid_is_our_loop "$old"; then
+    echo "$old"
+    return 0
+  fi
+  return 1
+}
+
+release_loop_lock() {
+  local old
+  [[ -f "$LOOP_LOCK" ]] || return 0
+  old="$(tr -d ' \n' <"$LOOP_LOCK" 2>/dev/null || true)"
+  if [[ "$old" == "$$" ]]; then
+    rm -f "$LOOP_LOCK"
+  fi
+}
+
+acquire_loop_lock() {
+  local old
+  mkdir -p "$STATEDIR"
+  if old="$(loop_lock_held)"; then
+    echo "----- loop lock held by pid $old — refuse duplicate loop" >&2
+    echo "----- already running. Log: /tmp/npp-agent-loop.log" >&2
+    echo "----- force restart: AGENT_LOOP_FORCE_RESTART=1 ./agents/start-unattended.command" >&2
+    return 1
+  fi
+  # Stale lock (dead pid or wrong process).
+  rm -f "$LOOP_LOCK"
+  # Atomic create: fail if another starter won the race.
+  if ! (set -o noclobber; echo "$$" >"$LOOP_LOCK") 2>/dev/null; then
+    old="$(tr -d ' \n' <"$LOOP_LOCK" 2>/dev/null || true)"
+    if pid_is_alive "$old" && pid_is_our_loop "$old"; then
+      echo "----- loop lock race lost to pid $old — refuse duplicate" >&2
       return 1
     fi
+    echo "$$" >"$LOOP_LOCK"
   fi
-  echo $$ >"$AGENT_LOCK"
+  # Re-check we still own it.
+  old="$(tr -d ' \n' <"$LOOP_LOCK" 2>/dev/null || true)"
+  if [[ "$old" != "$$" ]]; then
+    echo "----- loop lock stolen by pid $old — exit" >&2
+    return 1
+  fi
+  echo "----- loop lock acquired pid $$ ($LOOP_LOCK)"
   return 0
 }
 
-release_agent_lock() {
-  rm -f "$AGENT_LOCK"
+acquire_cursor_lock() {
+  local old
+  if [[ -f "$CURSOR_LOCK" ]]; then
+    old="$(tr -d ' \n' <"$CURSOR_LOCK" 2>/dev/null || true)"
+    if pid_is_alive "$old"; then
+      echo "----- cursor lock held by pid $old — skip cursor spawn"
+      return 1
+    fi
+  fi
+  echo $$ >"$CURSOR_LOCK"
+  return 0
 }
+
+release_cursor_lock() {
+  local old
+  [[ -f "$CURSOR_LOCK" ]] || return 0
+  old="$(tr -d ' \n' <"$CURSOR_LOCK" 2>/dev/null || true)"
+  # Lock stores the loop pid while cursor-agent runs under it.
+  if [[ "$old" == "$$" ]]; then
+    rm -f "$CURSOR_LOCK"
+  fi
+}
+
+# Back-compat names used below.
+acquire_agent_lock() { acquire_cursor_lock; }
+release_agent_lock() { release_cursor_lock; }
 
 run_cursor() {
   local role="$1"
@@ -335,13 +411,25 @@ cmd="${1:-once}"
 case "$cmd" in
   once) run_once ;;
   loop)
-    echo "===== npp loop start AGENT_USE_CURSOR=${AGENT_USE_CURSOR} sleep=${sleepminutes}m"
+    if ! acquire_loop_lock; then
+      exit 0
+    fi
+    trap 'release_loop_lock' EXIT INT TERM
+    echo "===== npp loop start AGENT_USE_CURSOR=${AGENT_USE_CURSOR} sleep=${sleepminutes}m pid=$$"
     while true; do
       run_once || true
       echo "AGENT_LOOP_SLEEP {\"minutes\":${sleepminutes}}"
       echo "----- sleep ${sleepminutes}m"
       sleep "$sleepseconds"
     done
+    ;;
+  status)
+    if old="$(loop_lock_held)"; then
+      echo "loop running pid=$old lock=$LOOP_LOCK"
+      exit 0
+    fi
+    echo "loop not running"
+    exit 1
     ;;
   001) sync_main; step_001_issues ;;
   002) sync_main; step_002_coder ;;
@@ -352,7 +440,7 @@ case "$cmd" in
   007) sync_main; step_007_quality ;;
   008) sync_main; AGENT_GIT_FLUSH_FORCE=1 step_008_git_flush ;;
   *)
-    echo "usage: $0 [once|loop|001|002|003|004|005|006|007|008]" >&2
+    echo "usage: $0 [once|loop|status|001|002|003|004|005|006|007|008]" >&2
     exit 2
     ;;
 esac
