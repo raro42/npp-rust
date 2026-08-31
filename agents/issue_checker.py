@@ -107,11 +107,9 @@ def list_open_issues(limit: int = 30) -> list[dict]:
     return json.loads(out or "[]")
 
 
-def already_planned(issue: dict) -> bool:
-    labels = {lab.get("name", "") for lab in issue.get("labels") or []}
-    if "agent:planned" in labels:
-        return True
-    return False
+def already_has_task(issue: dict, known: set[int]) -> bool:
+    """Skip only when a FEAT/WIP/TEST/DONE task already references this issue."""
+    return int(issue["number"]) in known
 
 
 def write_feat(issue: dict) -> Path:
@@ -178,9 +176,7 @@ def main() -> int:
         if len(created) >= MAX_NEW:
             break
         n = int(issue["number"])
-        if n in known:
-            continue
-        if already_planned(issue):
+        if already_has_task(issue, known):
             continue
         path = write_feat(issue)
         created.append(path)
