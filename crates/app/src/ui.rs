@@ -316,14 +316,42 @@ impl EditorApp {
                 i.key_pressed(Key::L),
                 i.key_pressed(Key::I),
                 i.key_pressed(Key::T),
-                i.key_pressed(Key::ArrowLeft), // reserved
-                i.key_pressed(Key::ArrowRight),
+                i.key_pressed(Key::H),
+                i.key_pressed(Key::F2),
+                i.key_pressed(Key::F3),
+                i.key_pressed(Key::Equals),
+                i.key_pressed(Key::Minus),
+                i.key_pressed(Key::Num0),
                 i.key_pressed(Key::CloseBracket),
                 i.key_pressed(Key::OpenBracket),
+                i.raw_scroll_delta.y,
             )
         });
-        let (mods, n, o, s, f, z, y, w, g, a, d, l, i_key, t, _left, _right, close_br, open_br) =
-            input;
+        let (
+            mods,
+            n,
+            o,
+            s,
+            f,
+            z,
+            y,
+            w,
+            g,
+            a,
+            d,
+            l,
+            i_key,
+            t,
+            h,
+            f2,
+            f3,
+            equals,
+            minus,
+            num0,
+            close_br,
+            open_br,
+            scroll_y,
+        ) = input;
         let cmd = mods.command || mods.ctrl;
 
         if cmd && mods.shift && t && self.state.toggle_tail_follow() {
@@ -340,7 +368,7 @@ impl EditorApp {
         } else if cmd && s {
             self.state.save();
         }
-        if cmd && f && mods.shift {
+        if (cmd && h && !mods.shift) || (cmd && f && mods.shift) {
             self.show_replace = true;
             self.state.find_open = true;
             self.find_focus_once = true;
@@ -374,6 +402,8 @@ impl EditorApp {
             }
             self.state.mark_text_changed_at(tab);
             self.follow_focused_caret();
+        } else if cmd && l {
+            self.open_goto_line_dialog();
         }
         if cmd && close_br {
             let tab = self.focused_edit_tab();
@@ -405,6 +435,14 @@ impl EditorApp {
             self.state.redo_at(self.focused_edit_tab());
         } else if cmd && z {
             self.state.undo_at(self.focused_edit_tab());
+        } else if mods.alt && z && !cmd {
+            self.state.word_wrap = !self.state.word_wrap;
+            self.state.settings.word_wrap = self.state.word_wrap;
+            self.state.settings.save();
+            self.state.status = format!(
+                "Word wrap: {}",
+                if self.state.word_wrap { "on" } else { "off" }
+            );
         }
         if cmd && y {
             self.state.redo_at(self.focused_edit_tab());
@@ -414,17 +452,94 @@ impl EditorApp {
             self.state.request_close_tab(idx);
             self.scroll_line = 0.0;
         }
-        if (self.state.find_open || self.show_replace) && cmd && g && mods.shift {
+
+        // Find next/prev: F3 / Shift+F3 and Cmd+G / Cmd+Shift+G (global; Find bar optional).
+        let find_prev_key = (f3 && mods.shift) || (cmd && g && mods.shift);
+        let find_next_key = (f3 && !mods.shift) || (cmd && g && !mods.shift);
+        if find_prev_key {
+            if self.state.find_query.is_empty() {
+                self.seed_find_from_selection();
+            }
             self.state.find_prev();
-            self.follow_caret = true;
-        } else if (self.state.find_open || self.show_replace) && cmd && g {
+            self.follow_focused_caret();
+        } else if find_next_key {
+            if self.state.find_query.is_empty() {
+                self.seed_find_from_selection();
+            }
             self.state.find_next();
-            self.follow_caret = true;
+            self.follow_focused_caret();
         }
+
+        // Bookmarks: F2 next, Shift+F2 prev, Cmd+F2 toggle.
+        if f2 && cmd {
+            self.run_shortcut_cmd("IDM_SEARCH_TOGGLE_BOOKMARK");
+        } else if f2 && mods.shift {
+            self.run_shortcut_cmd("IDM_SEARCH_PREV_BOOKMARK");
+        } else if f2 {
+            self.run_shortcut_cmd("IDM_SEARCH_NEXT_BOOKMARK");
+        }
+
+        // Zoom: Cmd+= / Cmd+- / Cmd+0, and Cmd+mouse wheel.
+        if cmd && equals {
+            self.font_size = (self.font_size + 1.0).min(48.0);
+            self.persist_font_size();
+        } else if cmd && minus {
+            self.font_size = (self.font_size - 1.0).max(8.0);
+            self.persist_font_size();
+        } else if cmd && num0 {
+            self.font_size = 14.0;
+            self.persist_font_size();
+        } else if cmd && scroll_y != 0.0 {
+            if scroll_y > 0.0 {
+                self.font_size = (self.font_size + 1.0).min(48.0);
+            } else {
+                self.font_size = (self.font_size - 1.0).max(8.0);
+            }
+            self.persist_font_size();
+        }
+
         if (self.state.find_open || self.show_replace) && ctx.input(|i| i.key_pressed(Key::Escape))
         {
             self.state.find_open = false;
             self.show_replace = false;
+        }
+    }
+
+    fn open_goto_line_dialog(&mut self) {
+        self.show_goto_line = true;
+        let line = self
+            .state
+            .tabs
+            .active()
+            .buffer
+            .char_to_line(self.state.tabs.active().buffer.caret())
+            + 1;
+        self.goto_line_input = line.to_string();
+    }
+
+    fn run_shortcut_cmd(&mut self, cmd: &str) {
+        let mut flags = crate::commands::UiFlags::default();
+        let _ = self.dispatch_menu_cmd(cmd, &mut flags);
+        if flags.follow_caret {
+            self.follow_focused_caret();
+        }
+        if flags.show_goto_line {
+            self.open_goto_line_dialog();
+        }
+        match flags.zoom_delta {
+            Some(1) => {
+                self.font_size = (self.font_size + 1.0).min(48.0);
+                self.persist_font_size();
+            }
+            Some(-1) => {
+                self.font_size = (self.font_size - 1.0).max(8.0);
+                self.persist_font_size();
+            }
+            Some(0) => {
+                self.font_size = 14.0;
+                self.persist_font_size();
+            }
+            _ => {}
         }
     }
 
@@ -473,15 +588,7 @@ impl EditorApp {
                 self.follow_caret = false;
             }
             if flags.show_goto_line {
-                self.show_goto_line = true;
-                let line = self
-                    .state
-                    .tabs
-                    .active()
-                    .buffer
-                    .char_to_line(self.state.tabs.active().buffer.caret())
-                    + 1;
-                self.goto_line_input = line.to_string();
+                self.open_goto_line_dialog();
             }
             if flags.show_summary {
                 self.show_summary = true;
@@ -514,7 +621,8 @@ impl EditorApp {
                     self.persist_font_size();
                 }
                 Some(0) => {
-                    self.font_size = self.state.settings.font_size.clamp(8.0, 48.0);
+                    self.font_size = 14.0;
+                    self.persist_font_size();
                 }
                 _ => {}
             }
@@ -753,8 +861,13 @@ Tree-sitter highlight, and a calm UI.",
                             ("⌘/Ctrl O", "Open"),
                             ("⌘/Ctrl S", "Save"),
                             ("⌘/Ctrl ⇧ S", "Save As"),
-                            ("⌘/Ctrl F / ⇧ F", "Find / Replace"),
-                            ("⌘/Ctrl G", "Find next"),
+                            ("⌘/Ctrl F / H", "Find / Replace"),
+                            ("F3 / ⇧ F3", "Find next / prev"),
+                            ("⌘/Ctrl G", "Find next (global)"),
+                            ("⌘/Ctrl L", "Go to line"),
+                            ("F2 / ⇧ F2", "Next / prev bookmark"),
+                            ("⌘/Ctrl = / -", "Zoom in / out"),
+                            ("Alt Z", "Word wrap"),
                             ("⌘/Ctrl A", "Select all"),
                             ("⌘/Ctrl D", "Duplicate line"),
                             ("⌘/Ctrl ] / [", "Indent / Outdent"),
@@ -2235,8 +2348,15 @@ Tree-sitter highlight, and a calm UI.",
 
             // Mouse-wheel scroll must not be overridden by caret-follow.
             // In dual view, only scroll this pane when the pointer is over it.
+            // Cmd/Ctrl+wheel zooms (handled in handle_shortcuts); skip scroll then.
             let scroll = if !self.dual_view || response.hovered() {
-                ui.input(|i| i.raw_scroll_delta.y)
+                ui.input(|i| {
+                    if i.modifiers.command || i.modifiers.ctrl {
+                        0.0
+                    } else {
+                        i.raw_scroll_delta.y
+                    }
+                })
             } else {
                 0.0
             };
@@ -3102,7 +3222,13 @@ Tree-sitter highlight, and a calm UI.",
         };
 
         let scroll = if response.hovered() {
-            ui.input(|i| i.raw_scroll_delta.y)
+            ui.input(|i| {
+                if i.modifiers.command || i.modifiers.ctrl {
+                    0.0
+                } else {
+                    i.raw_scroll_delta.y
+                }
+            })
         } else {
             0.0
         };

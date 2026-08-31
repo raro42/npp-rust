@@ -1,18 +1,19 @@
-# Next gaps (post v0.3.6)
+# Next gaps (post v0.3.7)
 
 Date: 2026-08-31  
-Status: Issue **#8** closed (themes / change-history / UTF-16 shipped). New work tracked as **#9–#14**.
+Status: Issue **#8** closed. **#9** coder batch in v0.3.7 (await TEST). Open: **#10–#14**.
 
 ## Done recently
 
 - v0.3.1–v0.3.6: Preferences, project/ANSI, themes, change-history, UTF-16
+- v0.3.7: Global F3 find next/prev + more hard-wired hotkeys (#9 coder)
 - Gap analysis: `docs/gap-analysis-vs-npp.md`
 
 ## Open GitHub issues (loop)
 
 | # | Priority | Title |
 |---|----------|--------|
-| [9](https://github.com/raro42/npp-rust/issues/9) | P0 | More hotkeys + global Find next (F3) |
+| [9](https://github.com/raro42/npp-rust/issues/9) | P0 | More hotkeys + global Find next (F3) — coding done, test pending |
 | [10](https://github.com/raro42/npp-rust/issues/10) | P0 | File drop + selection drag move/copy |
 | [11](https://github.com/raro42/npp-rust/issues/11) | P0 | Column/rect select + multi-caret typing |
 | [12](https://github.com/raro42/npp-rust/issues/12) | P1 | Deeper Find in Files |

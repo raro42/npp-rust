@@ -14,7 +14,7 @@ Expect large gaps. The menu tree looks complete. Behaviour depth does not.
 |-------|-----------|--------------|
 | Menu IDs | Full Win32 tree | ~478 IDs, almost all teal |
 | Edit engine | Scintilla | Custom rope + egui paint |
-| Shortcuts | Remappable (`shortcuts.xml`) | ~20 hard-wired keys |
+| Shortcuts | Remappable (`shortcuts.xml`) | Hard-wired set (v0.3.7+; no remap) |
 | Plugins | DLL ABI + Admin | In-process builtins only |
 | Languages | 80+ + UDL | Tree-sitter subset (~7–8) |
 | Platforms | Windows-first | macOS / Linux / Windows |
@@ -44,21 +44,25 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+] / [ | Indent / outdent |
 | Cmd/Ctrl+Shift+I | Format Document |
 | Cmd/Ctrl+F | Find |
-| Cmd/Ctrl+Shift+F | Replace |
-| Cmd/Ctrl+G / Shift+G | Find next/prev **only while Find/Replace is open** |
+| Cmd/Ctrl+H / Shift+F | Replace |
+| F3 / Shift+F3 | Find next/prev (**global**) |
+| Cmd/Ctrl+G / Shift+G | Find next/prev (**global**) |
+| Cmd/Ctrl+L | Go to line |
+| F2 / Shift+F2 | Next / previous bookmark |
+| Cmd/Ctrl+F2 | Toggle bookmark |
 | Escape | Close Find/Replace |
+| Cmd/Ctrl+= / − / 0 | Zoom in / out / restore |
+| Cmd/Ctrl+mouse wheel | Zoom |
+| Alt+Z | Word wrap |
 | Cmd/Ctrl+Shift+T | Toggle log tail |
 | Alt+← / → | Word jump |
 
 Missing vs typical Notepad++ (examples, not exhaustive):
 
-- Global F3 / Shift+F3 (Find next without Find bar)
-- Ctrl+H as Replace (we use Shift+F)
-- Goto line, bookmarks, fold, zoom, wrap, print
 - Macro record/play keys
 - Multi-select / column mode keys
 - Remappable Scintilla keys (`shortcuts.xml`)
-- Ctrl+MouseWheel zoom (menu text mentions it; code does not)
+- Fold margin keys / print accelerator
 
 Hundreds of menu commands have **no** accelerator.
 
@@ -117,8 +121,8 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 
 ### P0 — daily editor feel
 
-1. **More hotkeys** + optional remap (`shortcuts.xml` or settings)
-2. **Global Find next** (F3) without Find bar open
+1. **More hotkeys** + optional remap (`shortcuts.xml` or settings) — hard-wired set grew in v0.3.7; remap still missing
+2. **Global Find next** (F3) — **done** in v0.3.7
 3. **File drop** onto the window
 4. **Selection drag** move/copy (optional with modifier)
 5. **True column / rectangular select** (Alt+drag) + multi-caret typing

@@ -227,16 +227,27 @@ Cmd+]                 Indent lines (4 spaces)
 Cmd+[                 Outdent lines (4 spaces)
 Cmd+Shift+I           Format Document (format.document plugin)
 
-Find
-----
+Find / navigate
+---------------
 Cmd+F                 Find
-Cmd+Shift+F           Replace
-Cmd+G                 Find next (when Find/Replace open)
-Cmd+Shift+G           Find previous (when Find/Replace open)
+Cmd+H / Cmd+Shift+F   Replace
+F3                    Find next (global; Find bar optional)
+Shift+F3              Find previous (global)
+Cmd+G                 Find next (global)
+Cmd+Shift+G           Find previous (global)
+Cmd+L                 Go to line
+F2                    Next bookmark
+Shift+F2              Previous bookmark
+Cmd+F2                Toggle bookmark
 Escape                Close Find/Replace
 
-View / monitoring
------------------
+View / zoom
+-----------
+Cmd+= / Cmd+Plus      Zoom in
+Cmd+-                 Zoom out
+Cmd+0                 Zoom restore (14pt)
+Cmd+mouse wheel       Zoom in / out
+Alt+Z                 Toggle word wrap
 Cmd+Shift+T           Toggle log tail follow
 
 Language / style

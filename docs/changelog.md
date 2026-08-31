@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.7] — 2026-08-31
+
+Issue #9 (P0 hotkeys / Find next):
+
+- F3 / Shift+F3 find next/prev without the Find bar open
+- Cmd/Ctrl+G / Shift+G find next/prev are global
+- Cmd/Ctrl+L go to line; F2 / Shift+F2 / Cmd+F2 bookmarks
+- Cmd/Ctrl+= − 0 and Cmd/Ctrl+mouse wheel zoom; Alt+Z word wrap
+- Cmd/Ctrl+H replace; Shortcut Mapper and About lists updated
+
 ## [0.3.6] — 2026-08-31
 
 Issue #8 (P1 encoding):
