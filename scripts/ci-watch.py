@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Daily CI watch for the npp-rs agent loop.
+"""CI watch for the npp-rs agent loop.
 
-Looks at recent GitHub Actions CI failures on main.
-At most once per UTC day (unless --force), writes a FEAT task when CI is red
-and no CI fix task is already open.
+Runs every loop cycle (cheap `gh` calls). Always refreshes
+`agents/workspace/ci-status.md` so humans need not babysit Actions.
+
+When the latest finished CI on main is red and no CI FEAT/WIP/TEST exists,
+writes `agents/tasks/FEAT-ci-*-fix-github-ci.md`.
+
+GitHub CI itself is scheduled 2×/day (+ workflow_dispatch) — see ci.yml.
+Local gate: pre-push `./scripts/ci-local.sh`.
 
 Privacy: task text is repo-relative only. No home paths.
 """
@@ -22,16 +27,18 @@ REPO = Path(__file__).resolve().parents[1]
 AGENTS = REPO / "agents"
 TASKDIR = AGENTS / "tasks"
 STATEDIR = AGENTS / "state"
+WORKDIR = AGENTS / "workspace"
+STATUS = WORKDIR / "ci-status.md"
 STAMP = STATEDIR / "ci-watch.stamp"
 GH_REPO = os.environ.get("NPP_GH_REPO", "raro42/npp-rust")
 
 
-def utc_today() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def utc_stamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+    return utc_now().strftime("%Y%m%d-%H%M")
 
 
 def run_gh(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -44,37 +51,21 @@ def run_gh(args: list[str]) -> subprocess.CompletedProcess[str]:
     )
 
 
-def already_checked_today() -> bool:
-    if not STAMP.is_file():
-        return False
-    try:
-        return STAMP.read_text(encoding="utf-8").strip()[:10] == utc_today()
-    except OSError:
-        return False
-
-
 def write_stamp() -> None:
     STATEDIR.mkdir(parents=True, exist_ok=True)
-    STAMP.write_text(
-        f"{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}\n",
-        encoding="utf-8",
-    )
+    STAMP.write_text(utc_now().strftime("%Y-%m-%dT%H:%M:%SZ") + "\n", encoding="utf-8")
 
 
 def open_ci_tasks() -> list[Path]:
     out: list[Path] = []
-    for pattern in ("FEAT-*ci*.md", "WIP-*ci*.md", "TEST-*ci*.md", "FEAT-ci-*.md", "WIP-ci-*.md"):
-        out.extend(TASKDIR.glob(pattern))
-    # Also match FEAT-0-…-fix-ci style
     for p in TASKDIR.glob("*.md"):
         name = p.name.lower()
         if any(name.startswith(pref) for pref in ("feat-", "wip-", "test-")) and "ci" in name:
-            if p not in out:
-                out.append(p)
+            out.append(p)
     return out
 
 
-def list_failed_ci() -> list[dict]:
+def list_ci_runs(limit: int = 6) -> list[dict]:
     proc = run_gh(
         [
             "run",
@@ -84,33 +75,65 @@ def list_failed_ci() -> list[dict]:
             "--workflow",
             "ci.yml",
             "--limit",
-            "8",
+            str(limit),
             "--json",
-            "databaseId,conclusion,headBranch,displayTitle,url,createdAt,status",
+            "databaseId,conclusion,headBranch,displayTitle,url,createdAt,status,event",
         ]
     )
     if proc.returncode != 0:
         print(f"ci-watch: gh failed: {proc.stderr.strip()}", file=sys.stderr)
         return []
     try:
-        rows = json.loads(proc.stdout or "[]")
+        return json.loads(proc.stdout or "[]")
     except json.JSONDecodeError:
         return []
-    failed = []
-    for row in rows:
-        if row.get("conclusion") != "failure":
-            continue
-        branch = row.get("headBranch") or ""
-        if branch != "main":
-            continue
-        failed.append(row)
-    return failed
+
+
+def write_status(runs: list[dict], note: str) -> None:
+    WORKDIR.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# CI status (agent watch)",
+        "",
+        f"Updated: {utc_now().strftime('%Y-%m-%dT%H:%M:%SZ')}",
+        f"Repo: `{GH_REPO}`",
+        f"Workflow: `ci.yml` (schedule 06:00 + 18:00 UTC, `workflow_dispatch`)",
+        "",
+        note,
+        "",
+        "| When (UTC) | Event | Status | Conclusion | Title | Run |",
+        "|------------|-------|--------|------------|-------|-----|",
+    ]
+    for row in runs[:6]:
+        created = (row.get("createdAt") or "")[:19].replace("T", " ")
+        event = row.get("event") or "?"
+        status = row.get("status") or "?"
+        conclusion = row.get("conclusion") or "—"
+        title = (row.get("displayTitle") or "CI").replace("|", "/").replace("\n", " ")[:60]
+        rid = row.get("databaseId")
+        url = row.get("url") or ""
+        link = f"[`{rid}`]({url})" if rid and url else str(rid)
+        lines.append(
+            f"| {created} | {event} | {status} | {conclusion} | {title} | {link} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Who watches",
+            "",
+            "- Agent loop step **005** runs `scripts/ci-watch.py` every cycle.",
+            "- On **failure**: creates `FEAT-ci-…` and spawns a fixer (if no CI task open).",
+            "- Local: `pre-push` still runs `./scripts/ci-local.sh` (free; no GitHub minutes).",
+            "",
+            "Manual: `gh workflow run ci.yml --ref main`",
+            "",
+        ]
+    )
+    STATUS.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def write_feat(failures: list[dict]) -> Path:
     TASKDIR.mkdir(parents=True, exist_ok=True)
-    stamp = utc_stamp()
-    path = TASKDIR / f"FEAT-ci-{stamp}-fix-github-ci.md"
+    path = TASKDIR / f"FEAT-ci-{utc_stamp()}-fix-github-ci.md"
     lines = [
         "# Fix failing GitHub CI",
         "",
@@ -119,31 +142,28 @@ def write_feat(failures: list[dict]) -> Path:
         "",
         "## Local gates (must pass before push)",
         "- `./scripts/ci-local.sh`",
-        "- or: `cargo fmt --all -- --check`",
-        "- `cargo clippy --workspace --all-targets -- -D warnings`",
-        "- `cargo test --workspace`",
         "",
         "## Recent failures (sanitized)",
     ]
     for row in failures[:5]:
         title = (row.get("displayTitle") or "CI").replace("\n", " ")[:120]
-        branch = row.get("headBranch") or "?"
         rid = row.get("databaseId")
-        lines.append(f"- branch `{branch}` run `{rid}`: {title}")
+        lines.append(f"- run `{rid}`: {title}")
         lines.append(f"  - inspect: `gh run view {rid} --log-failed` (redact private paths)")
     lines.extend(
         [
             "",
             "## Steps",
-            "1. Reproduce with `./scripts/ci-local.sh` on branch `main`.",
+            "1. Reproduce with `./scripts/ci-local.sh` on `main`.",
             "2. Fix fmt/clippy/tests.",
             "3. Commit and push `main`.",
-            "4. Confirm a new CI run succeeds.",
+            "4. Trigger CI if needed: `gh workflow run ci.yml --ref main`",
+            "5. Confirm green: `gh run list --workflow=ci.yml --limit 3`",
             "",
             "## Privacy",
             "- No home paths, secrets, or emails in commits or task notes.",
             "",
-            f"Created: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}",
+            f"Created: {utc_now().strftime('%Y-%m-%dT%H:%M:%SZ')}",
             "",
         ]
     )
@@ -153,40 +173,64 @@ def write_feat(failures: list[dict]) -> Path:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--force", action="store_true", help="Ignore daily stamp")
     ap.add_argument(
         "--check-only",
         action="store_true",
-        help="Print status; do not write tasks or stamp",
+        help="Refresh status file; do not write FEAT tasks",
+    )
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="Ignored (kept for loop compatibility); watch always runs",
     )
     args = ap.parse_args()
 
-    if not args.force and not args.check_only and already_checked_today():
-        print(f"ci-watch: already checked today ({utc_today()}); skip")
+    runs = list_ci_runs()
+    if not runs:
+        write_status([], "Note: no CI runs returned (gh auth or empty history).")
+        write_stamp()
+        print("ci-watch: no runs listed")
         return 0
 
-    failures = list_failed_ci()
-    if not failures:
-        print("ci-watch: no recent CI failures on main")
-        if not args.check_only:
-            write_stamp()
+    # Prefer latest finished run on main for health; ignore in_progress for "red".
+    finished = [
+        r
+        for r in runs
+        if (r.get("headBranch") or "main") in ("main", "")
+        and r.get("status") == "completed"
+    ]
+    in_flight = [r for r in runs if r.get("status") == "in_progress"]
+    failures = [r for r in finished if r.get("conclusion") == "failure"]
+
+    if in_flight:
+        note = f"In progress: {len(in_flight)} run(s). Watcher will re-check next cycle."
+    elif failures and finished and finished[0].get("conclusion") == "failure":
+        note = f"**RED** — latest finished run failed (`{finished[0].get('databaseId')}`)."
+    elif finished and finished[0].get("conclusion") == "success":
+        note = f"**GREEN** — latest finished run `{finished[0].get('databaseId')}` succeeded."
+    else:
+        note = "No clear finished success/failure on main yet."
+
+    write_status(runs, note)
+    write_stamp()
+    print(f"ci-watch: {note}")
+
+    # Only queue FEAT when the *latest* finished run is a failure.
+    latest_failed = bool(finished) and finished[0].get("conclusion") == "failure"
+    if not latest_failed:
         return 0
 
-    print(f"ci-watch: {len(failures)} recent failure(s) on main")
     existing = open_ci_tasks()
     if existing:
         print(f"ci-watch: open CI task already exists: {existing[0].name}")
-        if not args.check_only:
-            write_stamp()
-        return 0
+        return 1
 
     if args.check_only:
         return 1
 
-    path = write_feat(failures)
-    write_stamp()
+    path = write_feat(failures[:3] or finished[:1])
     print(f"ci-watch: wrote {path.relative_to(REPO)}")
-    return 2  # signal: new FEAT created
+    return 2
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ Repo: [raro42/npp-rust](https://github.com/raro42/npp-rust)
 
 ## CI builds (Linux + Windows + macOS)
 
-- **CI** (`.github/workflows/ci.yml`): `fmt --check`, `clippy -D warnings`, test, and release build on Ubuntu, Windows, macOS.
+- **CI** (`.github/workflows/ci.yml`): `fmt --check`, `clippy -D warnings`, test, and release build on Ubuntu, Windows, macOS. Triggers: **schedule 06:00 + 18:00 UTC** and `workflow_dispatch` (not every push).
 - **Release** (`.github/workflows/release.yml`): on tag `v*`, build binaries and attach them to a GitHub Release.
 
 Yes — GitHub Actions compiles for **Linux** and **Windows** (and macOS).

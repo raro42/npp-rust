@@ -18,7 +18,7 @@ See [agents/README.md](../agents/README.md): always test, watch CI, skim panic l
 
 | Step | Agent | Input | Output |
 |------|-------|-------|--------|
-| 005 | CI watch | GitHub Actions `ci.yml` | `FEAT-ci-…` when red (≤1×/UTC day) |
+| 005 | CI watch | GitHub Actions `ci.yml` | refresh `ci-status.md` every cycle; `FEAT-ci-…` when latest finished run is red |
 | 006 | Log monitor | `logs/panic.log` | `FEAT-log-…` on new signature |
 | 007 | Quality | repo layout | fix or FEAT (≤1×/UTC week) |
 | 008 | Git flush | dirty tree | commit+push safe files (≤1×/UTC day) |

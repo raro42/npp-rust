@@ -141,11 +141,11 @@ step_005_ci_watch() {
   if [[ "$rc" -eq 2 ]]; then
     echo "----- 005: queued CI fix FEAT"
     run_cursor "005" \
-      "Follow agents/005-ci-watcher.md and agents/002-coder.md. Read agents/workspace/lessons.md. Fix GitHub CI using ./scripts/ci-local.sh. Commit and push origin/main. Rename WIP to TEST when ready. Obey privacy rules."
+      "Follow agents/005-ci-watcher.md and agents/002-coder.md. Read agents/workspace/lessons.md and agents/workspace/ci-status.md. Fix GitHub CI using ./scripts/ci-local.sh. Commit and push origin/main. Optionally: gh workflow run ci.yml --ref main. Rename WIP to TEST when ready. Obey privacy rules."
   elif [[ "$rc" -eq 0 ]]; then
-    echo "----- 005: CI watch OK or already stamped today"
+    echo "----- 005: CI watch OK (see agents/workspace/ci-status.md)"
   else
-    echo "----- 005: CI red but task exists (or gh error)"
+    echo "----- 005: CI red but task exists (or gh error); see agents/workspace/ci-status.md"
   fi
   return 0
 }

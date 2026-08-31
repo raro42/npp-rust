@@ -21,10 +21,12 @@ cargo build -p app --release
 | **Before push** | full `./scripts/ci-local.sh` (fmt + clippy + test + release build) | `pre-push` hook + coder |
 | **Loop 002 coder** | fmt+clippy before commit; **ci-local before push / TEST-** | required |
 | **Loop 003 tester** | **ci-local** must pass before DONE | required |
-| **Loop 005 CI watch** | GitHub Actions after push | daily catch |
-| **Loop 008 git flush** | ci-local if Rust files dirty | before flush push |
+| **Loop 005 CI watch** | Refresh `agents/workspace/ci-status.md` every cycle; FEAT if latest cloud CI red | agent loop |
+| **GitHub CI** | `ci.yml` **2×/day** UTC (06:00 + 18:00) + manual `workflow_dispatch` | not every commit |
 
-You do **not** need full `ci-local.sh` on every tiny docs-only commit. You **do** need it before any push that GitHub CI will build, and before marking a task DONE.
+You do **not** need full `ci-local.sh` on every tiny docs-only commit. You **do** need it before any push (pre-push hook), and before marking a task DONE.
+
+Cloud CI is **not** on every push (cost). Trust local `ci-local` + the twice-daily Actions run. Manual: `gh workflow run ci.yml --ref main`.
 
 Enable hooks once per clone:
 

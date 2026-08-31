@@ -13,7 +13,7 @@
 
 Each cycle (`./agents/npp-cursor-loop.sh once` or `loop`):
 
-0. **005** — daily CI watch → `FEAT-ci-*-fix-github-ci.md` when Actions are red  
+0. **005** — CI watch every cycle → `agents/workspace/ci-status.md`; `FEAT-ci-*-fix-github-ci.md` when latest finished run is red  
 0b. **006** — panic log scan → `FEAT-log-*-panic.md` on new signatures  
 0c. **007** — weekly quality scan  
 0d. **008** — daily git flush (safe dirty files)  
@@ -24,7 +24,7 @@ Each cycle (`./agents/npp-cursor-loop.sh once` or `loop`):
 5. **003** again — catch a fresh `TEST-` from this cycle  
 6. **004** again — changelog + close issue when tests passed  
 
-`FEAT-ci-…` tasks are created by `scripts/ci-watch.py` (≤1× per UTC day). Force with `AGENT_CI_WATCH_FORCE=1`.
+`FEAT-ci-…` tasks are created by `scripts/ci-watch.py` when the latest finished CI is red. Cloud CI schedule: 2×/day (see `.github/workflows/ci.yml`).
 
 Coder must **not** close issues or skip to `done/`. Tester must **not** close issues. Handoff updates `docs/changelog.md` and closes.
 

@@ -1,10 +1,11 @@
 name: CI
 
+# Twice daily on GitHub (cost). Local: ./scripts/ci-local.sh on every push via pre-push hook.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  schedule:
+    # 06:00 and 18:00 UTC
+    - cron: "0 6,18 * * *"
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always

@@ -31,4 +31,5 @@ Handlers that work but stay shallower than upstream N++:
 - LSP (call tips: in-file snippets only)
 
 **Ranked backlog:** `docs/next-gaps.md`.  
+**Deep vs Notepad++:** `docs/gap-analysis-vs-npp.md` (hotkeys, DnD, feature table).  
 **Inventory:** `docs/menu-todo.md`.

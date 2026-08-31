@@ -5,7 +5,7 @@ Agent-ops for **npp-rs**. Privacy-first (public repo).
 ## Standing rules (always)
 
 1. **Always test** after a behaviour change: `./scripts/ci-local.sh` (or at least fmt + clippy + `cargo test --workspace`).
-2. **Always watch CI** — step 005 / `scripts/ci-watch.py` (daily). Do not ignore a red `ci.yml` on `main`.
+2. **Always watch CI** — step 005 / `scripts/ci-watch.py` every cycle → `agents/workspace/ci-status.md`. Cloud CI is only 2×/day; do not ignore a red latest run.
 3. **Always skim local panic log** after a crash or odd run: `logs/panic.log` via [006-log-monitor/](006-log-monitor/).
 4. **No dirty leftovers** — commit + push safe work; nightly backstop: `scripts/git_flush.py`.
 5. **Read** [workspace/lessons.md](workspace/lessons.md) before coding; append when the operator corrects a pattern.
