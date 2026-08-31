@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.11] — 2026-08-31
+
+Issue #13 (P1 autosave / backup-on-save):
+
+- Preferences → Files: **Backup on save** copies the on-disk file into `npp-rs/backup/` (path layout) before overwrite
+- Preferences → Files: **Autosave interval** (0 = off, else 15–900s) saves dirty tabs that already have a path
+- Settings keys: `backup_on_save`, `autosave_interval_secs` in `npp-rs/settings.json`
+- Docs: `docs/autosave-backup.md`
+
 ## [0.3.10] — 2026-08-31
 
 Issue #12 (P1 deeper Find in Files):

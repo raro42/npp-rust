@@ -17,6 +17,10 @@ New keys:
 | `find_match_case` / `find_whole_word` | Find options |
 | `find_query` / `replace_with` | Last find/replace strings |
 | `compare_ignore_ws` | Compare ignores whitespace runs |
+| `backup_on_save` | Copy on-disk file into `npp-rs/backup/` before overwrite |
+| `autosave_interval_secs` | Autosave dirty named tabs (`0` = off; else 15–900) |
+
+See also: `docs/autosave-backup.md`.
 
 ## Session
 

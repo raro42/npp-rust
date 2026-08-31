@@ -107,7 +107,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | Hex editor | Missing | |
 | FTP / cloud | Missing | |
 | UI localization | Missing | Language menu = syntax, not UI lang |
-| Autosave / backup | Missing | |
+| Autosave / backup | MVP: prefs + `npp-rs/backup/` + interval autosave (`docs/autosave-backup.md`) | |
 | Print | Partial | `lp` on saved path; no preview |
 | Clipboard history | Partial | One entry, not a panel |
 | Run / external tools | Partial | Pick+spawn / shell; no saved Run list |
@@ -134,7 +134,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 8. Popup autocomplete / call tips (then LSP)
 9. Macro: record typing + save named macros
 10. Fuller Preferences (margins, default encoding, backup)
-11. Autosave / backup-on-save
+11. Autosave / backup-on-save — **done MVP** (v0.3.11)
 12. Deeper Style Config / stylers.xml
 
 ### P2 — large / ecosystem
@@ -186,4 +186,4 @@ npp-rs is a serious **early** editor with an N++ menu shell. It is **not** a 20-
 
 - **Hotkeys:** small hard-wired set — not all N++ keys.
 - **Drag marked code:** move/copy in same buffer (v0.3.8); no cross-doc drag yet.
-- **Largest holes:** remappable keys, plugins ABI, UDL, hex, autosave, deeper search/fold/LSP.
+- **Largest holes:** remappable keys, plugins ABI, UDL, hex, deeper fold/LSP.

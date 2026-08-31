@@ -147,6 +147,12 @@ pub struct AppSettings {
     /// Find in Files: exclude names/globs (comma/semicolon).
     #[serde(default = "crate::search_util::default_find_files_exclude")]
     pub find_files_exclude: String,
+    /// Before overwrite save, copy the on-disk file into `npp-rs/backup/`.
+    #[serde(default)]
+    pub backup_on_save: bool,
+    /// Autosave dirty tabs that have a path every N seconds (`0` = off).
+    #[serde(default)]
+    pub autosave_interval_secs: u32,
 }
 
 impl Default for AppSettings {
@@ -174,6 +180,8 @@ impl Default for AppSettings {
             project_filter: String::new(),
             find_files_include: String::new(),
             find_files_exclude: crate::search_util::default_find_files_exclude(),
+            backup_on_save: false,
+            autosave_interval_secs: 0,
         }
     }
 }
@@ -181,6 +189,14 @@ impl Default for AppSettings {
 impl AppSettings {
     pub fn recent_limit(&self) -> usize {
         (self.recent_max.clamp(5, 40)) as usize
+    }
+
+    /// Effective autosave period in seconds (`0` = disabled). Non-zero values clamp to 15..=900.
+    pub fn autosave_secs(&self) -> u64 {
+        match self.autosave_interval_secs {
+            0 => 0,
+            n => u64::from(n.clamp(15, 900)),
+        }
     }
 }
 
@@ -307,7 +323,7 @@ pub fn short_path_label(path: &Path) -> String {
 }
 
 /// Config base dir (Application Support / APPDATA / XDG).
-pub(crate) fn config_dir() -> Option<PathBuf> {
+pub fn config_dir() -> Option<PathBuf> {
     #[cfg(target_os = "macos")]
     {
         let home = std::env::var_os("HOME")?;

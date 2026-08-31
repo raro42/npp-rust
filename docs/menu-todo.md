@@ -28,6 +28,7 @@ Today it covers:
 - Tab width (2–8 spaces; Tab key and Indent Tab)
 - Word wrap (also View → Word wrap; persisted)
 - Status bar: show language / character count
+- Files: backup on save + autosave interval (see `docs/autosave-backup.md`)
 
 It is **not** a full Notepad++ Preferences clone (tabs, margins, multi-language UI, …).
 

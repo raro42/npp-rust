@@ -81,6 +81,8 @@ pub struct EditorState {
     pub workspace_root: PathBuf,
     /// Confirm ANSI save that would map chars to `?` (path to write).
     pub pending_lossy_ansi: Option<PathBuf>,
+    /// Last autosave pass (dirty named tabs).
+    autosave_last: Instant,
 }
 
 /// Bulk close mode after a dirty-tab confirm.
@@ -159,6 +161,7 @@ impl EditorState {
             pending_edit_snap: None,
             workspace_root,
             pending_lossy_ansi: None,
+            autosave_last: Instant::now(),
         }
     }
 
@@ -1015,22 +1018,52 @@ impl EditorState {
     }
 
     fn save_to(&mut self, path: &std::path::Path) -> bool {
-        let content = self.tabs.active().buffer.to_string();
-        let encoding = self.tabs.active().encoding;
+        self.save_tab_to(self.tabs.active_index(), path, true)
+    }
+
+    /// Write tab `tab` to `path`. When `prompt_lossy` is false, skip ANSI lossy confirm
+    /// (used by autosave — those tabs stay dirty until the user confirms).
+    fn save_tab_to(&mut self, tab: usize, path: &std::path::Path, prompt_lossy: bool) -> bool {
+        let Some(doc) = self.tabs.get(tab) else {
+            return false;
+        };
+        let content = doc.buffer.to_string();
+        let encoding = doc.encoding;
         if encoding == FileEncoding::Windows1252 {
             let unmapped = fs::count_windows_1252_unmapped(&content);
-            if unmapped > 0 && self.pending_lossy_ansi.as_deref() != Some(path) {
-                self.pending_lossy_ansi = Some(path.to_path_buf());
-                self.status =
-                    format!("ANSI save: {unmapped} char(s) become '?' — confirm in dialog");
-                return false;
+            if unmapped > 0 {
+                if !prompt_lossy {
+                    return false;
+                }
+                if self.pending_lossy_ansi.as_deref() != Some(path) {
+                    self.pending_lossy_ansi = Some(path.to_path_buf());
+                    self.status =
+                        format!("ANSI save: {unmapped} char(s) become '?' — confirm in dialog");
+                    return false;
+                }
             }
         }
         self.pending_lossy_ansi = None;
+
+        let mut backup_note = String::new();
+        if self.settings.backup_on_save {
+            match crate::backup::backup_existing_file(path) {
+                Ok(true) => {
+                    backup_note = format!(" · backup ({})", crate::backup::BACKUP_REL);
+                }
+                Ok(false) => {}
+                Err(e) => {
+                    backup_note = format!(" · backup failed ({e})");
+                }
+            }
+        }
+
         let fs_enc = fs_encoding_from_file(encoding);
         match fs::write_file_with_encoding(path, &content, fs_enc) {
             Ok(()) => {
-                let doc = self.tabs.active_mut();
+                let Some(doc) = self.tabs.get_mut(tab) else {
+                    return false;
+                };
                 doc.path = Some(path.to_path_buf());
                 doc.title = path
                     .file_name()
@@ -1040,21 +1073,22 @@ impl EditorState {
                 doc.mark_clean();
                 doc.promote_change_history_on_save();
                 self.touch_recent(path);
-                self.highlight_dirty = true;
+                if tab == self.tabs.active_index() {
+                    self.highlight_dirty = true;
+                }
                 let unmapped = if encoding == FileEncoding::Windows1252 {
                     fs::count_windows_1252_unmapped(&content)
                 } else {
                     0
                 };
+                let name = short_path_label(path);
                 self.status = if unmapped > 0 {
                     format!(
-                        "Saved {} ({}) — {} char(s) became '?'",
-                        path.display(),
-                        encoding.label(),
-                        unmapped
+                        "Saved {name} ({}) — {unmapped} char(s) became '?'{backup_note}",
+                        encoding.label()
                     )
                 } else {
-                    format!("Saved {} ({})", path.display(), encoding.label())
+                    format!("Saved {name} ({}){backup_note}", encoding.label())
                 };
                 true
             }
@@ -1063,6 +1097,41 @@ impl EditorState {
                 false
             }
         }
+    }
+
+    /// Autosave dirty tabs that already have a path. Skips untitled and ANSI-lossy prompts.
+    /// Returns true when a pass ran (interval elapsed), even if zero files were written.
+    pub fn tick_autosave(&mut self) -> bool {
+        let secs = self.settings.autosave_secs();
+        if secs == 0 {
+            return false;
+        }
+        if self.autosave_last.elapsed() < Duration::from_secs(secs) {
+            return false;
+        }
+        self.autosave_last = Instant::now();
+        let active = self.tabs.active_index();
+        let mut saved = 0usize;
+        let count = self.tabs.len();
+        for i in 0..count {
+            let Some(path) = self
+                .tabs
+                .get(i)
+                .and_then(|d| if d.dirty { d.path.clone() } else { None })
+            else {
+                continue;
+            };
+            if self.save_tab_to(i, &path, false) {
+                saved += 1;
+            }
+        }
+        if self.tabs.active_index() != active {
+            self.tabs.set_active(active);
+        }
+        if saved > 0 {
+            self.status = format!("Autosave: {saved} file(s)");
+        }
+        true
     }
 
     pub fn confirm_lossy_ansi_save(&mut self) {

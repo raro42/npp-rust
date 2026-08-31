@@ -23,7 +23,7 @@ Handlers that work but stay shallower than upstream N++:
 
 ## Larger product gaps (not menu stubs)
 
-- Full Preferences (multi-language UI, …). More keys in `npp-rs/settings.json` (see `docs/preferences-p0.md`)
+- Full Preferences (multi-language UI, …). More keys in `npp-rs/settings.json` (see `docs/preferences-p0.md`). Autosave/backup MVP: `docs/autosave-backup.md`
 - Project panels: MVP folder list only
 - File compare: **2-way** + re-diff + ignore-whitespace. 3-way / char-level still open
 - Change history: bar marks + undo remap; full Scintilla reverted/indicator parity open

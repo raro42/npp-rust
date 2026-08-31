@@ -276,8 +276,12 @@ impl eframe::App for EditorApp {
         if self.state.poll_tail() {
             self.follow_caret = true;
         }
-        if !self.state.pending.is_empty() || self.state.tabs.iter().any(|d| d.tail_follow) {
-            // Steady poll while tailing; avoid hammering every frame.
+        let _ = self.state.tick_autosave();
+        if !self.state.pending.is_empty()
+            || self.state.tabs.iter().any(|d| d.tail_follow)
+            || self.state.settings.autosave_secs() > 0
+        {
+            // Steady poll while tailing or autosave is armed; avoid hammering every frame.
             ctx.request_repaint_after(std::time::Duration::from_millis(300));
         }
 
@@ -1126,6 +1130,41 @@ Tree-sitter highlight, and a calm UI.",
                             RichText::new(format!("Session file: {}", crate::session::SESSION_REL))
                                 .small()
                                 .weak(),
+                        );
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.backup_on_save,
+                                "Backup on save (copy into config backup folder)",
+                            )
+                            .changed()
+                        {
+                            changed = true;
+                        }
+                        ui.label(
+                            RichText::new(format!(
+                                "Backup folder: {} (mirrors path layout)",
+                                crate::backup::BACKUP_REL
+                            ))
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Autosave interval (sec)");
+                            let mut secs = self.state.settings.autosave_interval_secs as i32;
+                            if ui.add(egui::Slider::new(&mut secs, 0..=900)).changed() {
+                                if secs > 0 && secs < 15 {
+                                    secs = 15;
+                                }
+                                self.state.settings.autosave_interval_secs = secs as u32;
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "0 = off; otherwise 15–900. Dirty tabs with a path only (skip untitled).",
+                            )
+                            .small()
+                            .weak(),
                         );
                         ui.add_space(10.0);
                         ui.label(RichText::new("Find").strong());

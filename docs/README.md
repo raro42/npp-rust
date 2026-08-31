@@ -27,6 +27,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [gap-analysis-vs-npp.md](gap-analysis-vs-npp.md) | Code-backed gap analysis vs Notepad++ |
 | [next-gaps.md](next-gaps.md) | Post-v0.3.0 improvement backlog |
 | [preferences-p0.md](preferences-p0.md) | v0.3.1 Preferences / Find / Session / Compare |
+| [autosave-backup.md](autosave-backup.md) | v0.3.11 Autosave + backup-on-save |
 | [p0-feature-map.md](p0-feature-map.md) | Code pointers for P0 Preferences / Find / Session / Compare |
 | [status-bar-version.md](status-bar-version.md) | Commit hash link in the status bar |
 | [execute-dont-ask.md](execute-dont-ask.md) | Do not ask permission to proceed |

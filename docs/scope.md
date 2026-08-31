@@ -26,7 +26,8 @@ Deep gap list (hotkeys, DnD, feature table): [gap-analysis-vs-npp.md](gap-analys
 - Larger hard-wired shortcut set (no `shortcuts.xml` remap)
 - File drop + selection drag move/copy (v0.3.8); Alt+rect column select + multi-caret typing (v0.3.9; no virtual space)
 - No N++ plugin ABI / Plugin Admin install
-- No UDL, hex editor, FTP/cloud, UI localization, autosave
+- No UDL, hex editor, FTP/cloud, UI localization
+- Autosave / backup: MVP in Preferences (v0.3.11); not full N++ snapshot sessions
 - Macros record menu IDs only; folding is indent-hide MVP
 
 ## Principle
