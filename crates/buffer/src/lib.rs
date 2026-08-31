@@ -49,6 +49,20 @@ enum UndoUnit {
     Group(Vec<Edit>),
 }
 
+fn edit_anchor(edit: &Edit) -> usize {
+    match edit {
+        Edit::Insert { index, .. } | Edit::Delete { index, .. } => *index,
+        Edit::Replace { .. } => 0,
+    }
+}
+
+fn unit_anchor(unit: &UndoUnit) -> usize {
+    match unit {
+        UndoUnit::Single(edit) => edit_anchor(edit),
+        UndoUnit::Group(edits) => edits.first().map(edit_anchor).unwrap_or(0),
+    }
+}
+
 /// Text buffer with caret, selection, and undo history.
 #[derive(Debug, Clone)]
 pub struct TextBuffer {
@@ -975,6 +989,8 @@ impl TextBuffer {
         let Some(unit) = self.undo.pop_back() else {
             return false;
         };
+        let lines_before = self.line_count();
+        let anchor = unit_anchor(&unit);
         match &unit {
             UndoUnit::Single(edit) => self.apply_undo_edit(edit),
             UndoUnit::Group(edits) => {
@@ -986,7 +1002,7 @@ impl TextBuffer {
         self.redo.push_back(unit);
         self.sel_anchor = None;
         self.break_typing_coalesce();
-        self.last_line_edit = None;
+        self.set_line_edit_from_count_delta(lines_before, anchor);
         self.generation = self.generation.saturating_sub(1);
         true
     }
@@ -995,6 +1011,8 @@ impl TextBuffer {
         let Some(unit) = self.redo.pop_back() else {
             return false;
         };
+        let lines_before = self.line_count();
+        let anchor = unit_anchor(&unit);
         match &unit {
             UndoUnit::Single(edit) => self.apply_redo_edit(edit),
             UndoUnit::Group(edits) => {
@@ -1006,9 +1024,39 @@ impl TextBuffer {
         self.undo.push_back(unit);
         self.sel_anchor = None;
         self.break_typing_coalesce();
-        self.last_line_edit = None;
+        self.set_line_edit_from_count_delta(lines_before, anchor);
         self.generation = self.generation.saturating_add(1);
         true
+    }
+
+    /// Record insert/delete line remap after undo/redo changed the line count.
+    fn set_line_edit_from_count_delta(&mut self, lines_before: usize, anchor_index: usize) {
+        let lines_after = self.line_count();
+        let delta = lines_after as isize - lines_before as isize;
+        if delta == 0 {
+            self.last_line_edit = None;
+            return;
+        }
+        let idx = anchor_index.min(self.len_chars());
+        let at_line = if self.len_chars() == 0 {
+            0
+        } else {
+            self.char_to_line(idx)
+        };
+        let at_line_start = self.len_chars() == 0 || idx == self.line_to_char(at_line);
+        if delta > 0 {
+            let at = if at_line_start { at_line } else { at_line + 1 };
+            self.last_line_edit = Some(LineStructureEdit::Insert {
+                at,
+                n: delta as usize,
+            });
+        } else {
+            let first = if at_line_start { at_line } else { at_line + 1 };
+            self.last_line_edit = Some(LineStructureEdit::Delete {
+                first,
+                n: (-delta) as usize,
+            });
+        }
     }
 
     fn apply_undo_edit(&mut self, edit: &Edit) {
@@ -1264,6 +1312,34 @@ mod tests {
         assert_eq!(
             b.take_line_structure_edit(),
             Some(LineStructureEdit::Delete { first: 1, n: 1 })
+        );
+    }
+
+    #[test]
+    fn line_structure_undo_insert_newlines() {
+        let mut b = TextBuffer::from_str("a\nb\nc\n");
+        b.set_caret(0);
+        b.insert("\n\n\n");
+        let _ = b.take_line_structure_edit();
+        assert!(b.undo());
+        assert_eq!(
+            b.take_line_structure_edit(),
+            Some(LineStructureEdit::Delete { first: 0, n: 3 })
+        );
+        assert_eq!(b.to_string(), "a\nb\nc\n");
+    }
+
+    #[test]
+    fn line_structure_redo_insert_newlines() {
+        let mut b = TextBuffer::from_str("a\nb\nc\n");
+        b.set_caret(0);
+        b.insert("\n\n");
+        assert!(b.undo());
+        let _ = b.take_line_structure_edit();
+        assert!(b.redo());
+        assert_eq!(
+            b.take_line_structure_edit(),
+            Some(LineStructureEdit::Insert { at: 0, n: 2 })
         );
     }
 }

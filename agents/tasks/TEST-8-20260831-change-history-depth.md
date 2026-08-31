@@ -25,3 +25,10 @@ Make change-history marks closer to Scintilla / Notepad++ block marks. Ship on `
 
 ## Privacy
 No secrets or home paths in commits or issue comments.
+
+## Progress
+- Full-height gutter bars (joined SC_MARK_BAR-style) + soft line wash; dual-view pane marks
+- Buffer undo/redo emits `LineStructureEdit`; editor skips caret re-stamp on undo/redo
+- Status `CHG u/s`; Clear/jump name unsaved vs saved; Summary shows counts
+- Version **0.3.5**; `./scripts/ci-local.sh` passed
+- Handoff: ready for 003 tester (do not close #8 — UTF-16 / full Scintilla reverted markers remain)

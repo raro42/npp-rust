@@ -244,6 +244,7 @@ impl Document {
             self.remap_all_line_sets_delete(first, (-delta) as usize);
         }
         self.line_mark_basis = new_count;
+        self.clamp_line_marks_to_buffer();
     }
 
     /// Apply a buffer-recorded line-structure edit, then refresh `line_mark_basis`.
@@ -257,6 +258,7 @@ impl Document {
             }
         }
         self.line_mark_basis = self.buffer.line_count();
+        self.clamp_line_marks_to_buffer();
     }
 
     /// Prefer buffer hook when present. Returns true when a hook was applied.
@@ -268,6 +270,22 @@ impl Document {
             }
             None => false,
         }
+    }
+
+    /// Drop line marks that fell past the end of the buffer.
+    pub fn clamp_line_marks_to_buffer(&mut self) {
+        let max = self.buffer.line_count();
+        let clamp = |set: &mut BTreeSet<usize>| {
+            set.retain(|&line| line < max);
+        };
+        clamp(&mut self.bookmarks);
+        clamp(&mut self.changed_unsaved);
+        clamp(&mut self.changed_saved);
+        clamp(&mut self.hidden_lines);
+        for slot in &mut self.style_marks {
+            clamp(slot);
+        }
+        self.line_mark_basis = max;
     }
 
     pub fn mark_dirty(&mut self) {
@@ -314,6 +332,22 @@ impl Document {
             .collect()
     }
 
+    /// Counts: (unsaved amber, saved green).
+    pub fn change_history_counts(&self) -> (usize, usize) {
+        (self.changed_unsaved.len(), self.changed_saved.len())
+    }
+
+    /// Unsaved takes priority when both somehow set.
+    pub fn change_history_is_saved(&self, line: usize) -> Option<bool> {
+        if self.changed_unsaved.contains(&line) {
+            Some(false)
+        } else if self.changed_saved.contains(&line) {
+            Some(true)
+        } else {
+            None
+        }
+    }
+
     /// Record one line as edited (unsaved amber mark).
     pub fn note_line_changed(&mut self, line: usize) {
         self.changed_saved.remove(&line);
@@ -353,6 +387,7 @@ impl Document {
             self.remap_all_line_sets_delete(first_removed, n);
         }
         self.line_mark_basis = new_count;
+        self.clamp_line_marks_to_buffer();
     }
 
     fn remap_all_line_sets_insert(&mut self, at: usize, n: usize) {
@@ -643,14 +678,35 @@ mod tests {
         doc.note_line_changed(5);
         assert_eq!(doc.changed_unsaved.len(), 2);
         assert!(doc.changed_saved.is_empty());
+        assert_eq!(doc.change_history_counts(), (2, 0));
         doc.promote_change_history_on_save();
         assert!(doc.changed_unsaved.is_empty());
         assert_eq!(doc.changed_saved.len(), 2);
+        assert_eq!(doc.change_history_counts(), (0, 2));
+        assert_eq!(doc.change_history_is_saved(2), Some(true));
         doc.note_line_changed(2);
         assert!(doc.changed_unsaved.contains(&2));
         assert!(!doc.changed_saved.contains(&2));
+        assert_eq!(doc.change_history_is_saved(2), Some(false));
         doc.clear_change_history();
         assert!(doc.change_history_lines().is_empty());
+    }
+
+    #[test]
+    fn change_history_remap_survives_undo_newline() {
+        let mut doc = Document::untitled(1, 1);
+        let text: String = (0..8).map(|i| format!("L{i}\n")).collect();
+        doc.buffer = TextBuffer::from_str(&text);
+        doc.line_mark_basis = doc.buffer.line_count();
+        doc.note_line_changed(5);
+        doc.buffer.set_caret(0);
+        doc.buffer.insert("\n\n");
+        assert!(doc.consume_line_structure_edit());
+        assert!(doc.changed_unsaved.contains(&7));
+        assert!(doc.buffer.undo());
+        assert!(doc.consume_line_structure_edit());
+        assert!(doc.changed_unsaved.contains(&5));
+        assert!(!doc.changed_unsaved.contains(&7));
     }
 
     #[test]

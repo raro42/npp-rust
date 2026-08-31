@@ -16,7 +16,7 @@ Handlers that work but stay shallower than upstream N++:
 | View | Dual view: both panes writable; focused-pane Edit. Project panel = MVP folder list (not N++ projects) |
 | Edit | RTL/LTR: editor line anchors + status cue; full bidi / UI chrome mirror still open |
 | Encoding | ANSI / UTF-8 / UTF-8-BOM per-tab save (Windows-1252). Unmapped chars → `?` on ANSI save |
-| Search | Change History: amber unsaved / green saved ticks; line remap (MVP). Find has case/word + match count |
+| Search | Change History: amber/green gutter bars + wash; undo remap; CHG status. Find has case/word + match count |
 | Settings | Themes: JSON tokens + chrome; N++ XML subset (GlobalStyles + one lexer); full stylers parity open; plugins: builtins listed, no drop-in load. Preferences deeper in v0.3.1 |
 | File | Pin from tab chrome + `IDM_PINTAB`; Close All but Pinned keeps pinned tabs; opt-in session restore |
 | View | Tab drag-reorder; Move Tab Forward / Backward still available |
@@ -26,7 +26,7 @@ Handlers that work but stay shallower than upstream N++:
 - Full Preferences (multi-language UI, …). More keys in `npp-rs/settings.json` (see `docs/preferences-p0.md`)
 - Project panels: MVP folder list only
 - File compare: **2-way** + re-diff + ignore-whitespace. 3-way / char-level still open
-- Change history: MVP line ticks; full Scintilla parity open
+- Change history: bar marks + undo remap; full Scintilla reverted/indicator parity open
 - CLI MVP: `-h`, `-V`, `-n`/`--line`, `-ro`, path args
 - LSP (call tips: in-file snippets only)
 

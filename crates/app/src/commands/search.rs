@@ -273,12 +273,12 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_SEARCH_CLEAR_CHANGE_HISTORY" => {
-            let n = state.tabs.active().change_history_lines().len();
+            let (u, s) = state.tabs.active().change_history_counts();
             state.tabs.active_mut().clear_change_history();
-            state.status = if n == 0 {
+            state.status = if u + s == 0 {
                 "No change-history marks".into()
             } else {
-                format!("Cleared {n} change-history mark(s)")
+                format!("Cleared change history ({u} unsaved, {s} saved)")
             };
             CmdResult::Handled
         }
@@ -704,7 +704,12 @@ fn find_in_files(state: &mut EditorState, ui: &mut UiFlags) {
 fn goto_changed_line(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
     let marks = state.tabs.active().change_history_lines();
     if let Some(l) = jump_marks(state, ui, &marks, forward) {
-        state.status = format!("Change history → line {}", l + 1);
+        let kind = match state.tabs.active().change_history_is_saved(l) {
+            Some(true) => "saved",
+            Some(false) => "unsaved",
+            None => "mark",
+        };
+        state.status = format!("Change history → line {} ({kind})", l + 1);
     } else {
         state.status = "No change-history marks".into();
     }

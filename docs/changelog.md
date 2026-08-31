@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.5] — 2026-08-31
+
+Issue #8 (P1 change-history depth):
+
+- Gutter: full-height SC_MARK_BAR-style blocks (amber unsaved / green saved) with joined runs
+- Soft line wash + dual-view pane marks
+- Undo/redo remaps line marks via buffer line-structure hooks (no caret re-stamp)
+- Status `CHG u/s`, Clear/jump messages name unsaved vs saved
+
 ## [0.3.4] — 2026-08-30
 
 Issue #8 (P1 themes depth):

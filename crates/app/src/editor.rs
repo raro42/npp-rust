@@ -205,7 +205,13 @@ impl EditorState {
     }
 
     /// Dirty + change-history for a tab (dual view may edit the other pane).
+    /// `note_marks`: when true, mark caret/selection lines as unsaved change-history.
+    /// Undo/redo pass false so remap runs without re-stamping the caret line.
     pub fn mark_text_changed_at(&mut self, tab: usize) {
+        self.mark_text_changed_at_with(tab, true);
+    }
+
+    pub fn mark_text_changed_at_with(&mut self, tab: usize, note_marks: bool) {
         let snap = self
             .pending_edit_snap
             .take()
@@ -222,7 +228,10 @@ impl EditorState {
                 doc.sync_line_marks_after_edit();
             }
         }
-        Self::note_edit_lines(doc);
+        if note_marks {
+            Self::note_edit_lines(doc);
+        }
+        doc.clamp_line_marks_to_buffer();
         doc.sync_dirty_from_revision();
         if doc.tail_follow {
             doc.tail_follow = false;
@@ -1390,7 +1399,7 @@ impl EditorState {
             .with_editable_buffer(tab, |buf| buf.undo())
             .unwrap_or(false)
         {
-            self.mark_text_changed_at(tab);
+            self.mark_text_changed_at_with(tab, false);
             self.status = "Undo".into();
         }
     }
@@ -1400,7 +1409,7 @@ impl EditorState {
             .with_editable_buffer(tab, |buf| buf.redo())
             .unwrap_or(false)
         {
-            self.mark_text_changed_at(tab);
+            self.mark_text_changed_at_with(tab, false);
             self.status = "Redo".into();
         }
     }
@@ -2331,5 +2340,35 @@ mod tests {
         assert_eq!(state.tabs.active().buffer.to_string(), "base");
         state.redo();
         assert!(state.tabs.active().dirty);
+    }
+
+    #[test]
+    fn undo_remaps_change_history_without_restamp() {
+        let mut state = EditorState::new();
+        {
+            let doc = state.tabs.active_mut();
+            let text: String = (0..6).map(|i| format!("L{i}\n")).collect();
+            doc.buffer = buffer::TextBuffer::from_str(&text);
+            doc.line_mark_basis = doc.buffer.line_count();
+            doc.note_line_changed(4);
+        }
+        state.tabs.active_mut().buffer.set_caret(0);
+        state.prepare_edit();
+        state.tabs.active_mut().buffer.insert("\n\n");
+        state.mark_text_changed();
+        assert!(state.tabs.active().changed_unsaved.contains(&6));
+        let before_undo: Vec<usize> = state
+            .tabs
+            .active()
+            .changed_unsaved
+            .iter()
+            .copied()
+            .collect();
+        state.undo();
+        // Remap brings mark 6 → 4; undo must not drop the remapped mark.
+        assert!(state.tabs.active().changed_unsaved.contains(&4));
+        assert!(!state.tabs.active().changed_unsaved.contains(&6));
+        // Undo path does not add a brand-new stamp beyond remapped set size growth.
+        assert!(state.tabs.active().changed_unsaved.len() <= before_undo.len());
     }
 }

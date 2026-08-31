@@ -37,7 +37,7 @@ It is **not** a full Notepad++ Preferences clone (tabs, margins, multi-language 
 
 Cleared: Find characters in range (Find text = `ascii` / `non-ascii` / `start-end`), Find in Files (cwd scan → results tab).
 
-Change History MVP: `changed_unsaved` (amber) / `changed_saved` (green). Next/Prev jump marks. Clear empties both sets. Save promotes unsaved→saved. Edits remap line indices via `prepare_edit` / `apply_line_snap`.
+Change History: full-height gutter bars (amber unsaved / green saved) + soft wash; joined blocks; dual view. Next/Prev + Clear. Save promotes unsaved→saved. Edits and undo/redo remap via `LineStructureEdit` / `prepare_edit`. Status shows `CHG u/s`.
 
 ### View — Dual view (2026-08-29)
 

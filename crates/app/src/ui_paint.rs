@@ -45,26 +45,64 @@ pub(crate) fn change_history_saved_color() -> Color32 {
     Color32::from_rgb(70, 160, 90)
 }
 
-/// Draw a narrow gutter tick for a changed line (right of the bookmark slot).
+/// Soft wash behind a changed line (Scintilla-style backup when margin is narrow).
+pub(crate) fn change_history_wash(saved: bool) -> Color32 {
+    if saved {
+        Color32::from_rgba_unmultiplied(70, 160, 90, 28)
+    } else {
+        Color32::from_rgba_unmultiplied(210, 140, 40, 32)
+    }
+}
+
+/// Whether `line` joins a same-colour neighbour for a continuous SC_MARK_BAR.
+pub(crate) fn change_history_joins(
+    line: usize,
+    saved: bool,
+    unsaved: &BTreeSet<usize>,
+    saved_set: &BTreeSet<usize>,
+) -> (bool, bool) {
+    let same = |other: usize| -> bool {
+        if saved {
+            saved_set.contains(&other) && !unsaved.contains(&other)
+        } else {
+            unsaved.contains(&other)
+        }
+    };
+    let above = line > 0 && same(line - 1);
+    let below = same(line + 1);
+    (above, below)
+}
+
+/// Draw a full-height gutter bar for a changed line (Scintilla SC_MARK_BAR style).
 /// `saved`: true = green (saved session), false = amber (unsaved).
-pub(crate) fn paint_change_history_tick(
+/// `join_above` / `join_below`: connect with neighbours for a continuous block.
+pub(crate) fn paint_change_history_bar(
     painter: &egui::Painter,
     gutter_left: f32,
     y: f32,
     row_height: f32,
     saved: bool,
+    join_above: bool,
+    join_below: bool,
 ) {
     let color = if saved {
         change_history_saved_color()
     } else {
         change_history_unsaved_color()
     };
+    // Full line height when joined; slight inset at block ends (end caps).
+    let y0 = if join_above { y } else { y + 1.5 };
+    let y1 = if join_below {
+        y + row_height
+    } else {
+        y + row_height - 1.5
+    };
     painter.rect_filled(
         egui::Rect::from_min_max(
-            Pos2::new(gutter_left + 12.0, y + 4.0),
-            Pos2::new(gutter_left + 16.0, y + row_height - 4.0),
+            Pos2::new(gutter_left + 11.0, y0),
+            Pos2::new(gutter_left + 16.0, y1.max(y0 + 2.0)),
         ),
-        0.5,
+        0.0,
         color,
     );
 }
@@ -180,5 +218,33 @@ mod tests {
         assert_eq!(display_row_for(&visible, 2), 1);
         assert_eq!(display_row_for(&visible, 3), 1);
         assert_eq!(display_row_for(&visible, 0), 0);
+    }
+
+    #[test]
+    fn joins_detect_block_edges() {
+        let unsaved: BTreeSet<usize> = [2usize, 3, 4].into_iter().collect();
+        let saved: BTreeSet<usize> = [10usize, 11].into_iter().collect();
+        assert_eq!(
+            change_history_joins(2, false, &unsaved, &saved),
+            (false, true)
+        );
+        assert_eq!(
+            change_history_joins(3, false, &unsaved, &saved),
+            (true, true)
+        );
+        assert_eq!(
+            change_history_joins(4, false, &unsaved, &saved),
+            (true, false)
+        );
+        assert_eq!(
+            change_history_joins(10, true, &unsaved, &saved),
+            (false, true)
+        );
+        let both_u: BTreeSet<usize> = [5usize].into_iter().collect();
+        let both_s: BTreeSet<usize> = [4usize, 6].into_iter().collect();
+        assert_eq!(
+            change_history_joins(5, false, &both_u, &both_s),
+            (false, false)
+        );
     }
 }

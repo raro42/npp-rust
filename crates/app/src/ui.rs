@@ -2,8 +2,8 @@
 
 use crate::editor::EditorState;
 use crate::ui_paint::{
-    col_from_x, display_row_for, paint_change_history_tick, paint_line_text, style_mark_bg,
-    text_width, visible_line_indices,
+    change_history_joins, change_history_wash, col_from_x, display_row_for,
+    paint_change_history_bar, paint_line_text, style_mark_bg, text_width, visible_line_indices,
 };
 use eframe::egui::{self, Color32, FontId, Key, Pos2, Rect, RichText, Sense, Vec2};
 
@@ -1336,6 +1336,7 @@ Tree-sitter highlight, and a calm UI.",
         let dirty = doc.dirty;
         let read_only = doc.read_only;
         let marks = doc.bookmarks.len();
+        let (chg_u, chg_s) = doc.change_history_counts();
         let mut open = self.show_summary;
         let mut close = false;
         egui::Window::new("Summary")
@@ -1353,6 +1354,7 @@ Tree-sitter highlight, and a calm UI.",
                 ui.label(format!("Dirty: {dirty}"));
                 ui.label(format!("Read-only: {read_only}"));
                 ui.label(format!("Bookmarks: {marks}"));
+                ui.label(format!("Change history: {chg_u} unsaved, {chg_s} saved"));
                 if ui.button("Close").clicked() {
                     close = true;
                 }
@@ -2074,11 +2076,12 @@ Tree-sitter highlight, and a calm UI.",
 
     fn status_bar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
-            let (lang, line, col, chars, on, status) = {
+            let (lang, line, col, chars, on, status, chg_u, chg_s) = {
                 let doc = self.state.tabs.active();
                 let caret = doc.buffer.caret();
                 let line = doc.buffer.char_to_line(caret);
                 let col = caret - doc.buffer.line_to_char(line) + 1;
+                let (chg_u, chg_s) = doc.change_history_counts();
                 (
                     doc.language.clone(),
                     line + 1,
@@ -2086,6 +2089,8 @@ Tree-sitter highlight, and a calm UI.",
                     doc.buffer.len_chars(),
                     doc.tail_follow,
                     self.state.status.clone(),
+                    chg_u,
+                    chg_s,
                 )
             };
             ui.horizontal(|ui| {
@@ -2117,6 +2122,18 @@ Tree-sitter highlight, and a calm UI.",
                     && self.state.toggle_tail_follow()
                 {
                     self.follow_caret = true;
+                }
+                if chg_u + chg_s > 0 {
+                    ui.separator();
+                    let label = format!("CHG {chg_u}/{chg_s}");
+                    let color = if chg_u > 0 {
+                        Color32::from_rgb(210, 140, 40)
+                    } else {
+                        Color32::from_rgb(70, 160, 90)
+                    };
+                    ui.label(RichText::new(label).color(color)).on_hover_text(
+                        "Change history: unsaved (amber) / saved (green) line marks",
+                    );
                 }
                 if self.state.settings.status_show_lang {
                     ui.separator();
@@ -2479,11 +2496,47 @@ Tree-sitter highlight, and a calm UI.",
                     );
                 }
 
-                // Change-history tick in the gutter (amber = unsaved, green = saved).
+                // Change-history bar in the gutter (amber = unsaved, green = saved).
                 if changed_unsaved.contains(&line_idx) {
-                    paint_change_history_tick(&painter, rect.left(), y, row_height, false);
+                    let (join_above, join_below) =
+                        change_history_joins(line_idx, false, &changed_unsaved, &changed_saved);
+                    paint_change_history_bar(
+                        &painter,
+                        rect.left(),
+                        y,
+                        row_height,
+                        false,
+                        join_above,
+                        join_below,
+                    );
+                    painter.rect_filled(
+                        Rect::from_min_max(
+                            Pos2::new(text_left, y),
+                            Pos2::new(rect.right(), y + row_height),
+                        ),
+                        0.0,
+                        change_history_wash(false),
+                    );
                 } else if changed_saved.contains(&line_idx) {
-                    paint_change_history_tick(&painter, rect.left(), y, row_height, true);
+                    let (join_above, join_below) =
+                        change_history_joins(line_idx, true, &changed_unsaved, &changed_saved);
+                    paint_change_history_bar(
+                        &painter,
+                        rect.left(),
+                        y,
+                        row_height,
+                        true,
+                        join_above,
+                        join_below,
+                    );
+                    painter.rect_filled(
+                        Rect::from_min_max(
+                            Pos2::new(text_left, y),
+                            Pos2::new(rect.right(), y + row_height),
+                        ),
+                        0.0,
+                        change_history_wash(true),
+                    );
                 }
 
                 // Line number — right-aligned inside the gutter.
@@ -3216,6 +3269,12 @@ Tree-sitter highlight, and a calm UI.",
         let first_row = scroll_line.floor() as usize;
         let last_row = (first_row + visible_rows + 2).min(display_count);
         let plain = theme.plain_fg;
+        let (changed_unsaved, changed_saved) = self
+            .state
+            .tabs
+            .get(tab)
+            .map(|d| (d.changed_unsaved.clone(), d.changed_saved.clone()))
+            .unwrap_or_default();
 
         for row in first_row..last_row {
             let Some(&line_idx) = visible_lines.get(row) else {
@@ -3235,6 +3294,47 @@ Tree-sitter highlight, and a calm UI.",
                         );
                     }
                 }
+            }
+            if changed_unsaved.contains(&line_idx) {
+                let (join_above, join_below) =
+                    change_history_joins(line_idx, false, &changed_unsaved, &changed_saved);
+                paint_change_history_bar(
+                    &painter,
+                    rect.left(),
+                    y,
+                    row_height,
+                    false,
+                    join_above,
+                    join_below,
+                );
+                painter.rect_filled(
+                    Rect::from_min_max(
+                        Pos2::new(text_left, y),
+                        Pos2::new(rect.right(), y + row_height),
+                    ),
+                    0.0,
+                    change_history_wash(false),
+                );
+            } else if changed_saved.contains(&line_idx) {
+                let (join_above, join_below) =
+                    change_history_joins(line_idx, true, &changed_unsaved, &changed_saved);
+                paint_change_history_bar(
+                    &painter,
+                    rect.left(),
+                    y,
+                    row_height,
+                    true,
+                    join_above,
+                    join_below,
+                );
+                painter.rect_filled(
+                    Rect::from_min_max(
+                        Pos2::new(text_left, y),
+                        Pos2::new(rect.right(), y + row_height),
+                    ),
+                    0.0,
+                    change_history_wash(true),
+                );
             }
             if show_ln {
                 painter.text(
