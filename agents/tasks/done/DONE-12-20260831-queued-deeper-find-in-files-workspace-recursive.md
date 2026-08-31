@@ -18,3 +18,8 @@ See GitHub issue #12 and docs/gap-analysis-vs-npp.md / docs/next-gaps.md.
 
 ## Progress
 - **2026-08-31 (coder):** Recursive Find in Files on `workspace_root`; include/exclude globs on Find bar; skip hidden dirs / symlinks / binary / huge files; caps on depth, files, matches. Version **0.3.10** (commit `0ab1b6a`). `./scripts/ci-local.sh` green. Handoff → TEST (issue left open).
+
+## Tester (2026-08-31)
+- Verified: `find_in_files_scan` + caps in `crates/app/src/search_util.rs`; command uses `workspace_root` in `crates/app/src/commands/search.rs`; include/exclude settings in `crates/app/src/recent.rs` + Find bar in `crates/app/src/ui.rs`; unit test `recursive_scan_skips_target_and_respects_include`; version **0.3.10**; commit `0ab1b6a`.
+- `./scripts/ci-local.sh` — **PASS** (fmt, clippy `-D warnings`, workspace tests, release build).
+- Result: **PASS** → `DONE-`; leave issue #12 open for handoff.

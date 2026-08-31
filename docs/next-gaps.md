@@ -1,7 +1,7 @@
 # Next gaps (post v0.3.10)
 
 Date: 2026-08-31  
-Status: Issue **#8**–**#10** closed. **#11** / **#12** coder batches shipped (await TEST). Open: **#13–#14**.
+Status: Issue **#8**–**#11** closed. **#12** TEST passed (await handoff). Open: **#13–#14**.
 
 ## Done recently
 
@@ -16,8 +16,7 @@ Status: Issue **#8**–**#10** closed. **#11** / **#12** coder batches shipped (
 
 | # | Priority | Title |
 |---|----------|--------|
-| [11](https://github.com/raro42/npp-rust/issues/11) | P0 | Column/rect select + multi-caret typing — coding done, test pending |
-| [12](https://github.com/raro42/npp-rust/issues/12) | P1 | Deeper Find in Files — coding done, test pending |
+| [12](https://github.com/raro42/npp-rust/issues/12) | P1 | Deeper Find in Files — TEST passed, await handoff |
 | [13](https://github.com/raro42/npp-rust/issues/13) | P1 | Autosave / backup-on-save |
 | [14](https://github.com/raro42/npp-rust/issues/14) | P1 | Lexer-aware folding + fold margin |
 
