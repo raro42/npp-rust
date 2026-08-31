@@ -40,7 +40,8 @@ def slugify(title: str) -> str:
 
 def existing_issue_numbers() -> set[int]:
     nums: set[int] = set()
-    for folder in (TASK_DIR, DONE_DIR):
+    folders = [TASK_DIR, DONE_DIR, TASK_DIR / "queued"]
+    for folder in folders:
         if not folder.is_dir():
             continue
         for p in folder.glob("*.md"):
