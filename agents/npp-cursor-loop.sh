@@ -220,13 +220,23 @@ step_002_coder() {
       echo "----- 002: promoted from queued $(basename "$q")"
     fi
   fi
-  # Lowest issue number wins (FEAT-9 before FEAT-10).
-  feat="$(ls -1 "$TASKDIR"/FEAT-*.md 2>/dev/null | sort -t- -k2,2n | head -n 1 || true)"
-  wip="$(ls -1 "$TASKDIR"/WIP-*.md 2>/dev/null | sort -t- -k2,2n | head -n 1 || true)"
+  # Lowest issue number wins (FEAT-9 before FEAT-10). BSD/GNU sort -k2 can mis-order.
+  pick_lowest() {
+    local kind="$1"
+    ls -1 "$TASKDIR"/${kind}-*.md 2>/dev/null | while read -r f; do
+      local base n
+      base="$(basename "$f")"
+      n="$(echo "$base" | sed -E "s/^${kind}-([0-9]+)-.*/\1/")"
+      [[ "$n" =~ ^[0-9]+$ ]] || continue
+      printf '%s %s\n' "$n" "$f"
+    done | sort -n | head -n 1 | awk '{print $2}'
+  }
+  feat="$(pick_lowest FEAT || true)"
+  wip="$(pick_lowest WIP || true)"
   if [[ -n "$feat" && -n "$wip" ]]; then
     local fn wn
-    fn="$(echo "$feat" | sed -E 's|.*/FEAT-([0-9]+)-.*|\1|')"
-    wn="$(echo "$wip" | sed -E 's|.*/WIP-([0-9]+)-.*|\1|')"
+    fn="$(basename "$feat" | sed -E 's/^FEAT-([0-9]+)-.*/\1/')"
+    wn="$(basename "$wip" | sed -E 's/^WIP-([0-9]+)-.*/\1/')"
     if [[ "$wn" -lt "$fn" ]]; then
       task="$wip"
     else
