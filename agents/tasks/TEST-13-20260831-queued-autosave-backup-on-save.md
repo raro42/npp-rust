@@ -17,4 +17,4 @@ See GitHub issue #13 and docs/gap-analysis-vs-npp.md / docs/next-gaps.md.
 - No home paths or secrets in commits or comments.
 
 ## Progress
-- **2026-08-31 (coder):** Preferences backup-on-save (`npp-rs/backup/` path layout) + autosave interval for dirty named tabs. Settings keys in `npp-rs/settings.json`. Version **0.3.11**. Docs: `docs/autosave-backup.md`. `./scripts/ci-local.sh` green. Handoff → TEST (issue left open).
+- **2026-08-31 (coder):** Preferences backup-on-save (`npp-rs/backup/` path layout) + autosave interval for dirty named tabs. Settings keys in `npp-rs/settings.json`. Version **0.3.11** (commit `0cf60c3`). Docs: `docs/autosave-backup.md`. `./scripts/ci-local.sh` green. Handoff → TEST (issue left open).
