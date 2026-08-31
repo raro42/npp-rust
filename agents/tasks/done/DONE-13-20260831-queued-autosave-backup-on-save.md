@@ -18,3 +18,5 @@ See GitHub issue #13 and docs/gap-analysis-vs-npp.md / docs/next-gaps.md.
 
 ## Progress
 - **2026-08-31 (coder):** Preferences backup-on-save (`npp-rs/backup/` path layout) + autosave interval for dirty named tabs. Settings keys in `npp-rs/settings.json`. Version **0.3.11** (commit `0cf60c3`). Docs: `docs/autosave-backup.md`. `./scripts/ci-local.sh` green. Handoff → TEST (issue left open).
+
+- **2026-08-31 (tester):** Verified prefs + `crates/app/src/backup.rs` + `tick_autosave` + settings keys + `docs/autosave-backup.md` (v0.3.11 / `0cf60c3`). `./scripts/ci-local.sh` pass (fmt, clippy, 119 tests, release). Handoff: complete. Issue left open.
