@@ -4,6 +4,7 @@ mod backup;
 mod commands;
 mod diff;
 mod editor;
+mod fold;
 mod menu_data;
 mod recent;
 mod search_util;

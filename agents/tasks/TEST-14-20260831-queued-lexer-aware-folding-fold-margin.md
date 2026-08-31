@@ -15,3 +15,6 @@ See GitHub issue #14 and docs/gap-analysis-vs-npp.md / docs/next-gaps.md.
 
 ## Privacy
 - No home paths or secrets in commits or comments.
+
+## Progress
+- **2026-08-31 (coder):** Fold margin (`−`/`+` click toggle). Brace folds for Rust/C-like; indent folds for Python/others. View fold commands use the same regions. Pref `show_fold_margin`. Version **0.3.12**. Docs: `docs/folding.md`. `./scripts/ci-local.sh` green. Handoff → TEST (issue left open).

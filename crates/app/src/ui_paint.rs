@@ -3,6 +3,9 @@
 use eframe::egui::{self, Color32, FontId, Pos2};
 use std::collections::BTreeSet;
 
+/// Width reserved for fold −/+ markers when the fold margin is on.
+pub(crate) const FOLD_MARGIN_W: f32 = 14.0;
+
 /// Document line indices that are not folded/hidden (display order).
 pub(crate) fn visible_line_indices(line_count: usize, hidden: &BTreeSet<usize>) -> Vec<usize> {
     if hidden.is_empty() {
@@ -103,6 +106,31 @@ pub(crate) fn paint_change_history_bar(
             Pos2::new(gutter_left + 16.0, y1.max(y0 + 2.0)),
         ),
         0.0,
+        color,
+    );
+}
+
+/// Draw a fold margin marker (`−` open, `+` folded) in the gutter strip.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn paint_fold_marker(
+    painter: &egui::Painter,
+    font_id: &FontId,
+    fold_left: f32,
+    fold_w: f32,
+    y: f32,
+    row_height: f32,
+    folded: bool,
+    color: Color32,
+) {
+    let mark = if folded { "+" } else { "−" };
+    painter.text(
+        Pos2::new(
+            fold_left + fold_w * 0.5,
+            y + (row_height - font_id.size) * 0.35,
+        ),
+        egui::Align2::CENTER_TOP,
+        mark,
+        font_id.clone(),
         color,
     );
 }

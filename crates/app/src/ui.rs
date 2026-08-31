@@ -3,7 +3,8 @@
 use crate::editor::EditorState;
 use crate::ui_paint::{
     change_history_joins, change_history_wash, col_from_x, display_row_for,
-    paint_change_history_bar, paint_line_text, style_mark_bg, text_width, visible_line_indices,
+    paint_change_history_bar, paint_fold_marker, paint_line_text, style_mark_bg, text_width,
+    visible_line_indices, FOLD_MARGIN_W,
 };
 use eframe::egui::{self, Color32, CursorIcon, FontId, Key, Pos2, Rect, RichText, Sense, Vec2};
 use std::path::PathBuf;
@@ -1055,6 +1056,15 @@ Tree-sitter highlight, and a calm UI.",
                             .checkbox(
                                 &mut self.state.settings.show_line_numbers,
                                 "Show line numbers",
+                            )
+                            .changed()
+                        {
+                            changed = true;
+                        }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.show_fold_margin,
+                                "Show fold margin",
                             )
                             .changed()
                         {
@@ -2536,11 +2546,16 @@ Tree-sitter highlight, and a calm UI.",
             }
 
             let show_ln = self.state.settings.show_line_numbers;
-            let gutter_w =
-                if show_ln { 56.0 } else { 16.0 } + f32::from(self.state.settings.gutter_extra);
+            let show_fold = self.state.settings.show_fold_margin;
+            let fold_w = if show_fold { FOLD_MARGIN_W } else { 0.0 };
+            let gutter_w = if show_ln { 56.0 } else { 16.0 }
+                + fold_w
+                + f32::from(self.state.settings.gutter_extra);
             // Gap between line numbers and text (was flush before).
             let gutter_gap = 12.0;
             let text_left = rect.left() + gutter_w + gutter_gap;
+            let gutter_right = rect.left() + gutter_w;
+            let fold_left = gutter_right - fold_w;
 
             let hit_index = |ui: &egui::Ui,
                              pos: Pos2,
@@ -2559,10 +2574,49 @@ Tree-sitter highlight, and a calm UI.",
                 line_start + col
             };
 
+            let fold_line_at = |pos: Pos2| -> Option<usize> {
+                if !show_fold || fold_w <= 0.0 || pos.x < fold_left || pos.x >= gutter_right {
+                    return None;
+                }
+                let first = self.scroll_line.floor() as usize;
+                let row = first + ((pos.y - rect.top()) / row_height).floor().max(0.0) as usize;
+                let row = row.min(visible_lines.len().saturating_sub(1));
+                visible_lines.get(row).copied()
+            };
+
+            let mut fold_click = false;
+            if response.clicked() || response.drag_started() {
+                if let Some(pos) = response.interact_pointer_pos() {
+                    if let Some(line) = fold_line_at(pos) {
+                        let lang = self.state.tabs.active().language.clone();
+                        let regions = crate::fold::compute_fold_regions(
+                            lang.as_str(),
+                            &self.state.tabs.active().buffer,
+                        );
+                        if let Some(region) = crate::fold::region_at_header(&regions, line) {
+                            let hidden = &mut self.state.tabs.active_mut().hidden_lines;
+                            let was = crate::fold::is_folded(hidden, &region);
+                            crate::fold::toggle_region(hidden, &region);
+                            self.state.status = if was {
+                                format!("Unfolded {} line(s)", region.end - region.header)
+                            } else {
+                                format!("Folded {} line(s)", region.end - region.header)
+                            };
+                            fold_click = true;
+                            self.drag_anchor = None;
+                            self.rect_drag = false;
+                            self.sel_text_drag = None;
+                        }
+                    }
+                }
+            }
+
             // Double-click → word; triple-click → line; click → caret;
             // Alt+drag → rect/column multi-carets; drag inside selection → move/copy;
             // else drag → select.
-            if response.triple_clicked() {
+            if fold_click {
+                // Fold margin consumed the pointer.
+            } else if response.triple_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let idx = hit_index(
                         ui,
@@ -2760,7 +2814,6 @@ Tree-sitter highlight, and a calm UI.",
             let theme = self.current_theme();
             painter.rect_filled(rect, 0.0, theme.editor_bg);
             // Gutter band + hairline so numbers stay separate from text.
-            let gutter_right = rect.left() + gutter_w;
             painter.rect_filled(
                 Rect::from_min_max(
                     Pos2::new(rect.left(), rect.top()),
@@ -2781,6 +2834,14 @@ Tree-sitter highlight, and a calm UI.",
             let changed_unsaved = self.state.tabs.active().changed_unsaved.clone();
             let changed_saved = self.state.tabs.active().changed_saved.clone();
             let style_marks = self.state.tabs.active().style_marks.clone();
+            let hidden_lines = self.state.tabs.active().hidden_lines.clone();
+            let fold_regions =
+                crate::fold::compute_fold_regions(lang.as_str(), &self.state.tabs.active().buffer);
+            let ln_right = if show_fold {
+                fold_left - 2.0
+            } else {
+                gutter_right - 6.0
+            };
 
             for row in first_row..last_row {
                 let Some(&line_idx) = visible_lines.get(row) else {
@@ -2878,15 +2939,32 @@ Tree-sitter highlight, and a calm UI.",
                     );
                 }
 
-                // Line number — right-aligned inside the gutter.
+                // Line number — right-aligned inside the gutter (left of fold margin).
                 if show_ln {
                     painter.text(
-                        Pos2::new(gutter_right - 6.0, y),
+                        Pos2::new(ln_right, y),
                         egui::Align2::RIGHT_TOP,
                         format!("{}", line_idx + 1),
                         font_id.clone(),
                         theme.line_number_fg,
                     );
+                }
+
+                // Fold margin marker (− open / + folded).
+                if show_fold {
+                    if let Some(region) = crate::fold::region_at_header(&fold_regions, line_idx) {
+                        let folded = crate::fold::is_folded(&hidden_lines, &region);
+                        paint_fold_marker(
+                            &painter,
+                            &font_id,
+                            fold_left,
+                            fold_w,
+                            y,
+                            row_height,
+                            folded,
+                            theme.line_number_fg,
+                        );
+                    }
                 }
 
                 let line_start = self.state.tabs.active().buffer.line_to_char(line_idx);
@@ -3533,11 +3611,15 @@ Tree-sitter highlight, and a calm UI.",
         }
 
         let show_ln = self.state.settings.show_line_numbers;
-        let gutter_w =
-            if show_ln { 48.0 } else { 12.0 } + f32::from(self.state.settings.gutter_extra);
+        let show_fold = self.state.settings.show_fold_margin;
+        let fold_w = if show_fold { FOLD_MARGIN_W } else { 0.0 };
+        let gutter_w = if show_ln { 48.0 } else { 12.0 }
+            + fold_w
+            + f32::from(self.state.settings.gutter_extra);
         let gutter_gap = 8.0;
         let text_left = rect.left() + gutter_w + gutter_gap;
         let gutter_right = rect.left() + gutter_w;
+        let fold_left = gutter_right - fold_w;
 
         let hit_index = |ui: &egui::Ui,
                          pos: Pos2,
@@ -3556,7 +3638,46 @@ Tree-sitter highlight, and a calm UI.",
             line_start + col
         };
 
-        if response.triple_clicked() {
+        let fold_line_at = |pos: Pos2| -> Option<usize> {
+            if !show_fold || fold_w <= 0.0 || pos.x < fold_left || pos.x >= gutter_right {
+                return None;
+            }
+            let first = scroll_line.floor() as usize;
+            let row = first + ((pos.y - rect.top()) / row_height).floor().max(0.0) as usize;
+            let row = row.min(visible_lines.len().saturating_sub(1));
+            visible_lines.get(row).copied()
+        };
+
+        let mut fold_click = false;
+        if response.clicked() || response.drag_started() {
+            if let Some(pos) = response.interact_pointer_pos() {
+                if let Some(line) = fold_line_at(pos) {
+                    if let Some(doc) = self.state.tabs.get(tab) {
+                        let lang = doc.language.clone();
+                        let regions = crate::fold::compute_fold_regions(lang.as_str(), &doc.buffer);
+                        if let Some(region) = crate::fold::region_at_header(&regions, line) {
+                            if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                let was = crate::fold::is_folded(&doc.hidden_lines, &region);
+                                crate::fold::toggle_region(&mut doc.hidden_lines, &region);
+                                self.state.status = if was {
+                                    format!("Unfolded {} line(s)", region.end - region.header)
+                                } else {
+                                    format!("Folded {} line(s)", region.end - region.header)
+                                };
+                            }
+                            fold_click = true;
+                            self.drag_anchor = None;
+                            self.rect_drag = false;
+                            self.sel_text_drag = None;
+                        }
+                    }
+                }
+            }
+        }
+
+        if fold_click {
+            // Fold margin consumed the pointer.
+        } else if response.triple_clicked() {
             if let Some(pos) = response.interact_pointer_pos() {
                 if let Some(doc) = self.state.tabs.get(tab) {
                     let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
@@ -3733,12 +3854,29 @@ Tree-sitter highlight, and a calm UI.",
         let first_row = scroll_line.floor() as usize;
         let last_row = (first_row + visible_rows + 2).min(display_count);
         let plain = theme.plain_fg;
-        let (changed_unsaved, changed_saved) = self
+        let (changed_unsaved, changed_saved, fold_lang) = self
             .state
             .tabs
             .get(tab)
-            .map(|d| (d.changed_unsaved.clone(), d.changed_saved.clone()))
+            .map(|d| {
+                (
+                    d.changed_unsaved.clone(),
+                    d.changed_saved.clone(),
+                    d.language.clone(),
+                )
+            })
+            .unwrap_or_else(|| (Default::default(), Default::default(), "plain".into()));
+        let fold_regions = self
+            .state
+            .tabs
+            .get(tab)
+            .map(|d| crate::fold::compute_fold_regions(fold_lang.as_str(), &d.buffer))
             .unwrap_or_default();
+        let ln_right = if show_fold {
+            fold_left - 2.0
+        } else {
+            gutter_right - 4.0
+        };
 
         for row in first_row..last_row {
             let Some(&line_idx) = visible_lines.get(row) else {
@@ -3802,12 +3940,31 @@ Tree-sitter highlight, and a calm UI.",
             }
             if show_ln {
                 painter.text(
-                    Pos2::new(gutter_right - 4.0, y),
+                    Pos2::new(ln_right, y),
                     egui::Align2::RIGHT_TOP,
                     format!("{}", line_idx + 1),
                     font_id.clone(),
                     theme.line_number_fg,
                 );
+            }
+            if show_fold {
+                if let Some(region) = crate::fold::region_at_header(&fold_regions, line_idx) {
+                    let folded = self
+                        .state
+                        .tabs
+                        .get(tab)
+                        .is_some_and(|d| crate::fold::is_folded(&d.hidden_lines, &region));
+                    paint_fold_marker(
+                        &painter,
+                        &font_id,
+                        fold_left,
+                        fold_w,
+                        y,
+                        row_height,
+                        folded,
+                        theme.line_number_fg,
+                    );
+                }
             }
 
             let Some(doc) = self.state.tabs.get(tab) else {

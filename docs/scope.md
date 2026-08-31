@@ -28,7 +28,7 @@ Deep gap list (hotkeys, DnD, feature table): [gap-analysis-vs-npp.md](gap-analys
 - No N++ plugin ABI / Plugin Admin install
 - No UDL, hex editor, FTP/cloud, UI localization
 - Autosave / backup: MVP in Preferences (v0.3.11); not full N++ snapshot sessions
-- Macros record menu IDs only; folding is indent-hide MVP
+- Macros record menu IDs only; folding: margin + brace/indent MVP (v0.3.12)
 
 ## Principle
 

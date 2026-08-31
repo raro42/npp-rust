@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.12] — 2026-08-31
+
+Issue #14 (P1 lexer-aware folding + fold margin):
+
+- Gutter fold markers (`−` / `+`); click toggles a region
+- Brace folds for Rust/C-like languages; indent folds for Python and others
+- View → Fold / Unfold / levels use the same regions
+- Preferences: **Show fold margin** (`show_fold_margin` in `npp-rs/settings.json`)
+- Docs: `docs/folding.md`
+
 ## [0.3.11] — 2026-08-31
 
 Issue #13 (P1 autosave / backup-on-save):

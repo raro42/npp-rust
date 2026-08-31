@@ -581,19 +581,6 @@ pub(crate) fn open_in_new_instance(state: &mut EditorState, move_doc: bool) {
     }
 }
 
-/// Indent depth in units of 4 spaces (tabs count as 4).
-pub(crate) fn line_indent_level(line: &str) -> usize {
-    let mut spaces = 0usize;
-    for c in line.chars() {
-        match c {
-            ' ' => spaces += 1,
-            '\t' => spaces += 4,
-            _ => break,
-        }
-    }
-    spaces / 4
-}
-
 pub(crate) fn hide_selected_or_current_lines(state: &mut EditorState) {
     let (start_line, end_line) = {
         let buf = &state.tabs.active().buffer;
@@ -621,20 +608,16 @@ pub(crate) fn hide_selected_or_current_lines(state: &mut EditorState) {
 }
 
 pub(crate) fn fold_all_by_indent(state: &mut EditorState) {
-    let n = state.tabs.active().buffer.line_count();
-    let mut to_hide = Vec::new();
-    for i in 0..n {
-        let raw = state.tabs.active().buffer.line(i);
-        if line_indent_level(&raw) > 0 {
-            to_hide.push(i);
-        }
-    }
+    let lang = state.tabs.active().language.clone();
+    let regions = crate::fold::compute_fold_regions(lang.as_str(), &state.tabs.active().buffer);
     let hidden = &mut state.tabs.active_mut().hidden_lines;
-    for i in to_hide {
-        hidden.insert(i);
-    }
-    let count = state.tabs.active().hidden_lines.len();
-    state.status = format!("Fold all (indent): {count} line(s) hidden");
+    let added = crate::fold::fold_all_regions(hidden, &regions);
+    let mode = if crate::fold::uses_brace_folds(lang.as_str()) {
+        "brace"
+    } else {
+        "indent"
+    };
+    state.status = format!("Fold all ({mode}): {added} line(s) hidden");
 }
 
 pub(crate) fn unfold_all_hidden(state: &mut EditorState) {
@@ -643,45 +626,46 @@ pub(crate) fn unfold_all_hidden(state: &mut EditorState) {
     state.status = format!("Unfold all: showed {n} line(s)");
 }
 
-fn current_indent_block(state: &EditorState) -> (usize, usize) {
-    let buf = &state.tabs.active().buffer;
-    let start = buf.char_to_line(buf.caret());
-    let base = line_indent_level(&buf.line(start));
-    let n = buf.line_count();
-    let mut end = start;
-    for i in (start + 1)..n {
-        let raw = buf.line(i);
-        if raw.trim().is_empty() {
-            end = i;
-            continue;
-        }
-        if line_indent_level(&raw) > base {
-            end = i;
-        } else {
-            break;
-        }
-    }
-    (start, end)
-}
-
 pub(crate) fn fold_current_block(state: &mut EditorState) {
-    let (start, end) = current_indent_block(state);
-    if end <= start {
+    let lang = state.tabs.active().language.clone();
+    let line = {
+        let buf = &state.tabs.active().buffer;
+        buf.char_to_line(buf.caret())
+    };
+    let regions = crate::fold::compute_fold_regions(lang.as_str(), &state.tabs.active().buffer);
+    let Some(region) = crate::fold::region_for_line(&regions, line)
+        .or_else(|| crate::fold::region_at_header(&regions, line))
+    else {
         state.status = "Fold current: nothing to fold".into();
         return;
-    }
+    };
     let hidden = &mut state.tabs.active_mut().hidden_lines;
-    for i in (start + 1)..=end {
+    if crate::fold::is_folded(hidden, &region) {
+        state.status = "Fold current: already folded".into();
+        return;
+    }
+    for i in (region.header + 1)..=region.end {
         hidden.insert(i);
     }
-    state.status = format!("Folded {} line(s)", end - start);
+    state.status = format!("Folded {} line(s)", region.end - region.header);
 }
 
 pub(crate) fn unfold_current_block(state: &mut EditorState) {
-    let (start, end) = current_indent_block(state);
+    let lang = state.tabs.active().language.clone();
+    let line = {
+        let buf = &state.tabs.active().buffer;
+        buf.char_to_line(buf.caret())
+    };
+    let regions = crate::fold::compute_fold_regions(lang.as_str(), &state.tabs.active().buffer);
+    let Some(region) = crate::fold::region_for_line(&regions, line)
+        .or_else(|| crate::fold::region_at_header(&regions, line))
+    else {
+        state.status = "Unfold current: nothing to unfold".into();
+        return;
+    };
     let hidden = &mut state.tabs.active_mut().hidden_lines;
     let before = hidden.len();
-    for i in start..=end {
+    for i in region.header..=region.end {
         hidden.remove(&i);
     }
     let shown = before.saturating_sub(hidden.len());
@@ -689,39 +673,17 @@ pub(crate) fn unfold_current_block(state: &mut EditorState) {
 }
 
 pub(crate) fn fold_indent_level(state: &mut EditorState, level: usize) {
-    let n = state.tabs.active().buffer.line_count();
-    let mut to_hide = Vec::new();
-    for i in 0..n {
-        let raw = state.tabs.active().buffer.line(i);
-        if line_indent_level(&raw) >= level {
-            to_hide.push(i);
-        }
-    }
+    let lang = state.tabs.active().language.clone();
+    let regions = crate::fold::compute_fold_regions(lang.as_str(), &state.tabs.active().buffer);
     let hidden = &mut state.tabs.active_mut().hidden_lines;
-    let mut added = 0usize;
-    for i in to_hide {
-        if hidden.insert(i) {
-            added += 1;
-        }
-    }
+    let added = crate::fold::fold_regions_at_level(hidden, &regions, level);
     state.status = format!("Fold level {level}: hid {added} line(s)");
 }
 
 pub(crate) fn unfold_indent_level(state: &mut EditorState, level: usize) {
-    let n = state.tabs.active().buffer.line_count();
-    let mut to_show = Vec::new();
-    for i in 0..n {
-        let raw = state.tabs.active().buffer.line(i);
-        if line_indent_level(&raw) == level {
-            to_show.push(i);
-        }
-    }
+    let lang = state.tabs.active().language.clone();
+    let regions = crate::fold::compute_fold_regions(lang.as_str(), &state.tabs.active().buffer);
     let hidden = &mut state.tabs.active_mut().hidden_lines;
-    let mut shown = 0usize;
-    for i in to_show {
-        if hidden.remove(&i) {
-            shown += 1;
-        }
-    }
+    let shown = crate::fold::unfold_regions_at_level(hidden, &regions, level);
     state.status = format!("Unfold level {level}: showed {shown} line(s)");
 }

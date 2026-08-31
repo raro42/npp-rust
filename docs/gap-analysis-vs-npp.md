@@ -98,7 +98,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | Encoding | Partial | UTF-8 / BOM / ANSI / UTF-16 LE·BE BOM (v0.3.6) |
 | Session restore | Partial | Path list; not full N++ session XML |
 | Project panel | Partial | Folder list, not N++ projects |
-| Indent fold / hide lines | Partial | No lexer fold margin |
+| Indent fold / hide lines | Partial | Fold margin + brace/indent heuristics (v0.3.12); not full Scintilla |
 | Column / multi-edit | Partial | Alt+rect + multi-caret typing (v0.3.9); no virtual space |
 | Autocomplete / call tips | Partial | In-file words/paths; no LSP popup |
 | Macros | Partial | Records menu IDs only; “multi” = 3 plays |
@@ -130,7 +130,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 ### P1 — power users expect from N++
 
 6. Deeper Find in Files (recursive, filters, workspace root) — **done** in v0.3.10 (MVP; not full N++ dialog)
-7. Lexer-aware folding + fold margin
+7. Lexer-aware folding + fold margin — **done MVP** in v0.3.12
 8. Popup autocomplete / call tips (then LSP)
 9. Macro: record typing + save named macros
 10. Fuller Preferences (margins, default encoding, backup)

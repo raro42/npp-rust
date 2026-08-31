@@ -19,8 +19,9 @@ New keys:
 | `compare_ignore_ws` | Compare ignores whitespace runs |
 | `backup_on_save` | Copy on-disk file into `npp-rs/backup/` before overwrite |
 | `autosave_interval_secs` | Autosave dirty named tabs (`0` = off; else 15–900) |
+| `show_fold_margin` | Gutter fold markers (`−` / `+`); default on |
 
-See also: `docs/autosave-backup.md`.
+See also: `docs/autosave-backup.md`, `docs/folding.md`.
 
 ## Session
 
