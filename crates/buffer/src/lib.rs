@@ -817,6 +817,46 @@ impl TextBuffer {
         self.insert_at_caret(text);
     }
 
+    /// Drag selected text to `drop_at`. `copy` keeps the source; otherwise move.
+    ///
+    /// Returns `false` when there is no selection or the drop is a no-op
+    /// (inside the selection for move; strictly inside for copy).
+    pub fn drag_selection_to(&mut self, drop_at: usize, copy: bool) -> bool {
+        let Some((start, end)) = self.selection() else {
+            return false;
+        };
+        let drop_at = drop_at.min(self.len_chars());
+        if copy {
+            if drop_at > start && drop_at < end {
+                return false;
+            }
+        } else if drop_at >= start && drop_at <= end {
+            return false;
+        }
+        let text = self.slice(start, end);
+        let n = text.chars().count();
+        if n == 0 {
+            return false;
+        }
+        self.with_transaction(|b| {
+            if copy {
+                b.sel_anchor = None;
+                b.caret = drop_at;
+                b.insert_at_caret(&text);
+            } else {
+                b.delete_range(start, end, true);
+                let at = if drop_at > end { drop_at - n } else { drop_at };
+                b.sel_anchor = None;
+                b.caret = at;
+                b.insert_at_caret(&text);
+            }
+            let new_end = b.caret;
+            let new_start = new_end.saturating_sub(n);
+            b.set_selection(new_start, new_end);
+        });
+        true
+    }
+
     /// Insert at caret with no selection handling. Honors typing coalesce outside a transaction.
     fn insert_at_caret(&mut self, text: &str) {
         if text.is_empty() {
@@ -1341,5 +1381,45 @@ mod tests {
             b.take_line_structure_edit(),
             Some(LineStructureEdit::Insert { at: 0, n: 2 })
         );
+    }
+
+    #[test]
+    fn drag_selection_move_forward() {
+        let mut b = TextBuffer::from_str("abcDEFghi");
+        b.set_selection(3, 6); // DEF
+        assert!(b.drag_selection_to(9, false));
+        assert_eq!(b.to_string(), "abcghiDEF");
+        assert_eq!(b.selection(), Some((6, 9)));
+        assert_eq!(b.undo_len(), 1);
+        assert!(b.undo());
+        assert_eq!(b.to_string(), "abcDEFghi");
+    }
+
+    #[test]
+    fn drag_selection_move_backward() {
+        let mut b = TextBuffer::from_str("abcDEFghi");
+        b.set_selection(3, 6);
+        assert!(b.drag_selection_to(0, false));
+        assert_eq!(b.to_string(), "DEFabcghi");
+        assert_eq!(b.selection(), Some((0, 3)));
+    }
+
+    #[test]
+    fn drag_selection_copy() {
+        let mut b = TextBuffer::from_str("abcDEFghi");
+        b.set_selection(3, 6);
+        assert!(b.drag_selection_to(9, true));
+        assert_eq!(b.to_string(), "abcDEFghiDEF");
+        assert_eq!(b.selection(), Some((9, 12)));
+        assert_eq!(b.undo_len(), 1);
+    }
+
+    #[test]
+    fn drag_selection_move_inside_is_noop() {
+        let mut b = TextBuffer::from_str("abcDEFghi");
+        b.set_selection(3, 6);
+        assert!(!b.drag_selection_to(4, false));
+        assert_eq!(b.to_string(), "abcDEFghi");
+        assert_eq!(b.undo_len(), 0);
     }
 }

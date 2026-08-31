@@ -33,6 +33,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [compare.md](compare.md) | Built-in 2-way file compare |
 | [screens/README.md](screens/README.md) | Showcase GIF + capture notes |
 | [tab-drag.md](tab-drag.md) | Mouse drag-reorder on the tab bar |
+| [drag-drop.md](drag-drop.md) | File drop open + selection drag move/copy |
 | [undo-transactions.md](undo-transactions.md) | Transactional undo / typing coalesce |
 | [bump-version.md](bump-version.md) | Bump semver when shipping features |
 | [overnight-gaps.md](overnight-gaps.md) | Overnight gap loop (issue #6) |

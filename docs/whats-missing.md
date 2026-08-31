@@ -19,7 +19,7 @@ Handlers that work but stay shallower than upstream N++:
 | Search | Change History: amber/green gutter bars + wash; undo remap; CHG status. Find has case/word + match count |
 | Settings | Themes: JSON tokens + chrome; N++ XML subset (GlobalStyles + one lexer); full stylers parity open; plugins: builtins listed, no drop-in load. Preferences deeper in v0.3.1 |
 | File | Pin from tab chrome + `IDM_PINTAB`; Close All but Pinned keeps pinned tabs; opt-in session restore |
-| View | Tab drag-reorder; Move Tab Forward / Backward still available |
+| View | Tab drag-reorder; file drop open; selection drag move/copy (Ctrl/Cmd = copy) |
 
 ## Larger product gaps (not menu stubs)
 

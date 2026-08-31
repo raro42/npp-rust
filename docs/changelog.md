@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.8] — 2026-08-31
+
+Issue #10 (P0 file drop + selection drag):
+
+- Drop files onto the window to open them (folders skipped)
+- Drag selected text to move; Ctrl/Cmd+drag to copy (one undo)
+- Orange drop caret while dragging; dual-view panes supported
+
 ## [0.3.7] — 2026-08-31
 
 Issue #9 (P0 hotkeys / Find next):

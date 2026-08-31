@@ -1,20 +1,20 @@
-# Next gaps (post v0.3.7)
+# Next gaps (post v0.3.8)
 
 Date: 2026-08-31  
-Status: Issue **#8** closed. **#9** coder batch in v0.3.7 (await TEST). Open: **#10–#14**.
+Status: Issue **#8**–**#9** closed. **#10** coder batch in v0.3.8 (await TEST). Open: **#11–#14**.
 
 ## Done recently
 
 - v0.3.1–v0.3.6: Preferences, project/ANSI, themes, change-history, UTF-16
-- v0.3.7: Global F3 find next/prev + more hard-wired hotkeys (#9 coder)
+- v0.3.7: Global F3 find next/prev + more hard-wired hotkeys (#9)
+- v0.3.8: File drop open + selection drag move/copy (#10 coder)
 - Gap analysis: `docs/gap-analysis-vs-npp.md`
 
 ## Open GitHub issues (loop)
 
 | # | Priority | Title |
 |---|----------|--------|
-| [9](https://github.com/raro42/npp-rust/issues/9) | P0 | More hotkeys + global Find next (F3) — coding done, test pending |
-| [10](https://github.com/raro42/npp-rust/issues/10) | P0 | File drop + selection drag move/copy |
+| [10](https://github.com/raro42/npp-rust/issues/10) | P0 | File drop + selection drag move/copy — coding done, test pending |
 | [11](https://github.com/raro42/npp-rust/issues/11) | P0 | Column/rect select + multi-caret typing |
 | [12](https://github.com/raro42/npp-rust/issues/12) | P1 | Deeper Find in Files |
 | [13](https://github.com/raro42/npp-rust/issues/13) | P1 | Autosave / backup-on-save |

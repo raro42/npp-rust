@@ -5,7 +5,8 @@ use crate::ui_paint::{
     change_history_joins, change_history_wash, col_from_x, display_row_for,
     paint_change_history_bar, paint_line_text, style_mark_bg, text_width, visible_line_indices,
 };
-use eframe::egui::{self, Color32, FontId, Key, Pos2, Rect, RichText, Sense, Vec2};
+use eframe::egui::{self, Color32, CursorIcon, FontId, Key, Pos2, Rect, RichText, Sense, Vec2};
+use std::path::PathBuf;
 
 /// Soft teal — ready menu items (works on light and dark themes).
 const MENU_READY: Color32 = Color32::from_rgb(42, 148, 118);
@@ -25,6 +26,12 @@ pub struct CliOptions {
 enum EditorPane {
     Primary,
     Secondary,
+}
+
+/// In-progress drag of selected text (move, or copy with Ctrl/Cmd).
+struct SelTextDrag {
+    tab: usize,
+    drop_at: usize,
 }
 
 /// Choose the right-hand tab for Compare.
@@ -72,6 +79,8 @@ pub struct EditorApp {
     log_tail_remember: bool,
     /// Drag-select anchor (char index), while primary button is held.
     drag_anchor: Option<usize>,
+    /// Drag selected text to move (or Ctrl/Cmd+drag to copy).
+    sel_text_drag: Option<SelTextDrag>,
     /// Tab bar drag-reorder: source index while the pointer drags a tab.
     tab_drag_from: Option<usize>,
     show_replace: bool,
@@ -133,6 +142,7 @@ impl EditorApp {
             show_preferences: false,
             log_tail_remember: true,
             drag_anchor: None,
+            sel_text_drag: None,
             tab_drag_from: None,
             show_replace: false,
             replace_with: String::new(),
@@ -269,6 +279,7 @@ impl eframe::App for EditorApp {
         }
 
         self.apply_theme_visuals(ctx);
+        self.handle_file_drops(ctx);
         self.handle_shortcuts(ctx);
         self.menu_bar(ctx);
         self.refresh_compare_if_stale(ctx);
@@ -299,6 +310,75 @@ impl eframe::App for EditorApp {
 }
 
 impl EditorApp {
+    /// Open paths dropped onto the window (skip folders / missing).
+    fn handle_file_drops(&mut self, ctx: &egui::Context) {
+        let hovering = ctx.input(|i| !i.raw.hovered_files.is_empty());
+        if hovering {
+            ctx.set_cursor_icon(CursorIcon::Copy);
+            if self.state.status.is_empty() || !self.state.status.starts_with("Drop ") {
+                self.state.status = "Drop files here to open…".into();
+            }
+        }
+
+        let dropped: Vec<PathBuf> = ctx.input(|i| {
+            i.raw
+                .dropped_files
+                .iter()
+                .filter_map(|f| f.path.clone())
+                .collect()
+        });
+        if dropped.is_empty() {
+            return;
+        }
+
+        let mut opened = 0usize;
+        let mut skipped = 0usize;
+        for path in dropped {
+            if path.is_file() {
+                self.state.open_path(path);
+                opened += 1;
+            } else {
+                skipped += 1;
+            }
+        }
+        self.state.status = if opened == 0 && skipped == 0 {
+            "Drop ignored (no local paths)".into()
+        } else if skipped == 0 {
+            format!("Opened {opened} dropped file(s)")
+        } else if opened == 0 {
+            format!("Skipped {skipped} dropped path(s) (not files)")
+        } else {
+            format!("Opened {opened} dropped file(s); skipped {skipped}")
+        };
+    }
+
+    fn finish_sel_text_drag(&mut self, copy: bool) {
+        let Some(drag) = self.sel_text_drag.take() else {
+            return;
+        };
+        let Some(doc) = self.state.tabs.get_mut(drag.tab) else {
+            return;
+        };
+        if doc.read_only {
+            self.state.status = "Read-only — cannot move or copy selection".into();
+            return;
+        }
+        let ok = doc.buffer.drag_selection_to(drag.drop_at, copy);
+        if ok {
+            self.state.mark_text_changed_at(drag.tab);
+            self.state.status = if copy {
+                "Copied selection by drag".into()
+            } else {
+                "Moved selection by drag".into()
+            };
+            if drag.tab == self.state.tabs.active_index() {
+                self.follow_caret = true;
+            } else {
+                self.follow_caret_other = true;
+            }
+        }
+    }
+
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
         let input = ctx.input(|i| {
             (
@@ -2392,7 +2472,8 @@ Tree-sitter highlight, and a calm UI.",
                 line_start + col
             };
 
-            // Double-click → word; triple-click → line; click → caret; drag → select.
+            // Double-click → word; triple-click → line; click → caret;
+            // drag inside selection → move/copy; else drag → select.
             if response.triple_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let idx = hit_index(
@@ -2404,6 +2485,7 @@ Tree-sitter highlight, and a calm UI.",
                     );
                     self.state.tabs.active_mut().buffer.select_line_at(idx);
                     self.drag_anchor = None;
+                    self.sel_text_drag = None;
                     self.follow_caret = false;
                 }
             } else if response.double_clicked() {
@@ -2417,6 +2499,7 @@ Tree-sitter highlight, and a calm UI.",
                     );
                     self.state.tabs.active_mut().buffer.select_word_at(idx);
                     self.drag_anchor = None;
+                    self.sel_text_drag = None;
                     self.follow_caret = false;
                 }
             } else if response.drag_started() {
@@ -2429,15 +2512,22 @@ Tree-sitter highlight, and a calm UI.",
                         &visible_lines,
                     );
                     let shift = ui.input(|i| i.modifiers.shift);
-                    if shift {
-                        let anchor = self
-                            .state
-                            .tabs
-                            .active()
+                    let tab = self.state.tabs.active_index();
+                    let doc = self.state.tabs.active();
+                    let inside_sel = doc
+                        .buffer
+                        .selection()
+                        .is_some_and(|(s, e)| idx >= s && idx < e);
+                    if !shift && inside_sel && !doc.read_only {
+                        self.sel_text_drag = Some(SelTextDrag { tab, drop_at: idx });
+                        self.drag_anchor = None;
+                    } else if shift {
+                        self.sel_text_drag = None;
+                        let anchor = doc
                             .buffer
                             .selection()
                             .map(|(s, _)| s)
-                            .unwrap_or_else(|| self.state.tabs.active().buffer.caret());
+                            .unwrap_or_else(|| doc.buffer.caret());
                         self.drag_anchor = Some(anchor);
                         self.state
                             .tabs
@@ -2445,15 +2535,14 @@ Tree-sitter highlight, and a calm UI.",
                             .buffer
                             .set_selection(anchor, idx);
                     } else {
+                        self.sel_text_drag = None;
                         self.drag_anchor = Some(idx);
                         self.state.tabs.active_mut().buffer.set_caret(idx);
                     }
                     self.follow_caret = false;
                 }
             } else if response.dragged() {
-                if let (Some(anchor), Some(pos)) =
-                    (self.drag_anchor, response.interact_pointer_pos())
-                {
+                if let Some(pos) = response.interact_pointer_pos() {
                     let idx = hit_index(
                         ui,
                         pos,
@@ -2461,12 +2550,24 @@ Tree-sitter highlight, and a calm UI.",
                         self.scroll_line,
                         &visible_lines,
                     );
-                    self.state
-                        .tabs
-                        .active_mut()
-                        .buffer
-                        .set_selection(anchor, idx);
-                    self.follow_caret = false;
+                    if let Some(drag) = self.sel_text_drag.as_mut() {
+                        if drag.tab == self.state.tabs.active_index() {
+                            drag.drop_at = idx;
+                            let copy = ui.input(|i| i.modifiers.ctrl || i.modifiers.command);
+                            ui.ctx().set_cursor_icon(if copy {
+                                CursorIcon::Copy
+                            } else {
+                                CursorIcon::Grabbing
+                            });
+                        }
+                    } else if let Some(anchor) = self.drag_anchor {
+                        self.state
+                            .tabs
+                            .active_mut()
+                            .buffer
+                            .set_selection(anchor, idx);
+                        self.follow_caret = false;
+                    }
                 }
             } else if response.clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
@@ -2496,10 +2597,15 @@ Tree-sitter highlight, and a calm UI.",
                         self.state.tabs.active_mut().buffer.set_caret(idx);
                     }
                     self.drag_anchor = None;
+                    self.sel_text_drag = None;
                     self.follow_caret = false;
                 }
             }
             if ui.input(|i| i.pointer.any_released()) {
+                if self.sel_text_drag.is_some() {
+                    let copy = ui.input(|i| i.modifiers.ctrl || i.modifiers.command);
+                    self.finish_sel_text_drag(copy);
+                }
                 self.drag_anchor = None;
             }
 
@@ -2806,6 +2912,22 @@ Tree-sitter highlight, and a calm UI.",
                         painter.line_segment(
                             [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
                             egui::Stroke::new(1.0_f32, theme.caret_fg),
+                        );
+                    }
+                }
+
+                // Drop caret while dragging selected text.
+                if let Some(drag) = self.sel_text_drag.as_ref() {
+                    if drag.tab == self.state.tabs.active_index()
+                        && drag.drop_at >= line_start
+                        && drag.drop_at <= line_end
+                    {
+                        let col = drag.drop_at - line_start;
+                        let prefix: String = line_text.chars().take(col).collect();
+                        let cx = text_left + text_width(ui, &font_id, &prefix);
+                        painter.line_segment(
+                            [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
+                            egui::Stroke::new(2.0_f32, Color32::from_rgb(220, 140, 40)),
                         );
                     }
                 }
@@ -3280,6 +3402,7 @@ Tree-sitter highlight, and a calm UI.",
                     }
                 }
                 self.drag_anchor = None;
+                self.sel_text_drag = None;
                 self.follow_caret_other = false;
             }
         } else if response.double_clicked() {
@@ -3291,6 +3414,7 @@ Tree-sitter highlight, and a calm UI.",
                     }
                 }
                 self.drag_anchor = None;
+                self.sel_text_drag = None;
                 self.follow_caret_other = false;
             }
         } else if response.drag_started() {
@@ -3300,7 +3424,16 @@ Tree-sitter highlight, and a calm UI.",
                     let shift = ui.input(|i| i.modifiers.shift);
                     let caret = doc.buffer.caret();
                     let sel_anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(caret);
-                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                    let inside_sel = doc
+                        .buffer
+                        .selection()
+                        .is_some_and(|(s, e)| idx >= s && idx < e);
+                    let read_only = doc.read_only;
+                    if !shift && inside_sel && !read_only {
+                        self.sel_text_drag = Some(SelTextDrag { tab, drop_at: idx });
+                        self.drag_anchor = None;
+                    } else if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        self.sel_text_drag = None;
                         if shift {
                             self.drag_anchor = Some(sel_anchor);
                             doc.buffer.set_selection(sel_anchor, idx);
@@ -3313,14 +3446,26 @@ Tree-sitter highlight, and a calm UI.",
                 self.follow_caret_other = false;
             }
         } else if response.dragged() {
-            if let (Some(anchor), Some(pos)) = (self.drag_anchor, response.interact_pointer_pos()) {
+            if let Some(pos) = response.interact_pointer_pos() {
                 if let Some(doc) = self.state.tabs.get(tab) {
                     let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
-                    if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.buffer.set_selection(anchor, idx);
+                    if let Some(drag) = self.sel_text_drag.as_mut() {
+                        if drag.tab == tab {
+                            drag.drop_at = idx;
+                            let copy = ui.input(|i| i.modifiers.ctrl || i.modifiers.command);
+                            ui.ctx().set_cursor_icon(if copy {
+                                CursorIcon::Copy
+                            } else {
+                                CursorIcon::Grabbing
+                            });
+                        }
+                    } else if let Some(anchor) = self.drag_anchor {
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.buffer.set_selection(anchor, idx);
+                        }
+                        self.follow_caret_other = false;
                     }
                 }
-                self.follow_caret_other = false;
             }
         } else if response.clicked() {
             if let Some(pos) = response.interact_pointer_pos() {
@@ -3338,10 +3483,15 @@ Tree-sitter highlight, and a calm UI.",
                     }
                 }
                 self.drag_anchor = None;
+                self.sel_text_drag = None;
                 self.follow_caret_other = false;
             }
         }
         if ui.input(|i| i.pointer.any_released()) {
+            if self.sel_text_drag.is_some() {
+                let copy = ui.input(|i| i.modifiers.ctrl || i.modifiers.command);
+                self.finish_sel_text_drag(copy);
+            }
             self.drag_anchor = None;
         }
 
@@ -3536,6 +3686,18 @@ Tree-sitter highlight, and a calm UI.",
                     painter.line_segment(
                         [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
                         egui::Stroke::new(1.0_f32, theme.caret_fg),
+                    );
+                }
+            }
+
+            if let Some(drag) = self.sel_text_drag.as_ref() {
+                if drag.tab == tab && drag.drop_at >= line_start && drag.drop_at <= line_end {
+                    let col = drag.drop_at - line_start;
+                    let prefix: String = line_text.chars().take(col).collect();
+                    let cx = text_left + text_width(ui, &font_id, &prefix);
+                    painter.line_segment(
+                        [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
+                        egui::Stroke::new(2.0_f32, Color32::from_rgb(220, 140, 40)),
                     );
                 }
             }

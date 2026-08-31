@@ -68,15 +68,15 @@ Hundreds of menu commands have **no** accelerator.
 
 ### Drag and drop of marked code?
 
-**No.** Selection drag only **extends** the selection (`drag_anchor`). There is no drag-to-move or drag-to-copy of selected text.
+**Partial (v0.3.8).** Drag inside a selection moves text; Ctrl/Cmd+drag copies. Drop files on the window to open. Cross-document drag and drop-into-find are still missing.
 
 | Kind | Status |
 |------|--------|
 | Drag to select / double-click word / triple-click line | Done |
 | Tab drag-reorder | Done |
 | Document map click/drag scroll | Done |
-| Drag selection to move or copy text | **Missing** |
-| Drop files onto the window to open | **Missing** |
+| Drag selection to move or copy text | Done (same buffer; Ctrl/Cmd = copy) |
+| Drop files onto the window to open | Done |
 
 ---
 
@@ -123,8 +123,8 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 
 1. **More hotkeys** + optional remap (`shortcuts.xml` or settings) — hard-wired set grew in v0.3.7; remap still missing
 2. **Global Find next** (F3) — **done** in v0.3.7
-3. **File drop** onto the window
-4. **Selection drag** move/copy (optional with modifier)
+3. **File drop** onto the window — **done** in v0.3.8
+4. **Selection drag** move/copy — **done** in v0.3.8 (same-buffer; Ctrl/Cmd = copy)
 5. **True column / rectangular select** (Alt+drag) + multi-caret typing
 
 ### P1 — power users expect from N++
@@ -185,5 +185,5 @@ See `docs/menu-todo.md`, `docs/whats-missing.md`. Refresh `docs/scope.md` when y
 npp-rs is a serious **early** editor with an N++ menu shell. It is **not** a 20-year feature clone.
 
 - **Hotkeys:** small hard-wired set — not all N++ keys.
-- **Drag marked code:** not implemented (select drag only).
-- **Largest holes:** remappable keys, file/selection DnD, true column/multi-caret, plugins ABI, UDL, hex, autosave, deeper search/fold/LSP.
+- **Drag marked code:** move/copy in same buffer (v0.3.8); no cross-doc drag yet.
+- **Largest holes:** remappable keys, true column/multi-caret, plugins ABI, UDL, hex, autosave, deeper search/fold/LSP.
