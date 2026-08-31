@@ -32,3 +32,8 @@ No secrets or home paths in commits or issue comments.
 - Tests: load LE/BE, round-trip, odd trailing byte, UTF-8 unchanged.
 - Docs updated. Ready for 003 tester.
 - Handoff: do not close issue #8 (BOM-less UTF-16 / stylers / Scintilla remain).
+
+## Tester (2026-08-31)
+- Verified: `Utf16Le`/`Utf16Be` in `crates/fs`, `crates/doc`; Format menu; BOM open/save; fs tests (LE/BE load, round-trip, odd byte, UTF-8 unchanged); version **0.3.6** + changelog.
+- `./scripts/ci-local.sh` — **PASS** (fmt, clippy `-D warnings`, workspace tests, release build).
+- Result: **PASS** → `DONE-`; leave issue #8 open for handoff (BOM-less UTF-16 / stylers / Scintilla remain).
