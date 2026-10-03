@@ -2,6 +2,7 @@
 //!
 //! Text load/save uses UTF-8 in memory. On load, a UTF-8 BOM is kept as U+FEFF.
 //! UTF-16 LE/BE with BOM decode to Unicode (no BOM char kept in memory).
+//! UTF-16 without a BOM is detected when most 16-bit units have a zero high byte.
 //! Bytes that are not valid UTF-8 decode as Windows-1252 (ANSI stand-in).
 //! Open and tail never use `String::from_utf8_lossy` (no silent U+FFFD corruption).
 
@@ -43,9 +44,9 @@ pub enum TextEncoding {
     Utf8,
     /// Valid UTF-8 with a leading BOM.
     Utf8Bom,
-    /// UTF-16 little-endian with BOM (`FF FE`).
+    /// UTF-16 little-endian (`FF FE` BOM on save; open also detects BOM-less).
     Utf16Le,
-    /// UTF-16 big-endian with BOM (`FE FF`).
+    /// UTF-16 big-endian (`FE FF` BOM on save; open also detects BOM-less).
     Utf16Be,
     /// Not valid UTF-8; decoded (or encoded) as Windows-1252.
     Windows1252,
@@ -175,24 +176,46 @@ impl Default for TailChannel {
 /// UTF-16 unpaired surrogates may become U+FFFD via `from_utf16_lossy`.
 pub fn decode_bytes(buf: &[u8]) -> (String, TextEncoding, Option<String>) {
     if buf.starts_with(UTF16_BE_BOM_BYTES) {
-        let (content, note) = decode_utf16_bom(&buf[2..], true);
+        let (content, note) = decode_utf16_body(&buf[2..], true);
         return (content, TextEncoding::Utf16Be, note);
     }
     if buf.starts_with(UTF16_LE_BOM_BYTES) {
-        let (content, note) = decode_utf16_bom(&buf[2..], false);
+        let (content, note) = decode_utf16_body(&buf[2..], false);
         return (content, TextEncoding::Utf16Le, note);
     }
 
-    let has_bom = buf.starts_with(UTF8_BOM_BYTES);
-    let body = if has_bom { &buf[3..] } else { buf };
+    let has_utf8_bom = buf.starts_with(UTF8_BOM_BYTES);
+    // ASCII UTF-16 without a BOM is also valid UTF-8 (embedded NULs). Detect it
+    // before accepting UTF-8. Skip when a UTF-8 BOM is present.
+    if !has_utf8_bom {
+        if let Some(big_endian) = utf16_nobom_endian(buf) {
+            let (content, odd_note) = decode_utf16_body(buf, big_endian);
+            let encoding = if big_endian {
+                TextEncoding::Utf16Be
+            } else {
+                TextEncoding::Utf16Le
+            };
+            let mut note = format!(
+                "No UTF-16 BOM; decoded as {}. Save writes a BOM.",
+                encoding.label()
+            );
+            if let Some(odd) = odd_note {
+                note.push(' ');
+                note.push_str(&odd);
+            }
+            return (content, encoding, Some(note));
+        }
+    }
+
+    let body = if has_utf8_bom { &buf[3..] } else { buf };
 
     if let Ok(body_str) = std::str::from_utf8(body) {
-        let mut content = String::with_capacity(body_str.len() + if has_bom { 3 } else { 0 });
-        if has_bom {
+        let mut content = String::with_capacity(body_str.len() + if has_utf8_bom { 3 } else { 0 });
+        if has_utf8_bom {
             content.push(UTF8_BOM_CHAR);
         }
         content.push_str(body_str);
-        let encoding = if has_bom {
+        let encoding = if has_utf8_bom {
             TextEncoding::Utf8Bom
         } else {
             TextEncoding::Utf8
@@ -213,9 +236,44 @@ pub fn decode_bytes(buf: &[u8]) -> (String, TextEncoding, Option<String>) {
     (content, TextEncoding::Windows1252, note)
 }
 
-/// Decode UTF-16 body (no BOM). `big_endian` selects byte order.
+/// Guess UTF-16 endianness when there is no BOM.
+///
+/// Requires at least two 16-bit units and a zero high byte in at least
+/// two-thirds of them (typical ASCII / Latin BMP). The winning endianness
+/// must beat the other so all-NUL buffers stay UTF-8.
+fn utf16_nobom_endian(buf: &[u8]) -> Option<bool> {
+    const MIN_BYTES: usize = 4;
+    if buf.len() < MIN_BYTES {
+        return None;
+    }
+    let usable = buf.len() - (buf.len() % 2);
+    if usable < MIN_BYTES {
+        return None;
+    }
+    let units = usable / 2;
+    let mut le_high_zero = 0usize;
+    let mut be_high_zero = 0usize;
+    for pair in buf[..usable].as_chunks::<2>().0 {
+        if pair[1] == 0 {
+            le_high_zero += 1;
+        }
+        if pair[0] == 0 {
+            be_high_zero += 1;
+        }
+    }
+    let need = units.saturating_mul(2).div_ceil(3);
+    if le_high_zero >= need && le_high_zero > be_high_zero {
+        Some(false)
+    } else if be_high_zero >= need && be_high_zero > le_high_zero {
+        Some(true)
+    } else {
+        None
+    }
+}
+
+/// Decode UTF-16 units. `big_endian` selects byte order.
 /// Drops a trailing odd byte. Unpaired surrogates become U+FFFD.
-fn decode_utf16_bom(body: &[u8], big_endian: bool) -> (String, Option<String>) {
+fn decode_utf16_body(body: &[u8], big_endian: bool) -> (String, Option<String>) {
     let mut note = None;
     let usable = body.len() - (body.len() % 2);
     if usable < body.len() {
@@ -1088,5 +1146,52 @@ mod tests {
         assert_eq!(enc, TextEncoding::Utf8);
         assert_eq!(content, "hello");
         assert!(note.is_none());
+    }
+
+    #[test]
+    fn load_utf16_le_without_bom() {
+        let mut raw = Vec::new();
+        for u in "Hi\u{20AC}".encode_utf16() {
+            raw.extend_from_slice(&u.to_le_bytes());
+        }
+        let (content, enc, note) = decode_bytes(&raw);
+        assert_eq!(enc, TextEncoding::Utf16Le);
+        assert_eq!(content, "Hi\u{20AC}");
+        assert!(note.as_deref().is_some_and(|n| n.contains("No UTF-16 BOM")));
+    }
+
+    #[test]
+    fn load_utf16_be_without_bom() {
+        let mut raw = Vec::new();
+        for u in "Hello".encode_utf16() {
+            raw.extend_from_slice(&u.to_be_bytes());
+        }
+        let (content, enc, note) = decode_bytes(&raw);
+        assert_eq!(enc, TextEncoding::Utf16Be);
+        assert_eq!(content, "Hello");
+        assert!(note.as_deref().is_some_and(|n| n.contains("UTF-16 BE")));
+    }
+
+    #[test]
+    fn utf8_with_one_nul_stays_utf8() {
+        let (content, enc, note) = decode_bytes(b"hello\0world");
+        assert_eq!(enc, TextEncoding::Utf8);
+        assert_eq!(content, "hello\0world");
+        assert!(note.is_none());
+    }
+
+    #[test]
+    fn utf16_le_nobom_odd_trailing_byte_note() {
+        let mut raw = Vec::new();
+        for u in "AB".encode_utf16() {
+            raw.extend_from_slice(&u.to_le_bytes());
+        }
+        raw.push(0x99);
+        let (content, enc, note) = decode_bytes(&raw);
+        assert_eq!(enc, TextEncoding::Utf16Le);
+        assert_eq!(content, "AB");
+        let note = note.expect("note");
+        assert!(note.contains("No UTF-16 BOM"));
+        assert!(note.contains("trailing odd byte"));
     }
 }

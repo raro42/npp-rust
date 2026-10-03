@@ -12,6 +12,7 @@ The editor always keeps text as UTF-8 in the buffer.
 |------------|--------|
 | UTF-16 BE BOM (`FE FF`) | UTF-16 BE; decode to Unicode (no BOM char in memory) |
 | UTF-16 LE BOM (`FF FE`) | UTF-16 LE; decode to Unicode (no BOM char in memory) |
+| No BOM, even length, ≥2/3 units with a zero high byte | UTF-16 LE or BE (status note; save writes a BOM) |
 | Valid UTF-8 with BOM | UTF-8-BOM (keeps U+FEFF in memory) |
 | Valid UTF-8, no BOM | UTF-8 |
 | Not valid UTF-8 | Windows-1252 decode (no U+FFFD); tab encoding set for save |

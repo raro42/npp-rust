@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.17] — 2026-10-03
+
+Encoding:
+
+- Open detects **UTF-16 LE/BE without a BOM** when at least two-thirds of 16-bit units have a zero high byte (typical ASCII / Latin). Status notes the missing BOM; the next save writes one.
+- Valid UTF-8 without that NUL pattern is unchanged. Invalid UTF-8 still falls back to Windows-1252.
+
 ## [0.3.16] — 2026-10-03
 
 Find / replace:

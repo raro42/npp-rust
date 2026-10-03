@@ -18,7 +18,7 @@ Deep gap list (hotkeys, DnD, feature table): [gap-analysis-vs-npp.md](gap-analys
 - Tabs, Open Recent, Find / Replace, bookmarks, change-history bars
 - Rope buffer, undo/redo, dual view, 2-way compare
 - Tree-sitter highlight subset; theme JSON + N++ XML subset
-- Encoding: UTF-8 / BOM / ANSI / UTF-16 LE·BE (BOM)
+- Encoding: UTF-8 / BOM / ANSI / UTF-16 LE·BE (BOM or no-BOM detect)
 - In-process plugin builtins (not N++ DLL ABI)
 
 ## Still not Notepad++

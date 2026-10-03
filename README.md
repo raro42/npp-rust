@@ -54,7 +54,7 @@ cargo test --workspace
 |------|----------------|
 | Menus | Full Notepad++-style menu tree (574 command IDs); teal = no Coming Soon stub |
 | Editing | Multi-tab, undo/redo, find/replace, dual view, pin tabs, drag-reorder |
-| Files | UTF-8 / UTF-8-BOM / ANSI (Windows-1252), atomic save, reload, opt-in session restore |
+| Files | UTF-8 / UTF-8-BOM / ANSI (Windows-1252) / UTF-16 LE·BE (BOM or detect), atomic save, reload, opt-in session restore |
 | View | Soft wrap, line numbers, document map, function list, 2-way compare |
 | Logs | Tail / Monitoring for growing files; optional prompt when opening `*.log` |
 | Ext | Builtin plugins (format, trim, case, EOL); Preferences → `npp-rs/settings.json` |
