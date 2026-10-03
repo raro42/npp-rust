@@ -65,6 +65,19 @@ fn pick_compare_right(
     None
 }
 
+/// Status line for an active compare pair (identical vs change counts).
+fn compare_pair_status(lname: &str, rname: &str, del: usize, ins: usize, hunk_n: usize) -> String {
+    if del == 0 && ins == 0 {
+        return format!("Compare “{lname}” | “{rname}” (identical)");
+    }
+    let hunk_bit = if hunk_n > 0 {
+        format!(" · {hunk_n} hunk{}", if hunk_n == 1 { "" } else { "s" })
+    } else {
+        String::new()
+    };
+    format!("Compare “{lname}” | “{rname}” (−{del} +{ins}){hunk_bit}")
+}
+
 pub struct EditorApp {
     state: EditorState,
     find_focus_once: bool,
@@ -3542,6 +3555,7 @@ Tree-sitter highlight, and a calm UI.",
     }
 
     /// Jump caret (focused pane) to the next/previous compare change hunk.
+    /// Also parks the other pane on the same hunk ordinal so both sides line up.
     fn navigate_compare_hunk(&mut self, forward: bool) {
         if !self.compare_on {
             self.state.status = "Compare is off — View → Compare with Other View first".into();
@@ -3576,11 +3590,33 @@ Tree-sitter highlight, and a calm UI.",
             let at = doc.buffer.line_to_char(line);
             doc.buffer.set_caret(at);
         }
+        // Align the other pane to the same 1-based hunk ordinal (line numbers may differ).
+        let ordinal_pair = crate::diff::hunk_ordinal(tags, line);
+        if let Some((ord, _)) = ordinal_pair {
+            let other_tab = if primary {
+                self.compare_right_tab
+            } else {
+                self.compare_left_tab
+            };
+            let other_tags = if primary {
+                &self.compare_right_tags
+            } else {
+                &self.compare_left_tags
+            };
+            if let Some(other_line) = crate::diff::hunk_start_at_ordinal(other_tags, ord) {
+                if let Some(doc) = self.state.tabs.get_mut(other_tab) {
+                    let at = doc
+                        .buffer
+                        .line_to_char(other_line.min(doc.buffer.line_count().saturating_sub(1)));
+                    doc.buffer.set_caret(at);
+                }
+            }
+        }
         if primary {
             self.state.tabs.set_active(tab);
             self.focused_pane = EditorPane::Primary;
             self.follow_caret = true;
-            self.follow_caret_other = false;
+            self.follow_caret_other = self.sync_scroll_v;
         } else {
             self.other_view_tab = tab;
             self.focused_pane = EditorPane::Secondary;
@@ -3588,7 +3624,7 @@ Tree-sitter highlight, and a calm UI.",
             self.follow_caret = self.sync_scroll_v;
         }
         let dir = if forward { "Next" } else { "Previous" };
-        let ordinal = crate::diff::hunk_ordinal(tags, line)
+        let ordinal = ordinal_pair
             .map(|(i, n)| format!(" ({i}/{n})"))
             .unwrap_or_default();
         self.state.status = format!("Compare {dir} difference → line {}{ordinal}", line + 1);
@@ -3628,6 +3664,9 @@ Tree-sitter highlight, and a calm UI.",
         }
         match self.compute_compare_tags(left, right) {
             Some((lt, rt, del, ins)) => {
+                let hunk_n = crate::diff::hunk_starts(&lt)
+                    .len()
+                    .max(crate::diff::hunk_starts(&rt).len());
                 self.compare_left_tags = lt;
                 self.compare_right_tags = rt;
                 let lname = self
@@ -3642,7 +3681,7 @@ Tree-sitter highlight, and a calm UI.",
                     .get(right)
                     .map(|d| d.title.clone())
                     .unwrap_or_else(|| "right".into());
-                self.state.status = format!("Compare “{lname}” | “{rname}” (−{del} +{ins})");
+                self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n);
             }
             None => {
                 // Too many lines or missing tabs — leave prior tags; status already set.
@@ -3779,12 +3818,7 @@ Tree-sitter highlight, and a calm UI.",
         let hunk_n = crate::diff::hunk_starts(&self.compare_left_tags)
             .len()
             .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
-        let hunk_bit = if hunk_n > 0 {
-            format!(" · {hunk_n} hunk{}", if hunk_n == 1 { "" } else { "s" })
-        } else {
-            String::new()
-        };
-        self.state.status = format!("Compare “{lname}” | “{rname}” (−{del} +{ins}){hunk_bit}");
+        self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n);
     }
 
     /// Writable secondary pane: edits `other_view_tab` when this pane has focus.
@@ -4781,11 +4815,23 @@ fn go_doc_end(state: &mut EditorState, tab: usize, select: bool) {
 
 #[cfg(test)]
 mod compare_pair_tests {
-    use super::pick_compare_right;
+    use super::{compare_pair_status, pick_compare_right};
 
     #[test]
     fn needs_two_tabs() {
         assert_eq!(pick_compare_right(1, 0, None, false, 0), None);
+    }
+
+    #[test]
+    fn status_identical_vs_counts() {
+        assert_eq!(
+            compare_pair_status("a", "b", 0, 0, 0),
+            "Compare “a” | “b” (identical)"
+        );
+        assert_eq!(
+            compare_pair_status("a", "b", 1, 2, 2),
+            "Compare “a” | “b” (−1 +2) · 2 hunks"
+        );
     }
 
     #[test]

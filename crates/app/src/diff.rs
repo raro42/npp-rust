@@ -150,6 +150,14 @@ pub fn hunk_ordinal(tags: &[LineKind], line: usize) -> Option<(usize, usize)> {
     None
 }
 
+/// Line index of the 1-based hunk ordinal, if that hunk exists on this side.
+pub fn hunk_start_at_ordinal(tags: &[LineKind], ordinal_1based: usize) -> Option<usize> {
+    if ordinal_1based == 0 {
+        return None;
+    }
+    hunk_starts(tags).get(ordinal_1based - 1).copied()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,5 +244,9 @@ mod tests {
         assert_eq!(hunk_ordinal(&tags, 4), Some((2, 2)));
         assert_eq!(hunk_ordinal(&tags, 0), None);
         assert_eq!(hunk_ordinal(&[Equal, Equal], 0), None);
+        assert_eq!(hunk_start_at_ordinal(&tags, 1), Some(1));
+        assert_eq!(hunk_start_at_ordinal(&tags, 2), Some(4));
+        assert_eq!(hunk_start_at_ordinal(&tags, 3), None);
+        assert_eq!(hunk_start_at_ordinal(&tags, 0), None);
     }
 }

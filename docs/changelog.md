@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.25] — 2026-10-04
+
+Compare:
+
+- Next/Previous Difference also parks the other pane on the same hunk ordinal.
+- Status says `(identical)` when both sides match (including ignore options); live re-diff keeps hunk count.
+
 ## [0.3.24] — 2026-10-04
 
 Compare:
