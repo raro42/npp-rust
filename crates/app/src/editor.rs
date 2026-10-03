@@ -1286,8 +1286,38 @@ impl EditorState {
                 let lo = lo.min(n);
                 return (lo, hi.min(n).max(lo));
             }
+            // Sel is on but no range yet: do not search the whole file.
+            return (0, 0);
         }
         (0, n)
+    }
+
+    fn find_bound_label(&self) -> &'static str {
+        if self.settings.find_in_selection {
+            "selection"
+        } else {
+            "file"
+        }
+    }
+
+    /// Open Find: a multi-line selection becomes the Sel range (query unchanged).
+    /// A short single-line selection becomes the query.
+    pub fn prepare_find_bar_from_selection(&mut self) {
+        let Some((s, e)) = self.tabs.active().buffer.selection() else {
+            return;
+        };
+        if e <= s {
+            return;
+        }
+        let sel = self.tabs.active().buffer.slice(s, e);
+        if sel.contains('\n') {
+            self.settings.find_in_selection = true;
+            self.find_scope = Some((s, e));
+            return;
+        }
+        if sel.chars().count() <= 200 {
+            self.find_query = sel;
+        }
     }
 
     pub fn replace_next(&mut self, replacement: &str) {
@@ -1420,7 +1450,7 @@ impl EditorState {
         } else if total == 0 {
             self.status = "Find: no match".into();
         } else {
-            self.status = "Find: passed end of file".into();
+            self.status = format!("Find: passed end of {}", self.find_bound_label());
         }
     }
 
@@ -1464,7 +1494,7 @@ impl EditorState {
         } else if total == 0 {
             self.status = "Find: no match".into();
         } else {
-            self.status = "Find: passed beginning of file".into();
+            self.status = format!("Find: passed beginning of {}", self.find_bound_label());
         }
     }
 
@@ -2550,6 +2580,48 @@ mod tests {
         state.find_prev();
         assert_eq!(state.tabs.active().buffer.selection(), Some((0, 3)));
         assert_eq!(state.status, "Find: passed beginning of file");
+    }
+
+    #[test]
+    fn find_bar_multiline_selection_arms_sel_scope() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("foo\nbar\nfoo\nzzz");
+        state.find_query = "needle".into();
+        state.tabs.active_mut().buffer.set_selection(0, 11); // foo\nbar\nfoo
+        state.prepare_find_bar_from_selection();
+        assert!(state.settings.find_in_selection);
+        assert_eq!(state.find_scope, Some((0, 11)));
+        assert_eq!(state.find_query, "needle");
+        state.find_query = "foo".into();
+        assert_eq!(state.find_match_count(), 2);
+        state.settings.find_wrap = false;
+        state.tabs.active_mut().buffer.set_caret(0);
+        state.find_next();
+        assert_eq!(state.tabs.active().buffer.selection(), Some((0, 3)));
+        state.find_next();
+        assert_eq!(state.tabs.active().buffer.selection(), Some((8, 11)));
+        state.find_next();
+        assert_eq!(state.status, "Find: passed end of selection");
+    }
+
+    #[test]
+    fn find_bar_single_line_selection_seeds_query() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("alpha beta");
+        state.tabs.active_mut().buffer.set_selection(0, 5);
+        state.prepare_find_bar_from_selection();
+        assert!(!state.settings.find_in_selection);
+        assert_eq!(state.find_query, "alpha");
+        assert!(state.find_scope.is_none());
+    }
+
+    #[test]
+    fn find_sel_without_scope_counts_zero() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("foo foo");
+        state.find_query = "foo".into();
+        state.settings.find_in_selection = true;
+        assert_eq!(state.find_match_count(), 0);
     }
 
     #[test]

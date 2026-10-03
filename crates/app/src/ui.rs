@@ -460,12 +460,12 @@ impl EditorApp {
             self.show_replace = true;
             self.state.find_open = true;
             self.find_focus_once = true;
-            self.seed_find_from_selection();
+            self.state.prepare_find_bar_from_selection();
         } else if cmd && f {
             self.state.find_open = true;
             self.show_replace = false;
             self.find_focus_once = true;
-            self.seed_find_from_selection();
+            self.state.prepare_find_bar_from_selection();
         }
         if cmd && a {
             let tab = self.focused_edit_tab();
@@ -2303,7 +2303,9 @@ Tree-sitter highlight, and a calm UI.",
                 }
                 if ui
                     .checkbox(&mut self.state.settings.find_in_selection, "Sel")
-                    .on_hover_text("Find and replace only in the current selection")
+                    .on_hover_text(
+                        "Find and replace only in a captured range (auto on for multi-line selection)",
+                    )
                     .changed()
                 {
                     persist = true;

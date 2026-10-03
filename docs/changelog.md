@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.16] — 2026-10-03
+
+Find / replace:
+
+- Opening Find or Replace with a **multi-line selection** turns **Sel** on and searches that range (query stays as-is). A short single-line selection still fills the query.
+- Match count is 0 while Sel is on but no range is captured (no silent whole-file search).
+- Wrap-off Next/Prev says `passed end of selection` when Sel is on.
+
 ## [0.3.15] — 2026-10-03
 
 Find / replace:

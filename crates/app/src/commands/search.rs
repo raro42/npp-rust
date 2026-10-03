@@ -16,12 +16,14 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.find_open = true;
             ui.show_replace = false;
             ui.find_focus_once = true;
+            state.prepare_find_bar_from_selection();
             CmdResult::Handled
         }
         "IDM_SEARCH_REPLACE" => {
             ui.find_open = true;
             ui.show_replace = true;
             ui.find_focus_once = true;
+            state.prepare_find_bar_from_selection();
             CmdResult::Handled
         }
         "IDM_SEARCH_FINDNEXT" => {

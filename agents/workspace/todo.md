@@ -11,3 +11,4 @@
 - [ ] Skim `logs/panic.log` if the app crashed
 - 009 keep: Find wrap toggle (v0.3.14); regex still open
 - 009 keep: Find regex (linear-time Re toggle, v0.3.15)
+- 009 keep: Find Sel auto-arm on multi-line selection (v0.3.16)

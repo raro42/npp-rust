@@ -30,4 +30,4 @@ Saved on quit when restore is on. Menu Save/Load Session uses the same file.
 
 ## Find
 
-Bar shows Case / Word / Sel / Wrap / Re toggles and live match count. Next/Prev status is `n/total`. Wrap off reports passed end/beginning instead of jumping. Re uses a linear-time regex engine.
+Bar shows Case / Word / Sel / Wrap / Re toggles and live match count. Opening Find with a multi-line selection arms Sel. Next/Prev status is `n/total`. Wrap off reports passed end/beginning of file or selection. Re uses a linear-time regex engine.
