@@ -633,9 +633,7 @@ pub(crate) fn fold_current_block(state: &mut EditorState) {
         buf.char_to_line(buf.caret())
     };
     let regions = crate::fold::compute_fold_regions(lang.as_str(), &state.tabs.active().buffer);
-    let Some(region) = crate::fold::region_for_line(&regions, line)
-        .or_else(|| crate::fold::region_at_header(&regions, line))
-    else {
+    let Some(region) = crate::fold::region_for_fold_action(&regions, line) else {
         state.status = "Fold current: nothing to fold".into();
         return;
     };
@@ -657,9 +655,7 @@ pub(crate) fn unfold_current_block(state: &mut EditorState) {
         buf.char_to_line(buf.caret())
     };
     let regions = crate::fold::compute_fold_regions(lang.as_str(), &state.tabs.active().buffer);
-    let Some(region) = crate::fold::region_for_line(&regions, line)
-        .or_else(|| crate::fold::region_at_header(&regions, line))
-    else {
+    let Some(region) = crate::fold::region_for_fold_action(&regions, line) else {
         state.status = "Unfold current: nothing to unfold".into();
         return;
     };

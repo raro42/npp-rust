@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.21] — 2026-10-04
+
+Folding:
+
+- Fold margin click uses the same region pick as View → Fold/Unfold Current: toggle works on header markers and on any line inside a foldable block (primary and dual view).
+
 ## [0.3.20] — 2026-10-03
 
 Compare:

@@ -12,7 +12,7 @@ When the issue queue is idle, overnight 009 **must** pull from this list (top fi
 
 4. **Shortcut mapper** — ~~word-wrap remap (`shortcut_word_wrap`)~~. Broader remap / `shortcuts.xml` later.
 5. **Compare** — ignore-whitespace exists. ~~next/prev hunk nav (F7)~~. Char-level or 3-way stays later. More 2-way UX polish (`docs/compare.md`).
-6. **Fold margin** — click + keyboard parity with View fold commands (`docs/folding.md`).
+6. **Fold margin** — ~~click + keyboard parity with View fold commands~~ (`docs/folding.md`). Nested chrome / session fold state later.
 7. **Project panel** — MVP folder list. One useful action (refresh, reveal in file manager) without pretending to be N++ projects.
 
 ## P2 — reliability

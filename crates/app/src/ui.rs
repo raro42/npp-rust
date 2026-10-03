@@ -2729,7 +2729,7 @@ Tree-sitter highlight, and a calm UI.",
                             lang.as_str(),
                             &self.state.tabs.active().buffer,
                         );
-                        if let Some(region) = crate::fold::region_at_header(&regions, line) {
+                        if let Some(region) = crate::fold::region_for_fold_action(&regions, line) {
                             let hidden = &mut self.state.tabs.active_mut().hidden_lines;
                             let was = crate::fold::is_folded(hidden, &region);
                             crate::fold::toggle_region(hidden, &region);
@@ -3844,7 +3844,7 @@ Tree-sitter highlight, and a calm UI.",
                     if let Some(doc) = self.state.tabs.get(tab) {
                         let lang = doc.language.clone();
                         let regions = crate::fold::compute_fold_regions(lang.as_str(), &doc.buffer);
-                        if let Some(region) = crate::fold::region_at_header(&regions, line) {
+                        if let Some(region) = crate::fold::region_for_fold_action(&regions, line) {
                             if let Some(doc) = self.state.tabs.get_mut(tab) {
                                 let was = crate::fold::is_folded(&doc.hidden_lines, &region);
                                 crate::fold::toggle_region(&mut doc.hidden_lines, &region);

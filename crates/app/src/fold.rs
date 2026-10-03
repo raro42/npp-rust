@@ -130,6 +130,14 @@ pub fn region_for_line(regions: &[FoldRegion], line: usize) -> Option<FoldRegion
         .max_by_key(|r| r.level)
 }
 
+/// Region for fold-margin click or View → Fold/Unfold Current (same pick).
+///
+/// Prefer the innermost region covering `line` (body or header). Fall back to a
+/// header-only match when several regions share a header line.
+pub fn region_for_fold_action(regions: &[FoldRegion], line: usize) -> Option<FoldRegion> {
+    region_for_line(regions, line).or_else(|| region_at_header(regions, line))
+}
+
 fn brace_fold_regions(buf: &TextBuffer) -> Vec<FoldRegion> {
     let mut regions = Vec::new();
     let mut stack: Vec<(usize, usize)> = Vec::new(); // (header_line, level)
@@ -324,5 +332,22 @@ mod tests {
         toggle_region(&mut hidden, &region);
         assert!(!is_folded(&hidden, &region));
         assert!(hidden.is_empty());
+    }
+
+    #[test]
+    fn fold_action_matches_on_body_and_header() {
+        let b = buf("fn a() {\n    if true {\n        x();\n    }\n}\n");
+        let regions = compute_fold_regions("rust", &b);
+        // Body of inner block → same region as Fold Current / margin click.
+        let on_body = region_for_fold_action(&regions, 2).unwrap();
+        assert_eq!(on_body.header, 1);
+        assert_eq!(on_body.end, 3);
+        assert_eq!(on_body.level, 2);
+        // Header of outer → outer region.
+        let on_header = region_for_fold_action(&regions, 0).unwrap();
+        assert_eq!(on_header.header, 0);
+        assert_eq!(on_header.level, 1);
+        // Header-only helper still misses body lines.
+        assert!(region_at_header(&regions, 2).is_none());
     }
 }

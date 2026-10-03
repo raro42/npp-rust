@@ -16,3 +16,4 @@
 - 009 keep: multi-caret typing coalesce (v0.3.18)
 - 009 keep: remappable word-wrap shortcut (v0.3.19)
 - 009 keep: compare next/prev difference (F7, v0.3.20)
+- 009 keep: fold margin click parity with Fold Current (v0.3.21)
