@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.19] — 2026-10-03
+
+Settings / shortcuts:
+
+- **Word wrap** is remappable: Preferences → Word wrap shortcut, or `shortcut_word_wrap` in `npp-rs/settings.json` (default `Alt+Z`). Shortcut Mapper and About show the effective binding. Other keys stay hard-wired; full `shortcuts.xml` remap is still later.
+
 ## [0.3.18] — 2026-10-03
 
 Undo:

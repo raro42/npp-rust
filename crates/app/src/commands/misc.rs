@@ -199,11 +199,22 @@ fn open_info_tab(state: &mut EditorState, title: &str, text: &str) {
 }
 
 fn show_shortcut_mapper(state: &mut EditorState) {
-    // Mirrors crates/app/src/ui.rs handle_shortcuts (read-only dump).
-    let text = "\
+    use crate::shortcut_chord::{resolve_chord, DEFAULT_WORD_WRAP};
+    let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
+    let wrap_raw = state.settings.shortcut_word_wrap.trim();
+    let wrap_note = if wrap_raw.is_empty() || wrap_raw.eq_ignore_ascii_case(DEFAULT_WORD_WRAP) {
+        format!("{wrap} (default; Preferences → Word wrap shortcut)")
+    } else {
+        format!("{wrap} (from settings.shortcut_word_wrap = {wrap_raw:?})")
+    };
+    // Mirrors crates/app/src/ui.rs handle_shortcuts (+ one remappable binding).
+    let text = format!(
+        "\
 npp-rs keyboard shortcuts
 =========================
-Source: ui.rs handle_shortcuts (hard-wired; no shortcuts.xml yet).
+Source: ui.rs handle_shortcuts. Most keys are hard-wired.
+Word wrap is remappable via Preferences or npp-rs/settings.json
+(key shortcut_word_wrap). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -247,7 +258,7 @@ Cmd+= / Cmd+Plus      Zoom in
 Cmd+-                 Zoom out
 Cmd+0                 Zoom restore (14pt)
 Cmd+mouse wheel       Zoom in / out
-Alt+Z                 Toggle word wrap
+{wrap_note}
 Alt+drag              Rectangular / column select (multi-caret typing)
 Cmd+Shift+T           Toggle log tail follow
 
@@ -256,8 +267,9 @@ Language / style
 Use the Language menu (IDM_LANG_*) to set highlight via EditorState::set_language.
 Style Configurator lists which langs have tree-sitter grammars.
 Preferences (Settings → Preferences) sets log-tail policy and font size.
-";
-    open_info_tab(state, "Shortcut Mapper", text);
+"
+    );
+    open_info_tab(state, "Shortcut Mapper", &text);
     state.status = "Shortcut Mapper opened".into();
 }
 

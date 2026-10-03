@@ -20,6 +20,7 @@ New keys:
 | `backup_on_save` | Copy on-disk file into `npp-rs/backup/` before overwrite |
 | `autosave_interval_secs` | Autosave dirty named tabs (`0` = off; else 15–900) |
 | `show_fold_margin` | Gutter fold markers (`−` / `+`); default on |
+| `shortcut_word_wrap` | Word-wrap toggle chord (`Alt+Z` default; e.g. `Ctrl+W`) |
 
 See also: `docs/autosave-backup.md`, `docs/folding.md`.
 

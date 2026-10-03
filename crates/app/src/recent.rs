@@ -84,6 +84,10 @@ fn default_find_match_case() -> bool {
     true
 }
 
+fn default_shortcut_word_wrap() -> String {
+    crate::shortcut_chord::DEFAULT_WORD_WRAP.into()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppSettings {
@@ -169,6 +173,9 @@ pub struct AppSettings {
     /// Autosave dirty tabs that have a path every N seconds (`0` = off).
     #[serde(default)]
     pub autosave_interval_secs: u32,
+    /// Word-wrap toggle chord (`Alt+Z` default). See Preferences / Shortcut Mapper.
+    #[serde(default = "default_shortcut_word_wrap")]
+    pub shortcut_word_wrap: String,
 }
 
 impl Default for AppSettings {
@@ -202,6 +209,7 @@ impl Default for AppSettings {
             find_files_exclude: crate::search_util::default_find_files_exclude(),
             backup_on_save: false,
             autosave_interval_secs: 0,
+            shortcut_word_wrap: default_shortcut_word_wrap(),
         }
     }
 }

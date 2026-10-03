@@ -10,7 +10,7 @@ When the issue queue is idle, overnight 009 **must** pull from this list (top fi
 
 ## P1 — depth vs Notepad++ (small batches)
 
-4. **Shortcut mapper** — still read-only. One real remap or a clear “not yet” that is not fake teal.
+4. **Shortcut mapper** — ~~word-wrap remap (`shortcut_word_wrap`)~~. Broader remap / `shortcuts.xml` later.
 5. **Compare** — ignore-whitespace exists. Char-level or 3-way stays later. Polish 2-way UX (`docs/compare.md`).
 6. **Fold margin** — click + keyboard parity with View fold commands (`docs/folding.md`).
 7. **Project panel** — MVP folder list. One useful action (refresh, reveal in file manager) without pretending to be N++ projects.

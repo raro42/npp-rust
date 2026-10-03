@@ -523,14 +523,47 @@ impl EditorApp {
             self.state.redo_at(self.focused_edit_tab());
         } else if cmd && z {
             self.state.undo_at(self.focused_edit_tab());
-        } else if mods.alt && z && !cmd {
-            self.state.word_wrap = !self.state.word_wrap;
-            self.state.settings.word_wrap = self.state.word_wrap;
-            self.state.settings.save();
-            self.state.status = format!(
-                "Word wrap: {}",
-                if self.state.word_wrap { "on" } else { "off" }
-            );
+        }
+
+        // Remappable word wrap (default Alt+Z; settings.shortcut_word_wrap).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_WORD_WRAP};
+            let wrap_chord =
+                resolve_chord(&self.state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP);
+            // Collect pressed letter/function keys we already sampled; Z is enough for default.
+            let wrap_key_pressed = match wrap_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if wrap_key_pressed && wrap_chord.matches(mods, wrap_chord.key) {
+                self.state.word_wrap = !self.state.word_wrap;
+                self.state.settings.word_wrap = self.state.word_wrap;
+                self.state.settings.save();
+                self.state.status = format!(
+                    "Word wrap: {}",
+                    if self.state.word_wrap { "on" } else { "off" }
+                );
+            }
         }
         if cmd && y {
             self.state.redo_at(self.focused_edit_tab());
@@ -940,11 +973,16 @@ Tree-sitter highlight, and a calm UI.",
 
                 ui.add_space(10.0);
                 ui.label(RichText::new("Shortcuts").strong());
+                let wrap_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_word_wrap,
+                    crate::shortcut_chord::DEFAULT_WORD_WRAP,
+                )
+                .display();
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        for (keys, action) in [
+                        let rows: [(&str, &str); 20] = [
                             ("⌘/Ctrl N", "New file"),
                             ("⌘/Ctrl O", "Open"),
                             ("⌘/Ctrl S", "Save"),
@@ -955,7 +993,7 @@ Tree-sitter highlight, and a calm UI.",
                             ("⌘/Ctrl L", "Go to line"),
                             ("F2 / ⇧ F2", "Next / prev bookmark"),
                             ("⌘/Ctrl = / -", "Zoom in / out"),
-                            ("Alt Z", "Word wrap"),
+                            (wrap_keys.as_str(), "Word wrap"),
                             ("⌘/Ctrl A", "Select all"),
                             ("⌘/Ctrl D", "Duplicate line"),
                             ("⌘/Ctrl ] / [", "Indent / Outdent"),
@@ -965,7 +1003,8 @@ Tree-sitter highlight, and a calm UI.",
                             ("Double-click", "Select word"),
                             ("⌘/Ctrl Z / Y", "Undo / Redo"),
                             ("⌘/Ctrl W", "Close tab"),
-                        ] {
+                        ];
+                        for (keys, action) in rows {
                             ui.monospace(keys);
                             ui.label(action);
                             ui.end_row();
@@ -1099,6 +1138,38 @@ Tree-sitter highlight, and a calm UI.",
                             self.state.word_wrap = self.state.settings.word_wrap;
                             changed = true;
                         }
+                        ui.horizontal(|ui| {
+                            ui.label("Word wrap shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_word_wrap,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+Z"),
+                            );
+                            // Persist only when focus leaves so half-typed chords are not saved.
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_word_wrap.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_word_wrap =
+                                        crate::shortcut_chord::DEFAULT_WORD_WRAP.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_WORD_WRAP
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_word_wrap = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Z, Ctrl+W, Cmd+Shift+W. One remappable key so far.",
+                            )
+                            .small()
+                            .weak(),
+                        );
                         ui.label("Default EOL (Enter key)");
                         let eol = &mut self.state.settings.default_eol;
                         if ui

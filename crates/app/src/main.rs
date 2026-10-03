@@ -9,6 +9,7 @@ mod menu_data;
 mod recent;
 mod search_util;
 mod session;
+mod shortcut_chord;
 mod theme;
 mod ui;
 mod ui_paint;
