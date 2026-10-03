@@ -12,3 +12,4 @@
 - 009 keep: Find wrap toggle (v0.3.14); regex still open
 - 009 keep: Find regex (linear-time Re toggle, v0.3.15)
 - 009 keep: Find Sel auto-arm on multi-line selection (v0.3.16)
+- 009 keep: BOM-less UTF-16 LE/BE detect on open (v0.3.17)
