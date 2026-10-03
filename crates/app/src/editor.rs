@@ -1392,6 +1392,7 @@ impl EditorState {
         let text = self.tabs.active().buffer.to_string();
         let match_case = self.settings.find_match_case;
         let whole_word = self.settings.find_whole_word;
+        let wrap = self.settings.find_wrap;
         let (lo, hi) = self.find_bounds();
         let all =
             crate::search_util::find_all_matches_in(&text, &q, lo, hi, match_case, whole_word);
@@ -1400,7 +1401,7 @@ impl EditorState {
             &text,
             &q,
             from,
-            true,
+            wrap,
             (lo, hi),
             match_case,
             whole_word,
@@ -1412,8 +1413,10 @@ impl EditorState {
                 .map(|i| i + 1)
                 .unwrap_or(1);
             self.status = format!("Find: {idx}/{total}");
-        } else {
+        } else if total == 0 {
             self.status = "Find: no match".into();
+        } else {
+            self.status = "Find: passed end of file".into();
         }
     }
 
@@ -1438,6 +1441,7 @@ impl EditorState {
         let text = self.tabs.active().buffer.to_string();
         let match_case = self.settings.find_match_case;
         let whole_word = self.settings.find_whole_word;
+        let wrap = self.settings.find_wrap;
         let (lo, hi) = self.find_bounds();
         let all =
             crate::search_util::find_all_matches_in(&text, &q, lo, hi, match_case, whole_word);
@@ -1446,7 +1450,7 @@ impl EditorState {
             &text,
             &q,
             from,
-            true,
+            wrap,
             (lo, hi),
             match_case,
             whole_word,
@@ -1458,8 +1462,10 @@ impl EditorState {
                 .map(|i| i + 1)
                 .unwrap_or(1);
             self.status = format!("Find: {idx}/{total}");
-        } else {
+        } else if total == 0 {
             self.status = "Find: no match".into();
+        } else {
+            self.status = "Find: passed beginning of file".into();
         }
     }
 
@@ -2520,5 +2526,30 @@ mod tests {
         state.replace_all("X");
         assert_eq!(state.tabs.active().buffer.to_string(), "X bar foo");
         assert!(state.status.contains("1 replacement"));
+    }
+
+    #[test]
+    fn find_wrap_off_stops_at_end() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("foo bar foo");
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_wrap = false;
+        state.tabs.active_mut().buffer.set_caret(0);
+        state.find_next();
+        assert_eq!(state.tabs.active().buffer.selection(), Some((0, 3)));
+        assert_eq!(state.status, "Find: 1/2");
+        state.find_next();
+        assert_eq!(state.tabs.active().buffer.selection(), Some((8, 11)));
+        assert_eq!(state.status, "Find: 2/2");
+        state.find_next();
+        assert_eq!(state.tabs.active().buffer.selection(), Some((8, 11)));
+        assert_eq!(state.status, "Find: passed end of file");
+        state.find_prev();
+        assert_eq!(state.tabs.active().buffer.selection(), Some((0, 3)));
+        assert_eq!(state.status, "Find: 1/2");
+        state.find_prev();
+        assert_eq!(state.tabs.active().buffer.selection(), Some((0, 3)));
+        assert_eq!(state.status, "Find: passed beginning of file");
     }
 }

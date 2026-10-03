@@ -438,6 +438,10 @@ mod tests {
         assert_eq!(all, vec![(3, 6)]);
         let next = find_next_in(text, "foo", 6, true, (0, 8), true, false);
         assert_eq!(next, Some((3, 6)));
+        assert_eq!(
+            find_next_in(text, "foo", 6, false, (0, 8), true, false),
+            None
+        );
         let (out, n, new_hi) =
             replace_all_in(text, "foo", "BAR", 8, text.chars().count(), true, false);
         assert_eq!(n, 1);

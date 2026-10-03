@@ -16,7 +16,7 @@ Handlers that work but stay shallower than upstream N++:
 | View | Dual view: both panes writable; focused-pane Edit. Project panel = MVP folder list (not N++ projects) |
 | Edit | RTL/LTR: editor line anchors + status cue; full bidi / UI chrome mirror still open |
 | Encoding | ANSI / UTF-8 / UTF-8-BOM / UTF-16 LE-BE (BOM) per-tab save. Unmapped chars → `?` on ANSI save. No BOM-less UTF-16 detect yet |
-| Search | Change History: amber/green gutter bars + wash; undo remap; CHG status. Find has case/word + match count + in-selection. Wrap-off and regex still open |
+| Search | Change History: amber/green gutter bars + wash; undo remap; CHG status. Find has case/word + match count + in-selection + wrap toggle. Regex still open |
 | Settings | Themes: JSON tokens + chrome; N++ XML subset (GlobalStyles + one lexer); full stylers parity open; plugins: builtins listed, no drop-in load. Preferences deeper in v0.3.1 |
 | File | Pin from tab chrome + `IDM_PINTAB`; Close All but Pinned keeps pinned tabs; opt-in session restore |
 | View | Tab drag-reorder; file drop open; selection drag move/copy (Ctrl/Cmd = copy) |

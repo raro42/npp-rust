@@ -14,7 +14,7 @@ New keys:
 | `default_eol` | `lf` / `crlf` for Enter |
 | `recent_max` | Recent file cap (5–40) |
 | `restore_session` | Reopen session on launch |
-| `find_match_case` / `find_whole_word` | Find options |
+| `find_match_case` / `find_whole_word` / `find_in_selection` / `find_wrap` | Find options |
 | `find_query` / `replace_with` | Last find/replace strings |
 | `compare_ignore_ws` | Compare ignores whitespace runs |
 | `backup_on_save` | Copy on-disk file into `npp-rs/backup/` before overwrite |
@@ -30,4 +30,4 @@ Saved on quit when restore is on. Menu Save/Load Session uses the same file.
 
 ## Find
 
-Bar shows Case / Word toggles and live match count. Next/Prev status is `n/total`.
+Bar shows Case / Word / Sel / Wrap toggles and live match count. Next/Prev status is `n/total`. Wrap off reports passed end/beginning instead of jumping.

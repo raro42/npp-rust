@@ -136,6 +136,9 @@ pub struct AppSettings {
     /// Find / replace only inside the captured selection.
     #[serde(default)]
     pub find_in_selection: bool,
+    /// Find: wrap from the other end when Next/Prev hits the bound.
+    #[serde(default = "default_true")]
+    pub find_wrap: bool,
     /// Last Find query (restored into the find bar).
     #[serde(default)]
     pub find_query: String,
@@ -185,6 +188,7 @@ impl Default for AppSettings {
             find_match_case: true,
             find_whole_word: false,
             find_in_selection: false,
+            find_wrap: true,
             find_query: String::new(),
             replace_with: String::new(),
             compare_ignore_ws: false,

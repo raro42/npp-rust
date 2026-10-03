@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.14] — 2026-10-03
+
+Find / replace:
+
+- **Wrap** on the Find bar (and Preferences) turns wrap-around on or off. Off: Next/Prev stop at the bound (`Find: passed end of file`). Default on, same as before.
+- Setting `find_wrap` in `npp-rs/settings.json`
+
 ## [0.3.13] — 2026-10-03
 
 Find / replace:

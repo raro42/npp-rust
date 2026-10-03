@@ -1,0 +1,33 @@
+# Overnight standing backlog (npp-rs)
+
+When the issue queue is idle, overnight 009 **must** pull from this list (top first). Strike through items after a keep. Keep this file short. Product gaps live in `docs/whats-missing.md` and `docs/next-gaps.md`.
+
+## P0 — editor correctness
+
+1. **Find / replace edge cases** — ~~wrap toggle~~, regex that does not hang the UI. Selection-only: Find bar **Sel**.
+2. **Save encoding** — unmapped ANSI chars, BOM-less UTF-16 detect (`docs/encoding.md`).
+3. **Undo / typing coalesce** — multi-caret and column select stay one undo (`docs/undo-transactions.md`, `docs/column-mode.md`).
+
+## P1 — depth vs Notepad++ (small batches)
+
+4. **Shortcut mapper** — still read-only. One real remap or a clear “not yet” that is not fake teal.
+5. **Compare** — ignore-whitespace exists. Char-level or 3-way stays later. Polish 2-way UX (`docs/compare.md`).
+6. **Fold margin** — click + keyboard parity with View fold commands (`docs/folding.md`).
+7. **Project panel** — MVP folder list. One useful action (refresh, reveal in file manager) without pretending to be N++ projects.
+
+## P2 — reliability
+
+8. **Panic log** — first new signature in `logs/panic.log` that is product-owned.
+9. **Preferences persistence** — settings keys round-trip; no silent drop on restart.
+
+## P3 — later (do not pick before P0–P2)
+
+10. Popup autocomplete / call tips, then LSP.
+11. Macro record + named macros.
+12. Drop-in plugins, UDL, hex, UI i18n, full RTL chrome.
+
+## How to pick
+
+1. Lowest open GitHub issue still beats this list.
+2. Then the first non-struck item above that fits one overnight tick.
+3. Work on `main`. Verify with the ratchet. Push only after `./scripts/ci-local.sh`.

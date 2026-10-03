@@ -9,4 +9,4 @@
 - [ ] Loop: #14 TEST / handoff
 - [ ] Run `./scripts/ci-local.sh` before every push
 - [ ] Skim `logs/panic.log` if the app crashed
-- 009 keep: Find in selection (v0.3.13); wrap-off and regex still open
+- 009 keep: Find wrap toggle (v0.3.14); regex still open
