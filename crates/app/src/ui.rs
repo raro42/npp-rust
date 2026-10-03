@@ -3576,7 +3576,10 @@ Tree-sitter highlight, and a calm UI.",
             self.follow_caret = self.sync_scroll_v;
         }
         let dir = if forward { "Next" } else { "Previous" };
-        self.state.status = format!("Compare {dir} difference → line {}", line + 1);
+        let ordinal = crate::diff::hunk_ordinal(tags, line)
+            .map(|(i, n)| format!(" ({i}/{n})"))
+            .unwrap_or_default();
+        self.state.status = format!("Compare {dir} difference → line {}{ordinal}", line + 1);
     }
 
     fn clear_compare(&mut self) {
@@ -3742,6 +3745,24 @@ Tree-sitter highlight, and a calm UI.",
         self.state.tabs.set_active(left);
         self.state.highlight_dirty = true;
         self.focused_pane = EditorPane::Primary;
+        // Jump left caret to the first change hunk so Compare lands on a real diff.
+        let first_hunk = crate::diff::hunk_starts(&self.compare_left_tags)
+            .first()
+            .copied()
+            .or_else(|| {
+                crate::diff::hunk_starts(&self.compare_right_tags)
+                    .first()
+                    .copied()
+            });
+        if let Some(line) = first_hunk {
+            if let Some(doc) = self.state.tabs.get_mut(left) {
+                let at = doc
+                    .buffer
+                    .line_to_char(line.min(doc.buffer.line_count().saturating_sub(1)));
+                doc.buffer.set_caret(at);
+            }
+            self.follow_caret = true;
+        }
         let lname = self
             .state
             .tabs
@@ -3754,7 +3775,15 @@ Tree-sitter highlight, and a calm UI.",
             .get(right)
             .map(|d| d.title.clone())
             .unwrap_or_else(|| "right".into());
-        self.state.status = format!("Compare “{lname}” | “{rname}” (−{del} +{ins})");
+        let hunk_n = crate::diff::hunk_starts(&self.compare_left_tags)
+            .len()
+            .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
+        let hunk_bit = if hunk_n > 0 {
+            format!(" · {hunk_n} hunk{}", if hunk_n == 1 { "" } else { "s" })
+        } else {
+            String::new()
+        };
+        self.state.status = format!("Compare “{lname}” | “{rname}” (−{del} +{ins}){hunk_bit}");
     }
 
     /// Writable secondary pane: edits `other_view_tab` when this pane has focus.

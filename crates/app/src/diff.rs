@@ -104,6 +104,38 @@ pub fn prev_hunk_start(tags: &[LineKind], from: usize) -> Option<usize> {
     None
 }
 
+/// Line indices that start a change hunk (in order).
+pub fn hunk_starts(tags: &[LineKind]) -> Vec<usize> {
+    (0..tags.len())
+        .filter(|&i| is_hunk_start(tags, i))
+        .collect()
+}
+
+/// 1-based hunk ordinal and total for the hunk that contains `line`, or that
+/// starts at `line`. `None` if there are no change hunks.
+pub fn hunk_ordinal(tags: &[LineKind], line: usize) -> Option<(usize, usize)> {
+    let starts = hunk_starts(tags);
+    if starts.is_empty() {
+        return None;
+    }
+    // Prefer the hunk that starts at `line`, else the hunk covering `line`.
+    if let Some(idx) = starts.iter().position(|&s| s == line) {
+        return Some((idx + 1, starts.len()));
+    }
+    if tags.get(line).is_some_and(|k| *k != LineKind::Equal) {
+        let mut best = 0usize;
+        for (i, &s) in starts.iter().enumerate() {
+            if s <= line {
+                best = i;
+            } else {
+                break;
+            }
+        }
+        return Some((best + 1, starts.len()));
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,5 +186,17 @@ mod tests {
         assert_eq!(prev_hunk_start(&tags, 4), Some(1));
         assert_eq!(prev_hunk_start(&tags, 1), Some(4)); // wrap
         assert_eq!(next_hunk_start(&[Equal, Equal], 0), None);
+    }
+
+    #[test]
+    fn hunk_ordinal_counts_and_mid_hunk() {
+        use LineKind::*;
+        let tags = vec![Equal, Delete, Delete, Equal, Insert, Equal];
+        assert_eq!(hunk_starts(&tags), vec![1, 4]);
+        assert_eq!(hunk_ordinal(&tags, 1), Some((1, 2)));
+        assert_eq!(hunk_ordinal(&tags, 2), Some((1, 2))); // mid-hunk
+        assert_eq!(hunk_ordinal(&tags, 4), Some((2, 2)));
+        assert_eq!(hunk_ordinal(&tags, 0), None);
+        assert_eq!(hunk_ordinal(&[Equal, Equal], 0), None);
     }
 }

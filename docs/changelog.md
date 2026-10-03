@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.23] — 2026-10-04
+
+Compare:
+
+- Starting Compare jumps the left caret to the first change hunk and shows hunk count in the status line.
+- Next/Previous Difference status shows hunk ordinal, e.g. `(2/5)`.
+
 ## [0.3.22] — 2026-10-04
 
 Project panel:
