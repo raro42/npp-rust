@@ -74,6 +74,8 @@ pub struct UiFlags {
     pub start_compare: bool,
     /// Clear compare highlights and mode.
     pub clear_compare: bool,
+    /// Navigate compare hunks: `Some(true)` next, `Some(false)` previous.
+    pub compare_nav_forward: Option<bool>,
 }
 
 /// Content for the “working on it — come back tomorrow” dialog.
@@ -245,6 +247,8 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_SYNSCROLLH"
             | "IDM_VIEW_COMPARE"
             | "IDM_VIEW_CLEARCOMPARE"
+            | "IDM_VIEW_NEXT_DIFF"
+            | "IDM_VIEW_PREV_DIFF"
             | "IDM_EDIT_RTL"
             | "IDM_EDIT_LTR"
             | "IDM_EDIT_PASTE_AS_HTML"

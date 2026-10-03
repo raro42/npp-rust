@@ -44,6 +44,12 @@ Status line shows: `Compare “dummy.log” | “dummy.log.2” (−N +M)`.
 
 While compare is on, panes stay pinned to that pair (tab clicks do not swap the left file away).
 
+### Jump between differences
+
+- **View → Next Difference** / **Previous Difference** (or **F7** / **Shift+F7**)
+- Moves the caret on the focused pane to the start of the next/previous change hunk (wraps).
+- Mid-hunk Next skips to the following hunk, not the next red/green line.
+
 ## Limits
 
 - Both panes stay editable. Line tags refresh after edits (~200 ms debounce).

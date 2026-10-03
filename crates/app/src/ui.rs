@@ -407,6 +407,7 @@ impl EditorApp {
                 i.key_pressed(Key::H),
                 i.key_pressed(Key::F2),
                 i.key_pressed(Key::F3),
+                i.key_pressed(Key::F7),
                 i.key_pressed(Key::Equals),
                 i.key_pressed(Key::Minus),
                 i.key_pressed(Key::Num0),
@@ -433,6 +434,7 @@ impl EditorApp {
             h,
             f2,
             f3,
+            f7,
             equals,
             minus,
             num0,
@@ -600,6 +602,13 @@ impl EditorApp {
             self.run_shortcut_cmd("IDM_SEARCH_NEXT_BOOKMARK");
         }
 
+        // Compare hunks: F7 next, Shift+F7 previous (while Compare is on).
+        if f7 && mods.shift {
+            self.run_shortcut_cmd("IDM_VIEW_PREV_DIFF");
+        } else if f7 {
+            self.run_shortcut_cmd("IDM_VIEW_NEXT_DIFF");
+        }
+
         // Zoom: Cmd+= / Cmd+- / Cmd+0, and Cmd+mouse wheel.
         if cmd && equals {
             self.font_size = (self.font_size + 1.0).min(48.0);
@@ -662,6 +671,7 @@ impl EditorApp {
             }
             _ => {}
         }
+        self.apply_dual_view_flags(&flags);
     }
 
     fn menu_bar(&mut self, ctx: &egui::Context) {
@@ -982,7 +992,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 20] = [
+                        let rows: [(&str, &str); 21] = [
                             ("⌘/Ctrl N", "New file"),
                             ("⌘/Ctrl O", "Open"),
                             ("⌘/Ctrl S", "Save"),
@@ -992,6 +1002,7 @@ Tree-sitter highlight, and a calm UI.",
                             ("⌘/Ctrl G", "Find next (global)"),
                             ("⌘/Ctrl L", "Go to line"),
                             ("F2 / ⇧ F2", "Next / prev bookmark"),
+                            ("F7 / ⇧ F7", "Compare next / prev diff"),
                             ("⌘/Ctrl = / -", "Zoom in / out"),
                             (wrap_keys.as_str(), "Word wrap"),
                             ("⌘/Ctrl A", "Select all"),
@@ -3485,6 +3496,59 @@ Tree-sitter highlight, and a calm UI.",
         if flags.start_compare {
             self.start_compare();
         }
+        if let Some(forward) = flags.compare_nav_forward {
+            self.navigate_compare_hunk(forward);
+        }
+    }
+
+    /// Jump caret (focused pane) to the next/previous compare change hunk.
+    fn navigate_compare_hunk(&mut self, forward: bool) {
+        if !self.compare_on {
+            self.state.status = "Compare is off — View → Compare with Other View first".into();
+            return;
+        }
+        let primary = self.focused_pane == EditorPane::Primary || !self.dual_view;
+        let tags = if primary {
+            &self.compare_left_tags
+        } else {
+            &self.compare_right_tags
+        };
+        let tab = if primary {
+            self.compare_left_tab
+        } else {
+            self.compare_right_tab
+        };
+        let Some(doc) = self.state.tabs.get(tab) else {
+            self.state.status = "Compare: tab missing".into();
+            return;
+        };
+        let from = doc.buffer.char_to_line(doc.buffer.caret());
+        let target = if forward {
+            crate::diff::next_hunk_start(tags, from)
+        } else {
+            crate::diff::prev_hunk_start(tags, from)
+        };
+        let Some(line) = target else {
+            self.state.status = "Compare: no differences".into();
+            return;
+        };
+        if let Some(doc) = self.state.tabs.get_mut(tab) {
+            let at = doc.buffer.line_to_char(line);
+            doc.buffer.set_caret(at);
+        }
+        if primary {
+            self.state.tabs.set_active(tab);
+            self.focused_pane = EditorPane::Primary;
+            self.follow_caret = true;
+            self.follow_caret_other = false;
+        } else {
+            self.other_view_tab = tab;
+            self.focused_pane = EditorPane::Secondary;
+            self.follow_caret_other = true;
+            self.follow_caret = self.sync_scroll_v;
+        }
+        let dir = if forward { "Next" } else { "Previous" };
+        self.state.status = format!("Compare {dir} difference → line {}", line + 1);
     }
 
     fn clear_compare(&mut self) {

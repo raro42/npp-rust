@@ -2009,6 +2009,18 @@
       },
       {
         "kind": "item",
+        "label": "Next Difference",
+        "raw_label": "&Next Difference",
+        "cmd": "IDM_VIEW_NEXT_DIFF"
+      },
+      {
+        "kind": "item",
+        "label": "Previous Difference",
+        "raw_label": "Pre&vious Difference",
+        "cmd": "IDM_VIEW_PREV_DIFF"
+      },
+      {
+        "kind": "item",
         "label": "Clear Compare",
         "raw_label": "Clear Com&pare",
         "cmd": "IDM_VIEW_CLEARCOMPARE"

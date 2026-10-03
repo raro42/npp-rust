@@ -67,6 +67,43 @@ pub fn count_changes(left: &[LineKind], right: &[LineKind]) -> (usize, usize) {
     (del, ins)
 }
 
+/// True when this line starts a change hunk (non-equal after equal, or file start).
+fn is_hunk_start(tags: &[LineKind], i: usize) -> bool {
+    tags.get(i).is_some_and(|k| *k != LineKind::Equal) && (i == 0 || tags[i - 1] == LineKind::Equal)
+}
+
+/// First line of the next change hunk after `from` (wraps). `None` if no changes.
+pub fn next_hunk_start(tags: &[LineKind], from: usize) -> Option<usize> {
+    let n = tags.len();
+    if n == 0 || !tags.iter().any(|k| *k != LineKind::Equal) {
+        return None;
+    }
+    let start = from.min(n.saturating_sub(1));
+    for offset in 1..=n {
+        let i = (start + offset) % n;
+        if is_hunk_start(tags, i) {
+            return Some(i);
+        }
+    }
+    None
+}
+
+/// First line of the previous change hunk before `from` (wraps). `None` if no changes.
+pub fn prev_hunk_start(tags: &[LineKind], from: usize) -> Option<usize> {
+    let n = tags.len();
+    if n == 0 || !tags.iter().any(|k| *k != LineKind::Equal) {
+        return None;
+    }
+    let start = from.min(n.saturating_sub(1));
+    for offset in 1..=n {
+        let i = (start + n - offset) % n;
+        if is_hunk_start(tags, i) {
+            return Some(i);
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -105,5 +142,17 @@ mod tests {
         let (l, r) = diff_line_tags(&lref, &rref);
         assert!(l.iter().all(|k| *k == LineKind::Equal));
         assert!(r.iter().all(|k| *k == LineKind::Equal));
+    }
+
+    #[test]
+    fn hunk_nav_wraps_and_skips_mid_hunk() {
+        use LineKind::*;
+        let tags = vec![Equal, Delete, Delete, Equal, Insert, Equal];
+        assert_eq!(next_hunk_start(&tags, 0), Some(1));
+        assert_eq!(next_hunk_start(&tags, 1), Some(4)); // mid-hunk → next hunk
+        assert_eq!(next_hunk_start(&tags, 4), Some(1)); // wrap
+        assert_eq!(prev_hunk_start(&tags, 4), Some(1));
+        assert_eq!(prev_hunk_start(&tags, 1), Some(4)); // wrap
+        assert_eq!(next_hunk_start(&[Equal, Equal], 0), None);
     }
 }

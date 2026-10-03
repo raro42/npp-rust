@@ -250,6 +250,8 @@ Cmd+L                 Go to line
 F2                    Next bookmark
 Shift+F2              Previous bookmark
 Cmd+F2                Toggle bookmark
+F7                    Compare next difference
+Shift+F7              Compare previous difference
 Escape                Close Find/Replace
 
 View / zoom

@@ -15,3 +15,4 @@
 - 009 keep: BOM-less UTF-16 LE/BE detect on open (v0.3.17)
 - 009 keep: multi-caret typing coalesce (v0.3.18)
 - 009 keep: remappable word-wrap shortcut (v0.3.19)
+- 009 keep: compare next/prev difference (F7, v0.3.20)

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.20] — 2026-10-03
+
+Compare:
+
+- **Next / Previous Difference** (View menu, **F7** / **Shift+F7**) jumps the focused pane to the start of the next/previous change hunk while Compare is on (wraps). Mid-hunk Next skips to the following hunk.
+
 ## [0.3.19] — 2026-10-03
 
 Settings / shortcuts:
