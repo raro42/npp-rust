@@ -97,6 +97,9 @@ pub struct EditorApp {
     show_summary: bool,
     show_doc_list: bool,
     show_project_panel: bool,
+    /// Cached Project panel listing (`root` + filter → entries).
+    project_panel_cache_key: Option<(PathBuf, String)>,
+    project_panel_entries: Vec<PathBuf>,
     show_theme_picker: bool,
     show_doc_map: bool,
     show_func_list: bool,
@@ -157,6 +160,8 @@ impl EditorApp {
             show_summary: false,
             show_doc_list: false,
             show_project_panel: false,
+            project_panel_cache_key: None,
+            project_panel_entries: Vec::new(),
             show_theme_picker: false,
             show_doc_map: false,
             show_func_list: false,
@@ -1729,13 +1734,21 @@ Tree-sitter highlight, and a calm UI.",
             return;
         }
         let mut open = self.show_project_panel;
-        let mut open_path: Option<std::path::PathBuf> = None;
-        let mut enter_dir: Option<std::path::PathBuf> = None;
+        let mut open_path: Option<PathBuf> = None;
+        let mut enter_dir: Option<PathBuf> = None;
+        let mut reveal_path: Option<PathBuf> = None;
         let mut pick_folder = false;
         let mut close = false;
         let mut persist_filter = false;
         let mut refresh = false;
         let root = self.state.workspace_root.clone();
+        let filter = self.state.settings.project_filter.clone();
+        let cache_key = (root.clone(), filter.clone());
+        if self.project_panel_cache_key.as_ref() != Some(&cache_key) {
+            self.project_panel_entries = EditorState::list_project_panel_entries(&root, &filter);
+            self.project_panel_cache_key = Some(cache_key);
+        }
+        let entries = self.project_panel_entries.clone();
         egui::Window::new("Project")
             .open(&mut open)
             .default_width(320.0)
@@ -1755,8 +1768,19 @@ Tree-sitter highlight, and a calm UI.",
                             enter_dir = Some(parent.to_path_buf());
                         }
                     }
-                    if ui.small_button("Refresh").clicked() {
+                    if ui
+                        .small_button("Refresh")
+                        .on_hover_text("Reload folder listing")
+                        .clicked()
+                    {
                         refresh = true;
+                    }
+                    if ui
+                        .small_button("Reveal")
+                        .on_hover_text("Open this folder in the file manager")
+                        .clicked()
+                    {
+                        reveal_path = Some(root.clone());
                     }
                 });
                 ui.horizontal(|ui| {
@@ -1773,31 +1797,9 @@ Tree-sitter highlight, and a calm UI.",
                     }
                 });
                 ui.separator();
-                let filter = self.state.settings.project_filter.to_ascii_lowercase();
                 egui::ScrollArea::vertical()
                     .max_height(340.0)
                     .show(ui, |ui| {
-                        let mut entries: Vec<std::path::PathBuf> = Vec::new();
-                        if let Ok(rd) = std::fs::read_dir(&root) {
-                            for ent in rd.flatten() {
-                                let p = ent.path();
-                                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                                if name.starts_with('.') {
-                                    continue;
-                                }
-                                if !filter.is_empty()
-                                    && !name.to_ascii_lowercase().contains(&filter)
-                                {
-                                    continue;
-                                }
-                                entries.push(p);
-                            }
-                        }
-                        entries.sort_by(|a, b| {
-                            b.is_dir()
-                                .cmp(&a.is_dir())
-                                .then(a.file_name().cmp(&b.file_name()))
-                        });
                         if entries.is_empty() {
                             ui.label(if filter.is_empty() {
                                 "(empty folder)"
@@ -1805,36 +1807,62 @@ Tree-sitter highlight, and a calm UI.",
                                 "(no matches)"
                             });
                         }
-                        for p in entries {
+                        for p in &entries {
                             let is_dir = p.is_dir();
                             let name = p
                                 .file_name()
                                 .map(|n| n.to_string_lossy().into_owned())
                                 .unwrap_or_else(|| p.display().to_string());
                             let label = if is_dir { format!("{name}/") } else { name };
-                            if ui.selectable_label(false, label).clicked() {
+                            let response = ui.selectable_label(false, label);
+                            if response.clicked() {
                                 if is_dir {
-                                    enter_dir = Some(p);
+                                    enter_dir = Some(p.clone());
                                 } else {
-                                    open_path = Some(p);
+                                    open_path = Some(p.clone());
                                 }
                             }
+                            response.context_menu(|ui| {
+                                if !is_dir && ui.button("Open").clicked() {
+                                    open_path = Some(p.clone());
+                                    ui.close_menu();
+                                }
+                                if is_dir && ui.button("Enter folder").clicked() {
+                                    enter_dir = Some(p.clone());
+                                    ui.close_menu();
+                                }
+                                if ui.button("Reveal in file manager").clicked() {
+                                    reveal_path = Some(p.clone());
+                                    ui.close_menu();
+                                }
+                            });
                         }
                     });
                 if ui.button("Close").clicked() {
                     close = true;
                 }
             });
-        let _ = refresh;
+        if refresh {
+            self.project_panel_cache_key = None;
+            self.project_panel_entries = EditorState::list_project_panel_entries(&root, &filter);
+            self.project_panel_cache_key = Some((root.clone(), filter));
+            self.state.status = "Project panel refreshed".into();
+        }
         if pick_folder {
             self.state.pick_workspace_folder();
+            self.project_panel_cache_key = None;
         }
         if let Some(dir) = enter_dir {
             self.state.workspace_root = dir;
             self.state.persist_workspace_root();
+            self.project_panel_cache_key = None;
         }
         if persist_filter {
             self.state.settings.save();
+            self.project_panel_cache_key = None;
+        }
+        if let Some(p) = reveal_path {
+            self.state.reveal_path_in_os(&p);
         }
         if let Some(p) = open_path {
             self.state.open_path(p);

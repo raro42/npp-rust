@@ -13,7 +13,7 @@ Handlers that work but stay shallower than upstream N++:
 
 | Area | Gap |
 |------|-----|
-| View | Dual view: both panes writable; focused-pane Edit. Project panel = MVP folder list (not N++ projects) |
+| View | Dual view: both panes writable; focused-pane Edit. Project panel = folder list + refresh/reveal (not N++ projects) |
 | Edit | RTL/LTR: editor line anchors + status cue; full bidi / UI chrome mirror still open |
 | Encoding | ANSI / UTF-8 / UTF-8-BOM / UTF-16 LE-BE per-tab save. Open detects UTF-16 without a BOM when most units have a zero high byte. Unmapped chars → `?` on ANSI save |
 | Search | Change History: amber/green gutter bars + wash; undo remap; CHG status. Find has case/word + match count + in-selection (multi-line auto-arm) + wrap + linear-time regex. Find in Files is still literal |
@@ -24,7 +24,7 @@ Handlers that work but stay shallower than upstream N++:
 ## Larger product gaps (not menu stubs)
 
 - Full Preferences (multi-language UI, …). More keys in `npp-rs/settings.json` (see `docs/preferences-p0.md`). Autosave/backup MVP: `docs/autosave-backup.md`
-- Project panels: MVP folder list only
+- Project panels: folder list + refresh/reveal; not N++ projects
 - File compare: **2-way** + re-diff + ignore-whitespace + next/prev hunk (F7). 3-way / char-level still open
 - Change history: bar marks + undo remap; full Scintilla reverted/indicator parity open
 - CLI MVP: `-h`, `-V`, `-n`/`--line`, `-ro`, path args

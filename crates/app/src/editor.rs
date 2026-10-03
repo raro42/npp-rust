@@ -8,7 +8,7 @@ use fs::{
 };
 use highlight::SyntaxHighlighter;
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 /// Pending async load keyed by document id + path (tabs can move/close).
@@ -1776,23 +1776,40 @@ impl EditorState {
             self.status = "No file path — save first".into();
             return;
         };
+        self.reveal_path_in_os(&path);
+    }
+
+    /// Reveal a file (select when possible) or open a folder in the OS file manager.
+    pub fn reveal_path_in_os(&mut self, path: &Path) {
         let result = {
             #[cfg(target_os = "macos")]
             {
-                std::process::Command::new("open")
-                    .args(["-R", &path.to_string_lossy()])
-                    .status()
+                if path.is_dir() {
+                    std::process::Command::new("open").arg(path).status()
+                } else {
+                    std::process::Command::new("open")
+                        .args(["-R", &path.to_string_lossy()])
+                        .status()
+                }
             }
             #[cfg(target_os = "windows")]
             {
-                std::process::Command::new("explorer")
-                    .arg(format!("/select,{}", path.display()))
-                    .status()
+                if path.is_dir() {
+                    std::process::Command::new("explorer").arg(path).status()
+                } else {
+                    std::process::Command::new("explorer")
+                        .arg(format!("/select,{}", path.display()))
+                        .status()
+                }
             }
             #[cfg(all(unix, not(target_os = "macos")))]
             {
-                let folder = path.parent().unwrap_or(path.as_path());
-                std::process::Command::new("xdg-open").arg(folder).status()
+                let target = if path.is_dir() {
+                    path
+                } else {
+                    path.parent().unwrap_or(path)
+                };
+                std::process::Command::new("xdg-open").arg(target).status()
             }
         };
         match result {
@@ -1800,6 +1817,31 @@ impl EditorState {
             Ok(_) => self.status = "Reveal failed".into(),
             Err(e) => self.status = format!("Reveal failed: {e}"),
         }
+    }
+
+    /// Folder listing for the Project panel (skip dotfiles; dirs first; optional name filter).
+    pub fn list_project_panel_entries(root: &Path, filter: &str) -> Vec<PathBuf> {
+        let filter = filter.to_ascii_lowercase();
+        let mut entries = Vec::new();
+        if let Ok(rd) = std::fs::read_dir(root) {
+            for ent in rd.flatten() {
+                let p = ent.path();
+                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if name.starts_with('.') {
+                    continue;
+                }
+                if !filter.is_empty() && !name.to_ascii_lowercase().contains(&filter) {
+                    continue;
+                }
+                entries.push(p);
+            }
+        }
+        entries.sort_by(|a, b| {
+            b.is_dir()
+                .cmp(&a.is_dir())
+                .then(a.file_name().cmp(&b.file_name()))
+        });
+        entries
     }
 
     pub fn open_shell_here(&mut self) {
@@ -2639,5 +2681,33 @@ mod tests {
         state.find_query = "[".into();
         state.find_next();
         assert_eq!(state.status, "Find: invalid regex");
+    }
+
+    #[test]
+    fn project_panel_entries_filter_and_order() {
+        let dir = std::env::temp_dir().join("npp-rs-project-panel-list");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        std::fs::create_dir_all(dir.join("src")).expect("mkdir src");
+        std::fs::write(dir.join("readme.md"), b"x").expect("write");
+        std::fs::write(dir.join("notes.txt"), b"y").expect("write");
+        std::fs::write(dir.join(".hidden"), b"z").expect("write hidden");
+
+        let all = EditorState::list_project_panel_entries(&dir, "");
+        let names: Vec<String> = all
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, vec!["src", "notes.txt", "readme.md"]);
+        assert!(!names.iter().any(|n| n.starts_with('.')));
+
+        let filtered = EditorState::list_project_panel_entries(&dir, "READ");
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(
+            filtered[0].file_name().and_then(|n| n.to_str()),
+            Some("readme.md")
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

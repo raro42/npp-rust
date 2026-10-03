@@ -97,7 +97,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | Themes / styles | Partial | JSON + N++ XML subset (v0.3.4) |
 | Encoding | Partial | UTF-8 / BOM / ANSI / UTF-16 LE·BE (BOM or no-BOM detect, v0.3.17) |
 | Session restore | Partial | Path list; not full N++ session XML |
-| Project panel | Partial | Folder list, not N++ projects |
+| Project panel | Partial | Folder list + refresh/reveal; not N++ projects |
 | Indent fold / hide lines | Partial | Fold margin + brace/indent heuristics (v0.3.12); not full Scintilla |
 | Column / multi-edit | Partial | Alt+rect + multi-caret typing (v0.3.9); no virtual space |
 | Autocomplete / call tips | Partial | In-file words/paths; no LSP popup |

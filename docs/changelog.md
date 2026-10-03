@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.22] — 2026-10-04
+
+Project panel:
+
+- **Reveal** opens the workspace folder (or a right-clicked entry) in the OS file manager.
+- **Refresh** reloads a cached folder listing instead of re-reading every frame.
+- Context menu: Open / Enter folder / Reveal in file manager.
+
 ## [0.3.21] — 2026-10-04
 
 Folding:
