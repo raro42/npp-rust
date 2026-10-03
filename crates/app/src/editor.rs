@@ -22,6 +22,8 @@ pub struct EditorState {
     pub tabs: TabSet,
     pub find_query: String,
     pub find_open: bool,
+    /// Frozen `[lo, hi)` for Find in selection (not persisted).
+    pub find_scope: Option<(usize, usize)>,
     pub status: String,
     pub highlighter: SyntaxHighlighter,
     pub load_channel: LoadChannel,
@@ -127,6 +129,7 @@ impl EditorState {
             tabs: TabSet::new(),
             find_query,
             find_open: false,
+            find_scope: None,
             status: "Ready".into(),
             highlighter: SyntaxHighlighter::new(),
             load_channel: LoadChannel::new(),
@@ -1215,6 +1218,57 @@ impl EditorState {
         self.run_plugin("format.document");
     }
 
+    fn selection_is_query_match(&self) -> bool {
+        let q = self.find_query.as_str();
+        if q.is_empty() {
+            return false;
+        }
+        let match_case = self.settings.find_match_case;
+        let whole_word = self.settings.find_whole_word;
+        self.tabs
+            .active()
+            .buffer
+            .selection()
+            .map(|(s, e)| {
+                let slice = self.tabs.active().buffer.slice(s, e);
+                let hits = crate::search_util::find_all_matches(&slice, q, match_case, whole_word);
+                hits.len() == 1 && hits[0] == (0, slice.chars().count())
+            })
+            .unwrap_or(false)
+    }
+
+    /// Capture a search span from the current selection when In selection is on.
+    pub fn capture_find_scope(&mut self) {
+        if !self.settings.find_in_selection {
+            self.find_scope = None;
+            return;
+        }
+        let n = self.tabs.active().buffer.len_chars();
+        if let Some((lo, hi)) = self.find_scope {
+            if lo < hi && lo < n {
+                self.find_scope = Some((lo, hi.min(n)));
+                return;
+            }
+            self.find_scope = None;
+        }
+        if let Some((s, e)) = self.tabs.active().buffer.selection() {
+            if e > s && !self.selection_is_query_match() {
+                self.find_scope = Some((s, e));
+            }
+        }
+    }
+
+    fn find_bounds(&self) -> (usize, usize) {
+        let n = self.tabs.active().buffer.len_chars();
+        if self.settings.find_in_selection {
+            if let Some((lo, hi)) = self.find_scope {
+                let lo = lo.min(n);
+                return (lo, hi.min(n).max(lo));
+            }
+        }
+        (0, n)
+    }
+
     pub fn replace_next(&mut self, replacement: &str) {
         if !self.ensure_editable() {
             return;
@@ -1224,39 +1278,27 @@ impl EditorState {
             self.status = "Replace: empty find".into();
             return;
         }
-        let match_case = self.settings.find_match_case;
-        let whole_word = self.settings.find_whole_word;
-        let selection_is_match = self
-            .tabs
-            .active()
-            .buffer
-            .selection()
-            .map(|(s, e)| {
-                let slice = self.tabs.active().buffer.slice(s, e);
-                let hits = crate::search_util::find_all_matches(&slice, &q, match_case, whole_word);
-                hits.len() == 1 && hits[0] == (0, slice.chars().count())
-            })
-            .unwrap_or(false);
+        let selection_is_match = self.selection_is_query_match();
         if !selection_is_match {
             self.find_next();
-            let ok = self
-                .tabs
-                .active()
-                .buffer
-                .selection()
-                .map(|(s, e)| {
-                    let slice = self.tabs.active().buffer.slice(s, e);
-                    let hits =
-                        crate::search_util::find_all_matches(&slice, &q, match_case, whole_word);
-                    hits.len() == 1 && hits[0] == (0, slice.chars().count())
-                })
-                .unwrap_or(false);
-            if !ok {
+            if !self.selection_is_query_match() {
                 self.status = "Replace: no match".into();
                 return;
             }
         }
+        let match_len = self
+            .tabs
+            .active()
+            .buffer
+            .selection()
+            .map(|(s, e)| e.saturating_sub(s))
+            .unwrap_or(0);
         self.tabs.active_mut().buffer.insert(replacement);
+        if let Some((lo, hi)) = self.find_scope {
+            let delta = replacement.chars().count() as isize - match_len as isize;
+            let new_hi = (hi as isize + delta).max(lo as isize) as usize;
+            self.find_scope = Some((lo, new_hi));
+        }
         self.mark_text_changed();
         self.status = "Replaced once".into();
     }
@@ -1270,20 +1312,34 @@ impl EditorState {
             self.status = "Replace All: empty find".into();
             return;
         }
+        self.capture_find_scope();
         let match_case = self.settings.find_match_case;
         let whole_word = self.settings.find_whole_word;
+        let (lo, hi) = self.find_bounds();
         let text = self.tabs.active().buffer.to_string();
-        let (new_text, count) =
-            crate::search_util::replace_all(&text, &q, replacement, match_case, whole_word);
+        let (new_text, count, new_hi) = crate::search_util::replace_all_in(
+            &text,
+            &q,
+            replacement,
+            lo,
+            hi,
+            match_case,
+            whole_word,
+        );
         if count == 0 {
             self.status = "Replace All: no match".into();
             return;
         }
         let mut touched = std::collections::BTreeSet::new();
-        for (s, _) in crate::search_util::find_all_matches(&text, &q, match_case, whole_word) {
+        for (s, _) in
+            crate::search_util::find_all_matches_in(&text, &q, lo, hi, match_case, whole_word)
+        {
             touched.insert(self.tabs.active().buffer.char_to_line(s));
         }
         self.tabs.active_mut().buffer.replace_document(&new_text);
+        if self.settings.find_in_selection {
+            self.find_scope = Some((lo, new_hi));
+        }
         for line in touched {
             self.tabs.active_mut().note_line_changed(line);
         }
@@ -1303,9 +1359,12 @@ impl EditorState {
             return 0;
         }
         let text = self.tabs.active().buffer.to_string();
-        crate::search_util::find_all_matches(
+        let (lo, hi) = self.find_bounds();
+        crate::search_util::find_all_matches_in(
             &text,
             q,
+            lo,
+            hi,
             self.settings.find_match_case,
             self.settings.find_whole_word,
         )
@@ -1318,6 +1377,11 @@ impl EditorState {
             self.status = "Find: empty query".into();
             return;
         }
+        self.capture_find_scope();
+        if self.settings.find_in_selection && self.find_scope.is_none() {
+            self.status = "Find: select a range first".into();
+            return;
+        }
         let from = self
             .tabs
             .active()
@@ -1326,32 +1390,27 @@ impl EditorState {
             .map(|(_, e)| e)
             .unwrap_or_else(|| self.tabs.active().buffer.caret());
         let text = self.tabs.active().buffer.to_string();
-        let total = crate::search_util::find_all_matches(
-            &text,
-            &q,
-            self.settings.find_match_case,
-            self.settings.find_whole_word,
-        )
-        .len();
-        if let Some((s, e)) = crate::search_util::find_next(
+        let match_case = self.settings.find_match_case;
+        let whole_word = self.settings.find_whole_word;
+        let (lo, hi) = self.find_bounds();
+        let all =
+            crate::search_util::find_all_matches_in(&text, &q, lo, hi, match_case, whole_word);
+        let total = all.len();
+        if let Some((s, e)) = crate::search_util::find_next_in(
             &text,
             &q,
             from,
             true,
-            self.settings.find_match_case,
-            self.settings.find_whole_word,
+            (lo, hi),
+            match_case,
+            whole_word,
         ) {
             self.tabs.active_mut().buffer.set_selection(s, e);
-            let idx = crate::search_util::find_all_matches(
-                &text,
-                &q,
-                self.settings.find_match_case,
-                self.settings.find_whole_word,
-            )
-            .iter()
-            .position(|(a, _)| *a == s)
-            .map(|i| i + 1)
-            .unwrap_or(1);
+            let idx = all
+                .iter()
+                .position(|(a, _)| *a == s)
+                .map(|i| i + 1)
+                .unwrap_or(1);
             self.status = format!("Find: {idx}/{total}");
         } else {
             self.status = "Find: no match".into();
@@ -1364,6 +1423,11 @@ impl EditorState {
             self.status = "Find: empty query".into();
             return;
         }
+        self.capture_find_scope();
+        if self.settings.find_in_selection && self.find_scope.is_none() {
+            self.status = "Find: select a range first".into();
+            return;
+        }
         let from = self
             .tabs
             .active()
@@ -1372,32 +1436,27 @@ impl EditorState {
             .map(|(s, _)| s)
             .unwrap_or_else(|| self.tabs.active().buffer.caret());
         let text = self.tabs.active().buffer.to_string();
-        let total = crate::search_util::find_all_matches(
-            &text,
-            &q,
-            self.settings.find_match_case,
-            self.settings.find_whole_word,
-        )
-        .len();
-        if let Some((s, e)) = crate::search_util::find_prev(
+        let match_case = self.settings.find_match_case;
+        let whole_word = self.settings.find_whole_word;
+        let (lo, hi) = self.find_bounds();
+        let all =
+            crate::search_util::find_all_matches_in(&text, &q, lo, hi, match_case, whole_word);
+        let total = all.len();
+        if let Some((s, e)) = crate::search_util::find_prev_in(
             &text,
             &q,
             from,
             true,
-            self.settings.find_match_case,
-            self.settings.find_whole_word,
+            (lo, hi),
+            match_case,
+            whole_word,
         ) {
             self.tabs.active_mut().buffer.set_selection(s, e);
-            let idx = crate::search_util::find_all_matches(
-                &text,
-                &q,
-                self.settings.find_match_case,
-                self.settings.find_whole_word,
-            )
-            .iter()
-            .position(|(a, _)| *a == s)
-            .map(|i| i + 1)
-            .unwrap_or(1);
+            let idx = all
+                .iter()
+                .position(|(a, _)| *a == s)
+                .map(|i| i + 1)
+                .unwrap_or(1);
             self.status = format!("Find: {idx}/{total}");
         } else {
             self.status = "Find: no match".into();
@@ -2443,5 +2502,23 @@ mod tests {
         assert!(!state.tabs.active().changed_unsaved.contains(&6));
         // Undo path does not add a brand-new stamp beyond remapped set size growth.
         assert!(state.tabs.active().changed_unsaved.len() <= before_undo.len());
+    }
+
+    #[test]
+    fn find_replace_respects_selection_scope() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("foo bar foo");
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = false;
+        state.settings.find_in_selection = true;
+        state.tabs.active_mut().buffer.set_selection(0, 7);
+        state.capture_find_scope();
+        assert_eq!(state.find_match_count(), 1);
+        state.find_next();
+        assert_eq!(state.tabs.active().buffer.selection(), Some((0, 3)));
+        state.replace_all("X");
+        assert_eq!(state.tabs.active().buffer.to_string(), "X bar foo");
+        assert!(state.status.contains("1 replacement"));
     }
 }

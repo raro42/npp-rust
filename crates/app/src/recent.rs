@@ -133,6 +133,9 @@ pub struct AppSettings {
     /// Find: whole word only.
     #[serde(default)]
     pub find_whole_word: bool,
+    /// Find / replace only inside the captured selection.
+    #[serde(default)]
+    pub find_in_selection: bool,
     /// Last Find query (restored into the find bar).
     #[serde(default)]
     pub find_query: String,
@@ -181,6 +184,7 @@ impl Default for AppSettings {
             restore_session: false,
             find_match_case: true,
             find_whole_word: false,
+            find_in_selection: false,
             find_query: String::new(),
             replace_with: String::new(),
             compare_ignore_ws: false,

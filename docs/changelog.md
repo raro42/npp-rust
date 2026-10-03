@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.13] — 2026-10-03
+
+Find / replace:
+
+- **In selection** (`Sel` on the Find bar, Preferences Find) limits Next / Prev / Replace All to a captured range
+- Setting `find_in_selection` in `npp-rs/settings.json`
+
 ## [0.3.12] — 2026-08-31
 
 Issue #14 (P1 lexer-aware folding + fold margin):

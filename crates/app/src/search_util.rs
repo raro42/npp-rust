@@ -300,6 +300,86 @@ pub fn find_prev(
     None
 }
 
+/// Character slice `[lo, hi)` of `text`.
+pub fn char_span(text: &str, lo: usize, hi: usize) -> String {
+    let n = text.chars().count();
+    let lo = lo.min(n);
+    let hi = hi.min(n).max(lo);
+    text.chars().skip(lo).take(hi - lo).collect()
+}
+
+/// Matches of `query` whose spans lie in `[lo, hi)` (absolute char indices).
+pub fn find_all_matches_in(
+    text: &str,
+    query: &str,
+    lo: usize,
+    hi: usize,
+    match_case: bool,
+    whole_word: bool,
+) -> Vec<(usize, usize)> {
+    let slice = char_span(text, lo, hi);
+    find_all_matches(&slice, query, match_case, whole_word)
+        .into_iter()
+        .map(|(s, e)| (s + lo, e + lo))
+        .collect()
+}
+
+/// Next match at or after `from` inside `span` (`[lo, hi)`). Wraps within the span.
+pub fn find_next_in(
+    text: &str,
+    query: &str,
+    from: usize,
+    wrap: bool,
+    span: (usize, usize),
+    match_case: bool,
+    whole_word: bool,
+) -> Option<(usize, usize)> {
+    let (lo, hi) = span;
+    let slice = char_span(text, lo, hi);
+    let from_rel = from.max(lo).saturating_sub(lo);
+    find_next(&slice, query, from_rel, wrap, match_case, whole_word).map(|(s, e)| (s + lo, e + lo))
+}
+
+/// Previous match ending at or before `from` inside `span` (`[lo, hi)`). Wraps within the span.
+pub fn find_prev_in(
+    text: &str,
+    query: &str,
+    from: usize,
+    wrap: bool,
+    span: (usize, usize),
+    match_case: bool,
+    whole_word: bool,
+) -> Option<(usize, usize)> {
+    let (lo, hi) = span;
+    let slice = char_span(text, lo, hi);
+    let from_rel = from.min(hi).saturating_sub(lo);
+    find_prev(&slice, query, from_rel, wrap, match_case, whole_word).map(|(s, e)| (s + lo, e + lo))
+}
+
+/// Replace matches inside `[lo, hi)`. Returns `(new_text, count, new_hi)`.
+pub fn replace_all_in(
+    text: &str,
+    query: &str,
+    replacement: &str,
+    lo: usize,
+    hi: usize,
+    match_case: bool,
+    whole_word: bool,
+) -> (String, usize, usize) {
+    let chars: Vec<char> = text.chars().collect();
+    let n = chars.len();
+    let lo = lo.min(n);
+    let hi = hi.min(n).max(lo);
+    let slice: String = chars[lo..hi].iter().collect();
+    let (new_slice, count) = replace_all(&slice, query, replacement, match_case, whole_word);
+    let new_hi = lo + new_slice.chars().count();
+    let mut out = String::with_capacity(lo + new_slice.len() + (n - hi));
+    out.extend(chars[..lo].iter());
+    out.push_str(&new_slice);
+    out.extend(chars[hi..].iter());
+    (out, count, new_hi)
+}
+
 /// Replace all matches. Returns `(new_text, replacement_count)`.
 pub fn replace_all(
     text: &str,
@@ -349,6 +429,20 @@ mod tests {
         let (out, n) = replace_all("a a aa", "a", "b", true, true);
         assert_eq!(n, 2);
         assert_eq!(out, "b b aa");
+    }
+
+    #[test]
+    fn find_in_span_skips_outside() {
+        let text = "xx foo yy foo zz";
+        let all = find_all_matches_in(text, "foo", 0, 8, true, false);
+        assert_eq!(all, vec![(3, 6)]);
+        let next = find_next_in(text, "foo", 6, true, (0, 8), true, false);
+        assert_eq!(next, Some((3, 6)));
+        let (out, n, new_hi) =
+            replace_all_in(text, "foo", "BAR", 8, text.chars().count(), true, false);
+        assert_eq!(n, 1);
+        assert_eq!(out, "xx foo yy BAR zz");
+        assert_eq!(new_hi, out.chars().count());
     }
 
     #[test]

@@ -1191,6 +1191,20 @@ Tree-sitter highlight, and a calm UI.",
                         {
                             changed = true;
                         }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.find_in_selection,
+                                "In selection",
+                            )
+                            .changed()
+                        {
+                            changed = true;
+                            if self.state.settings.find_in_selection {
+                                self.state.capture_find_scope();
+                            } else {
+                                self.state.find_scope = None;
+                            }
+                        }
                         ui.add_space(10.0);
                         ui.label(RichText::new("Compare").strong());
                         ui.add_space(4.0);
@@ -2274,6 +2288,18 @@ Tree-sitter highlight, and a calm UI.",
                     .changed()
                 {
                     persist = true;
+                }
+                if ui
+                    .checkbox(&mut self.state.settings.find_in_selection, "Sel")
+                    .on_hover_text("Find and replace only in the current selection")
+                    .changed()
+                {
+                    persist = true;
+                    if self.state.settings.find_in_selection {
+                        self.state.capture_find_scope();
+                    } else {
+                        self.state.find_scope = None;
+                    }
                 }
                 let n = self.state.find_match_count();
                 if self.state.find_query.is_empty() {
