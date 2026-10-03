@@ -155,6 +155,9 @@ pub struct AppSettings {
     /// Compare: treat runs of whitespace as equal.
     #[serde(default)]
     pub compare_ignore_ws: bool,
+    /// Compare: treat letter case as equal.
+    #[serde(default)]
+    pub compare_ignore_case: bool,
     /// Last project panel folder (absolute or relative path string).
     #[serde(default)]
     pub workspace_root: String,
@@ -203,6 +206,7 @@ impl Default for AppSettings {
             find_query: String::new(),
             replace_with: String::new(),
             compare_ignore_ws: false,
+            compare_ignore_case: false,
             workspace_root: String::new(),
             project_filter: String::new(),
             find_files_include: String::new(),

@@ -25,7 +25,7 @@ Handlers that work but stay shallower than upstream N++:
 
 - Full Preferences (multi-language UI, …). More keys in `npp-rs/settings.json` (see `docs/preferences-p0.md`). Autosave/backup MVP: `docs/autosave-backup.md`
 - Project panels: folder list + refresh/reveal; not N++ projects
-- File compare: **2-way** + re-diff + ignore-whitespace + next/prev hunk (F7) + first-hunk jump / ordinal status. 3-way / char-level still open
+- File compare: **2-way** + re-diff + ignore-whitespace + ignore-case + next/prev hunk (F7) + first-hunk jump / ordinal status. 3-way / char-level still open
 - Change history: bar marks + undo remap; full Scintilla reverted/indicator parity open
 - CLI MVP: `-h`, `-V`, `-n`/`--line`, `-ro`, path args
 - LSP (call tips: in-file snippets only)

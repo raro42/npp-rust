@@ -19,3 +19,4 @@
 - 009 keep: fold margin click parity with Fold Current (v0.3.21)
 - 009 keep: project panel refresh + reveal in file manager (v0.3.22)
 - 009 keep: compare first-hunk jump + ordinal status (v0.3.23)
+- 009 keep: compare ignore-case preference (v0.3.24)

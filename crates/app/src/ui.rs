@@ -1319,6 +1319,18 @@ Tree-sitter highlight, and a calm UI.",
                                 self.state.compare_stale = true;
                             }
                         }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.compare_ignore_case,
+                                "Ignore case differences",
+                            )
+                            .changed()
+                        {
+                            changed = true;
+                            if self.compare_on {
+                                self.state.compare_stale = true;
+                            }
+                        }
                         ui.add_space(10.0);
                         ui.label(RichText::new("Status bar").strong());
                         ui.add_space(4.0);
@@ -3678,25 +3690,14 @@ Tree-sitter highlight, and a calm UI.",
             return None;
         }
         let ignore_ws = self.state.settings.compare_ignore_ws;
+        let ignore_case = self.state.settings.compare_ignore_case;
         let left_keys: Vec<String> = left_lines
             .iter()
-            .map(|s| {
-                if ignore_ws {
-                    s.split_whitespace().collect::<Vec<_>>().join(" ")
-                } else {
-                    s.clone()
-                }
-            })
+            .map(|s| crate::diff::compare_line_key(s, ignore_ws, ignore_case))
             .collect();
         let right_keys: Vec<String> = right_lines
             .iter()
-            .map(|s| {
-                if ignore_ws {
-                    s.split_whitespace().collect::<Vec<_>>().join(" ")
-                } else {
-                    s.clone()
-                }
-            })
+            .map(|s| crate::diff::compare_line_key(s, ignore_ws, ignore_case))
             .collect();
         let left_refs: Vec<&str> = left_keys.iter().map(|s| s.as_str()).collect();
         let right_refs: Vec<&str> = right_keys.iter().map(|s| s.as_str()).collect();

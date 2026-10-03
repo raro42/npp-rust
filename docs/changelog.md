@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.24] — 2026-10-04
+
+Compare:
+
+- Preferences: **Ignore case differences** (`compare_ignore_case` in settings.json). Combines with ignore-whitespace; live re-diff while Compare is on.
+
 ## [0.3.23] — 2026-10-04
 
 Compare:

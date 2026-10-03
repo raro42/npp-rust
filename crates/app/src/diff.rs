@@ -67,6 +67,20 @@ pub fn count_changes(left: &[LineKind], right: &[LineKind]) -> (usize, usize) {
     (del, ins)
 }
 
+/// Normalize a line for compare matching (ignore whitespace / case options).
+pub fn compare_line_key(line: &str, ignore_ws: bool, ignore_case: bool) -> String {
+    let key = if ignore_ws {
+        line.split_whitespace().collect::<Vec<_>>().join(" ")
+    } else {
+        line.to_string()
+    };
+    if ignore_case {
+        key.to_lowercase()
+    } else {
+        key
+    }
+}
+
 /// True when this line starts a change hunk (non-equal after equal, or file start).
 fn is_hunk_start(tags: &[LineKind], i: usize) -> bool {
     tags.get(i).is_some_and(|k| *k != LineKind::Equal) && (i == 0 || tags[i - 1] == LineKind::Equal)
@@ -163,17 +177,41 @@ mod tests {
         let right = ["a b", "c"];
         let left_n: Vec<String> = left
             .iter()
-            .map(|s| s.split_whitespace().collect::<Vec<_>>().join(" "))
+            .map(|s| compare_line_key(s, true, false))
             .collect();
         let right_n: Vec<String> = right
             .iter()
-            .map(|s| s.split_whitespace().collect::<Vec<_>>().join(" "))
+            .map(|s| compare_line_key(s, true, false))
             .collect();
         let lref: Vec<&str> = left_n.iter().map(|s| s.as_str()).collect();
         let rref: Vec<&str> = right_n.iter().map(|s| s.as_str()).collect();
         let (l, r) = diff_line_tags(&lref, &rref);
         assert!(l.iter().all(|k| *k == LineKind::Equal));
         assert!(r.iter().all(|k| *k == LineKind::Equal));
+    }
+
+    #[test]
+    fn ignore_case_keys_match() {
+        let left = ["Hello", "World"];
+        let right = ["hello", "WORLD"];
+        let left_n: Vec<String> = left
+            .iter()
+            .map(|s| compare_line_key(s, false, true))
+            .collect();
+        let right_n: Vec<String> = right
+            .iter()
+            .map(|s| compare_line_key(s, false, true))
+            .collect();
+        let lref: Vec<&str> = left_n.iter().map(|s| s.as_str()).collect();
+        let rref: Vec<&str> = right_n.iter().map(|s| s.as_str()).collect();
+        let (l, r) = diff_line_tags(&lref, &rref);
+        assert!(l.iter().all(|k| *k == LineKind::Equal));
+        assert!(r.iter().all(|k| *k == LineKind::Equal));
+        // Combined with ignore-ws.
+        assert_eq!(
+            compare_line_key("A  B", true, true),
+            compare_line_key("a b", true, true)
+        );
     }
 
     #[test]

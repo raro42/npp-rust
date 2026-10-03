@@ -59,6 +59,7 @@ While compare is on, panes stay pinned to that pair (tab clicks do not swap the 
 - No gap rows for inserts (line numbers stay per-file; sync is by scroll line).
 - Start Compare turns on sync H + V scroll.
 - Preferences: **Ignore whitespace differences** collapses whitespace runs before LCS.
+- Preferences: **Ignore case differences** folds letter case before LCS (combines with ignore-whitespace).
 
 ## Not in MVP
 
