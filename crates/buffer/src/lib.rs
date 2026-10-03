@@ -9,13 +9,15 @@
 //!
 //! Plain typing may merge into the previous undo unit when **all** hold:
 //!
-//! - **Kind:** previous unit is a single `Insert` (not a group, delete, or replace).
-//! - **Adjacency:** new text starts at the end of that insert (`last_insert_end`).
+//! - **Kind:** previous unit is a single `Insert`, or a group of only `Insert`s
+//!   (multi-caret / column typing).
+//! - **Adjacency:** new text starts at the end of that insert (`last_insert_end`),
+//!   or each new insert in a transaction starts at the end of the matching
+//!   previous insert (same count, same order).
 //! - **Time:** previous insert was within [`TYPING_COALESCE_MS`] (1s).
 //!
-//! Caret moves, selection changes, undo/redo, document replace, and starting a
-//! transaction break the streak. Deletes and replace-selection do not coalesce
-//! with typing.
+//! Caret moves, selection changes, undo/redo, and document replace break the
+//! streak. Deletes and replace-selection do not coalesce with typing.
 
 use ropey::Rope;
 use std::collections::VecDeque;
@@ -79,6 +81,8 @@ pub struct TextBuffer {
     /// Nested transaction depth; edits go into `tx_edits` while > 0.
     tx_depth: usize,
     tx_edits: Vec<Edit>,
+    /// When set, a pure-insert outermost transaction may arm typing coalesce.
+    tx_arm_insert_coalesce: bool,
     /// Net line-structure change from the latest mutation (taken by Document remap).
     last_line_edit: Option<LineStructureEdit>,
     /// Edit revision: +1 per new undo unit, -1 on undo, +1 on redo.
@@ -103,6 +107,7 @@ impl TextBuffer {
             last_insert_at: None,
             tx_depth: 0,
             tx_edits: Vec::new(),
+            tx_arm_insert_coalesce: false,
             last_line_edit: None,
             generation: 0,
         }
@@ -164,9 +169,14 @@ impl TextBuffer {
     }
 
     pub fn set_caret(&mut self, index: usize) {
+        self.set_caret_quiet(index);
+        self.break_typing_coalesce();
+    }
+
+    /// Move caret without breaking typing coalesce (multi-caret sync).
+    pub fn set_caret_quiet(&mut self, index: usize) {
         self.caret = index.min(self.len_chars());
         self.sel_anchor = None;
-        self.break_typing_coalesce();
     }
 
     pub fn selection(&self) -> Option<(usize, usize)> {
@@ -184,10 +194,15 @@ impl TextBuffer {
     }
 
     pub fn set_selection(&mut self, anchor: usize, caret: usize) {
+        self.set_selection_quiet(anchor, caret);
+        self.break_typing_coalesce();
+    }
+
+    /// Set selection without breaking typing coalesce (multi-caret sync).
+    pub fn set_selection_quiet(&mut self, anchor: usize, caret: usize) {
         let len = self.len_chars();
         self.sel_anchor = Some(anchor.min(len));
         self.caret = caret.min(len);
-        self.break_typing_coalesce();
     }
 
     /// Run `f` as one undo unit. Nested calls merge into the outermost unit.
@@ -195,16 +210,28 @@ impl TextBuffer {
     where
         F: FnOnce(&mut Self) -> R,
     {
-        self.begin_transaction();
+        self.begin_transaction(false);
         let out = f(self);
         self.end_transaction();
         out
     }
 
-    fn begin_transaction(&mut self) {
+    /// Like [`with_transaction`], but pure-insert units arm typing coalesce
+    /// so the next adjacent insert transaction can merge (multi-caret typing).
+    pub fn with_coalescable_insert_transaction<F, R>(&mut self, f: F) -> R
+    where
+        F: FnOnce(&mut Self) -> R,
+    {
+        self.begin_transaction(true);
+        let out = f(self);
+        self.end_transaction();
+        out
+    }
+
+    fn begin_transaction(&mut self, arm_insert_coalesce: bool) {
         if self.tx_depth == 0 {
             self.tx_edits.clear();
-            self.break_typing_coalesce();
+            self.tx_arm_insert_coalesce = arm_insert_coalesce;
             self.begin_line_edit();
         }
         self.tx_depth += 1;
@@ -216,10 +243,17 @@ impl TextBuffer {
         if self.tx_depth > 0 {
             return;
         }
+        let arm = self.tx_arm_insert_coalesce;
+        self.tx_arm_insert_coalesce = false;
         let edits = std::mem::take(&mut self.tx_edits);
         if edits.is_empty() {
             return;
         }
+        if arm && self.try_coalesce_insert_edits(&edits) {
+            self.redo.clear();
+            return;
+        }
+        let all_inserts = edits.iter().all(|e| matches!(e, Edit::Insert { .. }));
         let unit = if edits.len() == 1 {
             UndoUnit::Single(edits.into_iter().next().expect("len checked"))
         } else {
@@ -227,7 +261,115 @@ impl TextBuffer {
         };
         self.push_unit(unit);
         self.redo.clear();
-        self.break_typing_coalesce();
+        if arm && all_inserts {
+            if let Some(UndoUnit::Single(Edit::Insert { index, text })) = self.undo.back() {
+                self.last_insert_end = Some(index + text.chars().count());
+                self.last_insert_at = Some(Instant::now());
+            } else if let Some(UndoUnit::Group(group)) = self.undo.back() {
+                if let Some(Edit::Insert { index, text }) = group.last() {
+                    self.last_insert_end = Some(index + text.chars().count());
+                } else {
+                    self.last_insert_end = None;
+                }
+                self.last_insert_at = Some(Instant::now());
+            } else {
+                self.break_typing_coalesce();
+            }
+        } else {
+            self.break_typing_coalesce();
+        }
+    }
+
+    /// Final caret ends for a pure-insert unit after all inserts apply (low indices shift high ones).
+    fn insert_unit_final_ends(edits: &[Edit]) -> Option<Vec<usize>> {
+        let mut pairs: Vec<(usize, usize)> = Vec::with_capacity(edits.len());
+        for edit in edits {
+            let Edit::Insert { index, text } = edit else {
+                return None;
+            };
+            pairs.push((*index, text.chars().count()));
+        }
+        Some(
+            pairs
+                .iter()
+                .map(|(idx, len)| {
+                    let shift: usize = pairs
+                        .iter()
+                        .filter(|(i, _)| *i < *idx)
+                        .map(|(_, l)| *l)
+                        .sum();
+                    idx + len + shift
+                })
+                .collect(),
+        )
+    }
+
+    /// Merge a pure-insert transaction into the previous undo unit when adjacent + timely.
+    fn try_coalesce_insert_edits(&mut self, edits: &[Edit]) -> bool {
+        if edits.is_empty() || !edits.iter().all(|e| matches!(e, Edit::Insert { .. })) {
+            return false;
+        }
+        let time_ok = self
+            .last_insert_at
+            .map(|t| t.elapsed().as_millis() <= TYPING_COALESCE_MS)
+            .unwrap_or(false);
+        if !time_ok {
+            return false;
+        }
+
+        let new_starts: Vec<usize> = edits
+            .iter()
+            .map(|e| match e {
+                Edit::Insert { index, .. } => *index,
+                _ => 0,
+            })
+            .collect();
+
+        let can_merge = match self.undo.back() {
+            Some(UndoUnit::Single(edit)) if edits.len() == 1 => {
+                Self::insert_unit_final_ends(std::slice::from_ref(edit))
+                    .is_some_and(|ends| ends == new_starts)
+            }
+            Some(UndoUnit::Group(prev_edits)) if prev_edits.len() == edits.len() => {
+                Self::insert_unit_final_ends(prev_edits).is_some_and(|ends| ends == new_starts)
+            }
+            _ => false,
+        };
+        if !can_merge {
+            return false;
+        }
+
+        let mut new_end = None;
+        match self.undo.back_mut() {
+            Some(UndoUnit::Single(Edit::Insert {
+                index: prev_idx,
+                text: prev_text,
+            })) => {
+                if let Edit::Insert { text, .. } = &edits[0] {
+                    prev_text.push_str(text);
+                    new_end = Some(*prev_idx + prev_text.chars().count());
+                }
+            }
+            Some(UndoUnit::Group(prev_edits)) => {
+                for (prev_e, new_e) in prev_edits.iter_mut().zip(edits.iter()) {
+                    if let (
+                        Edit::Insert {
+                            text: p_text,
+                            index: p_idx,
+                        },
+                        Edit::Insert { text: n_text, .. },
+                    ) = (prev_e, new_e)
+                    {
+                        p_text.push_str(n_text);
+                        new_end = Some(*p_idx + p_text.chars().count());
+                    }
+                }
+            }
+            _ => return false,
+        }
+        self.last_insert_end = new_end;
+        self.last_insert_at = Some(Instant::now());
+        true
     }
 
     /// Current edit revision (Document dirty / save matching).
@@ -1281,6 +1423,36 @@ mod tests {
         assert_eq!(b.undo_len(), 1);
         assert!(b.undo());
         assert_eq!(b.to_string(), "");
+    }
+
+    #[test]
+    fn multi_insert_transaction_coalesce_one_undo() {
+        let mut b = TextBuffer::from_str("a.a.a.");
+        // First keystroke at three carets (high→low, same as insert_multi).
+        b.with_coalescable_insert_transaction(|buf| {
+            buf.set_caret_quiet(5);
+            buf.insert("x");
+            buf.set_caret_quiet(3);
+            buf.insert("x");
+            buf.set_caret_quiet(1);
+            buf.insert("x");
+        });
+        assert_eq!(b.to_string(), "ax.ax.ax.");
+        assert_eq!(b.undo_len(), 1);
+        // Second keystroke adjacent at each caret.
+        b.with_coalescable_insert_transaction(|buf| {
+            buf.set_caret_quiet(8);
+            buf.insert("y");
+            buf.set_caret_quiet(5);
+            buf.insert("y");
+            buf.set_caret_quiet(2);
+            buf.insert("y");
+        });
+        assert_eq!(b.to_string(), "axy.axy.axy.");
+        assert_eq!(b.undo_len(), 1);
+        assert_eq!(b.edit_generation(), 1);
+        assert!(b.undo());
+        assert_eq!(b.to_string(), "a.a.a.");
     }
 
     #[test]

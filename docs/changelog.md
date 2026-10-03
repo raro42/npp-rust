@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.18] — 2026-10-03
+
+Undo:
+
+- Multi-caret / column typing coalesce: successive inserts at the same carets merge into one undo unit (same 1s window as plain typing). Replace-selection and deletes still start a new unit.
+
 ## [0.3.17] — 2026-10-03
 
 Encoding:

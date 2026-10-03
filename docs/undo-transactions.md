@@ -9,15 +9,15 @@ One user-level command is one undo unit. Helpers that touch many places call `Te
 
 ## Typing coalesce
 
-Plain typing merges into the previous unit when all hold:
+Plain typing and multi-caret / column inserts merge into the previous unit when all hold:
 
 | Rule | Meaning |
 |------|---------|
-| Kind | Previous unit is a single insert |
-| Adjacency | New text starts at `last_insert_end` |
+| Kind | Previous unit is a single insert, or a group of only inserts |
+| Adjacency | New text starts at each previous insert’s final caret end |
 | Time | Previous insert within 1s (`TYPING_COALESCE_MS`) |
 
-Caret moves, selection changes, undo/redo, `replace_document`, and starting a transaction break the streak.
+Caret moves, selection changes, undo/redo, and `replace_document` break the streak. Deletes and replace-selection do not coalesce. Multi-caret typing uses `with_coalescable_insert_transaction`.
 
 ## Tests
 
@@ -25,3 +25,5 @@ Caret moves, selection changes, undo/redo, `replace_document`, and starting a tr
 - `replace_selection_one_undo`
 - `join_lines_one_undo`
 - `typing_coalesce_one_undo`
+- `multi_insert_transaction_coalesce_one_undo`
+- `insert_multi_typing_coalesce_one_undo`

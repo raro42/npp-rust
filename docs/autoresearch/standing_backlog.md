@@ -6,7 +6,7 @@ When the issue queue is idle, overnight 009 **must** pull from this list (top fi
 
 1. **Find / replace edge cases** — ~~wrap toggle~~, ~~regex that does not hang the UI~~, ~~selection-only (Find bar **Sel**, multi-line auto-arm)~~.
 2. **Save encoding** — ~~unmapped ANSI chars~~, ~~BOM-less UTF-16 detect~~ (`docs/encoding.md`).
-3. **Undo / typing coalesce** — multi-caret and column select stay one undo (`docs/undo-transactions.md`, `docs/column-mode.md`).
+3. **Undo / typing coalesce** — ~~multi-caret / column typing coalesce~~ (`docs/undo-transactions.md`, `docs/column-mode.md`).
 
 ## P1 — depth vs Notepad++ (small batches)
 

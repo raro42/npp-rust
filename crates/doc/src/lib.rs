@@ -469,16 +469,17 @@ impl Document {
         sorted.dedup();
         let n_ins = text.chars().count();
         let mut new_sels = Vec::with_capacity(sorted.len());
-        self.buffer.with_transaction(|b| {
+        self.buffer.with_coalescable_insert_transaction(|b| {
             for &(s, e) in sorted.iter().rev() {
                 let len = b.len_chars();
                 let s = s.min(len);
                 let e = e.min(len).max(s);
                 let del = e - s;
                 if s < e {
-                    b.set_selection(s, e);
+                    // Quiet: do not break multi-caret typing coalesce mid-transaction.
+                    b.set_selection_quiet(s, e);
                 } else {
-                    b.set_caret(s);
+                    b.set_caret_quiet(s);
                 }
                 b.insert(text);
                 let c = b.caret();
@@ -580,10 +581,11 @@ impl Document {
     fn finish_multi_sels(&mut self, new_sels: Vec<(usize, usize)>) {
         self.multi_sels = new_sels;
         if let Some(&(s, e)) = self.multi_sels.last() {
+            // Quiet sync keeps typing coalesce for successive multi-caret inserts.
             if s == e {
-                self.buffer.set_caret(s);
+                self.buffer.set_caret_quiet(s);
             } else {
-                self.buffer.set_selection(s, e);
+                self.buffer.set_selection_quiet(s, e);
             }
         }
     }
@@ -897,6 +899,20 @@ mod tests {
         assert_eq!(doc.multi_sels, vec![(2, 2), (6, 6), (10, 10)]);
         assert!(doc.buffer.undo());
         assert_eq!(doc.buffer.to_string(), "aa\nbb\ncc\n");
+    }
+
+    #[test]
+    fn insert_multi_typing_coalesce_one_undo() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("aa\nbb\ncc\n");
+        doc.multi_sels = vec![(1, 1), (4, 4), (7, 7)];
+        assert!(doc.insert_multi("X"));
+        assert!(doc.insert_multi("Y"));
+        assert_eq!(doc.buffer.to_string(), "aXYa\nbXYb\ncXYc\n");
+        assert_eq!(doc.buffer.edit_generation(), 1);
+        assert!(doc.buffer.undo());
+        assert_eq!(doc.buffer.to_string(), "aa\nbb\ncc\n");
+        assert!(!doc.buffer.undo());
     }
 
     #[test]

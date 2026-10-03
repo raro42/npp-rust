@@ -7,7 +7,7 @@ Version: 0.3.9
 
 - **Alt+drag** (Option+drag on macOS) builds a rectangular selection.
 - Each line in the block gets a range at the same columns (clamped to line length).
-- **Typing**, **Backspace**, **Delete**, **Paste**, **Enter**, and **Tab** apply to every multi-caret / rect range (one undo).
+- **Typing**, **Backspace**, **Delete**, **Paste**, **Enter**, and **Tab** apply to every multi-caret / rect range (one undo). Successive typing at the same carets coalesces into one undo unit (1s window), like plain typing.
 - **Copy** / **Cut** with two or more ranges joins line slices with newlines.
 - **Multi-select next/all** carets also receive typing (same path).
 - **Column Editor** (`IDM_EDIT_COLUMNMODE`) still inserts clipboard text or `0,1,2…` at the caret column.
