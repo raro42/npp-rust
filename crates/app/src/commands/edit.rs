@@ -944,7 +944,15 @@ fn find_all_matches(
     match_case: bool,
     whole_word: bool,
 ) -> Vec<(usize, usize)> {
-    crate::search_util::find_all_matches(text, query, match_case, whole_word)
+    crate::search_util::find_all_matches(
+        text,
+        query,
+        crate::search_util::FindFlags {
+            match_case,
+            whole_word,
+            use_regex: false,
+        },
+    )
 }
 
 fn is_word_char(c: char) -> bool {

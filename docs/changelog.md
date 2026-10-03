@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.15] — 2026-10-03
+
+Find / replace:
+
+- **Re** on the Find bar (and Preferences **Regular expression**) treats the query as a regex. Engine is linear-time, so nested quantifiers do not hang the UI. Invalid patterns report `Find: invalid regex`. Replace uses a literal replacement string.
+- Setting `find_regex` in `npp-rs/settings.json`
+
 ## [0.3.14] — 2026-10-03
 
 Find / replace:

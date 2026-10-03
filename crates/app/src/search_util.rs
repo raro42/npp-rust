@@ -1,6 +1,8 @@
-//! Shared plain-text find helpers (match case / whole word).
+//! Shared find helpers (literal or linear-time regex).
 
 use std::path::{Path, PathBuf};
+
+use regex::RegexBuilder;
 
 /// True when `c` is a word character (alphanumeric or `_`).
 pub fn is_word_char(c: char) -> bool {
@@ -210,15 +212,70 @@ pub fn find_in_files_scan(
     report
 }
 
-/// All non-overlapping matches as char ranges `[start, end)`.
-pub fn find_all_matches(
+/// Case / whole-word / regex flags for in-file find.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FindFlags {
+    pub match_case: bool,
+    pub whole_word: bool,
+    pub use_regex: bool,
+}
+pub fn compile_find_regex(query: &str, match_case: bool) -> Result<regex::Regex, String> {
+    RegexBuilder::new(query)
+        .case_insensitive(!match_case)
+        .multi_line(true)
+        .size_limit(1 << 20)
+        .dfa_size_limit(1 << 20)
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+/// `Some` when `query` is not a valid find regex.
+pub fn find_regex_error(query: &str, match_case: bool) -> Option<String> {
+    compile_find_regex(query, match_case).err()
+}
+
+fn whole_word_ok(chars: &[char], start: usize, end: usize) -> bool {
+    let before_ok = start == 0 || !is_word_char(chars[start - 1]);
+    let after_ok = end >= chars.len() || !is_word_char(chars[end]);
+    before_ok && after_ok
+}
+
+fn find_all_matches_regex(
     text: &str,
     query: &str,
     match_case: bool,
     whole_word: bool,
 ) -> Vec<(usize, usize)> {
+    let Ok(re) = compile_find_regex(query, match_case) else {
+        return Vec::new();
+    };
+    let chars: Vec<char> = if whole_word {
+        text.chars().collect()
+    } else {
+        Vec::new()
+    };
+    let mut out = Vec::new();
+    for m in re.find_iter(text) {
+        if m.start() == m.end() {
+            continue;
+        }
+        let start = text[..m.start()].chars().count();
+        let end = start + text[m.start()..m.end()].chars().count();
+        if whole_word && !whole_word_ok(&chars, start, end) {
+            continue;
+        }
+        out.push((start, end));
+    }
+    out
+}
+
+/// All non-overlapping matches as char ranges `[start, end)`.
+pub fn find_all_matches(text: &str, query: &str, flags: FindFlags) -> Vec<(usize, usize)> {
     if query.is_empty() {
         return Vec::new();
+    }
+    if flags.use_regex {
+        return find_all_matches_regex(text, query, flags.match_case, flags.whole_word);
     }
     let chars: Vec<char> = text.chars().collect();
     let q: Vec<char> = query.chars().collect();
@@ -229,7 +286,7 @@ pub fn find_all_matches(
     let mut out = Vec::new();
     let mut i = 0usize;
     while i + qlen <= chars.len() {
-        let matched = if match_case {
+        let matched = if flags.match_case {
             chars[i..i + qlen] == q[..]
         } else {
             chars[i..i + qlen]
@@ -238,10 +295,8 @@ pub fn find_all_matches(
                 .all(|(a, b)| a.eq_ignore_ascii_case(b))
         };
         if matched {
-            let ok = if whole_word {
-                let before_ok = i == 0 || !is_word_char(chars[i - 1]);
-                let after_ok = i + qlen >= chars.len() || !is_word_char(chars[i + qlen]);
-                before_ok && after_ok
+            let ok = if flags.whole_word {
+                whole_word_ok(&chars, i, i + qlen)
             } else {
                 true
             };
@@ -262,10 +317,9 @@ pub fn find_next(
     query: &str,
     from: usize,
     wrap: bool,
-    match_case: bool,
-    whole_word: bool,
+    flags: FindFlags,
 ) -> Option<(usize, usize)> {
-    let all = find_all_matches(text, query, match_case, whole_word);
+    let all = find_all_matches(text, query, flags);
     if all.is_empty() {
         return None;
     }
@@ -284,10 +338,9 @@ pub fn find_prev(
     query: &str,
     from: usize,
     wrap: bool,
-    match_case: bool,
-    whole_word: bool,
+    flags: FindFlags,
 ) -> Option<(usize, usize)> {
-    let all = find_all_matches(text, query, match_case, whole_word);
+    let all = find_all_matches(text, query, flags);
     if all.is_empty() {
         return None;
     }
@@ -314,11 +367,10 @@ pub fn find_all_matches_in(
     query: &str,
     lo: usize,
     hi: usize,
-    match_case: bool,
-    whole_word: bool,
+    flags: FindFlags,
 ) -> Vec<(usize, usize)> {
     let slice = char_span(text, lo, hi);
-    find_all_matches(&slice, query, match_case, whole_word)
+    find_all_matches(&slice, query, flags)
         .into_iter()
         .map(|(s, e)| (s + lo, e + lo))
         .collect()
@@ -331,13 +383,12 @@ pub fn find_next_in(
     from: usize,
     wrap: bool,
     span: (usize, usize),
-    match_case: bool,
-    whole_word: bool,
+    flags: FindFlags,
 ) -> Option<(usize, usize)> {
     let (lo, hi) = span;
     let slice = char_span(text, lo, hi);
     let from_rel = from.max(lo).saturating_sub(lo);
-    find_next(&slice, query, from_rel, wrap, match_case, whole_word).map(|(s, e)| (s + lo, e + lo))
+    find_next(&slice, query, from_rel, wrap, flags).map(|(s, e)| (s + lo, e + lo))
 }
 
 /// Previous match ending at or before `from` inside `span` (`[lo, hi)`). Wraps within the span.
@@ -347,13 +398,12 @@ pub fn find_prev_in(
     from: usize,
     wrap: bool,
     span: (usize, usize),
-    match_case: bool,
-    whole_word: bool,
+    flags: FindFlags,
 ) -> Option<(usize, usize)> {
     let (lo, hi) = span;
     let slice = char_span(text, lo, hi);
     let from_rel = from.min(hi).saturating_sub(lo);
-    find_prev(&slice, query, from_rel, wrap, match_case, whole_word).map(|(s, e)| (s + lo, e + lo))
+    find_prev(&slice, query, from_rel, wrap, flags).map(|(s, e)| (s + lo, e + lo))
 }
 
 /// Replace matches inside `[lo, hi)`. Returns `(new_text, count, new_hi)`.
@@ -363,15 +413,14 @@ pub fn replace_all_in(
     replacement: &str,
     lo: usize,
     hi: usize,
-    match_case: bool,
-    whole_word: bool,
+    flags: FindFlags,
 ) -> (String, usize, usize) {
     let chars: Vec<char> = text.chars().collect();
     let n = chars.len();
     let lo = lo.min(n);
     let hi = hi.min(n).max(lo);
     let slice: String = chars[lo..hi].iter().collect();
-    let (new_slice, count) = replace_all(&slice, query, replacement, match_case, whole_word);
+    let (new_slice, count) = replace_all(&slice, query, replacement, flags);
     let new_hi = lo + new_slice.chars().count();
     let mut out = String::with_capacity(lo + new_slice.len() + (n - hi));
     out.extend(chars[..lo].iter());
@@ -385,10 +434,9 @@ pub fn replace_all(
     text: &str,
     query: &str,
     replacement: &str,
-    match_case: bool,
-    whole_word: bool,
+    flags: FindFlags,
 ) -> (String, usize) {
-    let matches = find_all_matches(text, query, match_case, whole_word);
+    let matches = find_all_matches(text, query, flags);
     if matches.is_empty() {
         return (text.to_string(), 0);
     }
@@ -415,18 +463,26 @@ pub fn replace_all(
 mod tests {
     use super::*;
     use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::time::{Instant, SystemTime, UNIX_EPOCH};
+
+    const fn flags(match_case: bool, whole_word: bool, use_regex: bool) -> FindFlags {
+        FindFlags {
+            match_case,
+            whole_word,
+            use_regex,
+        }
+    }
 
     #[test]
     fn case_insensitive_and_whole_word() {
         let text = "Foo foo food Foo";
-        let all = find_all_matches(text, "foo", false, true);
+        let all = find_all_matches(text, "foo", flags(false, true, false));
         assert_eq!(all, vec![(0, 3), (4, 7), (13, 16)]);
     }
 
     #[test]
     fn replace_all_counts() {
-        let (out, n) = replace_all("a a aa", "a", "b", true, true);
+        let (out, n) = replace_all("a a aa", "a", "b", flags(true, true, false));
         assert_eq!(n, 2);
         assert_eq!(out, "b b aa");
     }
@@ -434,19 +490,38 @@ mod tests {
     #[test]
     fn find_in_span_skips_outside() {
         let text = "xx foo yy foo zz";
-        let all = find_all_matches_in(text, "foo", 0, 8, true, false);
+        let lit = flags(true, false, false);
+        let all = find_all_matches_in(text, "foo", 0, 8, lit);
         assert_eq!(all, vec![(3, 6)]);
-        let next = find_next_in(text, "foo", 6, true, (0, 8), true, false);
+        let next = find_next_in(text, "foo", 6, true, (0, 8), lit);
         assert_eq!(next, Some((3, 6)));
-        assert_eq!(
-            find_next_in(text, "foo", 6, false, (0, 8), true, false),
-            None
-        );
-        let (out, n, new_hi) =
-            replace_all_in(text, "foo", "BAR", 8, text.chars().count(), true, false);
+        assert_eq!(find_next_in(text, "foo", 6, false, (0, 8), lit), None);
+        let (out, n, new_hi) = replace_all_in(text, "foo", "BAR", 8, text.chars().count(), lit);
         assert_eq!(n, 1);
         assert_eq!(out, "xx foo yy BAR zz");
         assert_eq!(new_hi, out.chars().count());
+    }
+
+    #[test]
+    fn regex_digits_skip_invalid_and_empty() {
+        let text = "a12 b3";
+        let re = flags(true, false, true);
+        assert_eq!(find_all_matches(text, r"\d+", re), vec![(1, 3), (5, 6)]);
+        assert!(find_all_matches(text, "[", re).is_empty());
+        assert!(find_regex_error("[", true).is_some());
+        assert_eq!(find_all_matches("aaa", "a+", re), vec![(0, 3)]);
+        let (out, n) = replace_all("a12 b3", r"\d+", "N", re);
+        assert_eq!(n, 2);
+        assert_eq!(out, "aN bN");
+    }
+
+    #[test]
+    fn regex_nested_quantifiers_stay_linear() {
+        let text = "a".repeat(50);
+        let start = Instant::now();
+        let hits = find_all_matches(&text, "(a+)+$", flags(true, false, true));
+        assert!(start.elapsed().as_millis() < 500);
+        assert_eq!(hits, vec![(0, 50)]);
     }
 
     #[test]

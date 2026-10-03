@@ -1211,6 +1211,12 @@ Tree-sitter highlight, and a calm UI.",
                         {
                             changed = true;
                         }
+                        if ui
+                            .checkbox(&mut self.state.settings.find_regex, "Regular expression")
+                            .changed()
+                        {
+                            changed = true;
+                        }
                         ui.add_space(10.0);
                         ui.label(RichText::new("Compare").strong());
                         ui.add_space(4.0);
@@ -2310,6 +2316,13 @@ Tree-sitter highlight, and a calm UI.",
                 if ui
                     .checkbox(&mut self.state.settings.find_wrap, "Wrap")
                     .on_hover_text("After the last match, Next starts again at the first")
+                    .changed()
+                {
+                    persist = true;
+                }
+                if ui
+                    .checkbox(&mut self.state.settings.find_regex, "Re")
+                    .on_hover_text("Treat the query as a regular expression (linear-time, no hang)")
                     .changed()
                 {
                     persist = true;

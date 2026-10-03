@@ -88,7 +88,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 |------|---------|--------|
 | Multi-tab / open / save / recent | Done | Solid MVP |
 | Undo / redo / rope edits | Done | Coalesce + generations |
-| Find / Replace (in file) | Partial | Case/word/count; no full N++ regex UI depth |
+| Find / Replace (in file) | Partial | Case/word/count/wrap/sel + linear-time regex; no N++ style `$n` replace UI |
 | Find in Files | Partial | Recursive workspace scan + include/exclude globs (v0.3.10); not full N++ UI |
 | Bookmarks | Partial | Strong MVP; not full N++ mark set |
 | Change history | Partial | Bars + undo remap (v0.3.5); not full Scintilla |
