@@ -21,6 +21,10 @@ New keys:
 | `backup_on_save` | Copy on-disk file into `npp-rs/backup/` before overwrite |
 | `autosave_interval_secs` | Autosave dirty named tabs (`0` = off; else 15–900) |
 | `show_fold_margin` | Gutter fold markers (`−` / `+`); default on |
+| `show_whitespace` | Show space/tab glyphs (View + Preferences); default off |
+| `show_eol` | Show end-of-line marks; default off |
+| `show_npc` | Show non-printing / control characters; default off |
+| `show_indent_guide` | Vertical indent guides; default off |
 | `shortcut_word_wrap` | Word-wrap toggle chord (`Alt+Z` default; e.g. `Ctrl+W`) |
 
 See also: `docs/autosave-backup.md`, `docs/folding.md`.

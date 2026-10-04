@@ -113,6 +113,10 @@ impl EditorState {
     pub fn new() -> Self {
         let settings = AppSettings::load();
         let word_wrap = settings.word_wrap;
+        let show_whitespace = settings.show_whitespace;
+        let show_eol = settings.show_eol;
+        let show_npc = settings.show_npc;
+        let show_indent_guide = settings.show_indent_guide;
         let find_query = settings.find_query.clone();
         let workspace_root = {
             let from_settings = settings.workspace_root.trim();
@@ -151,10 +155,10 @@ impl EditorState {
             tail_last_poll: Instant::now() - Duration::from_secs(1),
             begin_end_select: None,
             search_engine: "https://duckduckgo.com/?q=".into(),
-            show_whitespace: false,
-            show_eol: false,
-            show_npc: false,
-            show_indent_guide: false,
+            show_whitespace,
+            show_eol,
+            show_npc,
+            show_indent_guide,
             word_wrap,
             macro_recording: false,
             macro_cmds: Vec::new(),

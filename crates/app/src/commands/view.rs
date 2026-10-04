@@ -66,6 +66,8 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         }
         "IDM_VIEW_TAB_SPACE" => {
             state.show_whitespace = !state.show_whitespace;
+            state.settings.show_whitespace = state.show_whitespace;
+            state.settings.save();
             state.status = format!(
                 "Show space/tab: {}",
                 if state.show_whitespace { "on" } else { "off" }
@@ -74,11 +76,15 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         }
         "IDM_VIEW_EOL" => {
             state.show_eol = !state.show_eol;
+            state.settings.show_eol = state.show_eol;
+            state.settings.save();
             state.status = format!("Show EOL: {}", if state.show_eol { "on" } else { "off" });
             CmdResult::Handled
         }
         "IDM_VIEW_NPC" | "IDM_VIEW_NPC_CCUNIEOL" => {
             state.show_npc = !state.show_npc;
+            state.settings.show_npc = state.show_npc;
+            state.settings.save();
             state.status = format!("Show NPC: {}", if state.show_npc { "on" } else { "off" });
             CmdResult::Handled
         }
@@ -87,11 +93,17 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             state.show_whitespace = on;
             state.show_eol = on;
             state.show_npc = on;
+            state.settings.show_whitespace = on;
+            state.settings.show_eol = on;
+            state.settings.show_npc = on;
+            state.settings.save();
             state.status = format!("Show all characters: {}", if on { "on" } else { "off" });
             CmdResult::Handled
         }
         "IDM_VIEW_INDENT_GUIDE" => {
             state.show_indent_guide = !state.show_indent_guide;
+            state.settings.show_indent_guide = state.show_indent_guide;
+            state.settings.save();
             state.status = format!(
                 "Indent guide: {}",
                 if state.show_indent_guide { "on" } else { "off" }

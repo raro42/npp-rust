@@ -1217,6 +1217,40 @@ Tree-sitter highlight, and a calm UI.",
                             self.state.word_wrap = self.state.settings.word_wrap;
                             changed = true;
                         }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.show_whitespace,
+                                "Show white space and TAB",
+                            )
+                            .changed()
+                        {
+                            self.state.show_whitespace = self.state.settings.show_whitespace;
+                            changed = true;
+                        }
+                        if ui
+                            .checkbox(&mut self.state.settings.show_eol, "Show EOL")
+                            .changed()
+                        {
+                            self.state.show_eol = self.state.settings.show_eol;
+                            changed = true;
+                        }
+                        if ui
+                            .checkbox(&mut self.state.settings.show_npc, "Show NPC")
+                            .changed()
+                        {
+                            self.state.show_npc = self.state.settings.show_npc;
+                            changed = true;
+                        }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.show_indent_guide,
+                                "Show indent guide",
+                            )
+                            .changed()
+                        {
+                            self.state.show_indent_guide = self.state.settings.show_indent_guide;
+                            changed = true;
+                        }
                         ui.horizontal(|ui| {
                             ui.label("Word wrap shortcut");
                             let edit = ui.add(

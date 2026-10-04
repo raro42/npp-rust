@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.35] — 2026-10-04
+
+Preferences / View:
+
+- Show white space and TAB, Show EOL, Show NPC, and Indent guide persist in `npp-rs/settings.json` (View menu + Preferences) and restore on launch.
+
 ## [0.3.34] — 2026-10-04
 
 Preferences:

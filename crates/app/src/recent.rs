@@ -107,6 +107,18 @@ pub struct AppSettings {
     /// Soft word wrap (session + Preferences).
     #[serde(default)]
     pub word_wrap: bool,
+    /// Show space/tab glyphs (View → Show Symbol → Show White Space and TAB).
+    #[serde(default)]
+    pub show_whitespace: bool,
+    /// Show end-of-line marks.
+    #[serde(default)]
+    pub show_eol: bool,
+    /// Show non-printing / control characters.
+    #[serde(default)]
+    pub show_npc: bool,
+    /// Draw vertical indent guides.
+    #[serde(default)]
+    pub show_indent_guide: bool,
     /// Status bar: show language id.
     #[serde(default = "default_true")]
     pub status_show_lang: bool,
@@ -190,6 +202,10 @@ impl Default for AppSettings {
             show_fold_margin: default_show_fold_margin(),
             tab_width: default_tab_width(),
             word_wrap: false,
+            show_whitespace: false,
+            show_eol: false,
+            show_npc: false,
+            show_indent_guide: false,
             status_show_lang: true,
             status_show_chars: true,
             theme_id: default_theme_id(),
@@ -465,5 +481,28 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(s99.recent_limit(), 40);
+    }
+
+    #[test]
+    fn view_symbol_flags_round_trip_json() {
+        let s = AppSettings {
+            show_whitespace: true,
+            show_eol: true,
+            show_npc: true,
+            show_indent_guide: true,
+            ..Default::default()
+        };
+        let text = serde_json::to_string(&s).expect("serialize");
+        let back: AppSettings = serde_json::from_str(&text).expect("deserialize");
+        assert!(back.show_whitespace);
+        assert!(back.show_eol);
+        assert!(back.show_npc);
+        assert!(back.show_indent_guide);
+
+        let defaults: AppSettings = serde_json::from_str("{}").expect("empty object");
+        assert!(!defaults.show_whitespace);
+        assert!(!defaults.show_eol);
+        assert!(!defaults.show_npc);
+        assert!(!defaults.show_indent_guide);
     }
 }
