@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.41] — 2026-10-04
+
+Compare:
+
+- Replace hunks highlight the **changed characters** on both panes (stronger wash on the intra-line LCS). Pure insert/delete lines stay whole-line colour. Lines over 256 characters keep the line wash only.
+
 ## [0.3.40] — 2026-10-04
 
 Compare:

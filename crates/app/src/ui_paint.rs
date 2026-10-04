@@ -1,6 +1,6 @@
 //! Viewport text metrics and highlighted line paint (hot path).
 
-use eframe::egui::{self, Color32, FontId, Pos2};
+use eframe::egui::{self, Color32, FontId, Pos2, Rect};
 use std::collections::BTreeSet;
 
 /// Width reserved for fold −/+ markers when the fold margin is on.
@@ -133,6 +133,41 @@ pub(crate) fn paint_fold_marker(
         font_id.clone(),
         color,
     );
+}
+
+/// Stronger intra-line wash for compare replace hunks (`spans` are char indices).
+pub(crate) fn paint_inline_compare_spans(
+    painter: &egui::Painter,
+    ui: &egui::Ui,
+    font_id: &FontId,
+    line_rect: Rect,
+    line_text: &str,
+    spans: &[crate::diff::CharRange],
+    color: Color32,
+) {
+    if spans.is_empty() || line_text.is_empty() {
+        return;
+    }
+    let text_left = line_rect.left();
+    let y = line_rect.top();
+    let row_height = line_rect.height();
+    let chars: Vec<char> = line_text.chars().collect();
+    for span in spans {
+        let s = span.start.min(chars.len());
+        let e = span.end.min(chars.len());
+        if s >= e {
+            continue;
+        }
+        let prefix: String = chars[..s].iter().collect();
+        let mid: String = chars[s..e].iter().collect();
+        let x0 = text_left + text_width(ui, font_id, &prefix);
+        let w = text_width(ui, font_id, &mid).max(2.0);
+        painter.rect_filled(
+            Rect::from_min_max(Pos2::new(x0, y), Pos2::new(x0 + w, y + row_height)),
+            0.0,
+            color,
+        );
+    }
 }
 
 pub(crate) fn text_width(ui: &egui::Ui, font_id: &FontId, text: &str) -> f32 {

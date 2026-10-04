@@ -3,8 +3,8 @@
 use crate::editor::EditorState;
 use crate::ui_paint::{
     change_history_joins, change_history_wash, col_from_x, display_row_for,
-    paint_change_history_bar, paint_fold_marker, paint_line_text, style_mark_bg, text_width,
-    visible_line_indices, FOLD_MARGIN_W,
+    paint_change_history_bar, paint_fold_marker, paint_inline_compare_spans, paint_line_text,
+    style_mark_bg, text_width, visible_line_indices, FOLD_MARGIN_W,
 };
 use eframe::egui::{self, Color32, CursorIcon, FontId, Key, Pos2, Rect, RichText, Sense, Vec2};
 use std::path::PathBuf;
@@ -216,6 +216,9 @@ pub struct EditorApp {
     compare_right_tab: usize,
     compare_left_tags: Vec<crate::diff::LineKind>,
     compare_right_tags: Vec<crate::diff::LineKind>,
+    /// Intra-line char ranges (exclusive end) for replace hunks.
+    compare_left_inline: Vec<Vec<crate::diff::CharRange>>,
+    compare_right_inline: Vec<Vec<crate::diff::CharRange>>,
     /// When set, wait until this instant before re-diff (debounce while typing).
     compare_refresh_at: Option<std::time::Instant>,
     /// Optional second tab for Compare (⌘/Ctrl-click a tab, or context menu).
@@ -268,6 +271,8 @@ impl EditorApp {
             compare_right_tab: 0,
             compare_left_tags: Vec::new(),
             compare_right_tags: Vec::new(),
+            compare_left_inline: Vec::new(),
+            compare_right_inline: Vec::new(),
             compare_refresh_at: None,
             compare_partner_tab: None,
         };
@@ -3302,6 +3307,27 @@ Tree-sitter highlight, and a calm UI.",
                 let raw = self.state.tabs.active().buffer.line(line_idx);
                 let line_text = raw.trim_end_matches(['\n', '\r']);
 
+                if self.compare_on {
+                    if let Some(kind) = self.compare_left_tags.get(line_idx) {
+                        if let Some(bg) = crate::diff::line_kind_inline_bg(*kind) {
+                            if let Some(spans) = self.compare_left_inline.get(line_idx) {
+                                paint_inline_compare_spans(
+                                    &painter,
+                                    ui,
+                                    &font_id,
+                                    Rect::from_min_size(
+                                        Pos2::new(text_left, y),
+                                        Vec2::new(rect.width(), row_height),
+                                    ),
+                                    line_text,
+                                    spans,
+                                    bg,
+                                );
+                            }
+                        }
+                    }
+                }
+
                 // Selection highlight on line
                 if let Some((sel_s, sel_e)) = self.state.tabs.active().buffer.selection() {
                     let line_end = line_start + line_text.chars().count();
@@ -3619,6 +3645,10 @@ Tree-sitter highlight, and a calm UI.",
         if self.compare_on {
             std::mem::swap(&mut self.compare_left_tab, &mut self.compare_right_tab);
             std::mem::swap(&mut self.compare_left_tags, &mut self.compare_right_tags);
+            std::mem::swap(
+                &mut self.compare_left_inline,
+                &mut self.compare_right_inline,
+            );
         }
         self.state.status = "Switched to other view".into();
     }
@@ -4321,6 +4351,8 @@ Tree-sitter highlight, and a calm UI.",
         self.compare_on = false;
         self.compare_left_tags.clear();
         self.compare_right_tags.clear();
+        self.compare_left_inline.clear();
+        self.compare_right_inline.clear();
         self.state.compare_stale = false;
         self.compare_refresh_at = None;
         self.state.status = "Compare cleared".into();
@@ -4414,6 +4446,11 @@ Tree-sitter highlight, and a calm UI.",
         let right_refs: Vec<&str> = right_keys.iter().map(|s| s.as_str()).collect();
         let (lt, rt) = crate::diff::diff_line_tags(&left_refs, &right_refs);
         let (del, ins) = crate::diff::count_changes(&lt, &rt);
+        let left_orig: Vec<&str> = left_lines.iter().map(|s| s.as_str()).collect();
+        let right_orig: Vec<&str> = right_lines.iter().map(|s| s.as_str()).collect();
+        let (li, ri) = crate::diff::inline_change_spans(&left_orig, &right_orig, &lt, &rt);
+        self.compare_left_inline = li;
+        self.compare_right_inline = ri;
         Some((lt, rt, del, ins))
     }
 
@@ -4924,6 +4961,26 @@ Tree-sitter highlight, and a calm UI.",
             let line_start = doc.buffer.line_to_char(line_idx);
             let raw = doc.buffer.line(line_idx);
             let line_text = raw.trim_end_matches(['\n', '\r']);
+            if self.compare_on {
+                if let Some(kind) = self.compare_right_tags.get(line_idx) {
+                    if let Some(bg) = crate::diff::line_kind_inline_bg(*kind) {
+                        if let Some(spans) = self.compare_right_inline.get(line_idx) {
+                            paint_inline_compare_spans(
+                                &painter,
+                                ui,
+                                &font_id,
+                                Rect::from_min_size(
+                                    Pos2::new(text_left, y),
+                                    Vec2::new(rect.width(), row_height),
+                                ),
+                                line_text,
+                                spans,
+                                bg,
+                            );
+                        }
+                    }
+                }
+            }
             let primary_sel = doc.buffer.selection();
             let multi = doc.multi_sels.clone();
 

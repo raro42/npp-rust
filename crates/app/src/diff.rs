@@ -10,6 +10,13 @@ pub enum LineKind {
     Insert,
 }
 
+/// Exclusive-end character range on one compare line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CharRange {
+    pub start: usize,
+    pub end: usize,
+}
+
 /// Soft background for a compare line (primary / secondary pane).
 pub fn line_kind_bg(kind: LineKind) -> Option<eframe::egui::Color32> {
     use eframe::egui::Color32;
@@ -20,17 +27,31 @@ pub fn line_kind_bg(kind: LineKind) -> Option<eframe::egui::Color32> {
     }
 }
 
+/// Stronger wash for intra-line char diffs on a replace hunk.
+pub fn line_kind_inline_bg(kind: LineKind) -> Option<eframe::egui::Color32> {
+    use eframe::egui::Color32;
+    match kind {
+        LineKind::Equal => None,
+        LineKind::Delete => Some(Color32::from_rgba_unmultiplied(210, 40, 40, 150)),
+        LineKind::Insert => Some(Color32::from_rgba_unmultiplied(30, 150, 60, 150)),
+    }
+}
+
 /// Max lines per side for the MVP LCS (O(n·m) memory).
 pub const MAX_COMPARE_LINES: usize = 3_000;
 
-/// Tag each line on left and right using LCS of exact line strings.
-pub fn diff_line_tags(left: &[&str], right: &[&str]) -> (Vec<LineKind>, Vec<LineKind>) {
+/// Skip intra-line LCS when a side is longer than this (chars).
+pub const MAX_INLINE_CHARS: usize = 256;
+
+/// LCS match mask: `true` where the item is aligned as equal.
+fn lcs_match_mask<T: Eq>(left: &[T], right: &[T]) -> (Vec<bool>, Vec<bool>) {
     let n = left.len();
     let m = right.len();
-    if n == 0 && m == 0 {
-        return (Vec::new(), Vec::new());
+    let mut left_m = vec![false; n];
+    let mut right_m = vec![false; m];
+    if n == 0 || m == 0 {
+        return (left_m, right_m);
     }
-    // dp[i][j] = LCS length of left[..i] and right[..j]
     let mut dp = vec![vec![0u32; m + 1]; n + 1];
     for i in 1..=n {
         for j in 1..=m {
@@ -41,14 +62,12 @@ pub fn diff_line_tags(left: &[&str], right: &[&str]) -> (Vec<LineKind>, Vec<Line
             }
         }
     }
-    let mut left_tags = vec![LineKind::Delete; n];
-    let mut right_tags = vec![LineKind::Insert; m];
     let mut i = n;
     let mut j = m;
     while i > 0 && j > 0 {
         if left[i - 1] == right[j - 1] {
-            left_tags[i - 1] = LineKind::Equal;
-            right_tags[j - 1] = LineKind::Equal;
+            left_m[i - 1] = true;
+            right_m[j - 1] = true;
             i -= 1;
             j -= 1;
         } else if dp[i - 1][j] >= dp[i][j - 1] {
@@ -57,7 +76,115 @@ pub fn diff_line_tags(left: &[&str], right: &[&str]) -> (Vec<LineKind>, Vec<Line
             j -= 1;
         }
     }
+    (left_m, right_m)
+}
+
+/// Tag each line on left and right using LCS of exact line strings.
+pub fn diff_line_tags(left: &[&str], right: &[&str]) -> (Vec<LineKind>, Vec<LineKind>) {
+    let (lm, rm) = lcs_match_mask(left, right);
+    let left_tags = lm
+        .into_iter()
+        .map(|eq| {
+            if eq {
+                LineKind::Equal
+            } else {
+                LineKind::Delete
+            }
+        })
+        .collect();
+    let right_tags = rm
+        .into_iter()
+        .map(|eq| {
+            if eq {
+                LineKind::Equal
+            } else {
+                LineKind::Insert
+            }
+        })
+        .collect();
     (left_tags, right_tags)
+}
+
+fn unmatched_runs(matched: &[bool]) -> Vec<CharRange> {
+    let mut out = Vec::new();
+    let mut i = 0usize;
+    while i < matched.len() {
+        if matched[i] {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < matched.len() && !matched[i] {
+            i += 1;
+        }
+        out.push(CharRange { start, end: i });
+    }
+    out
+}
+
+/// Char-index ranges (exclusive end) that differ between two lines.
+///
+/// `None` when either side is over [`MAX_INLINE_CHARS`] (caller keeps line wash only).
+pub fn char_change_spans(left: &str, right: &str) -> Option<(Vec<CharRange>, Vec<CharRange>)> {
+    let lc: Vec<char> = left.chars().collect();
+    let rc: Vec<char> = right.chars().collect();
+    if lc.len() > MAX_INLINE_CHARS || rc.len() > MAX_INLINE_CHARS {
+        return None;
+    }
+    let (lm, rm) = lcs_match_mask(&lc, &rc);
+    Some((unmatched_runs(&lm), unmatched_runs(&rm)))
+}
+
+/// Intra-line spans for paired delete/insert lines in each change hunk.
+///
+/// Unpaired insert/delete lines stay empty (full-line wash only).
+pub fn inline_change_spans(
+    left: &[&str],
+    right: &[&str],
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+) -> (Vec<Vec<CharRange>>, Vec<Vec<CharRange>>) {
+    let mut left_sp = vec![Vec::new(); left.len()];
+    let mut right_sp = vec![Vec::new(); right.len()];
+    if left.len() != left_tags.len() || right.len() != right_tags.len() {
+        return (left_sp, right_sp);
+    }
+    let Some(ops) = align_ops(left_tags, right_tags) else {
+        return (left_sp, right_sp);
+    };
+    let mut i = 0usize;
+    while i < ops.len() {
+        if !op_is_change(ops[i]) {
+            i += 1;
+            continue;
+        }
+        let mut dels = Vec::new();
+        let mut ins = Vec::new();
+        while i < ops.len() && op_is_change(ops[i]) {
+            match ops[i] {
+                AlignOp::Delete { left } => dels.push(left),
+                AlignOp::Insert { right, .. } => ins.push(right),
+                AlignOp::Equal { .. } => {}
+            }
+            i += 1;
+        }
+        let n = dels.len().min(ins.len());
+        for k in 0..n {
+            let li = dels[k];
+            let ri = ins[k];
+            let Some(l_txt) = left.get(li).copied() else {
+                continue;
+            };
+            let Some(r_txt) = right.get(ri).copied() else {
+                continue;
+            };
+            if let Some((ls, rs)) = char_change_spans(l_txt, r_txt) {
+                left_sp[li] = ls;
+                right_sp[ri] = rs;
+            }
+        }
+    }
+    (left_sp, right_sp)
 }
 
 /// Count insert/delete tags.
@@ -593,6 +720,37 @@ mod tests {
         let (l, r) = diff_line_tags(&left, &right);
         assert_eq!(l, vec![LineKind::Equal, LineKind::Equal]);
         assert_eq!(r, vec![LineKind::Equal, LineKind::Insert, LineKind::Equal]);
+    }
+
+    #[test]
+    fn char_change_spans_marks_middle() {
+        let (l, r) = char_change_spans("hello", "hallo").unwrap();
+        assert_eq!(l, vec![CharRange { start: 1, end: 2 }]);
+        assert_eq!(r, vec![CharRange { start: 1, end: 2 }]);
+    }
+
+    #[test]
+    fn inline_spans_pair_replace_not_pure_insert() {
+        let left = ["keep", "abc", "tail"];
+        let right = ["keep", "axc", "tail"];
+        let (lt, rt) = diff_line_tags(&left, &right);
+        let (ls, rs) = inline_change_spans(&left, &right, &lt, &rt);
+        assert_eq!(ls[1], vec![CharRange { start: 1, end: 2 }]);
+        assert_eq!(rs[1], vec![CharRange { start: 1, end: 2 }]);
+        assert!(ls[0].is_empty() && rs[0].is_empty());
+
+        let left2 = ["a", "c"];
+        let right2 = ["a", "b", "c"];
+        let (l2, r2) = diff_line_tags(&left2, &right2);
+        let (ls2, rs2) = inline_change_spans(&left2, &right2, &l2, &r2);
+        assert!(ls2.iter().all(|s| s.is_empty()));
+        assert!(rs2[1].is_empty());
+    }
+
+    #[test]
+    fn char_change_spans_skips_long_lines() {
+        let long: String = "x".repeat(MAX_INLINE_CHARS + 1);
+        assert!(char_change_spans(&long, "y").is_none());
     }
 
     #[test]
