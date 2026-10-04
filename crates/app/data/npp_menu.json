@@ -2063,6 +2063,12 @@
       },
       {
         "kind": "item",
+        "label": "Open Compare Diff",
+        "raw_label": "Open Compare &Diff",
+        "cmd": "IDM_VIEW_OPEN_COMPARE_DIFF"
+      },
+      {
+        "kind": "item",
         "label": "Copy Compare Hunk",
         "raw_label": "Copy Compare &Hunk",
         "cmd": "IDM_VIEW_COPY_COMPARE_HUNK"

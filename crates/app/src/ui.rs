@@ -96,6 +96,20 @@ fn compare_pair_status(
     format!("Compare “{lname}” | “{rname}” (−{del} +{ins}){hunk_bit}{ignore_bit}")
 }
 
+fn compare_open_or_copy_status(
+    verb: &str,
+    lname: &str,
+    rname: &str,
+    del: usize,
+    ins: usize,
+) -> String {
+    if del == 0 && ins == 0 {
+        format!("{verb} unified diff (identical) “{lname}” | “{rname}”")
+    } else {
+        format!("{verb} unified diff (−{del} +{ins}) “{lname}” | “{rname}”")
+    }
+}
+
 fn compare_buffer_eol(buf: &buffer::TextBuffer) -> &'static str {
     let n = buf.line_count();
     for i in 0..n {
@@ -955,6 +969,9 @@ impl EditorApp {
                     ),
                     "IDM_VIEW_COPY_COMPARE_DIFF" => response
                         .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
+                    "IDM_VIEW_OPEN_COMPARE_DIFF" => response.on_hover_text(
+                        "Open the Compare pair as a unified-diff tab (clears Compare)",
+                    ),
                     "IDM_VIEW_COPY_COMPARE_HUNK" => response.on_hover_text(
                         "Copy the change hunk at the caret as a unified diff (clipboard)",
                     ),
@@ -3792,6 +3809,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.copy_compare_diff {
             self.copy_compare_diff(flags);
         }
+        if flags.open_compare_diff {
+            self.open_compare_diff_tab();
+        }
         if flags.copy_compare_hunk {
             self.copy_compare_hunk(flags);
         }
@@ -3876,11 +3896,10 @@ Tree-sitter highlight, and a calm UI.",
         title.replace(['\n', '\r'], " ")
     }
 
-    /// Clipboard: unified diff of the current Compare pair.
-    fn copy_compare_diff(&mut self, flags: &mut crate::commands::UiFlags) {
+    /// Unified diff text for the current Compare pair.
+    fn compare_unified_diff_text(&mut self) -> Option<(String, String, String, usize, usize)> {
         if !self.compare_on {
-            self.state.status = "Copy Compare Diff: Compare is off".into();
-            return;
+            return None;
         }
         let left = self.compare_left_tab;
         let right = self.compare_right_tab;
@@ -3893,7 +3912,7 @@ Tree-sitter highlight, and a calm UI.",
                 self.compare_left_tags = lt;
                 self.compare_right_tags = rt;
             } else {
-                return;
+                return None;
             }
         }
         let lname = self
@@ -3910,25 +3929,56 @@ Tree-sitter highlight, and a calm UI.",
             .unwrap_or_else(|| "right".into());
         let left_refs: Vec<&str> = left_lines.iter().map(String::as_str).collect();
         let right_refs: Vec<&str> = right_lines.iter().map(String::as_str).collect();
-        let Some(text) = crate::diff::unified_diff(
+        let text = crate::diff::unified_diff(
             &left_refs,
             &right_refs,
             &lname,
             &rname,
             &self.compare_left_tags,
             &self.compare_right_tags,
-        ) else {
+        )?;
+        let (del, ins) =
+            crate::diff::count_changes(&self.compare_left_tags, &self.compare_right_tags);
+        Some((text, lname, rname, del, ins))
+    }
+
+    /// Clipboard: unified diff of the current Compare pair.
+    fn copy_compare_diff(&mut self, flags: &mut crate::commands::UiFlags) {
+        if !self.compare_on {
+            self.state.status = "Copy Compare Diff: Compare is off".into();
+            return;
+        }
+        let Some((text, lname, rname, del, ins)) = self.compare_unified_diff_text() else {
             self.state.status = "Copy Compare Diff: could not build unified diff".into();
             return;
         };
-        let (del, ins) =
-            crate::diff::count_changes(&self.compare_left_tags, &self.compare_right_tags);
         flags.pending_clipboard = Some(text);
-        self.state.status = if del == 0 && ins == 0 {
-            format!("Copied unified diff (identical) “{lname}” | “{rname}”")
-        } else {
-            format!("Copied unified diff (−{del} +{ins}) “{lname}” | “{rname}”")
+        self.state.status = compare_open_or_copy_status("Copied", &lname, &rname, del, ins);
+    }
+
+    /// New tab with the unified diff. Clears Compare so the tab is visible.
+    fn open_compare_diff_tab(&mut self) {
+        if !self.compare_on {
+            self.state.status = "Open Compare Diff: Compare is off".into();
+            return;
+        }
+        let Some((text, lname, rname, del, ins)) = self.compare_unified_diff_text() else {
+            self.state.status = "Open Compare Diff: could not build unified diff".into();
+            return;
         };
+        self.clear_compare();
+        self.dual_view = false;
+        self.state.tabs.open_untitled();
+        {
+            let doc = self.state.tabs.active_mut();
+            doc.title = "compare.diff".into();
+            doc.buffer = buffer::TextBuffer::from_str(&text);
+            doc.dirty = true;
+            doc.language = "plain".into();
+        }
+        self.state.highlight_dirty = true;
+        self.state.reset_view = true;
+        self.state.status = compare_open_or_copy_status("Opened", &lname, &rname, del, ins);
     }
 
     /// Clipboard: unified diff of the hunk at the focused caret (or the next hunk).
@@ -5669,6 +5719,18 @@ mod compare_pair_tests {
         assert_eq!(
             compare_pair_status("a", "b", 1, 0, 1, true, false),
             "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws"
+        );
+    }
+
+    #[test]
+    fn open_or_copy_status_matches_copy_wording() {
+        assert_eq!(
+            super::compare_open_or_copy_status("Copied", "a", "b", 0, 0),
+            "Copied unified diff (identical) “a” | “b”"
+        );
+        assert_eq!(
+            super::compare_open_or_copy_status("Opened", "L", "R", 2, 3),
+            "Opened unified diff (−2 +3) “L” | “R”"
         );
     }
 

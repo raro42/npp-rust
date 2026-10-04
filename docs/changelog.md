@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.44] — 2026-10-04
+
+Compare:
+
+- **View → Open Compare Diff** opens a `compare.diff` tab with the same unified diff as Copy Compare Diff. Compare mode turns off so the tab stays visible. Status shows change counts or `(identical)`.
+
 ## [0.3.43] — 2026-10-04
 
 Search:

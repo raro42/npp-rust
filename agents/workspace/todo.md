@@ -38,3 +38,4 @@
 009 keep: compare Apply Hunk From Other View (v0.3.40)
 009 keep: compare Apply All Hunks From Other View (v0.3.42)
 009 keep: Find in Files honors Re (linear-time regex, v0.3.43)
+009 keep: compare Open Compare Diff tab (v0.3.44)

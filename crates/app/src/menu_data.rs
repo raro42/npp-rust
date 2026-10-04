@@ -74,4 +74,16 @@ mod tests {
         assert!(count_items(&menu) < 574);
         assert_eq!(tops.iter().filter(|&&t| t == "Language").count(), 1);
     }
+
+    #[test]
+    fn view_menu_has_open_compare_diff() {
+        fn has_cmd(nodes: &[MenuNode], want: &str) -> bool {
+            nodes.iter().any(|n| match n {
+                MenuNode::Item { cmd, .. } => cmd == want,
+                MenuNode::Popup { children, .. } => has_cmd(children, want),
+                MenuNode::Separator => false,
+            })
+        }
+        assert!(has_cmd(&load_npp_menu(), "IDM_VIEW_OPEN_COMPARE_DIFF"));
+    }
 }
