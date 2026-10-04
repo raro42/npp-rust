@@ -1355,16 +1355,20 @@ impl EditorState {
                 return;
             }
         }
-        let match_len = self
-            .tabs
-            .active()
-            .buffer
-            .selection()
-            .map(|(s, e)| e.saturating_sub(s))
-            .unwrap_or(0);
-        self.tabs.active_mut().buffer.insert(replacement);
+        let (sel_lo, sel_hi) = self.tabs.active().buffer.selection().unwrap_or((0, 0));
+        let match_len = sel_hi.saturating_sub(sel_lo);
+        let text = self.tabs.active().buffer.to_string();
+        let expanded = crate::search_util::expand_replacement(
+            &text,
+            &q,
+            replacement,
+            sel_lo,
+            sel_hi,
+            self.find_flags(),
+        );
+        self.tabs.active_mut().buffer.insert(&expanded);
         if let Some((lo, hi)) = self.find_scope {
-            let delta = replacement.chars().count() as isize - match_len as isize;
+            let delta = expanded.chars().count() as isize - match_len as isize;
             let new_hi = (hi as isize + delta).max(lo as isize) as usize;
             self.find_scope = Some((lo, new_hi));
         }
@@ -2612,6 +2616,21 @@ mod tests {
         state.replace_all("X");
         assert_eq!(state.tabs.active().buffer.to_string(), "X bar foo");
         assert!(state.status.contains("1 replacement"));
+    }
+
+    #[test]
+    fn regex_replace_expands_capture_groups() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("ab cd");
+        state.find_query = r"(\w)(\w)".into();
+        state.settings.find_regex = true;
+        state.settings.find_wrap = false;
+        state.replace_all("$2$1");
+        assert_eq!(state.tabs.active().buffer.to_string(), "ba dc");
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("xy");
+        state.find_next();
+        state.replace_next(r"\1-\2");
+        assert_eq!(state.tabs.active().buffer.to_string(), "x-y");
     }
 
     #[test]

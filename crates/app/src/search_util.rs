@@ -260,6 +260,205 @@ fn whole_word_ok(chars: &[char], start: usize, end: usize) -> bool {
     before_ok && after_ok
 }
 
+fn char_index_to_byte(text: &str, char_idx: usize) -> usize {
+    text.char_indices()
+        .nth(char_idx)
+        .map(|(i, _)| i)
+        .unwrap_or(text.len())
+}
+
+fn parse_ascii_u32(chars: &[char], start: usize, end: usize) -> usize {
+    let mut n = 0usize;
+    for &c in &chars[start..end] {
+        n = n
+            .saturating_mul(10)
+            .saturating_add(u32::from(c as u8 - b'0') as usize);
+    }
+    n
+}
+
+fn capture_group<'a>(caps: &regex::Captures<'a>, n: usize) -> &'a str {
+    caps.get(n).map(|m| m.as_str()).unwrap_or("")
+}
+
+/// Expand `$n` / `${n}` / `$&` / `$$` and `\n` / `\t` / `\1` in a regex replacement.
+fn expand_regex_template(template: &str, caps: &regex::Captures<'_>) -> String {
+    let chars: Vec<char> = template.chars().collect();
+    let mut out = String::with_capacity(template.len());
+    let cap_n = caps.len();
+    let mut i = 0usize;
+    while i < chars.len() {
+        match chars[i] {
+            '$' => {
+                if i + 1 >= chars.len() {
+                    out.push('$');
+                    i += 1;
+                    continue;
+                }
+                match chars[i + 1] {
+                    '$' => {
+                        out.push('$');
+                        i += 2;
+                    }
+                    '&' => {
+                        out.push_str(capture_group(caps, 0));
+                        i += 2;
+                    }
+                    '{' => {
+                        let mut j = i + 2;
+                        while j < chars.len() && chars[j].is_ascii_digit() {
+                            j += 1;
+                        }
+                        if j > i + 2 && j < chars.len() && chars[j] == '}' {
+                            let n = parse_ascii_u32(&chars, i + 2, j);
+                            if n < cap_n {
+                                out.push_str(capture_group(caps, n));
+                            }
+                            i = j + 1;
+                        } else {
+                            out.push('$');
+                            i += 1;
+                        }
+                    }
+                    c if c.is_ascii_digit() => {
+                        let mut j = i + 1;
+                        while j < chars.len() && chars[j].is_ascii_digit() {
+                            j += 1;
+                        }
+                        let n = parse_ascii_u32(&chars, i + 1, j);
+                        if n < cap_n {
+                            out.push_str(capture_group(caps, n));
+                        }
+                        i = j;
+                    }
+                    _ => {
+                        out.push('$');
+                        i += 1;
+                    }
+                }
+            }
+            '\\' => {
+                if i + 1 >= chars.len() {
+                    out.push('\\');
+                    i += 1;
+                    continue;
+                }
+                match chars[i + 1] {
+                    '\\' => {
+                        out.push('\\');
+                        i += 2;
+                    }
+                    'n' => {
+                        out.push('\n');
+                        i += 2;
+                    }
+                    't' => {
+                        out.push('\t');
+                        i += 2;
+                    }
+                    'r' => {
+                        out.push('\r');
+                        i += 2;
+                    }
+                    '$' => {
+                        out.push('$');
+                        i += 2;
+                    }
+                    c if c.is_ascii_digit() => {
+                        let mut j = i + 1;
+                        while j < chars.len() && chars[j].is_ascii_digit() {
+                            j += 1;
+                        }
+                        let n = parse_ascii_u32(&chars, i + 1, j);
+                        if n < cap_n {
+                            out.push_str(capture_group(caps, n));
+                        }
+                        i = j;
+                    }
+                    c => {
+                        out.push(c);
+                        i += 2;
+                    }
+                }
+            }
+            c => {
+                out.push(c);
+                i += 1;
+            }
+        }
+    }
+    out
+}
+
+/// Expand a replacement for one match `[start, end)` (char indices). Literal when regex is off.
+pub fn expand_replacement(
+    text: &str,
+    query: &str,
+    replacement: &str,
+    match_start: usize,
+    match_end: usize,
+    flags: FindFlags,
+) -> String {
+    if !flags.use_regex {
+        return replacement.to_string();
+    }
+    let Ok(re) = compile_find_regex(query, flags.match_case) else {
+        return replacement.to_string();
+    };
+    let byte = char_index_to_byte(text, match_start);
+    let Some(cap) = re.captures_at(text, byte) else {
+        return replacement.to_string();
+    };
+    let Some(m) = cap.get(0) else {
+        return replacement.to_string();
+    };
+    let end_byte = char_index_to_byte(text, match_end);
+    if m.start() != byte || m.end() != end_byte {
+        return replacement.to_string();
+    }
+    expand_regex_template(replacement, &cap)
+}
+
+fn replace_all_regex(
+    text: &str,
+    query: &str,
+    replacement: &str,
+    flags: FindFlags,
+) -> (String, usize) {
+    let Ok(re) = compile_find_regex(query, flags.match_case) else {
+        return (text.to_string(), 0);
+    };
+    let word_chars: Vec<char> = if flags.whole_word {
+        text.chars().collect()
+    } else {
+        Vec::new()
+    };
+    let mut out = String::with_capacity(text.len());
+    let mut last = 0usize;
+    let mut count = 0usize;
+    for cap in re.captures_iter(text) {
+        let Some(m) = cap.get(0) else {
+            continue;
+        };
+        if m.start() == m.end() {
+            continue;
+        }
+        if flags.whole_word {
+            let start = text[..m.start()].chars().count();
+            let end = start + text[m.start()..m.end()].chars().count();
+            if !whole_word_ok(&word_chars, start, end) {
+                continue;
+            }
+        }
+        out.push_str(&text[last..m.start()]);
+        out.push_str(&expand_regex_template(replacement, &cap));
+        last = m.end();
+        count += 1;
+    }
+    out.push_str(&text[last..]);
+    (out, count)
+}
+
 fn find_all_matches_regex(
     text: &str,
     query: &str,
@@ -450,12 +649,20 @@ pub fn replace_all_in(
 }
 
 /// Replace all matches. Returns `(new_text, replacement_count)`.
+///
+/// With `use_regex`, the replacement expands `$n` / `\n` capture tokens.
 pub fn replace_all(
     text: &str,
     query: &str,
     replacement: &str,
     flags: FindFlags,
 ) -> (String, usize) {
+    if query.is_empty() {
+        return (text.to_string(), 0);
+    }
+    if flags.use_regex {
+        return replace_all_regex(text, query, replacement, flags);
+    }
     let matches = find_all_matches(text, query, flags);
     if matches.is_empty() {
         return (text.to_string(), 0);
@@ -533,6 +740,22 @@ mod tests {
         let (out, n) = replace_all("a12 b3", r"\d+", "N", re);
         assert_eq!(n, 2);
         assert_eq!(out, "aN bN");
+        let (swapped, n) = replace_all("ab xy", r"(\w)(\w)", r"$2$1", re);
+        assert_eq!(n, 2);
+        assert_eq!(swapped, "ba yx");
+        let (grp, n) = replace_all("a12", r"(\d+)", r"[$1]", re);
+        assert_eq!(n, 1);
+        assert_eq!(grp, "a[12]");
+        let (dollar, n) = replace_all("a", "a", r"$$", re);
+        assert_eq!(n, 1);
+        assert_eq!(dollar, "$");
+        let (nl, n) = replace_all("ab", "(a)(b)", r"\1\n\2", re);
+        assert_eq!(n, 1);
+        assert_eq!(nl, "a\nb");
+        let lit = flags(true, false, false);
+        let (kept, n) = replace_all("ab", "ab", r"$1", lit);
+        assert_eq!(n, 1);
+        assert_eq!(kept, "$1");
     }
 
     #[test]

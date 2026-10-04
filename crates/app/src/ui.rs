@@ -1497,6 +1497,9 @@ Tree-sitter highlight, and a calm UI.",
                         }
                         if ui
                             .checkbox(&mut self.state.settings.find_regex, "Regular expression")
+                            .on_hover_text(
+                                "Find uses a linear-time regex. Replace expands $n / \\n capture groups",
+                            )
                             .changed()
                         {
                             changed = true;
@@ -2637,7 +2640,9 @@ Tree-sitter highlight, and a calm UI.",
                 }
                 if ui
                     .checkbox(&mut self.state.settings.find_regex, "Re")
-                    .on_hover_text("Treat the query as a regular expression (linear-time, no hang)")
+                    .on_hover_text(
+                        "Treat the query as a regular expression (linear-time). Replace: $n or \\n for groups",
+                    )
                     .changed()
                 {
                     persist = true;
@@ -2651,9 +2656,11 @@ Tree-sitter highlight, and a calm UI.",
                 if self.show_replace {
                     ui.separator();
                     ui.label("Replace:");
-                    let rresp = ui.add(
-                        egui::TextEdit::singleline(&mut self.replace_with).desired_width(120.0),
-                    );
+                    let rresp = ui
+                        .add(egui::TextEdit::singleline(&mut self.replace_with).desired_width(120.0))
+                        .on_hover_text(
+                            "With Re: $1 / \\1 insert a capture, $0 / $& the match, $$ a dollar",
+                        );
                     if rresp.changed() {
                         persist = true;
                     }

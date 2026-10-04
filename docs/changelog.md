@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.45] — 2026-10-04
+
+Search:
+
+- Regex **Replace** / **Replace All** expand `$n`, `${n}`, `$0` / `$&` (whole match), `$$`, and `\1` (plus `\n` `\t` `\r`). Literal replace is unchanged when **Re** is off.
+
 ## [0.3.44] — 2026-10-04
 
 Compare:
