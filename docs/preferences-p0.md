@@ -12,7 +12,7 @@ New keys:
 | `gutter_extra` | Extra gutter pixels (0–40) |
 | `caret_blink` | Blink caret |
 | `default_eol` | `lf` / `crlf` for Enter |
-| `recent_max` | Recent file cap (5–40) |
+| `recent_max` | Recent file cap (5–40); load and save both use this cap |
 | `restore_session` | Reopen session on launch |
 | `find_match_case` / `find_whole_word` / `find_in_selection` / `find_wrap` / `find_regex` | Find options |
 | `find_query` / `replace_with` | Last find/replace strings |

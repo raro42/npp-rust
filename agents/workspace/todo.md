@@ -29,3 +29,4 @@
 009 keep: compare keyboard caret hunk sync (v0.3.31)
 009 keep: compare next/prev wrap status (v0.3.32)
 009 keep: compare nav selects hunk on focused pane (v0.3.33)
+009 keep: recent_max honored on recent.txt load (v0.3.34)

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.34] — 2026-10-04
+
+Preferences:
+
+- Recent file list load now honors Preferences **Recent file count** (`recent_max`, 5–40) instead of hard-capping at 15 on restart.
+
 ## [0.3.33] — 2026-10-04
 
 Compare:

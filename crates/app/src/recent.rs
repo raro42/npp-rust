@@ -263,7 +263,8 @@ pub struct RecentFiles {
 }
 
 impl RecentFiles {
-    pub fn load() -> Self {
+    /// Load recent paths capped by Preferences `recent_max` (clamped 5..=40).
+    pub fn load_limited(max: usize) -> Self {
         let mut recent = Self::default();
         let Ok(path) = recent_store_path() else {
             return recent;
@@ -271,17 +272,25 @@ impl RecentFiles {
         let Ok(file) = fs::File::open(&path) else {
             return recent;
         };
-        for line in BufReader::new(file).lines().map_while(Result::ok) {
+        recent.extend_from_lines(BufReader::new(file).lines().map_while(Result::ok), max);
+        recent
+    }
+
+    fn extend_from_lines<I>(&mut self, lines: I, max: usize)
+    where
+        I: IntoIterator<Item = String>,
+    {
+        let max = max.clamp(5, 40);
+        for line in lines {
             let line = line.trim();
             if line.is_empty() {
                 continue;
             }
-            recent.paths.push(PathBuf::from(line));
-            if recent.paths.len() >= DEFAULT_RECENT_MAX as usize {
+            self.paths.push(PathBuf::from(line));
+            if self.paths.len() >= max {
                 break;
             }
         }
-        recent
     }
 
     pub fn paths(&self) -> &[PathBuf] {
@@ -396,4 +405,65 @@ pub fn recent_label(path: &Path) -> String {
         }
     }
     name
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn from_lines<I, S>(lines: I, max: usize) -> RecentFiles
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut recent = RecentFiles::default();
+        recent.extend_from_lines(lines.into_iter().map(|s| s.as_ref().to_string()), max);
+        recent
+    }
+
+    #[test]
+    fn recent_from_lines_honors_preference_cap() {
+        let lines: Vec<String> = (1..=20).map(|i| format!("f{i}.txt")).collect();
+        let loaded = from_lines(lines.clone(), 25);
+        assert_eq!(loaded.paths().len(), 20);
+        assert_eq!(loaded.paths()[0], PathBuf::from("f1.txt"));
+        assert_eq!(loaded.paths()[19], PathBuf::from("f20.txt"));
+
+        let capped = from_lines(lines, 10);
+        assert_eq!(capped.paths().len(), 10);
+        assert_eq!(capped.paths()[9], PathBuf::from("f10.txt"));
+    }
+
+    #[test]
+    fn recent_from_lines_clamps_max_floor() {
+        // Preferences clamp is 5..=40; asking for 1 still keeps five.
+        let lines: Vec<String> = (1..=8).map(|i| format!("file{i}")).collect();
+        let loaded = from_lines(lines, 1);
+        assert_eq!(loaded.paths().len(), 5);
+    }
+
+    #[test]
+    fn recent_from_lines_skips_blank() {
+        let loaded = from_lines(["a", "", "  ", "b"], 10);
+        assert_eq!(loaded.paths(), &[PathBuf::from("a"), PathBuf::from("b")]);
+    }
+
+    #[test]
+    fn recent_limit_matches_settings_clamp() {
+        let s25 = AppSettings {
+            recent_max: 25,
+            ..Default::default()
+        };
+        assert_eq!(s25.recent_limit(), 25);
+        let s3 = AppSettings {
+            recent_max: 3,
+            ..Default::default()
+        };
+        assert_eq!(s3.recent_limit(), 5);
+        let s99 = AppSettings {
+            recent_max: 99,
+            ..Default::default()
+        };
+        assert_eq!(s99.recent_limit(), 40);
+    }
 }

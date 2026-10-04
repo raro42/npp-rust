@@ -143,7 +143,7 @@ impl EditorState {
             highlight_lang: String::new(),
             highlight_dirty: true,
             highlight_cover: (0, 0),
-            recent: RecentFiles::load(),
+            recent: RecentFiles::load_limited(settings.recent_limit()),
             settings,
             pending_log_tail_prompt: false,
             pending_encoding_notice: None,
