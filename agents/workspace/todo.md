@@ -35,3 +35,4 @@
 009 keep: settings.json unknown keys survive save (v0.3.37)
 009 keep: compare Copy Compare Diff (unified, v0.3.38)
 009 keep: compare Copy Compare Hunk (v0.3.39)
+009 keep: compare Apply Hunk From Other View (v0.3.40)

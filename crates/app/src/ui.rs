@@ -96,6 +96,52 @@ fn compare_pair_status(
     format!("Compare “{lname}” | “{rname}” (−{del} +{ins}){hunk_bit}{ignore_bit}")
 }
 
+fn compare_buffer_eol(buf: &buffer::TextBuffer) -> &'static str {
+    let n = buf.line_count();
+    for i in 0..n {
+        let line = buf.line(i);
+        if line.ends_with("\r\n") {
+            return "\r\n";
+        }
+        if line.ends_with('\n') {
+            return "\n";
+        }
+        if line.ends_with('\r') {
+            return "\r";
+        }
+    }
+    "\n"
+}
+
+fn compare_line_range_chars(buf: &buffer::TextBuffer, start: usize, end: usize) -> (usize, usize) {
+    let n = buf.line_count();
+    let lo = if start >= n {
+        buf.len_chars()
+    } else {
+        buf.line_to_char(start)
+    };
+    let hi = if end >= n {
+        buf.len_chars()
+    } else {
+        buf.line_to_char(end)
+    };
+    (lo, hi.max(lo))
+}
+
+fn join_compare_lines(lines: &[String], eol: &str, trailing_eol: bool) -> String {
+    if lines.is_empty() {
+        return String::new();
+    }
+    let mut out = String::new();
+    for (i, line) in lines.iter().enumerate() {
+        out.push_str(line);
+        if i + 1 < lines.len() || trailing_eol {
+            out.push_str(eol);
+        }
+    }
+    out
+}
+
 /// Remap a tab index after `closed` was removed. `None` if that tab was closed.
 fn index_after_tab_close(idx: usize, closed: usize) -> Option<usize> {
     if idx == closed {
@@ -885,6 +931,9 @@ impl EditorApp {
                         .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
                     "IDM_VIEW_COPY_COMPARE_HUNK" => response.on_hover_text(
                         "Copy the change hunk at the caret as a unified diff (clipboard)",
+                    ),
+                    "IDM_VIEW_APPLY_COMPARE_HUNK" => response.on_hover_text(
+                        "Replace the focused pane's change hunk with the other pane (one undo)",
                     ),
                     _ => response,
                 };
@@ -3692,6 +3741,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.copy_compare_hunk {
             self.copy_compare_hunk(flags);
         }
+        if flags.apply_compare_hunk {
+            self.apply_compare_hunk_from_other();
+        }
     }
 
     /// Toggle ignore-whitespace / ignore-case from View menu; persist and re-diff.
@@ -3895,6 +3947,103 @@ Tree-sitter highlight, and a calm UI.",
         flags.pending_clipboard = Some(text);
         self.state.status = format!(
             "Copied hunk ({ord}/{total}) unified diff (−{del} +{ins}) “{lname}” | “{rname}”"
+        );
+    }
+
+    /// Replace the focused compare hunk with the other pane (one undo).
+    fn apply_compare_hunk_from_other(&mut self) {
+        if !self.compare_on {
+            self.state.status = "Apply Compare Hunk: Compare is off".into();
+            return;
+        }
+        let left = self.compare_left_tab;
+        let right = self.compare_right_tab;
+        let left_lines = self.tab_compare_lines(left);
+        let right_lines = self.tab_compare_lines(right);
+        if left_lines.len() != self.compare_left_tags.len()
+            || right_lines.len() != self.compare_right_tags.len()
+        {
+            if let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) {
+                self.compare_left_tags = lt;
+                self.compare_right_tags = rt;
+            } else {
+                return;
+            }
+        }
+        let primary = self.focused_pane == EditorPane::Primary || !self.dual_view;
+        let dest_tab = if primary { left } else { right };
+        let src_tab = if primary { right } else { left };
+        if self.state.tabs.get(dest_tab).is_some_and(|d| d.read_only) {
+            self.state.status = "Apply Compare Hunk: destination is read-only".into();
+            return;
+        }
+        let Some(doc) = self.state.tabs.get(dest_tab) else {
+            self.state.status = "Apply Compare Hunk: tab missing".into();
+            return;
+        };
+        let line = doc.buffer.char_to_line(doc.buffer.caret());
+        let Some(spec) = crate::diff::hunk_apply_from_other(
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            primary,
+            line,
+        ) else {
+            self.state.status = "Apply Compare Hunk: no differences".into();
+            return;
+        };
+        let src_lines = self.tab_compare_lines(src_tab);
+        if spec.src_end > src_lines.len() || spec.src_start > spec.src_end {
+            self.state.status = "Apply Compare Hunk: hunk out of range".into();
+            return;
+        }
+        let src_slice = &src_lines[spec.src_start..spec.src_end];
+        let dest_lines = self.tab_compare_lines(dest_tab);
+        if spec.dest_start > dest_lines.len() || spec.dest_end > dest_lines.len() {
+            self.state.status = "Apply Compare Hunk: hunk out of range".into();
+            return;
+        }
+        if spec.dest_end <= dest_lines.len()
+            && dest_lines[spec.dest_start..spec.dest_end] == src_slice[..]
+        {
+            self.state.status = format!(
+                "Apply Compare Hunk: hunk ({}/{}) already matches other view",
+                spec.ordinal, spec.total
+            );
+            return;
+        }
+        let Some(doc) = self.state.tabs.get_mut(dest_tab) else {
+            return;
+        };
+        let n = doc.buffer.line_count();
+        let (lo, hi) = compare_line_range_chars(&doc.buffer, spec.dest_start, spec.dest_end);
+        let deleted = doc.buffer.slice(lo, hi);
+        let trailing_eol = if spec.dest_start == spec.dest_end {
+            spec.dest_start < n
+        } else {
+            deleted.ends_with('\n') || deleted.ends_with('\r')
+        };
+        let eol = compare_buffer_eol(&doc.buffer);
+        let replacement = join_compare_lines(src_slice, eol, trailing_eol);
+        doc.buffer.set_selection(lo, hi);
+        doc.buffer.insert(&replacement);
+        let new_end = lo + replacement.chars().count();
+        if new_end > lo {
+            doc.buffer.set_selection(lo, new_end);
+        } else {
+            doc.buffer.set_caret(lo);
+        }
+        self.state.mark_text_changed_at(dest_tab);
+        self.state.compare_stale = false;
+        self.compare_refresh_at = None;
+        self.follow_caret = true;
+        self.state.highlight_dirty = true;
+        if let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) {
+            self.compare_left_tags = lt;
+            self.compare_right_tags = rt;
+        }
+        self.state.status = format!(
+            "Applied hunk ({}/{}) from other view",
+            spec.ordinal, spec.total
         );
     }
 

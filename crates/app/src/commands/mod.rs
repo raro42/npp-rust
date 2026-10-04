@@ -100,6 +100,8 @@ pub struct UiFlags {
     pub copy_compare_diff: bool,
     /// Copy the compare hunk at the caret as a unified diff.
     pub copy_compare_hunk: bool,
+    /// Replace the focused compare hunk with the other pane.
+    pub apply_compare_hunk: bool,
 }
 
 /// Content for the “working on it — come back tomorrow” dialog.
@@ -280,6 +282,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_LAST_DIFF"
             | "IDM_VIEW_COPY_COMPARE_DIFF"
             | "IDM_VIEW_COPY_COMPARE_HUNK"
+            | "IDM_VIEW_APPLY_COMPARE_HUNK"
             | "IDM_EDIT_RTL"
             | "IDM_EDIT_LTR"
             | "IDM_EDIT_PASTE_AS_HTML"

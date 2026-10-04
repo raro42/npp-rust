@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.40] — 2026-10-04
+
+Compare:
+
+- **View → Apply Hunk From Other View** replaces the focused pane's change hunk with the other pane (one undo). Insert-only and delete-only hunks work. Status shows the hunk ordinal.
+
 ## [0.3.39] — 2026-10-04
 
 Compare:

@@ -372,6 +372,114 @@ pub fn hunk_ordinal_for_copy(tags: &[LineKind], line: usize) -> Option<(usize, u
     hunk_ordinal(tags, start)
 }
 
+/// Line range to replace on the focused side, and the other side's source lines.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HunkApply {
+    pub dest_start: usize,
+    pub dest_end: usize,
+    pub src_start: usize,
+    pub src_end: usize,
+    pub ordinal: usize,
+    pub total: usize,
+}
+
+fn grow_line_span(lo: &mut Option<usize>, hi: &mut Option<usize>, i: usize) {
+    *lo = Some(lo.map_or(i, |x: usize| x.min(i)));
+    *hi = Some(hi.map_or(i + 1, |x: usize| x.max(i + 1)));
+}
+
+fn left_pos_before_op(ops: &[AlignOp], idx: usize) -> usize {
+    if idx == 0 {
+        return 0;
+    }
+    match ops[idx - 1] {
+        AlignOp::Equal { left, .. } | AlignOp::Delete { left } => left + 1,
+        AlignOp::Insert { left_at, .. } => left_at,
+    }
+}
+
+fn right_pos_before_op(ops: &[AlignOp], idx: usize) -> usize {
+    if idx == 0 {
+        return 0;
+    }
+    match ops[idx - 1] {
+        AlignOp::Equal { right, .. } | AlignOp::Insert { right, .. } => right + 1,
+        AlignOp::Delete { .. } => right_pos_before_op(ops, idx - 1),
+    }
+}
+
+/// Replace the focused pane's change hunk with the other pane's lines.
+///
+/// Caret on an equal line uses the next hunk (wraps), matching copy-hunk.
+/// Insert-only / delete-only hunks yield an empty dest or src range.
+pub fn hunk_apply_from_other(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    focus_left: bool,
+    line: usize,
+) -> Option<HunkApply> {
+    let focus_tags = if focus_left { left_tags } else { right_tags };
+    let other_tags = if focus_left { right_tags } else { left_tags };
+    let (run_focus_left, start_line) = if let Some(start) = hunk_line_for_copy(focus_tags, line) {
+        (focus_left, start)
+    } else {
+        let start = hunk_line_for_copy(other_tags, line)?;
+        (!focus_left, start)
+    };
+    let ops = align_ops(left_tags, right_tags)?;
+    let (run_start, run_end) = change_run_containing(&ops, run_focus_left, start_line)?;
+    let mut dest_lo = None;
+    let mut dest_hi = None;
+    let mut src_lo = None;
+    let mut src_hi = None;
+    for op in &ops[run_start..run_end] {
+        match *op {
+            AlignOp::Equal { .. } => {}
+            AlignOp::Delete { left: li } => {
+                if focus_left {
+                    grow_line_span(&mut dest_lo, &mut dest_hi, li);
+                } else {
+                    grow_line_span(&mut src_lo, &mut src_hi, li);
+                }
+            }
+            AlignOp::Insert { right: ri, .. } => {
+                if focus_left {
+                    grow_line_span(&mut src_lo, &mut src_hi, ri);
+                } else {
+                    grow_line_span(&mut dest_lo, &mut dest_hi, ri);
+                }
+            }
+        }
+    }
+    let (dest_start, dest_end) = match (dest_lo, dest_hi) {
+        (Some(a), Some(b)) => (a, b),
+        (None, None) => {
+            let at = if focus_left {
+                left_pos_before_op(&ops, run_start)
+            } else {
+                right_pos_before_op(&ops, run_start)
+            };
+            (at, at)
+        }
+        _ => return None,
+    };
+    let (src_start, src_end) = match (src_lo, src_hi) {
+        (Some(a), Some(b)) => (a, b),
+        (None, None) => (0, 0),
+        _ => return None,
+    };
+    let (ordinal, total) = hunk_ordinal_for_copy(focus_tags, line)
+        .or_else(|| hunk_ordinal_for_copy(other_tags, line))?;
+    Some(HunkApply {
+        dest_start,
+        dest_end,
+        src_start,
+        src_end,
+        ordinal,
+        total,
+    })
+}
+
 /// Delete/insert counts for the change run of a hunk copy (no context equals).
 pub fn hunk_copy_change_counts(
     left_tags: &[LineKind],
@@ -649,5 +757,52 @@ mod tests {
         assert!(ins.contains("+b\n"));
         assert!(!ins.contains("\n-"));
         assert_eq!(hunk_copy_change_counts(&l2, &r2, false, 1), Some((0, 1)));
+    }
+
+    fn splice_hunk(dest: &[&str], spec: HunkApply, src: &[&str]) -> Vec<String> {
+        let mut out: Vec<String> = dest.iter().map(|s| (*s).to_string()).collect();
+        let insert: Vec<String> = src[spec.src_start..spec.src_end]
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect();
+        out.splice(spec.dest_start..spec.dest_end, insert);
+        out
+    }
+
+    #[test]
+    fn hunk_apply_from_other_replace_insert_delete() {
+        let left = ["keep", "old", "tail"];
+        let right = ["keep", "new", "tail"];
+        let (l, r) = diff_line_tags(&left, &right);
+        let spec = hunk_apply_from_other(&l, &r, true, 1).unwrap();
+        assert_eq!(spec.dest_start, 1);
+        assert_eq!(spec.dest_end, 2);
+        assert_eq!(spec.src_start, 1);
+        assert_eq!(spec.src_end, 2);
+        assert_eq!(spec.ordinal, 1);
+        assert_eq!(splice_hunk(&left, spec, &right), ["keep", "new", "tail"]);
+
+        let left2 = ["a", "c"];
+        let right2 = ["a", "b", "c"];
+        let (l2, r2) = diff_line_tags(&left2, &right2);
+        let ins = hunk_apply_from_other(&l2, &r2, true, 0).unwrap();
+        assert_eq!((ins.dest_start, ins.dest_end), (1, 1));
+        assert_eq!((ins.src_start, ins.src_end), (1, 2));
+        assert_eq!(splice_hunk(&left2, ins, &right2), ["a", "b", "c"]);
+        let del_r = hunk_apply_from_other(&l2, &r2, false, 1).unwrap();
+        assert_eq!((del_r.dest_start, del_r.dest_end), (1, 2));
+        assert_eq!((del_r.src_start, del_r.src_end), (0, 0));
+        assert_eq!(splice_hunk(&right2, del_r, &left2), ["a", "c"]);
+
+        let left3 = ["a", "gone", "c"];
+        let right3 = ["a", "c"];
+        let (l3, r3) = diff_line_tags(&left3, &right3);
+        let drop = hunk_apply_from_other(&l3, &r3, true, 1).unwrap();
+        assert_eq!(splice_hunk(&left3, drop, &right3), ["a", "c"]);
+        let add = hunk_apply_from_other(&l3, &r3, false, 0).unwrap();
+        assert_eq!(splice_hunk(&right3, add, &left3), ["a", "gone", "c"]);
+
+        let (le, re) = diff_line_tags(&left, &left);
+        assert!(hunk_apply_from_other(&le, &re, true, 0).is_none());
     }
 }

@@ -2068,6 +2068,12 @@
         "cmd": "IDM_VIEW_COPY_COMPARE_HUNK"
       },
       {
+        "kind": "item",
+        "label": "Apply Hunk From Other View",
+        "raw_label": "Appl&y Hunk From Other View",
+        "cmd": "IDM_VIEW_APPLY_COMPARE_HUNK"
+      },
+      {
         "kind": "separator"
       },
       {
