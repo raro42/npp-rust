@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.28] — 2026-10-04
+
+Compare:
+
+- **View → Swap Compare Sides** flips the left/right pair (scroll included), keeps focus on the new left, and re-diffs so delete/insert colours stay oriented.
+
 ## [0.3.27] — 2026-10-04
 
 Compare:

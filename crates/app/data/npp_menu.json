@@ -2038,6 +2038,12 @@
         "cmd": "IDM_VIEW_CLEARCOMPARE"
       },
       {
+        "kind": "item",
+        "label": "Swap Compare Sides",
+        "raw_label": "S&wap Compare Sides",
+        "cmd": "IDM_VIEW_SWAP_COMPARE"
+      },
+      {
         "kind": "separator"
       },
       {

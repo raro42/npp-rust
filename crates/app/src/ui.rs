@@ -3595,9 +3595,58 @@ Tree-sitter highlight, and a calm UI.",
         if flags.start_compare {
             self.start_compare();
         }
+        if flags.swap_compare {
+            self.swap_compare_sides();
+        }
         if let Some(nav) = flags.compare_nav {
             self.navigate_compare_hunk(nav);
         }
+    }
+
+    /// Flip left/right compare panes; primary stays focused on the new left.
+    fn swap_compare_sides(&mut self) {
+        if !self.compare_on {
+            self.state.status = "Compare is off — View → Compare with Other View first".into();
+            return;
+        }
+        std::mem::swap(&mut self.compare_left_tab, &mut self.compare_right_tab);
+        std::mem::swap(&mut self.scroll_line, &mut self.scroll_line_other);
+        let left = self.compare_left_tab;
+        let right = self.compare_right_tab;
+        let Some((lt, rt, del, ins)) = self.compute_compare_tags(left, right) else {
+            // Restore orientation if re-diff cannot run (e.g. over line cap).
+            std::mem::swap(&mut self.compare_left_tab, &mut self.compare_right_tab);
+            std::mem::swap(&mut self.scroll_line, &mut self.scroll_line_other);
+            return;
+        };
+        self.compare_left_tags = lt;
+        self.compare_right_tags = rt;
+        self.dual_view = true;
+        self.other_view_tab = right;
+        self.state.tabs.set_active(left);
+        self.focused_pane = EditorPane::Primary;
+        self.state.highlight_dirty = true;
+        self.state.compare_stale = false;
+        self.compare_refresh_at = None;
+        let lname = self
+            .state
+            .tabs
+            .get(left)
+            .map(|d| d.title.clone())
+            .unwrap_or_else(|| "left".into());
+        let rname = self
+            .state
+            .tabs
+            .get(right)
+            .map(|d| d.title.clone())
+            .unwrap_or_else(|| "right".into());
+        let hunk_n = crate::diff::hunk_starts(&self.compare_left_tags)
+            .len()
+            .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
+        self.state.status = format!(
+            "Swapped sides — {}",
+            compare_pair_status(&lname, &rname, del, ins, hunk_n)
+        );
     }
 
     /// Jump caret (focused pane) to a compare change hunk.

@@ -83,6 +83,8 @@ pub struct UiFlags {
     pub start_compare: bool,
     /// Clear compare highlights and mode.
     pub clear_compare: bool,
+    /// Swap left/right compare panes (keep focus on the new left).
+    pub swap_compare: bool,
     /// Navigate compare hunks (next / prev / first / last).
     pub compare_nav: Option<CompareNav>,
 }
@@ -256,6 +258,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_SYNSCROLLH"
             | "IDM_VIEW_COMPARE"
             | "IDM_VIEW_CLEARCOMPARE"
+            | "IDM_VIEW_SWAP_COMPARE"
             | "IDM_VIEW_NEXT_DIFF"
             | "IDM_VIEW_PREV_DIFF"
             | "IDM_VIEW_FIRST_DIFF"

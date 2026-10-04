@@ -56,6 +56,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - Mid-hunk Next skips to the following hunk, not the next red/green line.
 - Status shows hunk ordinal, e.g. `Compare Next difference → line 12 (2/5)`.
 - When both sides match (including ignore-whitespace / ignore-case), status says `(identical)`.
+- **View → Swap Compare Sides** flips left/right files (and scroll), keeps focus on the new left, and re-diffs so delete/insert colours stay correct.
 
 ## Limits
 

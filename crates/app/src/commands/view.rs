@@ -188,6 +188,10 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.clear_compare = true;
             CmdResult::Handled
         }
+        "IDM_VIEW_SWAP_COMPARE" => {
+            ui.swap_compare = true;
+            CmdResult::Handled
+        }
         "IDM_VIEW_NEXT_DIFF" => {
             ui.compare_nav = Some(super::CompareNav::Next);
             CmdResult::Handled
