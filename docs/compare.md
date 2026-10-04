@@ -48,7 +48,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 
 ### Jump between differences
 
-- Starting Compare moves the left caret to the **first** change hunk (status shows hunk count).
+- Starting Compare parks **both** panes on the **first** change hunk (same ordinal; status shows hunk count).
 - **View → Next Difference** / **Previous Difference** (or **F7** / **Shift+F7**)
 - **View → First Difference** / **Last Difference** (or **⌘/Ctrl+F7** / **⌘/Ctrl+Shift+F7**)
 - Moves the caret on the focused pane to the start of the next/previous change hunk (wraps), or jumps to the first/last hunk.
@@ -56,6 +56,8 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - Mid-hunk Next skips to the following hunk, not the next red/green line.
 - Status shows hunk ordinal, e.g. `Compare Next difference → line 12 (2/5)`.
 - When both sides match (including ignore-whitespace / ignore-case), status says `(identical)`.
+- Active ignore options appear in the status (`· ignore ws`, `· ignore case`, or `· ignore ws+case`).
+- **View → Ignore Whitespace Differences** / **Ignore Case Differences** toggle those Preferences keys (✓ when on) and re-diff immediately while Compare is on.
 - **View → Swap Compare Sides** flips left/right files (and scroll), keeps focus on the new left, and re-diffs so delete/insert colours stay correct.
 
 ## Limits

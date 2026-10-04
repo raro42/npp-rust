@@ -192,6 +192,14 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.swap_compare = true;
             CmdResult::Handled
         }
+        "IDM_VIEW_COMPARE_IGNORE_WS" => {
+            ui.compare_ignore_toggle = Some(super::CompareIgnoreToggle::Whitespace);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_COMPARE_IGNORE_CASE" => {
+            ui.compare_ignore_toggle = Some(super::CompareIgnoreToggle::Case);
+            CmdResult::Handled
+        }
         "IDM_VIEW_NEXT_DIFF" => {
             ui.compare_nav = Some(super::CompareNav::Next);
             CmdResult::Handled

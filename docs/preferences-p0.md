@@ -16,8 +16,8 @@ New keys:
 | `restore_session` | Reopen session on launch |
 | `find_match_case` / `find_whole_word` / `find_in_selection` / `find_wrap` / `find_regex` | Find options |
 | `find_query` / `replace_with` | Last find/replace strings |
-| `compare_ignore_ws` | Compare ignores whitespace runs |
-| `compare_ignore_case` | Compare ignores letter case |
+| `compare_ignore_ws` | Compare ignores whitespace runs (also View menu toggle) |
+| `compare_ignore_case` | Compare ignores letter case (also View menu toggle) |
 | `backup_on_save` | Copy on-disk file into `npp-rs/backup/` before overwrite |
 | `autosave_interval_secs` | Autosave dirty named tabs (`0` = off; else 15–900) |
 | `show_fold_margin` | Gutter fold markers (`−` / `+`); default on |

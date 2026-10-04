@@ -24,3 +24,4 @@
 - 009 keep: compare first/last difference (⌘/Ctrl+F7, v0.3.26)
 - 009 keep: compare survives closing a non-pair tab (v0.3.27)
 009 keep: compare Swap Compare Sides (v0.3.28)
+009 keep: compare View ignore toggles + start dual-pane park (v0.3.29)

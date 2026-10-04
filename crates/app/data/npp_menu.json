@@ -2044,6 +2044,18 @@
         "cmd": "IDM_VIEW_SWAP_COMPARE"
       },
       {
+        "kind": "item",
+        "label": "Ignore Whitespace Differences",
+        "raw_label": "Ignore &Whitespace Differences",
+        "cmd": "IDM_VIEW_COMPARE_IGNORE_WS"
+      },
+      {
+        "kind": "item",
+        "label": "Ignore Case Differences",
+        "raw_label": "Ignore Case &Differences",
+        "cmd": "IDM_VIEW_COMPARE_IGNORE_CASE"
+      },
+      {
         "kind": "separator"
       },
       {

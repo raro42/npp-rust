@@ -25,6 +25,13 @@ pub enum CompareNav {
     Last,
 }
 
+/// Toggle a compare ignore preference from the View menu.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompareIgnoreToggle {
+    Whitespace,
+    Case,
+}
+
 /// UI-side flags/commands the menu dispatcher may set.
 #[derive(Debug, Default)]
 pub struct UiFlags {
@@ -87,6 +94,8 @@ pub struct UiFlags {
     pub swap_compare: bool,
     /// Navigate compare hunks (next / prev / first / last).
     pub compare_nav: Option<CompareNav>,
+    /// Toggle compare ignore-whitespace or ignore-case (persisted).
+    pub compare_ignore_toggle: Option<CompareIgnoreToggle>,
 }
 
 /// Content for the “working on it — come back tomorrow” dialog.
@@ -259,6 +268,8 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_COMPARE"
             | "IDM_VIEW_CLEARCOMPARE"
             | "IDM_VIEW_SWAP_COMPARE"
+            | "IDM_VIEW_COMPARE_IGNORE_WS"
+            | "IDM_VIEW_COMPARE_IGNORE_CASE"
             | "IDM_VIEW_NEXT_DIFF"
             | "IDM_VIEW_PREV_DIFF"
             | "IDM_VIEW_FIRST_DIFF"

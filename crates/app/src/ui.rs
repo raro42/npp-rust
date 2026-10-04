@@ -66,16 +66,34 @@ fn pick_compare_right(
 }
 
 /// Status line for an active compare pair (identical vs change counts).
-fn compare_pair_status(lname: &str, rname: &str, del: usize, ins: usize, hunk_n: usize) -> String {
+fn compare_ignore_status_bit(ignore_ws: bool, ignore_case: bool) -> &'static str {
+    match (ignore_ws, ignore_case) {
+        (true, true) => " · ignore ws+case",
+        (true, false) => " · ignore ws",
+        (false, true) => " · ignore case",
+        (false, false) => "",
+    }
+}
+
+fn compare_pair_status(
+    lname: &str,
+    rname: &str,
+    del: usize,
+    ins: usize,
+    hunk_n: usize,
+    ignore_ws: bool,
+    ignore_case: bool,
+) -> String {
+    let ignore_bit = compare_ignore_status_bit(ignore_ws, ignore_case);
     if del == 0 && ins == 0 {
-        return format!("Compare “{lname}” | “{rname}” (identical)");
+        return format!("Compare “{lname}” | “{rname}” (identical){ignore_bit}");
     }
     let hunk_bit = if hunk_n > 0 {
         format!(" · {hunk_n} hunk{}", if hunk_n == 1 { "" } else { "s" })
     } else {
         String::new()
     };
-    format!("Compare “{lname}” | “{rname}” (−{del} +{ins}){hunk_bit}")
+    format!("Compare “{lname}” | “{rname}” (−{del} +{ins}){hunk_bit}{ignore_bit}")
 }
 
 /// Remap a tab index after `closed` was removed. `None` if that tab was closed.
@@ -834,10 +852,20 @@ impl EditorApp {
                 ui.separator();
             }
             MenuNode::Item { label, cmd } => {
-                let text = if crate::commands::is_implemented(cmd) {
-                    RichText::new(label).color(MENU_READY)
+                let checked = match cmd.as_str() {
+                    "IDM_VIEW_COMPARE_IGNORE_WS" => self.state.settings.compare_ignore_ws,
+                    "IDM_VIEW_COMPARE_IGNORE_CASE" => self.state.settings.compare_ignore_case,
+                    _ => false,
+                };
+                let shown = if checked {
+                    format!("✓ {label}")
                 } else {
-                    RichText::new(label)
+                    label.clone()
+                };
+                let text = if crate::commands::is_implemented(cmd) {
+                    RichText::new(shown).color(MENU_READY)
+                } else {
+                    RichText::new(shown)
                 };
                 let response = ui.button(text);
                 let response = match cmd.as_str() {
@@ -847,6 +875,12 @@ impl EditorApp {
                     "IDM_DEBUGINFO" => {
                         response.on_hover_text("Open a tab with version, OS, and log status")
                     }
+                    "IDM_VIEW_COMPARE_IGNORE_WS" => response.on_hover_text(
+                        "Toggle ignore whitespace for Compare (Preferences persist)",
+                    ),
+                    "IDM_VIEW_COMPARE_IGNORE_CASE" => response.on_hover_text(
+                        "Toggle ignore letter case for Compare (Preferences persist)",
+                    ),
                     _ => response,
                 };
                 if response.clicked() {
@@ -3601,6 +3635,94 @@ Tree-sitter highlight, and a calm UI.",
         if let Some(nav) = flags.compare_nav {
             self.navigate_compare_hunk(nav);
         }
+        if let Some(toggle) = flags.compare_ignore_toggle {
+            self.toggle_compare_ignore(toggle);
+        }
+    }
+
+    /// Toggle ignore-whitespace / ignore-case from View menu; persist and re-diff.
+    fn toggle_compare_ignore(&mut self, toggle: crate::commands::CompareIgnoreToggle) {
+        match toggle {
+            crate::commands::CompareIgnoreToggle::Whitespace => {
+                self.state.settings.compare_ignore_ws = !self.state.settings.compare_ignore_ws;
+            }
+            crate::commands::CompareIgnoreToggle::Case => {
+                self.state.settings.compare_ignore_case = !self.state.settings.compare_ignore_case;
+            }
+        }
+        self.state.settings.save();
+        let ws = self.state.settings.compare_ignore_ws;
+        let case = self.state.settings.compare_ignore_case;
+        if self.compare_on {
+            // Refresh immediately so the toggle is visible without waiting for debounce.
+            self.state.compare_stale = false;
+            self.compare_refresh_at = None;
+            let left = self.compare_left_tab;
+            let right = self.compare_right_tab;
+            if let Some((lt, rt, del, ins)) = self.compute_compare_tags(left, right) {
+                let hunk_n = crate::diff::hunk_starts(&lt)
+                    .len()
+                    .max(crate::diff::hunk_starts(&rt).len());
+                self.compare_left_tags = lt;
+                self.compare_right_tags = rt;
+                let lname = self
+                    .state
+                    .tabs
+                    .get(left)
+                    .map(|d| d.title.clone())
+                    .unwrap_or_else(|| "left".into());
+                let rname = self
+                    .state
+                    .tabs
+                    .get(right)
+                    .map(|d| d.title.clone())
+                    .unwrap_or_else(|| "right".into());
+                self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ws, case);
+                self.state.highlight_dirty = true;
+            }
+        } else {
+            let which = match toggle {
+                crate::commands::CompareIgnoreToggle::Whitespace => "Ignore whitespace",
+                crate::commands::CompareIgnoreToggle::Case => "Ignore case",
+            };
+            let on = match toggle {
+                crate::commands::CompareIgnoreToggle::Whitespace => ws,
+                crate::commands::CompareIgnoreToggle::Case => case,
+            };
+            self.state.status = format!(
+                "{which}: {}{}",
+                if on { "on" } else { "off" },
+                compare_ignore_status_bit(ws, case)
+            );
+        }
+    }
+
+    /// Park both compare panes on the same 1-based hunk ordinal (carets + follow).
+    fn park_compare_hunk_ordinal(&mut self, ordinal_1based: usize) {
+        let left = self.compare_left_tab;
+        let right = self.compare_right_tab;
+        if let Some(line) =
+            crate::diff::hunk_start_at_ordinal(&self.compare_left_tags, ordinal_1based)
+        {
+            if let Some(doc) = self.state.tabs.get_mut(left) {
+                let at = doc
+                    .buffer
+                    .line_to_char(line.min(doc.buffer.line_count().saturating_sub(1)));
+                doc.buffer.set_caret(at);
+            }
+            self.follow_caret = true;
+        }
+        if let Some(line) =
+            crate::diff::hunk_start_at_ordinal(&self.compare_right_tags, ordinal_1based)
+        {
+            if let Some(doc) = self.state.tabs.get_mut(right) {
+                let at = doc
+                    .buffer
+                    .line_to_char(line.min(doc.buffer.line_count().saturating_sub(1)));
+                doc.buffer.set_caret(at);
+            }
+            self.follow_caret_other = true;
+        }
     }
 
     /// Flip left/right compare panes; primary stays focused on the new left.
@@ -3643,9 +3765,11 @@ Tree-sitter highlight, and a calm UI.",
         let hunk_n = crate::diff::hunk_starts(&self.compare_left_tags)
             .len()
             .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
+        let ignore_ws = self.state.settings.compare_ignore_ws;
+        let ignore_case = self.state.settings.compare_ignore_case;
         self.state.status = format!(
             "Swapped sides — {}",
-            compare_pair_status(&lname, &rname, del, ins, hunk_n)
+            compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore_ws, ignore_case)
         );
     }
 
@@ -3683,42 +3807,27 @@ Tree-sitter highlight, and a calm UI.",
             self.state.status = "Compare: no differences".into();
             return;
         };
-        if let Some(doc) = self.state.tabs.get_mut(tab) {
-            let at = doc.buffer.line_to_char(line);
-            doc.buffer.set_caret(at);
-        }
-        // Align the other pane to the same 1-based hunk ordinal (line numbers may differ).
         let ordinal_pair = crate::diff::hunk_ordinal(tags, line);
         if let Some((ord, _)) = ordinal_pair {
-            let other_tab = if primary {
-                self.compare_right_tab
-            } else {
-                self.compare_left_tab
-            };
-            let other_tags = if primary {
-                &self.compare_right_tags
-            } else {
-                &self.compare_left_tags
-            };
-            if let Some(other_line) = crate::diff::hunk_start_at_ordinal(other_tags, ord) {
-                if let Some(doc) = self.state.tabs.get_mut(other_tab) {
-                    let at = doc
-                        .buffer
-                        .line_to_char(other_line.min(doc.buffer.line_count().saturating_sub(1)));
-                    doc.buffer.set_caret(at);
-                }
-            }
+            self.park_compare_hunk_ordinal(ord);
+        } else if let Some(doc) = self.state.tabs.get_mut(tab) {
+            let at = doc.buffer.line_to_char(line);
+            doc.buffer.set_caret(at);
         }
         if primary {
             self.state.tabs.set_active(tab);
             self.focused_pane = EditorPane::Primary;
             self.follow_caret = true;
-            self.follow_caret_other = self.sync_scroll_v;
+            if self.sync_scroll_v {
+                self.follow_caret_other = true;
+            }
         } else {
             self.other_view_tab = tab;
             self.focused_pane = EditorPane::Secondary;
             self.follow_caret_other = true;
-            self.follow_caret = self.sync_scroll_v;
+            if self.sync_scroll_v {
+                self.follow_caret = true;
+            }
         }
         let dir = match nav {
             crate::commands::CompareNav::Next => "Next",
@@ -3783,7 +3892,10 @@ Tree-sitter highlight, and a calm UI.",
                     .get(right)
                     .map(|d| d.title.clone())
                     .unwrap_or_else(|| "right".into());
-                self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n);
+                let ignore_ws = self.state.settings.compare_ignore_ws;
+                let ignore_case = self.state.settings.compare_ignore_case;
+                self.state.status =
+                    compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore_ws, ignore_case);
             }
             None => {
                 // Too many lines or missing tabs — leave prior tags; status already set.
@@ -3887,23 +3999,12 @@ Tree-sitter highlight, and a calm UI.",
         self.state.tabs.set_active(left);
         self.state.highlight_dirty = true;
         self.focused_pane = EditorPane::Primary;
-        // Jump left caret to the first change hunk so Compare lands on a real diff.
-        let first_hunk = crate::diff::hunk_starts(&self.compare_left_tags)
-            .first()
-            .copied()
-            .or_else(|| {
-                crate::diff::hunk_starts(&self.compare_right_tags)
-                    .first()
-                    .copied()
-            });
-        if let Some(line) = first_hunk {
-            if let Some(doc) = self.state.tabs.get_mut(left) {
-                let at = doc
-                    .buffer
-                    .line_to_char(line.min(doc.buffer.line_count().saturating_sub(1)));
-                doc.buffer.set_caret(at);
-            }
-            self.follow_caret = true;
+        // Park both panes on the first change hunk (same ordinal; line numbers may differ).
+        let hunk_n = crate::diff::hunk_starts(&self.compare_left_tags)
+            .len()
+            .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
+        if hunk_n > 0 {
+            self.park_compare_hunk_ordinal(1);
         }
         let lname = self
             .state
@@ -3917,10 +4018,10 @@ Tree-sitter highlight, and a calm UI.",
             .get(right)
             .map(|d| d.title.clone())
             .unwrap_or_else(|| "right".into());
-        let hunk_n = crate::diff::hunk_starts(&self.compare_left_tags)
-            .len()
-            .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
-        self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n);
+        let ignore_ws = self.state.settings.compare_ignore_ws;
+        let ignore_case = self.state.settings.compare_ignore_case;
+        self.state.status =
+            compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore_ws, ignore_case);
     }
 
     /// Writable secondary pane: edits `other_view_tab` when this pane has focus.
@@ -4927,12 +5028,20 @@ mod compare_pair_tests {
     #[test]
     fn status_identical_vs_counts() {
         assert_eq!(
-            compare_pair_status("a", "b", 0, 0, 0),
+            compare_pair_status("a", "b", 0, 0, 0, false, false),
             "Compare “a” | “b” (identical)"
         );
         assert_eq!(
-            compare_pair_status("a", "b", 1, 2, 2),
+            compare_pair_status("a", "b", 1, 2, 2, false, false),
             "Compare “a” | “b” (−1 +2) · 2 hunks"
+        );
+        assert_eq!(
+            compare_pair_status("a", "b", 0, 0, 0, true, true),
+            "Compare “a” | “b” (identical) · ignore ws+case"
+        );
+        assert_eq!(
+            compare_pair_status("a", "b", 1, 0, 1, true, false),
+            "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws"
         );
     }
 

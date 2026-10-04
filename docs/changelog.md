@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.29] — 2026-10-04
+
+Compare:
+
+- **View → Ignore Whitespace Differences** / **Ignore Case Differences** toggle (✓ in menu), persist to settings, and re-diff immediately while Compare is on.
+- Starting Compare parks **both** panes on the first hunk ordinal (not only the left caret).
+- Status line shows active ignore flags (`· ignore ws`, `· ignore case`, or `· ignore ws+case`).
+
 ## [0.3.28] — 2026-10-04
 
 Compare:
