@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.36] — 2026-10-04
+
+Compare:
+
+- Next/Prev/First/Last Difference, click/keyboard hunk sync, and Start Compare select the change hunk on **both** panes (Copy/Delete still use the focused pane).
+
 ## [0.3.35] — 2026-10-04
 
 Preferences / View:

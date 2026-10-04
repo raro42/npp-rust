@@ -48,15 +48,15 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 
 ### Jump between differences
 
-- Starting Compare parks **both** panes on the **first** change hunk (same ordinal; status shows hunk count).
+- Starting Compare parks **and selects** both panes on the **first** change hunk (same ordinal; status shows hunk count).
 - **View → Next Difference** / **Previous Difference** (or **F7** / **Shift+F7**)
 - **View → First Difference** / **Last Difference** (or **⌘/Ctrl+F7** / **⌘/Ctrl+Shift+F7**)
-- Moves the caret on the focused pane to the start of the next/previous change hunk (wraps), or jumps to the first/last hunk, and **selects that hunk’s change lines** on the focused pane (Copy/Delete apply to the whole change).
+- Moves the caret on the focused pane to the start of the next/previous change hunk (wraps), or jumps to the first/last hunk, and **selects that hunk’s change lines on both panes** (Copy/Delete still apply to the focused pane).
 - Next/Prev that wrap past the end/beginning append `· wrapped` to the status (e.g. `Compare Next difference → L12 | R15 (1/5) · wrapped`).
-- The other pane parks on the **same hunk ordinal** (line numbers may differ when sides disagree); click/keyboard sync still parks caret only (no selection).
+- The other pane parks on the **same hunk ordinal** (line numbers may differ when sides disagree) and selects that side’s hunk too.
 - Mid-hunk Next skips to the following hunk, not the next red/green line.
 - Status shows both sides’ lines + hunk ordinal, e.g. `Compare Next difference → L12 | R15 (2/5)`.
-- Click a red/green change line, or move the caret onto one with the keyboard, to park the **other** pane on the same hunk (status: `Compare hunk → L12 | R15 (2/5)`). Equal lines leave the other pane alone.
+- Click a red/green change line, or move the caret onto one with the keyboard, to park **and select** the same hunk on both panes (status: `Compare hunk → L12 | R15 (2/5)`). Equal lines leave the other pane alone.
 - When both sides match (including ignore-whitespace / ignore-case), status says `(identical)`.
 - Active ignore options appear in the status (`· ignore ws`, `· ignore case`, or `· ignore ws+case`).
 - **View → Ignore Whitespace Differences** / **Ignore Case Differences** toggle those Preferences keys (✓ when on) and re-diff immediately while Compare is on.

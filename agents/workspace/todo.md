@@ -31,3 +31,4 @@
 009 keep: compare nav selects hunk on focused pane (v0.3.33)
 009 keep: recent_max honored on recent.txt load (v0.3.34)
 009 keep: View whitespace/EOL/NPC/indent-guide persist (v0.3.35)
+009 keep: compare both-pane hunk select on nav/click/start (v0.3.36)

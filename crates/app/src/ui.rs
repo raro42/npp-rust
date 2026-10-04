@@ -3832,6 +3832,9 @@ Tree-sitter highlight, and a calm UI.",
                 self.follow_caret = true;
             }
         }
+        // Select the hunk on both panes so click/keyboard landing shows both extents.
+        self.select_compare_hunk_on_pane(true, ord);
+        self.select_compare_hunk_on_pane(false, ord);
         let lr = self.compare_hunk_lr_label(ord);
         if lr.is_empty() {
             self.state.status = format!("Compare hunk ({ord}/{total})");
@@ -3925,8 +3928,10 @@ Tree-sitter highlight, and a calm UI.",
         let ordinal_pair = crate::diff::hunk_ordinal(tags, line);
         if let Some((ord, _)) = ordinal_pair {
             self.park_compare_hunk_ordinal(ord);
-            // Select the whole hunk on the focused pane so Copy/Delete hit the change.
-            self.select_compare_hunk_on_pane(primary, ord);
+            // Select the whole hunk on both panes so each side shows the change extent
+            // (Copy/Delete still apply to the focused pane).
+            self.select_compare_hunk_on_pane(true, ord);
+            self.select_compare_hunk_on_pane(false, ord);
         } else if let Some(doc) = self.state.tabs.get_mut(tab) {
             let at = doc.buffer.line_to_char(line);
             doc.buffer.set_caret(at);
@@ -3968,7 +3973,7 @@ Tree-sitter highlight, and a calm UI.",
         self.state.status = format!("Compare {dir} difference → {lr}{ordinal}{wrap_bit}");
     }
 
-    /// Select change lines for a hunk ordinal on the focused compare pane.
+    /// Select change lines for a hunk ordinal on one compare pane.
     fn select_compare_hunk_on_pane(&mut self, primary: bool, ordinal_1based: usize) {
         let (tab, range) = if primary {
             (
@@ -4163,12 +4168,14 @@ Tree-sitter highlight, and a calm UI.",
         self.state.tabs.set_active(left);
         self.state.highlight_dirty = true;
         self.focused_pane = EditorPane::Primary;
-        // Park both panes on the first change hunk (same ordinal; line numbers may differ).
+        // Park + select both panes on the first change hunk (same ordinal; line numbers may differ).
         let hunk_n = crate::diff::hunk_starts(&self.compare_left_tags)
             .len()
             .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
         if hunk_n > 0 {
             self.park_compare_hunk_ordinal(1);
+            self.select_compare_hunk_on_pane(true, 1);
+            self.select_compare_hunk_on_pane(false, 1);
         }
         let lname = self
             .state
