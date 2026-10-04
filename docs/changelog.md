@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.39] — 2026-10-04
+
+Compare:
+
+- **View → Copy Compare Hunk** copies the change hunk at the focused caret (or the next hunk) as a unified diff, with 3 equal context lines. Status shows hunk ordinal and −/+ counts.
+
 ## [0.3.38] — 2026-10-04
 
 Compare:

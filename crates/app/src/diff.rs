@@ -291,6 +291,110 @@ pub fn unified_diff(
     Some(out)
 }
 
+fn hunk_line_for_copy(tags: &[LineKind], line: usize) -> Option<usize> {
+    if tags.get(line).is_some_and(|k| *k != LineKind::Equal) {
+        let (ord, _) = hunk_ordinal(tags, line)?;
+        hunk_start_at_ordinal(tags, ord)
+    } else {
+        next_hunk_start(tags, line)
+    }
+}
+
+fn change_run_containing(
+    ops: &[AlignOp],
+    focus_left: bool,
+    start_line: usize,
+) -> Option<(usize, usize)> {
+    let idx = ops.iter().position(|op| match *op {
+        AlignOp::Delete { left } if focus_left && left == start_line => true,
+        AlignOp::Insert { right, .. } if !focus_left && right == start_line => true,
+        _ => false,
+    })?;
+    let mut start = idx;
+    while start > 0 && op_is_change(ops[start - 1]) {
+        start -= 1;
+    }
+    let mut end = idx + 1;
+    while end < ops.len() && op_is_change(ops[end]) {
+        end += 1;
+    }
+    Some((start, end))
+}
+
+fn expand_equal_context(ops: &[AlignOp], run_start: usize, run_end: usize) -> (usize, usize) {
+    let mut start = run_start;
+    let mut taken = 0usize;
+    while start > 0 && taken < UNIFIED_CONTEXT && !op_is_change(ops[start - 1]) {
+        start -= 1;
+        taken += 1;
+    }
+    let mut end = run_end;
+    taken = 0;
+    while end < ops.len() && taken < UNIFIED_CONTEXT && !op_is_change(ops[end]) {
+        end += 1;
+        taken += 1;
+    }
+    (start, end)
+}
+
+/// Unified diff of one change hunk (3 equal context lines, not merged with neighbors).
+///
+/// `focus_left` + `line` pick the hunk (caret line on that side). Equal lines use the
+/// next hunk (wraps). `None` when there is no change hunk or tags cannot be aligned.
+#[allow(clippy::too_many_arguments)]
+pub fn unified_diff_hunk(
+    left: &[&str],
+    right: &[&str],
+    left_name: &str,
+    right_name: &str,
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    focus_left: bool,
+    line: usize,
+) -> Option<String> {
+    if left.len() != left_tags.len() || right.len() != right_tags.len() {
+        return None;
+    }
+    let tags = if focus_left { left_tags } else { right_tags };
+    let start_line = hunk_line_for_copy(tags, line)?;
+    let ops = align_ops(left_tags, right_tags)?;
+    let (run_start, run_end) = change_run_containing(&ops, focus_left, start_line)?;
+    let (start, end) = expand_equal_context(&ops, run_start, run_end);
+    let mut out = String::new();
+    out.push_str(&format!("--- {left_name}\n+++ {right_name}\n"));
+    emit_unified_hunk(&mut out, &ops[start..end], left, right);
+    Some(out)
+}
+
+/// Ordinal of the hunk that `unified_diff_hunk` would copy for this caret line.
+pub fn hunk_ordinal_for_copy(tags: &[LineKind], line: usize) -> Option<(usize, usize)> {
+    let start = hunk_line_for_copy(tags, line)?;
+    hunk_ordinal(tags, start)
+}
+
+/// Delete/insert counts for the change run of a hunk copy (no context equals).
+pub fn hunk_copy_change_counts(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    focus_left: bool,
+    line: usize,
+) -> Option<(usize, usize)> {
+    let tags = if focus_left { left_tags } else { right_tags };
+    let start_line = hunk_line_for_copy(tags, line)?;
+    let ops = align_ops(left_tags, right_tags)?;
+    let (run_start, run_end) = change_run_containing(&ops, focus_left, start_line)?;
+    let mut del = 0usize;
+    let mut ins = 0usize;
+    for op in &ops[run_start..run_end] {
+        match *op {
+            AlignOp::Delete { .. } => del += 1,
+            AlignOp::Insert { .. } => ins += 1,
+            AlignOp::Equal { .. } => {}
+        }
+    }
+    Some((del, ins))
+}
+
 fn emit_unified_hunk(out: &mut String, hunk: &[AlignOp], left: &[&str], right: &[&str]) {
     let mut old_count = 0usize;
     let mut new_count = 0usize;
@@ -505,5 +609,45 @@ mod tests {
         let (l1, r1) = diff_line_tags(&added, &empty);
         let t2 = unified_diff(&added, &empty, "e", "f", &l1, &r1).unwrap();
         assert!(t2.contains("-x\n"));
+    }
+
+    #[test]
+    fn unified_diff_hunk_picks_one_change() {
+        let left = ["a", "gone1", "b", "gone2", "c"];
+        let right = ["a", "b", "c"];
+        let (l, r) = diff_line_tags(&left, &right);
+        let first = unified_diff_hunk(&left, &right, "L", "R", &l, &r, true, 1).unwrap();
+        assert!(first.contains("-gone1\n"));
+        assert!(!first.contains("gone2"));
+        let second = unified_diff_hunk(&left, &right, "L", "R", &l, &r, true, 3).unwrap();
+        assert!(second.contains("-gone2\n"));
+        assert!(!second.contains("gone1"));
+        // Equal caret uses next hunk (wraps to first after last).
+        let from_eq = unified_diff_hunk(&left, &right, "L", "R", &l, &r, true, 0).unwrap();
+        assert!(from_eq.contains("-gone1\n"));
+        assert!(!from_eq.contains("gone2"));
+        assert_eq!(hunk_ordinal_for_copy(&l, 1), Some((1, 2)));
+        assert_eq!(hunk_ordinal_for_copy(&l, 3), Some((2, 2)));
+        assert_eq!(hunk_copy_change_counts(&l, &r, true, 1), Some((1, 0)));
+        let (le, re) = diff_line_tags(&left, &left);
+        assert!(unified_diff_hunk(&left, &left, "L", "R", &le, &re, true, 0).is_none());
+    }
+
+    #[test]
+    fn unified_diff_hunk_replace_and_right_insert() {
+        let left = ["keep", "old", "tail"];
+        let right = ["keep", "new", "tail"];
+        let (l, r) = diff_line_tags(&left, &right);
+        let text = unified_diff_hunk(&left, &right, "L", "R", &l, &r, true, 1).unwrap();
+        assert!(text.contains("-old\n"));
+        assert!(text.contains("+new\n"));
+        assert_eq!(hunk_copy_change_counts(&l, &r, true, 1), Some((1, 1)));
+        let left2 = ["a", "c"];
+        let right2 = ["a", "b", "c"];
+        let (l2, r2) = diff_line_tags(&left2, &right2);
+        let ins = unified_diff_hunk(&left2, &right2, "L", "R", &l2, &r2, false, 1).unwrap();
+        assert!(ins.contains("+b\n"));
+        assert!(!ins.contains("\n-"));
+        assert_eq!(hunk_copy_change_counts(&l2, &r2, false, 1), Some((0, 1)));
     }
 }

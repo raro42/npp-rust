@@ -62,6 +62,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - **View → Ignore Whitespace Differences** / **Ignore Case Differences** toggle those Preferences keys (✓ when on) and re-diff immediately while Compare is on.
 - **View → Swap Compare Sides** flips left/right files (and scroll), keeps focus on the new left, and re-diffs so delete/insert colours stay correct.
 - **View → Copy Compare Diff** copies a unified diff of the pair to the clipboard (3 lines of context). Status shows `Copied unified diff (−N +M)` or `(identical)`.
+- **View → Copy Compare Hunk** copies only the change hunk at the focused caret (or the next hunk if the caret is on an equal line), with 3 equal context lines. Status shows `Copied hunk (i/n) unified diff (−N +M)`.
 
 ## Limits
 

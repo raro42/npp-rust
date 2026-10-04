@@ -2062,6 +2062,12 @@
         "cmd": "IDM_VIEW_COPY_COMPARE_DIFF"
       },
       {
+        "kind": "item",
+        "label": "Copy Compare Hunk",
+        "raw_label": "Copy Compare &Hunk",
+        "cmd": "IDM_VIEW_COPY_COMPARE_HUNK"
+      },
+      {
         "kind": "separator"
       },
       {

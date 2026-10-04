@@ -883,6 +883,9 @@ impl EditorApp {
                     ),
                     "IDM_VIEW_COPY_COMPARE_DIFF" => response
                         .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
+                    "IDM_VIEW_COPY_COMPARE_HUNK" => response.on_hover_text(
+                        "Copy the change hunk at the caret as a unified diff (clipboard)",
+                    ),
                     _ => response,
                 };
                 if response.clicked() {
@@ -3686,6 +3689,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.copy_compare_diff {
             self.copy_compare_diff(flags);
         }
+        if flags.copy_compare_hunk {
+            self.copy_compare_hunk(flags);
+        }
     }
 
     /// Toggle ignore-whitespace / ignore-case from View menu; persist and re-diff.
@@ -3814,6 +3820,82 @@ Tree-sitter highlight, and a calm UI.",
         } else {
             format!("Copied unified diff (−{del} +{ins}) “{lname}” | “{rname}”")
         };
+    }
+
+    /// Clipboard: unified diff of the hunk at the focused caret (or the next hunk).
+    fn copy_compare_hunk(&mut self, flags: &mut crate::commands::UiFlags) {
+        if !self.compare_on {
+            self.state.status = "Copy Compare Hunk: Compare is off".into();
+            return;
+        }
+        let left = self.compare_left_tab;
+        let right = self.compare_right_tab;
+        let left_lines = self.tab_compare_lines(left);
+        let right_lines = self.tab_compare_lines(right);
+        if left_lines.len() != self.compare_left_tags.len()
+            || right_lines.len() != self.compare_right_tags.len()
+        {
+            if let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) {
+                self.compare_left_tags = lt;
+                self.compare_right_tags = rt;
+            } else {
+                return;
+            }
+        }
+        let primary = self.focused_pane == EditorPane::Primary || !self.dual_view;
+        let tab = if primary { left } else { right };
+        let Some(doc) = self.state.tabs.get(tab) else {
+            self.state.status = "Copy Compare Hunk: tab missing".into();
+            return;
+        };
+        let line = doc.buffer.char_to_line(doc.buffer.caret());
+        let tags = if primary {
+            &self.compare_left_tags
+        } else {
+            &self.compare_right_tags
+        };
+        let Some((ord, total)) = crate::diff::hunk_ordinal_for_copy(tags, line) else {
+            self.state.status = "Copy Compare Hunk: no differences".into();
+            return;
+        };
+        let lname = self
+            .state
+            .tabs
+            .get(left)
+            .map(|d| Self::compare_side_name(&d.title))
+            .unwrap_or_else(|| "left".into());
+        let rname = self
+            .state
+            .tabs
+            .get(right)
+            .map(|d| Self::compare_side_name(&d.title))
+            .unwrap_or_else(|| "right".into());
+        let left_refs: Vec<&str> = left_lines.iter().map(String::as_str).collect();
+        let right_refs: Vec<&str> = right_lines.iter().map(String::as_str).collect();
+        let Some(text) = crate::diff::unified_diff_hunk(
+            &left_refs,
+            &right_refs,
+            &lname,
+            &rname,
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            primary,
+            line,
+        ) else {
+            self.state.status = "Copy Compare Hunk: could not build unified diff".into();
+            return;
+        };
+        let (del, ins) = crate::diff::hunk_copy_change_counts(
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            primary,
+            line,
+        )
+        .unwrap_or((0, 0));
+        flags.pending_clipboard = Some(text);
+        self.state.status = format!(
+            "Copied hunk ({ord}/{total}) unified diff (−{del} +{ins}) “{lname}” | “{rname}”"
+        );
     }
 
     /// Park both compare panes on the same 1-based hunk ordinal (carets + follow).
