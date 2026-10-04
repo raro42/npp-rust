@@ -77,6 +77,8 @@ pub struct EditorState {
     pub want_quit: bool,
     /// Compare tags need a rebuild after an edit.
     pub compare_stale: bool,
+    /// Tab indices closed this frame (at close time), for UI index remap.
+    pub closed_tab_indices: Vec<usize>,
     /// Before-edit line snap for change-history remap (tab, snap).
     pending_edit_snap: Option<(usize, doc::LineEditSnap)>,
     /// Folder shown in the Project panel (cwd by default).
@@ -161,11 +163,17 @@ impl EditorState {
             bulk_close: BulkClose::None,
             want_quit: false,
             compare_stale: false,
+            closed_tab_indices: Vec::new(),
             pending_edit_snap: None,
             workspace_root,
             pending_lossy_ansi: None,
             autosave_last: Instant::now(),
         }
+    }
+
+    /// Drain tab indices closed since the last take (order preserved).
+    pub fn take_closed_tabs(&mut self) -> Vec<usize> {
+        std::mem::take(&mut self.closed_tab_indices)
     }
 
     /// Call before mutating a tab buffer so change-history marks can remap.
@@ -642,6 +650,9 @@ impl EditorState {
             .map(|d| (d.id, d.path.clone()))
             .unwrap_or((0, None));
         self.note_tab_closed(id, path.as_deref());
+        if index < self.tabs.len() {
+            self.closed_tab_indices.push(index);
+        }
         self.tabs.close(index);
         self.highlight_dirty = true;
         if let Some(p) = self.pending_close {

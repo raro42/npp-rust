@@ -22,3 +22,4 @@
 - 009 keep: compare ignore-case preference (v0.3.24)
 - 009 keep: compare dual-pane hunk align + identical status (v0.3.25)
 - 009 keep: compare first/last difference (⌘/Ctrl+F7, v0.3.26)
+- 009 keep: compare survives closing a non-pair tab (v0.3.27)

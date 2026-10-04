@@ -44,6 +44,8 @@ Status line shows: `Compare “dummy.log” | “dummy.log.2” (−N +M)`.
 
 While compare is on, panes stay pinned to that pair (tab clicks do not swap the left file away).
 
+Closing a tab that is **not** in the pair remaps both sides so Compare stays on. Closing either compared tab clears Compare.
+
 ### Jump between differences
 
 - Starting Compare moves the left caret to the **first** change hunk (status shows hunk count).

@@ -78,6 +78,17 @@ fn compare_pair_status(lname: &str, rname: &str, del: usize, ins: usize, hunk_n:
     format!("Compare “{lname}” | “{rname}” (−{del} +{ins}){hunk_bit}")
 }
 
+/// Remap a tab index after `closed` was removed. `None` if that tab was closed.
+fn index_after_tab_close(idx: usize, closed: usize) -> Option<usize> {
+    if idx == closed {
+        None
+    } else if idx > closed {
+        Some(idx - 1)
+    } else {
+        Some(idx)
+    }
+}
+
 pub struct EditorApp {
     state: EditorState,
     find_focus_once: bool,
@@ -1540,6 +1551,7 @@ Tree-sitter highlight, and a calm UI.",
         if self.state.take_want_quit() {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
+        self.apply_closed_tab_indices();
         self.scroll_line = 0.0;
     }
 
@@ -2366,13 +2378,6 @@ Tree-sitter highlight, and a calm UI.",
                     self.scroll_line = 0.0;
                 }
                 if let Some(i) = close_idx {
-                    if self.compare_partner_tab == Some(i) {
-                        self.compare_partner_tab = None;
-                    } else if let Some(p) = self.compare_partner_tab {
-                        if p > i {
-                            self.compare_partner_tab = Some(p - 1);
-                        }
-                    }
                     self.state.request_close_tab(i);
                     self.scroll_line = 0.0;
                 }
@@ -2647,6 +2652,7 @@ Tree-sitter highlight, and a calm UI.",
     fn editor_pane(&mut self, ctx: &egui::Context) {
         self.state
             .refresh_highlight_if_needed(self.scroll_line.floor() as usize);
+        self.apply_closed_tab_indices();
         self.clamp_other_view_tab();
         self.sync_compare_panes();
 
@@ -3484,6 +3490,41 @@ Tree-sitter highlight, and a calm UI.",
             std::mem::swap(&mut self.compare_left_tags, &mut self.compare_right_tags);
         }
         self.state.status = "Switched to other view".into();
+    }
+
+    /// Remap dual-view / compare indices after tabs closed this frame.
+    /// Closing a non-compared tab between the pair keeps Compare alive.
+    fn apply_closed_tab_indices(&mut self) {
+        let closed = self.state.take_closed_tabs();
+        for idx in closed {
+            self.after_tab_closed(idx);
+        }
+    }
+
+    fn after_tab_closed(&mut self, closed: usize) {
+        match self.compare_partner_tab {
+            Some(p) if p == closed => self.compare_partner_tab = None,
+            Some(p) => self.compare_partner_tab = index_after_tab_close(p, closed),
+            None => {}
+        }
+        if let Some(other) = index_after_tab_close(self.other_view_tab, closed) {
+            self.other_view_tab = other;
+        } else {
+            self.other_view_tab = 0;
+        }
+        if !self.compare_on {
+            return;
+        }
+        let Some(left) = index_after_tab_close(self.compare_left_tab, closed) else {
+            self.clear_compare();
+            return;
+        };
+        let Some(right) = index_after_tab_close(self.compare_right_tab, closed) else {
+            self.clear_compare();
+            return;
+        };
+        self.compare_left_tab = left;
+        self.compare_right_tab = right;
     }
 
     /// Keep compare panes on the compared pair (left = primary, right = other).
@@ -4827,7 +4868,7 @@ fn go_doc_end(state: &mut EditorState, tab: usize, select: bool) {
 
 #[cfg(test)]
 mod compare_pair_tests {
-    use super::{compare_pair_status, pick_compare_right};
+    use super::{compare_pair_status, index_after_tab_close, pick_compare_right};
 
     #[test]
     fn needs_two_tabs() {
@@ -4865,5 +4906,20 @@ mod compare_pair_tests {
     #[test]
     fn dual_view_other_when_no_partner() {
         assert_eq!(pick_compare_right(4, 0, None, true, 2), Some(2));
+    }
+
+    #[test]
+    fn close_middle_keeps_compare_pair_indices() {
+        // Tabs [A,B,C], compare A|C (0,2); close B (1) → pair becomes (0,1).
+        assert_eq!(index_after_tab_close(0, 1), Some(0));
+        assert_eq!(index_after_tab_close(2, 1), Some(1));
+        assert_eq!(index_after_tab_close(1, 1), None);
+    }
+
+    #[test]
+    fn close_compared_side_maps_to_none() {
+        assert_eq!(index_after_tab_close(0, 0), None);
+        assert_eq!(index_after_tab_close(2, 2), None);
+        assert_eq!(index_after_tab_close(0, 2), Some(0));
     }
 }

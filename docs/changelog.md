@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.27] — 2026-10-04
+
+Compare:
+
+- Closing a tab that is not part of the compare pair remaps both sides so Compare stays on; closing either compared tab still clears Compare.
+
 ## [0.3.26] — 2026-10-04
 
 Compare:
