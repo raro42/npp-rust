@@ -989,6 +989,9 @@ impl EditorApp {
                     "IDM_DEBUGINFO" => {
                         response.on_hover_text("Open a tab with version, OS, and log status")
                     }
+                    "IDM_VIEW_COMPARE_TO_SAVED" => response.on_hover_text(
+                        "Compare the active file to its last-saved disk contents (read-only snapshot)",
+                    ),
                     "IDM_VIEW_COMPARE_IGNORE_WS" => response.on_hover_text(
                         "Toggle ignore whitespace for Compare (Preferences persist)",
                     ),
@@ -3856,6 +3859,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.start_compare {
             self.start_compare();
         }
+        if flags.compare_to_saved {
+            self.compare_to_saved();
+        }
         if flags.swap_compare {
             self.swap_compare_sides();
         }
@@ -4965,6 +4971,63 @@ Tree-sitter highlight, and a calm UI.",
         )
     }
 
+    /// Diff the active named tab against a read-only snapshot of its on-disk bytes.
+    fn compare_to_saved(&mut self) {
+        let left = self.state.tabs.active_index();
+        let Some(doc) = self.state.tabs.get(left) else {
+            return;
+        };
+        let Some(path) = doc.path.clone() else {
+            self.state.status = "Compare to Saved: save the file first".into();
+            return;
+        };
+        let language = doc.language.clone();
+        let encoding = doc.encoding;
+        let name = crate::recent::short_path_label(&path);
+        let title = compare_saved_snapshot_title(&name);
+        let content = match ::fs::read_file(&path) {
+            Ok(r) => r.content,
+            Err(_) => {
+                self.state.status = format!("Compare to Saved: could not read “{name}”");
+                return;
+            }
+        };
+        let existing = self
+            .state
+            .tabs
+            .iter()
+            .enumerate()
+            .find(|(_, d)| d.title == title && d.read_only && d.path.is_none())
+            .map(|(i, _)| i);
+        let saved_tab = if let Some(i) = existing {
+            if let Some(snap) = self.state.tabs.get_mut(i) {
+                snap.buffer = buffer::TextBuffer::from_str(&content);
+                snap.language = language;
+                snap.encoding = encoding;
+                snap.read_only = true;
+                snap.mark_clean();
+            }
+            i
+        } else {
+            self.state.tabs.open_untitled();
+            let i = self.state.tabs.active_index();
+            {
+                let snap = self.state.tabs.active_mut();
+                snap.title = title;
+                snap.buffer = buffer::TextBuffer::from_str(&content);
+                snap.language = language;
+                snap.encoding = encoding;
+                snap.read_only = true;
+                snap.mark_clean();
+            }
+            i
+        };
+        self.state.tabs.set_active(left);
+        self.compare_partner_tab = Some(saved_tab);
+        self.state.highlight_dirty = true;
+        self.start_compare();
+    }
+
     fn start_compare(&mut self) {
         if self.state.tabs.len() < 2 {
             self.state.status = "Compare needs two open tabs".into();
@@ -6040,9 +6103,23 @@ fn go_doc_end(state: &mut EditorState, tab: usize, select: bool) {
     }
 }
 
+/// Tab title for a read-only on-disk snapshot used by Compare to Saved.
+fn compare_saved_snapshot_title(file_name: &str) -> String {
+    format!("{file_name} (saved)")
+}
+
 #[cfg(test)]
 mod compare_pair_tests {
-    use super::{compare_pair_status, index_after_tab_close, pick_compare_right};
+    use super::{
+        compare_pair_status, compare_saved_snapshot_title, index_after_tab_close,
+        pick_compare_right,
+    };
+
+    #[test]
+    fn saved_snapshot_title_uses_basename() {
+        assert_eq!(compare_saved_snapshot_title("notes.md"), "notes.md (saved)");
+        assert_eq!(compare_saved_snapshot_title("a"), "a (saved)");
+    }
 
     #[test]
     fn needs_two_tabs() {

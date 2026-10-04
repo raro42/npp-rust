@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.51] — 2026-10-05
+
+Compare:
+
+- **View → Compare to Saved** diffs the active named tab against a read-only snapshot of its on-disk contents (reuses the `name (saved)` tab when present). Status uses the usual Compare −/+ / identical wording.
+
 ## [0.3.50] — 2026-10-05
 
 Compare:

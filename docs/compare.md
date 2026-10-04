@@ -23,6 +23,12 @@ Compare uses **two open tabs**. Left pane = active tab. Right pane = resolved pa
 2. Select the left file.
 3. **View → Compare with Other View** — compares against the tab to the right.
 
+### Against last save
+
+1. Open a file from disk (and edit it if you want).
+2. **View → Compare to Saved** — opens (or refreshes) a read-only `name (saved)` snapshot of the on-disk bytes and starts Compare against it.
+3. Untitled tabs need a path first (**File → Save**).
+
 ### Pick any second tab
 
 1. Select the left file.
@@ -90,6 +96,6 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 
 ## Code
 
-- `pick_compare_right` / `start_compare` / `open_compare_diff_tab` / `open_compare_hunk_tab` — `crates/app/src/ui.rs`
+- `pick_compare_right` / `start_compare` / `compare_to_saved` / `open_compare_diff_tab` / `open_compare_hunk_tab` — `crates/app/src/ui.rs`
 - `compare_stale` + `refresh_compare_if_stale` — `crates/app/src/editor.rs`, `crates/app/src/ui.rs`
 - Line LCS — `crates/app/src/diff.rs`

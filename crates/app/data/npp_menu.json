@@ -2009,6 +2009,12 @@
       },
       {
         "kind": "item",
+        "label": "Compare to Saved",
+        "raw_label": "Compare to &Saved",
+        "cmd": "IDM_VIEW_COMPARE_TO_SAVED"
+      },
+      {
+        "kind": "item",
         "label": "Next Difference",
         "raw_label": "&Next Difference",
         "cmd": "IDM_VIEW_NEXT_DIFF"

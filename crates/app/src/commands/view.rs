@@ -196,6 +196,10 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.start_compare = true;
             CmdResult::Handled
         }
+        "IDM_VIEW_COMPARE_TO_SAVED" => {
+            ui.compare_to_saved = true;
+            CmdResult::Handled
+        }
         "IDM_VIEW_CLEARCOMPARE" => {
             ui.clear_compare = true;
             CmdResult::Handled

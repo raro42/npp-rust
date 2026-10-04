@@ -89,6 +89,8 @@ pub struct UiFlags {
     pub zoom_sync: Option<bool>,
     /// Start 2-way compare (active vs other view).
     pub start_compare: bool,
+    /// Compare the active tab to its last-saved disk contents.
+    pub compare_to_saved: bool,
     /// Clear compare highlights and mode.
     pub clear_compare: bool,
     /// Swap left/right compare panes (keep focus on the new left).
@@ -283,6 +285,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_SYNSCROLLV"
             | "IDM_VIEW_SYNSCROLLH"
             | "IDM_VIEW_COMPARE"
+            | "IDM_VIEW_COMPARE_TO_SAVED"
             | "IDM_VIEW_CLEARCOMPARE"
             | "IDM_VIEW_SWAP_COMPARE"
             | "IDM_VIEW_COMPARE_IGNORE_WS"
@@ -606,5 +609,6 @@ mod tests {
         assert!(is_implemented("IDM_VIEW_OPEN_COMPARE_DIFF"));
         assert!(is_implemented("IDM_VIEW_OPEN_COMPARE_HUNK"));
         assert!(is_implemented("IDM_VIEW_COMPARE_IGNORE_BLANK"));
+        assert!(is_implemented("IDM_VIEW_COMPARE_TO_SAVED"));
     }
 }
