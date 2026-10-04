@@ -103,6 +103,8 @@ pub struct UiFlags {
     pub open_compare_diff: bool,
     /// Copy the compare hunk at the caret as a unified diff.
     pub copy_compare_hunk: bool,
+    /// Open the compare hunk at the caret as a unified-diff tab.
+    pub open_compare_hunk: bool,
     /// Replace the focused compare hunk with the other pane.
     pub apply_compare_hunk: bool,
     /// Replace every compare hunk on the focused pane with the other pane.
@@ -289,6 +291,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_COPY_COMPARE_DIFF"
             | "IDM_VIEW_OPEN_COMPARE_DIFF"
             | "IDM_VIEW_COPY_COMPARE_HUNK"
+            | "IDM_VIEW_OPEN_COMPARE_HUNK"
             | "IDM_VIEW_APPLY_COMPARE_HUNK"
             | "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS"
             | "IDM_EDIT_RTL"
@@ -593,6 +596,7 @@ mod tests {
         assert!(is_implemented("IDM_MACRO_STARTRECORDINGMACRO"));
         assert!(is_implemented("IDM_VIEW_APPLY_ALL_COMPARE_HUNKS"));
         assert!(is_implemented("IDM_VIEW_OPEN_COMPARE_DIFF"));
+        assert!(is_implemented("IDM_VIEW_OPEN_COMPARE_HUNK"));
         assert!(is_implemented("IDM_VIEW_COMPARE_IGNORE_BLANK"));
     }
 }

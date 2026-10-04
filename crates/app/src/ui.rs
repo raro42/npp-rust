@@ -73,6 +73,17 @@ struct CompareIgnoreBits {
     blank: bool,
 }
 
+/// Unified-diff payload for the caret hunk (copy / open tab).
+struct CompareHunkPayload {
+    text: String,
+    left_name: String,
+    right_name: String,
+    ordinal: usize,
+    total: usize,
+    deletes: usize,
+    inserts: usize,
+}
+
 /// Status line for an active compare pair (identical vs change counts).
 fn compare_ignore_status_bit(bits: CompareIgnoreBits) -> String {
     let mut parts = Vec::new();
@@ -994,6 +1005,9 @@ impl EditorApp {
                     ),
                     "IDM_VIEW_COPY_COMPARE_HUNK" => response.on_hover_text(
                         "Copy the change hunk at the caret as a unified diff (clipboard)",
+                    ),
+                    "IDM_VIEW_OPEN_COMPARE_HUNK" => response.on_hover_text(
+                        "Open the change hunk at the caret as a unified-diff tab (clears Compare)",
                     ),
                     "IDM_VIEW_APPLY_COMPARE_HUNK" => response.on_hover_text(
                         "Replace the focused pane's change hunk with the other pane (one undo)",
@@ -3854,6 +3868,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.copy_compare_hunk {
             self.copy_compare_hunk(flags);
         }
+        if flags.open_compare_hunk {
+            self.open_compare_hunk_tab();
+        }
         if flags.apply_compare_hunk {
             self.apply_compare_hunk_from_other();
         }
@@ -4029,11 +4046,10 @@ Tree-sitter highlight, and a calm UI.",
         self.state.status = compare_open_or_copy_status("Opened", &lname, &rname, del, ins);
     }
 
-    /// Clipboard: unified diff of the hunk at the focused caret (or the next hunk).
-    fn copy_compare_hunk(&mut self, flags: &mut crate::commands::UiFlags) {
+    /// Unified diff for the hunk at the focused caret (or the next hunk).
+    fn compare_caret_hunk_unified(&mut self) -> Result<CompareHunkPayload, &'static str> {
         if !self.compare_on {
-            self.state.status = "Copy Compare Hunk: Compare is off".into();
-            return;
+            return Err("Compare is off");
         }
         let left = self.compare_left_tab;
         let right = self.compare_right_tab;
@@ -4046,14 +4062,13 @@ Tree-sitter highlight, and a calm UI.",
                 self.compare_left_tags = lt;
                 self.compare_right_tags = rt;
             } else {
-                return;
+                return Err("could not build unified diff");
             }
         }
         let primary = self.focused_pane == EditorPane::Primary || !self.dual_view;
         let tab = if primary { left } else { right };
         let Some(doc) = self.state.tabs.get(tab) else {
-            self.state.status = "Copy Compare Hunk: tab missing".into();
-            return;
+            return Err("tab missing");
         };
         let line = doc.buffer.char_to_line(doc.buffer.caret());
         let tags = if primary {
@@ -4062,8 +4077,7 @@ Tree-sitter highlight, and a calm UI.",
             &self.compare_right_tags
         };
         let Some((ord, total)) = crate::diff::hunk_ordinal_for_copy(tags, line) else {
-            self.state.status = "Copy Compare Hunk: no differences".into();
-            return;
+            return Err("no differences");
         };
         let lname = self
             .state
@@ -4089,8 +4103,7 @@ Tree-sitter highlight, and a calm UI.",
             primary,
             line,
         ) else {
-            self.state.status = "Copy Compare Hunk: could not build unified diff".into();
-            return;
+            return Err("could not build unified diff");
         };
         let (del, ins) = crate::diff::hunk_copy_change_counts(
             &self.compare_left_tags,
@@ -4099,10 +4112,58 @@ Tree-sitter highlight, and a calm UI.",
             line,
         )
         .unwrap_or((0, 0));
-        flags.pending_clipboard = Some(text);
-        self.state.status = format!(
-            "Copied hunk ({ord}/{total}) unified diff (−{del} +{ins}) “{lname}” | “{rname}”"
-        );
+        Ok(CompareHunkPayload {
+            text,
+            left_name: lname,
+            right_name: rname,
+            ordinal: ord,
+            total,
+            deletes: del,
+            inserts: ins,
+        })
+    }
+
+    /// Clipboard: unified diff of the hunk at the focused caret (or the next hunk).
+    fn copy_compare_hunk(&mut self, flags: &mut crate::commands::UiFlags) {
+        match self.compare_caret_hunk_unified() {
+            Ok(p) => {
+                flags.pending_clipboard = Some(p.text);
+                self.state.status = format!(
+                    "Copied hunk ({}/{}) unified diff (−{} +{}) “{}” | “{}”",
+                    p.ordinal, p.total, p.deletes, p.inserts, p.left_name, p.right_name
+                );
+            }
+            Err(why) => {
+                self.state.status = format!("Copy Compare Hunk: {why}");
+            }
+        }
+    }
+
+    /// New tab with the caret hunk as a unified diff. Clears Compare so the tab is visible.
+    fn open_compare_hunk_tab(&mut self) {
+        match self.compare_caret_hunk_unified() {
+            Ok(p) => {
+                self.clear_compare();
+                self.dual_view = false;
+                self.state.tabs.open_untitled();
+                {
+                    let doc = self.state.tabs.active_mut();
+                    doc.title = "compare-hunk.diff".into();
+                    doc.buffer = buffer::TextBuffer::from_str(&p.text);
+                    doc.dirty = true;
+                    doc.language = "plain".into();
+                }
+                self.state.highlight_dirty = true;
+                self.state.reset_view = true;
+                self.state.status = format!(
+                    "Opened hunk ({}/{}) unified diff (−{} +{}) “{}” | “{}”",
+                    p.ordinal, p.total, p.deletes, p.inserts, p.left_name, p.right_name
+                );
+            }
+            Err(why) => {
+                self.state.status = format!("Open Compare Hunk: {why}");
+            }
+        }
     }
 
     /// Replace the focused compare hunk with the other pane (one undo).

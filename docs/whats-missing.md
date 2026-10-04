@@ -25,7 +25,7 @@ Handlers that work but stay shallower than upstream N++:
 
 - Full Preferences (multi-language UI, …). More keys in `npp-rs/settings.json` (see `docs/preferences-p0.md`). Autosave/backup MVP: `docs/autosave-backup.md`
 - Project panels: folder list + refresh/reveal; not N++ projects
-- File compare: **2-way** + re-diff + ignore-whitespace + ignore-case + ignore-blank (View toggles) + next/prev/first/last hunk + ordinal status + dual-pane hunk align + identical status + swap sides + click/keyboard hunk sync (L|R status) + both-pane hunk select + **copy unified diff** + **open unified diff tab** + **copy current hunk** + **apply hunk from other view** + **apply all hunks from other view** + **char-level wash on replace hunks**. 3-way still open
+- File compare: **2-way** + re-diff + ignore-whitespace + ignore-case + ignore-blank (View toggles) + next/prev/first/last hunk + ordinal status + dual-pane hunk align + identical status + swap sides + click/keyboard hunk sync (L|R status) + both-pane hunk select + **copy unified diff** + **open unified diff tab** + **copy current hunk** + **open current hunk tab** + **apply hunk from other view** + **apply all hunks from other view** + **char-level wash on replace hunks**. 3-way still open
 - Change history: bar marks + undo remap; full Scintilla reverted/indicator parity open
 - CLI MVP: `-h`, `-V`, `-n`/`--line`, `-ro`, path args
 - LSP (call tips: in-file snippets only)

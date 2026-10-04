@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.48] — 2026-10-05
+
+Compare:
+
+- **View → Open Compare Hunk** opens a `compare-hunk.diff` tab with the unified diff for the change hunk at the caret (same payload as Copy Compare Hunk). Compare mode turns off so the tab stays visible. Status shows hunk ordinal and −/+ counts.
+
 ## [0.3.47] — 2026-10-04
 
 Compare:
