@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.30] — 2026-10-04
+
+Compare:
+
+- Click a red/green change line to park the other pane on the same hunk ordinal.
+- Next/Prev/First/Last Difference status shows both sides (`L12 | R15 (2/5)`).
+
 ## [0.3.29] — 2026-10-04
 
 Compare:

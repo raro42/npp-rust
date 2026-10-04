@@ -2994,6 +2994,9 @@ Tree-sitter highlight, and a calm UI.",
                     } else {
                         self.state.tabs.active_mut().clear_multi_sels();
                         self.state.tabs.active_mut().buffer.set_caret(idx);
+                        if self.compare_on {
+                            self.sync_compare_other_to_caret_hunk(true);
+                        }
                     }
                     self.drag_anchor = None;
                     self.rect_drag = false;
@@ -3725,6 +3728,78 @@ Tree-sitter highlight, and a calm UI.",
         }
     }
 
+    /// Format `L12 | R15` for a hunk ordinal (omits a side that has no line).
+    fn compare_hunk_lr_label(&self, ordinal_1based: usize) -> String {
+        let left = crate::diff::hunk_start_at_ordinal(&self.compare_left_tags, ordinal_1based)
+            .map(|l| format!("L{}", l + 1));
+        let right = crate::diff::hunk_start_at_ordinal(&self.compare_right_tags, ordinal_1based)
+            .map(|l| format!("R{}", l + 1));
+        match (left, right) {
+            (Some(l), Some(r)) => format!("{l} | {r}"),
+            (Some(l), None) => l,
+            (None, Some(r)) => r,
+            (None, None) => String::new(),
+        }
+    }
+
+    /// Clicking a change line parks the other pane on the same hunk ordinal.
+    fn sync_compare_other_to_caret_hunk(&mut self, primary: bool) {
+        if !self.compare_on {
+            return;
+        }
+        let tab = if primary {
+            self.compare_left_tab
+        } else {
+            self.compare_right_tab
+        };
+        let Some(doc) = self.state.tabs.get(tab) else {
+            return;
+        };
+        let line = doc.buffer.char_to_line(doc.buffer.caret());
+        let Some((ord, total)) = ({
+            let tags = if primary {
+                &self.compare_left_tags
+            } else {
+                &self.compare_right_tags
+            };
+            crate::diff::hunk_ordinal(tags, line)
+        }) else {
+            return;
+        };
+        let other_tab = if primary {
+            self.compare_right_tab
+        } else {
+            self.compare_left_tab
+        };
+        let other_line = {
+            let tags = if primary {
+                &self.compare_right_tags
+            } else {
+                &self.compare_left_tags
+            };
+            crate::diff::hunk_start_at_ordinal(tags, ord)
+        };
+        if let Some(oline) = other_line {
+            if let Some(doc) = self.state.tabs.get_mut(other_tab) {
+                let at = doc
+                    .buffer
+                    .line_to_char(oline.min(doc.buffer.line_count().saturating_sub(1)));
+                doc.buffer.set_caret(at);
+            }
+            if primary {
+                self.follow_caret_other = true;
+            } else {
+                self.follow_caret = true;
+            }
+        }
+        let lr = self.compare_hunk_lr_label(ord);
+        if lr.is_empty() {
+            self.state.status = format!("Compare hunk ({ord}/{total})");
+        } else {
+            self.state.status = format!("Compare hunk → {lr} ({ord}/{total})");
+        }
+    }
+
     /// Flip left/right compare panes; primary stays focused on the new left.
     fn swap_compare_sides(&mut self) {
         if !self.compare_on {
@@ -3838,7 +3913,11 @@ Tree-sitter highlight, and a calm UI.",
         let ordinal = ordinal_pair
             .map(|(i, n)| format!(" ({i}/{n})"))
             .unwrap_or_default();
-        self.state.status = format!("Compare {dir} difference → line {}{ordinal}", line + 1);
+        let lr = ordinal_pair
+            .map(|(ord, _)| self.compare_hunk_lr_label(ord))
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| format!("line {}", line + 1));
+        self.state.status = format!("Compare {dir} difference → {lr}{ordinal}");
     }
 
     fn clear_compare(&mut self) {
@@ -4271,6 +4350,9 @@ Tree-sitter highlight, and a calm UI.",
                         } else {
                             doc.buffer.set_caret(idx);
                         }
+                    }
+                    if !shift && self.compare_on {
+                        self.sync_compare_other_to_caret_hunk(false);
                     }
                 }
                 self.drag_anchor = None;
