@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.52] — 2026-10-05
+
+Compare:
+
+- **View → Clear Compare** (and other clear paths) closes the read-only `name (saved)` snapshot tab when it was part of the compare pair, so Compare to Saved does not leave an orphan tab.
+
 ## [0.3.51] — 2026-10-05
 
 Compare:

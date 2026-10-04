@@ -46,7 +46,7 @@ Or right-click the other tab → **Compare with this tab** / **Mark for compare*
 
 Status line shows: `Compare “dummy.log” | “dummy.log.2” (−N +M)`.
 
-**View → Clear Compare** removes colours.
+**View → Clear Compare** removes colours. If a Compare-to-Saved `name (saved)` snapshot was in the pair, that tab closes too (status: `Compare cleared (closed saved snapshot)`).
 
 While compare is on, panes stay pinned to that pair (tab clicks do not swap the left file away).
 

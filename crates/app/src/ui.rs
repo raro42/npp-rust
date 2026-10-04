@@ -4848,6 +4848,19 @@ Tree-sitter highlight, and a calm UI.",
     }
 
     fn clear_compare(&mut self) {
+        // Drop the Compare-to-Saved snapshot with the colours so it does not linger.
+        let snapshot = if self.compare_on {
+            [self.compare_left_tab, self.compare_right_tab]
+                .into_iter()
+                .find(|&i| {
+                    self.state
+                        .tabs
+                        .get(i)
+                        .is_some_and(is_compare_saved_snapshot)
+                })
+        } else {
+            None
+        };
         self.compare_on = false;
         self.compare_left_tags.clear();
         self.compare_right_tags.clear();
@@ -4855,6 +4868,18 @@ Tree-sitter highlight, and a calm UI.",
         self.compare_right_inline.clear();
         self.state.compare_stale = false;
         self.compare_refresh_at = None;
+        if let Some(i) = snapshot {
+            if self
+                .state
+                .tabs
+                .get(i)
+                .is_some_and(is_compare_saved_snapshot)
+            {
+                self.state.close_tab(i);
+                self.state.status = "Compare cleared (closed saved snapshot)".into();
+                return;
+            }
+        }
         self.state.status = "Compare cleared".into();
     }
 
@@ -6108,17 +6133,38 @@ fn compare_saved_snapshot_title(file_name: &str) -> String {
     format!("{file_name} (saved)")
 }
 
+/// True for the untitled read-only tab created by Compare to Saved.
+fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
+    doc.read_only && doc.path.is_none() && doc.title.ends_with(" (saved)")
+}
+
 #[cfg(test)]
 mod compare_pair_tests {
     use super::{
         compare_pair_status, compare_saved_snapshot_title, index_after_tab_close,
-        pick_compare_right,
+        is_compare_saved_snapshot, pick_compare_right,
     };
 
     #[test]
     fn saved_snapshot_title_uses_basename() {
         assert_eq!(compare_saved_snapshot_title("notes.md"), "notes.md (saved)");
         assert_eq!(compare_saved_snapshot_title("a"), "a (saved)");
+    }
+
+    #[test]
+    fn saved_snapshot_detector_matches_compare_to_saved_tabs() {
+        let mut snap = doc::Document::untitled(1, 1);
+        snap.title = compare_saved_snapshot_title("notes.md");
+        snap.read_only = true;
+        assert!(is_compare_saved_snapshot(&snap));
+
+        snap.read_only = false;
+        assert!(!is_compare_saved_snapshot(&snap));
+
+        let mut named = doc::Document::untitled(2, 2);
+        named.title = "notes.md".into();
+        named.read_only = true;
+        assert!(!is_compare_saved_snapshot(&named));
     }
 
     #[test]
