@@ -191,6 +191,9 @@ pub struct AppSettings {
     /// Word-wrap toggle chord (`Alt+Z` default). See Preferences / Shortcut Mapper.
     #[serde(default = "default_shortcut_word_wrap")]
     pub shortcut_word_wrap: String,
+    /// Unknown keys from disk. Kept so a save does not drop hand-edited or future fields.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Default for AppSettings {
@@ -230,6 +233,7 @@ impl Default for AppSettings {
             backup_on_save: false,
             autosave_interval_secs: 0,
             shortcut_word_wrap: default_shortcut_word_wrap(),
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -504,5 +508,54 @@ mod tests {
         assert!(!defaults.show_eol);
         assert!(!defaults.show_npc);
         assert!(!defaults.show_indent_guide);
+    }
+
+    #[test]
+    fn unknown_settings_keys_survive_serialize() {
+        let loaded: AppSettings =
+            serde_json::from_str(r#"{"word_wrap":true,"future_flag":true,"custom_note":"keep"}"#)
+                .expect("deserialize with extras");
+        assert!(loaded.word_wrap);
+        assert_eq!(loaded.extra.len(), 2);
+        let text = serde_json::to_string(&loaded).expect("serialize");
+        let value: serde_json::Value = serde_json::from_str(&text).expect("json");
+        assert_eq!(value["word_wrap"], serde_json::Value::Bool(true));
+        assert_eq!(value["future_flag"], serde_json::Value::Bool(true));
+        assert_eq!(
+            value["custom_note"],
+            serde_json::Value::String("keep".into())
+        );
+        assert!(value.get("extra").is_none());
+    }
+
+    #[test]
+    fn known_settings_keys_round_trip_through_json() {
+        let original = AppSettings {
+            font_size: 18.0,
+            show_line_numbers: false,
+            tab_width: 2,
+            restore_session: true,
+            find_query: "needle".into(),
+            replace_with: "hay".into(),
+            compare_ignore_ws: true,
+            compare_ignore_case: true,
+            backup_on_save: true,
+            autosave_interval_secs: 60,
+            ..Default::default()
+        };
+        let text = serde_json::to_string_pretty(&original).expect("serialize");
+        let back: AppSettings = serde_json::from_str(&text).expect("deserialize");
+        let again = serde_json::to_string_pretty(&back).expect("serialize again");
+        assert_eq!(text, again);
+        assert_eq!(back.font_size, 18.0);
+        assert!(!back.show_line_numbers);
+        assert_eq!(back.tab_width, 2);
+        assert!(back.restore_session);
+        assert_eq!(back.find_query, "needle");
+        assert_eq!(back.replace_with, "hay");
+        assert!(back.compare_ignore_ws);
+        assert!(back.compare_ignore_case);
+        assert!(back.backup_on_save);
+        assert_eq!(back.autosave_interval_secs, 60);
     }
 }

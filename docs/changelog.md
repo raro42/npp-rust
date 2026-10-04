@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.37] — 2026-10-04
+
+Preferences:
+
+- Unknown keys in `npp-rs/settings.json` survive the next save (hand-edited or future fields are not dropped).
+
 ## [0.3.36] — 2026-10-04
 
 Compare:

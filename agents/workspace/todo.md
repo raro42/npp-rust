@@ -32,3 +32,4 @@
 009 keep: recent_max honored on recent.txt load (v0.3.34)
 009 keep: View whitespace/EOL/NPC/indent-guide persist (v0.3.35)
 009 keep: compare both-pane hunk select on nav/click/start (v0.3.36)
+009 keep: settings.json unknown keys survive save (v0.3.37)

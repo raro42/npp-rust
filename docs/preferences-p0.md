@@ -27,6 +27,8 @@ New keys:
 | `show_indent_guide` | Vertical indent guides; default off |
 | `shortcut_word_wrap` | Word-wrap toggle chord (`Alt+Z` default; e.g. `Ctrl+W`) |
 
+Unknown extra keys are kept on load/save (not dropped).
+
 See also: `docs/autosave-backup.md`, `docs/folding.md`.
 
 ## Session
