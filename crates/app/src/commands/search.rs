@@ -638,17 +638,24 @@ fn find_in_files(state: &mut EditorState, ui: &mut UiFlags) {
         }
     };
     let caps = crate::search_util::FindInFilesCaps::default();
+    let use_regex = state.settings.find_regex;
     let report = crate::search_util::find_in_files_scan(
         &root,
         &q,
         state.settings.find_match_case,
+        use_regex,
         &include,
         &exclude,
         caps,
     );
+    if report.invalid_regex {
+        state.status = "Find in Files: invalid regex".into();
+        return;
+    }
 
     let mut lines_out: Vec<String> = Vec::with_capacity(report.hits.len() + 6);
-    lines_out.push(format!("Find in Files: {q:?}"));
+    let mode = if use_regex { " (regex)" } else { "" };
+    lines_out.push(format!("Find in Files{mode}: {q:?}"));
     lines_out.push("Directory: workspace root (recursive)".into());
     let inc_label = if include.is_empty() {
         "*".into()
@@ -686,7 +693,7 @@ fn find_in_files(state: &mut EditorState, ui: &mut UiFlags) {
     }
     state.highlight_dirty = true;
     state.reset_view = true;
-    state.status = format!("Find in Files: {match_count} match(es) in {files_ok} file(s)");
+    state.status = format!("Find in Files{mode}: {match_count} match(es) in {files_ok} file(s)");
 }
 
 /// Jump to the next/previous change-history line mark in the active document.

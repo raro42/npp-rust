@@ -95,6 +95,8 @@ pub struct FindInFilesReport {
     pub hits: Vec<FindInFilesHit>,
     pub files_scanned: usize,
     pub truncated: bool,
+    /// True when `use_regex` was set and the query failed to compile.
+    pub invalid_regex: bool,
 }
 
 fn should_skip_dir(name: &str, exclude: &[String]) -> bool {
@@ -131,6 +133,7 @@ pub fn find_in_files_scan(
     root: &Path,
     query: &str,
     match_case: bool,
+    use_regex: bool,
     include: &[String],
     exclude: &[String],
     caps: FindInFilesCaps,
@@ -139,6 +142,18 @@ pub fn find_in_files_scan(
     if query.is_empty() || !root.is_dir() {
         return report;
     }
+
+    let compiled = if use_regex {
+        match compile_find_regex(query, match_case) {
+            Ok(re) => Some(re),
+            Err(_) => {
+                report.invalid_regex = true;
+                return report;
+            }
+        }
+    } else {
+        None
+    };
 
     let mut stack: Vec<(PathBuf, usize)> = vec![(root.to_path_buf(), 0)];
     while let Some((dir, depth)) = stack.pop() {
@@ -199,7 +214,12 @@ pub fn find_in_files_scan(
                     report.truncated = true;
                     break;
                 }
-                if line_has_query(line, query, match_case) {
+                let hit = if let Some(re) = compiled.as_ref() {
+                    re.is_match(line)
+                } else {
+                    line_has_query(line, query, match_case)
+                };
+                if hit {
                     report.hits.push(FindInFilesHit {
                         rel_path: rel.clone(),
                         line_no: li + 1,
@@ -560,6 +580,7 @@ mod tests {
             &root,
             "needle",
             true,
+            false,
             &include,
             &exclude,
             FindInFilesCaps::default(),
@@ -570,5 +591,47 @@ mod tests {
         assert_eq!(report.hits.len(), 1);
         assert_eq!(report.hits[0].rel_path, "src/a.rs");
         assert_eq!(report.hits[0].line_no, 1);
+    }
+
+    #[test]
+    fn recursive_scan_regex_and_invalid() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let root = std::env::temp_dir().join(format!("npp-fif-re-{stamp}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(root.join("src/a.rs"), "alpha 12\nbeta\nalpha 3\n").unwrap();
+
+        let include = split_filters("*.rs");
+        let exclude = split_filters(&default_find_files_exclude());
+        let report = find_in_files_scan(
+            &root,
+            r"alpha \d+",
+            true,
+            true,
+            &include,
+            &exclude,
+            FindInFilesCaps::default(),
+        );
+        assert!(!report.invalid_regex);
+        assert_eq!(report.hits.len(), 2);
+        assert_eq!(report.hits[0].line_no, 1);
+        assert_eq!(report.hits[1].line_no, 3);
+
+        let bad = find_in_files_scan(
+            &root,
+            "[",
+            true,
+            true,
+            &include,
+            &exclude,
+            FindInFilesCaps::default(),
+        );
+        let _ = fs::remove_dir_all(&root);
+        assert!(bad.invalid_regex);
+        assert!(bad.hits.is_empty());
+        assert_eq!(bad.files_scanned, 0);
     }
 }

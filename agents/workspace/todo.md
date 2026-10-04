@@ -37,3 +37,4 @@
 009 keep: compare Copy Compare Hunk (v0.3.39)
 009 keep: compare Apply Hunk From Other View (v0.3.40)
 009 keep: compare Apply All Hunks From Other View (v0.3.42)
+009 keep: Find in Files honors Re (linear-time regex, v0.3.43)

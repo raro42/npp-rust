@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.43] — 2026-10-04
+
+Search:
+
+- **Find in Files** honors the Find bar **Re** toggle (same linear-time regex as in-file Find). Invalid patterns report `Find in Files: invalid regex` and do not open a results tab. Literal search is unchanged when **Re** is off.
+
 ## [0.3.42] — 2026-10-04
 
 Compare:
