@@ -715,11 +715,32 @@ fn hunk_apply_for_hunk(
 
 /// Every change hunk as an apply spec (file order, 1-based ordinals).
 ///
+/// Destination is the focused pane (pull from the other side).
 /// `None` when tags cannot be aligned or there are no change hunks.
 pub fn hunk_apply_all_from_other(
     left_tags: &[LineKind],
     right_tags: &[LineKind],
     focus_left: bool,
+) -> Option<Vec<HunkApply>> {
+    hunk_apply_all_for_dest(left_tags, right_tags, focus_left)
+}
+
+/// Every change hunk as an apply spec pushing onto the other pane.
+///
+/// Same run order as [`hunk_apply_all_from_other`], but destination is the
+/// non-focused side.
+pub fn hunk_apply_all_to_other(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    focus_left: bool,
+) -> Option<Vec<HunkApply>> {
+    hunk_apply_all_for_dest(left_tags, right_tags, !focus_left)
+}
+
+fn hunk_apply_all_for_dest(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    dest_left: bool,
 ) -> Option<Vec<HunkApply>> {
     let ops = align_ops(left_tags, right_tags)?;
     let runs = change_runs(&ops);
@@ -733,7 +754,7 @@ pub fn hunk_apply_all_from_other(
             &ops,
             run_start,
             run_end,
-            focus_left,
+            dest_left,
             i + 1,
             total,
         )?);
@@ -1188,5 +1209,34 @@ mod tests {
         assert_eq!(splice_hunk(&left2, all[0], &right2), ["a", "b", "c"]);
         let (le, re) = diff_line_tags(&left, &left);
         assert!(hunk_apply_all_from_other(&le, &re, true).is_none());
+    }
+
+    #[test]
+    fn hunk_apply_all_to_other_two_hunks_last_first() {
+        let left = ["keep", "old1", "mid", "old2", "tail"];
+        let right = ["keep", "new1", "mid", "new2", "tail"];
+        let (l, r) = diff_line_tags(&left, &right);
+        // Push left onto right → right becomes left.
+        let specs = hunk_apply_all_to_other(&l, &r, true).unwrap();
+        assert_eq!(specs.len(), 2);
+        assert_eq!(specs[0].ordinal, 1);
+        assert_eq!(specs[1].ordinal, 2);
+        let mut dest: Vec<String> = right.iter().map(|s| (*s).to_string()).collect();
+        for spec in specs.iter().rev() {
+            let insert: Vec<String> = left[spec.src_start..spec.src_end]
+                .iter()
+                .map(|s| (*s).to_string())
+                .collect();
+            dest.splice(spec.dest_start..spec.dest_end, insert);
+        }
+        assert_eq!(dest, ["keep", "old1", "mid", "old2", "tail"]);
+        let left2 = ["a", "c"];
+        let right2 = ["a", "b", "c"];
+        let (l2, r2) = diff_line_tags(&left2, &right2);
+        let all = hunk_apply_all_to_other(&l2, &r2, true).unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(splice_hunk(&right2, all[0], &left2), ["a", "c"]);
+        let (le, re) = diff_line_tags(&left, &left);
+        assert!(hunk_apply_all_to_other(&le, &re, true).is_none());
     }
 }

@@ -90,6 +90,10 @@ mod tests {
             &load_npp_menu(),
             "IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER"
         ));
+        assert!(has_cmd(
+            &load_npp_menu(),
+            "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS_TO_OTHER"
+        ));
         assert!(has_cmd(&load_npp_menu(), "IDM_VIEW_COMPARE_IGNORE_BLANK"));
     }
 }

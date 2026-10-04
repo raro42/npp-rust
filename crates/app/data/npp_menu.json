@@ -2104,6 +2104,12 @@
         "cmd": "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS"
       },
       {
+        "kind": "item",
+        "label": "Apply All Hunks To Other View",
+        "raw_label": "Apply All Hunks To &Other View",
+        "cmd": "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS_TO_OTHER"
+      },
+      {
         "kind": "separator"
       },
       {

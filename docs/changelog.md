@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.50] — 2026-10-05
+
+Compare:
+
+- **View → Apply All Hunks To Other View** pushes every remaining change hunk onto the other pane in one undo (last hunk first). Status shows how many hunks were applied, plus `· identical` when the pair matches.
+
 ## [0.3.49] — 2026-10-05
 
 Compare:

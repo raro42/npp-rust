@@ -111,6 +111,8 @@ pub struct UiFlags {
     pub apply_compare_hunk_to_other: bool,
     /// Replace every compare hunk on the focused pane with the other pane.
     pub apply_all_compare_hunks: bool,
+    /// Replace every compare hunk on the other pane with the focused pane.
+    pub apply_all_compare_hunks_to_other: bool,
 }
 
 /// Content for the “working on it — come back tomorrow” dialog.
@@ -297,6 +299,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_APPLY_COMPARE_HUNK"
             | "IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER"
             | "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS"
+            | "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS_TO_OTHER"
             | "IDM_EDIT_RTL"
             | "IDM_EDIT_LTR"
             | "IDM_EDIT_PASTE_AS_HTML"
@@ -598,6 +601,7 @@ mod tests {
         assert!(is_implemented("IDM_SETTING_PLUGINADM"));
         assert!(is_implemented("IDM_MACRO_STARTRECORDINGMACRO"));
         assert!(is_implemented("IDM_VIEW_APPLY_ALL_COMPARE_HUNKS"));
+        assert!(is_implemented("IDM_VIEW_APPLY_ALL_COMPARE_HUNKS_TO_OTHER"));
         assert!(is_implemented("IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER"));
         assert!(is_implemented("IDM_VIEW_OPEN_COMPARE_DIFF"));
         assert!(is_implemented("IDM_VIEW_OPEN_COMPARE_HUNK"));

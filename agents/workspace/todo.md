@@ -44,3 +44,4 @@
 009 keep: compare Ignore Blank Lines (v0.3.47)
 009 keep: compare Open Compare Hunk tab (v0.3.48)
 009 keep: compare Apply Hunk To Other View (v0.3.49)
+009 keep: compare Apply All Hunks To Other View (v0.3.50)
