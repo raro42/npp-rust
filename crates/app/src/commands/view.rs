@@ -240,6 +240,10 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.apply_compare_hunk = true;
             CmdResult::Handled
         }
+        "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS" => {
+            ui.apply_all_compare_hunks = true;
+            CmdResult::Handled
+        }
         "IDM_VIEW_ZOOM_SYNC" => {
             let on = toggle_flag(&ZOOM_SYNC);
             ui.zoom_sync = Some(on);

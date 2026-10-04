@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.42] — 2026-10-04
+
+Compare:
+
+- **View → Apply All Hunks From Other View** copies every remaining change hunk onto the focused pane in one undo. Insert-only and delete-only hunks work. Status shows how many hunks were applied.
+
 ## [0.3.41] — 2026-10-04
 
 Compare:

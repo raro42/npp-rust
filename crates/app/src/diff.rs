@@ -535,26 +535,14 @@ fn right_pos_before_op(ops: &[AlignOp], idx: usize) -> usize {
     }
 }
 
-/// Replace the focused pane's change hunk with the other pane's lines.
-///
-/// Caret on an equal line uses the next hunk (wraps), matching copy-hunk.
-/// Insert-only / delete-only hunks yield an empty dest or src range.
-pub fn hunk_apply_from_other(
-    left_tags: &[LineKind],
-    right_tags: &[LineKind],
+fn hunk_apply_from_run(
+    ops: &[AlignOp],
+    run_start: usize,
+    run_end: usize,
     focus_left: bool,
-    line: usize,
+    ordinal: usize,
+    total: usize,
 ) -> Option<HunkApply> {
-    let focus_tags = if focus_left { left_tags } else { right_tags };
-    let other_tags = if focus_left { right_tags } else { left_tags };
-    let (run_focus_left, start_line) = if let Some(start) = hunk_line_for_copy(focus_tags, line) {
-        (focus_left, start)
-    } else {
-        let start = hunk_line_for_copy(other_tags, line)?;
-        (!focus_left, start)
-    };
-    let ops = align_ops(left_tags, right_tags)?;
-    let (run_start, run_end) = change_run_containing(&ops, run_focus_left, start_line)?;
     let mut dest_lo = None;
     let mut dest_hi = None;
     let mut src_lo = None;
@@ -582,9 +570,9 @@ pub fn hunk_apply_from_other(
         (Some(a), Some(b)) => (a, b),
         (None, None) => {
             let at = if focus_left {
-                left_pos_before_op(&ops, run_start)
+                left_pos_before_op(ops, run_start)
             } else {
-                right_pos_before_op(&ops, run_start)
+                right_pos_before_op(ops, run_start)
             };
             (at, at)
         }
@@ -595,8 +583,6 @@ pub fn hunk_apply_from_other(
         (None, None) => (0, 0),
         _ => return None,
     };
-    let (ordinal, total) = hunk_ordinal_for_copy(focus_tags, line)
-        .or_else(|| hunk_ordinal_for_copy(other_tags, line))?;
     Some(HunkApply {
         dest_start,
         dest_end,
@@ -605,6 +591,78 @@ pub fn hunk_apply_from_other(
         ordinal,
         total,
     })
+}
+
+fn change_runs(ops: &[AlignOp]) -> Vec<(usize, usize)> {
+    let mut runs = Vec::new();
+    let mut i = 0usize;
+    while i < ops.len() {
+        if !op_is_change(ops[i]) {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        let mut end = i + 1;
+        while end < ops.len() && op_is_change(ops[end]) {
+            end += 1;
+        }
+        runs.push((start, end));
+        i = end;
+    }
+    runs
+}
+
+/// Replace the focused pane's change hunk with the other pane's lines.
+///
+/// Caret on an equal line uses the next hunk (wraps), matching copy-hunk.
+/// Insert-only / delete-only hunks yield an empty dest or src range.
+pub fn hunk_apply_from_other(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    focus_left: bool,
+    line: usize,
+) -> Option<HunkApply> {
+    let focus_tags = if focus_left { left_tags } else { right_tags };
+    let other_tags = if focus_left { right_tags } else { left_tags };
+    let (run_focus_left, start_line) = if let Some(start) = hunk_line_for_copy(focus_tags, line) {
+        (focus_left, start)
+    } else {
+        let start = hunk_line_for_copy(other_tags, line)?;
+        (!focus_left, start)
+    };
+    let ops = align_ops(left_tags, right_tags)?;
+    let (run_start, run_end) = change_run_containing(&ops, run_focus_left, start_line)?;
+    let (ordinal, total) = hunk_ordinal_for_copy(focus_tags, line)
+        .or_else(|| hunk_ordinal_for_copy(other_tags, line))?;
+    hunk_apply_from_run(&ops, run_start, run_end, focus_left, ordinal, total)
+}
+
+/// Every change hunk as an apply spec (file order, 1-based ordinals).
+///
+/// `None` when tags cannot be aligned or there are no change hunks.
+pub fn hunk_apply_all_from_other(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    focus_left: bool,
+) -> Option<Vec<HunkApply>> {
+    let ops = align_ops(left_tags, right_tags)?;
+    let runs = change_runs(&ops);
+    if runs.is_empty() {
+        return None;
+    }
+    let total = runs.len();
+    let mut specs = Vec::with_capacity(total);
+    for (i, (run_start, run_end)) in runs.into_iter().enumerate() {
+        specs.push(hunk_apply_from_run(
+            &ops,
+            run_start,
+            run_end,
+            focus_left,
+            i + 1,
+            total,
+        )?);
+    }
+    Some(specs)
 }
 
 /// Delete/insert counts for the change run of a hunk copy (no context equals).
@@ -962,5 +1020,34 @@ mod tests {
 
         let (le, re) = diff_line_tags(&left, &left);
         assert!(hunk_apply_from_other(&le, &re, true, 0).is_none());
+    }
+
+    #[test]
+    fn hunk_apply_all_from_other_two_hunks_last_first() {
+        let left = ["keep", "old1", "mid", "old2", "tail"];
+        let right = ["keep", "new1", "mid", "new2", "tail"];
+        let (l, r) = diff_line_tags(&left, &right);
+        let specs = hunk_apply_all_from_other(&l, &r, true).unwrap();
+        assert_eq!(specs.len(), 2);
+        assert_eq!(specs[0].ordinal, 1);
+        assert_eq!(specs[1].ordinal, 2);
+        assert_eq!(specs[0].total, 2);
+        let mut dest: Vec<String> = left.iter().map(|s| (*s).to_string()).collect();
+        for spec in specs.iter().rev() {
+            let insert: Vec<String> = right[spec.src_start..spec.src_end]
+                .iter()
+                .map(|s| (*s).to_string())
+                .collect();
+            dest.splice(spec.dest_start..spec.dest_end, insert);
+        }
+        assert_eq!(dest, ["keep", "new1", "mid", "new2", "tail"]);
+        let left2 = ["a", "c"];
+        let right2 = ["a", "b", "c"];
+        let (l2, r2) = diff_line_tags(&left2, &right2);
+        let all = hunk_apply_all_from_other(&l2, &r2, true).unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(splice_hunk(&left2, all[0], &right2), ["a", "b", "c"]);
+        let (le, re) = diff_line_tags(&left, &left);
+        assert!(hunk_apply_all_from_other(&le, &re, true).is_none());
     }
 }

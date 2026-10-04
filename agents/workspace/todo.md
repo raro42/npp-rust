@@ -36,4 +36,4 @@
 009 keep: compare Copy Compare Diff (unified, v0.3.38)
 009 keep: compare Copy Compare Hunk (v0.3.39)
 009 keep: compare Apply Hunk From Other View (v0.3.40)
-009 keep: compare char-level replace-hunk wash (v0.3.41)
+009 keep: compare Apply All Hunks From Other View (v0.3.42)

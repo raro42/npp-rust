@@ -142,6 +142,27 @@ fn join_compare_lines(lines: &[String], eol: &str, trailing_eol: bool) -> String
     out
 }
 
+fn apply_compare_hunk_spec(
+    buf: &mut buffer::TextBuffer,
+    spec: &crate::diff::HunkApply,
+    src_slice: &[String],
+) -> (usize, usize) {
+    let n = buf.line_count();
+    let (lo, hi) = compare_line_range_chars(buf, spec.dest_start, spec.dest_end);
+    let deleted = buf.slice(lo, hi);
+    let trailing_eol = if spec.dest_start == spec.dest_end {
+        spec.dest_start < n
+    } else {
+        deleted.ends_with('\n') || deleted.ends_with('\r')
+    };
+    let eol = compare_buffer_eol(buf);
+    let replacement = join_compare_lines(src_slice, eol, trailing_eol);
+    buf.set_selection(lo, hi);
+    buf.insert(&replacement);
+    let new_end = lo + replacement.chars().count();
+    (lo, new_end)
+}
+
 /// Remap a tab index after `closed` was removed. `None` if that tab was closed.
 fn index_after_tab_close(idx: usize, closed: usize) -> Option<usize> {
     if idx == closed {
@@ -939,6 +960,9 @@ impl EditorApp {
                     ),
                     "IDM_VIEW_APPLY_COMPARE_HUNK" => response.on_hover_text(
                         "Replace the focused pane's change hunk with the other pane (one undo)",
+                    ),
+                    "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS" => response.on_hover_text(
+                        "Replace every change hunk on the focused pane with the other pane (one undo)",
                     ),
                     _ => response,
                 };
@@ -3774,6 +3798,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.apply_compare_hunk {
             self.apply_compare_hunk_from_other();
         }
+        if flags.apply_all_compare_hunks {
+            self.apply_all_compare_hunks_from_other();
+        }
     }
 
     /// Toggle ignore-whitespace / ignore-case from View menu; persist and re-diff.
@@ -4044,19 +4071,7 @@ Tree-sitter highlight, and a calm UI.",
         let Some(doc) = self.state.tabs.get_mut(dest_tab) else {
             return;
         };
-        let n = doc.buffer.line_count();
-        let (lo, hi) = compare_line_range_chars(&doc.buffer, spec.dest_start, spec.dest_end);
-        let deleted = doc.buffer.slice(lo, hi);
-        let trailing_eol = if spec.dest_start == spec.dest_end {
-            spec.dest_start < n
-        } else {
-            deleted.ends_with('\n') || deleted.ends_with('\r')
-        };
-        let eol = compare_buffer_eol(&doc.buffer);
-        let replacement = join_compare_lines(src_slice, eol, trailing_eol);
-        doc.buffer.set_selection(lo, hi);
-        doc.buffer.insert(&replacement);
-        let new_end = lo + replacement.chars().count();
+        let (lo, new_end) = apply_compare_hunk_spec(&mut doc.buffer, &spec, src_slice);
         if new_end > lo {
             doc.buffer.set_selection(lo, new_end);
         } else {
@@ -4075,6 +4090,94 @@ Tree-sitter highlight, and a calm UI.",
             "Applied hunk ({}/{}) from other view",
             spec.ordinal, spec.total
         );
+    }
+
+    /// Replace every remaining change hunk on the focused pane (one undo).
+    fn apply_all_compare_hunks_from_other(&mut self) {
+        if !self.compare_on {
+            self.state.status = "Apply All Compare Hunks: Compare is off".into();
+            return;
+        }
+        let left = self.compare_left_tab;
+        let right = self.compare_right_tab;
+        let left_lines = self.tab_compare_lines(left);
+        let right_lines = self.tab_compare_lines(right);
+        if left_lines.len() != self.compare_left_tags.len()
+            || right_lines.len() != self.compare_right_tags.len()
+        {
+            if let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) {
+                self.compare_left_tags = lt;
+                self.compare_right_tags = rt;
+            } else {
+                return;
+            }
+        }
+        let primary = self.focused_pane == EditorPane::Primary || !self.dual_view;
+        let dest_tab = if primary { left } else { right };
+        let src_tab = if primary { right } else { left };
+        if self.state.tabs.get(dest_tab).is_some_and(|d| d.read_only) {
+            self.state.status = "Apply All Compare Hunks: destination is read-only".into();
+            return;
+        }
+        if self.state.tabs.get(dest_tab).is_none() {
+            self.state.status = "Apply All Compare Hunks: tab missing".into();
+            return;
+        }
+        let Some(specs) = crate::diff::hunk_apply_all_from_other(
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            primary,
+        ) else {
+            self.state.status = "Apply All Compare Hunks: no differences".into();
+            return;
+        };
+        let src_lines = self.tab_compare_lines(src_tab);
+        let dest_lines = self.tab_compare_lines(dest_tab);
+        let mut pending: Vec<(crate::diff::HunkApply, Vec<String>)> = Vec::new();
+        for spec in specs {
+            if spec.src_end > src_lines.len() || spec.src_start > spec.src_end {
+                self.state.status = "Apply All Compare Hunks: hunk out of range".into();
+                return;
+            }
+            if spec.dest_start > dest_lines.len() || spec.dest_end > dest_lines.len() {
+                self.state.status = "Apply All Compare Hunks: hunk out of range".into();
+                return;
+            }
+            let src_slice = src_lines[spec.src_start..spec.src_end].to_vec();
+            if spec.dest_end <= dest_lines.len()
+                && dest_lines[spec.dest_start..spec.dest_end] == src_slice[..]
+            {
+                continue;
+            }
+            pending.push((spec, src_slice));
+        }
+        if pending.is_empty() {
+            self.state.status = "Apply All Compare Hunks: already matches other view".into();
+            return;
+        }
+        let applied = pending.len();
+        {
+            let Some(doc) = self.state.tabs.get_mut(dest_tab) else {
+                return;
+            };
+            doc.buffer.with_transaction(|buf| {
+                for (spec, src_slice) in pending.iter().rev() {
+                    apply_compare_hunk_spec(buf, spec, src_slice);
+                }
+            });
+            doc.buffer.set_caret(0);
+        }
+        self.state.mark_text_changed_at(dest_tab);
+        self.state.compare_stale = false;
+        self.compare_refresh_at = None;
+        self.follow_caret = true;
+        self.state.highlight_dirty = true;
+        if let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) {
+            self.compare_left_tags = lt;
+            self.compare_right_tags = rt;
+        }
+        let hunk_word = if applied == 1 { "hunk" } else { "hunks" };
+        self.state.status = format!("Applied {applied} {hunk_word} from other view");
     }
 
     /// Park both compare panes on the same 1-based hunk ordinal (carets + follow).
