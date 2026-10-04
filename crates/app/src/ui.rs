@@ -3022,6 +3022,12 @@ Tree-sitter highlight, and a calm UI.",
                 let tab = self.state.tabs.active_index();
                 if self.handle_editor_input(ui, tab) {
                     self.follow_caret = true;
+                    // Arrow / keyboard caret on a change line parks the other pane (same as click).
+                    if self.compare_on
+                        && (tab == self.compare_left_tab || tab == self.compare_right_tab)
+                    {
+                        self.sync_compare_other_to_caret_hunk(tab == self.compare_left_tab);
+                    }
                 }
             }
 
@@ -3742,7 +3748,7 @@ Tree-sitter highlight, and a calm UI.",
         }
     }
 
-    /// Clicking a change line parks the other pane on the same hunk ordinal.
+    /// Landing on a change line (click or keyboard) parks the other pane on the same hunk ordinal.
     fn sync_compare_other_to_caret_hunk(&mut self, primary: bool) {
         if !self.compare_on {
             return;
@@ -4377,6 +4383,10 @@ Tree-sitter highlight, and a calm UI.",
             && self.handle_editor_input(ui, tab)
         {
             self.follow_caret_other = true;
+            // Arrow / keyboard caret on a change line parks the other pane (same as click).
+            if self.compare_on && (tab == self.compare_left_tab || tab == self.compare_right_tab) {
+                self.sync_compare_other_to_caret_hunk(tab == self.compare_left_tab);
+            }
         }
 
         if self.follow_caret_other {

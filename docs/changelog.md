@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.31] — 2026-10-04
+
+Compare:
+
+- Keyboard caret motion onto a red/green change line parks the other pane on the same hunk (same as click).
+
 ## [0.3.30] — 2026-10-04
 
 Compare:

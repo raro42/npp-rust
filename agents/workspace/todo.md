@@ -26,3 +26,4 @@
 009 keep: compare Swap Compare Sides (v0.3.28)
 009 keep: compare View ignore toggles + start dual-pane park (v0.3.29)
 009 keep: compare click-hunk sync + L|R nav status (v0.3.30)
+009 keep: compare keyboard caret hunk sync (v0.3.31)

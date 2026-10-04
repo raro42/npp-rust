@@ -55,7 +55,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - The other pane parks on the **same hunk ordinal** (line numbers may differ when sides disagree).
 - Mid-hunk Next skips to the following hunk, not the next red/green line.
 - Status shows both sides’ lines + hunk ordinal, e.g. `Compare Next difference → L12 | R15 (2/5)`.
-- Click a red/green change line to park the **other** pane on the same hunk (status: `Compare hunk → L12 | R15 (2/5)`). Equal lines leave the other pane alone.
+- Click a red/green change line, or move the caret onto one with the keyboard, to park the **other** pane on the same hunk (status: `Compare hunk → L12 | R15 (2/5)`). Equal lines leave the other pane alone.
 - When both sides match (including ignore-whitespace / ignore-case), status says `(identical)`.
 - Active ignore options appear in the status (`· ignore ws`, `· ignore case`, or `· ignore ws+case`).
 - **View → Ignore Whitespace Differences** / **Ignore Case Differences** toggle those Preferences keys (✓ when on) and re-diff immediately while Compare is on.
