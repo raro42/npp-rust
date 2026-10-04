@@ -30,6 +30,7 @@ pub enum CompareNav {
 pub enum CompareIgnoreToggle {
     Whitespace,
     Case,
+    BlankLines,
 }
 
 /// UI-side flags/commands the menu dispatcher may set.
@@ -280,6 +281,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_SWAP_COMPARE"
             | "IDM_VIEW_COMPARE_IGNORE_WS"
             | "IDM_VIEW_COMPARE_IGNORE_CASE"
+            | "IDM_VIEW_COMPARE_IGNORE_BLANK"
             | "IDM_VIEW_NEXT_DIFF"
             | "IDM_VIEW_PREV_DIFF"
             | "IDM_VIEW_FIRST_DIFF"
@@ -591,5 +593,6 @@ mod tests {
         assert!(is_implemented("IDM_MACRO_STARTRECORDINGMACRO"));
         assert!(is_implemented("IDM_VIEW_APPLY_ALL_COMPARE_HUNKS"));
         assert!(is_implemented("IDM_VIEW_OPEN_COMPARE_DIFF"));
+        assert!(is_implemented("IDM_VIEW_COMPARE_IGNORE_BLANK"));
     }
 }

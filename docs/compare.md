@@ -59,8 +59,8 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - Click a red/green change line, or move the caret onto one with the keyboard, to park **and select** the same hunk on both panes (status: `Compare hunk → L12 | R15 (2/5)`). Equal lines leave the other pane alone.
 - On replace hunks (a changed line on both sides), differing **characters** get a stronger wash so you can see the intra-line edit. Insert-only / delete-only lines stay the usual full-line colour. Very long lines (over 256 characters) skip intra-line LCS.
 - When both sides match (including ignore-whitespace / ignore-case), status says `(identical)`.
-- Active ignore options appear in the status (`· ignore ws`, `· ignore case`, or `· ignore ws+case`).
-- **View → Ignore Whitespace Differences** / **Ignore Case Differences** toggle those Preferences keys (✓ when on) and re-diff immediately while Compare is on.
+- Active ignore options appear in the status (`· ignore ws`, `· ignore case`, `· ignore blank`, or combined `ws+case+blank`).
+- **View → Ignore Whitespace Differences** / **Ignore Case Differences** / **Ignore Blank Lines** toggle those Preferences keys (✓ when on) and re-diff immediately while Compare is on. Blank-line ignore skips empty / whitespace-only lines in the LCS so padding blank lines do not create hunks.
 - **View → Swap Compare Sides** flips left/right files (and scroll), keeps focus on the new left, and re-diffs so delete/insert colours stay correct.
 - **View → Copy Compare Diff** copies a unified diff of the pair to the clipboard (3 lines of context). Status shows `Copied unified diff (−N +M)` or `(identical)`.
 - **View → Open Compare Diff** opens that unified diff in a `compare.diff` tab (Compare turns off so the tab is not pinned away). Status shows `Opened unified diff (−N +M)` or `(identical)`.
@@ -77,6 +77,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - Start Compare turns on sync H + V scroll.
 - Preferences: **Ignore whitespace differences** collapses whitespace runs before LCS.
 - Preferences: **Ignore case differences** folds letter case before LCS (combines with ignore-whitespace).
+- Preferences: **Ignore blank lines** skips blank / whitespace-only lines in the LCS (combines with the other ignore toggles).
 
 ## Not in MVP
 

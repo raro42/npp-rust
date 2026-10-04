@@ -65,13 +65,30 @@ fn pick_compare_right(
     None
 }
 
+/// Compare ignore toggles (ws / case / blank) for status wording.
+#[derive(Clone, Copy)]
+struct CompareIgnoreBits {
+    ws: bool,
+    case: bool,
+    blank: bool,
+}
+
 /// Status line for an active compare pair (identical vs change counts).
-fn compare_ignore_status_bit(ignore_ws: bool, ignore_case: bool) -> &'static str {
-    match (ignore_ws, ignore_case) {
-        (true, true) => " · ignore ws+case",
-        (true, false) => " · ignore ws",
-        (false, true) => " · ignore case",
-        (false, false) => "",
+fn compare_ignore_status_bit(bits: CompareIgnoreBits) -> String {
+    let mut parts = Vec::new();
+    if bits.ws {
+        parts.push("ws");
+    }
+    if bits.case {
+        parts.push("case");
+    }
+    if bits.blank {
+        parts.push("blank");
+    }
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!(" · ignore {}", parts.join("+"))
     }
 }
 
@@ -81,10 +98,9 @@ fn compare_pair_status(
     del: usize,
     ins: usize,
     hunk_n: usize,
-    ignore_ws: bool,
-    ignore_case: bool,
+    ignore: CompareIgnoreBits,
 ) -> String {
-    let ignore_bit = compare_ignore_status_bit(ignore_ws, ignore_case);
+    let ignore_bit = compare_ignore_status_bit(ignore);
     if del == 0 && ins == 0 {
         return format!("Compare “{lname}” | “{rname}” (identical){ignore_bit}");
     }
@@ -941,6 +957,7 @@ impl EditorApp {
                 let checked = match cmd.as_str() {
                     "IDM_VIEW_COMPARE_IGNORE_WS" => self.state.settings.compare_ignore_ws,
                     "IDM_VIEW_COMPARE_IGNORE_CASE" => self.state.settings.compare_ignore_case,
+                    "IDM_VIEW_COMPARE_IGNORE_BLANK" => self.state.settings.compare_ignore_blank,
                     _ => false,
                 };
                 let shown = if checked {
@@ -966,6 +983,9 @@ impl EditorApp {
                     ),
                     "IDM_VIEW_COMPARE_IGNORE_CASE" => response.on_hover_text(
                         "Toggle ignore letter case for Compare (Preferences persist)",
+                    ),
+                    "IDM_VIEW_COMPARE_IGNORE_BLANK" => response.on_hover_text(
+                        "Toggle ignore blank lines for Compare (Preferences persist)",
                     ),
                     "IDM_VIEW_COPY_COMPARE_DIFF" => response
                         .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
@@ -1523,6 +1543,18 @@ Tree-sitter highlight, and a calm UI.",
                             .checkbox(
                                 &mut self.state.settings.compare_ignore_case,
                                 "Ignore case differences",
+                            )
+                            .changed()
+                        {
+                            changed = true;
+                            if self.compare_on {
+                                self.state.compare_stale = true;
+                            }
+                        }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.compare_ignore_blank,
+                                "Ignore blank lines",
                             )
                             .changed()
                         {
@@ -3830,7 +3862,7 @@ Tree-sitter highlight, and a calm UI.",
         }
     }
 
-    /// Toggle ignore-whitespace / ignore-case from View menu; persist and re-diff.
+    /// Toggle ignore-whitespace / ignore-case / ignore-blank from View menu; persist and re-diff.
     fn toggle_compare_ignore(&mut self, toggle: crate::commands::CompareIgnoreToggle) {
         match toggle {
             crate::commands::CompareIgnoreToggle::Whitespace => {
@@ -3839,10 +3871,17 @@ Tree-sitter highlight, and a calm UI.",
             crate::commands::CompareIgnoreToggle::Case => {
                 self.state.settings.compare_ignore_case = !self.state.settings.compare_ignore_case;
             }
+            crate::commands::CompareIgnoreToggle::BlankLines => {
+                self.state.settings.compare_ignore_blank =
+                    !self.state.settings.compare_ignore_blank;
+            }
         }
         self.state.settings.save();
-        let ws = self.state.settings.compare_ignore_ws;
-        let case = self.state.settings.compare_ignore_case;
+        let ignore = CompareIgnoreBits {
+            ws: self.state.settings.compare_ignore_ws,
+            case: self.state.settings.compare_ignore_case,
+            blank: self.state.settings.compare_ignore_blank,
+        };
         if self.compare_on {
             // Refresh immediately so the toggle is visible without waiting for debounce.
             self.state.compare_stale = false;
@@ -3867,22 +3906,24 @@ Tree-sitter highlight, and a calm UI.",
                     .get(right)
                     .map(|d| d.title.clone())
                     .unwrap_or_else(|| "right".into());
-                self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ws, case);
+                self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore);
                 self.state.highlight_dirty = true;
             }
         } else {
             let which = match toggle {
                 crate::commands::CompareIgnoreToggle::Whitespace => "Ignore whitespace",
                 crate::commands::CompareIgnoreToggle::Case => "Ignore case",
+                crate::commands::CompareIgnoreToggle::BlankLines => "Ignore blank lines",
             };
             let on = match toggle {
-                crate::commands::CompareIgnoreToggle::Whitespace => ws,
-                crate::commands::CompareIgnoreToggle::Case => case,
+                crate::commands::CompareIgnoreToggle::Whitespace => ignore.ws,
+                crate::commands::CompareIgnoreToggle::Case => ignore.case,
+                crate::commands::CompareIgnoreToggle::BlankLines => ignore.blank,
             };
             self.state.status = format!(
                 "{which}: {}{}",
                 if on { "on" } else { "off" },
-                compare_ignore_status_bit(ws, case)
+                compare_ignore_status_bit(ignore)
             );
         }
     }
@@ -4403,11 +4444,14 @@ Tree-sitter highlight, and a calm UI.",
         let hunk_n = crate::diff::hunk_starts(&self.compare_left_tags)
             .len()
             .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
-        let ignore_ws = self.state.settings.compare_ignore_ws;
-        let ignore_case = self.state.settings.compare_ignore_case;
+        let ignore = CompareIgnoreBits {
+            ws: self.state.settings.compare_ignore_ws,
+            case: self.state.settings.compare_ignore_case,
+            blank: self.state.settings.compare_ignore_blank,
+        };
         self.state.status = format!(
             "Swapped sides — {}",
-            compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore_ws, ignore_case)
+            compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore)
         );
     }
 
@@ -4583,10 +4627,12 @@ Tree-sitter highlight, and a calm UI.",
                     .get(right)
                     .map(|d| d.title.clone())
                     .unwrap_or_else(|| "right".into());
-                let ignore_ws = self.state.settings.compare_ignore_ws;
-                let ignore_case = self.state.settings.compare_ignore_case;
-                self.state.status =
-                    compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore_ws, ignore_case);
+                let ignore = CompareIgnoreBits {
+                    ws: self.state.settings.compare_ignore_ws,
+                    case: self.state.settings.compare_ignore_case,
+                    blank: self.state.settings.compare_ignore_blank,
+                };
+                self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore);
             }
             None => {
                 // Too many lines or missing tabs — leave prior tags; status already set.
@@ -4617,6 +4663,7 @@ Tree-sitter highlight, and a calm UI.",
         }
         let ignore_ws = self.state.settings.compare_ignore_ws;
         let ignore_case = self.state.settings.compare_ignore_case;
+        let ignore_blank = self.state.settings.compare_ignore_blank;
         let left_keys: Vec<String> = left_lines
             .iter()
             .map(|s| crate::diff::compare_line_key(s, ignore_ws, ignore_case))
@@ -4627,7 +4674,8 @@ Tree-sitter highlight, and a calm UI.",
             .collect();
         let left_refs: Vec<&str> = left_keys.iter().map(|s| s.as_str()).collect();
         let right_refs: Vec<&str> = right_keys.iter().map(|s| s.as_str()).collect();
-        let (lt, rt) = crate::diff::diff_line_tags(&left_refs, &right_refs);
+        let (lt, rt) =
+            crate::diff::diff_line_tags_ignore_blank(&left_refs, &right_refs, ignore_blank);
         let (del, ins) = crate::diff::count_changes(&lt, &rt);
         let left_orig: Vec<&str> = left_lines.iter().map(|s| s.as_str()).collect();
         let right_orig: Vec<&str> = right_lines.iter().map(|s| s.as_str()).collect();
@@ -4698,10 +4746,12 @@ Tree-sitter highlight, and a calm UI.",
             .get(right)
             .map(|d| d.title.clone())
             .unwrap_or_else(|| "right".into());
-        let ignore_ws = self.state.settings.compare_ignore_ws;
-        let ignore_case = self.state.settings.compare_ignore_case;
-        self.state.status =
-            compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore_ws, ignore_case);
+        let ignore = CompareIgnoreBits {
+            ws: self.state.settings.compare_ignore_ws,
+            case: self.state.settings.compare_ignore_case,
+            blank: self.state.settings.compare_ignore_blank,
+        };
+        self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore);
     }
 
     /// Writable secondary pane: edits `other_view_tab` when this pane has focus.
@@ -5734,21 +5784,79 @@ mod compare_pair_tests {
 
     #[test]
     fn status_identical_vs_counts() {
+        use super::CompareIgnoreBits;
+        let none = CompareIgnoreBits {
+            ws: false,
+            case: false,
+            blank: false,
+        };
         assert_eq!(
-            compare_pair_status("a", "b", 0, 0, 0, false, false),
+            compare_pair_status("a", "b", 0, 0, 0, none),
             "Compare “a” | “b” (identical)"
         );
         assert_eq!(
-            compare_pair_status("a", "b", 1, 2, 2, false, false),
+            compare_pair_status("a", "b", 1, 2, 2, none),
             "Compare “a” | “b” (−1 +2) · 2 hunks"
         );
         assert_eq!(
-            compare_pair_status("a", "b", 0, 0, 0, true, true),
+            compare_pair_status(
+                "a",
+                "b",
+                0,
+                0,
+                0,
+                CompareIgnoreBits {
+                    ws: true,
+                    case: true,
+                    blank: false
+                }
+            ),
             "Compare “a” | “b” (identical) · ignore ws+case"
         );
         assert_eq!(
-            compare_pair_status("a", "b", 1, 0, 1, true, false),
+            compare_pair_status(
+                "a",
+                "b",
+                1,
+                0,
+                1,
+                CompareIgnoreBits {
+                    ws: true,
+                    case: false,
+                    blank: false
+                }
+            ),
             "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws"
+        );
+        assert_eq!(
+            compare_pair_status(
+                "a",
+                "b",
+                0,
+                0,
+                0,
+                CompareIgnoreBits {
+                    ws: false,
+                    case: false,
+                    blank: true
+                }
+            ),
+            "Compare “a” | “b” (identical) · ignore blank"
+        );
+        assert_eq!(
+            compare_pair_status(
+                "a",
+                "b",
+                1,
+                0,
+                1,
+                CompareIgnoreBits {
+                    ws: true,
+                    case: true,
+                    blank: true
+                }
+            ),
+            "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws+case+blank"
         );
     }
 

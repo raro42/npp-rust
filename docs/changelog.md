@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.47] — 2026-10-04
+
+Compare:
+
+- **View → Ignore Blank Lines** (Preferences `compare_ignore_blank`) skips blank / whitespace-only lines in the LCS so extra empty lines do not create hunks. Combines with ignore-whitespace / ignore-case; status shows `· ignore blank` (or `ws+case+blank`).
+
 ## [0.3.46] — 2026-10-04
 
 Compare:

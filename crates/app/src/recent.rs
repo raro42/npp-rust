@@ -170,6 +170,9 @@ pub struct AppSettings {
     /// Compare: treat letter case as equal.
     #[serde(default)]
     pub compare_ignore_case: bool,
+    /// Compare: skip blank / whitespace-only lines in the LCS.
+    #[serde(default)]
+    pub compare_ignore_blank: bool,
     /// Last project panel folder (absolute or relative path string).
     #[serde(default)]
     pub workspace_root: String,
@@ -226,6 +229,7 @@ impl Default for AppSettings {
             replace_with: String::new(),
             compare_ignore_ws: false,
             compare_ignore_case: false,
+            compare_ignore_blank: false,
             workspace_root: String::new(),
             project_filter: String::new(),
             find_files_include: String::new(),
@@ -539,6 +543,7 @@ mod tests {
             replace_with: "hay".into(),
             compare_ignore_ws: true,
             compare_ignore_case: true,
+            compare_ignore_blank: true,
             backup_on_save: true,
             autosave_interval_secs: 60,
             ..Default::default()
@@ -555,6 +560,7 @@ mod tests {
         assert_eq!(back.replace_with, "hay");
         assert!(back.compare_ignore_ws);
         assert!(back.compare_ignore_case);
+        assert!(back.compare_ignore_blank);
         assert!(back.backup_on_save);
         assert_eq!(back.autosave_interval_secs, 60);
     }

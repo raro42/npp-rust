@@ -208,6 +208,49 @@ pub fn compare_line_key(line: &str, ignore_ws: bool, ignore_case: bool) -> Strin
     }
 }
 
+/// True when a compare key (or raw line) is blank / whitespace-only.
+pub fn is_compare_blank_line(line: &str) -> bool {
+    line.is_empty() || line.chars().all(|c| c.is_whitespace())
+}
+
+/// Line tags with blank lines forced to [`LineKind::Equal`] (skipped in LCS).
+///
+/// Non-blank lines still LCS-align among themselves. Extra blank lines on either
+/// side do not create insert/delete tags when `ignore_blank` is on.
+pub fn diff_line_tags_ignore_blank(
+    left: &[&str],
+    right: &[&str],
+    ignore_blank: bool,
+) -> (Vec<LineKind>, Vec<LineKind>) {
+    if !ignore_blank {
+        return diff_line_tags(left, right);
+    }
+    let left_idx: Vec<usize> = left
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| !is_compare_blank_line(s))
+        .map(|(i, _)| i)
+        .collect();
+    let right_idx: Vec<usize> = right
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| !is_compare_blank_line(s))
+        .map(|(i, _)| i)
+        .collect();
+    let left_f: Vec<&str> = left_idx.iter().map(|&i| left[i]).collect();
+    let right_f: Vec<&str> = right_idx.iter().map(|&i| right[i]).collect();
+    let (lt_f, rt_f) = diff_line_tags(&left_f, &right_f);
+    let mut left_tags = vec![LineKind::Equal; left.len()];
+    let mut right_tags = vec![LineKind::Equal; right.len()];
+    for (k, &i) in left_idx.iter().enumerate() {
+        left_tags[i] = lt_f[k];
+    }
+    for (k, &i) in right_idx.iter().enumerate() {
+        right_tags[i] = rt_f[k];
+    }
+    (left_tags, right_tags)
+}
+
 /// True when this line starts a change hunk (non-equal after equal, or file start).
 fn is_hunk_start(tags: &[LineKind], i: usize) -> bool {
     tags.get(i).is_some_and(|k| *k != LineKind::Equal) && (i == 0 || tags[i - 1] == LineKind::Equal)
@@ -862,6 +905,29 @@ mod tests {
             compare_line_key("A  B", true, true),
             compare_line_key("a b", true, true)
         );
+    }
+
+    #[test]
+    fn ignore_blank_skips_extra_blank_lines() {
+        let left = ["a", "", "b"];
+        let right = ["a", "b"];
+        let (l0, r0) = diff_line_tags(&left, &right);
+        assert!(l0.contains(&LineKind::Delete));
+        assert_eq!(r0.iter().filter(|k| **k != LineKind::Equal).count(), 0);
+
+        let (l, r) = diff_line_tags_ignore_blank(&left, &right, true);
+        assert!(l.iter().all(|k| *k == LineKind::Equal));
+        assert!(r.iter().all(|k| *k == LineKind::Equal));
+
+        // Content diffs still surface; blanks stay Equal.
+        let left2 = ["a", "  ", "x"];
+        let right2 = ["a", "y"];
+        let (l2, r2) = diff_line_tags_ignore_blank(&left2, &right2, true);
+        assert_eq!(l2[0], LineKind::Equal);
+        assert_eq!(l2[1], LineKind::Equal);
+        assert_eq!(l2[2], LineKind::Delete);
+        assert_eq!(r2[0], LineKind::Equal);
+        assert_eq!(r2[1], LineKind::Insert);
     }
 
     #[test]

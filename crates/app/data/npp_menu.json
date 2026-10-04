@@ -2057,6 +2057,12 @@
       },
       {
         "kind": "item",
+        "label": "Ignore Blank Lines",
+        "raw_label": "Ignore &Blank Lines",
+        "cmd": "IDM_VIEW_COMPARE_IGNORE_BLANK"
+      },
+      {
+        "kind": "item",
         "label": "Copy Compare Diff",
         "raw_label": "Cop&y Compare Diff",
         "cmd": "IDM_VIEW_COPY_COMPARE_DIFF"
