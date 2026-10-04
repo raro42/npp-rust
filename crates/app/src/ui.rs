@@ -3891,6 +3891,8 @@ Tree-sitter highlight, and a calm UI.",
         let ordinal_pair = crate::diff::hunk_ordinal(tags, line);
         if let Some((ord, _)) = ordinal_pair {
             self.park_compare_hunk_ordinal(ord);
+            // Select the whole hunk on the focused pane so Copy/Delete hit the change.
+            self.select_compare_hunk_on_pane(primary, ord);
         } else if let Some(doc) = self.state.tabs.get_mut(tab) {
             let at = doc.buffer.line_to_char(line);
             doc.buffer.set_caret(at);
@@ -3930,6 +3932,43 @@ Tree-sitter highlight, and a calm UI.",
         };
         let wrap_bit = if wrapped { " · wrapped" } else { "" };
         self.state.status = format!("Compare {dir} difference → {lr}{ordinal}{wrap_bit}");
+    }
+
+    /// Select change lines for a hunk ordinal on the focused compare pane.
+    fn select_compare_hunk_on_pane(&mut self, primary: bool, ordinal_1based: usize) {
+        let (tab, range) = if primary {
+            (
+                self.compare_left_tab,
+                crate::diff::hunk_line_range(&self.compare_left_tags, ordinal_1based),
+            )
+        } else {
+            (
+                self.compare_right_tab,
+                crate::diff::hunk_line_range(&self.compare_right_tags, ordinal_1based),
+            )
+        };
+        let Some((start, end)) = range else {
+            return;
+        };
+        let Some(doc) = self.state.tabs.get_mut(tab) else {
+            return;
+        };
+        let line_count = doc.buffer.line_count();
+        if line_count == 0 {
+            return;
+        }
+        let start = start.min(line_count.saturating_sub(1));
+        let anchor = doc.buffer.line_to_char(start);
+        let caret = if end >= line_count {
+            doc.buffer.len_chars()
+        } else {
+            doc.buffer.line_to_char(end)
+        };
+        if caret > anchor {
+            doc.buffer.set_selection(anchor, caret);
+        } else {
+            doc.buffer.set_caret(anchor);
+        }
     }
 
     fn clear_compare(&mut self) {

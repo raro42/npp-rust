@@ -170,6 +170,27 @@ pub fn hunk_start_at_ordinal(tags: &[LineKind], ordinal_1based: usize) -> Option
     hunk_starts(tags).get(ordinal_1based - 1).copied()
 }
 
+/// Exclusive end line of the change hunk that starts at `start`.
+///
+/// `None` when `start` is not a hunk start.
+pub fn hunk_end_exclusive(tags: &[LineKind], start: usize) -> Option<usize> {
+    if !is_hunk_start(tags, start) {
+        return None;
+    }
+    let mut end = start + 1;
+    while end < tags.len() && tags[end] != LineKind::Equal {
+        end += 1;
+    }
+    Some(end)
+}
+
+/// Inclusive-start / exclusive-end line range for a 1-based hunk ordinal.
+pub fn hunk_line_range(tags: &[LineKind], ordinal_1based: usize) -> Option<(usize, usize)> {
+    let start = hunk_start_at_ordinal(tags, ordinal_1based)?;
+    let end = hunk_end_exclusive(tags, start)?;
+    Some((start, end))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,5 +291,14 @@ mod tests {
         assert_eq!(hunk_starts(&tags).first().copied(), Some(1));
         assert_eq!(hunk_starts(&tags).last().copied(), Some(4));
         assert!(hunk_starts(&[Equal, Equal]).is_empty());
+        assert_eq!(hunk_end_exclusive(&tags, 1), Some(3));
+        assert_eq!(hunk_end_exclusive(&tags, 4), Some(5));
+        assert_eq!(hunk_end_exclusive(&tags, 2), None); // mid-hunk
+        assert_eq!(hunk_line_range(&tags, 1), Some((1, 3)));
+        assert_eq!(hunk_line_range(&tags, 2), Some((4, 5)));
+        assert_eq!(hunk_line_range(&tags, 3), None);
+        // Trailing hunk to EOF.
+        let trail = vec![Equal, Delete, Delete];
+        assert_eq!(hunk_line_range(&trail, 1), Some((1, 3)));
     }
 }

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.33] — 2026-10-04
+
+Compare:
+
+- Next/Prev/First/Last Difference selects the whole change hunk on the focused pane (Copy/Delete apply to the change).
+
 ## [0.3.32] — 2026-10-04
 
 Compare:

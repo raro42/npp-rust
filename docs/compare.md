@@ -51,9 +51,9 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - Starting Compare parks **both** panes on the **first** change hunk (same ordinal; status shows hunk count).
 - **View → Next Difference** / **Previous Difference** (or **F7** / **Shift+F7**)
 - **View → First Difference** / **Last Difference** (or **⌘/Ctrl+F7** / **⌘/Ctrl+Shift+F7**)
-- Moves the caret on the focused pane to the start of the next/previous change hunk (wraps), or jumps to the first/last hunk.
+- Moves the caret on the focused pane to the start of the next/previous change hunk (wraps), or jumps to the first/last hunk, and **selects that hunk’s change lines** on the focused pane (Copy/Delete apply to the whole change).
 - Next/Prev that wrap past the end/beginning append `· wrapped` to the status (e.g. `Compare Next difference → L12 | R15 (1/5) · wrapped`).
-- The other pane parks on the **same hunk ordinal** (line numbers may differ when sides disagree).
+- The other pane parks on the **same hunk ordinal** (line numbers may differ when sides disagree); click/keyboard sync still parks caret only (no selection).
 - Mid-hunk Next skips to the following hunk, not the next red/green line.
 - Status shows both sides’ lines + hunk ordinal, e.g. `Compare Next difference → L12 | R15 (2/5)`.
 - Click a red/green change line, or move the caret onto one with the keyboard, to park the **other** pane on the same hunk (status: `Compare hunk → L12 | R15 (2/5)`). Equal lines leave the other pane alone.

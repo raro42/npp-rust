@@ -28,3 +28,4 @@
 009 keep: compare click-hunk sync + L|R nav status (v0.3.30)
 009 keep: compare keyboard caret hunk sync (v0.3.31)
 009 keep: compare next/prev wrap status (v0.3.32)
+009 keep: compare nav selects hunk on focused pane (v0.3.33)
