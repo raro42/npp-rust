@@ -13,15 +13,17 @@ Source: `~/projects/mac-stats/agents/` + overnight harness scripts
 | Weekly quality / root clutter | `agents/007-quality/` + `scripts/scan_repo_quality.py` |
 | Overnight git flush (no dirty leftovers) | `scripts/git_flush.py` + loop step 008 |
 | Loop observability ticks | `AGENT_LOOP_TICK` / sleep notes in `npp-cursor-loop.sh` |
-| Single-agent lock (no overlap) | `agents/state/agent.pid` |
-| Daily CI watch | Already: step 005 |
+| Single-agent lock (no overlap) | `agents/state/loop.pid` + `cursor.pid` |
+| Daily CI watch | Step 005 |
+| Autoresearch keep/discard | `docs/autoresearch/` + `scripts/autoresearch_ratchet.py` + loop step 009 |
+| Reboot-safe loop | systemd user unit (`scripts/install_npp_rs_units.py`), like backoffice |
 
 ## What we did **not** copy
 
 - OpenClaw / Discord / Ollama tool loops
-- Autoresearch ratchets and sibling harnesses
-- Night-only window (20:00–06:00) — npp loop stays on-demand / unattended
+- mac-stats sibling harness watcher / digester / morning-surprise home files
+- LaunchAgent plists (Linux uses systemd)
 
 ## Standing expectation
 
-Do not wait for the operator to ask why CI is red, panic.log grew, or the tree is dirty. The loop must notice.
+Do not wait for the operator to ask why CI is red, panic.log grew, or the tree is dirty. The loop must notice. Overnight, idle ticks must keep or discard, not only sleep.

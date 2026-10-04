@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# npp-rust agent loop — CI → logs → quality → flush → pickup → code → test → handoff.
+# npp-rust agent loop — CI → logs → quality → flush → pickup → code → test → handoff → overnight research.
 # Run from repo root:
 #   ./agents/npp-cursor-loop.sh once
 #   ./agents/npp-cursor-loop.sh loop
@@ -7,10 +7,14 @@
 # Env:
 #   NPP_GH_REPO=raro42/npp-rust
 #   AGENT_LOOP_SLEEP_MINUTES=15
+#   AGENT_LOOP_BUSY_SLEEP_SECONDS=15
 #   AGENT_USE_CURSOR=1|0
 #   AGENT_CI_WATCH_FORCE=1
 #   AGENT_QUALITY_FORCE=1
 #   AGENT_GIT_FLUSH_FORCE=1
+#   AGENT_AUTORESEARCH=1|0
+#   AGENT_AUTORESEARCH_FORCE=1
+#   AGENT_AUTORESEARCH_INTERVAL_SECONDS=1200
 
 set -euo pipefail
 
@@ -22,6 +26,8 @@ STATEDIR="${SCRIPTDIR}/state"
 GH_REPO="${NPP_GH_REPO:-raro42/npp-rust}"
 sleepminutes="${AGENT_LOOP_SLEEP_MINUTES:-15}"
 sleepseconds=$((sleepminutes * 60))
+busy_sleep_seconds="${AGENT_LOOP_BUSY_SLEEP_SECONDS:-15}"
+autoresearch_interval="${AGENT_AUTORESEARCH_INTERVAL_SECONDS:-1200}"
 # Cursor-agent spawn lock (one coder/tester at a time).
 CURSOR_LOCK="${STATEDIR}/cursor.pid"
 # Single-instance loop lock (PID file). Prevents duplicate `loop` processes.
@@ -167,12 +173,48 @@ run_cursor() {
 }
 
 sync_main() {
+  if [[ "${AGENT_GIT_SYNC:-1}" != "1" ]]; then
+    echo "----- git sync skipped (AGENT_GIT_SYNC=${AGENT_GIT_SYNC:-})"
+    return 0
+  fi
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    if [[ -n "$(git status --porcelain 2>/dev/null || true)" ]]; then
+      echo "----- git sync skipped (dirty tree; refuse autostash)"
+      return 0
+    fi
     git fetch origin 2>/dev/null || true
     if git show-ref --verify --quiet refs/heads/main; then
       git checkout main 2>/dev/null || true
       git pull --rebase --autostash origin main 2>/dev/null || true
     fi
+  fi
+}
+
+queue_has_live_work() {
+  compgen -G "${TASKDIR}/FEAT-*.md" >/dev/null && return 0
+  compgen -G "${TASKDIR}/WIP-*.md" >/dev/null && return 0
+  compgen -G "${TASKDIR}/TEST-*.md" >/dev/null && return 0
+  local f
+  for f in $(ls -1 "$DONEDIR"/DONE-*.md 2>/dev/null || true); do
+    if ! grep -qE '^[[:space:]]*-?[[:space:]]*Handoff:[[:space:]]*complete' "$f" 2>/dev/null; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+overnight_window() {
+  local h
+  h="$(date +%H)"
+  h=$((10#$h))
+  [[ "$h" -ge 20 || "$h" -lt 6 ]]
+}
+
+cycle_sleep_seconds() {
+  if queue_has_live_work; then
+    echo "$busy_sleep_seconds"
+  else
+    echo "$sleepseconds"
   fi
 }
 
@@ -269,6 +311,10 @@ step_007_quality() {
 
 step_008_git_flush() {
   echo "===== 008 git flush ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+  if [[ "${AGENT_GIT_FLUSH:-1}" != "1" ]]; then
+    echo "----- 008: disabled (AGENT_GIT_FLUSH=${AGENT_GIT_FLUSH:-})"
+    return 0
+  fi
   if [[ "${AGENT_GIT_FLUSH_FORCE:-0}" != "1" ]] && stamp_is_today "git-flush.stamp"; then
     echo "----- 008: already flushed today"
     return 0
@@ -364,6 +410,36 @@ step_003_tester() {
     "Follow agents/003-tester.md. Read agents/workspace/lessons.md. Test the oldest TEST- task. Prefer ./scripts/ci-local.sh. On pass: DONE under agents/tasks/done/. On fail: back to WIP- with notes. Do not close the issue. Obey privacy rules."
 }
 
+step_009_autoresearch() {
+  echo "===== 009 autoresearch ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+  if [[ "${AGENT_AUTORESEARCH:-1}" != "1" ]]; then
+    echo "----- 009: disabled (AGENT_AUTORESEARCH=${AGENT_AUTORESEARCH:-})"
+    return 0
+  fi
+  if [[ "${AGENT_AUTORESEARCH_FORCE:-0}" != "1" ]] && ! overnight_window; then
+    echo "----- 009: skip (daytime; overnight is 20:00-06:00 local)"
+    return 0
+  fi
+  if queue_has_live_work; then
+    echo "----- 009: skip (live FEAT/WIP/TEST/handoff in queue)"
+    return 0
+  fi
+  local last now
+  last="$(cat "${STATEDIR}/autoresearch.last" 2>/dev/null || echo 0)"
+  now="$(date +%s)"
+  if [[ "${AGENT_AUTORESEARCH_FORCE:-0}" != "1" ]] && [[ "$((now - last))" -lt "$autoresearch_interval" ]]; then
+    echo "----- 009: skip (interval ${autoresearch_interval}s; last ${last})"
+    return 0
+  fi
+  echo "$now" >"${STATEDIR}/autoresearch.last"
+  export NPP_AUTORESEARCH_ALLOW_RESET=1
+  echo "----- 009: spawn cursor-agent"
+  run_cursor "009" \
+    "Follow agents/009-autoresearch.md and docs/autoresearch/program.md. Read agents/workspace/lessons.md and docs/autoresearch/standing_backlog.md. One keep-or-discard experiment. Run python3 scripts/autoresearch_ratchet.py verify. On fail discard with NPP_AUTORESEARCH_ALLOW_RESET=1. On pass run ./scripts/ci-local.sh then commit and push origin/main. Obey privacy rules. Do not ask the operator."
+  unset NPP_AUTORESEARCH_ALLOW_RESET
+  return 0
+}
+
 step_004_handoff() {
   local task base issue_n
   task=""
@@ -403,6 +479,7 @@ run_once() {
   step_004_handoff
   step_003_tester
   step_004_handoff
+  step_009_autoresearch
   echo "===== cycle done ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
   tick "cycle_done"
 }
@@ -415,12 +492,13 @@ case "$cmd" in
       exit 1
     fi
     trap 'release_loop_lock' EXIT INT TERM
-    echo "===== npp loop start AGENT_USE_CURSOR=${AGENT_USE_CURSOR} sleep=${sleepminutes}m pid=$$"
+    echo "===== npp loop start AGENT_USE_CURSOR=${AGENT_USE_CURSOR} idle_sleep=${sleepminutes}m busy_sleep=${busy_sleep_seconds}s pid=$$"
     while true; do
       run_once || true
-      echo "AGENT_LOOP_SLEEP {\"minutes\":${sleepminutes}}"
-      echo "----- sleep ${sleepminutes}m"
-      sleep "$sleepseconds"
+      wait_s="$(cycle_sleep_seconds)"
+      echo "AGENT_LOOP_SLEEP {\"seconds\":${wait_s}}"
+      echo "----- sleep ${wait_s}s"
+      sleep "$wait_s"
     done
     ;;
   status)
@@ -439,8 +517,9 @@ case "$cmd" in
   006) sync_main; step_006_log_monitor ;;
   007) sync_main; step_007_quality ;;
   008) sync_main; AGENT_GIT_FLUSH_FORCE=1 step_008_git_flush ;;
+  009) sync_main; AGENT_AUTORESEARCH_FORCE=1 step_009_autoresearch ;;
   *)
-    echo "usage: $0 [once|loop|status|001|002|003|004|005|006|007|008]" >&2
+    echo "usage: $0 [once|loop|status|001|002|003|004|005|006|007|008|009]" >&2
     exit 2
     ;;
 esac

@@ -24,6 +24,9 @@ REQUIRED = (
     "scripts/ci-local.sh",
     "scripts/ci-watch.py",
     "agents/npp-cursor-loop.sh",
+    "agents/009-autoresearch.md",
+    "scripts/autoresearch_ratchet.py",
+    "docs/autoresearch/program.md",
     ".github/workflows/ci.yml",
 )
 

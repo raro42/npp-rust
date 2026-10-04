@@ -5,9 +5,9 @@
 - Agent loop: `docs/agent-loop.md`
 - Inspiration map: `docs/agent-loop-mac-stats-inspiration.md`
 - Standing rules: `agents/README.md`
-- Pipeline: **005 CI → 006 logs → 007 quality → 008 git flush → 001 pickup → 002 coder → 003 tester → 004 handoff**
+- Pipeline: **005 CI → 006 logs → 007 quality → 008 git flush → 001 pickup → 002 coder → 003 tester → 004 handoff → 009 autoresearch**
 - Local CI: `./scripts/ci-local.sh`
 - Privacy: `docs/security-public-repo.md` · `./scripts/gh-safe.sh`
 - Issue tasks: `python3 agents/issue_checker.py`
 - Disk hygiene: `./scripts/daily-clean.sh`
-- Long run: `agents/start-unattended.command`
+- Long run: `python3 scripts/install_npp_rs_units.py` (Linux) or `agents/start-unattended.command`

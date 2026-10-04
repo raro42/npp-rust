@@ -22,9 +22,10 @@ Agent-ops for **npp-rs**. Privacy-first (public repo).
 | 002 | Coder | `002-coder.md` |
 | 003 | Tester | `003-tester.md` |
 | 004 | Handoff | `004-handoff.md` |
+| 009 | Autoresearch (overnight idle) | `009-autoresearch.md` · `docs/autoresearch/` |
 
 Loop: `./agents/npp-cursor-loop.sh once|loop|status` — see [docs/agent-loop.md](../docs/agent-loop.md).  
-**Single instance:** `agents/state/loop.pid` — see [docs/agent-loop-lock.md](../docs/agent-loop-lock.md). Do not open `start-unattended.command` repeatedly; it refuses duplicates.
+**Single instance:** `agents/state/loop.pid` — see [docs/agent-loop-lock.md](../docs/agent-loop-lock.md). Linux: `python3 scripts/install_npp_rs_units.py`. Do not open `start-unattended.command` repeatedly; it refuses duplicates.
 
 ## Layout
 

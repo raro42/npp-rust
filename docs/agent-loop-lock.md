@@ -11,7 +11,9 @@ Date: 2026-08-31
 | File | Role |
 |------|------|
 | `loop.pid` | **One** `npp-cursor-loop.sh loop` process. Written at loop start; cleared on exit. |
-| `cursor.pid` | One `cursor-agent` spawn at a time (coder/tester/handoff). |
+| `cursor.pid` | One `cursor-agent` spawn at a time (coder/tester/handoff/research). |
+
+On Linux, prefer `python3 scripts/install_npp_rs_units.py` so systemd owns the loop. Do not also run `start-unattended.command` (duplicate lock).
 
 ## Behaviour
 

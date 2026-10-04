@@ -18,11 +18,12 @@ Each cycle (`./agents/npp-cursor-loop.sh once` or `loop`):
 0c. **007** — weekly quality scan  
 0d. **008** — daily git flush (safe dirty files)  
 1. **001** — pick up issues → `FEAT-`  
-2. **004** — finish any pending handoff (`DONE-` without `Handoff: complete`)  
+2. **002** — code oldest `FEAT-` / `WIP-` → leave as `TEST-` when the batch is ready  
 3. **003** — test any `TEST-`  
-4. **002** — code oldest `FEAT-` / `WIP-` → leave as `TEST-` when the batch is ready  
+4. **004** — finish any pending handoff (`DONE-` without `Handoff: complete`)  
 5. **003** again — catch a fresh `TEST-` from this cycle  
 6. **004** again — changelog + close issue when tests passed  
+7. **009** — overnight autoresearch when the queue is idle (`docs/autoresearch/program.md`)  
 
 `FEAT-ci-…` tasks are created by `scripts/ci-watch.py` when the latest finished CI is red. Cloud CI schedule: 2×/day (see `.github/workflows/ci.yml`).
 
