@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.38] — 2026-10-04
+
+Compare:
+
+- **View → Copy Compare Diff** copies a unified diff of the compared pair to the clipboard (3 lines of context). Status shows change counts or `(identical)`.
+
 ## [0.3.37] — 2026-10-04
 
 Preferences:

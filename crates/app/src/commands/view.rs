@@ -228,6 +228,10 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.compare_nav = Some(super::CompareNav::Last);
             CmdResult::Handled
         }
+        "IDM_VIEW_COPY_COMPARE_DIFF" => {
+            ui.copy_compare_diff = true;
+            CmdResult::Handled
+        }
         "IDM_VIEW_ZOOM_SYNC" => {
             let on = toggle_flag(&ZOOM_SYNC);
             ui.zoom_sync = Some(on);

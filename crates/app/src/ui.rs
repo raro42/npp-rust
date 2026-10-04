@@ -722,7 +722,7 @@ impl EditorApp {
             }
             _ => {}
         }
-        self.apply_dual_view_flags(&flags);
+        self.apply_dual_view_flags(&mut flags);
     }
 
     fn menu_bar(&mut self, ctx: &egui::Context) {
@@ -808,7 +808,7 @@ impl EditorApp {
                 }
                 _ => {}
             }
-            self.apply_dual_view_flags(&flags);
+            self.apply_dual_view_flags(&mut flags);
             if let Some(on) = flags.always_on_top {
                 ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(if on {
                     egui::WindowLevel::AlwaysOnTop
@@ -881,6 +881,8 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_IGNORE_CASE" => response.on_hover_text(
                         "Toggle ignore letter case for Compare (Preferences persist)",
                     ),
+                    "IDM_VIEW_COPY_COMPARE_DIFF" => response
+                        .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
                     _ => response,
                 };
                 if response.clicked() {
@@ -3630,7 +3632,7 @@ Tree-sitter highlight, and a calm UI.",
         }
     }
 
-    fn apply_dual_view_flags(&mut self, flags: &crate::commands::UiFlags) {
+    fn apply_dual_view_flags(&mut self, flags: &mut crate::commands::UiFlags) {
         if let Some(on) = flags.sync_scroll_h {
             self.sync_scroll_h = on;
         }
@@ -3680,6 +3682,9 @@ Tree-sitter highlight, and a calm UI.",
         }
         if let Some(toggle) = flags.compare_ignore_toggle {
             self.toggle_compare_ignore(toggle);
+        }
+        if flags.copy_compare_diff {
+            self.copy_compare_diff(flags);
         }
     }
 
@@ -3738,6 +3743,77 @@ Tree-sitter highlight, and a calm UI.",
                 compare_ignore_status_bit(ws, case)
             );
         }
+    }
+
+    fn tab_compare_lines(&self, tab: usize) -> Vec<String> {
+        self.state
+            .tabs
+            .get(tab)
+            .map(|d| {
+                (0..d.buffer.line_count())
+                    .map(|i| d.buffer.line(i).trim_end_matches(['\n', '\r']).to_string())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn compare_side_name(title: &str) -> String {
+        title.replace(['\n', '\r'], " ")
+    }
+
+    /// Clipboard: unified diff of the current Compare pair.
+    fn copy_compare_diff(&mut self, flags: &mut crate::commands::UiFlags) {
+        if !self.compare_on {
+            self.state.status = "Copy Compare Diff: Compare is off".into();
+            return;
+        }
+        let left = self.compare_left_tab;
+        let right = self.compare_right_tab;
+        let left_lines = self.tab_compare_lines(left);
+        let right_lines = self.tab_compare_lines(right);
+        if left_lines.len() != self.compare_left_tags.len()
+            || right_lines.len() != self.compare_right_tags.len()
+        {
+            if let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) {
+                self.compare_left_tags = lt;
+                self.compare_right_tags = rt;
+            } else {
+                return;
+            }
+        }
+        let lname = self
+            .state
+            .tabs
+            .get(left)
+            .map(|d| Self::compare_side_name(&d.title))
+            .unwrap_or_else(|| "left".into());
+        let rname = self
+            .state
+            .tabs
+            .get(right)
+            .map(|d| Self::compare_side_name(&d.title))
+            .unwrap_or_else(|| "right".into());
+        let left_refs: Vec<&str> = left_lines.iter().map(String::as_str).collect();
+        let right_refs: Vec<&str> = right_lines.iter().map(String::as_str).collect();
+        let Some(text) = crate::diff::unified_diff(
+            &left_refs,
+            &right_refs,
+            &lname,
+            &rname,
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+        ) else {
+            self.state.status = "Copy Compare Diff: could not build unified diff".into();
+            return;
+        };
+        let (del, ins) =
+            crate::diff::count_changes(&self.compare_left_tags, &self.compare_right_tags);
+        flags.pending_clipboard = Some(text);
+        self.state.status = if del == 0 && ins == 0 {
+            format!("Copied unified diff (identical) “{lname}” | “{rname}”")
+        } else {
+            format!("Copied unified diff (−{del} +{ins}) “{lname}” | “{rname}”")
+        };
     }
 
     /// Park both compare panes on the same 1-based hunk ordinal (carets + follow).
@@ -4082,26 +4158,8 @@ Tree-sitter highlight, and a calm UI.",
         usize,
         usize,
     )> {
-        let left_lines: Vec<String> = self
-            .state
-            .tabs
-            .get(left)
-            .map(|d| {
-                (0..d.buffer.line_count())
-                    .map(|i| d.buffer.line(i).trim_end_matches(['\n', '\r']).to_string())
-                    .collect()
-            })
-            .unwrap_or_default();
-        let right_lines: Vec<String> = self
-            .state
-            .tabs
-            .get(right)
-            .map(|d| {
-                (0..d.buffer.line_count())
-                    .map(|i| d.buffer.line(i).trim_end_matches(['\n', '\r']).to_string())
-                    .collect()
-            })
-            .unwrap_or_default();
+        let left_lines = self.tab_compare_lines(left);
+        let right_lines = self.tab_compare_lines(right);
         if left_lines.len() > crate::diff::MAX_COMPARE_LINES
             || right_lines.len() > crate::diff::MAX_COMPARE_LINES
         {

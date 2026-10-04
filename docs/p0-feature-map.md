@@ -48,7 +48,7 @@ Source: codebase scan for Preferences, Find/Replace, Session, Compare.
 |------|----------|
 | Diff engine | `crates/app/src/diff.rs` — `diff_line_tags`, `LineKind`, `MAX_COMPARE_LINES=3000` |
 | UI state | `EditorApp` compare_* + `sync_scroll_h/v` |
-| Menu | `IDM_VIEW_COMPARE` / `CLEARCOMPARE` / `SWAP_COMPARE` / `COMPARE_IGNORE_WS` / `COMPARE_IGNORE_CASE` / `NEXT_DIFF` / `PREV_DIFF` / `FIRST_DIFF` / `LAST_DIFF` / `SYNSCROLLH` / `SYNSCROLLV` |
+| Menu | `IDM_VIEW_COMPARE` / `CLEARCOMPARE` / `SWAP_COMPARE` / `COMPARE_IGNORE_WS` / `COMPARE_IGNORE_CASE` / `NEXT_DIFF` / `PREV_DIFF` / `FIRST_DIFF` / `LAST_DIFF` / `COPY_COMPARE_DIFF` / `SYNSCROLLH` / `SYNSCROLLV` |
 | Atomics | `commands/view.rs` — `SYNC_SCROLL_H/V`, `ZOOM_SYNC` (process session, not settings.json) |
 | Ignore whitespace | **None** — exact line string equality after EOL trim only |
 | Re-diff | `compare_stale` + `refresh_compare_if_stale` (~200 ms) |

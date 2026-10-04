@@ -33,3 +33,4 @@
 009 keep: View whitespace/EOL/NPC/indent-guide persist (v0.3.35)
 009 keep: compare both-pane hunk select on nav/click/start (v0.3.36)
 009 keep: settings.json unknown keys survive save (v0.3.37)
+009 keep: compare Copy Compare Diff (unified, v0.3.38)

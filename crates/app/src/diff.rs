@@ -191,6 +191,177 @@ pub fn hunk_line_range(tags: &[LineKind], ordinal_1based: usize) -> Option<(usiz
     Some((start, end))
 }
 
+const UNIFIED_CONTEXT: usize = 3;
+
+#[derive(Clone, Copy)]
+enum AlignOp {
+    Equal { left: usize, right: usize },
+    Delete { left: usize },
+    Insert { right: usize, left_at: usize },
+}
+
+fn align_ops(left_tags: &[LineKind], right_tags: &[LineKind]) -> Option<Vec<AlignOp>> {
+    let n = left_tags.len();
+    let m = right_tags.len();
+    let mut ops = Vec::with_capacity(n + m);
+    let mut i = 0usize;
+    let mut j = 0usize;
+    while i < n || j < m {
+        let l = left_tags.get(i).copied();
+        let r = right_tags.get(j).copied();
+        match (l, r) {
+            (Some(LineKind::Equal), Some(LineKind::Equal)) => {
+                ops.push(AlignOp::Equal { left: i, right: j });
+                i += 1;
+                j += 1;
+            }
+            (Some(LineKind::Delete), _) => {
+                ops.push(AlignOp::Delete { left: i });
+                i += 1;
+            }
+            (_, Some(LineKind::Insert)) => {
+                ops.push(AlignOp::Insert {
+                    right: j,
+                    left_at: i,
+                });
+                j += 1;
+            }
+            (Some(LineKind::Insert), _)
+            | (_, Some(LineKind::Delete))
+            | (Some(LineKind::Equal), None)
+            | (None, Some(LineKind::Equal))
+            | (None, None) => return None,
+        }
+    }
+    Some(ops)
+}
+
+fn op_is_change(op: AlignOp) -> bool {
+    !matches!(op, AlignOp::Equal { .. })
+}
+
+/// Unified diff of tagged line lists (GNU-style, 3 lines of context).
+///
+/// `None` when tag lengths do not match the lines, or tags cannot be aligned.
+pub fn unified_diff(
+    left: &[&str],
+    right: &[&str],
+    left_name: &str,
+    right_name: &str,
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+) -> Option<String> {
+    if left.len() != left_tags.len() || right.len() != right_tags.len() {
+        return None;
+    }
+    let ops = align_ops(left_tags, right_tags)?;
+    let mut out = String::new();
+    out.push_str(&format!("--- {left_name}\n+++ {right_name}\n"));
+    if !ops.iter().copied().any(op_is_change) {
+        return Some(out);
+    }
+    let mut i = 0usize;
+    while i < ops.len() {
+        if !op_is_change(ops[i]) {
+            i += 1;
+            continue;
+        }
+        let start = i.saturating_sub(UNIFIED_CONTEXT);
+        let mut end = i + 1;
+        loop {
+            while end < ops.len() && op_is_change(ops[end]) {
+                end += 1;
+            }
+            let mut peek = end;
+            let mut equals = 0usize;
+            while peek < ops.len() && !op_is_change(ops[peek]) && equals < UNIFIED_CONTEXT * 2 {
+                peek += 1;
+                equals += 1;
+            }
+            if peek < ops.len() && op_is_change(ops[peek]) && equals <= UNIFIED_CONTEXT * 2 {
+                end = peek + 1;
+                continue;
+            }
+            end = (end + UNIFIED_CONTEXT).min(ops.len());
+            break;
+        }
+        emit_unified_hunk(&mut out, &ops[start..end], left, right);
+        i = end;
+    }
+    Some(out)
+}
+
+fn emit_unified_hunk(out: &mut String, hunk: &[AlignOp], left: &[&str], right: &[&str]) {
+    let mut old_count = 0usize;
+    let mut new_count = 0usize;
+    let mut old_start = 0usize;
+    let mut new_start = 0usize;
+    let mut saw_old = false;
+    let mut saw_new = false;
+    for op in hunk {
+        match *op {
+            AlignOp::Equal { left: l, right: r } => {
+                old_count += 1;
+                new_count += 1;
+                if !saw_old {
+                    old_start = l + 1;
+                    saw_old = true;
+                }
+                if !saw_new {
+                    new_start = r + 1;
+                    saw_new = true;
+                }
+            }
+            AlignOp::Delete { left: l } => {
+                old_count += 1;
+                if !saw_old {
+                    old_start = l + 1;
+                    saw_old = true;
+                }
+            }
+            AlignOp::Insert { right: r, left_at } => {
+                new_count += 1;
+                if !saw_new {
+                    new_start = r + 1;
+                    saw_new = true;
+                }
+                if !saw_old {
+                    old_start = left_at;
+                }
+            }
+        }
+    }
+    if !saw_new {
+        new_start = match hunk.first() {
+            Some(AlignOp::Delete { left: l }) => *l,
+            Some(AlignOp::Equal { right: r, .. }) => *r,
+            _ => 0,
+        };
+    }
+    out.push_str(&format!(
+        "@@ -{old_start},{old_count} +{new_start},{new_count} @@\n"
+    ));
+    for op in hunk {
+        match *op {
+            AlignOp::Equal { left: l, .. } => {
+                out.push(' ');
+                out.push_str(left.get(l).copied().unwrap_or(""));
+                out.push('\n');
+            }
+            AlignOp::Delete { left: l } => {
+                out.push('-');
+                out.push_str(left.get(l).copied().unwrap_or(""));
+                out.push('\n');
+            }
+            AlignOp::Insert { right: r, .. } => {
+                out.push('+');
+                out.push_str(right.get(r).copied().unwrap_or(""));
+                out.push('\n');
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -300,5 +471,39 @@ mod tests {
         // Trailing hunk to EOF.
         let trail = vec![Equal, Delete, Delete];
         assert_eq!(hunk_line_range(&trail, 1), Some((1, 3)));
+    }
+
+    #[test]
+    fn unified_diff_insert_and_identical() {
+        let left = ["a", "c"];
+        let right = ["a", "b", "c"];
+        let (l, r) = diff_line_tags(&left, &right);
+        let text = unified_diff(&left, &right, "old.txt", "new.txt", &l, &r).unwrap();
+        assert!(text.starts_with("--- old.txt\n+++ new.txt\n"));
+        assert!(text.contains("+b\n"));
+        assert!(text.contains(" a\n"));
+        assert!(unified_diff(&left, &right, "a", "b", &l, &[]).is_none());
+        let (le, re) = diff_line_tags(&left, &left);
+        let ident = unified_diff(&left, &left, "a", "b", &le, &re).unwrap();
+        assert_eq!(ident, "--- a\n+++ b\n");
+    }
+
+    #[test]
+    fn unified_diff_delete_replace_and_empty() {
+        let left = ["keep", "gone", "tail"];
+        let right = ["keep", "here", "tail"];
+        let (l, r) = diff_line_tags(&left, &right);
+        let text = unified_diff(&left, &right, "L", "R", &l, &r).unwrap();
+        assert!(text.contains("-gone\n"));
+        assert!(text.contains("+here\n"));
+        let empty: [&str; 0] = [];
+        let added = ["x"];
+        let (l0, r0) = diff_line_tags(&empty, &added);
+        let t = unified_diff(&empty, &added, "e", "f", &l0, &r0).unwrap();
+        assert!(t.contains("@@ -0,0 +1,1 @@\n"));
+        assert!(t.contains("+x\n"));
+        let (l1, r1) = diff_line_tags(&added, &empty);
+        let t2 = unified_diff(&added, &empty, "e", "f", &l1, &r1).unwrap();
+        assert!(t2.contains("-x\n"));
     }
 }
