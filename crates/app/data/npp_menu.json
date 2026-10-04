@@ -2021,6 +2021,18 @@
       },
       {
         "kind": "item",
+        "label": "First Difference",
+        "raw_label": "&First Difference",
+        "cmd": "IDM_VIEW_FIRST_DIFF"
+      },
+      {
+        "kind": "item",
+        "label": "Last Difference",
+        "raw_label": "&Last Difference",
+        "cmd": "IDM_VIEW_LAST_DIFF"
+      },
+      {
+        "kind": "item",
         "label": "Clear Compare",
         "raw_label": "Clear Com&pare",
         "cmd": "IDM_VIEW_CLEARCOMPARE"

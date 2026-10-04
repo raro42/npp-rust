@@ -189,11 +189,19 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_VIEW_NEXT_DIFF" => {
-            ui.compare_nav_forward = Some(true);
+            ui.compare_nav = Some(super::CompareNav::Next);
             CmdResult::Handled
         }
         "IDM_VIEW_PREV_DIFF" => {
-            ui.compare_nav_forward = Some(false);
+            ui.compare_nav = Some(super::CompareNav::Prev);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_FIRST_DIFF" => {
+            ui.compare_nav = Some(super::CompareNav::First);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_LAST_DIFF" => {
+            ui.compare_nav = Some(super::CompareNav::Last);
             CmdResult::Handled
         }
         "IDM_VIEW_ZOOM_SYNC" => {

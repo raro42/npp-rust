@@ -620,8 +620,12 @@ impl EditorApp {
             self.run_shortcut_cmd("IDM_SEARCH_NEXT_BOOKMARK");
         }
 
-        // Compare hunks: F7 next, Shift+F7 previous (while Compare is on).
-        if f7 && mods.shift {
+        // Compare hunks: F7 next, Shift+F7 previous, ⌘/Ctrl+F7 first, ⌘/Ctrl+Shift+F7 last.
+        if f7 && cmd && mods.shift {
+            self.run_shortcut_cmd("IDM_VIEW_LAST_DIFF");
+        } else if f7 && cmd {
+            self.run_shortcut_cmd("IDM_VIEW_FIRST_DIFF");
+        } else if f7 && mods.shift {
             self.run_shortcut_cmd("IDM_VIEW_PREV_DIFF");
         } else if f7 {
             self.run_shortcut_cmd("IDM_VIEW_NEXT_DIFF");
@@ -1010,7 +1014,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 21] = [
+                        let rows: [(&str, &str); 22] = [
                             ("⌘/Ctrl N", "New file"),
                             ("⌘/Ctrl O", "Open"),
                             ("⌘/Ctrl S", "Save"),
@@ -1021,6 +1025,7 @@ Tree-sitter highlight, and a calm UI.",
                             ("⌘/Ctrl L", "Go to line"),
                             ("F2 / ⇧ F2", "Next / prev bookmark"),
                             ("F7 / ⇧ F7", "Compare next / prev diff"),
+                            ("⌘/Ctrl F7 · ⌘/Ctrl ⇧ F7", "Compare first / last diff"),
                             ("⌘/Ctrl = / -", "Zoom in / out"),
                             (wrap_keys.as_str(), "Word wrap"),
                             ("⌘/Ctrl A", "Select all"),
@@ -3549,14 +3554,14 @@ Tree-sitter highlight, and a calm UI.",
         if flags.start_compare {
             self.start_compare();
         }
-        if let Some(forward) = flags.compare_nav_forward {
-            self.navigate_compare_hunk(forward);
+        if let Some(nav) = flags.compare_nav {
+            self.navigate_compare_hunk(nav);
         }
     }
 
-    /// Jump caret (focused pane) to the next/previous compare change hunk.
+    /// Jump caret (focused pane) to a compare change hunk.
     /// Also parks the other pane on the same hunk ordinal so both sides line up.
-    fn navigate_compare_hunk(&mut self, forward: bool) {
+    fn navigate_compare_hunk(&mut self, nav: crate::commands::CompareNav) {
         if !self.compare_on {
             self.state.status = "Compare is off — View → Compare with Other View first".into();
             return;
@@ -3577,10 +3582,12 @@ Tree-sitter highlight, and a calm UI.",
             return;
         };
         let from = doc.buffer.char_to_line(doc.buffer.caret());
-        let target = if forward {
-            crate::diff::next_hunk_start(tags, from)
-        } else {
-            crate::diff::prev_hunk_start(tags, from)
+        let starts = crate::diff::hunk_starts(tags);
+        let target = match nav {
+            crate::commands::CompareNav::Next => crate::diff::next_hunk_start(tags, from),
+            crate::commands::CompareNav::Prev => crate::diff::prev_hunk_start(tags, from),
+            crate::commands::CompareNav::First => starts.first().copied(),
+            crate::commands::CompareNav::Last => starts.last().copied(),
         };
         let Some(line) = target else {
             self.state.status = "Compare: no differences".into();
@@ -3623,7 +3630,12 @@ Tree-sitter highlight, and a calm UI.",
             self.follow_caret_other = true;
             self.follow_caret = self.sync_scroll_v;
         }
-        let dir = if forward { "Next" } else { "Previous" };
+        let dir = match nav {
+            crate::commands::CompareNav::Next => "Next",
+            crate::commands::CompareNav::Prev => "Previous",
+            crate::commands::CompareNav::First => "First",
+            crate::commands::CompareNav::Last => "Last",
+        };
         let ordinal = ordinal_pair
             .map(|(i, n)| format!(" ({i}/{n})"))
             .unwrap_or_default();

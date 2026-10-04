@@ -16,6 +16,15 @@ mod view;
 
 use crate::editor::EditorState;
 
+/// Compare hunk navigation requested by the View menu / shortcuts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompareNav {
+    Next,
+    Prev,
+    First,
+    Last,
+}
+
 /// UI-side flags/commands the menu dispatcher may set.
 #[derive(Debug, Default)]
 pub struct UiFlags {
@@ -74,8 +83,8 @@ pub struct UiFlags {
     pub start_compare: bool,
     /// Clear compare highlights and mode.
     pub clear_compare: bool,
-    /// Navigate compare hunks: `Some(true)` next, `Some(false)` previous.
-    pub compare_nav_forward: Option<bool>,
+    /// Navigate compare hunks (next / prev / first / last).
+    pub compare_nav: Option<CompareNav>,
 }
 
 /// Content for the “working on it — come back tomorrow” dialog.
@@ -249,6 +258,8 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_CLEARCOMPARE"
             | "IDM_VIEW_NEXT_DIFF"
             | "IDM_VIEW_PREV_DIFF"
+            | "IDM_VIEW_FIRST_DIFF"
+            | "IDM_VIEW_LAST_DIFF"
             | "IDM_EDIT_RTL"
             | "IDM_EDIT_LTR"
             | "IDM_EDIT_PASTE_AS_HTML"

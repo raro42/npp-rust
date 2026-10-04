@@ -48,7 +48,8 @@ While compare is on, panes stay pinned to that pair (tab clicks do not swap the 
 
 - Starting Compare moves the left caret to the **first** change hunk (status shows hunk count).
 - **View → Next Difference** / **Previous Difference** (or **F7** / **Shift+F7**)
-- Moves the caret on the focused pane to the start of the next/previous change hunk (wraps).
+- **View → First Difference** / **Last Difference** (or **⌘/Ctrl+F7** / **⌘/Ctrl+Shift+F7**)
+- Moves the caret on the focused pane to the start of the next/previous change hunk (wraps), or jumps to the first/last hunk.
 - The other pane parks on the **same hunk ordinal** (line numbers may differ when sides disagree).
 - Mid-hunk Next skips to the following hunk, not the next red/green line.
 - Status shows hunk ordinal, e.g. `Compare Next difference → line 12 (2/5)`.

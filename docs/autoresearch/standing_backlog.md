@@ -11,7 +11,7 @@ When the issue queue is idle, overnight 009 **must** pull from this list (top fi
 ## P1 — depth vs Notepad++ (small batches)
 
 4. **Shortcut mapper** — ~~word-wrap remap (`shortcut_word_wrap`)~~. Broader remap / `shortcuts.xml` later.
-5. **Compare** — ignore-whitespace exists. ~~next/prev hunk nav (F7)~~. ~~first-hunk jump + ordinal status~~. ~~ignore-case~~. ~~dual-pane hunk align + identical status~~. Char-level or 3-way stays later. More 2-way UX polish (`docs/compare.md`).
+5. **Compare** — ignore-whitespace exists. ~~next/prev hunk nav (F7)~~. ~~first-hunk jump + ordinal status~~. ~~ignore-case~~. ~~dual-pane hunk align + identical status~~. ~~first/last difference (⌘/Ctrl+F7)~~. Char-level or 3-way stays later. More 2-way UX polish (`docs/compare.md`).
 6. **Fold margin** — ~~click + keyboard parity with View fold commands~~ (`docs/folding.md`). Nested chrome / session fold state later.
 7. **Project panel** — ~~MVP folder list + refresh + reveal in file manager~~. Nested chrome / N++ projects later.
 

@@ -248,5 +248,8 @@ mod tests {
         assert_eq!(hunk_start_at_ordinal(&tags, 2), Some(4));
         assert_eq!(hunk_start_at_ordinal(&tags, 3), None);
         assert_eq!(hunk_start_at_ordinal(&tags, 0), None);
+        assert_eq!(hunk_starts(&tags).first().copied(), Some(1));
+        assert_eq!(hunk_starts(&tags).last().copied(), Some(4));
+        assert!(hunk_starts(&[Equal, Equal]).is_empty());
     }
 }

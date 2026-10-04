@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26] — 2026-10-04
+
+Compare:
+
+- **View → First Difference** / **Last Difference** (⌘/Ctrl+F7 / ⌘/Ctrl+Shift+F7) jump to the first or last change hunk; other pane stays on the same ordinal.
+
 ## [0.3.25] — 2026-10-04
 
 Compare:
