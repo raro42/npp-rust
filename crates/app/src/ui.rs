@@ -3923,7 +3923,13 @@ Tree-sitter highlight, and a calm UI.",
             .map(|(ord, _)| self.compare_hunk_lr_label(ord))
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| format!("line {}", line + 1));
-        self.state.status = format!("Compare {dir} difference → {lr}{ordinal}");
+        let wrapped = match nav {
+            crate::commands::CompareNav::Next => crate::diff::hunk_nav_wrapped(true, from, line),
+            crate::commands::CompareNav::Prev => crate::diff::hunk_nav_wrapped(false, from, line),
+            crate::commands::CompareNav::First | crate::commands::CompareNav::Last => false,
+        };
+        let wrap_bit = if wrapped { " · wrapped" } else { "" };
+        self.state.status = format!("Compare {dir} difference → {lr}{ordinal}{wrap_bit}");
     }
 
     fn clear_compare(&mut self) {

@@ -118,6 +118,18 @@ pub fn prev_hunk_start(tags: &[LineKind], from: usize) -> Option<usize> {
     None
 }
 
+/// Whether a Next/Prev hunk jump wrapped past the end/beginning of the file.
+///
+/// For Next, wrap means the target line is at or before the caret line (circular).
+/// For Prev, wrap means the target is at or after the caret line.
+pub fn hunk_nav_wrapped(next: bool, from: usize, to: usize) -> bool {
+    if next {
+        to <= from
+    } else {
+        to >= from
+    }
+}
+
 /// Line indices that start a change hunk (in order).
 pub fn hunk_starts(tags: &[LineKind]) -> Vec<usize> {
     (0..tags.len())
@@ -232,6 +244,13 @@ mod tests {
         assert_eq!(prev_hunk_start(&tags, 4), Some(1));
         assert_eq!(prev_hunk_start(&tags, 1), Some(4)); // wrap
         assert_eq!(next_hunk_start(&[Equal, Equal], 0), None);
+        assert!(!hunk_nav_wrapped(true, 0, 1));
+        assert!(!hunk_nav_wrapped(true, 1, 4));
+        assert!(hunk_nav_wrapped(true, 4, 1));
+        assert!(!hunk_nav_wrapped(false, 4, 1));
+        assert!(hunk_nav_wrapped(false, 1, 4));
+        assert!(hunk_nav_wrapped(true, 1, 1)); // single-hunk Next
+        assert!(hunk_nav_wrapped(false, 1, 1)); // single-hunk Prev
     }
 
     #[test]

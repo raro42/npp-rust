@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.32] — 2026-10-04
+
+Compare:
+
+- Next/Prev Difference status appends `· wrapped` when the jump circles past the end or beginning of the file.
+
 ## [0.3.31] — 2026-10-04
 
 Compare:
