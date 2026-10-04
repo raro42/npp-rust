@@ -107,6 +107,8 @@ pub struct UiFlags {
     pub open_compare_hunk: bool,
     /// Replace the focused compare hunk with the other pane.
     pub apply_compare_hunk: bool,
+    /// Replace the other pane's compare hunk with the focused pane.
+    pub apply_compare_hunk_to_other: bool,
     /// Replace every compare hunk on the focused pane with the other pane.
     pub apply_all_compare_hunks: bool,
 }
@@ -293,6 +295,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_COPY_COMPARE_HUNK"
             | "IDM_VIEW_OPEN_COMPARE_HUNK"
             | "IDM_VIEW_APPLY_COMPARE_HUNK"
+            | "IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER"
             | "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS"
             | "IDM_EDIT_RTL"
             | "IDM_EDIT_LTR"
@@ -595,6 +598,7 @@ mod tests {
         assert!(is_implemented("IDM_SETTING_PLUGINADM"));
         assert!(is_implemented("IDM_MACRO_STARTRECORDINGMACRO"));
         assert!(is_implemented("IDM_VIEW_APPLY_ALL_COMPARE_HUNKS"));
+        assert!(is_implemented("IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER"));
         assert!(is_implemented("IDM_VIEW_OPEN_COMPARE_DIFF"));
         assert!(is_implemented("IDM_VIEW_OPEN_COMPARE_HUNK"));
         assert!(is_implemented("IDM_VIEW_COMPARE_IGNORE_BLANK"));

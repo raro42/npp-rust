@@ -2093,6 +2093,12 @@
       },
       {
         "kind": "item",
+        "label": "Apply Hunk To Other View",
+        "raw_label": "Apply Hunk &To Other View",
+        "cmd": "IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER"
+      },
+      {
+        "kind": "item",
         "label": "Apply All Hunks From Other View",
         "raw_label": "Apply &All Hunks From Other View",
         "cmd": "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS"

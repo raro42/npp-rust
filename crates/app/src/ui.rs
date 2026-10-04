@@ -1012,6 +1012,9 @@ impl EditorApp {
                     "IDM_VIEW_APPLY_COMPARE_HUNK" => response.on_hover_text(
                         "Replace the focused pane's change hunk with the other pane (one undo)",
                     ),
+                    "IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER" => response.on_hover_text(
+                        "Replace the other pane's change hunk with the focused pane (one undo)",
+                    ),
                     "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS" => response.on_hover_text(
                         "Replace every change hunk on the focused pane with the other pane (one undo)",
                     ),
@@ -3874,6 +3877,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.apply_compare_hunk {
             self.apply_compare_hunk_from_other();
         }
+        if flags.apply_compare_hunk_to_other {
+            self.apply_compare_hunk_to_other();
+        }
         if flags.apply_all_compare_hunks {
             self.apply_all_compare_hunks_from_other();
         }
@@ -4263,6 +4269,104 @@ Tree-sitter highlight, and a calm UI.",
         } else {
             self.state.status =
                 format!("Applied hunk ({applied_ord}/{applied_total}) from other view · identical");
+        }
+    }
+
+    /// Replace the other pane's compare hunk with the focused pane (one undo).
+    fn apply_compare_hunk_to_other(&mut self) {
+        if !self.compare_on {
+            self.state.status = "Apply Hunk To Other View: Compare is off".into();
+            return;
+        }
+        let left = self.compare_left_tab;
+        let right = self.compare_right_tab;
+        let left_lines = self.tab_compare_lines(left);
+        let right_lines = self.tab_compare_lines(right);
+        if left_lines.len() != self.compare_left_tags.len()
+            || right_lines.len() != self.compare_right_tags.len()
+        {
+            if let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) {
+                self.compare_left_tags = lt;
+                self.compare_right_tags = rt;
+            } else {
+                return;
+            }
+        }
+        let primary = self.focused_pane == EditorPane::Primary || !self.dual_view;
+        let src_tab = if primary { left } else { right };
+        let dest_tab = if primary { right } else { left };
+        if self.state.tabs.get(dest_tab).is_some_and(|d| d.read_only) {
+            self.state.status = "Apply Hunk To Other View: destination is read-only".into();
+            return;
+        }
+        let Some(doc) = self.state.tabs.get(src_tab) else {
+            self.state.status = "Apply Hunk To Other View: tab missing".into();
+            return;
+        };
+        let line = doc.buffer.char_to_line(doc.buffer.caret());
+        let Some(spec) = crate::diff::hunk_apply_to_other(
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            primary,
+            line,
+        ) else {
+            self.state.status = "Apply Hunk To Other View: no differences".into();
+            return;
+        };
+        let src_lines = self.tab_compare_lines(src_tab);
+        if spec.src_end > src_lines.len() || spec.src_start > spec.src_end {
+            self.state.status = "Apply Hunk To Other View: hunk out of range".into();
+            return;
+        }
+        let src_slice = &src_lines[spec.src_start..spec.src_end];
+        let dest_lines = self.tab_compare_lines(dest_tab);
+        if spec.dest_start > dest_lines.len() || spec.dest_end > dest_lines.len() {
+            self.state.status = "Apply Hunk To Other View: hunk out of range".into();
+            return;
+        }
+        if spec.dest_end <= dest_lines.len()
+            && dest_lines[spec.dest_start..spec.dest_end] == src_slice[..]
+        {
+            self.state.status = format!(
+                "Apply Hunk To Other View: hunk ({}/{}) already matches focused view",
+                spec.ordinal, spec.total
+            );
+            return;
+        }
+        let Some(doc) = self.state.tabs.get_mut(dest_tab) else {
+            return;
+        };
+        let applied_ord = spec.ordinal;
+        let applied_total = spec.total;
+        apply_compare_hunk_spec(&mut doc.buffer, &spec, src_slice);
+        self.state.mark_text_changed_at(dest_tab);
+        self.state.compare_stale = false;
+        self.compare_refresh_at = None;
+        self.follow_caret = true;
+        self.state.highlight_dirty = true;
+        if let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) {
+            self.compare_left_tags = lt;
+            self.compare_right_tags = rt;
+        }
+        let remaining = crate::diff::hunk_starts(&self.compare_left_tags)
+            .len()
+            .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
+        if let Some(next) = crate::diff::next_hunk_after_apply(applied_ord, remaining) {
+            self.park_compare_hunk_ordinal(next);
+            self.select_compare_hunk_on_pane(true, next);
+            self.select_compare_hunk_on_pane(false, next);
+            let lr = self.compare_hunk_lr_label(next);
+            let lr_bit = if lr.is_empty() {
+                String::new()
+            } else {
+                format!(" → {lr}")
+            };
+            self.state.status = format!(
+                "Applied hunk ({applied_ord}/{applied_total}) to other view{lr_bit} ({next}/{remaining})"
+            );
+        } else {
+            self.state.status =
+                format!("Applied hunk ({applied_ord}/{applied_total}) to other view · identical");
         }
     }
 

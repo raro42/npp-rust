@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.49] — 2026-10-05
+
+Compare:
+
+- **View → Apply Hunk To Other View** pushes the change hunk at the focused caret onto the other pane (one undo). Parks and selects the next remaining hunk on both panes, same as Apply From Other. Status shows the next `L|R` ordinal, or `· identical` when the pair matches.
+
 ## [0.3.48] — 2026-10-05
 
 Compare:

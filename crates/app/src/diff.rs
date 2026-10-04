@@ -675,6 +675,29 @@ pub fn hunk_apply_from_other(
     focus_left: bool,
     line: usize,
 ) -> Option<HunkApply> {
+    hunk_apply_for_hunk(left_tags, right_tags, focus_left, line, focus_left)
+}
+
+/// Replace the other pane's change hunk with the focused pane's lines.
+///
+/// Same caret / next-hunk rules as [`hunk_apply_from_other`], but the destination
+/// is the non-focused side (push instead of pull).
+pub fn hunk_apply_to_other(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    focus_left: bool,
+    line: usize,
+) -> Option<HunkApply> {
+    hunk_apply_for_hunk(left_tags, right_tags, focus_left, line, !focus_left)
+}
+
+fn hunk_apply_for_hunk(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    focus_left: bool,
+    line: usize,
+    dest_left: bool,
+) -> Option<HunkApply> {
     let focus_tags = if focus_left { left_tags } else { right_tags };
     let other_tags = if focus_left { right_tags } else { left_tags };
     let (run_focus_left, start_line) = if let Some(start) = hunk_line_for_copy(focus_tags, line) {
@@ -687,7 +710,7 @@ pub fn hunk_apply_from_other(
     let (run_start, run_end) = change_run_containing(&ops, run_focus_left, start_line)?;
     let (ordinal, total) = hunk_ordinal_for_copy(focus_tags, line)
         .or_else(|| hunk_ordinal_for_copy(other_tags, line))?;
-    hunk_apply_from_run(&ops, run_start, run_end, focus_left, ordinal, total)
+    hunk_apply_from_run(&ops, run_start, run_end, dest_left, ordinal, total)
 }
 
 /// Every change hunk as an apply spec (file order, 1-based ordinals).
@@ -1105,6 +1128,37 @@ mod tests {
 
         let (le, re) = diff_line_tags(&left, &left);
         assert!(hunk_apply_from_other(&le, &re, true, 0).is_none());
+    }
+
+    #[test]
+    fn hunk_apply_to_other_replace_insert_delete() {
+        let left = ["keep", "old", "tail"];
+        let right = ["keep", "new", "tail"];
+        let (l, r) = diff_line_tags(&left, &right);
+        let spec = hunk_apply_to_other(&l, &r, true, 1).unwrap();
+        assert_eq!(spec.dest_start, 1);
+        assert_eq!(spec.dest_end, 2);
+        assert_eq!(spec.src_start, 1);
+        assert_eq!(spec.src_end, 2);
+        assert_eq!(spec.ordinal, 1);
+        assert_eq!(splice_hunk(&right, spec, &left), ["keep", "old", "tail"]);
+
+        let left2 = ["a", "c"];
+        let right2 = ["a", "b", "c"];
+        let (l2, r2) = diff_line_tags(&left2, &right2);
+        // Push left (no insert) onto right → delete the inserted line.
+        let drop = hunk_apply_to_other(&l2, &r2, true, 0).unwrap();
+        assert_eq!((drop.dest_start, drop.dest_end), (1, 2));
+        assert_eq!((drop.src_start, drop.src_end), (0, 0));
+        assert_eq!(splice_hunk(&right2, drop, &left2), ["a", "c"]);
+        // Push right's insert onto left.
+        let add = hunk_apply_to_other(&l2, &r2, false, 1).unwrap();
+        assert_eq!((add.dest_start, add.dest_end), (1, 1));
+        assert_eq!((add.src_start, add.src_end), (1, 2));
+        assert_eq!(splice_hunk(&left2, add, &right2), ["a", "b", "c"]);
+
+        let (le, re) = diff_line_tags(&left, &left);
+        assert!(hunk_apply_to_other(&le, &re, true, 0).is_none());
     }
 
     #[test]
