@@ -65,8 +65,8 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - **View → Copy Compare Diff** copies a unified diff of the pair to the clipboard (3 lines of context). Status shows `Copied unified diff (−N +M)` or `(identical)`.
 - **View → Open Compare Diff** opens that unified diff in a `compare.diff` tab (Compare turns off so the tab is not pinned away). Status shows `Opened unified diff (−N +M)` or `(identical)`.
 - **View → Copy Compare Hunk** copies only the change hunk at the focused caret (or the next hunk if the caret is on an equal line), with 3 equal context lines. Status shows `Copied hunk (i/n) unified diff (−N +M)`.
-- **View → Apply Hunk From Other View** replaces the focused pane's change hunk with the other pane (one undo). Insert-only / delete-only hunks insert or delete lines. Status shows `Applied hunk (i/n) from other view`.
-- **View → Apply All Hunks From Other View** applies every remaining change hunk to the focused pane (one undo), last hunk first. Status shows `Applied N hunks from other view`.
+- **View → Apply Hunk From Other View** replaces the focused pane's change hunk with the other pane (one undo). Insert-only / delete-only hunks insert or delete lines. After apply, both panes park on the **next** remaining hunk (status: `Applied hunk (i/n) from other view → Lx | Ry (j/m)`), or `· identical` when none remain.
+- **View → Apply All Hunks From Other View** applies every remaining change hunk to the focused pane (one undo), last hunk first. Status shows `Applied N hunks from other view` (plus `· identical` when the pair matches).
 
 ## Limits
 

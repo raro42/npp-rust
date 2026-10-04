@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.46] — 2026-10-04
+
+Compare:
+
+- **Apply Hunk From Other View** parks and selects the next remaining hunk on both panes after a successful apply. Status shows the next `L|R` ordinal, or `· identical` when the pair matches. **Apply All** also appends `· identical` when nothing is left.
+
 ## [0.3.45] — 2026-10-04
 
 Search:

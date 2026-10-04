@@ -499,6 +499,16 @@ pub fn hunk_ordinal_for_copy(tags: &[LineKind], line: usize) -> Option<(usize, u
     hunk_ordinal(tags, start)
 }
 
+/// After applying hunk `applied_ord` (1-based), which remaining hunk to park on.
+/// Returns `None` when the pair is identical (`remaining == 0`).
+pub fn next_hunk_after_apply(applied_ord: usize, remaining: usize) -> Option<usize> {
+    if remaining == 0 || applied_ord == 0 {
+        None
+    } else {
+        Some(applied_ord.min(remaining))
+    }
+}
+
 /// Line range to replace on the focused side, and the other side's source lines.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HunkApply {
@@ -871,6 +881,15 @@ mod tests {
         assert!(hunk_nav_wrapped(false, 1, 4));
         assert!(hunk_nav_wrapped(true, 1, 1)); // single-hunk Next
         assert!(hunk_nav_wrapped(false, 1, 1)); // single-hunk Prev
+    }
+
+    #[test]
+    fn next_hunk_after_apply_parks_same_slot_or_none() {
+        assert_eq!(next_hunk_after_apply(1, 3), Some(1));
+        assert_eq!(next_hunk_after_apply(2, 3), Some(2));
+        assert_eq!(next_hunk_after_apply(3, 2), Some(2)); // last applied → last remaining
+        assert_eq!(next_hunk_after_apply(1, 0), None);
+        assert_eq!(next_hunk_after_apply(0, 2), None);
     }
 
     #[test]

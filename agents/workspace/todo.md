@@ -40,3 +40,4 @@
 009 keep: Find in Files honors Re (linear-time regex, v0.3.43)
 009 keep: compare Open Compare Diff tab (v0.3.44)
 009 keep: regex Replace $n / \1 capture expansion (v0.3.45)
+009 keep: compare Apply Hunk advances to next remaining (v0.3.46)

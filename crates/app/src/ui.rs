@@ -4128,12 +4128,9 @@ Tree-sitter highlight, and a calm UI.",
         let Some(doc) = self.state.tabs.get_mut(dest_tab) else {
             return;
         };
-        let (lo, new_end) = apply_compare_hunk_spec(&mut doc.buffer, &spec, src_slice);
-        if new_end > lo {
-            doc.buffer.set_selection(lo, new_end);
-        } else {
-            doc.buffer.set_caret(lo);
-        }
+        let applied_ord = spec.ordinal;
+        let applied_total = spec.total;
+        apply_compare_hunk_spec(&mut doc.buffer, &spec, src_slice);
         self.state.mark_text_changed_at(dest_tab);
         self.state.compare_stale = false;
         self.compare_refresh_at = None;
@@ -4143,10 +4140,28 @@ Tree-sitter highlight, and a calm UI.",
             self.compare_left_tags = lt;
             self.compare_right_tags = rt;
         }
-        self.state.status = format!(
-            "Applied hunk ({}/{}) from other view",
-            spec.ordinal, spec.total
-        );
+        // After a successful apply, park on the next remaining hunk (same ordinal
+        // slot after re-diff) so the user can keep applying without F7 each time.
+        let remaining = crate::diff::hunk_starts(&self.compare_left_tags)
+            .len()
+            .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
+        if let Some(next) = crate::diff::next_hunk_after_apply(applied_ord, remaining) {
+            self.park_compare_hunk_ordinal(next);
+            self.select_compare_hunk_on_pane(true, next);
+            self.select_compare_hunk_on_pane(false, next);
+            let lr = self.compare_hunk_lr_label(next);
+            let lr_bit = if lr.is_empty() {
+                String::new()
+            } else {
+                format!(" → {lr}")
+            };
+            self.state.status = format!(
+                "Applied hunk ({applied_ord}/{applied_total}) from other view{lr_bit} ({next}/{remaining})"
+            );
+        } else {
+            self.state.status =
+                format!("Applied hunk ({applied_ord}/{applied_total}) from other view · identical");
+        }
     }
 
     /// Replace every remaining change hunk on the focused pane (one undo).
@@ -4234,7 +4249,15 @@ Tree-sitter highlight, and a calm UI.",
             self.compare_right_tags = rt;
         }
         let hunk_word = if applied == 1 { "hunk" } else { "hunks" };
-        self.state.status = format!("Applied {applied} {hunk_word} from other view");
+        let remaining = crate::diff::hunk_starts(&self.compare_left_tags)
+            .len()
+            .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
+        if remaining == 0 {
+            self.state.status =
+                format!("Applied {applied} {hunk_word} from other view · identical");
+        } else {
+            self.state.status = format!("Applied {applied} {hunk_word} from other view");
+        }
     }
 
     /// Park both compare panes on the same 1-based hunk ordinal (carets + follow).
