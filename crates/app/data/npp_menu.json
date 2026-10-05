@@ -2081,6 +2081,12 @@
       },
       {
         "kind": "item",
+        "label": "Collapse Unchanged at Caret",
+        "raw_label": "Collapse Unc&hanged at Caret",
+        "cmd": "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET"
+      },
+      {
+        "kind": "item",
         "label": "Expand All Unchanged Lines",
         "raw_label": "E&xpand All Unchanged Lines",
         "cmd": "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL"

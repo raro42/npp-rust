@@ -107,6 +107,8 @@ pub struct UiFlags {
     pub compare_expand_hidden_equal_at_caret: bool,
     /// Re-collapse click/menu-expanded Equal runs while hide-equal stays on.
     pub compare_collapse_hidden_equal: bool,
+    /// Re-collapse the expanded Equal run nearest the caret while hide-equal stays on.
+    pub compare_collapse_hidden_equal_at_caret: bool,
     /// Bookmark every Compare change-hunk start on both panes.
     pub compare_bookmark_diffs: bool,
     /// Clear bookmarks at every Compare change-hunk start on both panes.
@@ -307,6 +309,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL"
             | "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET"
             | "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL"
+            | "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET"
             | "IDM_VIEW_COMPARE_BOOKMARK_DIFFS"
             | "IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS"
             | "IDM_VIEW_NEXT_DIFF"
@@ -633,6 +636,9 @@ mod tests {
             "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET"
         ));
         assert!(is_implemented("IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL"));
+        assert!(is_implemented(
+            "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET"
+        ));
         assert!(is_implemented("IDM_VIEW_COMPARE_BOOKMARK_DIFFS"));
         assert!(is_implemented("IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS"));
         assert!(is_implemented("IDM_VIEW_COMPARE_TO_SAVED"));

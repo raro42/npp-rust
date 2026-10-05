@@ -458,6 +458,68 @@ pub fn collapse_all_compare_revealed(revealed: &mut BTreeSet<usize>) -> usize {
     n
 }
 
+/// Contiguous revealed Equal run nearest `caret_line`.
+///
+/// Prefers a run that contains the caret. Otherwise the closest revealed index
+/// (ties prefer below), expanded to its contiguous block.
+pub fn nearest_compare_revealed_run(
+    caret_line: usize,
+    revealed: &BTreeSet<usize>,
+) -> Option<(usize, usize)> {
+    if revealed.is_empty() {
+        return None;
+    }
+    let pick = if revealed.contains(&caret_line) {
+        caret_line
+    } else {
+        let below = revealed.range(caret_line..).next().copied();
+        let above = revealed.range(..caret_line).next_back().copied();
+        match (above, below) {
+            (Some(a), Some(b)) => {
+                if caret_line - a <= b - caret_line {
+                    a
+                } else {
+                    b
+                }
+            }
+            (Some(a), None) => a,
+            (None, Some(b)) => b,
+            (None, None) => return None,
+        }
+    };
+    let mut lo = pick;
+    let mut hi = pick;
+    while lo > 0 && revealed.contains(&(lo - 1)) {
+        lo -= 1;
+    }
+    while revealed.contains(&(hi + 1)) {
+        hi += 1;
+    }
+    Some((lo, hi))
+}
+
+/// Remove every line in an inclusive gap from `revealed`. Returns how many were dropped.
+pub fn collapse_compare_gap(revealed: &mut BTreeSet<usize>, gap: (usize, usize)) -> usize {
+    let mut n = 0usize;
+    for i in gap.0..=gap.1 {
+        if revealed.remove(&i) {
+            n += 1;
+        }
+    }
+    n
+}
+
+/// Remove each index in `lines` from `revealed`. Returns how many were dropped.
+pub fn collapse_compare_lines(revealed: &mut BTreeSet<usize>, lines: &[usize]) -> usize {
+    let mut n = 0usize;
+    for &i in lines {
+        if revealed.remove(&i) {
+            n += 1;
+        }
+    }
+    n
+}
+
 /// Partner Equal line indices on the other pane for a hide-equal gap.
 ///
 /// Uses LCS alignment so a ···N click can expand the matching Equal run on both sides.
@@ -1378,6 +1440,15 @@ mod tests {
         let (hl4, hr4) = hidden_equal_counts_with_revealed(&tags, &tags, &all, &all);
         assert_eq!((hl4, hr4), (2, 2));
         assert_eq!(collapse_all_compare_revealed(&mut all), 0);
+        let mut rev = BTreeSet::from([0usize, 1, 5, 6, 7]);
+        assert_eq!(nearest_compare_revealed_run(6, &rev), Some((5, 7)));
+        assert_eq!(nearest_compare_revealed_run(3, &rev), Some((0, 1)));
+        assert_eq!(nearest_compare_revealed_run(4, &rev), Some((5, 7)));
+        assert_eq!(collapse_compare_gap(&mut rev, (5, 7)), 3);
+        assert_eq!(rev.iter().copied().collect::<Vec<_>>(), vec![0, 1]);
+        assert_eq!(collapse_compare_lines(&mut rev, &[0, 9]), 1);
+        assert_eq!(rev.iter().copied().collect::<Vec<_>>(), vec![1]);
+        assert_eq!(nearest_compare_revealed_run(0, &BTreeSet::new()), None);
     }
 
     #[test]

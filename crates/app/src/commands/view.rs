@@ -232,6 +232,10 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.compare_expand_hidden_equal_at_caret = true;
             CmdResult::Handled
         }
+        "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET" => {
+            ui.compare_collapse_hidden_equal_at_caret = true;
+            CmdResult::Handled
+        }
         "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL" => {
             ui.compare_collapse_hidden_equal = true;
             CmdResult::Handled

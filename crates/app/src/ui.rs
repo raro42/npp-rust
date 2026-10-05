@@ -1121,6 +1121,9 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, expand the collapsed Equal run nearest the caret on both panes (same as clicking that ···N cue)",
                     ),
+                    "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET" => response.on_hover_text(
+                        "While Hide Unchanged Lines is on, re-collapse the expanded Equal run nearest the caret on both panes (···N cue returns for that run)",
+                    ),
                     "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, reveal every collapsed Equal run on both panes (···N cues clear; hide-equal preference stays on)",
                     ),
@@ -4059,6 +4062,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.compare_expand_hidden_equal_at_caret {
             self.expand_compare_hide_equal_at_caret();
         }
+        if flags.compare_collapse_hidden_equal_at_caret {
+            self.collapse_compare_hide_equal_at_caret();
+        }
         if flags.compare_expand_hidden_equal {
             self.expand_all_compare_hide_equal();
         }
@@ -4281,6 +4287,79 @@ Tree-sitter highlight, and a calm UI.",
         if !self.expand_compare_hide_gap(gap, left_pane) {
             self.state.status = "Compare: no hidden equal run at caret".into();
         }
+    }
+
+    /// Re-collapse the expanded Equal run nearest the focused caret (menu / keyboard).
+    fn collapse_compare_hide_equal_at_caret(&mut self) {
+        if !self.compare_on {
+            self.state.status =
+                "Compare off — start Compare to collapse expanded equal lines".into();
+            return;
+        }
+        if !self.state.settings.compare_hide_equal {
+            self.state.status =
+                "Hide Unchanged Lines is off — turn it on to collapse unchanged lines".into();
+            return;
+        }
+        let left_pane = self.focused_pane == EditorPane::Primary || !self.dual_view;
+        let tab = if left_pane {
+            self.compare_left_tab
+        } else {
+            self.compare_right_tab
+        };
+        let Some(doc) = self.state.tabs.get(tab) else {
+            return;
+        };
+        let line = doc.buffer.char_to_line(doc.buffer.caret());
+        let gap = {
+            let revealed = if left_pane {
+                &self.compare_hide_revealed_left
+            } else {
+                &self.compare_hide_revealed_right
+            };
+            crate::diff::nearest_compare_revealed_run(line, revealed)
+        };
+        let Some(gap) = gap else {
+            self.state.status = "Compare: no expanded equal run at caret".into();
+            return;
+        };
+        if !self.collapse_compare_hide_gap(gap, left_pane) {
+            self.state.status = "Compare: no expanded equal run at caret".into();
+        }
+    }
+
+    /// Hide one previously expanded Equal run on the focused pane and its partners.
+    fn collapse_compare_hide_gap(&mut self, gap: (usize, usize), left_pane: bool) -> bool {
+        let n = if left_pane {
+            crate::diff::collapse_compare_gap(&mut self.compare_hide_revealed_left, gap)
+        } else {
+            crate::diff::collapse_compare_gap(&mut self.compare_hide_revealed_right, gap)
+        };
+        if n == 0 {
+            return false;
+        }
+        let partners = crate::diff::aligned_equal_partner_lines(
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            gap,
+            left_pane,
+        );
+        let n_other = if left_pane {
+            crate::diff::collapse_compare_lines(&mut self.compare_hide_revealed_right, &partners)
+        } else {
+            crate::diff::collapse_compare_lines(&mut self.compare_hide_revealed_left, &partners)
+        };
+        let hide = compare_hide_opt(
+            true,
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            &self.compare_hide_revealed_left,
+            &self.compare_hide_revealed_right,
+        );
+        let remain = hide.map(|(l, r)| l + r).unwrap_or(0);
+        let both = if n_other > 0 { " both panes" } else { "" };
+        self.state.status = format!("Compare collapsed ···{n}{both} ({remain} hidden)");
+        true
     }
 
     /// Reveal every collapsed Equal run on both panes; hide-equal preference stays on.

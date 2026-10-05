@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.65] — 2026-10-05
+
+Compare:
+
+- **View → Collapse Unchanged at Caret** re-collapses the expanded Equal run nearest the caret on both panes (···N cue returns for that run; hide-equal stays on).
+
 ## [0.3.64] — 2026-10-05
 
 Compare:
