@@ -93,7 +93,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | Bookmarks | Partial | Strong MVP; not full N++ mark set |
 | Change history | Partial | Bars + undo remap (v0.3.5); not full Scintilla |
 | Dual / other view | Partial | Writable panes; no docking layout |
-| 2-way compare | Partial | Line LCS + word-aware wash + apply hunk from/to other / apply all + open unified diff tab; no 3-way |
+| 2-way compare | Partial | Line LCS + word-aware wash + hide unchanged + apply hunk from/to other / apply all + open unified diff tab; no 3-way |
 | Themes / styles | Partial | JSON + N++ XML subset (v0.3.4) |
 | Encoding | Partial | UTF-8 / BOM / ANSI / UTF-16 LE·BE (BOM or no-BOM detect, v0.3.17) |
 | Session restore | Partial | Path list; not full N++ session XML |

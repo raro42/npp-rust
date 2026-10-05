@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.54] — 2026-10-05
+
+Compare:
+
+- **View → Hide Unchanged Lines** (Preferences persist) collapses Equal-tagged lines in both Compare panes so only change lines stay visible. Identical pairs stay fully shown. Status appends `· hide equal`.
+
 ## [0.3.53] — 2026-10-05
 
 Compare:

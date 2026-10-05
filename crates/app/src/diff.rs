@@ -1,5 +1,7 @@
 //! Line-oriented 2-way diff (LCS). No system `diff` — works on all OSes.
 
+use std::collections::BTreeSet;
+
 /// Per-line tag for one side of a compare.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LineKind {
@@ -333,6 +335,21 @@ pub fn count_changes(left: &[LineKind], right: &[LineKind]) -> (usize, usize) {
     let del = left.iter().filter(|k| **k == LineKind::Delete).count();
     let ins = right.iter().filter(|k| **k == LineKind::Insert).count();
     (del, ins)
+}
+
+/// Equal-tagged line indices to hide when "Hide Unchanged Lines" is on.
+///
+/// Returns empty when the side has no changes (identical / empty), so the pane
+/// does not go blank.
+pub fn equal_line_indices_to_hide(tags: &[LineKind]) -> BTreeSet<usize> {
+    if !tags.iter().any(|k| *k != LineKind::Equal) {
+        return BTreeSet::new();
+    }
+    tags.iter()
+        .enumerate()
+        .filter(|(_, k)| **k == LineKind::Equal)
+        .map(|(i, _)| i)
+        .collect()
 }
 
 /// Normalize a line for compare matching (ignore whitespace / case options).
@@ -1115,6 +1132,16 @@ mod tests {
             compare_line_key("A  B", true, true),
             compare_line_key("a b", true, true)
         );
+    }
+
+    #[test]
+    fn equal_line_indices_to_hide_skips_identical() {
+        use LineKind::*;
+        assert!(equal_line_indices_to_hide(&[Equal, Equal]).is_empty());
+        let hide = equal_line_indices_to_hide(&[Equal, Delete, Equal, Insert]);
+        assert_eq!(hide.iter().copied().collect::<Vec<_>>(), vec![0, 2]);
+        assert!(!hide.contains(&1));
+        assert!(!hide.contains(&3));
     }
 
     #[test]

@@ -7,6 +7,7 @@ use crate::ui_paint::{
     style_mark_bg, text_width, visible_line_indices, FOLD_MARGIN_W,
 };
 use eframe::egui::{self, Color32, CursorIcon, FontId, Key, Pos2, Rect, RichText, Sense, Vec2};
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 /// Soft teal — ready menu items (works on light and dark themes).
@@ -110,17 +111,42 @@ fn compare_pair_status(
     ins: usize,
     hunk_n: usize,
     ignore: CompareIgnoreBits,
+    hide_equal: bool,
 ) -> String {
     let ignore_bit = compare_ignore_status_bit(ignore);
+    let hide_bit = if hide_equal { " · hide equal" } else { "" };
     if del == 0 && ins == 0 {
-        return format!("Compare “{lname}” | “{rname}” (identical){ignore_bit}");
+        return format!("Compare “{lname}” | “{rname}” (identical){ignore_bit}{hide_bit}");
     }
     let hunk_bit = if hunk_n > 0 {
         format!(" · {hunk_n} hunk{}", if hunk_n == 1 { "" } else { "s" })
     } else {
         String::new()
     };
-    format!("Compare “{lname}” | “{rname}” (−{del} +{ins}){hunk_bit}{ignore_bit}")
+    format!("Compare “{lname}” | “{rname}” (−{del} +{ins}){hunk_bit}{ignore_bit}{hide_bit}")
+}
+
+/// Visible rows for a pane, merging fold hides with optional Compare hide-equal.
+fn visible_lines_with_compare_hide(
+    line_count: usize,
+    fold_hidden: &BTreeSet<usize>,
+    compare_on: bool,
+    hide_equal: bool,
+    tags: &[crate::diff::LineKind],
+) -> Vec<usize> {
+    if !compare_on || !hide_equal {
+        return visible_line_indices(line_count, fold_hidden);
+    }
+    let equal_hide = crate::diff::equal_line_indices_to_hide(tags);
+    if equal_hide.is_empty() {
+        return visible_line_indices(line_count, fold_hidden);
+    }
+    if fold_hidden.is_empty() {
+        return visible_line_indices(line_count, &equal_hide);
+    }
+    let mut merged = fold_hidden.clone();
+    merged.extend(equal_hide);
+    visible_line_indices(line_count, &merged)
 }
 
 fn compare_open_or_copy_status(
@@ -969,6 +995,7 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_IGNORE_WS" => self.state.settings.compare_ignore_ws,
                     "IDM_VIEW_COMPARE_IGNORE_CASE" => self.state.settings.compare_ignore_case,
                     "IDM_VIEW_COMPARE_IGNORE_BLANK" => self.state.settings.compare_ignore_blank,
+                    "IDM_VIEW_COMPARE_HIDE_EQUAL" => self.state.settings.compare_hide_equal,
                     _ => false,
                 };
                 let shown = if checked {
@@ -1000,6 +1027,9 @@ impl EditorApp {
                     ),
                     "IDM_VIEW_COMPARE_IGNORE_BLANK" => response.on_hover_text(
                         "Toggle ignore blank lines for Compare (Preferences persist)",
+                    ),
+                    "IDM_VIEW_COMPARE_HIDE_EQUAL" => response.on_hover_text(
+                        "Hide Equal (unchanged) lines while Compare is on (Preferences persist)",
                     ),
                     "IDM_VIEW_COPY_COMPARE_DIFF" => response
                         .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
@@ -1585,6 +1615,15 @@ Tree-sitter highlight, and a calm UI.",
                             if self.compare_on {
                                 self.state.compare_stale = true;
                             }
+                        }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.compare_hide_equal,
+                                "Hide unchanged lines",
+                            )
+                            .changed()
+                        {
+                            changed = true;
                         }
                         ui.add_space(10.0);
                         ui.label(RichText::new("Status bar").strong());
@@ -2924,8 +2963,14 @@ Tree-sitter highlight, and a calm UI.",
             let font_id = FontId::monospace(self.font_size);
             let row_height = ui.fonts(|f| f.row_height(&font_id)) + 2.0;
             let buf_line_count = self.state.tabs.active().buffer.line_count().max(1);
-            let visible_lines =
-                visible_line_indices(buf_line_count, &self.state.tabs.active().hidden_lines);
+            let fold_hidden = self.state.tabs.active().hidden_lines.clone();
+            let visible_lines = visible_lines_with_compare_hide(
+                buf_line_count,
+                &fold_hidden,
+                self.compare_on,
+                self.state.settings.compare_hide_equal,
+                &self.compare_left_tags,
+            );
             let display_count = visible_lines.len().max(1);
             let avail = ui.available_size();
             let (rect, response) = ui.allocate_exact_size(avail, Sense::click_and_drag());
@@ -3871,6 +3916,9 @@ Tree-sitter highlight, and a calm UI.",
         if let Some(toggle) = flags.compare_ignore_toggle {
             self.toggle_compare_ignore(toggle);
         }
+        if flags.compare_hide_equal_toggle {
+            self.toggle_compare_hide_equal();
+        }
         if flags.copy_compare_diff {
             self.copy_compare_diff(flags);
         }
@@ -3917,6 +3965,7 @@ Tree-sitter highlight, and a calm UI.",
             case: self.state.settings.compare_ignore_case,
             blank: self.state.settings.compare_ignore_blank,
         };
+        let hide_equal = self.state.settings.compare_hide_equal;
         if self.compare_on {
             // Refresh immediately so the toggle is visible without waiting for debounce.
             self.state.compare_stale = false;
@@ -3941,7 +3990,8 @@ Tree-sitter highlight, and a calm UI.",
                     .get(right)
                     .map(|d| d.title.clone())
                     .unwrap_or_else(|| "right".into());
-                self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore);
+                self.state.status =
+                    compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide_equal);
                 self.state.highlight_dirty = true;
             }
         } else {
@@ -3959,6 +4009,51 @@ Tree-sitter highlight, and a calm UI.",
                 "{which}: {}{}",
                 if on { "on" } else { "off" },
                 compare_ignore_status_bit(ignore)
+            );
+        }
+    }
+
+    /// Toggle hide-unchanged-lines for Compare; persist (no re-diff needed).
+    fn toggle_compare_hide_equal(&mut self) {
+        self.state.settings.compare_hide_equal = !self.state.settings.compare_hide_equal;
+        self.state.settings.save();
+        let hide_equal = self.state.settings.compare_hide_equal;
+        let ignore = CompareIgnoreBits {
+            ws: self.state.settings.compare_ignore_ws,
+            case: self.state.settings.compare_ignore_case,
+            blank: self.state.settings.compare_ignore_blank,
+        };
+        if self.compare_on {
+            let left = self.compare_left_tab;
+            let right = self.compare_right_tab;
+            let (del, ins) =
+                crate::diff::count_changes(&self.compare_left_tags, &self.compare_right_tags);
+            let hunk_n = crate::diff::hunk_starts(&self.compare_left_tags)
+                .len()
+                .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
+            let lname = self
+                .state
+                .tabs
+                .get(left)
+                .map(|d| d.title.clone())
+                .unwrap_or_else(|| "left".into());
+            let rname = self
+                .state
+                .tabs
+                .get(right)
+                .map(|d| d.title.clone())
+                .unwrap_or_else(|| "right".into());
+            self.state.status =
+                compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide_equal);
+        } else {
+            self.state.status = format!(
+                "Hide unchanged lines: {}{}",
+                if hide_equal { "on" } else { "off" },
+                if hide_equal {
+                    " (applies when Compare is on)"
+                } else {
+                    ""
+                }
             );
         }
     }
@@ -4722,9 +4817,10 @@ Tree-sitter highlight, and a calm UI.",
             case: self.state.settings.compare_ignore_case,
             blank: self.state.settings.compare_ignore_blank,
         };
+        let hide_equal = self.state.settings.compare_hide_equal;
         self.state.status = format!(
             "Swapped sides — {}",
-            compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore)
+            compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide_equal)
         );
     }
 
@@ -4930,7 +5026,9 @@ Tree-sitter highlight, and a calm UI.",
                     case: self.state.settings.compare_ignore_case,
                     blank: self.state.settings.compare_ignore_blank,
                 };
-                self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore);
+                let hide_equal = self.state.settings.compare_hide_equal;
+                self.state.status =
+                    compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide_equal);
             }
             None => {
                 // Too many lines or missing tabs — leave prior tags; status already set.
@@ -5106,7 +5204,9 @@ Tree-sitter highlight, and a calm UI.",
             case: self.state.settings.compare_ignore_case,
             blank: self.state.settings.compare_ignore_blank,
         };
-        self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore);
+        let hide_equal = self.state.settings.compare_hide_equal;
+        self.state.status =
+            compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide_equal);
     }
 
     /// Writable secondary pane: edits `other_view_tab` when this pane has focus.
@@ -5130,7 +5230,13 @@ Tree-sitter highlight, and a calm UI.",
 
         let font_id = FontId::monospace(self.font_size);
         let row_height = ui.fonts(|f| f.row_height(&font_id)) + 2.0;
-        let visible_lines = visible_line_indices(buf_line_count, &hidden);
+        let visible_lines = visible_lines_with_compare_hide(
+            buf_line_count,
+            &hidden,
+            self.compare_on,
+            self.state.settings.compare_hide_equal,
+            &self.compare_right_tags,
+        );
         let display_count = visible_lines.len().max(1);
         let avail = ui.available_size();
         let (rect, response) = ui.allocate_exact_size(avail, Sense::click_and_drag());
@@ -6181,11 +6287,11 @@ mod compare_pair_tests {
             blank: false,
         };
         assert_eq!(
-            compare_pair_status("a", "b", 0, 0, 0, none),
+            compare_pair_status("a", "b", 0, 0, 0, none, false),
             "Compare “a” | “b” (identical)"
         );
         assert_eq!(
-            compare_pair_status("a", "b", 1, 2, 2, none),
+            compare_pair_status("a", "b", 1, 2, 2, none, false),
             "Compare “a” | “b” (−1 +2) · 2 hunks"
         );
         assert_eq!(
@@ -6199,7 +6305,8 @@ mod compare_pair_tests {
                     ws: true,
                     case: true,
                     blank: false
-                }
+                },
+                false
             ),
             "Compare “a” | “b” (identical) · ignore ws+case"
         );
@@ -6214,7 +6321,8 @@ mod compare_pair_tests {
                     ws: true,
                     case: false,
                     blank: false
-                }
+                },
+                false
             ),
             "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws"
         );
@@ -6229,7 +6337,8 @@ mod compare_pair_tests {
                     ws: false,
                     case: false,
                     blank: true
-                }
+                },
+                false
             ),
             "Compare “a” | “b” (identical) · ignore blank"
         );
@@ -6244,9 +6353,10 @@ mod compare_pair_tests {
                     ws: true,
                     case: true,
                     blank: true
-                }
+                },
+                true
             ),
-            "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws+case+blank"
+            "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws+case+blank · hide equal"
         );
     }
 

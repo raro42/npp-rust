@@ -220,6 +220,10 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.compare_ignore_toggle = Some(super::CompareIgnoreToggle::BlankLines);
             CmdResult::Handled
         }
+        "IDM_VIEW_COMPARE_HIDE_EQUAL" => {
+            ui.compare_hide_equal_toggle = true;
+            CmdResult::Handled
+        }
         "IDM_VIEW_NEXT_DIFF" => {
             ui.compare_nav = Some(super::CompareNav::Next);
             CmdResult::Handled

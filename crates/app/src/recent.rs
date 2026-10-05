@@ -173,6 +173,9 @@ pub struct AppSettings {
     /// Compare: skip blank / whitespace-only lines in the LCS.
     #[serde(default)]
     pub compare_ignore_blank: bool,
+    /// Compare: hide Equal-tagged lines in both panes (change lines stay visible).
+    #[serde(default)]
+    pub compare_hide_equal: bool,
     /// Last project panel folder (absolute or relative path string).
     #[serde(default)]
     pub workspace_root: String,
@@ -230,6 +233,7 @@ impl Default for AppSettings {
             compare_ignore_ws: false,
             compare_ignore_case: false,
             compare_ignore_blank: false,
+            compare_hide_equal: false,
             workspace_root: String::new(),
             project_filter: String::new(),
             find_files_include: String::new(),
@@ -544,6 +548,7 @@ mod tests {
             compare_ignore_ws: true,
             compare_ignore_case: true,
             compare_ignore_blank: true,
+            compare_hide_equal: true,
             backup_on_save: true,
             autosave_interval_secs: 60,
             ..Default::default()
@@ -561,6 +566,7 @@ mod tests {
         assert!(back.compare_ignore_ws);
         assert!(back.compare_ignore_case);
         assert!(back.compare_ignore_blank);
+        assert!(back.compare_hide_equal);
         assert!(back.backup_on_save);
         assert_eq!(back.autosave_interval_secs, 60);
     }

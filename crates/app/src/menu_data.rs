@@ -95,6 +95,7 @@ mod tests {
             "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS_TO_OTHER"
         ));
         assert!(has_cmd(&load_npp_menu(), "IDM_VIEW_COMPARE_IGNORE_BLANK"));
+        assert!(has_cmd(&load_npp_menu(), "IDM_VIEW_COMPARE_HIDE_EQUAL"));
         assert!(has_cmd(&load_npp_menu(), "IDM_VIEW_COMPARE_TO_SAVED"));
     }
 }
