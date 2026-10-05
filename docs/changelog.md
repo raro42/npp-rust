@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.55] — 2026-10-05
+
+Compare:
+
+- **Hide Unchanged Lines** keeps **±3 Equal lines of context** around each change hunk so collapsed Compare panes stay readable. Status shows `· hide equal ±3`.
+
 ## [0.3.54] — 2026-10-05
 
 Compare:

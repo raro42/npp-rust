@@ -49,3 +49,4 @@
 009 keep: compare Clear closes saved snapshot tab (v0.3.52)
 009 keep: compare word-aware replace-hunk wash (v0.3.53)
 009 keep: compare Hide Unchanged Lines (v0.3.54)
+009 keep: compare hide-equal ±3 context (v0.3.55)

@@ -114,7 +114,11 @@ fn compare_pair_status(
     hide_equal: bool,
 ) -> String {
     let ignore_bit = compare_ignore_status_bit(ignore);
-    let hide_bit = if hide_equal { " · hide equal" } else { "" };
+    let hide_bit = if hide_equal {
+        format!(" · hide equal ±{}", crate::diff::COMPARE_HIDE_EQUAL_CONTEXT)
+    } else {
+        String::new()
+    };
     if del == 0 && ins == 0 {
         return format!("Compare “{lname}” | “{rname}” (identical){ignore_bit}{hide_bit}");
     }
@@ -1029,7 +1033,7 @@ impl EditorApp {
                         "Toggle ignore blank lines for Compare (Preferences persist)",
                     ),
                     "IDM_VIEW_COMPARE_HIDE_EQUAL" => response.on_hover_text(
-                        "Hide Equal (unchanged) lines while Compare is on (Preferences persist)",
+                        "Hide Equal (unchanged) lines while Compare is on; keep ±3 lines of context around each change (Preferences persist)",
                     ),
                     "IDM_VIEW_COPY_COMPARE_DIFF" => response
                         .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
@@ -4050,9 +4054,12 @@ Tree-sitter highlight, and a calm UI.",
                 "Hide unchanged lines: {}{}",
                 if hide_equal { "on" } else { "off" },
                 if hide_equal {
-                    " (applies when Compare is on)"
+                    format!(
+                        " (±{} context; applies when Compare is on)",
+                        crate::diff::COMPARE_HIDE_EQUAL_CONTEXT
+                    )
                 } else {
-                    ""
+                    String::new()
                 }
             );
         }
@@ -6356,7 +6363,7 @@ mod compare_pair_tests {
                 },
                 true
             ),
-            "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws+case+blank · hide equal"
+            "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws+case+blank · hide equal ±3"
         );
     }
 

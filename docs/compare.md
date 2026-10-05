@@ -67,7 +67,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - When both sides match (including ignore-whitespace / ignore-case), status says `(identical)`.
 - Active ignore options appear in the status (`· ignore ws`, `· ignore case`, `· ignore blank`, or combined `ws+case+blank`).
 - **View → Ignore Whitespace Differences** / **Ignore Case Differences** / **Ignore Blank Lines** toggle those Preferences keys (✓ when on) and re-diff immediately while Compare is on. Blank-line ignore skips empty / whitespace-only lines in the LCS so padding blank lines do not create hunks.
-- **View → Hide Unchanged Lines** toggles a Preferences key (✓ when on). While Compare is on, Equal-tagged lines are hidden in both panes so only change lines remain (folds still apply). Identical pairs stay fully visible so the panes do not go blank. Status appends `· hide equal`.
+- **View → Hide Unchanged Lines** toggles a Preferences key (✓ when on). While Compare is on, Equal-tagged lines are hidden in both panes except **±3 lines of context** around each change (folds still apply). Identical pairs stay fully visible so the panes do not go blank. Status appends `· hide equal ±3`.
 - **View → Swap Compare Sides** flips left/right files (and scroll), keeps focus on the new left, and re-diffs so delete/insert colours stay correct.
 - **View → Copy Compare Diff** copies a unified diff of the pair to the clipboard (3 lines of context). Status shows `Copied unified diff (−N +M)` or `(identical)`.
 - **View → Open Compare Diff** opens that unified diff in a `compare.diff` tab (Compare turns off so the tab is not pinned away). Status shows `Opened unified diff (−N +M)` or `(identical)`.
@@ -88,7 +88,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - Preferences: **Ignore whitespace differences** collapses whitespace runs before LCS.
 - Preferences: **Ignore case differences** folds letter case before LCS (combines with ignore-whitespace).
 - Preferences: **Ignore blank lines** skips blank / whitespace-only lines in the LCS (combines with the other ignore toggles).
-- Preferences: **Hide unchanged lines** collapses Equal lines in the Compare panes (display only; does not change the LCS).
+- Preferences: **Hide unchanged lines** collapses Equal lines in the Compare panes, keeping ±3 Equal lines of context around each change (display only; does not change the LCS).
 
 ## Not in MVP
 

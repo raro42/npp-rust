@@ -337,17 +337,43 @@ pub fn count_changes(left: &[LineKind], right: &[LineKind]) -> (usize, usize) {
     (del, ins)
 }
 
+/// Equal lines kept visible on each side of a change when hide-equal is on.
+pub const COMPARE_HIDE_EQUAL_CONTEXT: usize = 3;
+
 /// Equal-tagged line indices to hide when "Hide Unchanged Lines" is on.
 ///
-/// Returns empty when the side has no changes (identical / empty), so the pane
-/// does not go blank.
+/// Keeps [`COMPARE_HIDE_EQUAL_CONTEXT`] Equal lines before/after each change
+/// line so hunks stay readable. Returns empty when the side has no changes
+/// (identical / empty), so the pane does not go blank.
 pub fn equal_line_indices_to_hide(tags: &[LineKind]) -> BTreeSet<usize> {
+    equal_line_indices_to_hide_with_context(tags, COMPARE_HIDE_EQUAL_CONTEXT)
+}
+
+/// Like [`equal_line_indices_to_hide`], with an explicit context window.
+pub fn equal_line_indices_to_hide_with_context(
+    tags: &[LineKind],
+    context: usize,
+) -> BTreeSet<usize> {
     if !tags.iter().any(|k| *k != LineKind::Equal) {
         return BTreeSet::new();
     }
+    let last = tags.len().saturating_sub(1);
+    let mut keep_equal = BTreeSet::new();
+    for (i, kind) in tags.iter().enumerate() {
+        if *kind == LineKind::Equal {
+            continue;
+        }
+        let start = i.saturating_sub(context);
+        let end = (i + context).min(last);
+        for (j, kind) in tags.iter().enumerate().take(end + 1).skip(start) {
+            if *kind == LineKind::Equal {
+                keep_equal.insert(j);
+            }
+        }
+    }
     tags.iter()
         .enumerate()
-        .filter(|(_, k)| **k == LineKind::Equal)
+        .filter(|(i, k)| **k == LineKind::Equal && !keep_equal.contains(i))
         .map(|(i, _)| i)
         .collect()
 }
@@ -1138,10 +1164,23 @@ mod tests {
     fn equal_line_indices_to_hide_skips_identical() {
         use LineKind::*;
         assert!(equal_line_indices_to_hide(&[Equal, Equal]).is_empty());
-        let hide = equal_line_indices_to_hide(&[Equal, Delete, Equal, Insert]);
-        assert_eq!(hide.iter().copied().collect::<Vec<_>>(), vec![0, 2]);
-        assert!(!hide.contains(&1));
+        // Context 0: hide every Equal when changes exist.
+        let hide0 = equal_line_indices_to_hide_with_context(&[Equal, Delete, Equal, Insert], 0);
+        assert_eq!(hide0.iter().copied().collect::<Vec<_>>(), vec![0, 2]);
+        assert!(!hide0.contains(&1));
+        assert!(!hide0.contains(&3));
+        // Default ±3 context keeps nearby Equals; far Equals stay hidden.
+        let tags = vec![
+            Equal, Equal, Equal, Equal, Delete, Equal, Equal, Equal, Equal, Insert, Equal, Equal,
+            Equal, Equal,
+        ];
+        let hide = equal_line_indices_to_hide(&tags);
+        // Change at 4 keeps Equals 1..=3 and 5..=7; change at 9 keeps 6..=8 and 10..=12.
+        // Far Equals 0 and 13 are hidden.
+        assert_eq!(hide.iter().copied().collect::<Vec<_>>(), vec![0, 13]);
         assert!(!hide.contains(&3));
+        assert!(!hide.contains(&5));
+        assert!(!hide.contains(&10));
     }
 
     #[test]
