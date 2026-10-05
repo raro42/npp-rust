@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.78] — 2026-10-06
+
+Compare:
+
+- Live Compare status line tallies hunk kinds after the hunk count (`· K hunks: N delete, M insert, P replace`) so delete/insert/replace mix is visible without opening Compare Summary.
+
 ## [0.3.77] — 2026-10-06
 
 Compare:

@@ -1416,8 +1416,18 @@ fn summary_kind_tallies(hunks: &[CompareSummaryHunk]) -> (usize, usize, usize) {
     (deletes, inserts, replaces)
 }
 
-fn format_summary_kind_tallies(hunks: &[CompareSummaryHunk]) -> String {
-    let (deletes, inserts, replaces) = summary_kind_tallies(hunks);
+/// Hunk-kind tallies for a Compare pair (`(0,0,0)` when tags cannot align).
+pub fn compare_kind_tallies(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+) -> (usize, usize, usize) {
+    let Some(hunks) = compare_summary_hunks(left_tags, right_tags) else {
+        return (0, 0, 0);
+    };
+    summary_kind_tallies(&hunks)
+}
+
+fn format_kind_tallies(deletes: usize, inserts: usize, replaces: usize) -> String {
     let mut parts = Vec::with_capacity(3);
     if deletes > 0 {
         parts.push(format!("{deletes} delete"));
@@ -1429,6 +1439,22 @@ fn format_summary_kind_tallies(hunks: &[CompareSummaryHunk]) -> String {
         parts.push(format!("{replaces} replace"));
     }
     parts.join(", ")
+}
+
+fn format_summary_kind_tallies(hunks: &[CompareSummaryHunk]) -> String {
+    let (deletes, inserts, replaces) = summary_kind_tallies(hunks);
+    format_kind_tallies(deletes, inserts, replaces)
+}
+
+/// Status bit after the hunk count (`""` or `": 1 delete, 2 insert"`).
+pub fn compare_kind_tally_bit(left_tags: &[LineKind], right_tags: &[LineKind]) -> String {
+    let (deletes, inserts, replaces) = compare_kind_tallies(left_tags, right_tags);
+    let text = format_kind_tallies(deletes, inserts, replaces);
+    if text.is_empty() {
+        String::new()
+    } else {
+        format!(": {text}")
+    }
 }
 
 /// Status/summary suffix for active Compare ignore toggles
@@ -2010,6 +2036,21 @@ mod tests {
         let right2 = ["other"];
         let (l2, r2) = diff_line_tags(&left2, &right2);
         assert_eq!(compare_equal_percent(&l2, &r2), 0);
+    }
+
+    #[test]
+    fn compare_kind_tally_bit_matches_summary() {
+        let left = ["a", "gone", "b", "old", "c"];
+        let right = ["a", "b", "new", "c", "tail"];
+        let (l, r) = diff_line_tags(&left, &right);
+        assert_eq!(compare_kind_tallies(&l, &r), (1, 1, 1));
+        assert_eq!(
+            compare_kind_tally_bit(&l, &r),
+            ": 1 delete, 1 insert, 1 replace"
+        );
+        let (le, re) = diff_line_tags(&left, &left);
+        assert_eq!(compare_kind_tallies(&le, &re), (0, 0, 0));
+        assert_eq!(compare_kind_tally_bit(&le, &re), "");
     }
 
     #[test]

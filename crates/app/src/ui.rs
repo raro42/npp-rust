@@ -155,6 +155,8 @@ struct ComparePairCounts {
     ins: usize,
     hunk_n: usize,
     equal_pct: u8,
+    /// After hunk count (`""` or `": 1 delete, 2 insert"`).
+    kind_bit: String,
 }
 
 /// `None` = hide-equal off; `Some((left, right))` = on with per-side hidden counts.
@@ -187,18 +189,42 @@ fn compare_pair_status(
         ins,
         hunk_n,
         equal_pct,
+        kind_bit,
     } = counts;
     if del == 0 && ins == 0 {
         return format!("Compare “{lname}” | “{rname}” (identical){ignore_bit}{hide_bit}");
     }
     let hunk_bit = if hunk_n > 0 {
-        format!(" · {hunk_n} hunk{}", if hunk_n == 1 { "" } else { "s" })
+        format!(
+            " · {hunk_n} hunk{}{kind_bit}",
+            if hunk_n == 1 { "" } else { "s" }
+        )
     } else {
         String::new()
     };
     format!(
         "Compare “{lname}” | “{rname}” (−{del} +{ins}){hunk_bit} · {equal_pct}% equal{ignore_bit}{hide_bit}"
     )
+}
+
+/// Live Compare status counts from current tags.
+fn compare_pair_counts_from_tags(
+    left_tags: &[crate::diff::LineKind],
+    right_tags: &[crate::diff::LineKind],
+) -> ComparePairCounts {
+    let (del, ins) = crate::diff::count_changes(left_tags, right_tags);
+    let hunk_n = crate::diff::hunk_starts(left_tags)
+        .len()
+        .max(crate::diff::hunk_starts(right_tags).len());
+    let equal_pct = crate::diff::compare_equal_percent(left_tags, right_tags);
+    let kind_bit = crate::diff::compare_kind_tally_bit(left_tags, right_tags);
+    ComparePairCounts {
+        del,
+        ins,
+        hunk_n,
+        equal_pct,
+        kind_bit,
+    }
 }
 
 /// Visible rows for a pane, merging fold hides with optional Compare hide-equal.
@@ -4191,10 +4217,7 @@ Tree-sitter highlight, and a calm UI.",
             self.compare_refresh_at = None;
             let left = self.compare_left_tab;
             let right = self.compare_right_tab;
-            if let Some((lt, rt, del, ins)) = self.compute_compare_tags(left, right) {
-                let hunk_n = crate::diff::hunk_starts(&lt)
-                    .len()
-                    .max(crate::diff::hunk_starts(&rt).len());
+            if let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) {
                 self.compare_left_tags = lt;
                 self.compare_right_tags = rt;
                 crate::diff::prune_compare_hide_revealed(
@@ -4227,19 +4250,13 @@ Tree-sitter highlight, and a calm UI.",
                     &self.compare_hide_revealed_right,
                     self.state.settings.compare_hide_equal_context_lines(),
                 );
-                let equal_pct = crate::diff::compare_equal_percent(
-                    &self.compare_left_tags,
-                    &self.compare_right_tags,
-                );
                 self.state.status = compare_pair_status(
                     &lname,
                     &rname,
-                    ComparePairCounts {
-                        del,
-                        ins,
-                        hunk_n,
-                        equal_pct,
-                    },
+                    compare_pair_counts_from_tags(
+                        &self.compare_left_tags,
+                        &self.compare_right_tags,
+                    ),
                     ignore,
                     CompareHideStatus {
                         hidden: hide,
@@ -4698,11 +4715,6 @@ Tree-sitter highlight, and a calm UI.",
         if self.compare_on {
             let left = self.compare_left_tab;
             let right = self.compare_right_tab;
-            let (del, ins) =
-                crate::diff::count_changes(&self.compare_left_tags, &self.compare_right_tags);
-            let hunk_n = crate::diff::hunk_starts(&self.compare_left_tags)
-                .len()
-                .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
             let lname = self
                 .state
                 .tabs
@@ -4723,19 +4735,10 @@ Tree-sitter highlight, and a calm UI.",
                 &self.compare_hide_revealed_right,
                 self.state.settings.compare_hide_equal_context_lines(),
             );
-            let equal_pct = crate::diff::compare_equal_percent(
-                &self.compare_left_tags,
-                &self.compare_right_tags,
-            );
             self.state.status = compare_pair_status(
                 &lname,
                 &rname,
-                ComparePairCounts {
-                    del,
-                    ins,
-                    hunk_n,
-                    equal_pct,
-                },
+                compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags),
                 ignore,
                 CompareHideStatus {
                     hidden: hide,
@@ -5607,7 +5610,7 @@ Tree-sitter highlight, and a calm UI.",
         std::mem::swap(&mut self.scroll_line, &mut self.scroll_line_other);
         let left = self.compare_left_tab;
         let right = self.compare_right_tab;
-        let Some((lt, rt, del, ins)) = self.compute_compare_tags(left, right) else {
+        let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) else {
             // Restore orientation if re-diff cannot run (e.g. over line cap).
             std::mem::swap(&mut self.compare_left_tab, &mut self.compare_right_tab);
             std::mem::swap(&mut self.scroll_line, &mut self.scroll_line_other);
@@ -5636,9 +5639,6 @@ Tree-sitter highlight, and a calm UI.",
             .get(right)
             .map(|d| d.title.clone())
             .unwrap_or_else(|| "right".into());
-        let hunk_n = crate::diff::hunk_starts(&self.compare_left_tags)
-            .len()
-            .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
         let ignore = CompareIgnoreBits {
             ws: self.state.settings.compare_ignore_ws,
             case: self.state.settings.compare_ignore_case,
@@ -5652,19 +5652,12 @@ Tree-sitter highlight, and a calm UI.",
             &self.compare_hide_revealed_right,
             self.state.settings.compare_hide_equal_context_lines(),
         );
-        let equal_pct =
-            crate::diff::compare_equal_percent(&self.compare_left_tags, &self.compare_right_tags);
         self.state.status = format!(
             "Swapped sides — {}",
             compare_pair_status(
                 &lname,
                 &rname,
-                ComparePairCounts {
-                    del,
-                    ins,
-                    hunk_n,
-                    equal_pct,
-                },
+                compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags),
                 ignore,
                 CompareHideStatus {
                     hidden: hide,
@@ -5855,10 +5848,7 @@ Tree-sitter highlight, and a calm UI.",
             return;
         }
         match self.compute_compare_tags(left, right) {
-            Some((lt, rt, del, ins)) => {
-                let hunk_n = crate::diff::hunk_starts(&lt)
-                    .len()
-                    .max(crate::diff::hunk_starts(&rt).len());
+            Some((lt, rt, _, _)) => {
                 self.compare_left_tags = lt;
                 self.compare_right_tags = rt;
                 crate::diff::prune_compare_hide_revealed(
@@ -5896,19 +5886,13 @@ Tree-sitter highlight, and a calm UI.",
                     &self.compare_hide_revealed_right,
                     self.state.settings.compare_hide_equal_context_lines(),
                 );
-                let equal_pct = crate::diff::compare_equal_percent(
-                    &self.compare_left_tags,
-                    &self.compare_right_tags,
-                );
                 self.state.status = compare_pair_status(
                     &lname,
                     &rname,
-                    ComparePairCounts {
-                        del,
-                        ins,
-                        hunk_n,
-                        equal_pct,
-                    },
+                    compare_pair_counts_from_tags(
+                        &self.compare_left_tags,
+                        &self.compare_right_tags,
+                    ),
                     ignore,
                     CompareHideStatus {
                         hidden: hide,
@@ -6047,7 +6031,7 @@ Tree-sitter highlight, and a calm UI.",
             self.state.status = "Compare: pick a different tab first".into();
             return;
         };
-        let Some((lt, rt, del, ins)) = self.compute_compare_tags(left, right) else {
+        let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) else {
             return;
         };
         self.compare_on = true;
@@ -6067,10 +6051,9 @@ Tree-sitter highlight, and a calm UI.",
         self.state.highlight_dirty = true;
         self.focused_pane = EditorPane::Primary;
         // Park + select both panes on the first change hunk (same ordinal; line numbers may differ).
-        let hunk_n = crate::diff::hunk_starts(&self.compare_left_tags)
-            .len()
-            .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
-        if hunk_n > 0 {
+        let counts =
+            compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
+        if counts.hunk_n > 0 {
             self.park_compare_hunk_ordinal(1);
             self.select_compare_hunk_on_pane(true, 1);
             self.select_compare_hunk_on_pane(false, 1);
@@ -6100,17 +6083,10 @@ Tree-sitter highlight, and a calm UI.",
             &self.compare_hide_revealed_right,
             self.state.settings.compare_hide_equal_context_lines(),
         );
-        let equal_pct =
-            crate::diff::compare_equal_percent(&self.compare_left_tags, &self.compare_right_tags);
         self.state.status = compare_pair_status(
             &lname,
             &rname,
-            ComparePairCounts {
-                del,
-                ins,
-                hunk_n,
-                equal_pct,
-            },
+            counts,
             ignore,
             CompareHideStatus {
                 hidden: hide,
@@ -7218,6 +7194,22 @@ mod compare_pair_tests {
         assert_eq!(pick_compare_right(1, 0, None, false, 0), None);
     }
 
+    fn counts(
+        del: usize,
+        ins: usize,
+        hunk_n: usize,
+        equal_pct: u8,
+        kind_bit: &str,
+    ) -> ComparePairCounts {
+        ComparePairCounts {
+            del,
+            ins,
+            hunk_n,
+            equal_pct,
+            kind_bit: kind_bit.to_string(),
+        }
+    }
+
     #[test]
     fn status_identical_vs_counts() {
         use super::CompareIgnoreBits;
@@ -7230,12 +7222,7 @@ mod compare_pair_tests {
             compare_pair_status(
                 "a",
                 "b",
-                ComparePairCounts {
-                    del: 0,
-                    ins: 0,
-                    hunk_n: 0,
-                    equal_pct: 100
-                },
+                counts(0, 0, 0, 100, ""),
                 none,
                 CompareHideStatus {
                     hidden: None,
@@ -7248,30 +7235,20 @@ mod compare_pair_tests {
             compare_pair_status(
                 "a",
                 "b",
-                ComparePairCounts {
-                    del: 1,
-                    ins: 2,
-                    hunk_n: 2,
-                    equal_pct: 50
-                },
+                counts(1, 2, 2, 50, ": 1 delete, 1 insert"),
                 none,
                 CompareHideStatus {
                     hidden: None,
                     context: 3
                 }
             ),
-            "Compare “a” | “b” (−1 +2) · 2 hunks · 50% equal"
+            "Compare “a” | “b” (−1 +2) · 2 hunks: 1 delete, 1 insert · 50% equal"
         );
         assert_eq!(
             compare_pair_status(
                 "a",
                 "b",
-                ComparePairCounts {
-                    del: 0,
-                    ins: 0,
-                    hunk_n: 0,
-                    equal_pct: 100
-                },
+                counts(0, 0, 0, 100, ""),
                 CompareIgnoreBits {
                     ws: true,
                     case: true,
@@ -7288,12 +7265,7 @@ mod compare_pair_tests {
             compare_pair_status(
                 "a",
                 "b",
-                ComparePairCounts {
-                    del: 1,
-                    ins: 0,
-                    hunk_n: 1,
-                    equal_pct: 80
-                },
+                counts(1, 0, 1, 80, ": 1 delete"),
                 CompareIgnoreBits {
                     ws: true,
                     case: false,
@@ -7304,18 +7276,13 @@ mod compare_pair_tests {
                     context: 3
                 }
             ),
-            "Compare “a” | “b” (−1 +0) · 1 hunk · 80% equal · ignore ws"
+            "Compare “a” | “b” (−1 +0) · 1 hunk: 1 delete · 80% equal · ignore ws"
         );
         assert_eq!(
             compare_pair_status(
                 "a",
                 "b",
-                ComparePairCounts {
-                    del: 0,
-                    ins: 0,
-                    hunk_n: 0,
-                    equal_pct: 100
-                },
+                counts(0, 0, 0, 100, ""),
                 CompareIgnoreBits {
                     ws: false,
                     case: false,
@@ -7332,12 +7299,7 @@ mod compare_pair_tests {
             compare_pair_status(
                 "a",
                 "b",
-                ComparePairCounts {
-                    del: 1,
-                    ins: 0,
-                    hunk_n: 1,
-                    equal_pct: 75
-                },
+                counts(1, 0, 1, 75, ": 1 delete"),
                 CompareIgnoreBits {
                     ws: true,
                     case: true,
@@ -7348,25 +7310,20 @@ mod compare_pair_tests {
                     context: 3
                 }
             ),
-            "Compare “a” | “b” (−1 +0) · 1 hunk · 75% equal · ignore ws+case+blank · hide equal ±3 · L4|R7 hidden"
+            "Compare “a” | “b” (−1 +0) · 1 hunk: 1 delete · 75% equal · ignore ws+case+blank · hide equal ±3 · L4|R7 hidden"
         );
         assert_eq!(
             compare_pair_status(
                 "a",
                 "b",
-                ComparePairCounts {
-                    del: 1,
-                    ins: 0,
-                    hunk_n: 1,
-                    equal_pct: 90
-                },
+                counts(1, 0, 1, 90, ": 1 delete"),
                 none,
                 CompareHideStatus {
                     hidden: Some((5, 5)),
                     context: 3
                 }
             ),
-            "Compare “a” | “b” (−1 +0) · 1 hunk · 90% equal · hide equal ±3 · 5 hidden"
+            "Compare “a” | “b” (−1 +0) · 1 hunk: 1 delete · 90% equal · hide equal ±3 · 5 hidden"
         );
     }
 
