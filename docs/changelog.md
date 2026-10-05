@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.71] — 2026-10-05
+
+Compare:
+
+- **View → Copy Compare Summary** copies the hunk index text to the clipboard (same body as Open Compare Summary; Compare stays on).
+
 ## [0.3.70] — 2026-10-05
 
 Compare:

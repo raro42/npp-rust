@@ -73,6 +73,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - **View → Swap Compare Sides** flips left/right files (and scroll), keeps focus on the new left, and re-diffs so delete/insert colours stay correct.
 - **View → Copy Compare Diff** copies a unified diff of the pair to the clipboard (3 lines of context). Status shows `Copied unified diff (−N +M)` or `(identical)`.
 - **View → Open Compare Diff** opens that unified diff in a `compare.diff` tab (Compare turns off so the tab is not pinned away). Status shows `Opened unified diff (−N +M)` or `(identical)`.
+- **View → Copy Compare Summary** copies the hunk index text (same body as Open Compare Summary) to the clipboard without clearing Compare. Status shows `Copied compare summary (−N +M, K hunks)`.
 - **View → Open Compare Summary** opens a `compare-summary.txt` tab listing every change hunk with L|R line ranges, −/+ counts, and kind (delete/insert/replace). Compare turns off so the tab stays visible. Status shows `Opened compare summary (−N +M, K hunks)`.
 - **View → Copy Compare Hunk** copies only the change hunk at the focused caret (or the next hunk if the caret is on an equal line), with 3 equal context lines. Status shows `Copied hunk (i/n) unified diff (−N +M)`.
 - **View → Open Compare Hunk** opens that same caret hunk as a `compare-hunk.diff` tab (Compare turns off so the tab is not pinned away). Status shows `Opened hunk (i/n) unified diff (−N +M)`.
@@ -101,6 +102,6 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 
 ## Code
 
-- `pick_compare_right` / `start_compare` / `compare_to_saved` / `open_compare_diff_tab` / `open_compare_hunk_tab` — `crates/app/src/ui.rs`
+- `pick_compare_right` / `start_compare` / `compare_to_saved` / `open_compare_diff_tab` / `open_compare_summary_tab` / `copy_compare_summary` / `open_compare_hunk_tab` — `crates/app/src/ui.rs`
 - `compare_stale` + `refresh_compare_if_stale` — `crates/app/src/editor.rs`, `crates/app/src/ui.rs`
 - Line LCS — `crates/app/src/diff.rs`

@@ -2147,6 +2147,12 @@
       },
       {
         "kind": "item",
+        "label": "Copy Compare Summary",
+        "raw_label": "Copy Compare Summa&ry",
+        "cmd": "IDM_VIEW_COPY_COMPARE_SUMMARY"
+      },
+      {
+        "kind": "item",
         "label": "Open Compare Summary",
         "raw_label": "Open Compare Sum&mary",
         "cmd": "IDM_VIEW_OPEN_COMPARE_SUMMARY"

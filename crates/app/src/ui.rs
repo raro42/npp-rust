@@ -1164,6 +1164,9 @@ impl EditorApp {
                     "IDM_VIEW_OPEN_COMPARE_DIFF" => response.on_hover_text(
                         "Open the Compare pair as a unified-diff tab (clears Compare)",
                     ),
+                    "IDM_VIEW_COPY_COMPARE_SUMMARY" => response.on_hover_text(
+                        "Copy a text summary of every Compare change hunk (clipboard)",
+                    ),
                     "IDM_VIEW_OPEN_COMPARE_SUMMARY" => response.on_hover_text(
                         "Open a tab listing every Compare change hunk with L|R line ranges (clears Compare)",
                     ),
@@ -4135,6 +4138,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.open_compare_diff {
             self.open_compare_diff_tab();
         }
+        if flags.copy_compare_summary {
+            self.copy_compare_summary(flags);
+        }
         if flags.open_compare_summary {
             self.open_compare_summary_tab();
         }
@@ -4839,12 +4845,8 @@ Tree-sitter highlight, and a calm UI.",
         self.state.status = compare_open_or_copy_status("Opened", &lname, &rname, del, ins);
     }
 
-    /// New tab listing every change hunk (line ranges). Clears Compare so the tab is visible.
-    fn open_compare_summary_tab(&mut self) {
-        if !self.compare_on {
-            self.state.status = "Open Compare Summary: Compare is off".into();
-            return;
-        }
+    /// Build the Compare hunk-index text (refreshes stale tags when needed).
+    fn compare_summary_payload(&mut self) -> Option<(String, String, String, usize, usize, usize)> {
         let left = self.compare_left_tab;
         let right = self.compare_right_tab;
         let left_lines = self.tab_compare_lines(left);
@@ -4852,13 +4854,9 @@ Tree-sitter highlight, and a calm UI.",
         if left_lines.len() != self.compare_left_tags.len()
             || right_lines.len() != self.compare_right_tags.len()
         {
-            if let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) {
-                self.compare_left_tags = lt;
-                self.compare_right_tags = rt;
-            } else {
-                self.state.status = "Open Compare Summary: could not build summary".into();
-                return;
-            }
+            let (lt, rt, _, _) = self.compute_compare_tags(left, right)?;
+            self.compare_left_tags = lt;
+            self.compare_right_tags = rt;
         }
         let lname = self
             .state
@@ -4872,24 +4870,44 @@ Tree-sitter highlight, and a calm UI.",
             .get(right)
             .map(|d| Self::compare_side_name(&d.title))
             .unwrap_or_else(|| "right".into());
-        let Some(hunks) =
-            crate::diff::compare_summary_hunks(&self.compare_left_tags, &self.compare_right_tags)
-        else {
-            self.state.status = "Open Compare Summary: could not build summary".into();
-            return;
-        };
-        let Some(text) = crate::diff::compare_summary_text(
+        let hunks =
+            crate::diff::compare_summary_hunks(&self.compare_left_tags, &self.compare_right_tags)?;
+        let text = crate::diff::compare_summary_text(
             &lname,
             &rname,
             &self.compare_left_tags,
             &self.compare_right_tags,
-        ) else {
+        )?;
+        let (del, ins) =
+            crate::diff::count_changes(&self.compare_left_tags, &self.compare_right_tags);
+        Some((text, lname, rname, del, ins, hunks.len()))
+    }
+
+    /// Clipboard: text summary of every change hunk (keeps Compare on).
+    fn copy_compare_summary(&mut self, flags: &mut crate::commands::UiFlags) {
+        if !self.compare_on {
+            self.state.status = "Copy Compare Summary: Compare is off".into();
+            return;
+        }
+        let Some((text, lname, rname, del, ins, hunk_n)) = self.compare_summary_payload() else {
+            self.state.status = "Copy Compare Summary: could not build summary".into();
+            return;
+        };
+        flags.pending_clipboard = Some(text);
+        self.state.status =
+            format!("Copied compare summary (−{del} +{ins}, {hunk_n} hunks) “{lname}” | “{rname}”");
+    }
+
+    /// New tab listing every change hunk (line ranges). Clears Compare so the tab is visible.
+    fn open_compare_summary_tab(&mut self) {
+        if !self.compare_on {
+            self.state.status = "Open Compare Summary: Compare is off".into();
+            return;
+        }
+        let Some((text, lname, rname, del, ins, hunk_n)) = self.compare_summary_payload() else {
             self.state.status = "Open Compare Summary: could not build summary".into();
             return;
         };
-        let (del, ins) =
-            crate::diff::count_changes(&self.compare_left_tags, &self.compare_right_tags);
-        let hunk_n = hunks.len();
         self.clear_compare();
         self.dual_view = false;
         self.state.tabs.open_untitled();

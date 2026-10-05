@@ -85,6 +85,7 @@ mod tests {
             })
         }
         assert!(has_cmd(&load_npp_menu(), "IDM_VIEW_OPEN_COMPARE_DIFF"));
+        assert!(has_cmd(&load_npp_menu(), "IDM_VIEW_COPY_COMPARE_SUMMARY"));
         assert!(has_cmd(&load_npp_menu(), "IDM_VIEW_OPEN_COMPARE_SUMMARY"));
         assert!(has_cmd(&load_npp_menu(), "IDM_VIEW_OPEN_COMPARE_HUNK"));
         assert!(has_cmd(

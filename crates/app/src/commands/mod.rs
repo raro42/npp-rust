@@ -128,6 +128,8 @@ pub struct UiFlags {
     pub copy_compare_diff: bool,
     /// Open the compare pair as a unified-diff tab.
     pub open_compare_diff: bool,
+    /// Copy a text summary of every compare change hunk (clipboard).
+    pub copy_compare_summary: bool,
     /// Open a tab listing every compare change hunk (line ranges).
     pub open_compare_summary: bool,
     /// Copy the compare hunk at the caret as a unified diff.
@@ -335,6 +337,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_LAST_DIFF"
             | "IDM_VIEW_COPY_COMPARE_DIFF"
             | "IDM_VIEW_OPEN_COMPARE_DIFF"
+            | "IDM_VIEW_COPY_COMPARE_SUMMARY"
             | "IDM_VIEW_OPEN_COMPARE_SUMMARY"
             | "IDM_VIEW_COPY_COMPARE_HUNK"
             | "IDM_VIEW_OPEN_COMPARE_HUNK"
@@ -646,6 +649,8 @@ mod tests {
         assert!(is_implemented("IDM_VIEW_APPLY_ALL_COMPARE_HUNKS_TO_OTHER"));
         assert!(is_implemented("IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER"));
         assert!(is_implemented("IDM_VIEW_OPEN_COMPARE_DIFF"));
+        assert!(is_implemented("IDM_VIEW_COPY_COMPARE_SUMMARY"));
+        assert!(is_implemented("IDM_VIEW_OPEN_COMPARE_SUMMARY"));
         assert!(is_implemented("IDM_VIEW_OPEN_COMPARE_HUNK"));
         assert!(is_implemented("IDM_VIEW_COMPARE_IGNORE_BLANK"));
         assert!(is_implemented("IDM_VIEW_COMPARE_HIDE_EQUAL"));
