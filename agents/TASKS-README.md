@@ -20,7 +20,7 @@ Each cycle (`./agents/npp-cursor-loop.sh once` or `loop`):
 1. **001** — pick up issues → `FEAT-`  
 2. **002** — code oldest `FEAT-` / `WIP-` → leave as `TEST-` when the batch is ready  
 3. **003** — test any `TEST-`  
-4. **004** — finish any pending handoff (`DONE-` without `Handoff: complete`)  
+4. **004** — finish any pending handoff (`DONE-` until GitHub is closed, not only `Handoff: complete`)  
 5. **003** again — catch a fresh `TEST-` from this cycle  
 6. **004** again — changelog + close issue when tests passed  
 7. **009** — overnight autoresearch when the queue is idle (`docs/autoresearch/program.md`)  

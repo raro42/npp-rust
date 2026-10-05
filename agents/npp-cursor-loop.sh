@@ -190,13 +190,68 @@ sync_main() {
   fi
 }
 
+github_issue_is_open() {
+  local n="$1"
+  local state
+  state="$(gh issue view "$n" --repo "$GH_REPO" --json state -q .state 2>/dev/null || true)"
+  [[ "$state" == "OPEN" ]]
+}
+
+closed_issue_cache="${STATEDIR}/github-closed-issues.txt"
+
+issue_cached_closed() {
+  local n="$1"
+  [[ -f "$closed_issue_cache" ]] && grep -qx "$n" "$closed_issue_cache"
+}
+
+remember_issue_closed() {
+  local n="$1"
+  mkdir -p "$STATEDIR"
+  if ! issue_cached_closed "$n"; then
+    echo "$n" >>"$closed_issue_cache"
+  fi
+}
+
+# True when a DONE file still needs 004: not deferred, and either no
+# Handoff: complete, or a numbered GitHub issue is still open.
+done_awaiting_handoff() {
+  local f="$1"
+  local base n
+  python3 "${REPO_ROOT}/scripts/handoff_gate.py" pending "$f" || return 1
+  base="$(basename "$f")"
+  n="$(issue_num_from_task "$base")"
+  if [[ "$n" =~ ^[0-9]+$ ]]; then
+    if issue_cached_closed "$n"; then
+      return 1
+    fi
+    if github_issue_is_open "$n"; then
+      return 0
+    fi
+    remember_issue_closed "$n"
+    return 1
+  fi
+  return 0
+}
+
+close_github_issue_for_task() {
+  local n="$1"
+  local task_base="$2"
+  echo "----- 004: closing GitHub issue #${n}"
+  gh label create "agent:done" --repo "$GH_REPO" --color "5319E7" --description "agent:done" >/dev/null 2>&1 || true
+  gh issue edit "$n" --repo "$GH_REPO" --add-label "agent:done" 2>/dev/null || true
+  gh issue edit "$n" --repo "$GH_REPO" --remove-label "agent:wip" 2>/dev/null || true
+  gh issue edit "$n" --repo "$GH_REPO" --remove-label "agent:planned" 2>/dev/null || true
+  ./scripts/gh-safe.sh issue comment "$n" --body "Agent 004: handoff complete (\`${task_base}\`). Closing." 2>/dev/null || true
+  gh issue close "$n" --repo "$GH_REPO" --reason completed
+}
+
 queue_has_live_work() {
   compgen -G "${TASKDIR}/FEAT-*.md" >/dev/null && return 0
   compgen -G "${TASKDIR}/WIP-*.md" >/dev/null && return 0
   compgen -G "${TASKDIR}/TEST-*.md" >/dev/null && return 0
   local f
   for f in $(ls -1 "$DONEDIR"/DONE-*.md 2>/dev/null || true); do
-    if ! grep -qE '^[[:space:]]*-?[[:space:]]*Handoff:[[:space:]]*complete' "$f" 2>/dev/null; then
+    if done_awaiting_handoff "$f"; then
       return 0
     fi
   done
@@ -441,11 +496,11 @@ step_009_autoresearch() {
 }
 
 step_004_handoff() {
-  local task base issue_n
+  local task base issue_n already_complete
   task=""
   local f
   for f in $(ls -1 "$DONEDIR"/DONE-*.md 2>/dev/null || true); do
-    if ! grep -qE '^[[:space:]]*-?[[:space:]]*Handoff:[[:space:]]*complete' "$f" 2>/dev/null; then
+    if done_awaiting_handoff "$f"; then
       task="$f"
       break
     fi
@@ -456,12 +511,34 @@ step_004_handoff() {
   fi
   base="$(basename "$task")"
   issue_n="$(issue_num_from_task "$base")"
-  echo "----- 004: handoff $(basename "$task")"
-  if [[ -n "$issue_n" ]] && [[ "$issue_n" =~ ^[0-9]+$ ]]; then
-    ./scripts/gh-safe.sh issue comment "$issue_n" --body "Agent 004: handoff review + changelog (\`$(basename "$task")\`)." 2>/dev/null || true
+  already_complete=0
+  grep -qE '^[[:space:]]*-?[[:space:]]*Handoff:[[:space:]]*complete' "$task" && already_complete=1
+  echo "----- 004: handoff ${base}"
+  # Cursor-agent may write Handoff: complete without closing GitHub.
+  # If it already claimed complete, only close the issue (do not re-run 004).
+  if [[ "$already_complete" -ne 1 ]]; then
+    if [[ -n "$issue_n" ]] && [[ "$issue_n" =~ ^[0-9]+$ ]]; then
+      ./scripts/gh-safe.sh issue comment "$issue_n" --body "Agent 004: handoff review + changelog (\`${base}\`)." 2>/dev/null || true
+    fi
+    run_cursor "004" \
+      "Follow agents/004-handoff.md. Review oldest DONE awaiting handoff. Update docs/changelog.md, commit push origin/main. Do not write Handoff: complete until GitHub is closed. If the goal is only partial, write Handoff: deferred. Obey privacy rules."
+  else
+    echo "----- 004: task already marked complete; closing GitHub if still open"
   fi
-  run_cursor "004" \
-    "Follow agents/004-handoff.md. Review oldest DONE without Handoff: complete. Update docs/changelog.md, commit push origin/main, close issue with agent:done when met. Append Handoff: complete. Obey privacy rules."
+  if grep -qE '^[[:space:]]*-?[[:space:]]*Handoff:[[:space:]]*deferred' "$task" 2>/dev/null; then
+    echo "----- 004: deferred; leaving issue open"
+    return 0
+  fi
+  if [[ -n "$issue_n" ]] && [[ "$issue_n" =~ ^[0-9]+$ ]]; then
+    if github_issue_is_open "$issue_n"; then
+      if ! close_github_issue_for_task "$issue_n" "$base"; then
+        echo "----- 004: close failed for #${issue_n}; will retry" >&2
+        return 0
+      fi
+    fi
+    remember_issue_closed "$issue_n"
+  fi
+  python3 "${REPO_ROOT}/scripts/handoff_gate.py" stamp-closed "$task"
 }
 
 run_once() {

@@ -25,7 +25,7 @@ See [agents/README.md](../agents/README.md): always test, watch CI, skim panic l
 | 001 | Issue pickup | GitHub issues | `FEAT-*.md` |
 | 002 | Coder | `FEAT-` / `WIP-` | code on `main` + `TEST-*.md` |
 | 003 | Tester | `TEST-` | `done/DONE-*.md` or back to `WIP-` |
-| 004 | Handoff | `DONE-` without `Handoff: complete` | changelog + issue closed |
+| 004 | Handoff | `DONE-` until GitHub is closed (or `Handoff: deferred`) | changelog + issue closed; stamp `GitHub: closed` |
 | 009 | Autoresearch | idle queue, 20:00–06:00 local | one keep/discard experiment |
 
 Each `once` / loop cycle:

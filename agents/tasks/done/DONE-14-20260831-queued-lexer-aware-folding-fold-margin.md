@@ -30,3 +30,4 @@ See GitHub issue #14 and docs/gap-analysis-vs-npp.md / docs/next-gaps.md.
 - Close issue #14 with `agent:done`.
 
 Handoff: complete
+GitHub: closed
