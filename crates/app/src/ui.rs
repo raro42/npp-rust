@@ -1124,6 +1124,12 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, re-collapse the expanded Equal run nearest the caret on both panes (···N cue returns for that run)",
                     ),
+                    "IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL" => response.on_hover_text(
+                        "While Hide Unchanged Lines is on, jump to the next ···N collapsed Equal gap (wraps; parks both panes)",
+                    ),
+                    "IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL" => response.on_hover_text(
+                        "While Hide Unchanged Lines is on, jump to the previous ···N collapsed Equal gap (wraps; parks both panes)",
+                    ),
                     "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, reveal every collapsed Equal run on both panes (···N cues clear; hide-equal preference stays on)",
                     ),
@@ -4065,6 +4071,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.compare_collapse_hidden_equal_at_caret {
             self.collapse_compare_hide_equal_at_caret();
         }
+        if let Some(nav) = flags.compare_hide_gap_nav {
+            self.navigate_compare_hide_gap(nav);
+        }
         if flags.compare_expand_hidden_equal {
             self.expand_all_compare_hide_equal();
         }
@@ -4243,6 +4252,83 @@ Tree-sitter highlight, and a calm UI.",
             format!("Compare expanded ···{n}{both} ({remain} still hidden)")
         };
         true
+    }
+
+    /// Jump to the next/previous collapsed Equal (···N) gap on the focused pane.
+    fn navigate_compare_hide_gap(&mut self, nav: crate::commands::CompareHideGapNav) {
+        if !self.compare_on {
+            self.state.status = "Compare off — start Compare to navigate hidden equal lines".into();
+            return;
+        }
+        if !self.state.settings.compare_hide_equal {
+            self.state.status =
+                "Hide Unchanged Lines is off — turn it on to navigate ···N gaps".into();
+            return;
+        }
+        let left_pane = self.focused_pane == EditorPane::Primary || !self.dual_view;
+        let tab = if left_pane {
+            self.compare_left_tab
+        } else {
+            self.compare_right_tab
+        };
+        let Some(doc) = self.state.tabs.get(tab) else {
+            return;
+        };
+        let caret_line = doc.buffer.char_to_line(doc.buffer.caret());
+        let line_count = doc.buffer.line_count().max(1);
+        let (tags, revealed) = if left_pane {
+            (&self.compare_left_tags, &self.compare_hide_revealed_left)
+        } else {
+            (&self.compare_right_tags, &self.compare_hide_revealed_right)
+        };
+        let visible = visible_lines_with_compare_hide(
+            line_count,
+            &doc.hidden_lines,
+            true,
+            true,
+            tags,
+            revealed,
+        );
+        let gaps = crate::diff::list_compare_hide_gaps(&visible);
+        let Some(gap) = (match nav {
+            crate::commands::CompareHideGapNav::Next => {
+                crate::diff::next_compare_hide_gap(caret_line, &gaps)
+            }
+            crate::commands::CompareHideGapNav::Prev => {
+                crate::diff::prev_compare_hide_gap(caret_line, &gaps)
+            }
+        }) else {
+            self.state.status = "Compare: no hidden equal gaps".into();
+            return;
+        };
+        let park = crate::diff::compare_hide_gap_park_line(gap);
+        let n = gap.1 - gap.0 + 1;
+        let (ord, total) = crate::diff::compare_hide_gap_ordinal(&gaps, gap).unwrap_or((1, 1));
+        let wrapped = crate::diff::hunk_nav_wrapped(
+            matches!(nav, crate::commands::CompareHideGapNav::Next),
+            caret_line,
+            park,
+        );
+        if let Some(doc) = self.state.tabs.get_mut(tab) {
+            let at = doc
+                .buffer
+                .line_to_char(park.min(doc.buffer.line_count().saturating_sub(1)));
+            doc.buffer.set_caret(at);
+        }
+        if left_pane {
+            self.follow_caret = true;
+        } else {
+            self.follow_caret_other = true;
+        }
+        self.sync_compare_other_to_equal_line(left_pane, park);
+        let dir = match nav {
+            crate::commands::CompareHideGapNav::Next => "Next",
+            crate::commands::CompareHideGapNav::Prev => "Previous",
+        };
+        let wrap_bit = if wrapped { " · wrapped" } else { "" };
+        // Overwrite equal-park status with gap-nav ordinal.
+        self.state.status =
+            format!("Compare {dir} hidden equal → ···{n} ({ord}/{total}){wrap_bit}");
     }
 
     /// Expand the collapsed Equal run nearest the focused caret (menu / keyboard).

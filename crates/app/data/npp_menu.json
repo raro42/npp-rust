@@ -2087,6 +2087,18 @@
       },
       {
         "kind": "item",
+        "label": "Next Hidden Equal",
+        "raw_label": "Next Hidden &Equal",
+        "cmd": "IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL"
+      },
+      {
+        "kind": "item",
+        "label": "Previous Hidden Equal",
+        "raw_label": "Pre&vious Hidden Equal",
+        "cmd": "IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL"
+      },
+      {
+        "kind": "item",
         "label": "Expand All Unchanged Lines",
         "raw_label": "E&xpand All Unchanged Lines",
         "cmd": "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL"

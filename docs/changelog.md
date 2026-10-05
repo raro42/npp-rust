@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.67] — 2026-10-05
+
+Compare:
+
+- **View → Next Hidden Equal** / **Previous Hidden Equal** jump between ···N collapsed Equal gaps while Hide Unchanged Lines is on (wraps with `· wrapped` status; parks both panes on the aligned Equal partner).
+
 ## [0.3.66] — 2026-10-05
 
 Folding / session:

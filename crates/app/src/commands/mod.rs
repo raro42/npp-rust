@@ -25,6 +25,13 @@ pub enum CompareNav {
     Last,
 }
 
+/// Navigate collapsed Equal (···N) gaps while Hide Unchanged Lines is on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompareHideGapNav {
+    Next,
+    Prev,
+}
+
 /// Toggle a compare ignore preference from the View menu.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompareIgnoreToggle {
@@ -109,6 +116,8 @@ pub struct UiFlags {
     pub compare_collapse_hidden_equal: bool,
     /// Re-collapse the expanded Equal run nearest the caret while hide-equal stays on.
     pub compare_collapse_hidden_equal_at_caret: bool,
+    /// Next / Previous collapsed Equal (···N) gap while hide-equal stays on.
+    pub compare_hide_gap_nav: Option<CompareHideGapNav>,
     /// Bookmark every Compare change-hunk start on both panes.
     pub compare_bookmark_diffs: bool,
     /// Clear bookmarks at every Compare change-hunk start on both panes.
@@ -310,6 +319,8 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET"
             | "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL"
             | "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET"
+            | "IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL"
+            | "IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL"
             | "IDM_VIEW_COMPARE_BOOKMARK_DIFFS"
             | "IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS"
             | "IDM_VIEW_NEXT_DIFF"
@@ -639,6 +650,8 @@ mod tests {
         assert!(is_implemented(
             "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET"
         ));
+        assert!(is_implemented("IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL"));
+        assert!(is_implemented("IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL"));
         assert!(is_implemented("IDM_VIEW_COMPARE_BOOKMARK_DIFFS"));
         assert!(is_implemented("IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS"));
         assert!(is_implemented("IDM_VIEW_COMPARE_TO_SAVED"));

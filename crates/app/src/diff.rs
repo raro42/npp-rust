@@ -415,6 +415,73 @@ pub fn nearest_compare_hide_gap(
         .and_then(|prev| compare_gap_line_range(visible_lines[prev], visible_lines[idx]))
 }
 
+/// All hide-equal gaps from consecutive visible rows, in document order.
+pub fn list_compare_hide_gaps(visible_lines: &[usize]) -> Vec<(usize, usize)> {
+    let mut gaps = Vec::new();
+    for pair in visible_lines.windows(2) {
+        if let Some(gap) = compare_gap_line_range(pair[0], pair[1]) {
+            gaps.push(gap);
+        }
+    }
+    gaps
+}
+
+/// Visible park line for a hide-equal gap (row above the ···N cue).
+pub fn compare_hide_gap_park_line(gap: (usize, usize)) -> usize {
+    gap.0.saturating_sub(1)
+}
+
+fn caret_on_compare_hide_gap(caret_line: usize, gap: (usize, usize)) -> bool {
+    let park = compare_hide_gap_park_line(gap);
+    caret_line == park || (caret_line >= gap.0 && caret_line <= gap.1)
+}
+
+/// Next collapsed Equal gap after `caret_line` (wraps). `None` if no gaps.
+pub fn next_compare_hide_gap(caret_line: usize, gaps: &[(usize, usize)]) -> Option<(usize, usize)> {
+    if gaps.is_empty() {
+        return None;
+    }
+    if let Some(i) = gaps
+        .iter()
+        .position(|&g| caret_on_compare_hide_gap(caret_line, g))
+    {
+        return Some(gaps[(i + 1) % gaps.len()]);
+    }
+    let idx = gaps
+        .iter()
+        .position(|&g| compare_hide_gap_park_line(g) > caret_line)
+        .unwrap_or(0);
+    Some(gaps[idx])
+}
+
+/// Previous collapsed Equal gap before `caret_line` (wraps). `None` if no gaps.
+pub fn prev_compare_hide_gap(caret_line: usize, gaps: &[(usize, usize)]) -> Option<(usize, usize)> {
+    if gaps.is_empty() {
+        return None;
+    }
+    if let Some(i) = gaps
+        .iter()
+        .position(|&g| caret_on_compare_hide_gap(caret_line, g))
+    {
+        let prev = if i == 0 { gaps.len() - 1 } else { i - 1 };
+        return Some(gaps[prev]);
+    }
+    let idx = gaps
+        .iter()
+        .rposition(|&g| compare_hide_gap_park_line(g) < caret_line)
+        .unwrap_or(gaps.len() - 1);
+    Some(gaps[idx])
+}
+
+/// 1-based ordinal of `gap` in `gaps`, or `None` if missing.
+pub fn compare_hide_gap_ordinal(
+    gaps: &[(usize, usize)],
+    gap: (usize, usize),
+) -> Option<(usize, usize)> {
+    let idx = gaps.iter().position(|&g| g == gap)?;
+    Some((idx + 1, gaps.len()))
+}
+
 /// Insert every line in an inclusive gap into `revealed`. Returns how many were new.
 pub fn reveal_compare_gap(revealed: &mut BTreeSet<usize>, gap: (usize, usize)) -> usize {
     let mut n = 0usize;
@@ -1421,6 +1488,17 @@ mod tests {
         let both = [0usize, 4, 8];
         assert_eq!(nearest_compare_hide_gap(4, &both), Some((5, 7)));
         assert_eq!(nearest_compare_hide_gap(0, &both), Some((1, 3)));
+        let gaps = list_compare_hide_gaps(&both);
+        assert_eq!(gaps, vec![(1, 3), (5, 7)]);
+        assert_eq!(compare_hide_gap_park_line((1, 3)), 0);
+        assert_eq!(compare_hide_gap_park_line((5, 7)), 4);
+        assert_eq!(next_compare_hide_gap(0, &gaps), Some((5, 7)));
+        assert_eq!(next_compare_hide_gap(4, &gaps), Some((1, 3))); // wrap
+        assert_eq!(prev_compare_hide_gap(4, &gaps), Some((1, 3)));
+        assert_eq!(prev_compare_hide_gap(0, &gaps), Some((5, 7))); // wrap
+        assert_eq!(next_compare_hide_gap(2, &gaps), Some((5, 7))); // mid-gap
+        assert_eq!(compare_hide_gap_ordinal(&gaps, (5, 7)), Some((2, 2)));
+        assert_eq!(next_compare_hide_gap(0, &[]), None);
         let mut revealed = BTreeSet::new();
         assert_eq!(reveal_compare_gap(&mut revealed, (0, 0)), 1);
         let (hl2, hr2) =
