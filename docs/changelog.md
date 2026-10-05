@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.57] — 2026-10-05
+
+Compare:
+
+- **Hide Unchanged Lines**: click a gutter `···N` cue to expand that collapsed Equal run on the clicked pane. Status reports how many lines opened and how many remain hidden. Clear Compare / toggle hide-equal off / swap sides resets expansions.
+
 ## [0.3.56] — 2026-10-05
 
 Compare:

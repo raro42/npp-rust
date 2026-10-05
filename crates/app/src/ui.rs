@@ -109,12 +109,50 @@ fn compare_hide_opt(
     on: bool,
     left_tags: &[crate::diff::LineKind],
     right_tags: &[crate::diff::LineKind],
+    left_revealed: &BTreeSet<usize>,
+    right_revealed: &BTreeSet<usize>,
 ) -> Option<(usize, usize)> {
     if on {
-        Some(crate::diff::hidden_equal_counts(left_tags, right_tags))
+        Some(crate::diff::hidden_equal_counts_with_revealed(
+            left_tags,
+            right_tags,
+            left_revealed,
+            right_revealed,
+        ))
     } else {
         None
     }
+}
+
+/// Hit-test the ···N hairline between visible rows; returns inclusive doc-line gap.
+fn compare_hide_gap_at_pointer(
+    pos: Pos2,
+    rect: Rect,
+    scroll_line: f32,
+    row_height: f32,
+    visible_lines: &[usize],
+) -> Option<(usize, usize)> {
+    if row_height <= 0.0 || visible_lines.len() < 2 {
+        return None;
+    }
+    let rel_y = pos.y - rect.top();
+    if rel_y < 0.0 || pos.x < rect.left() || pos.x > rect.right() {
+        return None;
+    }
+    let row_f = scroll_line + rel_y / row_height;
+    let row = row_f.floor() as usize;
+    let frac = row_f - row as f32;
+    // Cue sits on the top edge of the lower row (also accept bottom of upper row).
+    let (prev_row, cur_row) = if frac <= 0.35 {
+        (row.checked_sub(1)?, row)
+    } else if frac >= 0.85 {
+        (row, row + 1)
+    } else {
+        return None;
+    };
+    let prev = *visible_lines.get(prev_row)?;
+    let cur = *visible_lines.get(cur_row)?;
+    crate::diff::compare_gap_line_range(prev, cur)
 }
 
 /// `None` = hide-equal off; `Some((left, right))` = on with per-side hidden counts.
@@ -162,11 +200,15 @@ fn visible_lines_with_compare_hide(
     compare_on: bool,
     hide_equal: bool,
     tags: &[crate::diff::LineKind],
+    revealed: &BTreeSet<usize>,
 ) -> Vec<usize> {
     if !compare_on || !hide_equal {
         return visible_line_indices(line_count, fold_hidden);
     }
-    let equal_hide = crate::diff::equal_line_indices_to_hide(tags);
+    let mut equal_hide = crate::diff::equal_line_indices_to_hide(tags);
+    for i in revealed {
+        equal_hide.remove(i);
+    }
     if equal_hide.is_empty() {
         return visible_line_indices(line_count, fold_hidden);
     }
@@ -340,6 +382,10 @@ pub struct EditorApp {
     compare_refresh_at: Option<std::time::Instant>,
     /// Optional second tab for Compare (⌘/Ctrl-click a tab, or context menu).
     compare_partner_tab: Option<usize>,
+    /// Equal lines temporarily shown after clicking a ···N hide-equal gap (left).
+    compare_hide_revealed_left: BTreeSet<usize>,
+    /// Equal lines temporarily shown after clicking a ···N hide-equal gap (right).
+    compare_hide_revealed_right: BTreeSet<usize>,
 }
 
 impl EditorApp {
@@ -392,6 +438,8 @@ impl EditorApp {
             compare_right_inline: Vec::new(),
             compare_refresh_at: None,
             compare_partner_tab: None,
+            compare_hide_revealed_left: BTreeSet::new(),
+            compare_hide_revealed_right: BTreeSet::new(),
         };
         let had_argv = !cli.paths.is_empty();
         app.replace_with = app.state.settings.replace_with.clone();
@@ -506,6 +554,16 @@ impl eframe::App for EditorApp {
         self.handle_shortcuts(ctx);
         self.menu_bar(ctx);
         self.refresh_compare_if_stale(ctx);
+        if self.compare_on && self.state.settings.compare_hide_equal {
+            crate::diff::prune_compare_hide_revealed(
+                &mut self.compare_hide_revealed_left,
+                &self.compare_left_tags,
+            );
+            crate::diff::prune_compare_hide_revealed(
+                &mut self.compare_hide_revealed_right,
+                &self.compare_right_tags,
+            );
+        }
         self.tab_bar(ctx);
         if self.state.find_open || self.show_replace {
             self.find_replace_bar(ctx);
@@ -1058,7 +1116,7 @@ impl EditorApp {
                         "Toggle ignore blank lines for Compare (Preferences persist)",
                     ),
                     "IDM_VIEW_COMPARE_HIDE_EQUAL" => response.on_hover_text(
-                        "Hide Equal (unchanged) lines while Compare is on; keep ±3 context; gutter ···N marks collapsed runs (Preferences persist)",
+                        "Hide Equal (unchanged) lines while Compare is on; keep ±3 context; gutter ···N marks collapsed runs — click a cue to expand that run (Preferences persist)",
                     ),
                     "IDM_VIEW_COPY_COMPARE_DIFF" => response
                         .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
@@ -2999,6 +3057,7 @@ Tree-sitter highlight, and a calm UI.",
                 self.compare_on,
                 self.state.settings.compare_hide_equal,
                 &self.compare_left_tags,
+                &self.compare_hide_revealed_left,
             );
             let display_count = visible_lines.len().max(1);
             let avail = ui.available_size();
@@ -3078,20 +3137,34 @@ Tree-sitter highlight, and a calm UI.",
                 line_start + col
             };
 
+            let scroll_for_hit = self.scroll_line;
             let fold_line_at = |pos: Pos2| -> Option<usize> {
                 if !show_fold || fold_w <= 0.0 || pos.x < fold_left || pos.x >= gutter_right {
                     return None;
                 }
-                let first = self.scroll_line.floor() as usize;
+                let first = scroll_for_hit.floor() as usize;
                 let row = first + ((pos.y - rect.top()) / row_height).floor().max(0.0) as usize;
                 let row = row.min(visible_lines.len().saturating_sub(1));
                 visible_lines.get(row).copied()
             };
 
             let mut fold_click = false;
+            let mut hide_gap_click = false;
             if response.clicked() || response.drag_started() {
                 if let Some(pos) = response.interact_pointer_pos() {
-                    if let Some(line) = fold_line_at(pos) {
+                    if self.try_expand_compare_hide_gap_at(
+                        pos,
+                        rect,
+                        scroll_for_hit,
+                        row_height,
+                        &visible_lines,
+                        true,
+                    ) {
+                        hide_gap_click = true;
+                        self.drag_anchor = None;
+                        self.rect_drag = false;
+                        self.sel_text_drag = None;
+                    } else if let Some(line) = fold_line_at(pos) {
                         let lang = self.state.tabs.active().language.clone();
                         let regions = crate::fold::compute_fold_regions(
                             lang.as_str(),
@@ -3118,8 +3191,8 @@ Tree-sitter highlight, and a calm UI.",
             // Double-click → word; triple-click → line; click → caret;
             // Alt+drag → rect/column multi-carets; drag inside selection → move/copy;
             // else drag → select.
-            if fold_click {
-                // Fold margin consumed the pointer.
+            if fold_click || hide_gap_click {
+                // Fold margin or hide-equal ···N cue consumed the pointer.
             } else if response.triple_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let idx = hit_index(
@@ -3842,6 +3915,10 @@ Tree-sitter highlight, and a calm UI.",
                 &mut self.compare_left_inline,
                 &mut self.compare_right_inline,
             );
+            std::mem::swap(
+                &mut self.compare_hide_revealed_left,
+                &mut self.compare_hide_revealed_right,
+            );
         }
         self.state.status = "Switched to other view".into();
     }
@@ -4023,6 +4100,14 @@ Tree-sitter highlight, and a calm UI.",
                     .max(crate::diff::hunk_starts(&rt).len());
                 self.compare_left_tags = lt;
                 self.compare_right_tags = rt;
+                crate::diff::prune_compare_hide_revealed(
+                    &mut self.compare_hide_revealed_left,
+                    &self.compare_left_tags,
+                );
+                crate::diff::prune_compare_hide_revealed(
+                    &mut self.compare_hide_revealed_right,
+                    &self.compare_right_tags,
+                );
                 let lname = self
                     .state
                     .tabs
@@ -4039,6 +4124,8 @@ Tree-sitter highlight, and a calm UI.",
                     hide_equal,
                     &self.compare_left_tags,
                     &self.compare_right_tags,
+                    &self.compare_hide_revealed_left,
+                    &self.compare_hide_revealed_right,
                 );
                 self.state.status =
                     compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide);
@@ -4063,11 +4150,57 @@ Tree-sitter highlight, and a calm UI.",
         }
     }
 
+    /// Click a ···N hide-equal cue to reveal that collapsed Equal run on one pane.
+    fn try_expand_compare_hide_gap_at(
+        &mut self,
+        pos: Pos2,
+        rect: Rect,
+        scroll_line: f32,
+        row_height: f32,
+        visible_lines: &[usize],
+        left_pane: bool,
+    ) -> bool {
+        if !self.compare_on || !self.state.settings.compare_hide_equal {
+            return false;
+        }
+        let Some(gap) =
+            compare_hide_gap_at_pointer(pos, rect, scroll_line, row_height, visible_lines)
+        else {
+            return false;
+        };
+        let n = if left_pane {
+            crate::diff::reveal_compare_gap(&mut self.compare_hide_revealed_left, gap)
+        } else {
+            crate::diff::reveal_compare_gap(&mut self.compare_hide_revealed_right, gap)
+        };
+        if n == 0 {
+            return false;
+        }
+        let hide = compare_hide_opt(
+            true,
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            &self.compare_hide_revealed_left,
+            &self.compare_hide_revealed_right,
+        );
+        let remain = hide.map(|(l, r)| l + r).unwrap_or(0);
+        self.state.status = if remain == 0 {
+            format!("Compare expanded ···{n} (all equal lines shown)")
+        } else {
+            format!("Compare expanded ···{n} ({remain} still hidden)")
+        };
+        true
+    }
+
     /// Toggle hide-unchanged-lines for Compare; persist (no re-diff needed).
     fn toggle_compare_hide_equal(&mut self) {
         self.state.settings.compare_hide_equal = !self.state.settings.compare_hide_equal;
         self.state.settings.save();
         let hide_equal = self.state.settings.compare_hide_equal;
+        if !hide_equal {
+            self.compare_hide_revealed_left.clear();
+            self.compare_hide_revealed_right.clear();
+        }
         let ignore = CompareIgnoreBits {
             ws: self.state.settings.compare_ignore_ws,
             case: self.state.settings.compare_ignore_case,
@@ -4097,6 +4230,8 @@ Tree-sitter highlight, and a calm UI.",
                 hide_equal,
                 &self.compare_left_tags,
                 &self.compare_right_tags,
+                &self.compare_hide_revealed_left,
+                &self.compare_hide_revealed_right,
             );
             self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide);
         } else {
@@ -4847,6 +4982,8 @@ Tree-sitter highlight, and a calm UI.",
         };
         self.compare_left_tags = lt;
         self.compare_right_tags = rt;
+        self.compare_hide_revealed_left.clear();
+        self.compare_hide_revealed_right.clear();
         self.dual_view = true;
         self.other_view_tab = right;
         self.state.tabs.set_active(left);
@@ -4878,6 +5015,8 @@ Tree-sitter highlight, and a calm UI.",
             self.state.settings.compare_hide_equal,
             &self.compare_left_tags,
             &self.compare_right_tags,
+            &self.compare_hide_revealed_left,
+            &self.compare_hide_revealed_right,
         );
         self.state.status = format!(
             "Swapped sides — {}",
@@ -5023,6 +5162,8 @@ Tree-sitter highlight, and a calm UI.",
         self.compare_right_tags.clear();
         self.compare_left_inline.clear();
         self.compare_right_inline.clear();
+        self.compare_hide_revealed_left.clear();
+        self.compare_hide_revealed_right.clear();
         self.state.compare_stale = false;
         self.compare_refresh_at = None;
         if let Some(i) = snapshot {
@@ -5070,6 +5211,14 @@ Tree-sitter highlight, and a calm UI.",
                     .max(crate::diff::hunk_starts(&rt).len());
                 self.compare_left_tags = lt;
                 self.compare_right_tags = rt;
+                crate::diff::prune_compare_hide_revealed(
+                    &mut self.compare_hide_revealed_left,
+                    &self.compare_left_tags,
+                );
+                crate::diff::prune_compare_hide_revealed(
+                    &mut self.compare_hide_revealed_right,
+                    &self.compare_right_tags,
+                );
                 let lname = self
                     .state
                     .tabs
@@ -5091,6 +5240,8 @@ Tree-sitter highlight, and a calm UI.",
                     self.state.settings.compare_hide_equal,
                     &self.compare_left_tags,
                     &self.compare_right_tags,
+                    &self.compare_hide_revealed_left,
+                    &self.compare_hide_revealed_right,
                 );
                 self.state.status =
                     compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide);
@@ -5235,6 +5386,8 @@ Tree-sitter highlight, and a calm UI.",
         self.compare_right_tab = right;
         self.compare_left_tags = lt;
         self.compare_right_tags = rt;
+        self.compare_hide_revealed_left.clear();
+        self.compare_hide_revealed_right.clear();
         self.compare_partner_tab = None;
         self.dual_view = true;
         self.sync_scroll_v = true;
@@ -5273,6 +5426,8 @@ Tree-sitter highlight, and a calm UI.",
             self.state.settings.compare_hide_equal,
             &self.compare_left_tags,
             &self.compare_right_tags,
+            &self.compare_hide_revealed_left,
+            &self.compare_hide_revealed_right,
         );
         self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide);
     }
@@ -5304,6 +5459,7 @@ Tree-sitter highlight, and a calm UI.",
             self.compare_on,
             self.state.settings.compare_hide_equal,
             &self.compare_right_tags,
+            &self.compare_hide_revealed_right,
         );
         let display_count = visible_lines.len().max(1);
         let avail = ui.available_size();
@@ -5392,9 +5548,22 @@ Tree-sitter highlight, and a calm UI.",
         };
 
         let mut fold_click = false;
+        let mut hide_gap_click = false;
         if response.clicked() || response.drag_started() {
             if let Some(pos) = response.interact_pointer_pos() {
-                if let Some(line) = fold_line_at(pos) {
+                if self.try_expand_compare_hide_gap_at(
+                    pos,
+                    rect,
+                    scroll_line,
+                    row_height,
+                    &visible_lines,
+                    false,
+                ) {
+                    hide_gap_click = true;
+                    self.drag_anchor = None;
+                    self.rect_drag = false;
+                    self.sel_text_drag = None;
+                } else if let Some(line) = fold_line_at(pos) {
                     if let Some(doc) = self.state.tabs.get(tab) {
                         let lang = doc.language.clone();
                         let regions = crate::fold::compute_fold_regions(lang.as_str(), &doc.buffer);
@@ -5418,8 +5587,8 @@ Tree-sitter highlight, and a calm UI.",
             }
         }
 
-        if fold_click {
-            // Fold margin consumed the pointer.
+        if fold_click || hide_gap_click {
+            // Fold margin or hide-equal ···N cue consumed the pointer.
         } else if response.triple_clicked() {
             if let Some(pos) = response.interact_pointer_pos() {
                 if let Some(doc) = self.state.tabs.get(tab) {

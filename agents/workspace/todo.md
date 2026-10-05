@@ -51,3 +51,4 @@
 009 keep: compare Hide Unchanged Lines (v0.3.54)
 009 keep: compare hide-equal ±3 context (v0.3.55)
 009 keep: compare hide-equal ···N gap cues + hidden counts (v0.3.56)
+009 keep: compare click ···N cue expands Equal run (v0.3.57)

@@ -349,21 +349,52 @@ pub fn equal_line_indices_to_hide(tags: &[LineKind]) -> BTreeSet<usize> {
     equal_line_indices_to_hide_with_context(tags, COMPARE_HIDE_EQUAL_CONTEXT)
 }
 
-/// How many Equal lines each side hides under the default hide-equal context.
-pub fn hidden_equal_counts(left_tags: &[LineKind], right_tags: &[LineKind]) -> (usize, usize) {
+/// Hidden Equal counts after subtracting click-expanded (revealed) lines.
+///
+/// Pass empty revealed sets for the raw hide-equal totals.
+pub fn hidden_equal_counts_with_revealed(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    left_revealed: &BTreeSet<usize>,
+    right_revealed: &BTreeSet<usize>,
+) -> (usize, usize) {
+    let left = equal_line_indices_to_hide(left_tags);
+    let right = equal_line_indices_to_hide(right_tags);
     (
-        equal_line_indices_to_hide(left_tags).len(),
-        equal_line_indices_to_hide(right_tags).len(),
+        left.difference(left_revealed).count(),
+        right.difference(right_revealed).count(),
     )
+}
+
+/// Drop revealed indices that are no longer in the hide-equal set (after re-diff).
+pub fn prune_compare_hide_revealed(revealed: &mut BTreeSet<usize>, tags: &[LineKind]) {
+    let hide = equal_line_indices_to_hide(tags);
+    revealed.retain(|i| hide.contains(i));
 }
 
 /// Skipped document lines between two consecutive visible rows (hide-equal gap).
 pub fn compare_visible_gap(prev_doc_line: usize, cur_doc_line: usize) -> Option<usize> {
+    compare_gap_line_range(prev_doc_line, cur_doc_line).map(|(a, b)| b - a + 1)
+}
+
+/// Inclusive document-line range collapsed between two consecutive visible rows.
+pub fn compare_gap_line_range(prev_doc_line: usize, cur_doc_line: usize) -> Option<(usize, usize)> {
     if cur_doc_line > prev_doc_line + 1 {
-        Some(cur_doc_line - prev_doc_line - 1)
+        Some((prev_doc_line + 1, cur_doc_line - 1))
     } else {
         None
     }
+}
+
+/// Insert every line in an inclusive gap into `revealed`. Returns how many were new.
+pub fn reveal_compare_gap(revealed: &mut BTreeSet<usize>, gap: (usize, usize)) -> usize {
+    let mut n = 0usize;
+    for i in gap.0..=gap.1 {
+        if revealed.insert(i) {
+            n += 1;
+        }
+    }
+    n
 }
 
 /// Like [`equal_line_indices_to_hide`], with an explicit context window.
@@ -1198,10 +1229,21 @@ mod tests {
         assert!(!hide.contains(&3));
         assert!(!hide.contains(&5));
         assert!(!hide.contains(&10));
-        let (hl, hr) = hidden_equal_counts(&tags, &tags);
+        let empty = BTreeSet::new();
+        let (hl, hr) = hidden_equal_counts_with_revealed(&tags, &tags, &empty, &empty);
         assert_eq!((hl, hr), (2, 2));
         assert_eq!(compare_visible_gap(3, 10), Some(6));
         assert_eq!(compare_visible_gap(3, 4), None);
+        assert_eq!(compare_gap_line_range(3, 10), Some((4, 9)));
+        let mut revealed = BTreeSet::new();
+        assert_eq!(reveal_compare_gap(&mut revealed, (0, 0)), 1);
+        let (hl2, hr2) =
+            hidden_equal_counts_with_revealed(&tags, &tags, &revealed, &BTreeSet::new());
+        assert_eq!((hl2, hr2), (1, 2));
+        prune_compare_hide_revealed(&mut revealed, &tags);
+        assert!(revealed.contains(&0));
+        prune_compare_hide_revealed(&mut revealed, &[Equal, Equal]);
+        assert!(revealed.is_empty());
     }
 
     #[test]
