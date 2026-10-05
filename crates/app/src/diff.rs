@@ -122,7 +122,7 @@ fn unmatched_runs(matched: &[bool]) -> Vec<CharRange> {
     out
 }
 
-/// Char-index ranges (exclusive end) that differ between two lines.
+/// Char-index ranges (exclusive end) that differ between two lines (char LCS).
 ///
 /// `None` when either side is over [`MAX_INLINE_CHARS`] (caller keeps line wash only).
 pub fn char_change_spans(left: &str, right: &str) -> Option<(Vec<CharRange>, Vec<CharRange>)> {
@@ -135,9 +135,150 @@ pub fn char_change_spans(left: &str, right: &str) -> Option<(Vec<CharRange>, Vec
     Some((unmatched_runs(&lm), unmatched_runs(&rm)))
 }
 
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+/// Word / separator token ranges as char-index half-open spans.
+fn tokenize_word_ranges(chars: &[char]) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    let mut i = 0usize;
+    while i < chars.len() {
+        let start = i;
+        if is_word_char(chars[i]) {
+            i += 1;
+            while i < chars.len() && is_word_char(chars[i]) {
+                i += 1;
+            }
+        } else {
+            // One separator char per token so spaces and punctuation stay aligned.
+            i += 1;
+        }
+        out.push((start, i));
+    }
+    out
+}
+
+fn merge_char_ranges(mut ranges: Vec<CharRange>) -> Vec<CharRange> {
+    if ranges.is_empty() {
+        return ranges;
+    }
+    ranges.sort_by_key(|r| r.start);
+    let mut out = Vec::with_capacity(ranges.len());
+    let mut cur = ranges[0];
+    for r in ranges.into_iter().skip(1) {
+        if r.start <= cur.end {
+            cur.end = cur.end.max(r.end);
+        } else {
+            out.push(cur);
+            cur = r;
+        }
+    }
+    out.push(cur);
+    out
+}
+
+/// Word-aware intra-line spans: LCS on tokens, char refine on 1:1 token replaces.
+///
+/// `None` when either side is over [`MAX_INLINE_CHARS`].
+pub fn word_change_spans(left: &str, right: &str) -> Option<(Vec<CharRange>, Vec<CharRange>)> {
+    let lc: Vec<char> = left.chars().collect();
+    let rc: Vec<char> = right.chars().collect();
+    if lc.len() > MAX_INLINE_CHARS || rc.len() > MAX_INLINE_CHARS {
+        return None;
+    }
+    let lt = tokenize_word_ranges(&lc);
+    let rt = tokenize_word_ranges(&rc);
+    if lt.is_empty() && rt.is_empty() {
+        return Some((Vec::new(), Vec::new()));
+    }
+    let lkeys: Vec<String> = lt.iter().map(|&(s, e)| lc[s..e].iter().collect()).collect();
+    let rkeys: Vec<String> = rt.iter().map(|&(s, e)| rc[s..e].iter().collect()).collect();
+    let (lm, rm) = lcs_match_mask(&lkeys, &rkeys);
+    let left_tags: Vec<LineKind> = lm
+        .into_iter()
+        .map(|eq| {
+            if eq {
+                LineKind::Equal
+            } else {
+                LineKind::Delete
+            }
+        })
+        .collect();
+    let right_tags: Vec<LineKind> = rm
+        .into_iter()
+        .map(|eq| {
+            if eq {
+                LineKind::Equal
+            } else {
+                LineKind::Insert
+            }
+        })
+        .collect();
+    let Some(ops) = align_ops(&left_tags, &right_tags) else {
+        // Fall back to char LCS if token tags cannot align.
+        return char_change_spans(left, right);
+    };
+    let mut left_sp = Vec::new();
+    let mut right_sp = Vec::new();
+    let mut i = 0usize;
+    while i < ops.len() {
+        if !op_is_change(ops[i]) {
+            i += 1;
+            continue;
+        }
+        let mut dels = Vec::new();
+        let mut ins = Vec::new();
+        while i < ops.len() && op_is_change(ops[i]) {
+            match ops[i] {
+                AlignOp::Delete { left } => dels.push(left),
+                AlignOp::Insert { right, .. } => ins.push(right),
+                AlignOp::Equal { .. } => {}
+            }
+            i += 1;
+        }
+        let n = dels.len().min(ins.len());
+        for k in 0..n {
+            let di = dels[k];
+            let ii = ins[k];
+            let (ls, le) = lt[di];
+            let (rs, re) = rt[ii];
+            let l_txt: String = lc[ls..le].iter().collect();
+            let r_txt: String = rc[rs..re].iter().collect();
+            if let Some((ls_rel, rs_rel)) = char_change_spans(&l_txt, &r_txt) {
+                for r in ls_rel {
+                    left_sp.push(CharRange {
+                        start: ls + r.start,
+                        end: ls + r.end,
+                    });
+                }
+                for r in rs_rel {
+                    right_sp.push(CharRange {
+                        start: rs + r.start,
+                        end: rs + r.end,
+                    });
+                }
+            } else {
+                left_sp.push(CharRange { start: ls, end: le });
+                right_sp.push(CharRange { start: rs, end: re });
+            }
+        }
+        for &di in dels.iter().skip(n) {
+            let (ls, le) = lt[di];
+            left_sp.push(CharRange { start: ls, end: le });
+        }
+        for &ii in ins.iter().skip(n) {
+            let (rs, re) = rt[ii];
+            right_sp.push(CharRange { start: rs, end: re });
+        }
+    }
+    Some((merge_char_ranges(left_sp), merge_char_ranges(right_sp)))
+}
+
 /// Intra-line spans for paired delete/insert lines in each change hunk.
 ///
-/// Unpaired insert/delete lines stay empty (full-line wash only).
+/// Uses word-aware LCS (with char refine on 1:1 token replaces). Unpaired
+/// insert/delete lines stay empty (full-line wash only).
 pub fn inline_change_spans(
     left: &[&str],
     right: &[&str],
@@ -178,7 +319,7 @@ pub fn inline_change_spans(
             let Some(r_txt) = right.get(ri).copied() else {
                 continue;
             };
-            if let Some((ls, rs)) = char_change_spans(l_txt, r_txt) {
+            if let Some((ls, rs)) = word_change_spans(l_txt, r_txt) {
                 left_sp[li] = ls;
                 right_sp[ri] = rs;
             }
@@ -885,6 +1026,20 @@ mod tests {
     }
 
     #[test]
+    fn word_change_spans_washes_whole_word() {
+        let (l, r) = word_change_spans("the cat sat", "the dog sat").unwrap();
+        assert_eq!(l, vec![CharRange { start: 4, end: 7 }]);
+        assert_eq!(r, vec![CharRange { start: 4, end: 7 }]);
+    }
+
+    #[test]
+    fn word_change_spans_refines_typo_inside_token() {
+        let (l, r) = word_change_spans("hello", "hallo").unwrap();
+        assert_eq!(l, vec![CharRange { start: 1, end: 2 }]);
+        assert_eq!(r, vec![CharRange { start: 1, end: 2 }]);
+    }
+
+    #[test]
     fn inline_spans_pair_replace_not_pure_insert() {
         let left = ["keep", "abc", "tail"];
         let right = ["keep", "axc", "tail"];
@@ -903,9 +1058,20 @@ mod tests {
     }
 
     #[test]
+    fn inline_spans_word_level_on_replace_line() {
+        let left = ["keep", "foo bar baz", "tail"];
+        let right = ["keep", "foo qux baz", "tail"];
+        let (lt, rt) = diff_line_tags(&left, &right);
+        let (ls, rs) = inline_change_spans(&left, &right, &lt, &rt);
+        assert_eq!(ls[1], vec![CharRange { start: 4, end: 7 }]);
+        assert_eq!(rs[1], vec![CharRange { start: 4, end: 7 }]);
+    }
+
+    #[test]
     fn char_change_spans_skips_long_lines() {
         let long: String = "x".repeat(MAX_INLINE_CHARS + 1);
         assert!(char_change_spans(&long, "y").is_none());
+        assert!(word_change_spans(&long, "y").is_none());
     }
 
     #[test]

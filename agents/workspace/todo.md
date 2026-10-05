@@ -47,3 +47,4 @@
 009 keep: compare Apply All Hunks To Other View (v0.3.50)
 009 keep: compare Compare to Saved disk snapshot (v0.3.51)
 009 keep: compare Clear closes saved snapshot tab (v0.3.52)
+009 keep: compare word-aware replace-hunk wash (v0.3.53)

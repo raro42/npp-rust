@@ -63,7 +63,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - Mid-hunk Next skips to the following hunk, not the next red/green line.
 - Status shows both sides’ lines + hunk ordinal, e.g. `Compare Next difference → L12 | R15 (2/5)`.
 - Click a red/green change line, or move the caret onto one with the keyboard, to park **and select** the same hunk on both panes (status: `Compare hunk → L12 | R15 (2/5)`). Equal lines leave the other pane alone.
-- On replace hunks (a changed line on both sides), differing **characters** get a stronger wash so you can see the intra-line edit. Insert-only / delete-only lines stay the usual full-line colour. Very long lines (over 256 characters) skip intra-line LCS.
+- On replace hunks (a changed line on both sides), differing **words** (and refined characters inside a 1:1 token replace) get a stronger wash so you can see the intra-line edit. Insert-only / delete-only lines stay the usual full-line colour. Very long lines (over 256 characters) skip intra-line LCS.
 - When both sides match (including ignore-whitespace / ignore-case), status says `(identical)`.
 - Active ignore options appear in the status (`· ignore ws`, `· ignore case`, `· ignore blank`, or combined `ws+case+blank`).
 - **View → Ignore Whitespace Differences** / **Ignore Case Differences** / **Ignore Blank Lines** toggle those Preferences keys (✓ when on) and re-diff immediately while Compare is on. Blank-line ignore skips empty / whitespace-only lines in the LCS so padding blank lines do not create hunks.
@@ -82,7 +82,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - Both panes stay editable. Line tags refresh after edits (~200 ms debounce).
 - MVP max: **3000 lines** per side.
 - No gap rows for inserts (line numbers stay per-file; sync is by scroll line).
-- Intra-line char wash is LCS on paired replace lines only (not word-level, not 3-way).
+- Intra-line wash is word-aware LCS on paired replace lines (char refine on 1:1 tokens). Not 3-way.
 - Start Compare turns on sync H + V scroll.
 - Preferences: **Ignore whitespace differences** collapses whitespace runs before LCS.
 - Preferences: **Ignore case differences** folds letter case before LCS (combines with ignore-whitespace).
@@ -91,7 +91,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 ## Not in MVP
 
 - 3-way merge
-- Word-level / richer inline diff
+- Richer inline diff (syntax-aware tokens)
 - Shelling out to system `diff`
 
 ## Code

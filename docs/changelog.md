@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.53] — 2026-10-05
+
+Compare:
+
+- Replace-hunk intra-line wash is **word-aware**: LCS on word/separator tokens, with char refine on 1:1 token replaces so typos still highlight inside a word. Whole-word edits (e.g. `cat` → `dog`) wash the token, not scattered characters.
+
 ## [0.3.52] — 2026-10-05
 
 Compare:
