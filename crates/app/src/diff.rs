@@ -1357,6 +1357,36 @@ fn push_summary_preview(out: &mut String, marker: char, line: &str) {
     out.push('\n');
 }
 
+/// Count summary hunks by kind (`delete` / `insert` / `replace`).
+fn summary_kind_tallies(hunks: &[CompareSummaryHunk]) -> (usize, usize, usize) {
+    let mut deletes = 0usize;
+    let mut inserts = 0usize;
+    let mut replaces = 0usize;
+    for h in hunks {
+        match (h.deletes, h.inserts) {
+            (0, _) => inserts += 1,
+            (_, 0) => deletes += 1,
+            _ => replaces += 1,
+        }
+    }
+    (deletes, inserts, replaces)
+}
+
+fn format_summary_kind_tallies(hunks: &[CompareSummaryHunk]) -> String {
+    let (deletes, inserts, replaces) = summary_kind_tallies(hunks);
+    let mut parts = Vec::with_capacity(3);
+    if deletes > 0 {
+        parts.push(format!("{deletes} delete"));
+    }
+    if inserts > 0 {
+        parts.push(format!("{inserts} insert"));
+    }
+    if replaces > 0 {
+        parts.push(format!("{replaces} replace"));
+    }
+    parts.join(", ")
+}
+
 /// Human-readable Compare hunk index with first-line previews
 /// (`None` when tags cannot be aligned).
 pub fn compare_summary_text(
@@ -1373,8 +1403,13 @@ pub fn compare_summary_text(
     let hunks = compare_summary_hunks(left_tags, right_tags)?;
     let (del, ins) = count_changes(left_tags, right_tags);
     let mut out = String::new();
+    let kind_bit = if hunks.is_empty() {
+        String::new()
+    } else {
+        format!(": {}", format_summary_kind_tallies(&hunks))
+    };
     out.push_str(&format!(
-        "Compare summary: “{left_name}” | “{right_name}” (−{del} +{ins}, {} hunks)\n",
+        "Compare summary: “{left_name}” | “{right_name}” (−{del} +{ins}, {} hunks{kind_bit})\n",
         hunks.len()
     ));
     if hunks.is_empty() {
@@ -1855,6 +1890,7 @@ mod tests {
         assert_eq!(hunks[2].inserts, 1);
         let text = compare_summary_text("L", "R", &left, &right, &l, &r).unwrap();
         assert!(text.contains("Compare summary: “L” | “R”"));
+        assert!(text.contains("3 hunks: 1 delete, 1 insert, 1 replace)\n"));
         assert!(text.contains("1. L2 | R2 (−1 +0) delete\n"));
         assert!(text.contains("   - gone\n"));
         assert!(text.contains("replace\n"));
@@ -1865,7 +1901,8 @@ mod tests {
         let (le, re) = diff_line_tags(&left, &left);
         let ident = compare_summary_text("a", "b", &left, &left, &le, &re).unwrap();
         assert!(ident.contains("(identical)\n"));
-        assert!(ident.contains("0 hunks"));
+        assert!(ident.contains("0 hunks)\n"));
+        assert!(!ident.contains("0 hunks:"));
         assert!(compare_summary_hunks(&l, &[]).is_none());
         assert!(compare_summary_text("L", "R", &left[..2], &right, &l, &r).is_none());
     }

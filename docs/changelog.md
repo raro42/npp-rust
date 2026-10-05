@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.73] — 2026-10-05
+
+Compare:
+
+- **Open / Copy Compare Summary** header tallies hunk kinds (`N delete, M insert, K replace`) next to the hunk count.
+
 ## [0.3.72] — 2026-10-05
 
 Compare:
