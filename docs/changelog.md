@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.75] — 2026-10-06
+
+Compare:
+
+- **Open / Copy Compare Summary** shows up to 3 preview lines per side under each hunk (`-` / `+`, max 72 chars), then `… (+N more)` when the side is longer, so multi-line hunks stay scannable.
+
 ## [0.3.74] — 2026-10-05
 
 Compare:

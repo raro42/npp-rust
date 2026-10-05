@@ -1332,6 +1332,9 @@ fn format_summary_span(start: usize, end: usize) -> String {
 /// Max display chars for one Compare Summary preview line.
 pub const SUMMARY_PREVIEW_MAX: usize = 72;
 
+/// Max preview lines per side (− / +) under each Compare Summary hunk.
+pub const SUMMARY_PREVIEW_LINES: usize = 3;
+
 fn summary_preview_line(line: &str) -> String {
     let flat: String = line
         .chars()
@@ -1355,6 +1358,30 @@ fn push_summary_preview(out: &mut String, marker: char, line: &str) {
     out.push(' ');
     out.push_str(&summary_preview_line(line));
     out.push('\n');
+}
+
+/// Push up to [`SUMMARY_PREVIEW_LINES`] from `lines[start..end]`, then
+/// `… (+N more)` when the hunk side is longer.
+fn push_summary_side_previews(
+    out: &mut String,
+    marker: char,
+    lines: &[&str],
+    start: usize,
+    end: usize,
+) {
+    if start >= end {
+        return;
+    }
+    let total = end - start;
+    let show = total.min(SUMMARY_PREVIEW_LINES);
+    for i in 0..show {
+        if let Some(line) = lines.get(start + i) {
+            push_summary_preview(out, marker, line);
+        }
+    }
+    if total > show {
+        out.push_str(&format!("   … (+{} more)\n", total - show));
+    }
 }
 
 /// Count summary hunks by kind (`delete` / `insert` / `replace`).
@@ -1407,8 +1434,12 @@ pub fn compare_ignore_note(ignore_ws: bool, ignore_case: bool, ignore_blank: boo
     }
 }
 
-/// Human-readable Compare hunk index with first-line previews
+/// Human-readable Compare hunk index with multi-line previews
 /// (`None` when tags cannot be aligned).
+///
+/// Each side shows up to [`SUMMARY_PREVIEW_LINES`] truncated lines
+/// (`-` / `+`, max [`SUMMARY_PREVIEW_MAX`] chars), then `… (+N more)`
+/// when the hunk side is longer.
 ///
 /// `ignore_note` is appended after the header paren (usually
 /// [`compare_ignore_note`], or `""` when no ignore toggles are on).
@@ -1456,14 +1487,10 @@ pub fn compare_summary_text(
             kind,
         ));
         if h.deletes > 0 {
-            if let Some(line) = left_lines.get(h.left_start) {
-                push_summary_preview(&mut out, '-', line);
-            }
+            push_summary_side_previews(&mut out, '-', left_lines, h.left_start, h.left_end);
         }
         if h.inserts > 0 {
-            if let Some(line) = right_lines.get(h.right_start) {
-                push_summary_preview(&mut out, '+', line);
-            }
+            push_summary_side_previews(&mut out, '+', right_lines, h.right_start, h.right_end);
         }
     }
     Some(out)
@@ -1961,6 +1988,25 @@ mod tests {
             .expect("delete preview");
         assert_eq!(preview.chars().count(), 5 + SUMMARY_PREVIEW_MAX);
         assert!(preview.ends_with('…'));
+    }
+
+    #[test]
+    fn compare_summary_multi_line_previews_and_more() {
+        let left = ["keep", "d1", "d2", "d3", "d4", "d5", "tail"];
+        let right = ["keep", "i1", "i2", "i3", "i4", "tail"];
+        let (l, r) = diff_line_tags(&left, &right);
+        let text = compare_summary_text("L", "R", &left, &right, &l, &r, "").unwrap();
+        assert!(text.contains("   - d1\n"));
+        assert!(text.contains("   - d2\n"));
+        assert!(text.contains("   - d3\n"));
+        assert!(text.contains("   … (+2 more)\n"));
+        assert!(!text.contains("   - d4\n"));
+        assert!(text.contains("   + i1\n"));
+        assert!(text.contains("   + i2\n"));
+        assert!(text.contains("   + i3\n"));
+        assert!(text.contains("   … (+1 more)\n"));
+        assert!(!text.contains("   + i4\n"));
+        assert_eq!(SUMMARY_PREVIEW_LINES, 3);
     }
 
     #[test]
