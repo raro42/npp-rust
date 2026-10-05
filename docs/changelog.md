@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.77] — 2026-10-06
+
+Compare:
+
+- Live Compare status line appends Equal-line match percent (`· N% equal`) for non-identical pairs so similarity is visible without opening Compare Summary.
+
 ## [0.3.76] — 2026-10-06
 
 Compare:

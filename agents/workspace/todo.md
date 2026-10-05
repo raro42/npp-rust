@@ -75,3 +75,5 @@
 009 keep: compare summary multi-line previews (+N more) (v0.3.75)
 
 009 keep: compare summary equal-line match percent (v0.3.76)
+
+009 keep: compare live status · N% equal (v0.3.77)
