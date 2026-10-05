@@ -3,8 +3,9 @@
 use crate::editor::EditorState;
 use crate::ui_paint::{
     change_history_joins, change_history_wash, col_from_x, display_row_for,
-    paint_change_history_bar, paint_fold_marker, paint_inline_compare_spans, paint_line_text,
-    style_mark_bg, text_width, visible_line_indices, FOLD_MARGIN_W,
+    paint_change_history_bar, paint_compare_hide_gap, paint_fold_marker,
+    paint_inline_compare_spans, paint_line_text, style_mark_bg, text_width, visible_line_indices,
+    FOLD_MARGIN_W,
 };
 use eframe::egui::{self, Color32, CursorIcon, FontId, Key, Pos2, Rect, RichText, Sense, Vec2};
 use std::collections::BTreeSet;
@@ -104,6 +105,34 @@ fn compare_ignore_status_bit(bits: CompareIgnoreBits) -> String {
     }
 }
 
+fn compare_hide_opt(
+    on: bool,
+    left_tags: &[crate::diff::LineKind],
+    right_tags: &[crate::diff::LineKind],
+) -> Option<(usize, usize)> {
+    if on {
+        Some(crate::diff::hidden_equal_counts(left_tags, right_tags))
+    } else {
+        None
+    }
+}
+
+/// `None` = hide-equal off; `Some((left, right))` = on with per-side hidden counts.
+fn compare_hide_status_bit(hide: Option<(usize, usize)>) -> String {
+    let Some((hidden_left, hidden_right)) = hide else {
+        return String::new();
+    };
+    let ctx = crate::diff::COMPARE_HIDE_EQUAL_CONTEXT;
+    let count_bit = if hidden_left == 0 && hidden_right == 0 {
+        String::new()
+    } else if hidden_left == hidden_right {
+        format!(" · {hidden_left} hidden")
+    } else {
+        format!(" · L{hidden_left}|R{hidden_right} hidden")
+    };
+    format!(" · hide equal ±{ctx}{count_bit}")
+}
+
 fn compare_pair_status(
     lname: &str,
     rname: &str,
@@ -111,14 +140,10 @@ fn compare_pair_status(
     ins: usize,
     hunk_n: usize,
     ignore: CompareIgnoreBits,
-    hide_equal: bool,
+    hide: Option<(usize, usize)>,
 ) -> String {
     let ignore_bit = compare_ignore_status_bit(ignore);
-    let hide_bit = if hide_equal {
-        format!(" · hide equal ±{}", crate::diff::COMPARE_HIDE_EQUAL_CONTEXT)
-    } else {
-        String::new()
-    };
+    let hide_bit = compare_hide_status_bit(hide);
     if del == 0 && ins == 0 {
         return format!("Compare “{lname}” | “{rname}” (identical){ignore_bit}{hide_bit}");
     }
@@ -1033,7 +1058,7 @@ impl EditorApp {
                         "Toggle ignore blank lines for Compare (Preferences persist)",
                     ),
                     "IDM_VIEW_COMPARE_HIDE_EQUAL" => response.on_hover_text(
-                        "Hide Equal (unchanged) lines while Compare is on; keep ±3 lines of context around each change (Preferences persist)",
+                        "Hide Equal (unchanged) lines while Compare is on; keep ±3 context; gutter ···N marks collapsed runs (Preferences persist)",
                     ),
                     "IDM_VIEW_COPY_COMPARE_DIFF" => response
                         .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
@@ -3370,6 +3395,22 @@ Tree-sitter highlight, and a calm UI.",
                             );
                         }
                     }
+                    if self.state.settings.compare_hide_equal {
+                        if let Some(&prev) = row.checked_sub(1).and_then(|r| visible_lines.get(r)) {
+                            if let Some(skipped) = crate::diff::compare_visible_gap(prev, line_idx)
+                            {
+                                paint_compare_hide_gap(
+                                    &painter,
+                                    &font_id,
+                                    text_left,
+                                    rect.right(),
+                                    y,
+                                    skipped,
+                                    theme.line_number_fg,
+                                );
+                            }
+                        }
+                    }
                 }
 
                 // Bookmark tick in the gutter.
@@ -3994,8 +4035,13 @@ Tree-sitter highlight, and a calm UI.",
                     .get(right)
                     .map(|d| d.title.clone())
                     .unwrap_or_else(|| "right".into());
+                let hide = compare_hide_opt(
+                    hide_equal,
+                    &self.compare_left_tags,
+                    &self.compare_right_tags,
+                );
                 self.state.status =
-                    compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide_equal);
+                    compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide);
                 self.state.highlight_dirty = true;
             }
         } else {
@@ -4047,8 +4093,12 @@ Tree-sitter highlight, and a calm UI.",
                 .get(right)
                 .map(|d| d.title.clone())
                 .unwrap_or_else(|| "right".into());
-            self.state.status =
-                compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide_equal);
+            let hide = compare_hide_opt(
+                hide_equal,
+                &self.compare_left_tags,
+                &self.compare_right_tags,
+            );
+            self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide);
         } else {
             self.state.status = format!(
                 "Hide unchanged lines: {}{}",
@@ -4824,10 +4874,14 @@ Tree-sitter highlight, and a calm UI.",
             case: self.state.settings.compare_ignore_case,
             blank: self.state.settings.compare_ignore_blank,
         };
-        let hide_equal = self.state.settings.compare_hide_equal;
+        let hide = compare_hide_opt(
+            self.state.settings.compare_hide_equal,
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+        );
         self.state.status = format!(
             "Swapped sides — {}",
-            compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide_equal)
+            compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide)
         );
     }
 
@@ -5033,9 +5087,13 @@ Tree-sitter highlight, and a calm UI.",
                     case: self.state.settings.compare_ignore_case,
                     blank: self.state.settings.compare_ignore_blank,
                 };
-                let hide_equal = self.state.settings.compare_hide_equal;
+                let hide = compare_hide_opt(
+                    self.state.settings.compare_hide_equal,
+                    &self.compare_left_tags,
+                    &self.compare_right_tags,
+                );
                 self.state.status =
-                    compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide_equal);
+                    compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide);
             }
             None => {
                 // Too many lines or missing tabs — leave prior tags; status already set.
@@ -5211,9 +5269,12 @@ Tree-sitter highlight, and a calm UI.",
             case: self.state.settings.compare_ignore_case,
             blank: self.state.settings.compare_ignore_blank,
         };
-        let hide_equal = self.state.settings.compare_hide_equal;
-        self.state.status =
-            compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide_equal);
+        let hide = compare_hide_opt(
+            self.state.settings.compare_hide_equal,
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+        );
+        self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide);
     }
 
     /// Writable secondary pane: edits `other_view_tab` when this pane has focus.
@@ -5583,6 +5644,21 @@ Tree-sitter highlight, and a calm UI.",
                             0.0,
                             bg,
                         );
+                    }
+                }
+                if self.state.settings.compare_hide_equal {
+                    if let Some(&prev) = row.checked_sub(1).and_then(|r| visible_lines.get(r)) {
+                        if let Some(skipped) = crate::diff::compare_visible_gap(prev, line_idx) {
+                            paint_compare_hide_gap(
+                                &painter,
+                                &font_id,
+                                text_left,
+                                rect.right(),
+                                y,
+                                skipped,
+                                theme.line_number_fg,
+                            );
+                        }
                     }
                 }
             }
@@ -6294,11 +6370,11 @@ mod compare_pair_tests {
             blank: false,
         };
         assert_eq!(
-            compare_pair_status("a", "b", 0, 0, 0, none, false),
+            compare_pair_status("a", "b", 0, 0, 0, none, None),
             "Compare “a” | “b” (identical)"
         );
         assert_eq!(
-            compare_pair_status("a", "b", 1, 2, 2, none, false),
+            compare_pair_status("a", "b", 1, 2, 2, none, None),
             "Compare “a” | “b” (−1 +2) · 2 hunks"
         );
         assert_eq!(
@@ -6313,7 +6389,7 @@ mod compare_pair_tests {
                     case: true,
                     blank: false
                 },
-                false
+                None
             ),
             "Compare “a” | “b” (identical) · ignore ws+case"
         );
@@ -6329,7 +6405,7 @@ mod compare_pair_tests {
                     case: false,
                     blank: false
                 },
-                false
+                None
             ),
             "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws"
         );
@@ -6345,7 +6421,7 @@ mod compare_pair_tests {
                     case: false,
                     blank: true
                 },
-                false
+                None
             ),
             "Compare “a” | “b” (identical) · ignore blank"
         );
@@ -6361,9 +6437,13 @@ mod compare_pair_tests {
                     case: true,
                     blank: true
                 },
-                true
+                Some((4, 7))
             ),
-            "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws+case+blank · hide equal ±3"
+            "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws+case+blank · hide equal ±3 · L4|R7 hidden"
+        );
+        assert_eq!(
+            compare_pair_status("a", "b", 1, 0, 1, none, Some((5, 5))),
+            "Compare “a” | “b” (−1 +0) · 1 hunk · hide equal ±3 · 5 hidden"
         );
     }
 

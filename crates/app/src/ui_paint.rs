@@ -135,6 +135,36 @@ pub(crate) fn paint_fold_marker(
     );
 }
 
+/// Hairline + `···N` cue when Hide Unchanged Lines collapses Equal runs.
+pub(crate) fn paint_compare_hide_gap(
+    painter: &egui::Painter,
+    font_id: &FontId,
+    text_left: f32,
+    text_right: f32,
+    y: f32,
+    skipped: usize,
+    color: Color32,
+) {
+    let y_line = y - 0.5;
+    painter.hline(
+        text_left..=text_right,
+        y_line,
+        egui::Stroke::new(1.0_f32, color),
+    );
+    let label = if skipped > 99 {
+        "···".to_string()
+    } else {
+        format!("···{skipped}")
+    };
+    painter.text(
+        Pos2::new(text_left + 2.0, y - font_id.size * 0.55),
+        egui::Align2::LEFT_TOP,
+        label,
+        font_id.clone(),
+        color,
+    );
+}
+
 /// Stronger intra-line wash for compare replace hunks (`spans` are char indices).
 pub(crate) fn paint_inline_compare_spans(
     painter: &egui::Painter,

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.56] — 2026-10-05
+
+Compare:
+
+- **Hide Unchanged Lines** paints gutter `···N` gap cues (and a hairline) between collapsed Equal runs, and status shows how many lines are hidden (`· N hidden` or `· Lx|Ry hidden`).
+
 ## [0.3.55] — 2026-10-05
 
 Compare:

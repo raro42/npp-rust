@@ -349,6 +349,23 @@ pub fn equal_line_indices_to_hide(tags: &[LineKind]) -> BTreeSet<usize> {
     equal_line_indices_to_hide_with_context(tags, COMPARE_HIDE_EQUAL_CONTEXT)
 }
 
+/// How many Equal lines each side hides under the default hide-equal context.
+pub fn hidden_equal_counts(left_tags: &[LineKind], right_tags: &[LineKind]) -> (usize, usize) {
+    (
+        equal_line_indices_to_hide(left_tags).len(),
+        equal_line_indices_to_hide(right_tags).len(),
+    )
+}
+
+/// Skipped document lines between two consecutive visible rows (hide-equal gap).
+pub fn compare_visible_gap(prev_doc_line: usize, cur_doc_line: usize) -> Option<usize> {
+    if cur_doc_line > prev_doc_line + 1 {
+        Some(cur_doc_line - prev_doc_line - 1)
+    } else {
+        None
+    }
+}
+
 /// Like [`equal_line_indices_to_hide`], with an explicit context window.
 pub fn equal_line_indices_to_hide_with_context(
     tags: &[LineKind],
@@ -1181,6 +1198,10 @@ mod tests {
         assert!(!hide.contains(&3));
         assert!(!hide.contains(&5));
         assert!(!hide.contains(&10));
+        let (hl, hr) = hidden_equal_counts(&tags, &tags);
+        assert_eq!((hl, hr), (2, 2));
+        assert_eq!(compare_visible_gap(3, 10), Some(6));
+        assert_eq!(compare_visible_gap(3, 4), None);
     }
 
     #[test]
