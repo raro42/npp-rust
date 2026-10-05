@@ -19,7 +19,8 @@ New keys:
 | `compare_ignore_ws` | Compare ignores whitespace runs (also View menu toggle) |
 | `compare_ignore_case` | Compare ignores letter case (also View menu toggle) |
 | `compare_ignore_blank` | Compare skips blank lines in LCS (also View menu toggle) |
-| `compare_hide_equal` | Compare hides Equal (unchanged) lines in both panes, keeping ±3 context lines around changes (also View menu toggle) |
+| `compare_hide_equal` | Compare hides Equal (unchanged) lines in both panes (also View menu toggle) |
+| `compare_hide_equal_context` | Equal lines kept visible on each side of a change when hide-equal is on (`0`–`10`, default `3`) |
 | `backup_on_save` | Copy on-disk file into `npp-rs/backup/` before overwrite |
 | `autosave_interval_secs` | Autosave dirty named tabs (`0` = off; else 15–900) |
 | `show_fold_margin` | Gutter fold markers (`−` / `+`); default on |

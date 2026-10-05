@@ -88,6 +88,10 @@ fn default_shortcut_word_wrap() -> String {
     crate::shortcut_chord::DEFAULT_WORD_WRAP.into()
 }
 
+fn default_compare_hide_equal_context() -> u8 {
+    u8::try_from(crate::diff::COMPARE_HIDE_EQUAL_CONTEXT).unwrap_or(3)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppSettings {
@@ -176,6 +180,9 @@ pub struct AppSettings {
     /// Compare: hide Equal-tagged lines in both panes (change lines stay visible).
     #[serde(default)]
     pub compare_hide_equal: bool,
+    /// Equal lines kept visible on each side of a change when hide-equal is on (0..=10).
+    #[serde(default = "default_compare_hide_equal_context")]
+    pub compare_hide_equal_context: u8,
     /// Last project panel folder (absolute or relative path string).
     #[serde(default)]
     pub workspace_root: String,
@@ -234,6 +241,7 @@ impl Default for AppSettings {
             compare_ignore_case: false,
             compare_ignore_blank: false,
             compare_hide_equal: false,
+            compare_hide_equal_context: default_compare_hide_equal_context(),
             workspace_root: String::new(),
             project_filter: String::new(),
             find_files_include: String::new(),
@@ -249,6 +257,11 @@ impl Default for AppSettings {
 impl AppSettings {
     pub fn recent_limit(&self) -> usize {
         (self.recent_max.clamp(5, 40)) as usize
+    }
+
+    /// Equal context lines kept when Hide Unchanged Lines is on (clamped 0..=10).
+    pub fn compare_hide_equal_context_lines(&self) -> usize {
+        usize::from(self.compare_hide_equal_context.clamp(0, 10))
     }
 
     /// Effective autosave period in seconds (`0` = disabled). Non-zero values clamp to 15..=900.
@@ -549,6 +562,7 @@ mod tests {
             compare_ignore_case: true,
             compare_ignore_blank: true,
             compare_hide_equal: true,
+            compare_hide_equal_context: 5,
             backup_on_save: true,
             autosave_interval_secs: 60,
             ..Default::default()
@@ -567,7 +581,24 @@ mod tests {
         assert!(back.compare_ignore_case);
         assert!(back.compare_ignore_blank);
         assert!(back.compare_hide_equal);
+        assert_eq!(back.compare_hide_equal_context, 5);
+        assert_eq!(back.compare_hide_equal_context_lines(), 5);
         assert!(back.backup_on_save);
         assert_eq!(back.autosave_interval_secs, 60);
+    }
+
+    #[test]
+    fn compare_hide_equal_context_clamps() {
+        let low = AppSettings {
+            compare_hide_equal_context: 0,
+            ..Default::default()
+        };
+        assert_eq!(low.compare_hide_equal_context_lines(), 0);
+        let high = AppSettings {
+            compare_hide_equal_context: 99,
+            ..Default::default()
+        };
+        assert_eq!(high.compare_hide_equal_context_lines(), 10);
+        assert_eq!(AppSettings::default().compare_hide_equal_context_lines(), 3);
     }
 }

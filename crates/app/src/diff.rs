@@ -340,15 +340,6 @@ pub fn count_changes(left: &[LineKind], right: &[LineKind]) -> (usize, usize) {
 /// Equal lines kept visible on each side of a change when hide-equal is on.
 pub const COMPARE_HIDE_EQUAL_CONTEXT: usize = 3;
 
-/// Equal-tagged line indices to hide when "Hide Unchanged Lines" is on.
-///
-/// Keeps [`COMPARE_HIDE_EQUAL_CONTEXT`] Equal lines before/after each change
-/// line so hunks stay readable. Returns empty when the side has no changes
-/// (identical / empty), so the pane does not go blank.
-pub fn equal_line_indices_to_hide(tags: &[LineKind]) -> BTreeSet<usize> {
-    equal_line_indices_to_hide_with_context(tags, COMPARE_HIDE_EQUAL_CONTEXT)
-}
-
 /// Hidden Equal counts after subtracting click-expanded (revealed) lines.
 ///
 /// Pass empty revealed sets for the raw hide-equal totals.
@@ -357,9 +348,10 @@ pub fn hidden_equal_counts_with_revealed(
     right_tags: &[LineKind],
     left_revealed: &BTreeSet<usize>,
     right_revealed: &BTreeSet<usize>,
+    context: usize,
 ) -> (usize, usize) {
-    let left = equal_line_indices_to_hide(left_tags);
-    let right = equal_line_indices_to_hide(right_tags);
+    let left = equal_line_indices_to_hide_with_context(left_tags, context);
+    let right = equal_line_indices_to_hide_with_context(right_tags, context);
     (
         left.difference(left_revealed).count(),
         right.difference(right_revealed).count(),
@@ -367,8 +359,12 @@ pub fn hidden_equal_counts_with_revealed(
 }
 
 /// Drop revealed indices that are no longer in the hide-equal set (after re-diff).
-pub fn prune_compare_hide_revealed(revealed: &mut BTreeSet<usize>, tags: &[LineKind]) {
-    let hide = equal_line_indices_to_hide(tags);
+pub fn prune_compare_hide_revealed(
+    revealed: &mut BTreeSet<usize>,
+    tags: &[LineKind],
+    context: usize,
+) {
+    let hide = equal_line_indices_to_hide_with_context(tags, context);
     revealed.retain(|i| hide.contains(i));
 }
 
@@ -505,8 +501,12 @@ pub fn reveal_compare_lines(revealed: &mut BTreeSet<usize>, lines: &[usize]) -> 
 }
 
 /// Reveal every Equal line currently hidden by hide-equal. Returns how many were new.
-pub fn reveal_all_compare_hidden(revealed: &mut BTreeSet<usize>, tags: &[LineKind]) -> usize {
-    let hide = equal_line_indices_to_hide(tags);
+pub fn reveal_all_compare_hidden(
+    revealed: &mut BTreeSet<usize>,
+    tags: &[LineKind],
+    context: usize,
+) -> usize {
+    let hide = equal_line_indices_to_hide_with_context(tags, context);
     let mut n = 0usize;
     for i in hide {
         if revealed.insert(i) {
@@ -641,7 +641,11 @@ pub fn aligned_equal_partner_line(
     None
 }
 
-/// Like [`equal_line_indices_to_hide`], with an explicit context window.
+/// Equal-tagged line indices to hide when "Hide Unchanged Lines" is on.
+///
+/// Keeps `context` Equal lines before/after each change line so hunks stay
+/// readable. Returns empty when the side has no changes (identical / empty),
+/// so the pane does not go blank.
 pub fn equal_line_indices_to_hide_with_context(
     tags: &[LineKind],
     context: usize,
@@ -1455,7 +1459,11 @@ mod tests {
     #[test]
     fn equal_line_indices_to_hide_skips_identical() {
         use LineKind::*;
-        assert!(equal_line_indices_to_hide(&[Equal, Equal]).is_empty());
+        assert!(equal_line_indices_to_hide_with_context(
+            &[Equal, Equal],
+            COMPARE_HIDE_EQUAL_CONTEXT
+        )
+        .is_empty());
         // Context 0: hide every Equal when changes exist.
         let hide0 = equal_line_indices_to_hide_with_context(&[Equal, Delete, Equal, Insert], 0);
         assert_eq!(hide0.iter().copied().collect::<Vec<_>>(), vec![0, 2]);
@@ -1466,7 +1474,7 @@ mod tests {
             Equal, Equal, Equal, Equal, Delete, Equal, Equal, Equal, Equal, Insert, Equal, Equal,
             Equal, Equal,
         ];
-        let hide = equal_line_indices_to_hide(&tags);
+        let hide = equal_line_indices_to_hide_with_context(&tags, COMPARE_HIDE_EQUAL_CONTEXT);
         // Change at 4 keeps Equals 1..=3 and 5..=7; change at 9 keeps 6..=8 and 10..=12.
         // Far Equals 0 and 13 are hidden.
         assert_eq!(hide.iter().copied().collect::<Vec<_>>(), vec![0, 13]);
@@ -1474,7 +1482,13 @@ mod tests {
         assert!(!hide.contains(&5));
         assert!(!hide.contains(&10));
         let empty = BTreeSet::new();
-        let (hl, hr) = hidden_equal_counts_with_revealed(&tags, &tags, &empty, &empty);
+        let (hl, hr) = hidden_equal_counts_with_revealed(
+            &tags,
+            &tags,
+            &empty,
+            &empty,
+            COMPARE_HIDE_EQUAL_CONTEXT,
+        );
         assert_eq!((hl, hr), (2, 2));
         assert_eq!(compare_visible_gap(3, 10), Some(6));
         assert_eq!(compare_visible_gap(3, 4), None);
@@ -1503,21 +1517,34 @@ mod tests {
         assert_eq!(next_compare_hide_gap(0, &[]), None);
         let mut revealed = BTreeSet::new();
         assert_eq!(reveal_compare_gap(&mut revealed, (0, 0)), 1);
-        let (hl2, hr2) =
-            hidden_equal_counts_with_revealed(&tags, &tags, &revealed, &BTreeSet::new());
+        let (hl2, hr2) = hidden_equal_counts_with_revealed(
+            &tags,
+            &tags,
+            &revealed,
+            &BTreeSet::new(),
+            COMPARE_HIDE_EQUAL_CONTEXT,
+        );
         assert_eq!((hl2, hr2), (1, 2));
-        prune_compare_hide_revealed(&mut revealed, &tags);
+        prune_compare_hide_revealed(&mut revealed, &tags, COMPARE_HIDE_EQUAL_CONTEXT);
         assert!(revealed.contains(&0));
-        prune_compare_hide_revealed(&mut revealed, &[Equal, Equal]);
+        prune_compare_hide_revealed(&mut revealed, &[Equal, Equal], COMPARE_HIDE_EQUAL_CONTEXT);
         assert!(revealed.is_empty());
         let mut all = BTreeSet::new();
-        assert_eq!(reveal_all_compare_hidden(&mut all, &tags), 2);
-        assert_eq!(reveal_all_compare_hidden(&mut all, &tags), 0);
-        let (hl3, hr3) = hidden_equal_counts_with_revealed(&tags, &tags, &all, &all);
+        assert_eq!(
+            reveal_all_compare_hidden(&mut all, &tags, COMPARE_HIDE_EQUAL_CONTEXT),
+            2
+        );
+        assert_eq!(
+            reveal_all_compare_hidden(&mut all, &tags, COMPARE_HIDE_EQUAL_CONTEXT),
+            0
+        );
+        let (hl3, hr3) =
+            hidden_equal_counts_with_revealed(&tags, &tags, &all, &all, COMPARE_HIDE_EQUAL_CONTEXT);
         assert_eq!((hl3, hr3), (0, 0));
         assert_eq!(collapse_all_compare_revealed(&mut all), 2);
         assert!(all.is_empty());
-        let (hl4, hr4) = hidden_equal_counts_with_revealed(&tags, &tags, &all, &all);
+        let (hl4, hr4) =
+            hidden_equal_counts_with_revealed(&tags, &tags, &all, &all, COMPARE_HIDE_EQUAL_CONTEXT);
         assert_eq!((hl4, hr4), (2, 2));
         assert_eq!(collapse_all_compare_revealed(&mut all), 0);
         let mut rev = BTreeSet::from([0usize, 1, 5, 6, 7]);
@@ -1537,8 +1564,8 @@ mod tests {
         let left: Vec<&str> = (0..12).map(|i| if i == 6 { "L" } else { "eq" }).collect();
         let right: Vec<&str> = (0..12).map(|i| if i == 6 { "R" } else { "eq" }).collect();
         let (lt, rt) = diff_line_tags(&left, &right);
-        let hide_l = equal_line_indices_to_hide(&lt);
-        let hide_r = equal_line_indices_to_hide(&rt);
+        let hide_l = equal_line_indices_to_hide_with_context(&lt, COMPARE_HIDE_EQUAL_CONTEXT);
+        let hide_r = equal_line_indices_to_hide_with_context(&rt, COMPARE_HIDE_EQUAL_CONTEXT);
         assert!(hide_l.contains(&0));
         assert!(hide_r.contains(&0));
         let partners = aligned_equal_partner_lines(&lt, &rt, (0, 0), true);
@@ -1554,7 +1581,13 @@ mod tests {
         );
         assert_eq!(n_other, 1);
         assert!(right_rev.contains(&0));
-        let (hl, hr) = hidden_equal_counts_with_revealed(&lt, &rt, &left_rev, &right_rev);
+        let (hl, hr) = hidden_equal_counts_with_revealed(
+            &lt,
+            &rt,
+            &left_rev,
+            &right_rev,
+            COMPARE_HIDE_EQUAL_CONTEXT,
+        );
         assert_eq!(hl, hide_l.len() - 1);
         assert_eq!(hr, hide_r.len() - 1);
     }

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.69] — 2026-10-05
+
+Compare / Preferences:
+
+- **Hide-equal context** (0–10, default 3) sets how many Equal lines stay visible on each side of a change when Hide Unchanged Lines is on. Status shows `· hide equal ±N`. Key: `compare_hide_equal_context`.
+
 ## [0.3.68] — 2026-10-05
 
 Compare:

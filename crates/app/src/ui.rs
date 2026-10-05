@@ -111,6 +111,7 @@ fn compare_hide_opt(
     right_tags: &[crate::diff::LineKind],
     left_revealed: &BTreeSet<usize>,
     right_revealed: &BTreeSet<usize>,
+    context: usize,
 ) -> Option<(usize, usize)> {
     if on {
         Some(crate::diff::hidden_equal_counts_with_revealed(
@@ -118,6 +119,7 @@ fn compare_hide_opt(
             right_tags,
             left_revealed,
             right_revealed,
+            context,
         ))
     } else {
         None
@@ -155,12 +157,18 @@ fn compare_hide_gap_at_pointer(
     crate::diff::compare_gap_line_range(prev, cur)
 }
 
+/// Hide-equal status for compare status-line bits.
+struct CompareHideStatus {
+    hidden: Option<(usize, usize)>,
+    context: usize,
+}
+
 /// `None` = hide-equal off; `Some((left, right))` = on with per-side hidden counts.
-fn compare_hide_status_bit(hide: Option<(usize, usize)>) -> String {
-    let Some((hidden_left, hidden_right)) = hide else {
+fn compare_hide_status_bit(hide: CompareHideStatus) -> String {
+    let Some((hidden_left, hidden_right)) = hide.hidden else {
         return String::new();
     };
-    let ctx = crate::diff::COMPARE_HIDE_EQUAL_CONTEXT;
+    let ctx = hide.context;
     let count_bit = if hidden_left == 0 && hidden_right == 0 {
         String::new()
     } else if hidden_left == hidden_right {
@@ -178,7 +186,7 @@ fn compare_pair_status(
     ins: usize,
     hunk_n: usize,
     ignore: CompareIgnoreBits,
-    hide: Option<(usize, usize)>,
+    hide: CompareHideStatus,
 ) -> String {
     let ignore_bit = compare_ignore_status_bit(ignore);
     let hide_bit = compare_hide_status_bit(hide);
@@ -201,11 +209,12 @@ fn visible_lines_with_compare_hide(
     hide_equal: bool,
     tags: &[crate::diff::LineKind],
     revealed: &BTreeSet<usize>,
+    context: usize,
 ) -> Vec<usize> {
     if !compare_on || !hide_equal {
         return visible_line_indices(line_count, fold_hidden);
     }
-    let mut equal_hide = crate::diff::equal_line_indices_to_hide(tags);
+    let mut equal_hide = crate::diff::equal_line_indices_to_hide_with_context(tags, context);
     for i in revealed {
         equal_hide.remove(i);
     }
@@ -558,10 +567,12 @@ impl eframe::App for EditorApp {
             crate::diff::prune_compare_hide_revealed(
                 &mut self.compare_hide_revealed_left,
                 &self.compare_left_tags,
+                self.state.settings.compare_hide_equal_context_lines(),
             );
             crate::diff::prune_compare_hide_revealed(
                 &mut self.compare_hide_revealed_right,
                 &self.compare_right_tags,
+                self.state.settings.compare_hide_equal_context_lines(),
             );
         }
         self.tab_bar(ctx);
@@ -1116,7 +1127,7 @@ impl EditorApp {
                         "Toggle ignore blank lines for Compare (Preferences persist)",
                     ),
                     "IDM_VIEW_COMPARE_HIDE_EQUAL" => response.on_hover_text(
-                        "Hide Equal (unchanged) lines while Compare is on; keep ±3 context; gutter ···N marks collapsed runs — click a cue to expand that run on both panes (Preferences persist)",
+                        "Hide Equal (unchanged) lines while Compare is on; context size is Preferences Hide-equal context; gutter ···N marks collapsed runs — click a cue to expand that run on both panes (Preferences persist)",
                     ),
                     "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, expand the collapsed Equal run nearest the caret on both panes (same as clicking that ···N cue)",
@@ -1742,6 +1753,28 @@ Tree-sitter highlight, and a calm UI.",
                         {
                             changed = true;
                         }
+                        ui.horizontal(|ui| {
+                            ui.label("Hide-equal context");
+                            let mut c = i32::from(self.state.settings.compare_hide_equal_context);
+                            if ui
+                                .add(egui::Slider::new(&mut c, 0..=10))
+                                .on_hover_text(
+                                    "Equal lines kept visible on each side of a change when Hide unchanged lines is on (0–10; default 3)",
+                                )
+                                .changed()
+                            {
+                                let prev = self.state.settings.compare_hide_equal_context_lines();
+                                self.state.settings.compare_hide_equal_context = c as u8;
+                                changed = true;
+                                if self.compare_on
+                                    && self.state.settings.compare_hide_equal
+                                    && prev != self.state.settings.compare_hide_equal_context_lines()
+                                {
+                                    self.compare_hide_revealed_left.clear();
+                                    self.compare_hide_revealed_right.clear();
+                                }
+                            }
+                        });
                         ui.add_space(10.0);
                         ui.label(RichText::new("Status bar").strong());
                         ui.add_space(4.0);
@@ -3088,6 +3121,7 @@ Tree-sitter highlight, and a calm UI.",
                 self.state.settings.compare_hide_equal,
                 &self.compare_left_tags,
                 &self.compare_hide_revealed_left,
+                self.state.settings.compare_hide_equal_context_lines(),
             );
             let display_count = visible_lines.len().max(1);
             let avail = ui.available_size();
@@ -4154,10 +4188,12 @@ Tree-sitter highlight, and a calm UI.",
                 crate::diff::prune_compare_hide_revealed(
                     &mut self.compare_hide_revealed_left,
                     &self.compare_left_tags,
+                    self.state.settings.compare_hide_equal_context_lines(),
                 );
                 crate::diff::prune_compare_hide_revealed(
                     &mut self.compare_hide_revealed_right,
                     &self.compare_right_tags,
+                    self.state.settings.compare_hide_equal_context_lines(),
                 );
                 let lname = self
                     .state
@@ -4177,9 +4213,20 @@ Tree-sitter highlight, and a calm UI.",
                     &self.compare_right_tags,
                     &self.compare_hide_revealed_left,
                     &self.compare_hide_revealed_right,
+                    self.state.settings.compare_hide_equal_context_lines(),
                 );
-                self.state.status =
-                    compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide);
+                self.state.status = compare_pair_status(
+                    &lname,
+                    &rname,
+                    del,
+                    ins,
+                    hunk_n,
+                    ignore,
+                    CompareHideStatus {
+                        hidden: hide,
+                        context: self.state.settings.compare_hide_equal_context_lines(),
+                    },
+                );
                 self.state.highlight_dirty = true;
             }
         } else {
@@ -4249,6 +4296,7 @@ Tree-sitter highlight, and a calm UI.",
             &self.compare_right_tags,
             &self.compare_hide_revealed_left,
             &self.compare_hide_revealed_right,
+            self.state.settings.compare_hide_equal_context_lines(),
         );
         let remain = hide.map(|(l, r)| l + r).unwrap_or(0);
         let both = if n_other > 0 { " both panes" } else { "" };
@@ -4294,6 +4342,7 @@ Tree-sitter highlight, and a calm UI.",
             true,
             tags,
             revealed,
+            self.state.settings.compare_hide_equal_context_lines(),
         );
         let gaps = crate::diff::list_compare_hide_gaps(&visible);
         let Some(gap) = (match nav {
@@ -4380,6 +4429,7 @@ Tree-sitter highlight, and a calm UI.",
             true,
             tags,
             revealed,
+            self.state.settings.compare_hide_equal_context_lines(),
         );
         let Some(gap) = crate::diff::nearest_compare_hide_gap(line, &visible) else {
             self.state.status = "Compare: no hidden equal run at caret".into();
@@ -4456,6 +4506,7 @@ Tree-sitter highlight, and a calm UI.",
             &self.compare_right_tags,
             &self.compare_hide_revealed_left,
             &self.compare_hide_revealed_right,
+            self.state.settings.compare_hide_equal_context_lines(),
         );
         let remain = hide.map(|(l, r)| l + r).unwrap_or(0);
         let both = if n_other > 0 { " both panes" } else { "" };
@@ -4477,10 +4528,12 @@ Tree-sitter highlight, and a calm UI.",
         let n_left = crate::diff::reveal_all_compare_hidden(
             &mut self.compare_hide_revealed_left,
             &self.compare_left_tags,
+            self.state.settings.compare_hide_equal_context_lines(),
         );
         let n_right = crate::diff::reveal_all_compare_hidden(
             &mut self.compare_hide_revealed_right,
             &self.compare_right_tags,
+            self.state.settings.compare_hide_equal_context_lines(),
         );
         let n = n_left + n_right;
         self.state.status = if n == 0 {
@@ -4513,6 +4566,7 @@ Tree-sitter highlight, and a calm UI.",
             &self.compare_right_tags,
             &self.compare_hide_revealed_left,
             &self.compare_hide_revealed_right,
+            self.state.settings.compare_hide_equal_context_lines(),
         );
         let remain = hide.map(|(l, r)| l + r).unwrap_or(0);
         self.state.status = if n == 0 {
@@ -4648,8 +4702,20 @@ Tree-sitter highlight, and a calm UI.",
                 &self.compare_right_tags,
                 &self.compare_hide_revealed_left,
                 &self.compare_hide_revealed_right,
+                self.state.settings.compare_hide_equal_context_lines(),
             );
-            self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide);
+            self.state.status = compare_pair_status(
+                &lname,
+                &rname,
+                del,
+                ins,
+                hunk_n,
+                ignore,
+                CompareHideStatus {
+                    hidden: hide,
+                    context: self.state.settings.compare_hide_equal_context_lines(),
+                },
+            );
         } else {
             self.state.status = format!(
                 "Hide unchanged lines: {}{}",
@@ -4657,7 +4723,7 @@ Tree-sitter highlight, and a calm UI.",
                 if hide_equal {
                     format!(
                         " (±{} context; applies when Compare is on)",
-                        crate::diff::COMPARE_HIDE_EQUAL_CONTEXT
+                        self.state.settings.compare_hide_equal_context_lines()
                     )
                 } else {
                     String::new()
@@ -5469,10 +5535,22 @@ Tree-sitter highlight, and a calm UI.",
             &self.compare_right_tags,
             &self.compare_hide_revealed_left,
             &self.compare_hide_revealed_right,
+            self.state.settings.compare_hide_equal_context_lines(),
         );
         self.state.status = format!(
             "Swapped sides — {}",
-            compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide)
+            compare_pair_status(
+                &lname,
+                &rname,
+                del,
+                ins,
+                hunk_n,
+                ignore,
+                CompareHideStatus {
+                    hidden: hide,
+                    context: self.state.settings.compare_hide_equal_context_lines(),
+                },
+            )
         );
     }
 
@@ -5666,10 +5744,12 @@ Tree-sitter highlight, and a calm UI.",
                 crate::diff::prune_compare_hide_revealed(
                     &mut self.compare_hide_revealed_left,
                     &self.compare_left_tags,
+                    self.state.settings.compare_hide_equal_context_lines(),
                 );
                 crate::diff::prune_compare_hide_revealed(
                     &mut self.compare_hide_revealed_right,
                     &self.compare_right_tags,
+                    self.state.settings.compare_hide_equal_context_lines(),
                 );
                 let lname = self
                     .state
@@ -5694,9 +5774,20 @@ Tree-sitter highlight, and a calm UI.",
                     &self.compare_right_tags,
                     &self.compare_hide_revealed_left,
                     &self.compare_hide_revealed_right,
+                    self.state.settings.compare_hide_equal_context_lines(),
                 );
-                self.state.status =
-                    compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide);
+                self.state.status = compare_pair_status(
+                    &lname,
+                    &rname,
+                    del,
+                    ins,
+                    hunk_n,
+                    ignore,
+                    CompareHideStatus {
+                        hidden: hide,
+                        context: self.state.settings.compare_hide_equal_context_lines(),
+                    },
+                );
             }
             None => {
                 // Too many lines or missing tabs — leave prior tags; status already set.
@@ -5880,8 +5971,20 @@ Tree-sitter highlight, and a calm UI.",
             &self.compare_right_tags,
             &self.compare_hide_revealed_left,
             &self.compare_hide_revealed_right,
+            self.state.settings.compare_hide_equal_context_lines(),
         );
-        self.state.status = compare_pair_status(&lname, &rname, del, ins, hunk_n, ignore, hide);
+        self.state.status = compare_pair_status(
+            &lname,
+            &rname,
+            del,
+            ins,
+            hunk_n,
+            ignore,
+            CompareHideStatus {
+                hidden: hide,
+                context: self.state.settings.compare_hide_equal_context_lines(),
+            },
+        );
     }
 
     /// Writable secondary pane: edits `other_view_tab` when this pane has focus.
@@ -5912,6 +6015,7 @@ Tree-sitter highlight, and a calm UI.",
             self.state.settings.compare_hide_equal,
             &self.compare_right_tags,
             &self.compare_hide_revealed_right,
+            self.state.settings.compare_hide_equal_context_lines(),
         );
         let display_count = visible_lines.len().max(1);
         let avail = ui.available_size();
@@ -6952,7 +7056,7 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod compare_pair_tests {
     use super::{
         compare_pair_status, compare_saved_snapshot_title, index_after_tab_close,
-        is_compare_saved_snapshot, pick_compare_right,
+        is_compare_saved_snapshot, pick_compare_right, CompareHideStatus,
     };
 
     #[test]
@@ -6991,11 +7095,33 @@ mod compare_pair_tests {
             blank: false,
         };
         assert_eq!(
-            compare_pair_status("a", "b", 0, 0, 0, none, None),
+            compare_pair_status(
+                "a",
+                "b",
+                0,
+                0,
+                0,
+                none,
+                CompareHideStatus {
+                    hidden: None,
+                    context: 3
+                }
+            ),
             "Compare “a” | “b” (identical)"
         );
         assert_eq!(
-            compare_pair_status("a", "b", 1, 2, 2, none, None),
+            compare_pair_status(
+                "a",
+                "b",
+                1,
+                2,
+                2,
+                none,
+                CompareHideStatus {
+                    hidden: None,
+                    context: 3
+                }
+            ),
             "Compare “a” | “b” (−1 +2) · 2 hunks"
         );
         assert_eq!(
@@ -7010,7 +7136,10 @@ mod compare_pair_tests {
                     case: true,
                     blank: false
                 },
-                None
+                CompareHideStatus {
+                    hidden: None,
+                    context: 3
+                }
             ),
             "Compare “a” | “b” (identical) · ignore ws+case"
         );
@@ -7026,7 +7155,10 @@ mod compare_pair_tests {
                     case: false,
                     blank: false
                 },
-                None
+                CompareHideStatus {
+                    hidden: None,
+                    context: 3
+                }
             ),
             "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws"
         );
@@ -7042,7 +7174,10 @@ mod compare_pair_tests {
                     case: false,
                     blank: true
                 },
-                None
+                CompareHideStatus {
+                    hidden: None,
+                    context: 3
+                }
             ),
             "Compare “a” | “b” (identical) · ignore blank"
         );
@@ -7058,12 +7193,26 @@ mod compare_pair_tests {
                     case: true,
                     blank: true
                 },
-                Some((4, 7))
+                CompareHideStatus {
+                    hidden: Some((4, 7)),
+                    context: 3
+                }
             ),
             "Compare “a” | “b” (−1 +0) · 1 hunk · ignore ws+case+blank · hide equal ±3 · L4|R7 hidden"
         );
         assert_eq!(
-            compare_pair_status("a", "b", 1, 0, 1, none, Some((5, 5))),
+            compare_pair_status(
+                "a",
+                "b",
+                1,
+                0,
+                1,
+                none,
+                CompareHideStatus {
+                    hidden: Some((5, 5)),
+                    context: 3
+                }
+            ),
             "Compare “a” | “b” (−1 +0) · 1 hunk · hide equal ±3 · 5 hidden"
         );
     }

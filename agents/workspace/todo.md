@@ -64,3 +64,4 @@
 009 keep: compare Next/Previous Hidden Equal (v0.3.67)
 
 009 keep: compare First/Last Hidden Equal (v0.3.68)
+009 keep: compare hide-equal context pref (0–10) (v0.3.69)
