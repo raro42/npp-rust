@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.58] — 2026-10-05
+
+Compare:
+
+- **Hide Unchanged Lines**: clicking a `···N` cue expands the collapsed Equal run on **both panes** (LCS-aligned partner lines). Status notes `both panes` when the other side opened too.
+
 ## [0.3.57] — 2026-10-05
 
 Compare:

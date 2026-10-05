@@ -397,6 +397,42 @@ pub fn reveal_compare_gap(revealed: &mut BTreeSet<usize>, gap: (usize, usize)) -
     n
 }
 
+/// Insert each index in `lines` into `revealed`. Returns how many were new.
+pub fn reveal_compare_lines(revealed: &mut BTreeSet<usize>, lines: &[usize]) -> usize {
+    let mut n = 0usize;
+    for &i in lines {
+        if revealed.insert(i) {
+            n += 1;
+        }
+    }
+    n
+}
+
+/// Partner Equal line indices on the other pane for a hide-equal gap.
+///
+/// Uses LCS alignment so a ···N click can expand the matching Equal run on both sides.
+pub fn aligned_equal_partner_lines(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    gap: (usize, usize),
+    gap_is_left: bool,
+) -> Vec<usize> {
+    let Some(ops) = align_ops(left_tags, right_tags) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for op in ops {
+        let AlignOp::Equal { left, right } = op else {
+            continue;
+        };
+        let mine = if gap_is_left { left } else { right };
+        if mine >= gap.0 && mine <= gap.1 {
+            out.push(if gap_is_left { right } else { left });
+        }
+    }
+    out
+}
+
 /// Like [`equal_line_indices_to_hide`], with an explicit context window.
 pub fn equal_line_indices_to_hide_with_context(
     tags: &[LineKind],
@@ -1244,6 +1280,34 @@ mod tests {
         assert!(revealed.contains(&0));
         prune_compare_hide_revealed(&mut revealed, &[Equal, Equal]);
         assert!(revealed.is_empty());
+    }
+
+    #[test]
+    fn aligned_equal_partner_lines_maps_hide_gap() {
+        // Long matching prefix, one changed line, long matching suffix.
+        let left: Vec<&str> = (0..12).map(|i| if i == 6 { "L" } else { "eq" }).collect();
+        let right: Vec<&str> = (0..12).map(|i| if i == 6 { "R" } else { "eq" }).collect();
+        let (lt, rt) = diff_line_tags(&left, &right);
+        let hide_l = equal_line_indices_to_hide(&lt);
+        let hide_r = equal_line_indices_to_hide(&rt);
+        assert!(hide_l.contains(&0));
+        assert!(hide_r.contains(&0));
+        let partners = aligned_equal_partner_lines(&lt, &rt, (0, 0), true);
+        assert_eq!(partners, vec![0]);
+        let partners_r = aligned_equal_partner_lines(&lt, &rt, (0, 0), false);
+        assert_eq!(partners_r, vec![0]);
+        let mut left_rev = BTreeSet::new();
+        let mut right_rev = BTreeSet::new();
+        assert_eq!(reveal_compare_gap(&mut left_rev, (0, 0)), 1);
+        let n_other = reveal_compare_lines(
+            &mut right_rev,
+            &aligned_equal_partner_lines(&lt, &rt, (0, 0), true),
+        );
+        assert_eq!(n_other, 1);
+        assert!(right_rev.contains(&0));
+        let (hl, hr) = hidden_equal_counts_with_revealed(&lt, &rt, &left_rev, &right_rev);
+        assert_eq!(hl, hide_l.len() - 1);
+        assert_eq!(hr, hide_r.len() - 1);
     }
 
     #[test]

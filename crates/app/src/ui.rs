@@ -1116,7 +1116,7 @@ impl EditorApp {
                         "Toggle ignore blank lines for Compare (Preferences persist)",
                     ),
                     "IDM_VIEW_COMPARE_HIDE_EQUAL" => response.on_hover_text(
-                        "Hide Equal (unchanged) lines while Compare is on; keep ±3 context; gutter ···N marks collapsed runs — click a cue to expand that run (Preferences persist)",
+                        "Hide Equal (unchanged) lines while Compare is on; keep ±3 context; gutter ···N marks collapsed runs — click a cue to expand that run on both panes (Preferences persist)",
                     ),
                     "IDM_VIEW_COPY_COMPARE_DIFF" => response
                         .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
@@ -4150,7 +4150,7 @@ Tree-sitter highlight, and a calm UI.",
         }
     }
 
-    /// Click a ···N hide-equal cue to reveal that collapsed Equal run on one pane.
+    /// Click a ···N hide-equal cue to reveal that collapsed Equal run on both panes.
     fn try_expand_compare_hide_gap_at(
         &mut self,
         pos: Pos2,
@@ -4176,6 +4176,17 @@ Tree-sitter highlight, and a calm UI.",
         if n == 0 {
             return false;
         }
+        let partners = crate::diff::aligned_equal_partner_lines(
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            gap,
+            left_pane,
+        );
+        let n_other = if left_pane {
+            crate::diff::reveal_compare_lines(&mut self.compare_hide_revealed_right, &partners)
+        } else {
+            crate::diff::reveal_compare_lines(&mut self.compare_hide_revealed_left, &partners)
+        };
         let hide = compare_hide_opt(
             true,
             &self.compare_left_tags,
@@ -4184,10 +4195,11 @@ Tree-sitter highlight, and a calm UI.",
             &self.compare_hide_revealed_right,
         );
         let remain = hide.map(|(l, r)| l + r).unwrap_or(0);
+        let both = if n_other > 0 { " both panes" } else { "" };
         self.state.status = if remain == 0 {
-            format!("Compare expanded ···{n} (all equal lines shown)")
+            format!("Compare expanded ···{n}{both} (all equal lines shown)")
         } else {
-            format!("Compare expanded ···{n} ({remain} still hidden)")
+            format!("Compare expanded ···{n}{both} ({remain} still hidden)")
         };
         true
     }
