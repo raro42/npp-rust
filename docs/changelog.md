@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.74] — 2026-10-05
+
+Compare:
+
+- **Open / Copy Compare Summary** header appends active ignore flags (`· ignore ws+case+blank`) so a copied or opened summary records which Ignore toggles shaped the hunk list.
+
 ## [0.3.73] — 2026-10-05
 
 Compare:

@@ -88,21 +88,7 @@ struct CompareHunkPayload {
 
 /// Status line for an active compare pair (identical vs change counts).
 fn compare_ignore_status_bit(bits: CompareIgnoreBits) -> String {
-    let mut parts = Vec::new();
-    if bits.ws {
-        parts.push("ws");
-    }
-    if bits.case {
-        parts.push("case");
-    }
-    if bits.blank {
-        parts.push("blank");
-    }
-    if parts.is_empty() {
-        String::new()
-    } else {
-        format!(" · ignore {}", parts.join("+"))
-    }
+    crate::diff::compare_ignore_note(bits.ws, bits.case, bits.blank)
 }
 
 fn compare_hide_opt(
@@ -4874,6 +4860,11 @@ Tree-sitter highlight, and a calm UI.",
             crate::diff::compare_summary_hunks(&self.compare_left_tags, &self.compare_right_tags)?;
         let left_refs: Vec<&str> = left_lines.iter().map(String::as_str).collect();
         let right_refs: Vec<&str> = right_lines.iter().map(String::as_str).collect();
+        let ignore_note = compare_ignore_status_bit(CompareIgnoreBits {
+            ws: self.state.settings.compare_ignore_ws,
+            case: self.state.settings.compare_ignore_case,
+            blank: self.state.settings.compare_ignore_blank,
+        });
         let text = crate::diff::compare_summary_text(
             &lname,
             &rname,
@@ -4881,6 +4872,7 @@ Tree-sitter highlight, and a calm UI.",
             &right_refs,
             &self.compare_left_tags,
             &self.compare_right_tags,
+            &ignore_note,
         )?;
         let (del, ins) =
             crate::diff::count_changes(&self.compare_left_tags, &self.compare_right_tags);

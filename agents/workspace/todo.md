@@ -70,3 +70,4 @@
 009 keep: compare Copy Compare Summary (v0.3.71)
 009 keep: compare summary first-line previews (v0.3.72)
 009 keep: compare summary kind tallies (v0.3.73)
+009 keep: compare summary ignore flags (v0.3.74)

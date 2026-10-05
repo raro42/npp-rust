@@ -1387,8 +1387,31 @@ fn format_summary_kind_tallies(hunks: &[CompareSummaryHunk]) -> String {
     parts.join(", ")
 }
 
+/// Status/summary suffix for active Compare ignore toggles
+/// (`""`, or e.g. `" · ignore ws+case"`).
+pub fn compare_ignore_note(ignore_ws: bool, ignore_case: bool, ignore_blank: bool) -> String {
+    let mut parts = Vec::new();
+    if ignore_ws {
+        parts.push("ws");
+    }
+    if ignore_case {
+        parts.push("case");
+    }
+    if ignore_blank {
+        parts.push("blank");
+    }
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!(" · ignore {}", parts.join("+"))
+    }
+}
+
 /// Human-readable Compare hunk index with first-line previews
 /// (`None` when tags cannot be aligned).
+///
+/// `ignore_note` is appended after the header paren (usually
+/// [`compare_ignore_note`], or `""` when no ignore toggles are on).
 pub fn compare_summary_text(
     left_name: &str,
     right_name: &str,
@@ -1396,6 +1419,7 @@ pub fn compare_summary_text(
     right_lines: &[&str],
     left_tags: &[LineKind],
     right_tags: &[LineKind],
+    ignore_note: &str,
 ) -> Option<String> {
     if left_lines.len() != left_tags.len() || right_lines.len() != right_tags.len() {
         return None;
@@ -1409,7 +1433,7 @@ pub fn compare_summary_text(
         format!(": {}", format_summary_kind_tallies(&hunks))
     };
     out.push_str(&format!(
-        "Compare summary: “{left_name}” | “{right_name}” (−{del} +{ins}, {} hunks{kind_bit})\n",
+        "Compare summary: “{left_name}” | “{right_name}” (−{del} +{ins}, {} hunks{kind_bit}){ignore_note}\n",
         hunks.len()
     ));
     if hunks.is_empty() {
@@ -1888,7 +1912,7 @@ mod tests {
         assert_eq!(hunks[1].inserts, 1);
         assert_eq!(hunks[2].deletes, 0);
         assert_eq!(hunks[2].inserts, 1);
-        let text = compare_summary_text("L", "R", &left, &right, &l, &r).unwrap();
+        let text = compare_summary_text("L", "R", &left, &right, &l, &r, "").unwrap();
         assert!(text.contains("Compare summary: “L” | “R”"));
         assert!(text.contains("3 hunks: 1 delete, 1 insert, 1 replace)\n"));
         assert!(text.contains("1. L2 | R2 (−1 +0) delete\n"));
@@ -1899,12 +1923,28 @@ mod tests {
         assert!(text.contains("insert\n"));
         assert!(text.contains("   + tail\n"));
         let (le, re) = diff_line_tags(&left, &left);
-        let ident = compare_summary_text("a", "b", &left, &left, &le, &re).unwrap();
+        let ident = compare_summary_text("a", "b", &left, &left, &le, &re, "").unwrap();
         assert!(ident.contains("(identical)\n"));
         assert!(ident.contains("0 hunks)\n"));
         assert!(!ident.contains("0 hunks:"));
         assert!(compare_summary_hunks(&l, &[]).is_none());
-        assert!(compare_summary_text("L", "R", &left[..2], &right, &l, &r).is_none());
+        assert!(compare_summary_text("L", "R", &left[..2], &right, &l, &r, "").is_none());
+    }
+
+    #[test]
+    fn compare_summary_includes_ignore_note() {
+        let left = ["A", "x"];
+        let right = ["a", "y"];
+        let (l, r) = diff_line_tags(&left, &right);
+        let note = compare_ignore_note(true, true, false);
+        assert_eq!(note, " · ignore ws+case");
+        let text = compare_summary_text("L", "R", &left, &right, &l, &r, &note).unwrap();
+        assert!(text.contains("hunks: 1 replace) · ignore ws+case\n"));
+        assert_eq!(compare_ignore_note(false, false, false), "");
+        assert_eq!(
+            compare_ignore_note(true, true, true),
+            " · ignore ws+case+blank"
+        );
     }
 
     #[test]
@@ -1913,7 +1953,7 @@ mod tests {
         let left = ["a", long.as_str()];
         let right = ["a"];
         let (l, r) = diff_line_tags(&left, &right);
-        let text = compare_summary_text("L", "R", &left, &right, &l, &r).unwrap();
+        let text = compare_summary_text("L", "R", &left, &right, &l, &r, "").unwrap();
         assert!(text.contains('…'));
         let preview = text
             .lines()
