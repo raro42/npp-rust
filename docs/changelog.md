@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.59] — 2026-10-05
+
+Compare:
+
+- **View → Expand All Unchanged Lines** reveals every collapsed Equal run on both panes while Hide Unchanged Lines stays on (clears remaining `···N` cues without flipping the preference).
+
 ## [0.3.58] — 2026-10-05
 
 Compare:

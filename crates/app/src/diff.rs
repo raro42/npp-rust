@@ -408,6 +408,18 @@ pub fn reveal_compare_lines(revealed: &mut BTreeSet<usize>, lines: &[usize]) -> 
     n
 }
 
+/// Reveal every Equal line currently hidden by hide-equal. Returns how many were new.
+pub fn reveal_all_compare_hidden(revealed: &mut BTreeSet<usize>, tags: &[LineKind]) -> usize {
+    let hide = equal_line_indices_to_hide(tags);
+    let mut n = 0usize;
+    for i in hide {
+        if revealed.insert(i) {
+            n += 1;
+        }
+    }
+    n
+}
+
 /// Partner Equal line indices on the other pane for a hide-equal gap.
 ///
 /// Uses LCS alignment so a ···N click can expand the matching Equal run on both sides.
@@ -1280,6 +1292,11 @@ mod tests {
         assert!(revealed.contains(&0));
         prune_compare_hide_revealed(&mut revealed, &[Equal, Equal]);
         assert!(revealed.is_empty());
+        let mut all = BTreeSet::new();
+        assert_eq!(reveal_all_compare_hidden(&mut all, &tags), 2);
+        assert_eq!(reveal_all_compare_hidden(&mut all, &tags), 0);
+        let (hl3, hr3) = hidden_equal_counts_with_revealed(&tags, &tags, &all, &all);
+        assert_eq!((hl3, hr3), (0, 0));
     }
 
     #[test]

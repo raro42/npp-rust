@@ -53,3 +53,4 @@
 009 keep: compare hide-equal ···N gap cues + hidden counts (v0.3.56)
 009 keep: compare click ···N cue expands Equal run (v0.3.57)
 009 keep: compare ···N expand both panes (aligned Equal) (v0.3.58)
+009 keep: compare Expand All Unchanged Lines (v0.3.59)

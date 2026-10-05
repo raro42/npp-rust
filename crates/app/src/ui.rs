@@ -1118,6 +1118,9 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_HIDE_EQUAL" => response.on_hover_text(
                         "Hide Equal (unchanged) lines while Compare is on; keep ±3 context; gutter ···N marks collapsed runs — click a cue to expand that run on both panes (Preferences persist)",
                     ),
+                    "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL" => response.on_hover_text(
+                        "While Hide Unchanged Lines is on, reveal every collapsed Equal run on both panes (···N cues clear; hide-equal preference stays on)",
+                    ),
                     "IDM_VIEW_COPY_COMPARE_DIFF" => response
                         .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
                     "IDM_VIEW_OPEN_COMPARE_DIFF" => response.on_hover_text(
@@ -4041,6 +4044,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.compare_hide_equal_toggle {
             self.toggle_compare_hide_equal();
         }
+        if flags.compare_expand_hidden_equal {
+            self.expand_all_compare_hide_equal();
+        }
         if flags.copy_compare_diff {
             self.copy_compare_diff(flags);
         }
@@ -4202,6 +4208,33 @@ Tree-sitter highlight, and a calm UI.",
             format!("Compare expanded ···{n}{both} ({remain} still hidden)")
         };
         true
+    }
+
+    /// Reveal every collapsed Equal run on both panes; hide-equal preference stays on.
+    fn expand_all_compare_hide_equal(&mut self) {
+        if !self.compare_on {
+            self.state.status = "Compare off — start Compare to expand hidden equal lines".into();
+            return;
+        }
+        if !self.state.settings.compare_hide_equal {
+            self.state.status =
+                "Hide Unchanged Lines is off — turn it on to collapse, then expand".into();
+            return;
+        }
+        let n_left = crate::diff::reveal_all_compare_hidden(
+            &mut self.compare_hide_revealed_left,
+            &self.compare_left_tags,
+        );
+        let n_right = crate::diff::reveal_all_compare_hidden(
+            &mut self.compare_hide_revealed_right,
+            &self.compare_right_tags,
+        );
+        let n = n_left + n_right;
+        self.state.status = if n == 0 {
+            "Compare: no hidden equal lines".into()
+        } else {
+            format!("Compare expanded all unchanged lines ({n} shown)")
+        };
     }
 
     /// Toggle hide-unchanged-lines for Compare; persist (no re-diff needed).
