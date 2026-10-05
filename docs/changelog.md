@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.76] — 2026-10-06
+
+Compare:
+
+- **Open / Copy Compare Summary** header includes an Equal-line match percent (`· N% equal`) so similarity is visible without scanning every hunk.
+
 ## [0.3.75] — 2026-10-06
 
 Compare:

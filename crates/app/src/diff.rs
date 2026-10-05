@@ -337,6 +337,23 @@ pub fn count_changes(left: &[LineKind], right: &[LineKind]) -> (usize, usize) {
     (del, ins)
 }
 
+/// Matched Equal-line share of the aligned pair (`0`–`100`).
+///
+/// Uses min(Equal counts) as the LCS match count over
+/// `matches + deletes + inserts`. Empty sides → `100`.
+pub fn compare_equal_percent(left: &[LineKind], right: &[LineKind]) -> u8 {
+    let (del, ins) = count_changes(left, right);
+    let eq_l = left.iter().filter(|k| **k == LineKind::Equal).count();
+    let eq_r = right.iter().filter(|k| **k == LineKind::Equal).count();
+    let matches = eq_l.min(eq_r);
+    let denom = matches.saturating_add(del).saturating_add(ins);
+    if denom == 0 {
+        return 100;
+    }
+    let pct = (matches.saturating_mul(100)) / denom;
+    pct.min(100) as u8
+}
+
 /// Equal lines kept visible on each side of a change when hide-equal is on.
 pub const COMPARE_HIDE_EQUAL_CONTEXT: usize = 3;
 
@@ -1441,6 +1458,8 @@ pub fn compare_ignore_note(ignore_ws: bool, ignore_case: bool, ignore_blank: boo
 /// (`-` / `+`, max [`SUMMARY_PREVIEW_MAX`] chars), then `… (+N more)`
 /// when the hunk side is longer.
 ///
+/// Header includes an Equal-line match percent ([`compare_equal_percent`]).
+///
 /// `ignore_note` is appended after the header paren (usually
 /// [`compare_ignore_note`], or `""` when no ignore toggles are on).
 pub fn compare_summary_text(
@@ -1457,6 +1476,7 @@ pub fn compare_summary_text(
     }
     let hunks = compare_summary_hunks(left_tags, right_tags)?;
     let (del, ins) = count_changes(left_tags, right_tags);
+    let equal_pct = compare_equal_percent(left_tags, right_tags);
     let mut out = String::new();
     let kind_bit = if hunks.is_empty() {
         String::new()
@@ -1464,7 +1484,7 @@ pub fn compare_summary_text(
         format!(": {}", format_summary_kind_tallies(&hunks))
     };
     out.push_str(&format!(
-        "Compare summary: “{left_name}” | “{right_name}” (−{del} +{ins}, {} hunks{kind_bit}){ignore_note}\n",
+        "Compare summary: “{left_name}” | “{right_name}” (−{del} +{ins}, {} hunks{kind_bit} · {equal_pct}% equal){ignore_note}\n",
         hunks.len()
     ));
     if hunks.is_empty() {
@@ -1941,7 +1961,8 @@ mod tests {
         assert_eq!(hunks[2].inserts, 1);
         let text = compare_summary_text("L", "R", &left, &right, &l, &r, "").unwrap();
         assert!(text.contains("Compare summary: “L” | “R”"));
-        assert!(text.contains("3 hunks: 1 delete, 1 insert, 1 replace)\n"));
+        assert!(text.contains("3 hunks: 1 delete, 1 insert, 1 replace · "));
+        assert!(text.contains("% equal)\n"));
         assert!(text.contains("1. L2 | R2 (−1 +0) delete\n"));
         assert!(text.contains("   - gone\n"));
         assert!(text.contains("replace\n"));
@@ -1952,7 +1973,7 @@ mod tests {
         let (le, re) = diff_line_tags(&left, &left);
         let ident = compare_summary_text("a", "b", &left, &left, &le, &re, "").unwrap();
         assert!(ident.contains("(identical)\n"));
-        assert!(ident.contains("0 hunks)\n"));
+        assert!(ident.contains("0 hunks · 100% equal)\n"));
         assert!(!ident.contains("0 hunks:"));
         assert!(compare_summary_hunks(&l, &[]).is_none());
         assert!(compare_summary_text("L", "R", &left[..2], &right, &l, &r, "").is_none());
@@ -1966,12 +1987,29 @@ mod tests {
         let note = compare_ignore_note(true, true, false);
         assert_eq!(note, " · ignore ws+case");
         let text = compare_summary_text("L", "R", &left, &right, &l, &r, &note).unwrap();
-        assert!(text.contains("hunks: 1 replace) · ignore ws+case\n"));
+        assert!(text.contains("hunks: 1 replace · "));
+        assert!(text.contains("% equal) · ignore ws+case\n"));
         assert_eq!(compare_ignore_note(false, false, false), "");
         assert_eq!(
             compare_ignore_note(true, true, true),
             " · ignore ws+case+blank"
         );
+    }
+
+    #[test]
+    fn compare_equal_percent_reports_match_share() {
+        let left = ["a", "b", "c"];
+        let right = ["a", "x", "c"];
+        let (l, r) = diff_line_tags(&left, &right);
+        // 2 Equal + 1 Delete + 1 Insert → 50%
+        assert_eq!(compare_equal_percent(&l, &r), 50);
+        let (le, re) = diff_line_tags(&left, &left);
+        assert_eq!(compare_equal_percent(&le, &re), 100);
+        assert_eq!(compare_equal_percent(&[], &[]), 100);
+        let left2 = ["only"];
+        let right2 = ["other"];
+        let (l2, r2) = diff_line_tags(&left2, &right2);
+        assert_eq!(compare_equal_percent(&l2, &r2), 0);
     }
 
     #[test]
