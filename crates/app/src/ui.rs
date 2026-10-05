@@ -1127,6 +1127,9 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_BOOKMARK_DIFFS" => response.on_hover_text(
                         "Bookmark the start of every Compare change hunk on both panes (then F2 / Shift+F2)",
                     ),
+                    "IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS" => response.on_hover_text(
+                        "Remove bookmarks at every Compare change-hunk start on both panes (other bookmarks stay)",
+                    ),
                     "IDM_VIEW_COPY_COMPARE_DIFF" => response
                         .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
                     "IDM_VIEW_OPEN_COMPARE_DIFF" => response.on_hover_text(
@@ -4059,6 +4062,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.compare_bookmark_diffs {
             self.bookmark_compare_differences();
         }
+        if flags.compare_clear_diff_bookmarks {
+            self.clear_compare_difference_bookmarks();
+        }
         if flags.copy_compare_diff {
             self.copy_compare_diff(flags);
         }
@@ -4321,6 +4327,47 @@ Tree-sitter highlight, and a calm UI.",
         let added = added_l + added_r;
         self.state.status = format!(
             "Compare bookmarked differences (L{}|R{}, {hunk_n} hunks, +{added} new)",
+            left_starts.len(),
+            right_starts.len()
+        );
+    }
+
+    /// Clear bookmarks at each change-hunk start on both Compare panes.
+    fn clear_compare_difference_bookmarks(&mut self) {
+        if !self.compare_on {
+            self.state.status = "Compare off — start Compare to clear difference bookmarks".into();
+            return;
+        }
+        let left_starts = crate::diff::hunk_starts(&self.compare_left_tags);
+        let right_starts = crate::diff::hunk_starts(&self.compare_right_tags);
+        if left_starts.is_empty() && right_starts.is_empty() {
+            self.state.status = "Compare: no difference bookmarks to clear (identical)".into();
+            return;
+        }
+        let left_tab = self.compare_left_tab;
+        let right_tab = self.compare_right_tab;
+        let mut removed_l = 0usize;
+        let mut removed_r = 0usize;
+        if let Some(doc) = self.state.tabs.get_mut(left_tab) {
+            for &line in &left_starts {
+                if doc.bookmarks.remove(&line) {
+                    removed_l += 1;
+                }
+            }
+        }
+        if right_tab != left_tab {
+            if let Some(doc) = self.state.tabs.get_mut(right_tab) {
+                for &line in &right_starts {
+                    if doc.bookmarks.remove(&line) {
+                        removed_r += 1;
+                    }
+                }
+            }
+        }
+        let hunk_n = left_starts.len().max(right_starts.len());
+        let removed = removed_l + removed_r;
+        self.state.status = format!(
+            "Compare cleared difference bookmarks (L{}|R{}, {hunk_n} hunks, −{removed} removed)",
             left_starts.len(),
             right_starts.len()
         );

@@ -2093,6 +2093,12 @@
       },
       {
         "kind": "item",
+        "label": "Clear Compare Difference Bookmarks",
+        "raw_label": "Clear Compare Difference Boo&kmarks",
+        "cmd": "IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS"
+      },
+      {
+        "kind": "item",
         "label": "Copy Compare Diff",
         "raw_label": "Cop&y Compare Diff",
         "cmd": "IDM_VIEW_COPY_COMPARE_DIFF"

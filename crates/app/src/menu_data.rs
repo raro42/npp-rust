@@ -105,6 +105,10 @@ mod tests {
             "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL"
         ));
         assert!(has_cmd(&load_npp_menu(), "IDM_VIEW_COMPARE_BOOKMARK_DIFFS"));
+        assert!(has_cmd(
+            &load_npp_menu(),
+            "IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS"
+        ));
         assert!(has_cmd(&load_npp_menu(), "IDM_VIEW_COMPARE_TO_SAVED"));
     }
 }

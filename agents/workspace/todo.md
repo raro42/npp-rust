@@ -56,3 +56,4 @@
 009 keep: compare Expand All Unchanged Lines (v0.3.59)
 009 keep: compare Collapse All Unchanged Lines (v0.3.60)
 009 keep: compare Bookmark Compare Differences (v0.3.61)
+009 keep: compare Clear Compare Difference Bookmarks (v0.3.62)

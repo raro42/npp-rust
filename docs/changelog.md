@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.62] — 2026-10-05
+
+Compare:
+
+- **View → Clear Compare Difference Bookmarks** removes bookmarks at each change-hunk start on both panes (other bookmarks stay).
+
 ## [0.3.61] — 2026-10-05
 
 Compare:
