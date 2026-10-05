@@ -454,6 +454,35 @@ pub fn aligned_equal_partner_lines(
     out
 }
 
+/// LCS-aligned Equal partner line on the other pane for a single Equal line.
+///
+/// `None` when `line` is not Equal on the focus side, tags cannot be aligned, or
+/// there is no Equal partner (should not happen for well-formed Equal tags).
+pub fn aligned_equal_partner_line(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    line: usize,
+    from_left: bool,
+) -> Option<usize> {
+    let focus_tags = if from_left { left_tags } else { right_tags };
+    if focus_tags.get(line) != Some(&LineKind::Equal) {
+        return None;
+    }
+    let ops = align_ops(left_tags, right_tags)?;
+    for op in ops {
+        let AlignOp::Equal { left, right } = op else {
+            continue;
+        };
+        if from_left && left == line {
+            return Some(right);
+        }
+        if !from_left && right == line {
+            return Some(left);
+        }
+    }
+    None
+}
+
 /// Like [`equal_line_indices_to_hide`], with an explicit context window.
 pub fn equal_line_indices_to_hide_with_context(
     tags: &[LineKind],
@@ -1339,6 +1368,20 @@ mod tests {
         let (hl, hr) = hidden_equal_counts_with_revealed(&lt, &rt, &left_rev, &right_rev);
         assert_eq!(hl, hide_l.len() - 1);
         assert_eq!(hr, hide_r.len() - 1);
+    }
+
+    #[test]
+    fn aligned_equal_partner_line_maps_both_sides() {
+        let left = ["a", "old", "c", "d"];
+        let right = ["a", "new", "extra", "c", "d"];
+        let (lt, rt) = diff_line_tags(&left, &right);
+        assert_eq!(aligned_equal_partner_line(&lt, &rt, 0, true), Some(0));
+        assert_eq!(aligned_equal_partner_line(&lt, &rt, 2, true), Some(3)); // "c"
+        assert_eq!(aligned_equal_partner_line(&lt, &rt, 3, true), Some(4)); // "d"
+        assert_eq!(aligned_equal_partner_line(&lt, &rt, 3, false), Some(2)); // right "c" → left
+        assert_eq!(aligned_equal_partner_line(&lt, &rt, 1, true), None); // Delete
+        assert_eq!(aligned_equal_partner_line(&lt, &rt, 1, false), None); // Insert
+        assert_eq!(aligned_equal_partner_line(&lt, &rt, 99, true), None);
     }
 
     #[test]

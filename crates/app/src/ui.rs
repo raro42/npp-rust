@@ -5085,6 +5085,7 @@ Tree-sitter highlight, and a calm UI.",
     }
 
     /// Landing on a change line (click or keyboard) parks the other pane on the same hunk ordinal.
+    /// Equal lines park the other pane on the LCS-aligned partner (no hunk selection).
     fn sync_compare_other_to_caret_hunk(&mut self, primary: bool) {
         if !self.compare_on {
             return;
@@ -5106,6 +5107,7 @@ Tree-sitter highlight, and a calm UI.",
             };
             crate::diff::hunk_ordinal(tags, line)
         }) else {
+            self.sync_compare_other_to_equal_line(primary, line);
             return;
         };
         let other_tab = if primary {
@@ -5143,6 +5145,40 @@ Tree-sitter highlight, and a calm UI.",
         } else {
             self.state.status = format!("Compare hunk → {lr} ({ord}/{total})");
         }
+    }
+
+    /// Park the other Compare pane on the LCS-aligned Equal partner of `line`.
+    fn sync_compare_other_to_equal_line(&mut self, primary: bool, line: usize) {
+        let Some(oline) = crate::diff::aligned_equal_partner_line(
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            line,
+            primary,
+        ) else {
+            return;
+        };
+        let other_tab = if primary {
+            self.compare_right_tab
+        } else {
+            self.compare_left_tab
+        };
+        if let Some(doc) = self.state.tabs.get_mut(other_tab) {
+            let at = doc
+                .buffer
+                .line_to_char(oline.min(doc.buffer.line_count().saturating_sub(1)));
+            doc.buffer.set_caret(at);
+        }
+        if primary {
+            self.follow_caret_other = true;
+        } else {
+            self.follow_caret = true;
+        }
+        let (l, r) = if primary {
+            (line + 1, oline + 1)
+        } else {
+            (oline + 1, line + 1)
+        };
+        self.state.status = format!("Compare equal → L{l} | R{r}");
     }
 
     /// Flip left/right compare panes; primary stays focused on the new left.

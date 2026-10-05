@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.63] — 2026-10-05
+
+Compare:
+
+- Click or move the caret onto an Equal (unchanged) line parks the other pane on the LCS-aligned partner line (status: `Compare equal → Lx | Ry`). Change-line hunk select is unchanged.
+
 ## [0.3.62] — 2026-10-05
 
 Compare:

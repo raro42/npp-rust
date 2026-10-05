@@ -62,7 +62,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - The other pane parks on the **same hunk ordinal** (line numbers may differ when sides disagree) and selects that side’s hunk too.
 - Mid-hunk Next skips to the following hunk, not the next red/green line.
 - Status shows both sides’ lines + hunk ordinal, e.g. `Compare Next difference → L12 | R15 (2/5)`.
-- Click a red/green change line, or move the caret onto one with the keyboard, to park **and select** the same hunk on both panes (status: `Compare hunk → L12 | R15 (2/5)`). Equal lines leave the other pane alone.
+- Click a red/green change line, or move the caret onto one with the keyboard, to park **and select** the same hunk on both panes (status: `Compare hunk → L12 | R15 (2/5)`). Click or move the caret onto an **Equal** line to park the other pane on the LCS-aligned partner (status: `Compare equal → L12 | R12`; no hunk selection).
 - On replace hunks (a changed line on both sides), differing **words** (and refined characters inside a 1:1 token replace) get a stronger wash so you can see the intra-line edit. Insert-only / delete-only lines stay the usual full-line colour. Very long lines (over 256 characters) skip intra-line LCS.
 - When both sides match (including ignore-whitespace / ignore-case), status says `(identical)`.
 - Active ignore options appear in the status (`· ignore ws`, `· ignore case`, `· ignore blank`, or combined `ws+case+blank`).
