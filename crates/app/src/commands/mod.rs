@@ -128,6 +128,8 @@ pub struct UiFlags {
     pub copy_compare_diff: bool,
     /// Open the compare pair as a unified-diff tab.
     pub open_compare_diff: bool,
+    /// Open a tab listing every compare change hunk (line ranges).
+    pub open_compare_summary: bool,
     /// Copy the compare hunk at the caret as a unified diff.
     pub copy_compare_hunk: bool,
     /// Open the compare hunk at the caret as a unified-diff tab.
@@ -333,6 +335,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_LAST_DIFF"
             | "IDM_VIEW_COPY_COMPARE_DIFF"
             | "IDM_VIEW_OPEN_COMPARE_DIFF"
+            | "IDM_VIEW_OPEN_COMPARE_SUMMARY"
             | "IDM_VIEW_COPY_COMPARE_HUNK"
             | "IDM_VIEW_OPEN_COMPARE_HUNK"
             | "IDM_VIEW_APPLY_COMPARE_HUNK"

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.70] — 2026-10-05
+
+Compare:
+
+- **View → Open Compare Summary** opens a `compare-summary.txt` tab listing every change hunk with L|R line ranges and −/+ counts (clears Compare so the tab stays visible).
+
 ## [0.3.69] — 2026-10-05
 
 Compare / Preferences:

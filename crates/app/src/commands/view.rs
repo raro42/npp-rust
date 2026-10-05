@@ -288,6 +288,10 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.open_compare_diff = true;
             CmdResult::Handled
         }
+        "IDM_VIEW_OPEN_COMPARE_SUMMARY" => {
+            ui.open_compare_summary = true;
+            CmdResult::Handled
+        }
         "IDM_VIEW_COPY_COMPARE_HUNK" => {
             ui.copy_compare_hunk = true;
             CmdResult::Handled

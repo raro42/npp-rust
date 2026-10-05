@@ -1265,6 +1265,107 @@ pub fn hunk_copy_change_counts(
     Some((del, ins))
 }
 
+/// One paired change hunk for a Compare summary list (0-based exclusive ends).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompareSummaryHunk {
+    pub ordinal: usize,
+    pub left_start: usize,
+    pub left_end: usize,
+    pub right_start: usize,
+    pub right_end: usize,
+    pub deletes: usize,
+    pub inserts: usize,
+}
+
+/// Paired change hunks in LCS order (`None` when tags cannot be aligned).
+pub fn compare_summary_hunks(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+) -> Option<Vec<CompareSummaryHunk>> {
+    let ops = align_ops(left_tags, right_tags)?;
+    let runs = change_runs(&ops);
+    let total = runs.len();
+    let mut out = Vec::with_capacity(total);
+    for (i, (run_start, run_end)) in runs.into_iter().enumerate() {
+        let mut left_lo = None;
+        let mut left_hi = None;
+        let mut right_lo = None;
+        let mut right_hi = None;
+        let mut deletes = 0usize;
+        let mut inserts = 0usize;
+        for op in &ops[run_start..run_end] {
+            match *op {
+                AlignOp::Delete { left } => {
+                    grow_line_span(&mut left_lo, &mut left_hi, left);
+                    deletes += 1;
+                }
+                AlignOp::Insert { right, .. } => {
+                    grow_line_span(&mut right_lo, &mut right_hi, right);
+                    inserts += 1;
+                }
+                AlignOp::Equal { .. } => {}
+            }
+        }
+        let left_at = left_pos_before_op(&ops, run_start);
+        let right_at = right_pos_before_op(&ops, run_start);
+        out.push(CompareSummaryHunk {
+            ordinal: i + 1,
+            left_start: left_lo.unwrap_or(left_at),
+            left_end: left_hi.unwrap_or(left_at),
+            right_start: right_lo.unwrap_or(right_at),
+            right_end: right_hi.unwrap_or(right_at),
+            deletes,
+            inserts,
+        });
+    }
+    Some(out)
+}
+
+fn format_summary_span(start: usize, end: usize) -> String {
+    if start >= end || end == start + 1 {
+        format!("{}", start + 1)
+    } else {
+        format!("{}–{}", start + 1, end)
+    }
+}
+
+/// Human-readable Compare hunk index (`None` when tags cannot be aligned).
+pub fn compare_summary_text(
+    left_name: &str,
+    right_name: &str,
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+) -> Option<String> {
+    let hunks = compare_summary_hunks(left_tags, right_tags)?;
+    let (del, ins) = count_changes(left_tags, right_tags);
+    let mut out = String::new();
+    out.push_str(&format!(
+        "Compare summary: “{left_name}” | “{right_name}” (−{del} +{ins}, {} hunks)\n",
+        hunks.len()
+    ));
+    if hunks.is_empty() {
+        out.push_str("(identical)\n");
+        return Some(out);
+    }
+    for h in &hunks {
+        let kind = match (h.deletes, h.inserts) {
+            (0, _) => "insert",
+            (_, 0) => "delete",
+            _ => "replace",
+        };
+        out.push_str(&format!(
+            "{}. L{} | R{} (−{} +{}) {}\n",
+            h.ordinal,
+            format_summary_span(h.left_start, h.left_end),
+            format_summary_span(h.right_start, h.right_end),
+            h.deletes,
+            h.inserts,
+            kind,
+        ));
+    }
+    Some(out)
+}
+
 fn emit_unified_hunk(out: &mut String, hunk: &[AlignOp], left: &[&str], right: &[&str]) {
     let mut old_count = 0usize;
     let mut new_count = 0usize;
@@ -1683,6 +1784,41 @@ mod tests {
         // Trailing hunk to EOF.
         let trail = vec![Equal, Delete, Delete];
         assert_eq!(hunk_line_range(&trail, 1), Some((1, 3)));
+    }
+
+    #[test]
+    fn compare_summary_lists_hunks_and_identical() {
+        let left = ["a", "gone", "b", "old", "c"];
+        let right = ["a", "b", "new", "c", "tail"];
+        let (l, r) = diff_line_tags(&left, &right);
+        let hunks = compare_summary_hunks(&l, &r).unwrap();
+        assert_eq!(hunks.len(), 3);
+        assert_eq!(
+            hunks[0],
+            CompareSummaryHunk {
+                ordinal: 1,
+                left_start: 1,
+                left_end: 2,
+                right_start: 1,
+                right_end: 1,
+                deletes: 1,
+                inserts: 0,
+            }
+        );
+        assert_eq!(hunks[1].deletes, 1);
+        assert_eq!(hunks[1].inserts, 1);
+        assert_eq!(hunks[2].deletes, 0);
+        assert_eq!(hunks[2].inserts, 1);
+        let text = compare_summary_text("L", "R", &l, &r).unwrap();
+        assert!(text.contains("Compare summary: “L” | “R”"));
+        assert!(text.contains("1. L2 | R2 (−1 +0) delete\n"));
+        assert!(text.contains("replace\n"));
+        assert!(text.contains("insert\n"));
+        let (le, re) = diff_line_tags(&left, &left);
+        let ident = compare_summary_text("a", "b", &le, &re).unwrap();
+        assert!(ident.contains("(identical)\n"));
+        assert!(ident.contains("0 hunks"));
+        assert!(compare_summary_hunks(&l, &[]).is_none());
     }
 
     #[test]
