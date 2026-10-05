@@ -49,6 +49,41 @@ pub fn is_folded(hidden: &BTreeSet<usize>, region: &FoldRegion) -> bool {
     hidden.contains(&(region.header + 1))
 }
 
+/// Header lines of regions that are currently folded (stable ascending, unique).
+pub fn folded_headers(hidden: &BTreeSet<usize>, regions: &[FoldRegion]) -> Vec<usize> {
+    let mut out: Vec<usize> = regions
+        .iter()
+        .filter(|r| is_folded(hidden, r))
+        .map(|r| r.header)
+        .collect();
+    out.sort_unstable();
+    out.dedup();
+    out
+}
+
+/// Fold regions whose headers are listed (skips missing / already folded).
+/// Returns how many regions were newly folded.
+pub fn apply_fold_headers(
+    hidden: &mut BTreeSet<usize>,
+    regions: &[FoldRegion],
+    headers: &[usize],
+) -> usize {
+    let mut n = 0usize;
+    for &header in headers {
+        let Some(region) = region_at_header(regions, header) else {
+            continue;
+        };
+        if is_folded(hidden, &region) {
+            continue;
+        }
+        for i in (region.header + 1)..=region.end {
+            hidden.insert(i);
+        }
+        n += 1;
+    }
+    n
+}
+
 /// Fold or unfold one region (toggle).
 pub fn toggle_region(hidden: &mut BTreeSet<usize>, region: &FoldRegion) {
     if region.end <= region.header {
@@ -332,6 +367,18 @@ mod tests {
         toggle_region(&mut hidden, &region);
         assert!(!is_folded(&hidden, &region));
         assert!(hidden.is_empty());
+    }
+
+    #[test]
+    fn folded_headers_round_trip_apply() {
+        let b = buf("fn a() {\n    if true {\n        x();\n    }\n}\n");
+        let regions = compute_fold_regions("rust", &b);
+        let mut hidden = BTreeSet::new();
+        assert_eq!(apply_fold_headers(&mut hidden, &regions, &[1]), 1);
+        assert_eq!(folded_headers(&hidden, &regions), vec![1]);
+        assert_eq!(apply_fold_headers(&mut hidden, &regions, &[1]), 0);
+        assert_eq!(apply_fold_headers(&mut hidden, &regions, &[0, 99]), 1);
+        assert_eq!(folded_headers(&hidden, &regions), vec![0, 1]);
     }
 
     #[test]

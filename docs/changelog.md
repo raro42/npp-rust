@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.66] — 2026-10-05
+
+Folding / session:
+
+- Opt-in session restore now keeps **folded regions** (writes `@folds` header lines under each path in `npp-rs/session.txt`; applies on restore when headers still match).
+
 ## [0.3.65] — 2026-10-05
 
 Compare:

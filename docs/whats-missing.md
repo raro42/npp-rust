@@ -18,7 +18,7 @@ Handlers that work but stay shallower than upstream N++:
 | Encoding | ANSI / UTF-8 / UTF-8-BOM / UTF-16 LE-BE per-tab save. Open detects UTF-16 without a BOM when most units have a zero high byte. Unmapped chars → `?` on ANSI save |
 | Search | Change History: amber/green gutter bars + wash; undo remap; CHG status. Find has case/word + match count + in-selection (multi-line auto-arm) + wrap + linear-time regex + `$n` / `\n` replace. Find in Files uses the same **Re** toggle (linear-time); not full N++ FIF dialog |
 | Settings | Themes: JSON tokens + chrome; N++ XML subset (GlobalStyles + one lexer); full stylers parity open; plugins: builtins listed, no drop-in load. Preferences deeper in v0.3.1. Word wrap shortcut remappable; View symbol toggles (whitespace/EOL/NPC/indent guide) persist. Unknown `settings.json` keys survive save. Full shortcut mapper / `shortcuts.xml` open |
-| File | Pin from tab chrome + `IDM_PINTAB`; Close All but Pinned keeps pinned tabs; opt-in session restore |
+| File | Pin from tab chrome + `IDM_PINTAB`; Close All but Pinned keeps pinned tabs; opt-in session restore (paths + folded headers) |
 | View | Tab drag-reorder; file drop open; selection drag move/copy (Ctrl/Cmd = copy) |
 
 ## Larger product gaps (not menu stubs)

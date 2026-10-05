@@ -35,7 +35,7 @@ See also: `docs/autosave-backup.md`, `docs/folding.md`.
 
 ## Session
 
-File: `npp-rs/session.txt` (config dir). One path per line.  
+File: `npp-rs/session.txt` (config dir). One path per line; optional `@folds h1,h2,…` after a path restores folded fold-header lines.  
 Saved on quit when restore is on. Menu Save/Load Session uses the same file.
 
 ## Find

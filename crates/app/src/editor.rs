@@ -7,7 +7,7 @@ use fs::{
     LARGE_FILE_THRESHOLD,
 };
 use highlight::SyntaxHighlighter;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -87,6 +87,8 @@ pub struct EditorState {
     pub pending_lossy_ansi: Option<PathBuf>,
     /// Last autosave pass (dirty named tabs).
     autosave_last: Instant,
+    /// Fold headers to apply after an async session restore open finishes.
+    pending_session_folds: HashMap<PathBuf, Vec<usize>>,
 }
 
 /// Bulk close mode after a dirty-tab confirm.
@@ -172,6 +174,7 @@ impl EditorState {
             workspace_root,
             pending_lossy_ansi: None,
             autosave_last: Instant::now(),
+            pending_session_folds: HashMap::new(),
         }
     }
 
@@ -565,6 +568,7 @@ impl EditorState {
         if let Some(note) = &result.encoding_note {
             self.pending_encoding_notice = Some(format!("{name}: {note}"));
         }
+        self.apply_pending_session_folds_for(&result.path);
         self.after_open_log_policy(&result.path);
     }
 
@@ -642,6 +646,7 @@ impl EditorState {
             }
         });
         for p in cancelled {
+            self.pending_session_folds.remove(&p);
             self.cancelled_loads.insert(p);
         }
     }
@@ -1528,21 +1533,37 @@ impl EditorState {
         if !self.settings.restore_session {
             return;
         }
-        let paths: Vec<_> = self.tabs.iter().filter_map(|d| d.path.clone()).collect();
-        let _ = crate::session::save_paths(&paths);
+        let _ = self.write_session_entries();
     }
 
-    /// Open paths from the config-dir session file.
+    /// Open paths from the config-dir session file (and restore fold headers).
     pub fn restore_session_from_disk(&mut self) {
-        let paths = crate::session::load_existing_paths();
-        if paths.is_empty() {
+        let entries = crate::session::load_entries();
+        if entries.is_empty() {
             self.status = format!("No session in {}", crate::session::SESSION_REL);
             return;
         }
         let mut n = 0usize;
-        for p in paths {
-            self.open_path(p);
+        let mut folds = 0usize;
+        for entry in entries {
+            let path = entry.path.clone();
+            let headers = entry.fold_headers;
+            self.open_path(path.clone());
             n += 1;
+            if headers.is_empty() {
+                continue;
+            }
+            let idx = self
+                .tabs
+                .iter()
+                .position(|d| d.path.as_ref() == Some(&path));
+            if let Some(idx) = idx {
+                if self.tabs.get(idx).is_some_and(|d| d.loading) {
+                    self.pending_session_folds.insert(path, headers);
+                } else {
+                    folds += self.apply_session_folds_at(idx, &headers);
+                }
+            }
         }
         if n > 0 && self.tabs.len() > 1 {
             if let Some(doc) = self.tabs.get(0) {
@@ -1551,16 +1572,62 @@ impl EditorState {
                 }
             }
         }
-        self.status = format!("Session restored: {n} file(s)");
+        self.status = if folds > 0 {
+            format!("Session restored: {n} file(s), {folds} fold(s)")
+        } else {
+            format!("Session restored: {n} file(s)")
+        };
     }
 
     pub fn save_session_now(&mut self) {
-        let paths: Vec<_> = self.tabs.iter().filter_map(|d| d.path.clone()).collect();
-        match crate::session::save_paths(&paths) {
+        match self.write_session_entries() {
             Ok(()) => {
                 self.status = format!("Session saved ({})", crate::session::SESSION_REL);
             }
             Err(e) => self.status = format!("Save session failed: {e}"),
+        }
+    }
+
+    fn write_session_entries(&self) -> Result<(), String> {
+        let entries: Vec<crate::session::SessionEntry> = self
+            .tabs
+            .iter()
+            .filter_map(|d| {
+                let path = d.path.clone()?;
+                let regions = crate::fold::compute_fold_regions(d.language.as_str(), &d.buffer);
+                let fold_headers = crate::fold::folded_headers(&d.hidden_lines, &regions);
+                Some(crate::session::SessionEntry { path, fold_headers })
+            })
+            .collect();
+        crate::session::save_entries(&entries)
+    }
+
+    fn apply_session_folds_at(&mut self, tab: usize, headers: &[usize]) -> usize {
+        let regions = {
+            let Some(doc) = self.tabs.get(tab) else {
+                return 0;
+            };
+            crate::fold::compute_fold_regions(doc.language.as_str(), &doc.buffer)
+        };
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return 0;
+        };
+        crate::fold::apply_fold_headers(&mut doc.hidden_lines, &regions, headers)
+    }
+
+    fn apply_pending_session_folds_for(&mut self, path: &Path) {
+        let Some(headers) = self.pending_session_folds.remove(path) else {
+            return;
+        };
+        let idx = self
+            .tabs
+            .iter()
+            .position(|d| d.path.as_deref() == Some(path));
+        if let Some(idx) = idx {
+            let n = self.apply_session_folds_at(idx, &headers);
+            if n > 0 {
+                self.status = format!("{} · restored {n} fold(s)", self.status);
+            }
         }
     }
 
