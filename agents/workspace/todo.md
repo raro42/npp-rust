@@ -73,3 +73,5 @@
 009 keep: compare summary ignore flags (v0.3.74)
 
 009 keep: compare summary multi-line previews (+N more) (v0.3.75)
+
+009 keep: compare summary equal-line match percent (v0.3.76)
