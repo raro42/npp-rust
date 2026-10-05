@@ -1401,15 +1401,37 @@ fn push_summary_side_previews(
     }
 }
 
+/// Kind label for one summary hunk (`delete` / `insert` / `replace`).
+fn summary_hunk_kind(h: &CompareSummaryHunk) -> &'static str {
+    match (h.deletes, h.inserts) {
+        (0, _) => "insert",
+        (_, 0) => "delete",
+        _ => "replace",
+    }
+}
+
+/// Kind label for a 1-based Compare hunk ordinal (`None` if missing / unaligned).
+pub fn compare_hunk_kind(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    ordinal_1based: usize,
+) -> Option<&'static str> {
+    let hunks = compare_summary_hunks(left_tags, right_tags)?;
+    hunks
+        .iter()
+        .find(|h| h.ordinal == ordinal_1based)
+        .map(summary_hunk_kind)
+}
+
 /// Count summary hunks by kind (`delete` / `insert` / `replace`).
 fn summary_kind_tallies(hunks: &[CompareSummaryHunk]) -> (usize, usize, usize) {
     let mut deletes = 0usize;
     let mut inserts = 0usize;
     let mut replaces = 0usize;
     for h in hunks {
-        match (h.deletes, h.inserts) {
-            (0, _) => inserts += 1,
-            (_, 0) => deletes += 1,
+        match summary_hunk_kind(h) {
+            "insert" => inserts += 1,
+            "delete" => deletes += 1,
             _ => replaces += 1,
         }
     }
@@ -1518,11 +1540,6 @@ pub fn compare_summary_text(
         return Some(out);
     }
     for h in &hunks {
-        let kind = match (h.deletes, h.inserts) {
-            (0, _) => "insert",
-            (_, 0) => "delete",
-            _ => "replace",
-        };
         out.push_str(&format!(
             "{}. L{} | R{} (−{} +{}) {}\n",
             h.ordinal,
@@ -1530,7 +1547,7 @@ pub fn compare_summary_text(
             format_summary_span(h.right_start, h.right_end),
             h.deletes,
             h.inserts,
-            kind,
+            summary_hunk_kind(h),
         ));
         if h.deletes > 0 {
             push_summary_side_previews(&mut out, '-', left_lines, h.left_start, h.left_end);
@@ -2051,6 +2068,19 @@ mod tests {
         let (le, re) = diff_line_tags(&left, &left);
         assert_eq!(compare_kind_tallies(&le, &re), (0, 0, 0));
         assert_eq!(compare_kind_tally_bit(&le, &re), "");
+    }
+
+    #[test]
+    fn compare_hunk_kind_per_ordinal() {
+        let left = ["a", "gone", "b", "old", "c"];
+        let right = ["a", "b", "new", "c", "tail"];
+        let (l, r) = diff_line_tags(&left, &right);
+        assert_eq!(compare_hunk_kind(&l, &r, 1), Some("delete"));
+        assert_eq!(compare_hunk_kind(&l, &r, 2), Some("replace"));
+        assert_eq!(compare_hunk_kind(&l, &r, 3), Some("insert"));
+        assert_eq!(compare_hunk_kind(&l, &r, 4), None);
+        let (le, re) = diff_line_tags(&left, &left);
+        assert_eq!(compare_hunk_kind(&le, &re, 1), None);
     }
 
     #[test]

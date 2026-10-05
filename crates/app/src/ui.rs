@@ -5559,10 +5559,20 @@ Tree-sitter highlight, and a calm UI.",
         self.select_compare_hunk_on_pane(true, ord);
         self.select_compare_hunk_on_pane(false, ord);
         let lr = self.compare_hunk_lr_label(ord);
+        let ordinal = self.compare_hunk_ordinal_bit(ord, total);
         if lr.is_empty() {
-            self.state.status = format!("Compare hunk ({ord}/{total})");
+            self.state.status = format!("Compare hunk {ordinal}");
         } else {
-            self.state.status = format!("Compare hunk → {lr} ({ord}/{total})");
+            self.state.status = format!("Compare hunk → {lr} {ordinal}");
+        }
+    }
+
+    /// Status ordinal bit including hunk kind, e.g. `(2/5 replace)`.
+    fn compare_hunk_ordinal_bit(&self, ord: usize, total: usize) -> String {
+        match crate::diff::compare_hunk_kind(&self.compare_left_tags, &self.compare_right_tags, ord)
+        {
+            Some(kind) => format!("({ord}/{total} {kind})"),
+            None => format!("({ord}/{total})"),
         }
     }
 
@@ -5734,7 +5744,7 @@ Tree-sitter highlight, and a calm UI.",
             crate::commands::CompareNav::Last => "Last",
         };
         let ordinal = ordinal_pair
-            .map(|(i, n)| format!(" ({i}/{n})"))
+            .map(|(i, n)| format!(" {}", self.compare_hunk_ordinal_bit(i, n)))
             .unwrap_or_default();
         let lr = ordinal_pair
             .map(|(ord, _)| self.compare_hunk_lr_label(ord))

@@ -58,11 +58,11 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - **View → Next Difference** / **Previous Difference** (or **F7** / **Shift+F7**)
 - **View → First Difference** / **Last Difference** (or **⌘/Ctrl+F7** / **⌘/Ctrl+Shift+F7**)
 - Moves the caret on the focused pane to the start of the next/previous change hunk (wraps), or jumps to the first/last hunk, and **selects that hunk’s change lines on both panes** (Copy/Delete still apply to the focused pane).
-- Next/Prev that wrap past the end/beginning append `· wrapped` to the status (e.g. `Compare Next difference → L12 | R15 (1/5) · wrapped`).
+- Next/Prev that wrap past the end/beginning append `· wrapped` to the status (e.g. `Compare Next difference → L12 | R15 (1/5 delete) · wrapped`).
 - The other pane parks on the **same hunk ordinal** (line numbers may differ when sides disagree) and selects that side’s hunk too.
 - Mid-hunk Next skips to the following hunk, not the next red/green line.
-- Status shows both sides’ lines + hunk ordinal, e.g. `Compare Next difference → L12 | R15 (2/5)`.
-- Click a red/green change line, or move the caret onto one with the keyboard, to park **and select** the same hunk on both panes (status: `Compare hunk → L12 | R15 (2/5)`). Click or move the caret onto an **Equal** line to park the other pane on the LCS-aligned partner (status: `Compare equal → L12 | R12`; no hunk selection).
+- Status shows both sides’ lines + hunk ordinal + kind, e.g. `Compare Next difference → L12 | R15 (2/5 replace)`.
+- Click a red/green change line, or move the caret onto one with the keyboard, to park **and select** the same hunk on both panes (status: `Compare hunk → L12 | R15 (2/5 replace)`). Click or move the caret onto an **Equal** line to park the other pane on the LCS-aligned partner (status: `Compare equal → L12 | R12`; no hunk selection).
 - On replace hunks (a changed line on both sides), differing **words** (and refined characters inside a 1:1 token replace) get a stronger wash so you can see the intra-line edit. Insert-only / delete-only lines stay the usual full-line colour. Very long lines (over 256 characters) skip intra-line LCS.
 - When both sides match (including ignore-whitespace / ignore-case), status says `(identical)`.
 - Non-identical pairs append hunk-kind tallies after the hunk count (`· K hunks: N delete, M insert, P replace`) and an Equal-line match percent (`· N% equal`) on the live status line (same metrics as Compare Summary).

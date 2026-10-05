@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.79] — 2026-10-06
+
+Compare:
+
+- Next/Previous/First/Last Difference and click/keyboard hunk sync status include the current hunk kind (`(2/5 replace)`), so delete/insert/replace is visible without opening Compare Summary.
+
 ## [0.3.78] — 2026-10-06
 
 Compare:

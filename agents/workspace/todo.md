@@ -79,3 +79,5 @@
 009 keep: compare live status · N% equal (v0.3.77)
 
 009 keep: compare live status hunk kind tallies (v0.3.78)
+
+009 keep: compare nav/click current hunk kind (v0.3.79)
