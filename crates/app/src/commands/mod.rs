@@ -30,6 +30,8 @@ pub enum CompareNav {
 pub enum CompareHideGapNav {
     Next,
     Prev,
+    First,
+    Last,
 }
 
 /// Toggle a compare ignore preference from the View menu.
@@ -321,6 +323,8 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET"
             | "IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL"
             | "IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL"
+            | "IDM_VIEW_COMPARE_FIRST_HIDDEN_EQUAL"
+            | "IDM_VIEW_COMPARE_LAST_HIDDEN_EQUAL"
             | "IDM_VIEW_COMPARE_BOOKMARK_DIFFS"
             | "IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS"
             | "IDM_VIEW_NEXT_DIFF"
@@ -652,6 +656,8 @@ mod tests {
         ));
         assert!(is_implemented("IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL"));
         assert!(is_implemented("IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL"));
+        assert!(is_implemented("IDM_VIEW_COMPARE_FIRST_HIDDEN_EQUAL"));
+        assert!(is_implemented("IDM_VIEW_COMPARE_LAST_HIDDEN_EQUAL"));
         assert!(is_implemented("IDM_VIEW_COMPARE_BOOKMARK_DIFFS"));
         assert!(is_implemented("IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS"));
         assert!(is_implemented("IDM_VIEW_COMPARE_TO_SAVED"));

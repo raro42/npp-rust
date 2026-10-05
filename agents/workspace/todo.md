@@ -62,3 +62,5 @@
 009 keep: compare Collapse Unchanged at Caret (v0.3.65)
 009 keep: session fold state (@folds headers) (v0.3.66)
 009 keep: compare Next/Previous Hidden Equal (v0.3.67)
+
+009 keep: compare First/Last Hidden Equal (v0.3.68)

@@ -1497,6 +1497,8 @@ mod tests {
         assert_eq!(prev_compare_hide_gap(4, &gaps), Some((1, 3)));
         assert_eq!(prev_compare_hide_gap(0, &gaps), Some((5, 7))); // wrap
         assert_eq!(next_compare_hide_gap(2, &gaps), Some((5, 7))); // mid-gap
+        assert_eq!(gaps.first().copied(), Some((1, 3)));
+        assert_eq!(gaps.last().copied(), Some((5, 7)));
         assert_eq!(compare_hide_gap_ordinal(&gaps, (5, 7)), Some((2, 2)));
         assert_eq!(next_compare_hide_gap(0, &[]), None);
         let mut revealed = BTreeSet::new();

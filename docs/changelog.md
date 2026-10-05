@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.68] — 2026-10-05
+
+Compare:
+
+- **View → First Hidden Equal** / **Last Hidden Equal** jump to the first/last ···N collapsed Equal gap while Hide Unchanged Lines is on (parks both panes; status shows ordinal).
+
 ## [0.3.67] — 2026-10-05
 
 Compare:

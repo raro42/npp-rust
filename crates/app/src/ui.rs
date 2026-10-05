@@ -1130,6 +1130,12 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, jump to the previous ···N collapsed Equal gap (wraps; parks both panes)",
                     ),
+                    "IDM_VIEW_COMPARE_FIRST_HIDDEN_EQUAL" => response.on_hover_text(
+                        "While Hide Unchanged Lines is on, jump to the first ···N collapsed Equal gap (parks both panes)",
+                    ),
+                    "IDM_VIEW_COMPARE_LAST_HIDDEN_EQUAL" => response.on_hover_text(
+                        "While Hide Unchanged Lines is on, jump to the last ···N collapsed Equal gap (parks both panes)",
+                    ),
                     "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, reveal every collapsed Equal run on both panes (···N cues clear; hide-equal preference stays on)",
                     ),
@@ -4297,6 +4303,8 @@ Tree-sitter highlight, and a calm UI.",
             crate::commands::CompareHideGapNav::Prev => {
                 crate::diff::prev_compare_hide_gap(caret_line, &gaps)
             }
+            crate::commands::CompareHideGapNav::First => gaps.first().copied(),
+            crate::commands::CompareHideGapNav::Last => gaps.last().copied(),
         }) else {
             self.state.status = "Compare: no hidden equal gaps".into();
             return;
@@ -4304,11 +4312,16 @@ Tree-sitter highlight, and a calm UI.",
         let park = crate::diff::compare_hide_gap_park_line(gap);
         let n = gap.1 - gap.0 + 1;
         let (ord, total) = crate::diff::compare_hide_gap_ordinal(&gaps, gap).unwrap_or((1, 1));
-        let wrapped = crate::diff::hunk_nav_wrapped(
-            matches!(nav, crate::commands::CompareHideGapNav::Next),
-            caret_line,
-            park,
-        );
+        let wrapped = match nav {
+            crate::commands::CompareHideGapNav::Next => {
+                crate::diff::hunk_nav_wrapped(true, caret_line, park)
+            }
+            crate::commands::CompareHideGapNav::Prev => {
+                crate::diff::hunk_nav_wrapped(false, caret_line, park)
+            }
+            crate::commands::CompareHideGapNav::First
+            | crate::commands::CompareHideGapNav::Last => false,
+        };
         if let Some(doc) = self.state.tabs.get_mut(tab) {
             let at = doc
                 .buffer
@@ -4324,6 +4337,8 @@ Tree-sitter highlight, and a calm UI.",
         let dir = match nav {
             crate::commands::CompareHideGapNav::Next => "Next",
             crate::commands::CompareHideGapNav::Prev => "Previous",
+            crate::commands::CompareHideGapNav::First => "First",
+            crate::commands::CompareHideGapNav::Last => "Last",
         };
         let wrap_bit = if wrapped { " · wrapped" } else { "" };
         // Overwrite equal-park status with gap-nav ordinal.

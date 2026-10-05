@@ -244,6 +244,14 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.compare_hide_gap_nav = Some(super::CompareHideGapNav::Prev);
             CmdResult::Handled
         }
+        "IDM_VIEW_COMPARE_FIRST_HIDDEN_EQUAL" => {
+            ui.compare_hide_gap_nav = Some(super::CompareHideGapNav::First);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_COMPARE_LAST_HIDDEN_EQUAL" => {
+            ui.compare_hide_gap_nav = Some(super::CompareHideGapNav::Last);
+            CmdResult::Handled
+        }
         "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL" => {
             ui.compare_collapse_hidden_equal = true;
             CmdResult::Handled
