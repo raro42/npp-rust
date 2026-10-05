@@ -420,6 +420,15 @@ pub fn reveal_all_compare_hidden(revealed: &mut BTreeSet<usize>, tags: &[LineKin
     n
 }
 
+/// Clear click/menu-expanded Equal lines so hide-equal collapses them again.
+///
+/// Returns how many indices were dropped. Hide-equal preference is unchanged.
+pub fn collapse_all_compare_revealed(revealed: &mut BTreeSet<usize>) -> usize {
+    let n = revealed.len();
+    revealed.clear();
+    n
+}
+
 /// Partner Equal line indices on the other pane for a hide-equal gap.
 ///
 /// Uses LCS alignment so a ···N click can expand the matching Equal run on both sides.
@@ -1297,6 +1306,11 @@ mod tests {
         assert_eq!(reveal_all_compare_hidden(&mut all, &tags), 0);
         let (hl3, hr3) = hidden_equal_counts_with_revealed(&tags, &tags, &all, &all);
         assert_eq!((hl3, hr3), (0, 0));
+        assert_eq!(collapse_all_compare_revealed(&mut all), 2);
+        assert!(all.is_empty());
+        let (hl4, hr4) = hidden_equal_counts_with_revealed(&tags, &tags, &all, &all);
+        assert_eq!((hl4, hr4), (2, 2));
+        assert_eq!(collapse_all_compare_revealed(&mut all), 0);
     }
 
     #[test]

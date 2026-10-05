@@ -1121,6 +1121,9 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, reveal every collapsed Equal run on both panes (···N cues clear; hide-equal preference stays on)",
                     ),
+                    "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL" => response.on_hover_text(
+                        "While Hide Unchanged Lines is on, re-collapse every click/menu-expanded Equal run on both panes (···N cues return; hide-equal preference stays on)",
+                    ),
                     "IDM_VIEW_COPY_COMPARE_DIFF" => response
                         .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
                     "IDM_VIEW_OPEN_COMPARE_DIFF" => response.on_hover_text(
@@ -4047,6 +4050,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.compare_expand_hidden_equal {
             self.expand_all_compare_hide_equal();
         }
+        if flags.compare_collapse_hidden_equal {
+            self.collapse_all_compare_hide_equal();
+        }
         if flags.copy_compare_diff {
             self.copy_compare_diff(flags);
         }
@@ -4234,6 +4240,42 @@ Tree-sitter highlight, and a calm UI.",
             "Compare: no hidden equal lines".into()
         } else {
             format!("Compare expanded all unchanged lines ({n} shown)")
+        };
+    }
+
+    /// Re-collapse click/menu-expanded Equal runs; hide-equal preference stays on.
+    fn collapse_all_compare_hide_equal(&mut self) {
+        if !self.compare_on {
+            self.state.status =
+                "Compare off — start Compare to collapse expanded equal lines".into();
+            return;
+        }
+        if !self.state.settings.compare_hide_equal {
+            self.state.status =
+                "Hide Unchanged Lines is off — turn it on to collapse unchanged lines".into();
+            return;
+        }
+        let n_left =
+            crate::diff::collapse_all_compare_revealed(&mut self.compare_hide_revealed_left);
+        let n_right =
+            crate::diff::collapse_all_compare_revealed(&mut self.compare_hide_revealed_right);
+        let n = n_left + n_right;
+        let hide = compare_hide_opt(
+            true,
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            &self.compare_hide_revealed_left,
+            &self.compare_hide_revealed_right,
+        );
+        let remain = hide.map(|(l, r)| l + r).unwrap_or(0);
+        self.state.status = if n == 0 {
+            if remain == 0 {
+                "Compare: no expanded equal lines to collapse".into()
+            } else {
+                format!("Compare: equal lines already collapsed ({remain} hidden)")
+            }
+        } else {
+            format!("Compare collapsed expanded equal lines ({n} re-hidden, {remain} hidden)")
         };
     }
 

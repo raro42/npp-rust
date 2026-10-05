@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.60] — 2026-10-05
+
+Compare:
+
+- **View → Collapse All Unchanged Lines** re-collapses every click/menu-expanded Equal run on both panes while Hide Unchanged Lines stays on (`···N` cues return without flipping the preference).
+
 ## [0.3.59] — 2026-10-05
 
 Compare:

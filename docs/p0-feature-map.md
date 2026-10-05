@@ -48,7 +48,7 @@ Source: codebase scan for Preferences, Find/Replace, Session, Compare.
 |------|----------|
 | Diff engine | `crates/app/src/diff.rs` — `diff_line_tags`, `LineKind`, `MAX_COMPARE_LINES=3000` |
 | UI state | `EditorApp` compare_* + `sync_scroll_h/v` |
-| Menu | `IDM_VIEW_COMPARE` / `COMPARE_TO_SAVED` / `CLEARCOMPARE` / `SWAP_COMPARE` / `COMPARE_IGNORE_WS` / `COMPARE_IGNORE_CASE` / `COMPARE_IGNORE_BLANK` / `NEXT_DIFF` / `PREV_DIFF` / `FIRST_DIFF` / `LAST_DIFF` / `COPY_COMPARE_DIFF` / `OPEN_COMPARE_DIFF` / `COPY_COMPARE_HUNK` / `APPLY_COMPARE_HUNK` / `APPLY_COMPARE_HUNK_TO_OTHER` / `APPLY_ALL_COMPARE_HUNKS` / `APPLY_ALL_COMPARE_HUNKS_TO_OTHER` / `SYNSCROLLH` / `SYNSCROLLV` |
+| Menu | `IDM_VIEW_COMPARE` / `COMPARE_TO_SAVED` / `CLEARCOMPARE` / `SWAP_COMPARE` / `COMPARE_IGNORE_WS` / `COMPARE_IGNORE_CASE` / `COMPARE_IGNORE_BLANK` / `COMPARE_HIDE_EQUAL` / `COMPARE_EXPAND_HIDDEN_EQUAL` / `COMPARE_COLLAPSE_HIDDEN_EQUAL` / `NEXT_DIFF` / `PREV_DIFF` / `FIRST_DIFF` / `LAST_DIFF` / `COPY_COMPARE_DIFF` / `OPEN_COMPARE_DIFF` / `COPY_COMPARE_HUNK` / `APPLY_COMPARE_HUNK` / `APPLY_COMPARE_HUNK_TO_OTHER` / `APPLY_ALL_COMPARE_HUNKS` / `APPLY_ALL_COMPARE_HUNKS_TO_OTHER` / `SYNSCROLLH` / `SYNSCROLLV` |
 | Atomics | `commands/view.rs` — `SYNC_SCROLL_H/V`, `ZOOM_SYNC` (process session, not settings.json) |
 | Ignore whitespace | **None** — exact line string equality after EOL trim only |
 | Re-diff | `compare_stale` + `refresh_compare_if_stale` (~200 ms) |

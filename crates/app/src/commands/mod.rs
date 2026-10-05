@@ -103,6 +103,8 @@ pub struct UiFlags {
     pub compare_hide_equal_toggle: bool,
     /// Expand every collapsed Equal run while hide-equal stays on.
     pub compare_expand_hidden_equal: bool,
+    /// Re-collapse click/menu-expanded Equal runs while hide-equal stays on.
+    pub compare_collapse_hidden_equal: bool,
     /// Copy the active compare pair as a unified diff.
     pub copy_compare_diff: bool,
     /// Open the compare pair as a unified-diff tab.
@@ -297,6 +299,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_COMPARE_IGNORE_BLANK"
             | "IDM_VIEW_COMPARE_HIDE_EQUAL"
             | "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL"
+            | "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL"
             | "IDM_VIEW_NEXT_DIFF"
             | "IDM_VIEW_PREV_DIFF"
             | "IDM_VIEW_FIRST_DIFF"
@@ -617,6 +620,7 @@ mod tests {
         assert!(is_implemented("IDM_VIEW_COMPARE_IGNORE_BLANK"));
         assert!(is_implemented("IDM_VIEW_COMPARE_HIDE_EQUAL"));
         assert!(is_implemented("IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL"));
+        assert!(is_implemented("IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL"));
         assert!(is_implemented("IDM_VIEW_COMPARE_TO_SAVED"));
     }
 }
