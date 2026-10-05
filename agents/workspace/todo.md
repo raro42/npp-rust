@@ -58,3 +58,4 @@
 009 keep: compare Bookmark Compare Differences (v0.3.61)
 009 keep: compare Clear Compare Difference Bookmarks (v0.3.62)
 009 keep: compare Equal-line partner park (v0.3.63)
+009 keep: compare Expand Unchanged at Caret (v0.3.64)

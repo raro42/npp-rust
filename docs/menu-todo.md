@@ -11,10 +11,10 @@ Many teal items only set a status-bar message. That inflated “Ready 477 / stub
 
 | Class | Count | Meaning |
 |-------|------:|---------|
-| Explicit handlers | 343 | Match arms in `commands/*.rs` |
-| Useful behaviour | 338 | Change buffer or UI beyond a note |
+| Explicit handlers | 344 | Match arms in `commands/*.rs` |
+| Useful behaviour | 339 | Change buffer or UI beyond a note |
 | Placeholder / status-only | 0 | Partial or “not yet” |
-| Menu IDs in export | 481 | From `npp_menu.json` |
+| Menu IDs in export | 482 | From `npp_menu.json` |
 
 ## Preferences
 

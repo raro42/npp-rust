@@ -2075,6 +2075,12 @@
       },
       {
         "kind": "item",
+        "label": "Expand Unchanged at Caret",
+        "raw_label": "Expand Unchanged at &Caret",
+        "cmd": "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET"
+      },
+      {
+        "kind": "item",
         "label": "Expand All Unchanged Lines",
         "raw_label": "E&xpand All Unchanged Lines",
         "cmd": "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL"

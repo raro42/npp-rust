@@ -386,6 +386,35 @@ pub fn compare_gap_line_range(prev_doc_line: usize, cur_doc_line: usize) -> Opti
     }
 }
 
+/// Hidden Equal run nearest `caret_line` given consecutive visible document rows.
+///
+/// Prefers a gap that contains the caret. Otherwise the gap below the caret's
+/// visible row, then the gap above (same hairline a click on ···N would hit).
+pub fn nearest_compare_hide_gap(
+    caret_line: usize,
+    visible_lines: &[usize],
+) -> Option<(usize, usize)> {
+    if visible_lines.len() < 2 {
+        return None;
+    }
+    for pair in visible_lines.windows(2) {
+        if let Some(gap) = compare_gap_line_range(pair[0], pair[1]) {
+            if caret_line >= gap.0 && caret_line <= gap.1 {
+                return Some(gap);
+            }
+        }
+    }
+    let idx = visible_lines.iter().position(|&l| l == caret_line)?;
+    let below = visible_lines
+        .get(idx + 1)
+        .and_then(|&next| compare_gap_line_range(visible_lines[idx], next));
+    if below.is_some() {
+        return below;
+    }
+    idx.checked_sub(1)
+        .and_then(|prev| compare_gap_line_range(visible_lines[prev], visible_lines[idx]))
+}
+
 /// Insert every line in an inclusive gap into `revealed`. Returns how many were new.
 pub fn reveal_compare_gap(revealed: &mut BTreeSet<usize>, gap: (usize, usize)) -> usize {
     let mut n = 0usize;
@@ -1321,6 +1350,15 @@ mod tests {
         assert_eq!(compare_visible_gap(3, 10), Some(6));
         assert_eq!(compare_visible_gap(3, 4), None);
         assert_eq!(compare_gap_line_range(3, 10), Some((4, 9)));
+        let vis = [3usize, 4, 5, 12, 13];
+        assert_eq!(nearest_compare_hide_gap(5, &vis), Some((6, 11)));
+        assert_eq!(nearest_compare_hide_gap(12, &vis), Some((6, 11)));
+        assert_eq!(nearest_compare_hide_gap(8, &vis), Some((6, 11)));
+        assert_eq!(nearest_compare_hide_gap(3, &vis), None);
+        assert_eq!(nearest_compare_hide_gap(13, &vis), None);
+        let both = [0usize, 4, 8];
+        assert_eq!(nearest_compare_hide_gap(4, &both), Some((5, 7)));
+        assert_eq!(nearest_compare_hide_gap(0, &both), Some((1, 3)));
         let mut revealed = BTreeSet::new();
         assert_eq!(reveal_compare_gap(&mut revealed, (0, 0)), 1);
         let (hl2, hr2) =
