@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.61] — 2026-10-05
+
+Compare:
+
+- **View → Bookmark Compare Differences** bookmarks the start of every change hunk on both panes so F2 / Shift+F2 can walk differences after you leave a hunk.
+
 ## [0.3.60] — 2026-10-05
 
 Compare:

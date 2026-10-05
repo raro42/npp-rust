@@ -55,3 +55,4 @@
 009 keep: compare ···N expand both panes (aligned Equal) (v0.3.58)
 009 keep: compare Expand All Unchanged Lines (v0.3.59)
 009 keep: compare Collapse All Unchanged Lines (v0.3.60)
+009 keep: compare Bookmark Compare Differences (v0.3.61)

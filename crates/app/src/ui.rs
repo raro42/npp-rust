@@ -1124,6 +1124,9 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, re-collapse every click/menu-expanded Equal run on both panes (···N cues return; hide-equal preference stays on)",
                     ),
+                    "IDM_VIEW_COMPARE_BOOKMARK_DIFFS" => response.on_hover_text(
+                        "Bookmark the start of every Compare change hunk on both panes (then F2 / Shift+F2)",
+                    ),
                     "IDM_VIEW_COPY_COMPARE_DIFF" => response
                         .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
                     "IDM_VIEW_OPEN_COMPARE_DIFF" => response.on_hover_text(
@@ -4053,6 +4056,9 @@ Tree-sitter highlight, and a calm UI.",
         if flags.compare_collapse_hidden_equal {
             self.collapse_all_compare_hide_equal();
         }
+        if flags.compare_bookmark_diffs {
+            self.bookmark_compare_differences();
+        }
         if flags.copy_compare_diff {
             self.copy_compare_diff(flags);
         }
@@ -4277,6 +4283,47 @@ Tree-sitter highlight, and a calm UI.",
         } else {
             format!("Compare collapsed expanded equal lines ({n} re-hidden, {remain} hidden)")
         };
+    }
+
+    /// Bookmark every change-hunk start on both Compare panes (F2 / Shift+F2).
+    fn bookmark_compare_differences(&mut self) {
+        if !self.compare_on {
+            self.state.status = "Compare off — start Compare to bookmark differences".into();
+            return;
+        }
+        let left_starts = crate::diff::hunk_starts(&self.compare_left_tags);
+        let right_starts = crate::diff::hunk_starts(&self.compare_right_tags);
+        if left_starts.is_empty() && right_starts.is_empty() {
+            self.state.status = "Compare: no differences to bookmark (identical)".into();
+            return;
+        }
+        let left_tab = self.compare_left_tab;
+        let right_tab = self.compare_right_tab;
+        let mut added_l = 0usize;
+        let mut added_r = 0usize;
+        if let Some(doc) = self.state.tabs.get_mut(left_tab) {
+            for &line in &left_starts {
+                if doc.bookmarks.insert(line) {
+                    added_l += 1;
+                }
+            }
+        }
+        if right_tab != left_tab {
+            if let Some(doc) = self.state.tabs.get_mut(right_tab) {
+                for &line in &right_starts {
+                    if doc.bookmarks.insert(line) {
+                        added_r += 1;
+                    }
+                }
+            }
+        }
+        let hunk_n = left_starts.len().max(right_starts.len());
+        let added = added_l + added_r;
+        self.state.status = format!(
+            "Compare bookmarked differences (L{}|R{}, {hunk_n} hunks, +{added} new)",
+            left_starts.len(),
+            right_starts.len()
+        );
     }
 
     /// Toggle hide-unchanged-lines for Compare; persist (no re-diff needed).
