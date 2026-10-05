@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.72] — 2026-10-05
+
+Compare:
+
+- **Open / Copy Compare Summary** includes a truncated first-line preview under each hunk (`-` / `+`, max 72 chars) so the index is scannable without opening every hunk.
+
 ## [0.3.71] — 2026-10-05
 
 Compare:

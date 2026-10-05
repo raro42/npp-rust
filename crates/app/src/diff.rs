@@ -1329,13 +1329,47 @@ fn format_summary_span(start: usize, end: usize) -> String {
     }
 }
 
-/// Human-readable Compare hunk index (`None` when tags cannot be aligned).
+/// Max display chars for one Compare Summary preview line.
+pub const SUMMARY_PREVIEW_MAX: usize = 72;
+
+fn summary_preview_line(line: &str) -> String {
+    let flat: String = line
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+    let trimmed = flat.trim_end();
+    if trimmed.chars().count() <= SUMMARY_PREVIEW_MAX {
+        return trimmed.to_string();
+    }
+    let mut s: String = trimmed
+        .chars()
+        .take(SUMMARY_PREVIEW_MAX.saturating_sub(1))
+        .collect();
+    s.push('…');
+    s
+}
+
+fn push_summary_preview(out: &mut String, marker: char, line: &str) {
+    out.push_str("   ");
+    out.push(marker);
+    out.push(' ');
+    out.push_str(&summary_preview_line(line));
+    out.push('\n');
+}
+
+/// Human-readable Compare hunk index with first-line previews
+/// (`None` when tags cannot be aligned).
 pub fn compare_summary_text(
     left_name: &str,
     right_name: &str,
+    left_lines: &[&str],
+    right_lines: &[&str],
     left_tags: &[LineKind],
     right_tags: &[LineKind],
 ) -> Option<String> {
+    if left_lines.len() != left_tags.len() || right_lines.len() != right_tags.len() {
+        return None;
+    }
     let hunks = compare_summary_hunks(left_tags, right_tags)?;
     let (del, ins) = count_changes(left_tags, right_tags);
     let mut out = String::new();
@@ -1362,6 +1396,16 @@ pub fn compare_summary_text(
             h.inserts,
             kind,
         ));
+        if h.deletes > 0 {
+            if let Some(line) = left_lines.get(h.left_start) {
+                push_summary_preview(&mut out, '-', line);
+            }
+        }
+        if h.inserts > 0 {
+            if let Some(line) = right_lines.get(h.right_start) {
+                push_summary_preview(&mut out, '+', line);
+            }
+        }
     }
     Some(out)
 }
@@ -1809,16 +1853,37 @@ mod tests {
         assert_eq!(hunks[1].inserts, 1);
         assert_eq!(hunks[2].deletes, 0);
         assert_eq!(hunks[2].inserts, 1);
-        let text = compare_summary_text("L", "R", &l, &r).unwrap();
+        let text = compare_summary_text("L", "R", &left, &right, &l, &r).unwrap();
         assert!(text.contains("Compare summary: “L” | “R”"));
         assert!(text.contains("1. L2 | R2 (−1 +0) delete\n"));
+        assert!(text.contains("   - gone\n"));
         assert!(text.contains("replace\n"));
+        assert!(text.contains("   - old\n"));
+        assert!(text.contains("   + new\n"));
         assert!(text.contains("insert\n"));
+        assert!(text.contains("   + tail\n"));
         let (le, re) = diff_line_tags(&left, &left);
-        let ident = compare_summary_text("a", "b", &le, &re).unwrap();
+        let ident = compare_summary_text("a", "b", &left, &left, &le, &re).unwrap();
         assert!(ident.contains("(identical)\n"));
         assert!(ident.contains("0 hunks"));
         assert!(compare_summary_hunks(&l, &[]).is_none());
+        assert!(compare_summary_text("L", "R", &left[..2], &right, &l, &r).is_none());
+    }
+
+    #[test]
+    fn compare_summary_truncates_long_preview() {
+        let long = "x".repeat(SUMMARY_PREVIEW_MAX + 8);
+        let left = ["a", long.as_str()];
+        let right = ["a"];
+        let (l, r) = diff_line_tags(&left, &right);
+        let text = compare_summary_text("L", "R", &left, &right, &l, &r).unwrap();
+        assert!(text.contains('…'));
+        let preview = text
+            .lines()
+            .find(|line| line.starts_with("   - "))
+            .expect("delete preview");
+        assert_eq!(preview.chars().count(), 5 + SUMMARY_PREVIEW_MAX);
+        assert!(preview.ends_with('…'));
     }
 
     #[test]

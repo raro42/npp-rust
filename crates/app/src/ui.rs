@@ -4872,9 +4872,13 @@ Tree-sitter highlight, and a calm UI.",
             .unwrap_or_else(|| "right".into());
         let hunks =
             crate::diff::compare_summary_hunks(&self.compare_left_tags, &self.compare_right_tags)?;
+        let left_refs: Vec<&str> = left_lines.iter().map(String::as_str).collect();
+        let right_refs: Vec<&str> = right_lines.iter().map(String::as_str).collect();
         let text = crate::diff::compare_summary_text(
             &lname,
             &rname,
+            &left_refs,
+            &right_refs,
             &self.compare_left_tags,
             &self.compare_right_tags,
         )?;

@@ -66,3 +66,6 @@
 009 keep: compare First/Last Hidden Equal (v0.3.68)
 009 keep: compare hide-equal context pref (0–10) (v0.3.69)
 009 keep: compare Open Compare Summary (v0.3.70)
+
+009 keep: compare Copy Compare Summary (v0.3.71)
+009 keep: compare summary first-line previews (v0.3.72)
