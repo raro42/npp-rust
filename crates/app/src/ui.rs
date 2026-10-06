@@ -370,6 +370,39 @@ fn compare_clear_difference_bookmarks_status(
     )
 }
 
+/// Status for Expand All Unchanged Lines.
+///
+/// Example: `Compare expanded all unchanged lines (−1 +2, 2 hunks: 1 delete, 1 insert, 12 shown)`.
+fn compare_expand_all_unchanged_status(
+    del: usize,
+    ins: usize,
+    hunk_n: usize,
+    kind_bit: &str,
+    shown: usize,
+) -> String {
+    let hunk_word = if hunk_n == 1 { "hunk" } else { "hunks" };
+    format!(
+        "Compare expanded all unchanged lines (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit}, {shown} shown)"
+    )
+}
+
+/// Status for Collapse All Unchanged Lines.
+///
+/// Example: `Compare collapsed expanded equal lines (−1 +2, 2 hunks: 1 delete, 1 insert, 12 re-hidden, 8 hidden)`.
+fn compare_collapse_all_unchanged_status(
+    del: usize,
+    ins: usize,
+    hunk_n: usize,
+    kind_bit: &str,
+    rehidden: usize,
+    remain: usize,
+) -> String {
+    let hunk_word = if hunk_n == 1 { "hunk" } else { "hunks" };
+    format!(
+        "Compare collapsed expanded equal lines (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit}, {rehidden} re-hidden, {remain} hidden)"
+    )
+}
+
 fn compare_buffer_eol(buf: &buffer::TextBuffer) -> &'static str {
     let n = buf.line_count();
     for i in 0..n {
@@ -4690,7 +4723,15 @@ Tree-sitter highlight, and a calm UI.",
         self.state.status = if n == 0 {
             "Compare: no hidden equal lines".into()
         } else {
-            format!("Compare expanded all unchanged lines ({n} shown)")
+            let counts =
+                compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
+            compare_expand_all_unchanged_status(
+                counts.del,
+                counts.ins,
+                counts.hunk_n,
+                &counts.kind_bit,
+                n,
+            )
         };
     }
 
@@ -4727,7 +4768,16 @@ Tree-sitter highlight, and a calm UI.",
                 format!("Compare: equal lines already collapsed ({remain} hidden)")
             }
         } else {
-            format!("Compare collapsed expanded equal lines ({n} re-hidden, {remain} hidden)")
+            let counts =
+                compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
+            compare_collapse_all_unchanged_status(
+                counts.del,
+                counts.ins,
+                counts.hunk_n,
+                &counts.kind_bit,
+                n,
+                remain,
+            )
         };
     }
 
@@ -7683,6 +7733,26 @@ mod compare_pair_tests {
         assert_eq!(
             super::compare_clear_difference_bookmarks_status(2, 0, 1, 1, 1, ": 1 delete", 0),
             "Compare cleared difference bookmarks (−2 +0, L1|R1, 1 hunk: 1 delete, −0 removed)"
+        );
+    }
+
+    #[test]
+    fn expand_collapse_all_unchanged_status_includes_kind_tallies() {
+        assert_eq!(
+            super::compare_expand_all_unchanged_status(1, 2, 2, ": 1 delete, 1 insert", 12),
+            "Compare expanded all unchanged lines (−1 +2, 2 hunks: 1 delete, 1 insert, 12 shown)"
+        );
+        assert_eq!(
+            super::compare_expand_all_unchanged_status(1, 0, 1, ": 1 delete", 4),
+            "Compare expanded all unchanged lines (−1 +0, 1 hunk: 1 delete, 4 shown)"
+        );
+        assert_eq!(
+            super::compare_collapse_all_unchanged_status(1, 2, 2, ": 1 delete, 1 insert", 12, 8),
+            "Compare collapsed expanded equal lines (−1 +2, 2 hunks: 1 delete, 1 insert, 12 re-hidden, 8 hidden)"
+        );
+        assert_eq!(
+            super::compare_collapse_all_unchanged_status(2, 0, 1, ": 1 delete", 3, 5),
+            "Compare collapsed expanded equal lines (−2 +0, 1 hunk: 1 delete, 3 re-hidden, 5 hidden)"
         );
     }
 

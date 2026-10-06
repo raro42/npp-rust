@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.91] — 2026-10-06
+
+Compare:
+
+- **Expand All Unchanged Lines** / **Collapse All Unchanged Lines** status includes −/+ and hunk-kind tallies (`Compare expanded all unchanged lines (−1 +2, 2 hunks: 1 delete, 1 insert, 12 shown)` / `Compare collapsed expanded equal lines (−1 +2, 2 hunks: 1 delete, 1 insert, 12 re-hidden, 8 hidden)`).
+
 ## [0.3.90] — 2026-10-06
 
 Compare:

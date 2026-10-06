@@ -103,3 +103,5 @@
 009 keep: compare Clear status −/+/kind tallies (v0.3.89)
 
 009 keep: compare bookmark/clear difference bookmarks status −/+/kind tallies (v0.3.90)
+
+009 keep: compare expand/collapse all unchanged status −/+/kind tallies (v0.3.91)
