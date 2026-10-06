@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.84] — 2026-10-06
+
+Compare:
+
+- **Copy Compare Summary** / **Open Compare Summary** status includes hunk-kind tallies (`Copied compare summary (−1 +2, 2 hunks: 1 delete, 1 insert) …`), matching the live Compare status / summary header.
+
 ## [0.3.83] — 2026-10-06
 
 Compare:

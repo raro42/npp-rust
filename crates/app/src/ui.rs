@@ -280,6 +280,22 @@ fn compare_hunk_copy_open_status(
     format!("{verb} hunk {ordinal_bit} unified diff “{lname}” | “{rname}”")
 }
 
+/// Status for Copy/Open Compare Summary, e.g. `Copied compare summary (−1 +2, 2 hunks: 1 delete, 1 insert) “a” | “b”`.
+fn compare_summary_copy_open_status(
+    verb: &str,
+    del: usize,
+    ins: usize,
+    hunk_n: usize,
+    kind_bit: &str,
+    lname: &str,
+    rname: &str,
+) -> String {
+    let hunk_word = if hunk_n == 1 { "hunk" } else { "hunks" };
+    format!(
+        "{verb} compare summary (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit}) “{lname}” | “{rname}”"
+    )
+}
+
 fn compare_buffer_eol(buf: &buffer::TextBuffer) -> &'static str {
     let n = buf.line_count();
     for i in 0..n {
@@ -4874,7 +4890,9 @@ Tree-sitter highlight, and a calm UI.",
     }
 
     /// Build the Compare hunk-index text (refreshes stale tags when needed).
-    fn compare_summary_payload(&mut self) -> Option<(String, String, String, usize, usize, usize)> {
+    fn compare_summary_payload(
+        &mut self,
+    ) -> Option<(String, String, String, usize, usize, usize, String)> {
         let left = self.compare_left_tab;
         let right = self.compare_right_tab;
         let left_lines = self.tab_compare_lines(left);
@@ -4918,7 +4936,9 @@ Tree-sitter highlight, and a calm UI.",
         )?;
         let (del, ins) =
             crate::diff::count_changes(&self.compare_left_tags, &self.compare_right_tags);
-        Some((text, lname, rname, del, ins, hunks.len()))
+        let kind_bit =
+            crate::diff::compare_kind_tally_bit(&self.compare_left_tags, &self.compare_right_tags);
+        Some((text, lname, rname, del, ins, hunks.len(), kind_bit))
     }
 
     /// Clipboard: text summary of every change hunk (keeps Compare on).
@@ -4927,13 +4947,14 @@ Tree-sitter highlight, and a calm UI.",
             self.state.status = "Copy Compare Summary: Compare is off".into();
             return;
         }
-        let Some((text, lname, rname, del, ins, hunk_n)) = self.compare_summary_payload() else {
+        let Some((text, lname, rname, del, ins, hunk_n, kind_bit)) = self.compare_summary_payload()
+        else {
             self.state.status = "Copy Compare Summary: could not build summary".into();
             return;
         };
         flags.pending_clipboard = Some(text);
         self.state.status =
-            format!("Copied compare summary (−{del} +{ins}, {hunk_n} hunks) “{lname}” | “{rname}”");
+            compare_summary_copy_open_status("Copied", del, ins, hunk_n, &kind_bit, &lname, &rname);
     }
 
     /// New tab listing every change hunk (line ranges). Clears Compare so the tab is visible.
@@ -4942,7 +4963,8 @@ Tree-sitter highlight, and a calm UI.",
             self.state.status = "Open Compare Summary: Compare is off".into();
             return;
         }
-        let Some((text, lname, rname, del, ins, hunk_n)) = self.compare_summary_payload() else {
+        let Some((text, lname, rname, del, ins, hunk_n, kind_bit)) = self.compare_summary_payload()
+        else {
             self.state.status = "Open Compare Summary: could not build summary".into();
             return;
         };
@@ -4959,7 +4981,7 @@ Tree-sitter highlight, and a calm UI.",
         self.state.highlight_dirty = true;
         self.state.reset_view = true;
         self.state.status =
-            format!("Opened compare summary (−{del} +{ins}, {hunk_n} hunks) “{lname}” | “{rname}”");
+            compare_summary_copy_open_status("Opened", del, ins, hunk_n, &kind_bit, &lname, &rname);
     }
 
     /// Unified diff for the hunk at the focused caret (or the next hunk).
@@ -7403,6 +7425,30 @@ mod compare_pair_tests {
         assert_eq!(
             super::compare_hunk_copy_open_status("Opened", "(1/3 delete −2 +0)", "L", "R"),
             "Opened hunk (1/3 delete −2 +0) unified diff “L” | “R”"
+        );
+    }
+
+    #[test]
+    fn summary_copy_open_status_includes_kind_tallies() {
+        assert_eq!(
+            super::compare_summary_copy_open_status(
+                "Copied",
+                1,
+                2,
+                2,
+                ": 1 delete, 1 insert",
+                "a",
+                "b"
+            ),
+            "Copied compare summary (−1 +2, 2 hunks: 1 delete, 1 insert) “a” | “b”"
+        );
+        assert_eq!(
+            super::compare_summary_copy_open_status("Opened", 2, 0, 1, ": 1 delete", "L", "R"),
+            "Opened compare summary (−2 +0, 1 hunk: 1 delete) “L” | “R”"
+        );
+        assert_eq!(
+            super::compare_summary_copy_open_status("Copied", 0, 0, 0, "", "a", "b"),
+            "Copied compare summary (−0 +0, 0 hunks) “a” | “b”"
         );
     }
 

@@ -89,3 +89,5 @@
 009 keep: compare apply all hunks status kind/−/+ (v0.3.82)
 
 009 keep: compare copy/open hunk status kind/−/+ (v0.3.83)
+
+009 keep: compare copy/open summary status kind tallies (v0.3.84)
