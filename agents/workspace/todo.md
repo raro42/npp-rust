@@ -91,3 +91,5 @@
 009 keep: compare copy/open hunk status kind/−/+ (v0.3.83)
 
 009 keep: compare copy/open summary status kind tallies (v0.3.84)
+
+009 keep: compare copy/open unified diff status kind tallies (v0.3.85)
