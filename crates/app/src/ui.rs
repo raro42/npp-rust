@@ -916,6 +916,8 @@ impl EditorApp {
                 i.key_pressed(Key::F2),
                 i.key_pressed(Key::F3),
                 i.key_pressed(Key::F7),
+                i.key_pressed(Key::ArrowLeft),
+                i.key_pressed(Key::ArrowRight),
                 i.key_pressed(Key::Equals),
                 i.key_pressed(Key::Minus),
                 i.key_pressed(Key::Num0),
@@ -943,6 +945,8 @@ impl EditorApp {
             f2,
             f3,
             f7,
+            arrow_left,
+            arrow_right,
             equals,
             minus,
             num0,
@@ -1119,6 +1123,14 @@ impl EditorApp {
             self.run_shortcut_cmd("IDM_VIEW_PREV_DIFF");
         } else if f7 {
             self.run_shortcut_cmd("IDM_VIEW_NEXT_DIFF");
+        }
+
+        // Compare apply hunk: ⌘/Ctrl+Alt+← from other, ⌘/Ctrl+Alt+→ to other.
+        // Alt alone stays word-jump in the editor; command+alt skips caret move there.
+        if cmd && mods.alt && arrow_left {
+            self.run_shortcut_cmd("IDM_VIEW_APPLY_COMPARE_HUNK");
+        } else if cmd && mods.alt && arrow_right {
+            self.run_shortcut_cmd("IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER");
         }
 
         // Zoom: Cmd+= / Cmd+- / Cmd+0, and Cmd+mouse wheel.
@@ -1401,10 +1413,10 @@ impl EditorApp {
                         "Open the change hunk at the caret as a unified-diff tab (clears Compare)",
                     ),
                     "IDM_VIEW_APPLY_COMPARE_HUNK" => response.on_hover_text(
-                        "Replace the focused pane's change hunk with the other pane (one undo)",
+                        "Replace the focused pane's change hunk with the other pane (⌘/Ctrl+Alt+←, one undo)",
                     ),
                     "IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER" => response.on_hover_text(
-                        "Replace the other pane's change hunk with the focused pane (one undo)",
+                        "Replace the other pane's change hunk with the focused pane (⌘/Ctrl+Alt+→, one undo)",
                     ),
                     "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS" => response.on_hover_text(
                         "Replace every change hunk on the focused pane with the other pane (one undo)",
@@ -1590,7 +1602,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 22] = [
+                        let rows: [(&str, &str); 23] = [
                             ("⌘/Ctrl N", "New file"),
                             ("⌘/Ctrl O", "Open"),
                             ("⌘/Ctrl S", "Save"),
@@ -1602,6 +1614,7 @@ Tree-sitter highlight, and a calm UI.",
                             ("F2 / ⇧ F2", "Next / prev bookmark"),
                             ("F7 / ⇧ F7", "Compare next / prev diff"),
                             ("⌘/Ctrl F7 · ⌘/Ctrl ⇧ F7", "Compare first / last diff"),
+                            ("⌘/Ctrl Alt ←/→", "Compare apply hunk from / to other"),
                             ("⌘/Ctrl = / -", "Zoom in / out"),
                             (wrap_keys.as_str(), "Word wrap"),
                             ("⌘/Ctrl A", "Select all"),
@@ -7261,21 +7274,26 @@ Tree-sitter highlight, and a calm UI.",
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
                     }
-                    if modifiers.alt {
+                    // Alt alone = word jump. Cmd/Ctrl+Alt+← is Compare apply hunk (handle_shortcuts).
+                    let cmd_mod = modifiers.command || modifiers.ctrl;
+                    if modifiers.alt && !cmd_mod {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
                             doc.buffer.move_word(false, modifiers.shift);
                         }
                         caret_moved = true;
-                    } else if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        let c = doc.buffer.caret();
-                        if c > 0 {
-                            if modifiers.shift {
-                                let anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
-                                doc.buffer.set_selection(anchor, c - 1);
-                            } else {
-                                doc.buffer.set_caret(c - 1);
+                    } else if !modifiers.alt {
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            let c = doc.buffer.caret();
+                            if c > 0 {
+                                if modifiers.shift {
+                                    let anchor =
+                                        doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
+                                    doc.buffer.set_selection(anchor, c - 1);
+                                } else {
+                                    doc.buffer.set_caret(c - 1);
+                                }
+                                caret_moved = true;
                             }
-                            caret_moved = true;
                         }
                     }
                 }
@@ -7288,22 +7306,27 @@ Tree-sitter highlight, and a calm UI.",
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
                     }
-                    if modifiers.alt {
+                    // Alt alone = word jump. Cmd/Ctrl+Alt+→ is Compare apply hunk (handle_shortcuts).
+                    let cmd_mod = modifiers.command || modifiers.ctrl;
+                    if modifiers.alt && !cmd_mod {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
                             doc.buffer.move_word(true, modifiers.shift);
                         }
                         caret_moved = true;
-                    } else if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        let c = doc.buffer.caret();
-                        let len = doc.buffer.len_chars();
-                        if c < len {
-                            if modifiers.shift {
-                                let anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
-                                doc.buffer.set_selection(anchor, c + 1);
-                            } else {
-                                doc.buffer.set_caret(c + 1);
+                    } else if !modifiers.alt {
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            let c = doc.buffer.caret();
+                            let len = doc.buffer.len_chars();
+                            if c < len {
+                                if modifiers.shift {
+                                    let anchor =
+                                        doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
+                                    doc.buffer.set_selection(anchor, c + 1);
+                                } else {
+                                    doc.buffer.set_caret(c + 1);
+                                }
+                                caret_moved = true;
                             }
-                            caret_moved = true;
                         }
                     }
                 }

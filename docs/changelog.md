@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.94] — 2026-10-07
+
+Compare:
+
+- **Apply Hunk From / To Other View** hard-wired shortcuts: ⌘/Ctrl+Alt+← pulls the other pane into the focused hunk; ⌘/Ctrl+Alt+→ pushes the focused hunk to the other pane. Alt alone still word-jumps. About, Shortcut Mapper, and menu hover list the bindings.
+
 ## [0.3.93] — 2026-10-06
 
 Compare:

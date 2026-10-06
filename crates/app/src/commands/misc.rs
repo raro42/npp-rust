@@ -252,6 +252,10 @@ Shift+F2              Previous bookmark
 Cmd+F2                Toggle bookmark
 F7                    Compare next difference
 Shift+F7              Compare previous difference
+Cmd+F7                Compare first difference
+Cmd+Shift+F7          Compare last difference
+Cmd+Alt+Left          Compare apply hunk from other view
+Cmd+Alt+Right         Compare apply hunk to other view
 Escape                Close Find/Replace
 
 View / zoom
