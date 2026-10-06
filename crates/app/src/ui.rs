@@ -403,6 +403,45 @@ fn compare_collapse_all_unchanged_status(
     )
 }
 
+/// Status for Expand Unchanged at Caret / click ···N cue.
+///
+/// Example: `Compare expanded ···5 both panes (−1 +2, 2 hunks: 1 delete, 1 insert, 8 still hidden)`.
+fn compare_expand_gap_status(
+    n: usize,
+    both: &str,
+    del: usize,
+    ins: usize,
+    hunk_n: usize,
+    kind_bit: &str,
+    remain: usize,
+) -> String {
+    let hunk_word = if hunk_n == 1 { "hunk" } else { "hunks" };
+    let tail = if remain == 0 {
+        "all equal lines shown".to_string()
+    } else {
+        format!("{remain} still hidden")
+    };
+    format!("Compare expanded ···{n}{both} (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit}, {tail})")
+}
+
+/// Status for Collapse Unchanged at Caret.
+///
+/// Example: `Compare collapsed ···5 both panes (−1 +2, 2 hunks: 1 delete, 1 insert, 8 hidden)`.
+fn compare_collapse_gap_status(
+    n: usize,
+    both: &str,
+    del: usize,
+    ins: usize,
+    hunk_n: usize,
+    kind_bit: &str,
+    remain: usize,
+) -> String {
+    let hunk_word = if hunk_n == 1 { "hunk" } else { "hunks" };
+    format!(
+        "Compare collapsed ···{n}{both} (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit}, {remain} hidden)"
+    )
+}
+
 fn compare_buffer_eol(buf: &buffer::TextBuffer) -> &'static str {
     let n = buf.line_count();
     for i in 0..n {
@@ -4484,11 +4523,17 @@ Tree-sitter highlight, and a calm UI.",
         );
         let remain = hide.map(|(l, r)| l + r).unwrap_or(0);
         let both = if n_other > 0 { " both panes" } else { "" };
-        self.state.status = if remain == 0 {
-            format!("Compare expanded ···{n}{both} (all equal lines shown)")
-        } else {
-            format!("Compare expanded ···{n}{both} ({remain} still hidden)")
-        };
+        let counts =
+            compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
+        self.state.status = compare_expand_gap_status(
+            n,
+            both,
+            counts.del,
+            counts.ins,
+            counts.hunk_n,
+            &counts.kind_bit,
+            remain,
+        );
         true
     }
 
@@ -4694,7 +4739,17 @@ Tree-sitter highlight, and a calm UI.",
         );
         let remain = hide.map(|(l, r)| l + r).unwrap_or(0);
         let both = if n_other > 0 { " both panes" } else { "" };
-        self.state.status = format!("Compare collapsed ···{n}{both} ({remain} hidden)");
+        let counts =
+            compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
+        self.state.status = compare_collapse_gap_status(
+            n,
+            both,
+            counts.del,
+            counts.ins,
+            counts.hunk_n,
+            &counts.kind_bit,
+            remain,
+        );
         true
     }
 
@@ -7753,6 +7808,34 @@ mod compare_pair_tests {
         assert_eq!(
             super::compare_collapse_all_unchanged_status(2, 0, 1, ": 1 delete", 3, 5),
             "Compare collapsed expanded equal lines (−2 +0, 1 hunk: 1 delete, 3 re-hidden, 5 hidden)"
+        );
+    }
+
+    #[test]
+    fn expand_collapse_gap_status_includes_kind_tallies() {
+        assert_eq!(
+            super::compare_expand_gap_status(5, " both panes", 1, 2, 2, ": 1 delete, 1 insert", 8),
+            "Compare expanded ···5 both panes (−1 +2, 2 hunks: 1 delete, 1 insert, 8 still hidden)"
+        );
+        assert_eq!(
+            super::compare_expand_gap_status(3, "", 1, 0, 1, ": 1 delete", 0),
+            "Compare expanded ···3 (−1 +0, 1 hunk: 1 delete, all equal lines shown)"
+        );
+        assert_eq!(
+            super::compare_collapse_gap_status(
+                5,
+                " both panes",
+                1,
+                2,
+                2,
+                ": 1 delete, 1 insert",
+                8
+            ),
+            "Compare collapsed ···5 both panes (−1 +2, 2 hunks: 1 delete, 1 insert, 8 hidden)"
+        );
+        assert_eq!(
+            super::compare_collapse_gap_status(2, "", 2, 0, 1, ": 1 delete", 5),
+            "Compare collapsed ···2 (−2 +0, 1 hunk: 1 delete, 5 hidden)"
         );
     }
 

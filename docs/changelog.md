@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.92] — 2026-10-06
+
+Compare:
+
+- **Expand Unchanged at Caret** / click ···N / **Collapse Unchanged at Caret** status includes −/+ and hunk-kind tallies (`Compare expanded ···5 both panes (−1 +2, 2 hunks: 1 delete, 1 insert, 8 still hidden)` / `Compare collapsed ···5 both panes (−1 +2, 2 hunks: 1 delete, 1 insert, 8 hidden)`).
+
 ## [0.3.91] — 2026-10-06
 
 Compare:
