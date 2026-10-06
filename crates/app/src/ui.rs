@@ -334,6 +334,42 @@ fn compare_summary_copy_open_status(
     )
 }
 
+/// Status for Bookmark Compare Differences.
+///
+/// Example: `Compare bookmarked differences (−1 +2, L2|R2, 2 hunks: 1 delete, 1 insert, +3 new)`.
+fn compare_bookmark_differences_status(
+    del: usize,
+    ins: usize,
+    left_marks: usize,
+    right_marks: usize,
+    hunk_n: usize,
+    kind_bit: &str,
+    added: usize,
+) -> String {
+    let hunk_word = if hunk_n == 1 { "hunk" } else { "hunks" };
+    format!(
+        "Compare bookmarked differences (−{del} +{ins}, L{left_marks}|R{right_marks}, {hunk_n} {hunk_word}{kind_bit}, +{added} new)"
+    )
+}
+
+/// Status for Clear Compare Difference Bookmarks.
+///
+/// Example: `Compare cleared difference bookmarks (−1 +2, L2|R2, 2 hunks: 1 delete, 1 insert, −3 removed)`.
+fn compare_clear_difference_bookmarks_status(
+    del: usize,
+    ins: usize,
+    left_marks: usize,
+    right_marks: usize,
+    hunk_n: usize,
+    kind_bit: &str,
+    removed: usize,
+) -> String {
+    let hunk_word = if hunk_n == 1 { "hunk" } else { "hunks" };
+    format!(
+        "Compare cleared difference bookmarks (−{del} +{ins}, L{left_marks}|R{right_marks}, {hunk_n} {hunk_word}{kind_bit}, −{removed} removed)"
+    )
+}
+
 fn compare_buffer_eol(buf: &buffer::TextBuffer) -> &'static str {
     let n = buf.line_count();
     for i in 0..n {
@@ -4727,12 +4763,17 @@ Tree-sitter highlight, and a calm UI.",
                 }
             }
         }
-        let hunk_n = left_starts.len().max(right_starts.len());
+        let counts =
+            compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
         let added = added_l + added_r;
-        self.state.status = format!(
-            "Compare bookmarked differences (L{}|R{}, {hunk_n} hunks, +{added} new)",
+        self.state.status = compare_bookmark_differences_status(
+            counts.del,
+            counts.ins,
             left_starts.len(),
-            right_starts.len()
+            right_starts.len(),
+            counts.hunk_n,
+            &counts.kind_bit,
+            added,
         );
     }
 
@@ -4768,12 +4809,17 @@ Tree-sitter highlight, and a calm UI.",
                 }
             }
         }
-        let hunk_n = left_starts.len().max(right_starts.len());
+        let counts =
+            compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
         let removed = removed_l + removed_r;
-        self.state.status = format!(
-            "Compare cleared difference bookmarks (L{}|R{}, {hunk_n} hunks, −{removed} removed)",
+        self.state.status = compare_clear_difference_bookmarks_status(
+            counts.del,
+            counts.ins,
             left_starts.len(),
-            right_starts.len()
+            right_starts.len(),
+            counts.hunk_n,
+            &counts.kind_bit,
+            removed,
         );
     }
 
@@ -7609,6 +7655,34 @@ mod compare_pair_tests {
         assert_eq!(
             super::compare_summary_copy_open_status("Copied", 0, 0, 0, "", "a", "b"),
             "Copied compare summary (−0 +0, 0 hunks) “a” | “b”"
+        );
+    }
+
+    #[test]
+    fn bookmark_difference_status_includes_kind_tallies() {
+        assert_eq!(
+            super::compare_bookmark_differences_status(1, 2, 2, 2, 2, ": 1 delete, 1 insert", 3),
+            "Compare bookmarked differences (−1 +2, L2|R2, 2 hunks: 1 delete, 1 insert, +3 new)"
+        );
+        assert_eq!(
+            super::compare_bookmark_differences_status(1, 0, 1, 1, 1, ": 1 delete", 2),
+            "Compare bookmarked differences (−1 +0, L1|R1, 1 hunk: 1 delete, +2 new)"
+        );
+        assert_eq!(
+            super::compare_clear_difference_bookmarks_status(
+                1,
+                2,
+                2,
+                2,
+                2,
+                ": 1 delete, 1 insert",
+                3
+            ),
+            "Compare cleared difference bookmarks (−1 +2, L2|R2, 2 hunks: 1 delete, 1 insert, −3 removed)"
+        );
+        assert_eq!(
+            super::compare_clear_difference_bookmarks_status(2, 0, 1, 1, 1, ": 1 delete", 0),
+            "Compare cleared difference bookmarks (−2 +0, L1|R1, 1 hunk: 1 delete, −0 removed)"
         );
     }
 

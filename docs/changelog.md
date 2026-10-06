@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.90] — 2026-10-06
+
+Compare:
+
+- **Bookmark Compare Differences** / **Clear Compare Difference Bookmarks** status includes −/+ and hunk-kind tallies (`Compare bookmarked differences (−1 +2, L2|R2, 2 hunks: 1 delete, 1 insert, +3 new)` / `Compare cleared difference bookmarks (−1 +2, L2|R2, 2 hunks: 1 delete, 1 insert, −3 removed)`).
+
 ## [0.3.89] — 2026-10-06
 
 Compare:
