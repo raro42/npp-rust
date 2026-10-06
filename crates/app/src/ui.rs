@@ -442,6 +442,31 @@ fn compare_collapse_gap_status(
     )
 }
 
+/// Status for Next/Previous/First/Last Hidden Equal.
+///
+/// Example: `Compare Next hidden equal → ···5 (1/3) (−1 +2, 2 hunks: 1 delete, 1 insert) · wrapped`.
+fn compare_hide_gap_nav_status(
+    dir: &str,
+    n: usize,
+    ord: usize,
+    total: usize,
+    counts: &ComparePairCounts,
+    wrapped: bool,
+) -> String {
+    let ComparePairCounts {
+        del,
+        ins,
+        hunk_n,
+        kind_bit,
+        ..
+    } = counts;
+    let hunk_word = if *hunk_n == 1 { "hunk" } else { "hunks" };
+    let wrap_bit = if wrapped { " · wrapped" } else { "" };
+    format!(
+        "Compare {dir} hidden equal → ···{n} ({ord}/{total}) (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit}){wrap_bit}"
+    )
+}
+
 fn compare_buffer_eol(buf: &buffer::TextBuffer) -> &'static str {
     let n = buf.line_count();
     for i in 0..n {
@@ -4618,10 +4643,10 @@ Tree-sitter highlight, and a calm UI.",
             crate::commands::CompareHideGapNav::First => "First",
             crate::commands::CompareHideGapNav::Last => "Last",
         };
-        let wrap_bit = if wrapped { " · wrapped" } else { "" };
-        // Overwrite equal-park status with gap-nav ordinal.
-        self.state.status =
-            format!("Compare {dir} hidden equal → ···{n} ({ord}/{total}){wrap_bit}");
+        let counts =
+            compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
+        // Overwrite equal-park status with gap-nav ordinal + pair −/+/kind tallies.
+        self.state.status = compare_hide_gap_nav_status(dir, n, ord, total, &counts, wrapped);
     }
 
     /// Expand the collapsed Equal run nearest the focused caret (menu / keyboard).
@@ -7836,6 +7861,43 @@ mod compare_pair_tests {
         assert_eq!(
             super::compare_collapse_gap_status(2, "", 2, 0, 1, ": 1 delete", 5),
             "Compare collapsed ···2 (−2 +0, 1 hunk: 1 delete, 5 hidden)"
+        );
+    }
+
+    #[test]
+    fn hide_gap_nav_status_includes_kind_tallies() {
+        let two = super::ComparePairCounts {
+            del: 1,
+            ins: 2,
+            hunk_n: 2,
+            equal_pct: 50,
+            kind_bit: ": 1 delete, 1 insert".into(),
+        };
+        assert_eq!(
+            super::compare_hide_gap_nav_status("Next", 5, 1, 3, &two, true),
+            "Compare Next hidden equal → ···5 (1/3) (−1 +2, 2 hunks: 1 delete, 1 insert) · wrapped"
+        );
+        let del_only = super::ComparePairCounts {
+            del: 1,
+            ins: 0,
+            hunk_n: 1,
+            equal_pct: 80,
+            kind_bit: ": 1 delete".into(),
+        };
+        assert_eq!(
+            super::compare_hide_gap_nav_status("First", 3, 1, 2, &del_only, false),
+            "Compare First hidden equal → ···3 (1/2) (−1 +0, 1 hunk: 1 delete)"
+        );
+        let ins_only = super::ComparePairCounts {
+            del: 0,
+            ins: 2,
+            hunk_n: 1,
+            equal_pct: 70,
+            kind_bit: ": 1 insert".into(),
+        };
+        assert_eq!(
+            super::compare_hide_gap_nav_status("Previous", 4, 2, 2, &ins_only, false),
+            "Compare Previous hidden equal → ···4 (2/2) (−0 +2, 1 hunk: 1 insert)"
         );
     }
 

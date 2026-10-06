@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.93] — 2026-10-06
+
+Compare:
+
+- **Next / Previous / First / Last Hidden Equal** status includes −/+ and hunk-kind tallies (`Compare Next hidden equal → ···5 (1/3) (−1 +2, 2 hunks: 1 delete, 1 insert) · wrapped`).
+
 ## [0.3.92] — 2026-10-06
 
 Compare:

@@ -107,3 +107,5 @@
 009 keep: compare expand/collapse all unchanged status −/+/kind tallies (v0.3.91)
 
 009 keep: compare expand/collapse ···N at caret status −/+/kind tallies (v0.3.92)
+
+009 keep: compare next/prev/first/last hidden equal status −/+/kind tallies (v0.3.93)
