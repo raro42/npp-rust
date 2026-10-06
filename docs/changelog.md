@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.82] — 2026-10-06
+
+Compare:
+
+- **Apply All Hunks From/To Other View** status includes kind tallies and total −/+ for the hunks actually applied (`Applied 3 hunks (1 delete, 1 insert, 1 replace −2 +2) from other view · identical`).
+
 ## [0.3.81] — 2026-10-06
 
 Compare:

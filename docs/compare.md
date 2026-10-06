@@ -80,8 +80,8 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - **View → Open Compare Hunk** opens that same caret hunk as a `compare-hunk.diff` tab (Compare turns off so the tab is not pinned away). Status shows `Opened hunk (i/n) unified diff (−N +M)`.
 - **View → Apply Hunk From Other View** replaces the focused pane's change hunk with the other pane (one undo). Insert-only / delete-only hunks insert or delete lines. After apply, both panes park on the **next** remaining hunk (status: `Applied hunk (i/n replace −A +B) from other view → Lx | Ry (j/m delete −C +D)`), or `· identical` when none remain.
 - **View → Apply Hunk To Other View** pushes the focused pane's change hunk onto the other pane (one undo). Same next-hunk park / kind/−/+ status / `· identical` as Apply From Other.
-- **View → Apply All Hunks From Other View** applies every remaining change hunk to the focused pane (one undo), last hunk first. Status shows `Applied N hunks from other view` (plus `· identical` when the pair matches).
-- **View → Apply All Hunks To Other View** pushes every remaining change hunk onto the other pane (one undo), last hunk first. Status shows `Applied N hunks to other view` (plus `· identical` when the pair matches).
+- **View → Apply All Hunks From Other View** applies every remaining change hunk to the focused pane (one undo), last hunk first. Status shows `Applied N hunks (K delete, I insert, R replace −A +B) from other view` (plus `· identical` when the pair matches; kind/−/+ cover only hunks that changed).
+- **View → Apply All Hunks To Other View** pushes every remaining change hunk onto the other pane (one undo), last hunk first. Status shows the same kind/−/+ bit as Apply All From (`Applied N hunks (…) to other view`).
 
 ## Limits
 

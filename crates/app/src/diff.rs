@@ -1479,6 +1479,42 @@ pub fn compare_kind_tally_bit(left_tags: &[LineKind], right_tags: &[LineKind]) -
     }
 }
 
+/// Status bit for Apply All Hunks: kind tallies + total −/+ for the applied ordinals.
+///
+/// Example: `" (1 delete, 1 replace −2 +1)"`. Empty when `ordinals` is empty or tags
+/// cannot align. Ordinals are 1-based Compare summary indices (skips unknown ids).
+pub fn compare_apply_all_status_bit(
+    left_tags: &[LineKind],
+    right_tags: &[LineKind],
+    ordinals: &[usize],
+) -> String {
+    if ordinals.is_empty() {
+        return String::new();
+    }
+    let Some(hunks) = compare_summary_hunks(left_tags, right_tags) else {
+        return String::new();
+    };
+    let mut selected = Vec::with_capacity(ordinals.len());
+    let mut del_lines = 0usize;
+    let mut ins_lines = 0usize;
+    for &ord in ordinals {
+        if let Some(h) = hunks.iter().find(|h| h.ordinal == ord) {
+            del_lines += h.deletes;
+            ins_lines += h.inserts;
+            selected.push(*h);
+        }
+    }
+    if selected.is_empty() {
+        return String::new();
+    }
+    let kinds = format_summary_kind_tallies(&selected);
+    if kinds.is_empty() {
+        String::new()
+    } else {
+        format!(" ({kinds} −{del_lines} +{ins_lines})")
+    }
+}
+
 /// Status/summary suffix for active Compare ignore toggles
 /// (`""`, or e.g. `" · ignore ws+case"`).
 pub fn compare_ignore_note(ignore_ws: bool, ignore_case: bool, ignore_blank: bool) -> String {
@@ -2090,6 +2126,25 @@ mod tests {
         assert_eq!(compare_hunk_kind_and_counts(&l, &r, 4), None);
         let (le, re) = diff_line_tags(&left, &left);
         assert_eq!(compare_hunk_kind_and_counts(&le, &re, 1), None);
+    }
+
+    #[test]
+    fn compare_apply_all_status_bit_tallies_selected() {
+        let left = ["a", "gone", "b", "old", "c"];
+        let right = ["a", "b", "new", "c", "tail"];
+        let (l, r) = diff_line_tags(&left, &right);
+        assert_eq!(
+            compare_apply_all_status_bit(&l, &r, &[1, 2, 3]),
+            " (1 delete, 1 insert, 1 replace −2 +2)"
+        );
+        assert_eq!(
+            compare_apply_all_status_bit(&l, &r, &[1, 3]),
+            " (1 delete, 1 insert −1 +1)"
+        );
+        assert_eq!(compare_apply_all_status_bit(&l, &r, &[]), "");
+        assert_eq!(compare_apply_all_status_bit(&l, &r, &[99]), "");
+        let (le, re) = diff_line_tags(&left, &left);
+        assert_eq!(compare_apply_all_status_bit(&le, &re, &[1]), "");
     }
 
     #[test]

@@ -5335,6 +5335,13 @@ Tree-sitter highlight, and a calm UI.",
             return;
         }
         let applied = pending.len();
+        // Capture kind/−/+ for applied ordinals before re-diff clears tags.
+        let applied_ords: Vec<usize> = pending.iter().map(|(s, _)| s.ordinal).collect();
+        let applied_bit = crate::diff::compare_apply_all_status_bit(
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            &applied_ords,
+        );
         {
             let Some(doc) = self.state.tabs.get_mut(dest_tab) else {
                 return;
@@ -5361,9 +5368,10 @@ Tree-sitter highlight, and a calm UI.",
             .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
         if remaining == 0 {
             self.state.status =
-                format!("Applied {applied} {hunk_word} from other view · identical");
+                format!("Applied {applied} {hunk_word}{applied_bit} from other view · identical");
         } else {
-            self.state.status = format!("Applied {applied} {hunk_word} from other view");
+            self.state.status =
+                format!("Applied {applied} {hunk_word}{applied_bit} from other view");
         }
     }
 
@@ -5432,6 +5440,13 @@ Tree-sitter highlight, and a calm UI.",
             return;
         }
         let applied = pending.len();
+        // Capture kind/−/+ for applied ordinals before re-diff clears tags.
+        let applied_ords: Vec<usize> = pending.iter().map(|(s, _)| s.ordinal).collect();
+        let applied_bit = crate::diff::compare_apply_all_status_bit(
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            &applied_ords,
+        );
         {
             let Some(doc) = self.state.tabs.get_mut(dest_tab) else {
                 return;
@@ -5457,9 +5472,10 @@ Tree-sitter highlight, and a calm UI.",
             .len()
             .max(crate::diff::hunk_starts(&self.compare_right_tags).len());
         if remaining == 0 {
-            self.state.status = format!("Applied {applied} {hunk_word} to other view · identical");
+            self.state.status =
+                format!("Applied {applied} {hunk_word}{applied_bit} to other view · identical");
         } else {
-            self.state.status = format!("Applied {applied} {hunk_word} to other view");
+            self.state.status = format!("Applied {applied} {hunk_word}{applied_bit} to other view");
         }
     }
 
