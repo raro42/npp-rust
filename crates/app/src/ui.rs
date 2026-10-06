@@ -82,6 +82,7 @@ struct CompareHunkPayload {
     right_name: String,
     ordinal: usize,
     total: usize,
+    kind: &'static str,
     deletes: usize,
     inserts: usize,
 }
@@ -267,6 +268,16 @@ fn compare_open_or_copy_status(
     } else {
         format!("{verb} unified diff (−{del} +{ins}) “{lname}” | “{rname}”")
     }
+}
+
+/// Status for Copy/Open Compare Hunk, e.g. `Copied hunk (2/5 replace −1 +1) unified diff “a” | “b”`.
+fn compare_hunk_copy_open_status(
+    verb: &str,
+    ordinal_bit: &str,
+    lname: &str,
+    rname: &str,
+) -> String {
+    format!("{verb} hunk {ordinal_bit} unified diff “{lname}” | “{rname}”")
 }
 
 fn compare_buffer_eol(buf: &buffer::TextBuffer) -> &'static str {
@@ -5010,19 +5021,28 @@ Tree-sitter highlight, and a calm UI.",
         ) else {
             return Err("could not build unified diff");
         };
-        let (del, ins) = crate::diff::hunk_copy_change_counts(
+        let (kind, del, ins) = crate::diff::compare_hunk_kind_and_counts(
             &self.compare_left_tags,
             &self.compare_right_tags,
-            primary,
-            line,
+            ord,
         )
-        .unwrap_or((0, 0));
+        .unwrap_or_else(|| {
+            let (d, i) = crate::diff::hunk_copy_change_counts(
+                &self.compare_left_tags,
+                &self.compare_right_tags,
+                primary,
+                line,
+            )
+            .unwrap_or((0, 0));
+            ("replace", d, i)
+        });
         Ok(CompareHunkPayload {
             text,
             left_name: lname,
             right_name: rname,
             ordinal: ord,
             total,
+            kind,
             deletes: del,
             inserts: ins,
         })
@@ -5033,10 +5053,12 @@ Tree-sitter highlight, and a calm UI.",
         match self.compare_caret_hunk_unified() {
             Ok(p) => {
                 flags.pending_clipboard = Some(p.text);
-                self.state.status = format!(
-                    "Copied hunk ({}/{}) unified diff (−{} +{}) “{}” | “{}”",
-                    p.ordinal, p.total, p.deletes, p.inserts, p.left_name, p.right_name
+                let ordinal = format!(
+                    "({}/{} {} −{} +{})",
+                    p.ordinal, p.total, p.kind, p.deletes, p.inserts
                 );
+                self.state.status =
+                    compare_hunk_copy_open_status("Copied", &ordinal, &p.left_name, &p.right_name);
             }
             Err(why) => {
                 self.state.status = format!("Copy Compare Hunk: {why}");
@@ -5048,6 +5070,10 @@ Tree-sitter highlight, and a calm UI.",
     fn open_compare_hunk_tab(&mut self) {
         match self.compare_caret_hunk_unified() {
             Ok(p) => {
+                let ordinal = format!(
+                    "({}/{} {} −{} +{})",
+                    p.ordinal, p.total, p.kind, p.deletes, p.inserts
+                );
                 self.clear_compare();
                 self.dual_view = false;
                 self.state.tabs.open_untitled();
@@ -5060,10 +5086,8 @@ Tree-sitter highlight, and a calm UI.",
                 }
                 self.state.highlight_dirty = true;
                 self.state.reset_view = true;
-                self.state.status = format!(
-                    "Opened hunk ({}/{}) unified diff (−{} +{}) “{}” | “{}”",
-                    p.ordinal, p.total, p.deletes, p.inserts, p.left_name, p.right_name
-                );
+                self.state.status =
+                    compare_hunk_copy_open_status("Opened", &ordinal, &p.left_name, &p.right_name);
             }
             Err(why) => {
                 self.state.status = format!("Open Compare Hunk: {why}");
@@ -7367,6 +7391,18 @@ mod compare_pair_tests {
         assert_eq!(
             super::compare_open_or_copy_status("Opened", "L", "R", 2, 3),
             "Opened unified diff (−2 +3) “L” | “R”"
+        );
+    }
+
+    #[test]
+    fn hunk_copy_open_status_includes_kind_and_counts() {
+        assert_eq!(
+            super::compare_hunk_copy_open_status("Copied", "(2/5 replace −1 +1)", "a", "b"),
+            "Copied hunk (2/5 replace −1 +1) unified diff “a” | “b”"
+        );
+        assert_eq!(
+            super::compare_hunk_copy_open_status("Opened", "(1/3 delete −2 +0)", "L", "R"),
+            "Opened hunk (1/3 delete −2 +0) unified diff “L” | “R”"
         );
     }
 

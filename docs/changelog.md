@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.83] — 2026-10-06
+
+Compare:
+
+- **Copy Compare Hunk** / **Open Compare Hunk** status includes the hunk kind and −/+ counts (`Copied hunk (2/5 replace −1 +1) unified diff …`), matching nav/apply ordinal bits.
+
 ## [0.3.82] — 2026-10-06
 
 Compare:
