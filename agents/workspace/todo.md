@@ -99,3 +99,5 @@
 009 keep: compare ignore toggle re-diff parks first hunk · at L|R (v0.3.87)
 
 009 keep: compare swap sides re-diff parks first hunk · at L|R (v0.3.88)
+
+009 keep: compare Clear status −/+/kind tallies (v0.3.89)
