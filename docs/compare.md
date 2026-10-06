@@ -46,7 +46,7 @@ Or right-click the other tab → **Compare with this tab** / **Mark for compare*
 
 Status line shows: `Compare “dummy.log” | “dummy.log.2” (−N +M) · K hunks: D delete, I insert, R replace · P% equal` (identical pairs say `(identical)` instead of counts; kind tallies omit zero kinds).
 
-**View → Clear Compare** removes colours. If a Compare-to-Saved `name (saved)` snapshot was in the pair, that tab closes too (status: `Compare cleared (closed saved snapshot)`).
+**View → Clear Compare** removes colours. Status keeps the last pair overview with −/+ and hunk-kind tallies (e.g. `Compare cleared (−1 +2, 2 hunks: 1 delete, 1 insert) “a” | “b”`, or `(identical)`). If a Compare-to-Saved `name (saved)` snapshot was in the pair, that tab closes too (status prefix: `Compare cleared (closed saved snapshot) …`).
 
 While compare is on, panes stay pinned to that pair (tab clicks do not swap the left file away).
 

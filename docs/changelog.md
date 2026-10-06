@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.89] — 2026-10-06
+
+Compare:
+
+- **Clear Compare** status keeps the last pair overview with −/+ and hunk-kind tallies (`Compare cleared (−1 +2, 2 hunks: 1 delete, 1 insert) “a” | “b”`, or `(identical)`; saved-snapshot clear keeps the same counts after the closed-snapshot prefix).
+
 ## [0.3.88] — 2026-10-06
 
 Compare:

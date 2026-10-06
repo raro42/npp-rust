@@ -285,6 +285,29 @@ fn compare_open_or_copy_status(
     }
 }
 
+/// Status for Clear Compare, e.g. `Compare cleared (−1 +2, 2 hunks: 1 delete, 1 insert) “a” | “b”`.
+fn compare_cleared_status(
+    closed_saved_snapshot: bool,
+    lname: &str,
+    rname: &str,
+    del: usize,
+    ins: usize,
+    hunk_n: usize,
+    kind_bit: &str,
+) -> String {
+    let prefix = if closed_saved_snapshot {
+        "Compare cleared (closed saved snapshot)"
+    } else {
+        "Compare cleared"
+    };
+    if del == 0 && ins == 0 {
+        format!("{prefix} (identical) “{lname}” | “{rname}”")
+    } else {
+        let hunk_word = if hunk_n == 1 { "hunk" } else { "hunks" };
+        format!("{prefix} (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit}) “{lname}” | “{rname}”")
+    }
+}
+
 /// Status for Copy/Open Compare Hunk, e.g. `Copied hunk (2/5 replace −1 +1) unified diff “a” | “b”`.
 fn compare_hunk_copy_open_status(
     verb: &str,
@@ -5919,6 +5942,28 @@ Tree-sitter highlight, and a calm UI.",
     }
 
     fn clear_compare(&mut self) {
+        // Capture pair overview before dropping tags so Clear can report −/+/kind tallies.
+        let overview = if self.compare_on {
+            let left = self.compare_left_tab;
+            let right = self.compare_right_tab;
+            let lname = self
+                .state
+                .tabs
+                .get(left)
+                .map(|d| Self::compare_side_name(&d.title))
+                .unwrap_or_else(|| "left".into());
+            let rname = self
+                .state
+                .tabs
+                .get(right)
+                .map(|d| Self::compare_side_name(&d.title))
+                .unwrap_or_else(|| "right".into());
+            let counts =
+                compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
+            Some((lname, rname, counts))
+        } else {
+            None
+        };
         // Drop the Compare-to-Saved snapshot with the colours so it does not linger.
         let snapshot = if self.compare_on {
             [self.compare_left_tab, self.compare_right_tab]
@@ -5941,6 +5986,7 @@ Tree-sitter highlight, and a calm UI.",
         self.compare_hide_revealed_right.clear();
         self.state.compare_stale = false;
         self.compare_refresh_at = None;
+        let mut closed_saved = false;
         if let Some(i) = snapshot {
             if self
                 .state
@@ -5949,11 +5995,26 @@ Tree-sitter highlight, and a calm UI.",
                 .is_some_and(is_compare_saved_snapshot)
             {
                 self.state.close_tab(i);
-                self.state.status = "Compare cleared (closed saved snapshot)".into();
-                return;
+                closed_saved = true;
             }
         }
-        self.state.status = "Compare cleared".into();
+        if let Some((lname, rname, counts)) = overview {
+            self.state.status = compare_cleared_status(
+                closed_saved,
+                &lname,
+                &rname,
+                counts.del,
+                counts.ins,
+                counts.hunk_n,
+                &counts.kind_bit,
+            );
+            return;
+        }
+        self.state.status = if closed_saved {
+            "Compare cleared (closed saved snapshot)".into()
+        } else {
+            "Compare cleared".into()
+        };
     }
 
     /// Rebuild compare colours after an edit (debounce ~200 ms while typing).
@@ -7492,6 +7553,26 @@ mod compare_pair_tests {
         assert_eq!(
             super::compare_open_or_copy_status("Copied", "a", "b", 1, 0, 1, ": 1 delete"),
             "Copied unified diff (−1 +0, 1 hunk: 1 delete) “a” | “b”"
+        );
+    }
+
+    #[test]
+    fn cleared_status_includes_kind_tallies() {
+        assert_eq!(
+            super::compare_cleared_status(false, "a", "b", 0, 0, 0, ""),
+            "Compare cleared (identical) “a” | “b”"
+        );
+        assert_eq!(
+            super::compare_cleared_status(true, "a", "b", 0, 0, 0, ""),
+            "Compare cleared (closed saved snapshot) (identical) “a” | “b”"
+        );
+        assert_eq!(
+            super::compare_cleared_status(false, "L", "R", 1, 2, 2, ": 1 delete, 1 insert"),
+            "Compare cleared (−1 +2, 2 hunks: 1 delete, 1 insert) “L” | “R”"
+        );
+        assert_eq!(
+            super::compare_cleared_status(true, "notes.md", "notes.md (saved)", 1, 0, 1, ": 1 delete"),
+            "Compare cleared (closed saved snapshot) (−1 +0, 1 hunk: 1 delete) “notes.md” | “notes.md (saved)”"
         );
     }
 
