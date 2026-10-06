@@ -5132,11 +5132,13 @@ Tree-sitter highlight, and a calm UI.",
             );
             return;
         }
+        let applied_ord = spec.ordinal;
+        let applied_total = spec.total;
+        // Capture kind/−/+ before re-diff (applied hunk disappears from tags).
+        let applied_bit = self.compare_hunk_ordinal_bit(applied_ord, applied_total);
         let Some(doc) = self.state.tabs.get_mut(dest_tab) else {
             return;
         };
-        let applied_ord = spec.ordinal;
-        let applied_total = spec.total;
         apply_compare_hunk_spec(&mut doc.buffer, &spec, src_slice);
         self.state.mark_text_changed_at(dest_tab);
         self.state.compare_stale = false;
@@ -5162,12 +5164,11 @@ Tree-sitter highlight, and a calm UI.",
             } else {
                 format!(" → {lr}")
             };
-            self.state.status = format!(
-                "Applied hunk ({applied_ord}/{applied_total}) from other view{lr_bit} ({next}/{remaining})"
-            );
-        } else {
+            let next_bit = self.compare_hunk_ordinal_bit(next, remaining);
             self.state.status =
-                format!("Applied hunk ({applied_ord}/{applied_total}) from other view · identical");
+                format!("Applied hunk {applied_bit} from other view{lr_bit} {next_bit}");
+        } else {
+            self.state.status = format!("Applied hunk {applied_bit} from other view · identical");
         }
     }
 
@@ -5232,11 +5233,13 @@ Tree-sitter highlight, and a calm UI.",
             );
             return;
         }
+        let applied_ord = spec.ordinal;
+        let applied_total = spec.total;
+        // Capture kind/−/+ before re-diff (applied hunk disappears from tags).
+        let applied_bit = self.compare_hunk_ordinal_bit(applied_ord, applied_total);
         let Some(doc) = self.state.tabs.get_mut(dest_tab) else {
             return;
         };
-        let applied_ord = spec.ordinal;
-        let applied_total = spec.total;
         apply_compare_hunk_spec(&mut doc.buffer, &spec, src_slice);
         self.state.mark_text_changed_at(dest_tab);
         self.state.compare_stale = false;
@@ -5260,12 +5263,11 @@ Tree-sitter highlight, and a calm UI.",
             } else {
                 format!(" → {lr}")
             };
-            self.state.status = format!(
-                "Applied hunk ({applied_ord}/{applied_total}) to other view{lr_bit} ({next}/{remaining})"
-            );
-        } else {
+            let next_bit = self.compare_hunk_ordinal_bit(next, remaining);
             self.state.status =
-                format!("Applied hunk ({applied_ord}/{applied_total}) to other view · identical");
+                format!("Applied hunk {applied_bit} to other view{lr_bit} {next_bit}");
+        } else {
+            self.state.status = format!("Applied hunk {applied_bit} to other view · identical");
         }
     }
 

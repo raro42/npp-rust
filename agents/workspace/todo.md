@@ -83,3 +83,5 @@
 009 keep: compare nav/click current hunk kind (v0.3.79)
 
 009 keep: compare nav/click current hunk −/+ counts (v0.3.80)
+
+009 keep: compare apply hunk status kind/−/+ (v0.3.81)

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.81] — 2026-10-06
+
+Compare:
+
+- **Apply Hunk From/To Other View** status includes the applied hunk kind and −/+ counts, and the next remaining hunk uses the same ordinal bit (`Applied hunk (1/5 replace −2 +1) from other view → L12 | R15 (2/4 delete −1 +0)`).
+
 ## [0.3.80] — 2026-10-06
 
 Compare:
