@@ -256,17 +256,23 @@ fn visible_lines_with_compare_hide(
     visible_line_indices(line_count, &merged)
 }
 
+/// Status for Copy/Open Compare Diff, e.g. `Copied unified diff (−1 +2, 2 hunks: 1 delete, 1 insert) “a” | “b”`.
 fn compare_open_or_copy_status(
     verb: &str,
     lname: &str,
     rname: &str,
     del: usize,
     ins: usize,
+    hunk_n: usize,
+    kind_bit: &str,
 ) -> String {
     if del == 0 && ins == 0 {
         format!("{verb} unified diff (identical) “{lname}” | “{rname}”")
     } else {
-        format!("{verb} unified diff (−{del} +{ins}) “{lname}” | “{rname}”")
+        let hunk_word = if hunk_n == 1 { "hunk" } else { "hunks" };
+        format!(
+            "{verb} unified diff (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit}) “{lname}” | “{rname}”"
+        )
     }
 }
 
@@ -4805,7 +4811,9 @@ Tree-sitter highlight, and a calm UI.",
     }
 
     /// Unified diff text for the current Compare pair.
-    fn compare_unified_diff_text(&mut self) -> Option<(String, String, String, usize, usize)> {
+    fn compare_unified_diff_text(
+        &mut self,
+    ) -> Option<(String, String, String, usize, usize, usize, String)> {
         if !self.compare_on {
             return None;
         }
@@ -4847,7 +4855,13 @@ Tree-sitter highlight, and a calm UI.",
         )?;
         let (del, ins) =
             crate::diff::count_changes(&self.compare_left_tags, &self.compare_right_tags);
-        Some((text, lname, rname, del, ins))
+        let hunk_n =
+            crate::diff::compare_summary_hunks(&self.compare_left_tags, &self.compare_right_tags)
+                .map(|h| h.len())
+                .unwrap_or(0);
+        let kind_bit =
+            crate::diff::compare_kind_tally_bit(&self.compare_left_tags, &self.compare_right_tags);
+        Some((text, lname, rname, del, ins, hunk_n, kind_bit))
     }
 
     /// Clipboard: unified diff of the current Compare pair.
@@ -4856,12 +4870,15 @@ Tree-sitter highlight, and a calm UI.",
             self.state.status = "Copy Compare Diff: Compare is off".into();
             return;
         }
-        let Some((text, lname, rname, del, ins)) = self.compare_unified_diff_text() else {
+        let Some((text, lname, rname, del, ins, hunk_n, kind_bit)) =
+            self.compare_unified_diff_text()
+        else {
             self.state.status = "Copy Compare Diff: could not build unified diff".into();
             return;
         };
         flags.pending_clipboard = Some(text);
-        self.state.status = compare_open_or_copy_status("Copied", &lname, &rname, del, ins);
+        self.state.status =
+            compare_open_or_copy_status("Copied", &lname, &rname, del, ins, hunk_n, &kind_bit);
     }
 
     /// New tab with the unified diff. Clears Compare so the tab is visible.
@@ -4870,7 +4887,9 @@ Tree-sitter highlight, and a calm UI.",
             self.state.status = "Open Compare Diff: Compare is off".into();
             return;
         }
-        let Some((text, lname, rname, del, ins)) = self.compare_unified_diff_text() else {
+        let Some((text, lname, rname, del, ins, hunk_n, kind_bit)) =
+            self.compare_unified_diff_text()
+        else {
             self.state.status = "Open Compare Diff: could not build unified diff".into();
             return;
         };
@@ -4886,7 +4905,8 @@ Tree-sitter highlight, and a calm UI.",
         }
         self.state.highlight_dirty = true;
         self.state.reset_view = true;
-        self.state.status = compare_open_or_copy_status("Opened", &lname, &rname, del, ins);
+        self.state.status =
+            compare_open_or_copy_status("Opened", &lname, &rname, del, ins, hunk_n, &kind_bit);
     }
 
     /// Build the Compare hunk-index text (refreshes stale tags when needed).
@@ -7407,12 +7427,16 @@ mod compare_pair_tests {
     #[test]
     fn open_or_copy_status_matches_copy_wording() {
         assert_eq!(
-            super::compare_open_or_copy_status("Copied", "a", "b", 0, 0),
+            super::compare_open_or_copy_status("Copied", "a", "b", 0, 0, 0, ""),
             "Copied unified diff (identical) “a” | “b”"
         );
         assert_eq!(
-            super::compare_open_or_copy_status("Opened", "L", "R", 2, 3),
-            "Opened unified diff (−2 +3) “L” | “R”"
+            super::compare_open_or_copy_status("Opened", "L", "R", 2, 3, 2, ": 1 delete, 1 insert"),
+            "Opened unified diff (−2 +3, 2 hunks: 1 delete, 1 insert) “L” | “R”"
+        );
+        assert_eq!(
+            super::compare_open_or_copy_status("Copied", "a", "b", 1, 0, 1, ": 1 delete"),
+            "Copied unified diff (−1 +0, 1 hunk: 1 delete) “a” | “b”"
         );
     }
 

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.85] — 2026-10-06
+
+Compare:
+
+- **Copy Compare Diff** / **Open Compare Diff** status includes hunk-kind tallies (`Copied unified diff (−1 +2, 2 hunks: 1 delete, 1 insert) …`), matching Copy/Open Compare Summary.
+
 ## [0.3.84] — 2026-10-06
 
 Compare:
