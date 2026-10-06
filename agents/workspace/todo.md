@@ -95,3 +95,5 @@
 009 keep: compare copy/open unified diff status kind tallies (v0.3.85)
 
 009 keep: compare start parks first hunk · at L|R (v0.3.86)
+
+009 keep: compare ignore toggle re-diff parks first hunk · at L|R (v0.3.87)
