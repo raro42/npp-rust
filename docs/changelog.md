@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.86] — 2026-10-06
+
+Compare:
+
+- Starting Compare (and Compare to Saved) status appends the parked first hunk (`· at L12 | R15 (1/5 replace −1 +1)`), matching nav/click ordinal bits.
+
 ## [0.3.85] — 2026-10-06
 
 Compare:

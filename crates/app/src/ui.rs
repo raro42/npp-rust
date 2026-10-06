@@ -208,6 +208,15 @@ fn compare_pair_status(
     )
 }
 
+/// Suffix when Compare parks on a hunk (start / First), e.g. ` · at L12 | R15 (1/5 replace −1 +1)`.
+fn compare_at_hunk_status_bit(lr: &str, ordinal_bit: &str) -> String {
+    if lr.is_empty() {
+        format!(" · at {ordinal_bit}")
+    } else {
+        format!(" · at {lr} {ordinal_bit}")
+    }
+}
+
 /// Live Compare status counts from current tags.
 fn compare_pair_counts_from_tags(
     left_tags: &[crate::diff::LineKind],
@@ -6180,7 +6189,8 @@ Tree-sitter highlight, and a calm UI.",
             &self.compare_hide_revealed_right,
             self.state.settings.compare_hide_equal_context_lines(),
         );
-        self.state.status = compare_pair_status(
+        let hunk_n = counts.hunk_n;
+        let mut status = compare_pair_status(
             &lname,
             &rname,
             counts,
@@ -6190,6 +6200,13 @@ Tree-sitter highlight, and a calm UI.",
                 context: self.state.settings.compare_hide_equal_context_lines(),
             },
         );
+        // Start parks both panes on the first change; surface that landing in status.
+        if hunk_n > 0 {
+            let lr = self.compare_hunk_lr_label(1);
+            let ordinal = self.compare_hunk_ordinal_bit(1, hunk_n);
+            status.push_str(&compare_at_hunk_status_bit(&lr, &ordinal));
+        }
+        self.state.status = status;
     }
 
     /// Writable secondary pane: edits `other_view_tab` when this pane has focus.
@@ -7421,6 +7438,18 @@ mod compare_pair_tests {
                 }
             ),
             "Compare “a” | “b” (−1 +0) · 1 hunk: 1 delete · 90% equal · hide equal ±3 · 5 hidden"
+        );
+    }
+
+    #[test]
+    fn at_hunk_status_bit_includes_lr_and_ordinal() {
+        assert_eq!(
+            super::compare_at_hunk_status_bit("L12 | R15", "(1/5 replace −1 +1)"),
+            " · at L12 | R15 (1/5 replace −1 +1)"
+        );
+        assert_eq!(
+            super::compare_at_hunk_status_bit("", "(1/2 delete −1 +0)"),
+            " · at (1/2 delete −1 +0)"
         );
     }
 
