@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.88] — 2026-10-06
+
+Compare:
+
+- **Swap Compare Sides** re-diffs and parks **and selects** both panes on the first change hunk; status appends `· at L|R (1/n kind −/+)` like Compare start / ignore re-diff.
+
 ## [0.3.87] — 2026-10-06
 
 Compare:
