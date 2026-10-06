@@ -1125,9 +1125,13 @@ impl EditorApp {
             self.run_shortcut_cmd("IDM_VIEW_NEXT_DIFF");
         }
 
-        // Compare apply hunk: ⌘/Ctrl+Alt+← from other, ⌘/Ctrl+Alt+→ to other.
+        // Compare apply hunk: ⌘/Ctrl+Alt+←/→ one hunk; +Shift applies all.
         // Alt alone stays word-jump in the editor; command+alt skips caret move there.
-        if cmd && mods.alt && arrow_left {
+        if cmd && mods.alt && mods.shift && arrow_left {
+            self.run_shortcut_cmd("IDM_VIEW_APPLY_ALL_COMPARE_HUNKS");
+        } else if cmd && mods.alt && mods.shift && arrow_right {
+            self.run_shortcut_cmd("IDM_VIEW_APPLY_ALL_COMPARE_HUNKS_TO_OTHER");
+        } else if cmd && mods.alt && arrow_left {
             self.run_shortcut_cmd("IDM_VIEW_APPLY_COMPARE_HUNK");
         } else if cmd && mods.alt && arrow_right {
             self.run_shortcut_cmd("IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER");
@@ -1419,10 +1423,10 @@ impl EditorApp {
                         "Replace the other pane's change hunk with the focused pane (⌘/Ctrl+Alt+→, one undo)",
                     ),
                     "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS" => response.on_hover_text(
-                        "Replace every change hunk on the focused pane with the other pane (one undo)",
+                        "Replace every change hunk on the focused pane with the other pane (⌘/Ctrl+Alt+Shift+←, one undo)",
                     ),
                     "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS_TO_OTHER" => response.on_hover_text(
-                        "Replace every change hunk on the other pane with the focused pane (one undo)",
+                        "Replace every change hunk on the other pane with the focused pane (⌘/Ctrl+Alt+Shift+→, one undo)",
                     ),
                     _ => response,
                 };
@@ -1602,7 +1606,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 23] = [
+                        let rows: [(&str, &str); 24] = [
                             ("⌘/Ctrl N", "New file"),
                             ("⌘/Ctrl O", "Open"),
                             ("⌘/Ctrl S", "Save"),
@@ -1615,6 +1619,10 @@ Tree-sitter highlight, and a calm UI.",
                             ("F7 / ⇧ F7", "Compare next / prev diff"),
                             ("⌘/Ctrl F7 · ⌘/Ctrl ⇧ F7", "Compare first / last diff"),
                             ("⌘/Ctrl Alt ←/→", "Compare apply hunk from / to other"),
+                            (
+                                "⌘/Ctrl Alt ⇧ ←/→",
+                                "Compare apply all hunks from / to other",
+                            ),
                             ("⌘/Ctrl = / -", "Zoom in / out"),
                             (wrap_keys.as_str(), "Word wrap"),
                             ("⌘/Ctrl A", "Select all"),
@@ -7274,7 +7282,7 @@ Tree-sitter highlight, and a calm UI.",
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
                     }
-                    // Alt alone = word jump. Cmd/Ctrl+Alt+← is Compare apply hunk (handle_shortcuts).
+                    // Alt alone = word jump. Cmd/Ctrl+Alt(+Shift)+← is Compare apply (handle_shortcuts).
                     let cmd_mod = modifiers.command || modifiers.ctrl;
                     if modifiers.alt && !cmd_mod {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
@@ -7306,7 +7314,7 @@ Tree-sitter highlight, and a calm UI.",
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
                     }
-                    // Alt alone = word jump. Cmd/Ctrl+Alt+→ is Compare apply hunk (handle_shortcuts).
+                    // Alt alone = word jump. Cmd/Ctrl+Alt(+Shift)+→ is Compare apply (handle_shortcuts).
                     let cmd_mod = modifiers.command || modifiers.ctrl;
                     if modifiers.alt && !cmd_mod {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {

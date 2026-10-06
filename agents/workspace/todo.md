@@ -111,3 +111,5 @@
 009 keep: compare next/prev/first/last hidden equal status −/+/kind tallies (v0.3.93)
 
 009 keep: compare apply hunk From/To hotkeys (v0.3.94)
+
+009 keep: compare apply all hunks From/To hotkeys (v0.3.95)

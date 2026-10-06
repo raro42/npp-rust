@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.95] — 2026-10-07
+
+Compare:
+
+- **Apply All Hunks From / To Other View** hard-wired shortcuts: ⌘/Ctrl+Alt+Shift+← pulls every remaining hunk from the other pane; ⌘/Ctrl+Alt+Shift+→ pushes every remaining hunk to the other pane. Single-hunk ⌘/Ctrl+Alt+←/→ unchanged. About, Shortcut Mapper, and menu hover list the bindings.
+
 ## [0.3.94] — 2026-10-07
 
 Compare:
