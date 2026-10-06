@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.96] — 2026-10-07
+
+Compare:
+
+- **Next / Previous / First / Last Hidden Equal** hard-wired shortcuts: Alt+F7 / Alt+Shift+F7 walk ···N gaps; ⌘/Ctrl+Alt+F7 / ⌘/Ctrl+Alt+Shift+F7 jump to first/last. Plain F7 family still walks change hunks. About, Shortcut Mapper, and menu hover list the bindings.
+
 ## [0.3.95] — 2026-10-07
 
 Compare:

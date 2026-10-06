@@ -1115,7 +1115,16 @@ impl EditorApp {
         }
 
         // Compare hunks: F7 next, Shift+F7 previous, ⌘/Ctrl+F7 first, ⌘/Ctrl+Shift+F7 last.
-        if f7 && cmd && mods.shift {
+        // Hidden Equal (···N gaps): Alt+F7 family (same modifiers as hunk nav).
+        if f7 && mods.alt && cmd && mods.shift {
+            self.run_shortcut_cmd("IDM_VIEW_COMPARE_LAST_HIDDEN_EQUAL");
+        } else if f7 && mods.alt && cmd {
+            self.run_shortcut_cmd("IDM_VIEW_COMPARE_FIRST_HIDDEN_EQUAL");
+        } else if f7 && mods.alt && mods.shift {
+            self.run_shortcut_cmd("IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL");
+        } else if f7 && mods.alt {
+            self.run_shortcut_cmd("IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL");
+        } else if f7 && cmd && mods.shift {
             self.run_shortcut_cmd("IDM_VIEW_LAST_DIFF");
         } else if f7 && cmd {
             self.run_shortcut_cmd("IDM_VIEW_FIRST_DIFF");
@@ -1376,16 +1385,16 @@ impl EditorApp {
                         "While Hide Unchanged Lines is on, re-collapse the expanded Equal run nearest the caret on both panes (···N cue returns for that run)",
                     ),
                     "IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL" => response.on_hover_text(
-                        "While Hide Unchanged Lines is on, jump to the next ···N collapsed Equal gap (wraps; parks both panes)",
+                        "While Hide Unchanged Lines is on, jump to the next ···N collapsed Equal gap (Alt+F7; wraps; parks both panes)",
                     ),
                     "IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL" => response.on_hover_text(
-                        "While Hide Unchanged Lines is on, jump to the previous ···N collapsed Equal gap (wraps; parks both panes)",
+                        "While Hide Unchanged Lines is on, jump to the previous ···N collapsed Equal gap (Alt+Shift+F7; wraps; parks both panes)",
                     ),
                     "IDM_VIEW_COMPARE_FIRST_HIDDEN_EQUAL" => response.on_hover_text(
-                        "While Hide Unchanged Lines is on, jump to the first ···N collapsed Equal gap (parks both panes)",
+                        "While Hide Unchanged Lines is on, jump to the first ···N collapsed Equal gap (⌘/Ctrl+Alt+F7; parks both panes)",
                     ),
                     "IDM_VIEW_COMPARE_LAST_HIDDEN_EQUAL" => response.on_hover_text(
-                        "While Hide Unchanged Lines is on, jump to the last ···N collapsed Equal gap (parks both panes)",
+                        "While Hide Unchanged Lines is on, jump to the last ···N collapsed Equal gap (⌘/Ctrl+Alt+Shift+F7; parks both panes)",
                     ),
                     "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, reveal every collapsed Equal run on both panes (···N cues clear; hide-equal preference stays on)",
@@ -1606,7 +1615,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 24] = [
+                        let rows: [(&str, &str); 26] = [
                             ("⌘/Ctrl N", "New file"),
                             ("⌘/Ctrl O", "Open"),
                             ("⌘/Ctrl S", "Save"),
@@ -1618,6 +1627,11 @@ Tree-sitter highlight, and a calm UI.",
                             ("F2 / ⇧ F2", "Next / prev bookmark"),
                             ("F7 / ⇧ F7", "Compare next / prev diff"),
                             ("⌘/Ctrl F7 · ⌘/Ctrl ⇧ F7", "Compare first / last diff"),
+                            ("Alt F7 / Alt ⇧ F7", "Compare next / prev hidden equal"),
+                            (
+                                "⌘/Ctrl Alt F7 · ⌘/Ctrl Alt ⇧ F7",
+                                "Compare first / last hidden equal",
+                            ),
                             ("⌘/Ctrl Alt ←/→", "Compare apply hunk from / to other"),
                             (
                                 "⌘/Ctrl Alt ⇧ ←/→",

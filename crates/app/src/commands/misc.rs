@@ -254,6 +254,10 @@ F7                    Compare next difference
 Shift+F7              Compare previous difference
 Cmd+F7                Compare first difference
 Cmd+Shift+F7          Compare last difference
+Alt+F7                Compare next hidden equal (···N)
+Alt+Shift+F7          Compare previous hidden equal
+Cmd+Alt+F7            Compare first hidden equal
+Cmd+Alt+Shift+F7      Compare last hidden equal
 Cmd+Alt+Left          Compare apply hunk from other view
 Cmd+Alt+Right         Compare apply hunk to other view
 Cmd+Alt+Shift+Left    Compare apply all hunks from other view
