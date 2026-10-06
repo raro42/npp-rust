@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.80] — 2026-10-06
+
+Compare:
+
+- Next/Previous/First/Last Difference and click/keyboard hunk sync status include the current hunk −/+ line counts (`(2/5 replace −1 +1)`), so hunk size is visible without opening Compare Summary.
+
 ## [0.3.79] — 2026-10-06
 
 Compare:

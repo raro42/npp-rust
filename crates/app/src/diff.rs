@@ -1410,17 +1410,17 @@ fn summary_hunk_kind(h: &CompareSummaryHunk) -> &'static str {
     }
 }
 
-/// Kind label for a 1-based Compare hunk ordinal (`None` if missing / unaligned).
-pub fn compare_hunk_kind(
+/// Kind + delete/insert counts for a 1-based Compare hunk ordinal.
+pub fn compare_hunk_kind_and_counts(
     left_tags: &[LineKind],
     right_tags: &[LineKind],
     ordinal_1based: usize,
-) -> Option<&'static str> {
+) -> Option<(&'static str, usize, usize)> {
     let hunks = compare_summary_hunks(left_tags, right_tags)?;
     hunks
         .iter()
         .find(|h| h.ordinal == ordinal_1based)
-        .map(summary_hunk_kind)
+        .map(|h| (summary_hunk_kind(h), h.deletes, h.inserts))
 }
 
 /// Count summary hunks by kind (`delete` / `insert` / `replace`).
@@ -2071,16 +2071,25 @@ mod tests {
     }
 
     #[test]
-    fn compare_hunk_kind_per_ordinal() {
+    fn compare_hunk_kind_and_counts_per_ordinal() {
         let left = ["a", "gone", "b", "old", "c"];
         let right = ["a", "b", "new", "c", "tail"];
         let (l, r) = diff_line_tags(&left, &right);
-        assert_eq!(compare_hunk_kind(&l, &r, 1), Some("delete"));
-        assert_eq!(compare_hunk_kind(&l, &r, 2), Some("replace"));
-        assert_eq!(compare_hunk_kind(&l, &r, 3), Some("insert"));
-        assert_eq!(compare_hunk_kind(&l, &r, 4), None);
+        assert_eq!(
+            compare_hunk_kind_and_counts(&l, &r, 1),
+            Some(("delete", 1, 0))
+        );
+        assert_eq!(
+            compare_hunk_kind_and_counts(&l, &r, 2),
+            Some(("replace", 1, 1))
+        );
+        assert_eq!(
+            compare_hunk_kind_and_counts(&l, &r, 3),
+            Some(("insert", 0, 1))
+        );
+        assert_eq!(compare_hunk_kind_and_counts(&l, &r, 4), None);
         let (le, re) = diff_line_tags(&left, &left);
-        assert_eq!(compare_hunk_kind(&le, &re, 1), None);
+        assert_eq!(compare_hunk_kind_and_counts(&le, &re, 1), None);
     }
 
     #[test]

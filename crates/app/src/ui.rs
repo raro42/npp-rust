@@ -5567,11 +5567,14 @@ Tree-sitter highlight, and a calm UI.",
         }
     }
 
-    /// Status ordinal bit including hunk kind, e.g. `(2/5 replace)`.
+    /// Status ordinal bit including hunk kind and −/+ counts, e.g. `(2/5 replace −1 +1)`.
     fn compare_hunk_ordinal_bit(&self, ord: usize, total: usize) -> String {
-        match crate::diff::compare_hunk_kind(&self.compare_left_tags, &self.compare_right_tags, ord)
-        {
-            Some(kind) => format!("({ord}/{total} {kind})"),
+        match crate::diff::compare_hunk_kind_and_counts(
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            ord,
+        ) {
+            Some((kind, del, ins)) => format!("({ord}/{total} {kind} −{del} +{ins})"),
             None => format!("({ord}/{total})"),
         }
     }
