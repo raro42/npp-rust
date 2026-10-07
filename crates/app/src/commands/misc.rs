@@ -199,7 +199,9 @@ fn open_info_tab(state: &mut EditorState, title: &str, text: &str) {
 }
 
 fn show_shortcut_mapper(state: &mut EditorState) {
-    use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND_NEXT, DEFAULT_WORD_WRAP};
+    use crate::shortcut_chord::{
+        resolve_chord, DEFAULT_FIND_NEXT, DEFAULT_NEXT_BOOKMARK, DEFAULT_WORD_WRAP,
+    };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
     let wrap_note = if wrap_raw.is_empty() || wrap_raw.eq_ignore_ascii_case(DEFAULT_WORD_WRAP) {
@@ -218,14 +220,28 @@ fn show_shortcut_mapper(state: &mut EditorState) {
             "{find_next} / {find_prev} (from settings.shortcut_find_next = {find_raw:?}; Shift flips)"
         )
     };
+    let bm_chord = resolve_chord(
+        &state.settings.shortcut_next_bookmark,
+        DEFAULT_NEXT_BOOKMARK,
+    );
+    let bm_next = bm_chord.display();
+    let bm_prev = bm_chord.flipped_shift().display();
+    let bm_raw = state.settings.shortcut_next_bookmark.trim();
+    let bm_note = if bm_raw.is_empty() || bm_raw.eq_ignore_ascii_case(DEFAULT_NEXT_BOOKMARK) {
+        format!("{bm_next} / {bm_prev} (default; Preferences → Next bookmark shortcut)")
+    } else {
+        format!(
+            "{bm_next} / {bm_prev} (from settings.shortcut_next_bookmark = {bm_raw:?}; Shift flips)"
+        )
+    };
     // Mirrors crates/app/src/ui.rs handle_shortcuts (+ remappable bindings).
     let text = format!(
         "\
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap and Find next are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, and Next bookmark are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -257,9 +273,8 @@ Cmd+H / Cmd+Shift+F   Replace
 Cmd+G                 Find next (global; hard-wired)
 Cmd+Shift+G           Find previous (global; hard-wired)
 Cmd+L                 Go to line
-F2                    Next bookmark
-Shift+F2              Previous bookmark
-Cmd+F2                Toggle bookmark
+{bm_note}
+Cmd+F2                Toggle bookmark (hard-wired)
 F7                    Compare next difference
 Shift+F7              Compare previous difference
 Cmd+F7                Compare first difference

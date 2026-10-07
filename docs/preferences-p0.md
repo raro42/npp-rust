@@ -29,6 +29,8 @@ New keys:
 | `show_npc` | Show non-printing / control characters; default off |
 | `show_indent_guide` | Vertical indent guides; default off |
 | `shortcut_word_wrap` | Word-wrap toggle chord (`Alt+Z` default; e.g. `Ctrl+W`) |
+| `shortcut_find_next` | Find-next chord (`F3` default; Shift flips to find previous) |
+| `shortcut_next_bookmark` | Next-bookmark chord (`F2` default; Shift flips to previous; Cmd/Ctrl+F2 toggle stays hard-wired) |
 
 Unknown extra keys are kept on load/save (not dropped).
 

@@ -1167,13 +1167,47 @@ impl EditorApp {
             }
         }
 
-        // Bookmarks: F2 next, Shift+F2 prev, Cmd+F2 toggle.
-        if f2 && cmd {
-            self.run_shortcut_cmd("IDM_SEARCH_TOGGLE_BOOKMARK");
-        } else if f2 && mods.shift {
-            self.run_shortcut_cmd("IDM_SEARCH_PREV_BOOKMARK");
-        } else if f2 {
-            self.run_shortcut_cmd("IDM_SEARCH_NEXT_BOOKMARK");
+        // Bookmarks: remappable next (default F2; Shift flips to prev) + Cmd+F2 toggle.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_NEXT_BOOKMARK};
+            let bm_chord = resolve_chord(
+                &self.state.settings.shortcut_next_bookmark,
+                DEFAULT_NEXT_BOOKMARK,
+            );
+            let bm_key_pressed = match bm_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_prev =
+                bm_key_pressed && bm_chord.flipped_shift().matches(mods, bm_chord.key);
+            let remapped_next = bm_key_pressed && bm_chord.matches(mods, bm_chord.key);
+            if f2 && cmd {
+                self.run_shortcut_cmd("IDM_SEARCH_TOGGLE_BOOKMARK");
+            } else if remapped_prev {
+                self.run_shortcut_cmd("IDM_SEARCH_PREV_BOOKMARK");
+            } else if remapped_next {
+                self.run_shortcut_cmd("IDM_SEARCH_NEXT_BOOKMARK");
+            }
         }
 
         // Compare hunks: F7 next, Shift+F7 previous, ⌘/Ctrl+F7 first, ⌘/Ctrl+Shift+F7 last.
@@ -1695,6 +1729,15 @@ Tree-sitter highlight, and a calm UI.",
                     find_chord.display(),
                     find_chord.flipped_shift().display()
                 );
+                let bm_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_next_bookmark,
+                    crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
+                );
+                let bm_keys = format!(
+                    "{} / {}",
+                    bm_chord.display(),
+                    bm_chord.flipped_shift().display()
+                );
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
                     .spacing([16.0, 4.0])
@@ -1708,7 +1751,7 @@ Tree-sitter highlight, and a calm UI.",
                             (find_keys.as_str(), "Find next / prev"),
                             ("⌘/Ctrl G", "Find next (global)"),
                             ("⌘/Ctrl L", "Go to line"),
-                            ("F2 / ⇧ F2", "Next / prev bookmark"),
+                            (bm_keys.as_str(), "Next / prev bookmark"),
                             ("F7 / ⇧ F7", "Compare next / prev diff"),
                             ("⌘/Ctrl F7 · ⌘/Ctrl ⇧ F7", "Compare first / last diff"),
                             ("Alt F7 / Alt ⇧ F7", "Compare next / prev hidden equal"),
@@ -1954,6 +1997,38 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: F3, Alt+N. Shift + that key is Find previous. Cmd/Ctrl+G stays hard-wired.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Next bookmark shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_next_bookmark,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("F2"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_next_bookmark.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_next_bookmark =
+                                        crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_next_bookmark = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: F2, Alt+B. Shift + that key is Previous bookmark. Cmd/Ctrl+F2 toggle stays hard-wired.",
                             )
                             .small()
                             .weak(),

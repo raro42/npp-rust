@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.105] — 2026-10-07
+
+Settings / shortcuts:
+
+- **Next bookmark** is remappable: Preferences → Next bookmark shortcut, or `shortcut_next_bookmark` in `npp-rs/settings.json` (default `F2`). Shift + that chord is Previous bookmark. Cmd/Ctrl+F2 toggle stays hard-wired. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.104] — 2026-10-07
 
 Settings / shortcuts:

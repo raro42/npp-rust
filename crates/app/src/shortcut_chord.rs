@@ -11,6 +11,9 @@ pub const DEFAULT_WORD_WRAP: &str = "Alt+Z";
 /// Default find-next binding (matches historical hard-wire). Find prev uses Shift toggled.
 pub const DEFAULT_FIND_NEXT: &str = "F3";
 
+/// Default next-bookmark binding (matches historical hard-wire). Prev uses Shift toggled.
+pub const DEFAULT_NEXT_BOOKMARK: &str = "F2";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -230,5 +233,16 @@ mod tests {
         assert_eq!(c.key, Key::F3);
         assert_eq!(c.display(), "F3");
         assert_eq!(c.flipped_shift().display(), "Shift+F3");
+    }
+
+    #[test]
+    fn parse_f2_default_next_bookmark() {
+        let c = parse_chord(DEFAULT_NEXT_BOOKMARK).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F2);
+        assert_eq!(c.display(), "F2");
+        assert_eq!(c.flipped_shift().display(), "Shift+F2");
     }
 }
