@@ -200,8 +200,8 @@ fn open_info_tab(state: &mut EditorState, title: &str, text: &str) {
 
 fn show_shortcut_mapper(state: &mut EditorState) {
     use crate::shortcut_chord::{
-        resolve_chord, DEFAULT_FIND_NEXT, DEFAULT_GOTO_LINE, DEFAULT_NEXT_BOOKMARK,
-        DEFAULT_NEXT_DIFF, DEFAULT_WORD_WRAP,
+        resolve_chord, DEFAULT_DUPLICATE_LINE, DEFAULT_FIND_NEXT, DEFAULT_GOTO_LINE,
+        DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF, DEFAULT_WORD_WRAP,
     };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
@@ -253,14 +253,25 @@ fn show_shortcut_mapper(state: &mut EditorState) {
     } else {
         format!("{goto} (from settings.shortcut_goto_line = {goto_raw:?})")
     };
+    let dup = resolve_chord(
+        &state.settings.shortcut_duplicate_line,
+        DEFAULT_DUPLICATE_LINE,
+    )
+    .display();
+    let dup_raw = state.settings.shortcut_duplicate_line.trim();
+    let dup_note = if dup_raw.is_empty() || dup_raw.eq_ignore_ascii_case(DEFAULT_DUPLICATE_LINE) {
+        format!("{dup} (default; Preferences → Duplicate line shortcut)")
+    } else {
+        format!("{dup} (from settings.shortcut_duplicate_line = {dup_raw:?})")
+    };
     // Mirrors crates/app/src/ui.rs handle_shortcuts (+ remappable bindings).
     let text = format!(
         "\
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, Next bookmark, Next difference, and Go to line are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_next_diff, shortcut_goto_line). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Next bookmark, Next difference, Go to line, and Duplicate line are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_next_diff, shortcut_goto_line, shortcut_duplicate_line). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -278,7 +289,7 @@ Cmd+W                 Close tab
 Cmd+Z                 Undo
 Cmd+Shift+Z / Cmd+Y   Redo
 Cmd+A                 Select all
-Cmd+D                 Duplicate line
+{dup_note}
 Cmd+Shift+L           Delete line
 Cmd+]                 Indent lines (4 spaces)
 Cmd+[                 Outdent lines (4 spaces)

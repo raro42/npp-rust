@@ -1017,14 +1017,47 @@ impl EditorApp {
                 doc.buffer.select_all();
             }
         }
-        if cmd && d {
-            let tab = self.focused_edit_tab();
-            self.state.prepare_edit_at(tab);
-            if let Some(doc) = self.state.tabs.get_mut(tab) {
-                doc.buffer.duplicate_line();
+        // Remappable duplicate line (default Cmd+D; settings.shortcut_duplicate_line).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_DUPLICATE_LINE};
+            let dup_chord = resolve_chord(
+                &self.state.settings.shortcut_duplicate_line,
+                DEFAULT_DUPLICATE_LINE,
+            );
+            let dup_key_pressed = match dup_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if dup_key_pressed && dup_chord.matches(mods, dup_chord.key) {
+                let tab = self.focused_edit_tab();
+                self.state.prepare_edit_at(tab);
+                if let Some(doc) = self.state.tabs.get_mut(tab) {
+                    doc.buffer.duplicate_line();
+                }
+                self.state.mark_text_changed_at(tab);
+                self.follow_focused_caret();
             }
-            self.state.mark_text_changed_at(tab);
-            self.follow_focused_caret();
         }
         // Delete line stays hard-wired (Cmd/Ctrl+Shift+L).
         if cmd && l && mods.shift {
@@ -1822,6 +1855,11 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_GOTO_LINE,
                 )
                 .display();
+                let dup_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_duplicate_line,
+                    crate::shortcut_chord::DEFAULT_DUPLICATE_LINE,
+                )
+                .display();
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
                     .spacing([16.0, 4.0])
@@ -1852,7 +1890,7 @@ Tree-sitter highlight, and a calm UI.",
                             ("⌘/Ctrl = / -", "Zoom in / out"),
                             (wrap_keys.as_str(), "Word wrap"),
                             ("⌘/Ctrl A", "Select all"),
-                            ("⌘/Ctrl D", "Duplicate line"),
+                            (dup_keys.as_str(), "Duplicate line"),
                             ("⌘/Ctrl ] / [", "Indent / Outdent"),
                             ("⌘/Ctrl ⇧ I", "Format document"),
                             ("⌘/Ctrl ⇧ T", "Toggle log tail"),
@@ -2178,6 +2216,36 @@ Tree-sitter highlight, and a calm UI.",
                             )
                             .small()
                             .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Duplicate line shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_duplicate_line,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+D"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_duplicate_line.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_duplicate_line =
+                                        crate::shortcut_chord::DEFAULT_DUPLICATE_LINE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_DUPLICATE_LINE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_duplicate_line = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new("Example: Cmd+D, Ctrl+Shift+D.")
+                                .small()
+                                .weak(),
                         );
                         ui.label("Default EOL (Enter key)");
                         let eol = &mut self.state.settings.default_eol;

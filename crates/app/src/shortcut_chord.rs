@@ -20,6 +20,9 @@ pub const DEFAULT_NEXT_DIFF: &str = "F7";
 /// Default go-to-line binding (matches historical hard-wire). Cmd/Ctrl+Shift+L delete stays hard-wired.
 pub const DEFAULT_GOTO_LINE: &str = "Cmd+L";
 
+/// Default duplicate-line binding (matches historical hard-wire).
+pub const DEFAULT_DUPLICATE_LINE: &str = "Cmd+D";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -273,5 +276,15 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::L);
         assert_eq!(c.display(), "Cmd+L");
+    }
+
+    #[test]
+    fn parse_cmd_d_default_duplicate_line() {
+        let c = parse_chord(DEFAULT_DUPLICATE_LINE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::D);
+        assert_eq!(c.display(), "Cmd+D");
     }
 }

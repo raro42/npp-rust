@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.108] — 2026-10-07
+
+Settings / shortcuts:
+
+- **Duplicate line** is remappable: Preferences → Duplicate line shortcut, or `shortcut_duplicate_line` in `npp-rs/settings.json` (default `Cmd+D`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.107] — 2026-10-07
 
 Settings / shortcuts:

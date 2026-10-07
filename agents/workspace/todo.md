@@ -137,3 +137,5 @@
 009 keep: remappable next difference shortcut (shortcut_next_diff, v0.3.106)
 
 009 keep: remappable go to line shortcut (shortcut_goto_line, v0.3.107)
+
+009 keep: remappable duplicate line shortcut (shortcut_duplicate_line, v0.3.108)

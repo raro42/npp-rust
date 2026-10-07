@@ -23,7 +23,7 @@ Deep gap list (hotkeys, DnD, feature table): [gap-analysis-vs-npp.md](gap-analys
 
 ## Still not Notepad++
 
-- Larger hard-wired shortcut set; word wrap + find next + next bookmark + next difference + go to line remappable (`shortcut_word_wrap`, `shortcut_find_next`, `shortcut_next_bookmark`, `shortcut_next_diff`, `shortcut_goto_line`); no full `shortcuts.xml` yet
+- Larger hard-wired shortcut set; word wrap + find next + next bookmark + next difference + go to line + duplicate line remappable (`shortcut_word_wrap`, `shortcut_find_next`, `shortcut_next_bookmark`, `shortcut_next_diff`, `shortcut_goto_line`, `shortcut_duplicate_line`); no full `shortcuts.xml` yet
 - File drop + selection drag move/copy (v0.3.8); Alt+rect column select + multi-caret typing (v0.3.9; no virtual space)
 - No N++ plugin ABI / Plugin Admin install
 - No UDL, hex editor, FTP/cloud, UI localization
