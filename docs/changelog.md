@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.104] — 2026-10-07
+
+Settings / shortcuts:
+
+- **Find next** is remappable: Preferences → Find next shortcut, or `shortcut_find_next` in `npp-rs/settings.json` (default `F3`). Shift + that chord is Find previous. Cmd/Ctrl+G stays hard-wired. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.103] — 2026-10-07
 
 Compare:

@@ -88,6 +88,10 @@ fn default_shortcut_word_wrap() -> String {
     crate::shortcut_chord::DEFAULT_WORD_WRAP.into()
 }
 
+fn default_shortcut_find_next() -> String {
+    crate::shortcut_chord::DEFAULT_FIND_NEXT.into()
+}
+
 fn default_compare_hide_equal_context() -> u8 {
     u8::try_from(crate::diff::COMPARE_HIDE_EQUAL_CONTEXT).unwrap_or(3)
 }
@@ -204,6 +208,9 @@ pub struct AppSettings {
     /// Word-wrap toggle chord (`Alt+Z` default). See Preferences / Shortcut Mapper.
     #[serde(default = "default_shortcut_word_wrap")]
     pub shortcut_word_wrap: String,
+    /// Find-next chord (`F3` default). Shift + same key is find previous.
+    #[serde(default = "default_shortcut_find_next")]
+    pub shortcut_find_next: String,
     /// Unknown keys from disk. Kept so a save does not drop hand-edited or future fields.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     extra: serde_json::Map<String, serde_json::Value>,
@@ -249,6 +256,7 @@ impl Default for AppSettings {
             backup_on_save: false,
             autosave_interval_secs: 0,
             shortcut_word_wrap: default_shortcut_word_wrap(),
+            shortcut_find_next: default_shortcut_find_next(),
             extra: serde_json::Map::new(),
         }
     }
@@ -565,6 +573,7 @@ mod tests {
             compare_hide_equal_context: 5,
             backup_on_save: true,
             autosave_interval_secs: 60,
+            shortcut_find_next: "Ctrl+F3".into(),
             ..Default::default()
         };
         let text = serde_json::to_string_pretty(&original).expect("serialize");
@@ -585,6 +594,7 @@ mod tests {
         assert_eq!(back.compare_hide_equal_context_lines(), 5);
         assert!(back.backup_on_save);
         assert_eq!(back.autosave_interval_secs, 60);
+        assert_eq!(back.shortcut_find_next, "Ctrl+F3");
     }
 
     #[test]

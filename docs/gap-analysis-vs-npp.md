@@ -14,7 +14,7 @@ Expect large gaps. The menu tree looks complete. Behaviour depth does not.
 |-------|-----------|--------------|
 | Menu IDs | Full Win32 tree | ~478 IDs, almost all teal |
 | Edit engine | Scintilla | Custom rope + egui paint |
-| Shortcuts | Remappable (`shortcuts.xml`) | Hard-wired set + one remap (`shortcut_word_wrap`, v0.3.19) |
+| Shortcuts | Remappable (`shortcuts.xml`) | Hard-wired set + remaps (`shortcut_word_wrap`, `shortcut_find_next`) |
 | Plugins | DLL ABI + Admin | In-process builtins only |
 | Languages | 80+ + UDL | Tree-sitter subset (~7–8) |
 | Platforms | Windows-first | macOS / Linux / Windows |
@@ -27,7 +27,7 @@ Expect large gaps. The menu tree looks complete. Behaviour depth does not.
 
 **No.**
 
-Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus caret keys in `handle_editor_input`). Settings → Shortcut Mapper dumps that list and the effective **word wrap** chord. Word wrap remaps via Preferences / `shortcut_word_wrap` in `npp-rs/settings.json`. There is **no** full `shortcuts.xml` remap yet.
+Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus caret keys in `handle_editor_input`). Settings → Shortcut Mapper dumps that list and the effective **word wrap** / **find next** chords. Word wrap remaps via Preferences / `shortcut_word_wrap`; Find next via Preferences / `shortcut_find_next` (Shift flips to Find previous). There is **no** full `shortcuts.xml` remap yet.
 
 | Shortcut | Action |
 |----------|--------|
@@ -121,7 +121,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 
 ### P0 — daily editor feel
 
-1. **More hotkeys** + broader remap (`shortcuts.xml` or settings) — hard-wired set grew in v0.3.7; word wrap remaps in v0.3.19; full mapper still open
+1. **More hotkeys** + broader remap (`shortcuts.xml` or settings) — hard-wired set grew in v0.3.7; word wrap remaps in v0.3.19; find next remaps in v0.3.104; full mapper still open
 2. **Global Find next** (F3) — **done** in v0.3.7
 3. **File drop** onto the window — **done** in v0.3.8
 4. **Selection drag** move/copy — **done** in v0.3.8 (same-buffer; Ctrl/Cmd = copy)
@@ -155,7 +155,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | Claim | Reality |
 |-------|---------|
 | “478 IDs implemented / 0 stubs” | Handlers exist; many are MVP or status-only |
-| Shortcut Mapper | Static text of hard-wired keys + effective word-wrap remap |
+| Shortcut Mapper | Static text of hard-wired keys + effective word-wrap / find-next remaps |
 | Plugin Admin | Lists builtins; does not load plugins |
 | Column mode tip | Tip string; no Scintilla rect mode |
 

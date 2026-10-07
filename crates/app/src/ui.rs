@@ -1118,21 +1118,53 @@ impl EditorApp {
             self.scroll_line = 0.0;
         }
 
-        // Find next/prev: F3 / Shift+F3 and Cmd+G / Cmd+Shift+G (global; Find bar optional).
-        let find_prev_key = (f3 && mods.shift) || (cmd && g && mods.shift);
-        let find_next_key = (f3 && !mods.shift) || (cmd && g && !mods.shift);
-        if find_prev_key {
-            if self.state.find_query.is_empty() {
-                self.seed_find_from_selection();
+        // Find next/prev: remappable chord (default F3; Shift flips to prev) + Cmd+G / Cmd+Shift+G.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND_NEXT};
+            let find_chord =
+                resolve_chord(&self.state.settings.shortcut_find_next, DEFAULT_FIND_NEXT);
+            let find_key_pressed = match find_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_prev =
+                find_key_pressed && find_chord.flipped_shift().matches(mods, find_chord.key);
+            let remapped_next = find_key_pressed && find_chord.matches(mods, find_chord.key);
+            let find_prev_key = remapped_prev || (cmd && g && mods.shift);
+            let find_next_key = remapped_next || (cmd && g && !mods.shift);
+            if find_prev_key {
+                if self.state.find_query.is_empty() {
+                    self.seed_find_from_selection();
+                }
+                self.state.find_prev();
+                self.follow_focused_caret();
+            } else if find_next_key {
+                if self.state.find_query.is_empty() {
+                    self.seed_find_from_selection();
+                }
+                self.state.find_next();
+                self.follow_focused_caret();
             }
-            self.state.find_prev();
-            self.follow_focused_caret();
-        } else if find_next_key {
-            if self.state.find_query.is_empty() {
-                self.seed_find_from_selection();
-            }
-            self.state.find_next();
-            self.follow_focused_caret();
         }
 
         // Bookmarks: F2 next, Shift+F2 prev, Cmd+F2 toggle.
@@ -1654,6 +1686,15 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_WORD_WRAP,
                 )
                 .display();
+                let find_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_find_next,
+                    crate::shortcut_chord::DEFAULT_FIND_NEXT,
+                );
+                let find_keys = format!(
+                    "{} / {}",
+                    find_chord.display(),
+                    find_chord.flipped_shift().display()
+                );
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
                     .spacing([16.0, 4.0])
@@ -1664,7 +1705,7 @@ Tree-sitter highlight, and a calm UI.",
                             ("⌘/Ctrl S", "Save"),
                             ("⌘/Ctrl ⇧ S", "Save As"),
                             ("⌘/Ctrl F / H", "Find / Replace"),
-                            ("F3 / ⇧ F3", "Find next / prev"),
+                            (find_keys.as_str(), "Find next / prev"),
                             ("⌘/Ctrl G", "Find next (global)"),
                             ("⌘/Ctrl L", "Go to line"),
                             ("F2 / ⇧ F2", "Next / prev bookmark"),
@@ -1886,9 +1927,33 @@ Tree-sitter highlight, and a calm UI.",
                                 changed = true;
                             }
                         });
+                        ui.horizontal(|ui| {
+                            ui.label("Find next shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_find_next,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("F3"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_find_next.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_find_next =
+                                        crate::shortcut_chord::DEFAULT_FIND_NEXT.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIND_NEXT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_find_next = raw;
+                                }
+                                changed = true;
+                            }
+                        });
                         ui.label(
                             RichText::new(
-                                "Example: Alt+Z, Ctrl+W, Cmd+Shift+W. One remappable key so far.",
+                                "Example: F3, Alt+N. Shift + that key is Find previous. Cmd/Ctrl+G stays hard-wired.",
                             )
                             .small()
                             .weak(),

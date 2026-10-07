@@ -199,7 +199,7 @@ fn open_info_tab(state: &mut EditorState, title: &str, text: &str) {
 }
 
 fn show_shortcut_mapper(state: &mut EditorState) {
-    use crate::shortcut_chord::{resolve_chord, DEFAULT_WORD_WRAP};
+    use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND_NEXT, DEFAULT_WORD_WRAP};
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
     let wrap_note = if wrap_raw.is_empty() || wrap_raw.eq_ignore_ascii_case(DEFAULT_WORD_WRAP) {
@@ -207,14 +207,25 @@ fn show_shortcut_mapper(state: &mut EditorState) {
     } else {
         format!("{wrap} (from settings.shortcut_word_wrap = {wrap_raw:?})")
     };
-    // Mirrors crates/app/src/ui.rs handle_shortcuts (+ one remappable binding).
+    let find_chord = resolve_chord(&state.settings.shortcut_find_next, DEFAULT_FIND_NEXT);
+    let find_next = find_chord.display();
+    let find_prev = find_chord.flipped_shift().display();
+    let find_raw = state.settings.shortcut_find_next.trim();
+    let find_note = if find_raw.is_empty() || find_raw.eq_ignore_ascii_case(DEFAULT_FIND_NEXT) {
+        format!("{find_next} / {find_prev} (default; Preferences → Find next shortcut)")
+    } else {
+        format!(
+            "{find_next} / {find_prev} (from settings.shortcut_find_next = {find_raw:?}; Shift flips)"
+        )
+    };
+    // Mirrors crates/app/src/ui.rs handle_shortcuts (+ remappable bindings).
     let text = format!(
         "\
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap is remappable via Preferences or npp-rs/settings.json
-(key shortcut_word_wrap). Full shortcuts.xml remap is not wired yet.
+Word wrap and Find next are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -242,10 +253,9 @@ Find / navigate
 ---------------
 Cmd+F                 Find
 Cmd+H / Cmd+Shift+F   Replace
-F3                    Find next (global; Find bar optional)
-Shift+F3              Find previous (global)
-Cmd+G                 Find next (global)
-Cmd+Shift+G           Find previous (global)
+{find_note}
+Cmd+G                 Find next (global; hard-wired)
+Cmd+Shift+G           Find previous (global; hard-wired)
 Cmd+L                 Go to line
 F2                    Next bookmark
 Shift+F2              Previous bookmark

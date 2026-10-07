@@ -8,6 +8,9 @@ use eframe::egui::{Key, Modifiers};
 /// Default word-wrap toggle binding (matches historical hard-wire).
 pub const DEFAULT_WORD_WRAP: &str = "Alt+Z";
 
+/// Default find-next binding (matches historical hard-wire). Find prev uses Shift toggled.
+pub const DEFAULT_FIND_NEXT: &str = "F3";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -23,6 +26,14 @@ impl KeyChord {
         }
         let cmd = mods.command || mods.ctrl;
         cmd == self.ctrl_or_cmd && mods.shift == self.shift && mods.alt == self.alt
+    }
+
+    /// Same chord with Shift flipped (find next ↔ find previous).
+    pub fn flipped_shift(self) -> Self {
+        Self {
+            shift: !self.shift,
+            ..self
+        }
     }
 
     /// Human-readable form for Shortcut Mapper / About (`Cmd` = Ctrl on non-mac).
@@ -208,5 +219,16 @@ mod tests {
             ..Modifiers::default()
         };
         assert!(!c.matches(alt_ctrl, Key::Z));
+    }
+
+    #[test]
+    fn parse_f3_default_find_next() {
+        let c = parse_chord(DEFAULT_FIND_NEXT).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F3);
+        assert_eq!(c.display(), "F3");
+        assert_eq!(c.flipped_shift().display(), "Shift+F3");
     }
 }

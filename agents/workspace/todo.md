@@ -129,3 +129,5 @@
 009 keep: compare equal park · N% equal (v0.3.102)
 
 009 keep: compare equal park ignore + hide-equal bits (v0.3.103)
+
+009 keep: remappable Find next shortcut (shortcut_find_next, v0.3.104)
