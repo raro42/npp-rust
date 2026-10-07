@@ -123,3 +123,5 @@
 009 keep: compare edit re-diff parks partner + · at L|R (v0.3.99)
 
 009 keep: compare equal partner park reveals hide-equal + · equal L|R (v0.3.100)
+
+009 keep: compare equal park status −/+/kind tallies (v0.3.101)

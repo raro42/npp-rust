@@ -265,6 +265,25 @@ fn visible_lines_with_compare_hide(
     visible_line_indices(line_count, &merged)
 }
 
+/// Status for Equal-line partner park (click/keyboard).
+///
+/// Example: `Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert)`.
+fn compare_equal_park_status(
+    l: usize,
+    r: usize,
+    del: usize,
+    ins: usize,
+    hunk_n: usize,
+    kind_bit: &str,
+) -> String {
+    if del == 0 && ins == 0 {
+        format!("Compare equal → L{l} | R{r} (identical)")
+    } else {
+        let hunk_word = if hunk_n == 1 { "hunk" } else { "hunks" };
+        format!("Compare equal → L{l} | R{r} (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit})")
+    }
+}
+
 /// Status for Copy/Open Compare Diff, e.g. `Copied unified diff (−1 +2, 2 hunks: 1 delete, 1 insert) “a” | “b”`.
 fn compare_open_or_copy_status(
     verb: &str,
@@ -6040,7 +6059,16 @@ Tree-sitter highlight, and a calm UI.",
         } else {
             (oline + 1, line + 1)
         };
-        self.state.status = format!("Compare equal → L{l} | R{r}");
+        let counts =
+            compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
+        self.state.status = compare_equal_park_status(
+            l,
+            r,
+            counts.del,
+            counts.ins,
+            counts.hunk_n,
+            &counts.kind_bit,
+        );
     }
 
     /// Flip left/right compare panes; primary stays focused on the new left.
@@ -8128,6 +8156,22 @@ mod compare_pair_tests {
         assert_eq!(
             super::compare_collapse_gap_status(2, "", 2, 0, 1, ": 1 delete", 5),
             "Compare collapsed ···2 (−2 +0, 1 hunk: 1 delete, 5 hidden)"
+        );
+    }
+
+    #[test]
+    fn equal_park_status_includes_kind_tallies() {
+        assert_eq!(
+            super::compare_equal_park_status(12, 12, 1, 2, 2, ": 1 delete, 1 insert"),
+            "Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert)"
+        );
+        assert_eq!(
+            super::compare_equal_park_status(3, 5, 1, 0, 1, ": 1 delete"),
+            "Compare equal → L3 | R5 (−1 +0, 1 hunk: 1 delete)"
+        );
+        assert_eq!(
+            super::compare_equal_park_status(8, 8, 0, 0, 0, ""),
+            "Compare equal → L8 | R8 (identical)"
         );
     }
 

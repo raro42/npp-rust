@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.101] — 2026-10-07
+
+Compare:
+
+- Equal-line partner park (click / keyboard) status includes pair −/+/kind tallies, e.g. `Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert)` (or `(identical)`).
+
 ## [0.3.100] — 2026-10-07
 
 Compare:
