@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.102] — 2026-10-07
+
+Compare:
+
+- Equal-line partner park (click / keyboard) status appends Equal-line match percent, e.g. `Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert) · 50% equal` (identical pairs stay `(identical)`).
+
 ## [0.3.101] — 2026-10-07
 
 Compare:

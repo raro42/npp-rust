@@ -267,7 +267,7 @@ fn visible_lines_with_compare_hide(
 
 /// Status for Equal-line partner park (click/keyboard).
 ///
-/// Example: `Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert)`.
+/// Example: `Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert) · 50% equal`.
 fn compare_equal_park_status(
     l: usize,
     r: usize,
@@ -275,12 +275,15 @@ fn compare_equal_park_status(
     ins: usize,
     hunk_n: usize,
     kind_bit: &str,
+    equal_pct: u8,
 ) -> String {
     if del == 0 && ins == 0 {
         format!("Compare equal → L{l} | R{r} (identical)")
     } else {
         let hunk_word = if hunk_n == 1 { "hunk" } else { "hunks" };
-        format!("Compare equal → L{l} | R{r} (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit})")
+        format!(
+            "Compare equal → L{l} | R{r} (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit}) · {equal_pct}% equal"
+        )
     }
 }
 
@@ -6068,6 +6071,7 @@ Tree-sitter highlight, and a calm UI.",
             counts.ins,
             counts.hunk_n,
             &counts.kind_bit,
+            counts.equal_pct,
         );
     }
 
@@ -8160,17 +8164,17 @@ mod compare_pair_tests {
     }
 
     #[test]
-    fn equal_park_status_includes_kind_tallies() {
+    fn equal_park_status_includes_kind_tallies_and_equal_pct() {
         assert_eq!(
-            super::compare_equal_park_status(12, 12, 1, 2, 2, ": 1 delete, 1 insert"),
-            "Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert)"
+            super::compare_equal_park_status(12, 12, 1, 2, 2, ": 1 delete, 1 insert", 50),
+            "Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert) · 50% equal"
         );
         assert_eq!(
-            super::compare_equal_park_status(3, 5, 1, 0, 1, ": 1 delete"),
-            "Compare equal → L3 | R5 (−1 +0, 1 hunk: 1 delete)"
+            super::compare_equal_park_status(3, 5, 1, 0, 1, ": 1 delete", 80),
+            "Compare equal → L3 | R5 (−1 +0, 1 hunk: 1 delete) · 80% equal"
         );
         assert_eq!(
-            super::compare_equal_park_status(8, 8, 0, 0, 0, ""),
+            super::compare_equal_park_status(8, 8, 0, 0, 0, "", 100),
             "Compare equal → L8 | R8 (identical)"
         );
     }
