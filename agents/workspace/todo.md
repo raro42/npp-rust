@@ -139,3 +139,5 @@
 009 keep: remappable go to line shortcut (shortcut_goto_line, v0.3.107)
 
 009 keep: remappable duplicate line shortcut (shortcut_duplicate_line, v0.3.108)
+
+009 keep: remappable delete line shortcut (shortcut_delete_line, v0.3.109)
