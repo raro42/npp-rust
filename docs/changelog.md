@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.112] — 2026-10-07
+
+Settings / shortcuts:
+
+- **Toggle bookmark** is remappable: Preferences → Toggle bookmark shortcut, or `shortcut_toggle_bookmark` in `npp-rs/settings.json` (default `Cmd+F2`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.111] — 2026-10-07
 
 Settings / shortcuts:

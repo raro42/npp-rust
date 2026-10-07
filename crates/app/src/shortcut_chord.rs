@@ -14,6 +14,9 @@ pub const DEFAULT_FIND_NEXT: &str = "F3";
 /// Default next-bookmark binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_BOOKMARK: &str = "F2";
 
+/// Default toggle-bookmark binding (matches historical hard-wire).
+pub const DEFAULT_TOGGLE_BOOKMARK: &str = "Cmd+F2";
+
 /// Default next-compare-diff binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_DIFF: &str = "F7";
 
@@ -275,6 +278,16 @@ mod tests {
         assert_eq!(c.key, Key::F7);
         assert_eq!(c.display(), "F7");
         assert_eq!(c.flipped_shift().display(), "Shift+F7");
+    }
+
+    #[test]
+    fn parse_cmd_f2_default_toggle_bookmark() {
+        let c = parse_chord(DEFAULT_TOGGLE_BOOKMARK).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F2);
+        assert_eq!(c.display(), "Cmd+F2");
     }
 
     #[test]
