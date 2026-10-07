@@ -108,8 +108,10 @@ pub struct UiFlags {
     pub compare_nav: Option<CompareNav>,
     /// Toggle compare ignore-whitespace or ignore-case (persisted).
     pub compare_ignore_toggle: Option<CompareIgnoreToggle>,
-    /// Toggle hide unchanged (Equal) lines while Compare is on (persisted).
+    /// Toggle hide unchanged (equal) lines while Compare is on (persisted).
     pub compare_hide_equal_toggle: bool,
+    /// Adjust hide-equal context lines by ±1 (persisted; clamped 0..=10).
+    pub compare_hide_equal_context_delta: Option<i8>,
     /// Expand every collapsed Equal run while hide-equal stays on.
     pub compare_expand_hidden_equal: bool,
     /// Expand the collapsed Equal run nearest the caret (keyboard ···N).
@@ -321,6 +323,8 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_COMPARE_IGNORE_CASE"
             | "IDM_VIEW_COMPARE_IGNORE_BLANK"
             | "IDM_VIEW_COMPARE_HIDE_EQUAL"
+            | "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_INC"
+            | "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_DEC"
             | "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL"
             | "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET"
             | "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL"
@@ -654,6 +658,8 @@ mod tests {
         assert!(is_implemented("IDM_VIEW_OPEN_COMPARE_HUNK"));
         assert!(is_implemented("IDM_VIEW_COMPARE_IGNORE_BLANK"));
         assert!(is_implemented("IDM_VIEW_COMPARE_HIDE_EQUAL"));
+        assert!(is_implemented("IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_INC"));
+        assert!(is_implemented("IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_DEC"));
         assert!(is_implemented("IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL"));
         assert!(is_implemented(
             "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET"

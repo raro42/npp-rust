@@ -224,6 +224,14 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.compare_hide_equal_toggle = true;
             CmdResult::Handled
         }
+        "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_INC" => {
+            ui.compare_hide_equal_context_delta = Some(1);
+            CmdResult::Handled
+        }
+        "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_DEC" => {
+            ui.compare_hide_equal_context_delta = Some(-1);
+            CmdResult::Handled
+        }
         "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL" => {
             ui.compare_expand_hidden_equal = true;
             CmdResult::Handled

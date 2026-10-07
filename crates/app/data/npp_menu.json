@@ -2075,6 +2075,18 @@
       },
       {
         "kind": "item",
+        "label": "Increase Hide-equal Context",
+        "raw_label": "Increase Hide-equal Conte&xt",
+        "cmd": "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_INC"
+      },
+      {
+        "kind": "item",
+        "label": "Decrease Hide-equal Context",
+        "raw_label": "Decrease Hide-equal Con&text",
+        "cmd": "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_DEC"
+      },
+      {
+        "kind": "item",
         "label": "Expand Unchanged at Caret",
         "raw_label": "Expand Unchanged at &Caret",
         "cmd": "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET"

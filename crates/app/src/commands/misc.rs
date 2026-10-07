@@ -262,6 +262,8 @@ Cmd+Alt+Left          Compare apply hunk from other view
 Cmd+Alt+Right         Compare apply hunk to other view
 Cmd+Alt+Shift+Left    Compare apply all hunks from other view
 Cmd+Alt+Shift+Right   Compare apply all hunks to other view
+Alt+]                 Compare increase hide-equal context
+Alt+[                 Compare decrease hide-equal context
 Escape                Close Find/Replace
 
 View / zoom
