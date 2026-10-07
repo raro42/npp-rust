@@ -145,3 +145,5 @@
 009 keep: remappable indent shortcut (shortcut_indent, v0.3.110)
 
 009 keep: remappable outdent shortcut (shortcut_outdent, v0.3.111)
+
+009 keep: remappable toggle bookmark shortcut (shortcut_toggle_bookmark, v0.3.112)
