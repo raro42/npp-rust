@@ -989,8 +989,38 @@ impl EditorApp {
         if cmd && mods.shift && t && self.state.toggle_tail_follow() {
             self.follow_caret = true;
         }
-        if cmd && n {
-            self.state.new_file();
+        // Remappable new file (default Cmd+N; settings.shortcut_new).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_NEW};
+            let new_chord = resolve_chord(&self.state.settings.shortcut_new, DEFAULT_NEW);
+            let new_key_pressed = match new_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if new_key_pressed && new_chord.matches(mods, new_chord.key) {
+                self.state.new_file();
+            }
         }
         if cmd && o {
             self.state.open_dialog();
@@ -2193,6 +2223,11 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_CLOSE_TAB,
                 )
                 .display();
+                let new_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_new,
+                    crate::shortcut_chord::DEFAULT_NEW,
+                )
+                .display();
                 let save_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_save,
                     crate::shortcut_chord::DEFAULT_SAVE,
@@ -2219,7 +2254,7 @@ Tree-sitter highlight, and a calm UI.",
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
                         let rows: [(&str, &str); 30] = [
-                            ("⌘/Ctrl N", "New file"),
+                            (new_keys.as_str(), "New file"),
                             ("⌘/Ctrl O", "Open"),
                             (save_keys.as_str(), "Save"),
                             (save_as_keys.as_str(), "Save As"),
@@ -2784,6 +2819,33 @@ Tree-sitter highlight, and a calm UI.",
                         });
                         ui.label(
                             RichText::new("Example: Cmd+W, Ctrl+Shift+W.")
+                                .small()
+                                .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("New shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(&mut self.state.settings.shortcut_new)
+                                    .desired_width(120.0)
+                                    .hint_text("Cmd+N"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_new.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_new =
+                                        crate::shortcut_chord::DEFAULT_NEW.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_NEW
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_new = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new("Example: Cmd+N, Ctrl+Alt+N.")
                                 .small()
                                 .weak(),
                         );

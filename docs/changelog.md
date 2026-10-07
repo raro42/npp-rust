@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.119] — 2026-10-08
+
+Settings / shortcuts:
+
+- **New** is remappable: Preferences → New shortcut, or `shortcut_new` in `npp-rs/settings.json` (default `Cmd+N`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.118] — 2026-10-08
 
 Settings / shortcuts:

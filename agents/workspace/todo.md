@@ -159,3 +159,5 @@
 009 keep: remappable replace shortcut (shortcut_replace, v0.3.117)
 
 009 keep: remappable Save As shortcut (shortcut_save_as, v0.3.118)
+
+009 keep: remappable New shortcut (shortcut_new, v0.3.119)
