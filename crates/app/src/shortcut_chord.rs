@@ -41,6 +41,9 @@ pub const DEFAULT_FORMAT_DOCUMENT: &str = "Cmd+Shift+I";
 /// Default close-tab binding (matches historical hard-wire).
 pub const DEFAULT_CLOSE_TAB: &str = "Cmd+W";
 
+/// Default save binding (matches historical hard-wire). Save As stays hard-wired Cmd+Shift+S.
+pub const DEFAULT_SAVE: &str = "Cmd+S";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -354,6 +357,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::W);
         assert_eq!(c.display(), "Cmd+W");
+    }
+
+    #[test]
+    fn parse_cmd_s_default_save() {
+        let c = parse_chord(DEFAULT_SAVE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::S);
+        assert_eq!(c.display(), "Cmd+S");
     }
 
     #[test]

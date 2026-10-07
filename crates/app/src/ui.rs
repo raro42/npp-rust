@@ -997,8 +997,39 @@ impl EditorApp {
         }
         if cmd && s && mods.shift {
             self.state.save_as_dialog();
-        } else if cmd && s {
-            self.state.save();
+        }
+        // Remappable save (default Cmd+S; settings.shortcut_save). Save As stays Cmd+Shift+S.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SAVE};
+            let save_chord = resolve_chord(&self.state.settings.shortcut_save, DEFAULT_SAVE);
+            let save_key_pressed = match save_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if save_key_pressed && save_chord.matches(mods, save_chord.key) {
+                self.state.save();
+            }
         }
         if (cmd && h && !mods.shift) || (cmd && f && mods.shift) {
             self.show_replace = true;
@@ -2059,6 +2090,11 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_CLOSE_TAB,
                 )
                 .display();
+                let save_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_save,
+                    crate::shortcut_chord::DEFAULT_SAVE,
+                )
+                .display();
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
                     .spacing([16.0, 4.0])
@@ -2066,7 +2102,7 @@ Tree-sitter highlight, and a calm UI.",
                         let rows: [(&str, &str); 29] = [
                             ("⌘/Ctrl N", "New file"),
                             ("⌘/Ctrl O", "Open"),
-                            ("⌘/Ctrl S", "Save"),
+                            (save_keys.as_str(), "Save"),
                             ("⌘/Ctrl ⇧ S", "Save As"),
                             ("⌘/Ctrl F / H", "Find / Replace"),
                             (find_keys.as_str(), "Find next / prev"),
@@ -2628,6 +2664,33 @@ Tree-sitter highlight, and a calm UI.",
                         });
                         ui.label(
                             RichText::new("Example: Cmd+W, Ctrl+Shift+W.")
+                                .small()
+                                .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Save shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(&mut self.state.settings.shortcut_save)
+                                    .desired_width(120.0)
+                                    .hint_text("Cmd+S"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_save.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_save =
+                                        crate::shortcut_chord::DEFAULT_SAVE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SAVE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_save = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new("Example: Cmd+S, Ctrl+Alt+S. Save As stays Cmd+Shift+S.")
                                 .small()
                                 .weak(),
                         );
