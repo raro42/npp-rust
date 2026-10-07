@@ -1026,6 +1026,7 @@ impl EditorApp {
             self.state.mark_text_changed_at(tab);
             self.follow_focused_caret();
         }
+        // Delete line stays hard-wired (Cmd/Ctrl+Shift+L).
         if cmd && l && mods.shift {
             let tab = self.focused_edit_tab();
             self.state.prepare_edit_at(tab);
@@ -1034,8 +1035,41 @@ impl EditorApp {
             }
             self.state.mark_text_changed_at(tab);
             self.follow_focused_caret();
-        } else if cmd && l {
-            self.open_goto_line_dialog();
+        }
+
+        // Remappable go to line (default Cmd+L; settings.shortcut_goto_line).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_GOTO_LINE};
+            let goto_chord =
+                resolve_chord(&self.state.settings.shortcut_goto_line, DEFAULT_GOTO_LINE);
+            let goto_key_pressed = match goto_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if goto_key_pressed && goto_chord.matches(mods, goto_chord.key) {
+                self.open_goto_line_dialog();
+            }
         }
         if cmd && close_br {
             let tab = self.focused_edit_tab();
@@ -1783,6 +1817,11 @@ Tree-sitter highlight, and a calm UI.",
                     diff_chord.display(),
                     diff_chord.flipped_shift().display()
                 );
+                let goto_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_goto_line,
+                    crate::shortcut_chord::DEFAULT_GOTO_LINE,
+                )
+                .display();
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
                     .spacing([16.0, 4.0])
@@ -1795,7 +1834,7 @@ Tree-sitter highlight, and a calm UI.",
                             ("⌘/Ctrl F / H", "Find / Replace"),
                             (find_keys.as_str(), "Find next / prev"),
                             ("⌘/Ctrl G", "Find next (global)"),
-                            ("⌘/Ctrl L", "Go to line"),
+                            (goto_keys.as_str(), "Go to line"),
                             (bm_keys.as_str(), "Next / prev bookmark"),
                             (diff_keys.as_str(), "Compare next / prev diff"),
                             ("⌘/Ctrl F7 · ⌘/Ctrl ⇧ F7", "Compare first / last diff"),
@@ -2105,6 +2144,37 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: F7, Alt+D. Shift + that key is Previous difference. Cmd/Ctrl+F7 first/last and Alt+F7 hidden-equal stay hard-wired.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Go to line shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_goto_line,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+L"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_goto_line.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_goto_line =
+                                        crate::shortcut_chord::DEFAULT_GOTO_LINE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_GOTO_LINE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_goto_line = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+L, Ctrl+G. Cmd/Ctrl+Shift+L delete line stays hard-wired.",
                             )
                             .small()
                             .weak(),

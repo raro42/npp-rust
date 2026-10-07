@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.107] — 2026-10-07
+
+Settings / shortcuts:
+
+- **Go to line** is remappable: Preferences → Go to line shortcut, or `shortcut_goto_line` in `npp-rs/settings.json` (default `Cmd+L`). Cmd/Ctrl+Shift+L delete line stays hard-wired. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.106] — 2026-10-07
 
 Settings / shortcuts:

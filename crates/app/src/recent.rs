@@ -100,6 +100,10 @@ fn default_shortcut_next_diff() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_DIFF.into()
 }
 
+fn default_shortcut_goto_line() -> String {
+    crate::shortcut_chord::DEFAULT_GOTO_LINE.into()
+}
+
 fn default_compare_hide_equal_context() -> u8 {
     u8::try_from(crate::diff::COMPARE_HIDE_EQUAL_CONTEXT).unwrap_or(3)
 }
@@ -225,6 +229,9 @@ pub struct AppSettings {
     /// Next-compare-diff chord (`F7` default). Shift + same key is previous difference.
     #[serde(default = "default_shortcut_next_diff")]
     pub shortcut_next_diff: String,
+    /// Go-to-line chord (`Cmd+L` default). Cmd/Ctrl+Shift+L delete line stays hard-wired.
+    #[serde(default = "default_shortcut_goto_line")]
+    pub shortcut_goto_line: String,
     /// Unknown keys from disk. Kept so a save does not drop hand-edited or future fields.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     extra: serde_json::Map<String, serde_json::Value>,
@@ -273,6 +280,7 @@ impl Default for AppSettings {
             shortcut_find_next: default_shortcut_find_next(),
             shortcut_next_bookmark: default_shortcut_next_bookmark(),
             shortcut_next_diff: default_shortcut_next_diff(),
+            shortcut_goto_line: default_shortcut_goto_line(),
             extra: serde_json::Map::new(),
         }
     }
@@ -592,6 +600,7 @@ mod tests {
             shortcut_find_next: "Ctrl+F3".into(),
             shortcut_next_bookmark: "Ctrl+F2".into(),
             shortcut_next_diff: "Ctrl+F7".into(),
+            shortcut_goto_line: "Ctrl+Shift+G".into(),
             ..Default::default()
         };
         let text = serde_json::to_string_pretty(&original).expect("serialize");
@@ -615,6 +624,7 @@ mod tests {
         assert_eq!(back.shortcut_find_next, "Ctrl+F3");
         assert_eq!(back.shortcut_next_bookmark, "Ctrl+F2");
         assert_eq!(back.shortcut_next_diff, "Ctrl+F7");
+        assert_eq!(back.shortcut_goto_line, "Ctrl+Shift+G");
     }
 
     #[test]

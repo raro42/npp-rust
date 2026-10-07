@@ -135,3 +135,5 @@
 009 keep: remappable next bookmark shortcut (shortcut_next_bookmark, v0.3.105)
 
 009 keep: remappable next difference shortcut (shortcut_next_diff, v0.3.106)
+
+009 keep: remappable go to line shortcut (shortcut_goto_line, v0.3.107)

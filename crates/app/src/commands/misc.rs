@@ -200,8 +200,8 @@ fn open_info_tab(state: &mut EditorState, title: &str, text: &str) {
 
 fn show_shortcut_mapper(state: &mut EditorState) {
     use crate::shortcut_chord::{
-        resolve_chord, DEFAULT_FIND_NEXT, DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF,
-        DEFAULT_WORD_WRAP,
+        resolve_chord, DEFAULT_FIND_NEXT, DEFAULT_GOTO_LINE, DEFAULT_NEXT_BOOKMARK,
+        DEFAULT_NEXT_DIFF, DEFAULT_WORD_WRAP,
     };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
@@ -246,14 +246,21 @@ fn show_shortcut_mapper(state: &mut EditorState) {
             "{diff_next} / {diff_prev} (from settings.shortcut_next_diff = {diff_raw:?}; Shift flips)"
         )
     };
+    let goto = resolve_chord(&state.settings.shortcut_goto_line, DEFAULT_GOTO_LINE).display();
+    let goto_raw = state.settings.shortcut_goto_line.trim();
+    let goto_note = if goto_raw.is_empty() || goto_raw.eq_ignore_ascii_case(DEFAULT_GOTO_LINE) {
+        format!("{goto} (default; Preferences → Go to line shortcut)")
+    } else {
+        format!("{goto} (from settings.shortcut_goto_line = {goto_raw:?})")
+    };
     // Mirrors crates/app/src/ui.rs handle_shortcuts (+ remappable bindings).
     let text = format!(
         "\
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, Next bookmark, and Next difference are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_next_diff). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Next bookmark, Next difference, and Go to line are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_next_diff, shortcut_goto_line). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -284,7 +291,8 @@ Cmd+H / Cmd+Shift+F   Replace
 {find_note}
 Cmd+G                 Find next (global; hard-wired)
 Cmd+Shift+G           Find previous (global; hard-wired)
-Cmd+L                 Go to line
+{goto_note}
+Cmd+Shift+L           Delete line (hard-wired)
 {bm_note}
 Cmd+F2                Toggle bookmark (hard-wired)
 {diff_note}

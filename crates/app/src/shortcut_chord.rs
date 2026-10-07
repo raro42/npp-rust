@@ -17,6 +17,9 @@ pub const DEFAULT_NEXT_BOOKMARK: &str = "F2";
 /// Default next-compare-diff binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_DIFF: &str = "F7";
 
+/// Default go-to-line binding (matches historical hard-wire). Cmd/Ctrl+Shift+L delete stays hard-wired.
+pub const DEFAULT_GOTO_LINE: &str = "Cmd+L";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -260,5 +263,15 @@ mod tests {
         assert_eq!(c.key, Key::F7);
         assert_eq!(c.display(), "F7");
         assert_eq!(c.flipped_shift().display(), "Shift+F7");
+    }
+
+    #[test]
+    fn parse_cmd_l_default_goto_line() {
+        let c = parse_chord(DEFAULT_GOTO_LINE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::L);
+        assert_eq!(c.display(), "Cmd+L");
     }
 }

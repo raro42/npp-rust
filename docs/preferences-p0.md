@@ -32,6 +32,7 @@ New keys:
 | `shortcut_find_next` | Find-next chord (`F3` default; Shift flips to find previous) |
 | `shortcut_next_bookmark` | Next-bookmark chord (`F2` default; Shift flips to previous; Cmd/Ctrl+F2 toggle stays hard-wired) |
 | `shortcut_next_diff` | Next-compare-diff chord (`F7` default; Shift flips to previous; Cmd/Ctrl+F7 first/last and Alt+F7 hidden-equal stay hard-wired) |
+| `shortcut_goto_line` | Go-to-line chord (`Cmd+L` default; Cmd/Ctrl+Shift+L delete line stays hard-wired) |
 
 Unknown extra keys are kept on load/save (not dropped).
 
