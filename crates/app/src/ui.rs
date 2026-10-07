@@ -1386,10 +1386,10 @@ impl EditorApp {
                         "Hide Equal (unchanged) lines while Compare is on; parks both panes on the first change hunk; context size is Preferences Hide-equal context; gutter ···N marks collapsed runs — click a cue to expand that run on both panes (Preferences persist)",
                     ),
                     "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_INC" => response.on_hover_text(
-                        "Increase Equal context lines kept around each change when Hide Unchanged Lines is on (Alt+]; 0–10; Preferences persist)",
+                        "Increase Equal context lines kept around each change when Hide Unchanged Lines is on (Alt+]; 0–10; Preferences persist; while Compare is on parks both panes on the first change hunk)",
                     ),
                     "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_DEC" => response.on_hover_text(
-                        "Decrease Equal context lines kept around each change when Hide Unchanged Lines is on (Alt+[; 0–10; Preferences persist)",
+                        "Decrease Equal context lines kept around each change when Hide Unchanged Lines is on (Alt+[; 0–10; Preferences persist; while Compare is on parks both panes on the first change hunk)",
                     ),
                     "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, expand the collapsed Equal run nearest the caret on both panes (same as clicking that ···N cue)",
@@ -2038,20 +2038,12 @@ Tree-sitter highlight, and a calm UI.",
                             if ui
                                 .add(egui::Slider::new(&mut c, 0..=10))
                                 .on_hover_text(
-                                    "Equal lines kept visible on each side of a change when Hide unchanged lines is on (0–10; default 3)",
+                                    "Equal lines kept visible on each side of a change when Hide unchanged lines is on (0–10; default 3; while Compare is on parks both panes on the first change hunk)",
                                 )
                                 .changed()
                             {
-                                let prev = self.state.settings.compare_hide_equal_context_lines();
-                                self.state.settings.compare_hide_equal_context = c as u8;
+                                self.set_compare_hide_equal_context(c.clamp(0, 10) as usize);
                                 changed = true;
-                                if self.compare_on
-                                    && self.state.settings.compare_hide_equal
-                                    && prev != self.state.settings.compare_hide_equal_context_lines()
-                                {
-                                    self.compare_hide_revealed_left.clear();
-                                    self.compare_hide_revealed_right.clear();
-                                }
                             }
                         });
                         ui.add_space(10.0);
@@ -5084,21 +5076,30 @@ Tree-sitter highlight, and a calm UI.",
         }
     }
 
-    /// Bump Preferences hide-equal context by ±1 (clamped 0..=10); clear ···N expansions.
+    /// Bump Preferences hide-equal context by ±1 (clamped 0..=10).
     fn adjust_compare_hide_equal_context(&mut self, delta: i8) {
         let prev = self.state.settings.compare_hide_equal_context_lines();
         let next = (prev as i32 + i32::from(delta)).clamp(0, 10) as usize;
+        self.set_compare_hide_equal_context(next);
+    }
+
+    /// Set Preferences hide-equal context (clamped 0..=10); clear ···N expansions.
+    /// While Compare + Hide Unchanged is on, parks both panes on the first change hunk.
+    fn set_compare_hide_equal_context(&mut self, next: usize) {
+        let prev = self.state.settings.compare_hide_equal_context_lines();
+        let next = next.clamp(0, 10);
         if next == prev {
             self.state.status = format!("Hide-equal context already ±{prev}");
             return;
         }
         self.state.settings.compare_hide_equal_context = next as u8;
         self.state.settings.save();
-        if self.compare_on && self.state.settings.compare_hide_equal {
+        let hide_equal = self.state.settings.compare_hide_equal;
+        if self.compare_on && hide_equal {
             self.compare_hide_revealed_left.clear();
             self.compare_hide_revealed_right.clear();
         }
-        let ctx = self.state.settings.compare_hide_equal_context_lines();
+        let ctx = next;
         let ignore = CompareIgnoreBits {
             ws: self.state.settings.compare_ignore_ws,
             case: self.state.settings.compare_ignore_case,
@@ -5120,7 +5121,7 @@ Tree-sitter highlight, and a calm UI.",
                 .map(|d| d.title.clone())
                 .unwrap_or_else(|| "right".into());
             let hide = compare_hide_opt(
-                self.state.settings.compare_hide_equal,
+                hide_equal,
                 &self.compare_left_tags,
                 &self.compare_right_tags,
                 &self.compare_hide_revealed_left,
@@ -5129,7 +5130,15 @@ Tree-sitter highlight, and a calm UI.",
             );
             let counts =
                 compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
-            let pair = compare_pair_status(
+            let hunk_n = counts.hunk_n;
+            // Context change can orphan the caret on a now-hidden Equal line — re-park like
+            // hide-equal toggle / Compare start / ignore re-diff / swap.
+            if hide_equal && hunk_n > 0 {
+                self.park_compare_hunk_ordinal(1);
+                self.select_compare_hunk_on_pane(true, 1);
+                self.select_compare_hunk_on_pane(false, 1);
+            }
+            let mut status = compare_pair_status(
                 &lname,
                 &rname,
                 counts,
@@ -5139,7 +5148,12 @@ Tree-sitter highlight, and a calm UI.",
                     context: ctx,
                 },
             );
-            self.state.status = format!("Hide-equal context ±{ctx} — {pair}");
+            if hide_equal && hunk_n > 0 {
+                let lr = self.compare_hunk_lr_label(1);
+                let ordinal = self.compare_hunk_ordinal_bit(1, hunk_n);
+                status.push_str(&compare_at_hunk_status_bit(&lr, &ordinal));
+            }
+            self.state.status = format!("Hide-equal context ±{ctx} — {status}");
         } else {
             self.state.status = format!(
                 "Hide-equal context ±{ctx} (applies when Hide Unchanged Lines is on during Compare)"

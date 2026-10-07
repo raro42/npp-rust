@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.98] — 2026-10-07
+
+Compare:
+
+- Changing **Hide-equal context** (Alt+]/ / Alt+[ or Preferences slider) while Compare + Hide Unchanged Lines is on parks **and selects** both panes on the first change hunk; status is `Hide-equal context ±N — Compare … · at L|R (1/n kind −/+)`.
+
 ## [0.3.97] — 2026-10-07
 
 Compare:

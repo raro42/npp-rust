@@ -117,3 +117,5 @@
 009 keep: compare next/prev/first/last hidden equal hotkeys (v0.3.96)
 
 009 keep: compare hide-equal toggle parks first hunk · at L|R (v0.3.97)
+
+009 keep: compare hide-equal context change parks first hunk · at L|R (v0.3.98)
