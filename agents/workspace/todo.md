@@ -119,3 +119,5 @@
 009 keep: compare hide-equal toggle parks first hunk · at L|R (v0.3.97)
 
 009 keep: compare hide-equal context change parks first hunk · at L|R (v0.3.98)
+
+009 keep: compare edit re-diff parks partner + · at L|R (v0.3.99)

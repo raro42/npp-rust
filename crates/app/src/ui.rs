@@ -208,7 +208,7 @@ fn compare_pair_status(
     )
 }
 
-/// Suffix when Compare parks on a hunk (start / ignore re-diff / hide-equal / swap / First), e.g. ` · at L12 | R15 (1/5 replace −1 +1)`.
+/// Suffix when Compare parks on a hunk (start / ignore re-diff / hide-equal / swap / First / edit re-diff), e.g. ` · at L12 | R15 (1/5 replace −1 +1)`.
 fn compare_at_hunk_status_bit(lr: &str, ordinal_bit: &str) -> String {
     if lr.is_empty() {
         format!(" · at {ordinal_bit}")
@@ -6040,22 +6040,7 @@ Tree-sitter highlight, and a calm UI.",
         ) else {
             return;
         };
-        let other_tab = if primary {
-            self.compare_right_tab
-        } else {
-            self.compare_left_tab
-        };
-        if let Some(doc) = self.state.tabs.get_mut(other_tab) {
-            let at = doc
-                .buffer
-                .line_to_char(oline.min(doc.buffer.line_count().saturating_sub(1)));
-            doc.buffer.set_caret(at);
-        }
-        if primary {
-            self.follow_caret_other = true;
-        } else {
-            self.follow_caret = true;
-        }
+        self.park_compare_other_on_equal_line(primary, line);
         let (l, r) = if primary {
             (line + 1, oline + 1)
         } else {
@@ -6400,7 +6385,7 @@ Tree-sitter highlight, and a calm UI.",
                     &self.compare_hide_revealed_right,
                     self.state.settings.compare_hide_equal_context_lines(),
                 );
-                self.state.status = compare_pair_status(
+                let mut status = compare_pair_status(
                     &lname,
                     &rname,
                     compare_pair_counts_from_tags(
@@ -6413,10 +6398,98 @@ Tree-sitter highlight, and a calm UI.",
                         context: self.state.settings.compare_hide_equal_context_lines(),
                     },
                 );
+                // Keep the other pane on the focused caret's hunk/equal partner after
+                // edit re-diff. Do not move the focused caret or force hunk selection
+                // (that would fight typing).
+                self.align_compare_partner_after_edit_rediff(&mut status);
+                self.state.status = status;
             }
             None => {
                 // Too many lines or missing tabs — leave prior tags; status already set.
             }
+        }
+    }
+
+    /// After a debounce re-diff, park the other pane on the focused caret's hunk
+    /// (or Equal partner) and append `· at L|R …` when on a change hunk.
+    fn align_compare_partner_after_edit_rediff(&mut self, status: &mut String) {
+        let primary = self.focused_pane == EditorPane::Primary || !self.dual_view;
+        let tab = if primary {
+            self.compare_left_tab
+        } else {
+            self.compare_right_tab
+        };
+        let Some(doc) = self.state.tabs.get(tab) else {
+            return;
+        };
+        let line = doc.buffer.char_to_line(doc.buffer.caret());
+        let Some((ord, total)) = ({
+            let tags = if primary {
+                &self.compare_left_tags
+            } else {
+                &self.compare_right_tags
+            };
+            crate::diff::hunk_ordinal(tags, line)
+        }) else {
+            self.park_compare_other_on_equal_line(primary, line);
+            return;
+        };
+        let other_tab = if primary {
+            self.compare_right_tab
+        } else {
+            self.compare_left_tab
+        };
+        let other_line = {
+            let tags = if primary {
+                &self.compare_right_tags
+            } else {
+                &self.compare_left_tags
+            };
+            crate::diff::hunk_start_at_ordinal(tags, ord)
+        };
+        if let Some(oline) = other_line {
+            if let Some(doc) = self.state.tabs.get_mut(other_tab) {
+                let at = doc
+                    .buffer
+                    .line_to_char(oline.min(doc.buffer.line_count().saturating_sub(1)));
+                doc.buffer.set_caret(at);
+            }
+            if primary {
+                self.follow_caret_other = true;
+            } else {
+                self.follow_caret = true;
+            }
+        }
+        let lr = self.compare_hunk_lr_label(ord);
+        let ordinal = self.compare_hunk_ordinal_bit(ord, total);
+        status.push_str(&compare_at_hunk_status_bit(&lr, &ordinal));
+    }
+
+    /// Park only the other Compare pane on the LCS-aligned Equal partner of `line`.
+    fn park_compare_other_on_equal_line(&mut self, primary: bool, line: usize) {
+        let Some(oline) = crate::diff::aligned_equal_partner_line(
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            line,
+            primary,
+        ) else {
+            return;
+        };
+        let other_tab = if primary {
+            self.compare_right_tab
+        } else {
+            self.compare_left_tab
+        };
+        if let Some(doc) = self.state.tabs.get_mut(other_tab) {
+            let at = doc
+                .buffer
+                .line_to_char(oline.min(doc.buffer.line_count().saturating_sub(1)));
+            doc.buffer.set_caret(at);
+        }
+        if primary {
+            self.follow_caret_other = true;
+        } else {
+            self.follow_caret = true;
         }
     }
 

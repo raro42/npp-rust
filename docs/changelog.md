@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.99] — 2026-10-07
+
+Compare:
+
+- After the ~200 ms edit re-diff, the other pane parks on the focused caret’s change hunk (or Equal partner); pair status appends `· at L|R (i/n kind −/+)`. Focused caret and selection stay put so typing is not yanked.
+
 ## [0.3.98] — 2026-10-07
 
 Compare:
