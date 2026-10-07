@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.118] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Save As** is remappable: Preferences → Save As shortcut, or `shortcut_save_as` in `npp-rs/settings.json` (default `Cmd+Shift+S`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.117] — 2026-10-08
 
 Settings / shortcuts:

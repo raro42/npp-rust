@@ -41,8 +41,11 @@ pub const DEFAULT_FORMAT_DOCUMENT: &str = "Cmd+Shift+I";
 /// Default close-tab binding (matches historical hard-wire).
 pub const DEFAULT_CLOSE_TAB: &str = "Cmd+W";
 
-/// Default save binding (matches historical hard-wire). Save As stays hard-wired Cmd+Shift+S.
+/// Default save binding (matches historical hard-wire).
 pub const DEFAULT_SAVE: &str = "Cmd+S";
+
+/// Default save-as binding (matches historical hard-wire).
+pub const DEFAULT_SAVE_AS: &str = "Cmd+Shift+S";
 
 /// Default find-bar binding (matches historical hard-wire).
 pub const DEFAULT_FIND: &str = "Cmd+F";
@@ -373,6 +376,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::S);
         assert_eq!(c.display(), "Cmd+S");
+    }
+
+    #[test]
+    fn parse_cmd_shift_s_default_save_as() {
+        let c = parse_chord(DEFAULT_SAVE_AS).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::S);
+        assert_eq!(c.display(), "Cmd+Shift+S");
     }
 
     #[test]

@@ -995,10 +995,7 @@ impl EditorApp {
         if cmd && o {
             self.state.open_dialog();
         }
-        if cmd && s && mods.shift {
-            self.state.save_as_dialog();
-        }
-        // Remappable save (default Cmd+S; settings.shortcut_save). Save As stays Cmd+Shift+S.
+        // Remappable save (default Cmd+S; settings.shortcut_save).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_SAVE};
             let save_chord = resolve_chord(&self.state.settings.shortcut_save, DEFAULT_SAVE);
@@ -1029,6 +1026,40 @@ impl EditorApp {
             };
             if save_key_pressed && save_chord.matches(mods, save_chord.key) {
                 self.state.save();
+            }
+        }
+        // Remappable save as (default Cmd+Shift+S; settings.shortcut_save_as).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SAVE_AS};
+            let save_as_chord =
+                resolve_chord(&self.state.settings.shortcut_save_as, DEFAULT_SAVE_AS);
+            let save_as_key_pressed = match save_as_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if save_as_key_pressed && save_as_chord.matches(mods, save_as_chord.key) {
+                self.state.save_as_dialog();
             }
         }
         let mut opened_replace = false;
@@ -2167,6 +2198,11 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_SAVE,
                 )
                 .display();
+                let save_as_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_save_as,
+                    crate::shortcut_chord::DEFAULT_SAVE_AS,
+                )
+                .display();
                 let find_open_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_find,
                     crate::shortcut_chord::DEFAULT_FIND,
@@ -2186,7 +2222,7 @@ Tree-sitter highlight, and a calm UI.",
                             ("⌘/Ctrl N", "New file"),
                             ("⌘/Ctrl O", "Open"),
                             (save_keys.as_str(), "Save"),
-                            ("⌘/Ctrl ⇧ S", "Save As"),
+                            (save_as_keys.as_str(), "Save As"),
                             (find_open_keys.as_str(), "Find"),
                             (replace_row.as_str(), "Replace"),
                             (find_keys.as_str(), "Find next / prev"),
@@ -2774,7 +2810,36 @@ Tree-sitter highlight, and a calm UI.",
                             }
                         });
                         ui.label(
-                            RichText::new("Example: Cmd+S, Ctrl+Alt+S. Save As stays Cmd+Shift+S.")
+                            RichText::new("Example: Cmd+S, Ctrl+Alt+S.")
+                                .small()
+                                .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Save As shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_save_as,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Shift+S"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_save_as.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_save_as =
+                                        crate::shortcut_chord::DEFAULT_SAVE_AS.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SAVE_AS
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_save_as = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new("Example: Cmd+Shift+S, Ctrl+Alt+Shift+S.")
                                 .small()
                                 .weak(),
                         );

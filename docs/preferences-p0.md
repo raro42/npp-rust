@@ -40,7 +40,8 @@ New keys:
 | `shortcut_outdent` | Outdent-lines chord (`Cmd+[` default) |
 | `shortcut_format_document` | Format-document chord (`Cmd+Shift+I` default) |
 | `shortcut_close_tab` | Close-tab chord (`Cmd+W` default) |
-| `shortcut_save` | Save chord (`Cmd+S` default; Save As stays `Cmd+Shift+S`) |
+| `shortcut_save` | Save chord (`Cmd+S` default) |
+| `shortcut_save_as` | Save-as chord (`Cmd+Shift+S` default) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
 | `shortcut_replace` | Replace-bar chord (`Cmd+H` default; Cmd+Shift+F stays hard-wired) |
 
