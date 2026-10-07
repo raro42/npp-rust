@@ -128,6 +128,10 @@ fn default_shortcut_format_document() -> String {
     crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT.into()
 }
 
+fn default_shortcut_close_tab() -> String {
+    crate::shortcut_chord::DEFAULT_CLOSE_TAB.into()
+}
+
 fn default_compare_hide_equal_context() -> u8 {
     u8::try_from(crate::diff::COMPARE_HIDE_EQUAL_CONTEXT).unwrap_or(3)
 }
@@ -274,6 +278,9 @@ pub struct AppSettings {
     /// Format-document chord (`Cmd+Shift+I` default).
     #[serde(default = "default_shortcut_format_document")]
     pub shortcut_format_document: String,
+    /// Close-tab chord (`Cmd+W` default).
+    #[serde(default = "default_shortcut_close_tab")]
+    pub shortcut_close_tab: String,
     /// Unknown keys from disk. Kept so a save does not drop hand-edited or future fields.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     extra: serde_json::Map<String, serde_json::Value>,
@@ -329,6 +336,7 @@ impl Default for AppSettings {
             shortcut_indent: default_shortcut_indent(),
             shortcut_outdent: default_shortcut_outdent(),
             shortcut_format_document: default_shortcut_format_document(),
+            shortcut_close_tab: default_shortcut_close_tab(),
             extra: serde_json::Map::new(),
         }
     }
@@ -655,6 +663,7 @@ mod tests {
             shortcut_indent: "Ctrl+Shift+]".into(),
             shortcut_outdent: "Ctrl+Shift+[".into(),
             shortcut_format_document: "Ctrl+Alt+I".into(),
+            shortcut_close_tab: "Ctrl+Shift+W".into(),
             ..Default::default()
         };
         let text = serde_json::to_string_pretty(&original).expect("serialize");
@@ -685,6 +694,7 @@ mod tests {
         assert_eq!(back.shortcut_indent, "Ctrl+Shift+]");
         assert_eq!(back.shortcut_outdent, "Ctrl+Shift+[");
         assert_eq!(back.shortcut_format_document, "Ctrl+Alt+I");
+        assert_eq!(back.shortcut_close_tab, "Ctrl+Shift+W");
     }
 
     #[test]

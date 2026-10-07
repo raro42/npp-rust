@@ -1306,10 +1306,41 @@ impl EditorApp {
         if cmd && y {
             self.state.redo_at(self.focused_edit_tab());
         }
-        if cmd && w {
-            let idx = self.state.tabs.active_index();
-            self.state.request_close_tab(idx);
-            self.scroll_line = 0.0;
+        // Remappable close tab (default Cmd+W; settings.shortcut_close_tab).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_CLOSE_TAB};
+            let close_chord =
+                resolve_chord(&self.state.settings.shortcut_close_tab, DEFAULT_CLOSE_TAB);
+            let close_key_pressed = match close_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if close_key_pressed && close_chord.matches(mods, close_chord.key) {
+                let idx = self.state.tabs.active_index();
+                self.state.request_close_tab(idx);
+                self.scroll_line = 0.0;
+            }
         }
 
         // Find next/prev: remappable chord (default F3; Shift flips to prev) + Cmd+G / Cmd+Shift+G.
@@ -2023,6 +2054,11 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
                 )
                 .display();
+                let close_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_close_tab,
+                    crate::shortcut_chord::DEFAULT_CLOSE_TAB,
+                )
+                .display();
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
                     .spacing([16.0, 4.0])
@@ -2062,7 +2098,7 @@ Tree-sitter highlight, and a calm UI.",
                             ("Alt ←/→", "Word jump"),
                             ("Double-click", "Select word"),
                             ("⌘/Ctrl Z / Y", "Undo / Redo"),
-                            ("⌘/Ctrl W", "Close tab"),
+                            (close_keys.as_str(), "Close tab"),
                         ];
                         for (keys, action) in rows {
                             ui.monospace(keys);
@@ -2563,6 +2599,35 @@ Tree-sitter highlight, and a calm UI.",
                         });
                         ui.label(
                             RichText::new("Example: Cmd+Shift+I, Ctrl+Alt+I.")
+                                .small()
+                                .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Close tab shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_close_tab,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+W"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_close_tab.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_close_tab =
+                                        crate::shortcut_chord::DEFAULT_CLOSE_TAB.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CLOSE_TAB
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_close_tab = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new("Example: Cmd+W, Ctrl+Shift+W.")
                                 .small()
                                 .weak(),
                         );

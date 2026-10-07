@@ -38,6 +38,9 @@ pub const DEFAULT_OUTDENT: &str = "Cmd+[";
 /// Default format-document binding (matches historical hard-wire).
 pub const DEFAULT_FORMAT_DOCUMENT: &str = "Cmd+Shift+I";
 
+/// Default close-tab binding (matches historical hard-wire).
+pub const DEFAULT_CLOSE_TAB: &str = "Cmd+W";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -341,6 +344,16 @@ mod tests {
         assert!(c.shift);
         assert_eq!(c.key, Key::I);
         assert_eq!(c.display(), "Cmd+Shift+I");
+    }
+
+    #[test]
+    fn parse_cmd_w_default_close_tab() {
+        let c = parse_chord(DEFAULT_CLOSE_TAB).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::W);
+        assert_eq!(c.display(), "Cmd+W");
     }
 
     #[test]

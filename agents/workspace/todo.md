@@ -149,3 +149,5 @@
 009 keep: remappable toggle bookmark shortcut (shortcut_toggle_bookmark, v0.3.112)
 
 009 keep: remappable format document shortcut (shortcut_format_document, v0.3.113)
+
+009 keep: remappable close tab shortcut (shortcut_close_tab, v0.3.114)

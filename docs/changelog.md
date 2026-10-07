@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.114] — 2026-10-07
+
+Settings / shortcuts:
+
+- **Close tab** is remappable: Preferences → Close tab shortcut, or `shortcut_close_tab` in `npp-rs/settings.json` (default `Cmd+W`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.113] — 2026-10-07
 
 Settings / shortcuts:
