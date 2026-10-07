@@ -1032,14 +1032,53 @@ impl EditorApp {
             }
         }
         let mut opened_replace = false;
-        if (cmd && h && !mods.shift) || (cmd && f && mods.shift) {
+        // Alternate hard-wired replace: Cmd+Shift+F.
+        if cmd && f && mods.shift {
             self.show_replace = true;
             self.state.find_open = true;
             self.find_focus_once = true;
             self.state.prepare_find_bar_from_selection();
             opened_replace = true;
         }
-        // Remappable find (default Cmd+F; settings.shortcut_find). Replace stays Cmd+H / Cmd+Shift+F.
+        // Remappable replace (default Cmd+H; settings.shortcut_replace). Cmd+Shift+F stays hard-wired.
+        if !opened_replace {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_REPLACE};
+            let replace_chord =
+                resolve_chord(&self.state.settings.shortcut_replace, DEFAULT_REPLACE);
+            let replace_key_pressed = match replace_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if replace_key_pressed && replace_chord.matches(mods, replace_chord.key) {
+                self.show_replace = true;
+                self.state.find_open = true;
+                self.find_focus_once = true;
+                self.state.prepare_find_bar_from_selection();
+                opened_replace = true;
+            }
+        }
+        // Remappable find (default Cmd+F; settings.shortcut_find).
         if !opened_replace {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND};
             let find_chord = resolve_chord(&self.state.settings.shortcut_find, DEFAULT_FIND);
@@ -2133,6 +2172,12 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_FIND,
                 )
                 .display();
+                let replace_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_replace,
+                    crate::shortcut_chord::DEFAULT_REPLACE,
+                )
+                .display();
+                let replace_row = format!("{replace_keys} · ⌘/Ctrl ⇧ F");
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
                     .spacing([16.0, 4.0])
@@ -2143,7 +2188,7 @@ Tree-sitter highlight, and a calm UI.",
                             (save_keys.as_str(), "Save"),
                             ("⌘/Ctrl ⇧ S", "Save As"),
                             (find_open_keys.as_str(), "Find"),
-                            ("⌘/Ctrl H · ⌘/Ctrl ⇧ F", "Replace"),
+                            (replace_row.as_str(), "Replace"),
                             (find_keys.as_str(), "Find next / prev"),
                             ("⌘/Ctrl G", "Find next (global)"),
                             (goto_keys.as_str(), "Go to line"),
@@ -2756,8 +2801,37 @@ Tree-sitter highlight, and a calm UI.",
                             }
                         });
                         ui.label(
+                            RichText::new("Example: Cmd+F, Ctrl+Alt+F.")
+                                .small()
+                                .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Replace shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_replace,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+H"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_replace.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_replace =
+                                        crate::shortcut_chord::DEFAULT_REPLACE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_REPLACE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_replace = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
                             RichText::new(
-                                "Example: Cmd+F, Ctrl+Alt+F. Replace stays Cmd+H / Cmd+Shift+F.",
+                                "Example: Cmd+H, Ctrl+Alt+H. Cmd+Shift+F stays hard-wired.",
                             )
                             .small()
                             .weak(),

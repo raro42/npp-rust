@@ -202,8 +202,8 @@ fn show_shortcut_mapper(state: &mut EditorState) {
     use crate::shortcut_chord::{
         resolve_chord, DEFAULT_CLOSE_TAB, DEFAULT_DELETE_LINE, DEFAULT_DUPLICATE_LINE,
         DEFAULT_FIND, DEFAULT_FIND_NEXT, DEFAULT_FORMAT_DOCUMENT, DEFAULT_GOTO_LINE,
-        DEFAULT_INDENT, DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF, DEFAULT_OUTDENT, DEFAULT_SAVE,
-        DEFAULT_TOGGLE_BOOKMARK, DEFAULT_WORD_WRAP,
+        DEFAULT_INDENT, DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF, DEFAULT_OUTDENT, DEFAULT_REPLACE,
+        DEFAULT_SAVE, DEFAULT_TOGGLE_BOOKMARK, DEFAULT_WORD_WRAP,
     };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
@@ -335,14 +335,22 @@ fn show_shortcut_mapper(state: &mut EditorState) {
         } else {
             format!("{find_open} (from settings.shortcut_find = {find_open_raw:?})")
         };
+    let replace = resolve_chord(&state.settings.shortcut_replace, DEFAULT_REPLACE).display();
+    let replace_raw = state.settings.shortcut_replace.trim();
+    let replace_note =
+        if replace_raw.is_empty() || replace_raw.eq_ignore_ascii_case(DEFAULT_REPLACE) {
+            format!("{replace} (default; Preferences → Replace shortcut)")
+        } else {
+            format!("{replace} (from settings.shortcut_replace = {replace_raw:?})")
+        };
     // Mirrors crates/app/src/ui.rs handle_shortcuts (+ remappable bindings).
     let text = format!(
         "\
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, Next bookmark, Toggle bookmark, Next difference, Go to line, Duplicate line, Delete line, Indent, Outdent, Format document, Close tab, Save, and Find are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_next_diff, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent, shortcut_outdent, shortcut_format_document, shortcut_close_tab, shortcut_save, shortcut_find). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Next bookmark, Toggle bookmark, Next difference, Go to line, Duplicate line, Delete line, Indent, Outdent, Format document, Close tab, Save, Find, and Replace are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_next_diff, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent, shortcut_outdent, shortcut_format_document, shortcut_close_tab, shortcut_save, shortcut_find, shortcut_replace). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -369,7 +377,8 @@ Cmd+A                 Select all
 Find / navigate
 ---------------
 {find_open_note}
-Cmd+H / Cmd+Shift+F   Replace
+{replace_note}
+Cmd+Shift+F           Replace (alternate; hard-wired)
 {find_note}
 Cmd+G                 Find next (global; hard-wired)
 Cmd+Shift+G           Find previous (global; hard-wired)

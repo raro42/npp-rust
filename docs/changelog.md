@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.117] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Replace** is remappable: Preferences → Replace shortcut, or `shortcut_replace` in `npp-rs/settings.json` (default `Cmd+H`). Cmd+Shift+F stays hard-wired as an alternate. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.116] — 2026-10-08
 
 Settings / shortcuts:

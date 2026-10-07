@@ -44,8 +44,11 @@ pub const DEFAULT_CLOSE_TAB: &str = "Cmd+W";
 /// Default save binding (matches historical hard-wire). Save As stays hard-wired Cmd+Shift+S.
 pub const DEFAULT_SAVE: &str = "Cmd+S";
 
-/// Default find-bar binding (matches historical hard-wire). Replace stays Cmd+H / Cmd+Shift+F.
+/// Default find-bar binding (matches historical hard-wire).
 pub const DEFAULT_FIND: &str = "Cmd+F";
+
+/// Default replace-bar binding (matches historical hard-wire). Cmd+Shift+F stays hard-wired.
+pub const DEFAULT_REPLACE: &str = "Cmd+H";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
@@ -380,6 +383,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::F);
         assert_eq!(c.display(), "Cmd+F");
+    }
+
+    #[test]
+    fn parse_cmd_h_default_replace() {
+        let c = parse_chord(DEFAULT_REPLACE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::H);
+        assert_eq!(c.display(), "Cmd+H");
     }
 
     #[test]

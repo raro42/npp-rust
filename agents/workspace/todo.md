@@ -155,3 +155,5 @@
 009 keep: remappable save shortcut (shortcut_save, v0.3.115)
 
 009 keep: remappable find shortcut (shortcut_find, v0.3.116)
+
+009 keep: remappable replace shortcut (shortcut_replace, v0.3.117)

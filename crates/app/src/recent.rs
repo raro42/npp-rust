@@ -140,6 +140,10 @@ fn default_shortcut_find() -> String {
     crate::shortcut_chord::DEFAULT_FIND.into()
 }
 
+fn default_shortcut_replace() -> String {
+    crate::shortcut_chord::DEFAULT_REPLACE.into()
+}
+
 fn default_compare_hide_equal_context() -> u8 {
     u8::try_from(crate::diff::COMPARE_HIDE_EQUAL_CONTEXT).unwrap_or(3)
 }
@@ -292,9 +296,12 @@ pub struct AppSettings {
     /// Save chord (`Cmd+S` default). Save As stays hard-wired `Cmd+Shift+S`.
     #[serde(default = "default_shortcut_save")]
     pub shortcut_save: String,
-    /// Find-bar chord (`Cmd+F` default). Replace stays hard-wired `Cmd+H` / `Cmd+Shift+F`.
+    /// Find-bar chord (`Cmd+F` default).
     #[serde(default = "default_shortcut_find")]
     pub shortcut_find: String,
+    /// Replace-bar chord (`Cmd+H` default). Cmd+Shift+F stays hard-wired.
+    #[serde(default = "default_shortcut_replace")]
+    pub shortcut_replace: String,
     /// Unknown keys from disk. Kept so a save does not drop hand-edited or future fields.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     extra: serde_json::Map<String, serde_json::Value>,
@@ -353,6 +360,7 @@ impl Default for AppSettings {
             shortcut_close_tab: default_shortcut_close_tab(),
             shortcut_save: default_shortcut_save(),
             shortcut_find: default_shortcut_find(),
+            shortcut_replace: default_shortcut_replace(),
             extra: serde_json::Map::new(),
         }
     }
@@ -682,6 +690,7 @@ mod tests {
             shortcut_close_tab: "Ctrl+Shift+W".into(),
             shortcut_save: "Ctrl+Alt+S".into(),
             shortcut_find: "Ctrl+Alt+F".into(),
+            shortcut_replace: "Ctrl+Alt+H".into(),
             ..Default::default()
         };
         let text = serde_json::to_string_pretty(&original).expect("serialize");
@@ -715,6 +724,7 @@ mod tests {
         assert_eq!(back.shortcut_close_tab, "Ctrl+Shift+W");
         assert_eq!(back.shortcut_save, "Ctrl+Alt+S");
         assert_eq!(back.shortcut_find, "Ctrl+Alt+F");
+        assert_eq!(back.shortcut_replace, "Ctrl+Alt+H");
     }
 
     #[test]
