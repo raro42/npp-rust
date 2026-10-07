@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.110] — 2026-10-07
+
+Settings / shortcuts:
+
+- **Indent** is remappable: Preferences → Indent shortcut, or `shortcut_indent` in `npp-rs/settings.json` (default `Cmd+]`). Outdent stays hard-wired `Cmd+[`. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.109] — 2026-10-07
 
 Settings / shortcuts:

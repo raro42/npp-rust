@@ -112,6 +112,10 @@ fn default_shortcut_delete_line() -> String {
     crate::shortcut_chord::DEFAULT_DELETE_LINE.into()
 }
 
+fn default_shortcut_indent() -> String {
+    crate::shortcut_chord::DEFAULT_INDENT.into()
+}
+
 fn default_compare_hide_equal_context() -> u8 {
     u8::try_from(crate::diff::COMPARE_HIDE_EQUAL_CONTEXT).unwrap_or(3)
 }
@@ -246,6 +250,9 @@ pub struct AppSettings {
     /// Delete-line chord (`Cmd+Shift+L` default).
     #[serde(default = "default_shortcut_delete_line")]
     pub shortcut_delete_line: String,
+    /// Indent-lines chord (`Cmd+]` default). Outdent stays Cmd+[.
+    #[serde(default = "default_shortcut_indent")]
+    pub shortcut_indent: String,
     /// Unknown keys from disk. Kept so a save does not drop hand-edited or future fields.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     extra: serde_json::Map<String, serde_json::Value>,
@@ -297,6 +304,7 @@ impl Default for AppSettings {
             shortcut_goto_line: default_shortcut_goto_line(),
             shortcut_duplicate_line: default_shortcut_duplicate_line(),
             shortcut_delete_line: default_shortcut_delete_line(),
+            shortcut_indent: default_shortcut_indent(),
             extra: serde_json::Map::new(),
         }
     }
@@ -619,6 +627,7 @@ mod tests {
             shortcut_goto_line: "Ctrl+Shift+G".into(),
             shortcut_duplicate_line: "Ctrl+Shift+D".into(),
             shortcut_delete_line: "Ctrl+Shift+K".into(),
+            shortcut_indent: "Ctrl+Shift+]".into(),
             ..Default::default()
         };
         let text = serde_json::to_string_pretty(&original).expect("serialize");
@@ -645,6 +654,7 @@ mod tests {
         assert_eq!(back.shortcut_goto_line, "Ctrl+Shift+G");
         assert_eq!(back.shortcut_duplicate_line, "Ctrl+Shift+D");
         assert_eq!(back.shortcut_delete_line, "Ctrl+Shift+K");
+        assert_eq!(back.shortcut_indent, "Ctrl+Shift+]");
     }
 
     #[test]
