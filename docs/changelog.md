@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.97] — 2026-10-07
+
+Compare:
+
+- **Hide Unchanged Lines** while Compare is on parks **and selects** both panes on the first change hunk; status appends `· at L|R (1/n kind −/+)` like ignore re-diff / Compare start / swap sides.
+
 ## [0.3.96] — 2026-10-07
 
 Compare:

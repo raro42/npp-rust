@@ -208,7 +208,7 @@ fn compare_pair_status(
     )
 }
 
-/// Suffix when Compare parks on a hunk (start / ignore re-diff / swap / First), e.g. ` · at L12 | R15 (1/5 replace −1 +1)`.
+/// Suffix when Compare parks on a hunk (start / ignore re-diff / hide-equal / swap / First), e.g. ` · at L12 | R15 (1/5 replace −1 +1)`.
 fn compare_at_hunk_status_bit(lr: &str, ordinal_bit: &str) -> String {
     if lr.is_empty() {
         format!(" · at {ordinal_bit}")
@@ -1383,7 +1383,7 @@ impl EditorApp {
                         "Toggle ignore blank lines for Compare (Preferences persist)",
                     ),
                     "IDM_VIEW_COMPARE_HIDE_EQUAL" => response.on_hover_text(
-                        "Hide Equal (unchanged) lines while Compare is on; context size is Preferences Hide-equal context; gutter ···N marks collapsed runs — click a cue to expand that run on both panes (Preferences persist)",
+                        "Hide Equal (unchanged) lines while Compare is on; parks both panes on the first change hunk; context size is Preferences Hide-equal context; gutter ···N marks collapsed runs — click a cue to expand that run on both panes (Preferences persist)",
                     ),
                     "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_INC" => response.on_hover_text(
                         "Increase Equal context lines kept around each change when Hide Unchanged Lines is on (Alt+]; 0–10; Preferences persist)",
@@ -5042,16 +5042,32 @@ Tree-sitter highlight, and a calm UI.",
                 &self.compare_hide_revealed_right,
                 self.state.settings.compare_hide_equal_context_lines(),
             );
-            self.state.status = compare_pair_status(
+            let counts =
+                compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
+            let hunk_n = counts.hunk_n;
+            // Hide toggle can orphan the caret on a now-hidden Equal line — re-park like
+            // Compare start / ignore re-diff / swap.
+            if hunk_n > 0 {
+                self.park_compare_hunk_ordinal(1);
+                self.select_compare_hunk_on_pane(true, 1);
+                self.select_compare_hunk_on_pane(false, 1);
+            }
+            let mut status = compare_pair_status(
                 &lname,
                 &rname,
-                compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags),
+                counts,
                 ignore,
                 CompareHideStatus {
                     hidden: hide,
                     context: self.state.settings.compare_hide_equal_context_lines(),
                 },
             );
+            if hunk_n > 0 {
+                let lr = self.compare_hunk_lr_label(1);
+                let ordinal = self.compare_hunk_ordinal_bit(1, hunk_n);
+                status.push_str(&compare_at_hunk_status_bit(&lr, &ordinal));
+            }
+            self.state.status = status;
         } else {
             self.state.status = format!(
                 "Hide unchanged lines: {}{}",
