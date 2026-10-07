@@ -201,8 +201,8 @@ fn open_info_tab(state: &mut EditorState, title: &str, text: &str) {
 fn show_shortcut_mapper(state: &mut EditorState) {
     use crate::shortcut_chord::{
         resolve_chord, DEFAULT_DELETE_LINE, DEFAULT_DUPLICATE_LINE, DEFAULT_FIND_NEXT,
-        DEFAULT_GOTO_LINE, DEFAULT_INDENT, DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF,
-        DEFAULT_OUTDENT, DEFAULT_TOGGLE_BOOKMARK, DEFAULT_WORD_WRAP,
+        DEFAULT_FORMAT_DOCUMENT, DEFAULT_GOTO_LINE, DEFAULT_INDENT, DEFAULT_NEXT_BOOKMARK,
+        DEFAULT_NEXT_DIFF, DEFAULT_OUTDENT, DEFAULT_TOGGLE_BOOKMARK, DEFAULT_WORD_WRAP,
     };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
@@ -300,14 +300,26 @@ fn show_shortcut_mapper(state: &mut EditorState) {
         } else {
             format!("{outdent} (from settings.shortcut_outdent = {outdent_raw:?})")
         };
+    let format_doc = resolve_chord(
+        &state.settings.shortcut_format_document,
+        DEFAULT_FORMAT_DOCUMENT,
+    )
+    .display();
+    let format_raw = state.settings.shortcut_format_document.trim();
+    let format_note =
+        if format_raw.is_empty() || format_raw.eq_ignore_ascii_case(DEFAULT_FORMAT_DOCUMENT) {
+            format!("{format_doc} (default; Preferences → Format document shortcut)")
+        } else {
+            format!("{format_doc} (from settings.shortcut_format_document = {format_raw:?})")
+        };
     // Mirrors crates/app/src/ui.rs handle_shortcuts (+ remappable bindings).
     let text = format!(
         "\
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, Next bookmark, Toggle bookmark, Next difference, Go to line, Duplicate line, Delete line, Indent, and Outdent are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_next_diff, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent, shortcut_outdent). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Next bookmark, Toggle bookmark, Next difference, Go to line, Duplicate line, Delete line, Indent, Outdent, and Format document are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_next_diff, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent, shortcut_outdent, shortcut_format_document). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -329,7 +341,7 @@ Cmd+A                 Select all
 {del_note}
 {indent_note}
 {outdent_note}
-Cmd+Shift+I           Format Document (format.document plugin)
+{format_note}
 
 Find / navigate
 ---------------
@@ -507,6 +519,11 @@ Installed ({n})
 "
     );
     text.push_str(&format_plugin_rows(&host));
+    let format_chord = crate::shortcut_chord::resolve_chord(
+        &state.settings.shortcut_format_document,
+        crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
+    )
+    .display();
     text.push_str(&format!(
         "\
 plugins/ on disk ({disk_n} entries)
@@ -517,12 +534,13 @@ Path: {path}
 Action
 ------
 - Run a builtin: Plugins menu (uses PluginHost id).
-- Format Document: also Cmd+Shift+I.
+- Format Document: also {format_chord}.
 - Import Plugin: opens plugins/ and refreshes this listing in a tab.
 - Drop-in files in plugins/ are listed only; they do not load.
 ",
         path = plugins_dir.display(),
         disk = disk_list,
+        format_chord = format_chord,
     ));
     open_info_tab(state, "Plugin Admin", &text);
     state.status = format!("Plugin Admin: {n} in-process, {disk_n} on disk in plugins/");

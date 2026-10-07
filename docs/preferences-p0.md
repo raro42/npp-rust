@@ -38,6 +38,7 @@ New keys:
 | `shortcut_delete_line` | Delete-line chord (`Cmd+Shift+L` default) |
 | `shortcut_indent` | Indent-lines chord (`Cmd+]` default) |
 | `shortcut_outdent` | Outdent-lines chord (`Cmd+[` default) |
+| `shortcut_format_document` | Format-document chord (`Cmd+Shift+I` default) |
 
 Unknown extra keys are kept on load/save (not dropped).
 

@@ -147,3 +147,5 @@
 009 keep: remappable outdent shortcut (shortcut_outdent, v0.3.111)
 
 009 keep: remappable toggle bookmark shortcut (shortcut_toggle_bookmark, v0.3.112)
+
+009 keep: remappable format document shortcut (shortcut_format_document, v0.3.113)

@@ -35,6 +35,9 @@ pub const DEFAULT_INDENT: &str = "Cmd+]";
 /// Default outdent-lines binding (matches historical hard-wire).
 pub const DEFAULT_OUTDENT: &str = "Cmd+[";
 
+/// Default format-document binding (matches historical hard-wire).
+pub const DEFAULT_FORMAT_DOCUMENT: &str = "Cmd+Shift+I";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -328,6 +331,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::CloseBracket);
         assert_eq!(c.display(), "Cmd+]");
+    }
+
+    #[test]
+    fn parse_cmd_shift_i_default_format_document() {
+        let c = parse_chord(DEFAULT_FORMAT_DOCUMENT).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::I);
+        assert_eq!(c.display(), "Cmd+Shift+I");
     }
 
     #[test]

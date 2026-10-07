@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.113] — 2026-10-07
+
+Settings / shortcuts:
+
+- **Format document** is remappable: Preferences → Format document shortcut, or `shortcut_format_document` in `npp-rs/settings.json` (default `Cmd+Shift+I`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.112] — 2026-10-07
 
 Settings / shortcuts:
