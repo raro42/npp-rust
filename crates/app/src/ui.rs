@@ -145,6 +145,7 @@ fn compare_hide_gap_at_pointer(
 }
 
 /// Hide-equal status for compare status-line bits.
+#[derive(Clone, Copy)]
 struct CompareHideStatus {
     hidden: Option<(usize, usize)>,
     context: usize,
@@ -267,22 +268,29 @@ fn visible_lines_with_compare_hide(
 
 /// Status for Equal-line partner park (click/keyboard).
 ///
-/// Example: `Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert) · 50% equal`.
+/// Example: `Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert) · 50% equal · ignore ws · hide equal ±3 · 5 hidden`.
 fn compare_equal_park_status(
     l: usize,
     r: usize,
-    del: usize,
-    ins: usize,
-    hunk_n: usize,
-    kind_bit: &str,
-    equal_pct: u8,
+    counts: &ComparePairCounts,
+    ignore: CompareIgnoreBits,
+    hide: CompareHideStatus,
 ) -> String {
-    if del == 0 && ins == 0 {
-        format!("Compare equal → L{l} | R{r} (identical)")
+    let ignore_bit = compare_ignore_status_bit(ignore);
+    let hide_bit = compare_hide_status_bit(hide);
+    let ComparePairCounts {
+        del,
+        ins,
+        hunk_n,
+        equal_pct,
+        kind_bit,
+    } = counts;
+    if *del == 0 && *ins == 0 {
+        format!("Compare equal → L{l} | R{r} (identical){ignore_bit}{hide_bit}")
     } else {
-        let hunk_word = if hunk_n == 1 { "hunk" } else { "hunks" };
+        let hunk_word = if *hunk_n == 1 { "hunk" } else { "hunks" };
         format!(
-            "Compare equal → L{l} | R{r} (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit}) · {equal_pct}% equal"
+            "Compare equal → L{l} | R{r} (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit}) · {equal_pct}% equal{ignore_bit}{hide_bit}"
         )
     }
 }
@@ -6064,14 +6072,28 @@ Tree-sitter highlight, and a calm UI.",
         };
         let counts =
             compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
+        let ignore = CompareIgnoreBits {
+            ws: self.state.settings.compare_ignore_ws,
+            case: self.state.settings.compare_ignore_case,
+            blank: self.state.settings.compare_ignore_blank,
+        };
+        let hide = compare_hide_opt(
+            self.state.settings.compare_hide_equal,
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            &self.compare_hide_revealed_left,
+            &self.compare_hide_revealed_right,
+            self.state.settings.compare_hide_equal_context_lines(),
+        );
         self.state.status = compare_equal_park_status(
             l,
             r,
-            counts.del,
-            counts.ins,
-            counts.hunk_n,
-            &counts.kind_bit,
-            counts.equal_pct,
+            &counts,
+            ignore,
+            CompareHideStatus {
+                hidden: hide,
+                context: self.state.settings.compare_hide_equal_context_lines(),
+            },
         );
     }
 
@@ -8165,17 +8187,61 @@ mod compare_pair_tests {
 
     #[test]
     fn equal_park_status_includes_kind_tallies_and_equal_pct() {
+        use super::CompareIgnoreBits;
+        let none = CompareIgnoreBits {
+            ws: false,
+            case: false,
+            blank: false,
+        };
+        let no_hide = CompareHideStatus {
+            hidden: None,
+            context: 3,
+        };
+        let two = counts(1, 2, 2, 50, ": 1 delete, 1 insert");
+        let one_del = counts(1, 0, 1, 80, ": 1 delete");
+        let ident = counts(0, 0, 0, 100, "");
         assert_eq!(
-            super::compare_equal_park_status(12, 12, 1, 2, 2, ": 1 delete, 1 insert", 50),
+            super::compare_equal_park_status(12, 12, &two, none, no_hide),
             "Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert) · 50% equal"
         );
         assert_eq!(
-            super::compare_equal_park_status(3, 5, 1, 0, 1, ": 1 delete", 80),
+            super::compare_equal_park_status(3, 5, &one_del, none, no_hide),
             "Compare equal → L3 | R5 (−1 +0, 1 hunk: 1 delete) · 80% equal"
         );
         assert_eq!(
-            super::compare_equal_park_status(8, 8, 0, 0, 0, "", 100),
+            super::compare_equal_park_status(8, 8, &ident, none, no_hide),
             "Compare equal → L8 | R8 (identical)"
+        );
+        assert_eq!(
+            super::compare_equal_park_status(
+                12,
+                12,
+                &two,
+                CompareIgnoreBits {
+                    ws: true,
+                    case: true,
+                    blank: false
+                },
+                CompareHideStatus {
+                    hidden: Some((5, 5)),
+                    context: 3
+                }
+            ),
+            "Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert) · 50% equal · ignore ws+case · hide equal ±3 · 5 hidden"
+        );
+        assert_eq!(
+            super::compare_equal_park_status(
+                8,
+                8,
+                &ident,
+                CompareIgnoreBits {
+                    ws: false,
+                    case: false,
+                    blank: true
+                },
+                no_hide
+            ),
+            "Compare equal → L8 | R8 (identical) · ignore blank"
         );
     }
 

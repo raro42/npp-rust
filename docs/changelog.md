@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.103] — 2026-10-07
+
+Compare:
+
+- Equal-line partner park (click / keyboard) status appends the same ignore / hide-equal bits as the live pair line, e.g. `Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert) · 50% equal · ignore ws+case · hide equal ±3 · 5 hidden` (identical pairs keep `(identical)` plus those bits when active).
+
 ## [0.3.102] — 2026-10-07
 
 Compare:
