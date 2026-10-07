@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.109] — 2026-10-07
+
+Settings / shortcuts:
+
+- **Delete line** is remappable: Preferences → Delete line shortcut, or `shortcut_delete_line` in `npp-rs/settings.json` (default `Cmd+Shift+L`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.108] — 2026-10-07
 
 Settings / shortcuts:

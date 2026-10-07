@@ -14,7 +14,7 @@ Expect large gaps. The menu tree looks complete. Behaviour depth does not.
 |-------|-----------|--------------|
 | Menu IDs | Full Win32 tree | ~478 IDs, almost all teal |
 | Edit engine | Scintilla | Custom rope + egui paint |
-| Shortcuts | Remappable (`shortcuts.xml`) | Hard-wired set + remaps (`shortcut_word_wrap`, `shortcut_find_next`, `shortcut_next_bookmark`, `shortcut_next_diff`, `shortcut_goto_line`, `shortcut_duplicate_line`) |
+| Shortcuts | Remappable (`shortcuts.xml`) | Hard-wired set + remaps (`shortcut_word_wrap`, `shortcut_find_next`, `shortcut_next_bookmark`, `shortcut_next_diff`, `shortcut_goto_line`, `shortcut_duplicate_line`, `shortcut_delete_line`) |
 | Plugins | DLL ABI + Admin | In-process builtins only |
 | Languages | 80+ + UDL | Tree-sitter subset (~7–8) |
 | Platforms | Windows-first | macOS / Linux / Windows |
@@ -27,7 +27,7 @@ Expect large gaps. The menu tree looks complete. Behaviour depth does not.
 
 **No.**
 
-Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus caret keys in `handle_editor_input`). Settings → Shortcut Mapper dumps that list and the effective **word wrap** / **find next** / **next bookmark** / **next difference** / **go to line** / **duplicate line** chords. Word wrap remaps via Preferences / `shortcut_word_wrap`; Find next via Preferences / `shortcut_find_next` (Shift flips to Find previous); Next bookmark via Preferences / `shortcut_next_bookmark` (Shift flips to previous; Cmd/Ctrl+F2 toggle stays hard-wired); Next difference via Preferences / `shortcut_next_diff` (Shift flips to previous; Cmd/Ctrl+F7 first/last and Alt+F7 hidden-equal stay hard-wired); Go to line via Preferences / `shortcut_goto_line` (Cmd/Ctrl+Shift+L delete stays hard-wired); Duplicate line via Preferences / `shortcut_duplicate_line`. There is **no** full `shortcuts.xml` remap yet.
+Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus caret keys in `handle_editor_input`). Settings → Shortcut Mapper dumps that list and the effective **word wrap** / **find next** / **next bookmark** / **next difference** / **go to line** / **duplicate line** / **delete line** chords. Word wrap remaps via Preferences / `shortcut_word_wrap`; Find next via Preferences / `shortcut_find_next` (Shift flips to Find previous); Next bookmark via Preferences / `shortcut_next_bookmark` (Shift flips to previous; Cmd/Ctrl+F2 toggle stays hard-wired); Next difference via Preferences / `shortcut_next_diff` (Shift flips to previous; Cmd/Ctrl+F7 first/last and Alt+F7 hidden-equal stay hard-wired); Go to line via Preferences / `shortcut_goto_line`; Duplicate line via Preferences / `shortcut_duplicate_line`; Delete line via Preferences / `shortcut_delete_line`. There is **no** full `shortcuts.xml` remap yet.
 
 | Shortcut | Action |
 |----------|--------|

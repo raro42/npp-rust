@@ -200,8 +200,8 @@ fn open_info_tab(state: &mut EditorState, title: &str, text: &str) {
 
 fn show_shortcut_mapper(state: &mut EditorState) {
     use crate::shortcut_chord::{
-        resolve_chord, DEFAULT_DUPLICATE_LINE, DEFAULT_FIND_NEXT, DEFAULT_GOTO_LINE,
-        DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF, DEFAULT_WORD_WRAP,
+        resolve_chord, DEFAULT_DELETE_LINE, DEFAULT_DUPLICATE_LINE, DEFAULT_FIND_NEXT,
+        DEFAULT_GOTO_LINE, DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF, DEFAULT_WORD_WRAP,
     };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
@@ -264,14 +264,21 @@ fn show_shortcut_mapper(state: &mut EditorState) {
     } else {
         format!("{dup} (from settings.shortcut_duplicate_line = {dup_raw:?})")
     };
+    let del = resolve_chord(&state.settings.shortcut_delete_line, DEFAULT_DELETE_LINE).display();
+    let del_raw = state.settings.shortcut_delete_line.trim();
+    let del_note = if del_raw.is_empty() || del_raw.eq_ignore_ascii_case(DEFAULT_DELETE_LINE) {
+        format!("{del} (default; Preferences → Delete line shortcut)")
+    } else {
+        format!("{del} (from settings.shortcut_delete_line = {del_raw:?})")
+    };
     // Mirrors crates/app/src/ui.rs handle_shortcuts (+ remappable bindings).
     let text = format!(
         "\
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, Next bookmark, Next difference, Go to line, and Duplicate line are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_next_diff, shortcut_goto_line, shortcut_duplicate_line). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Next bookmark, Next difference, Go to line, Duplicate line, and Delete line are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_next_diff, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -290,7 +297,7 @@ Cmd+Z                 Undo
 Cmd+Shift+Z / Cmd+Y   Redo
 Cmd+A                 Select all
 {dup_note}
-Cmd+Shift+L           Delete line
+{del_note}
 Cmd+]                 Indent lines (4 spaces)
 Cmd+[                 Outdent lines (4 spaces)
 Cmd+Shift+I           Format Document (format.document plugin)
@@ -303,7 +310,6 @@ Cmd+H / Cmd+Shift+F   Replace
 Cmd+G                 Find next (global; hard-wired)
 Cmd+Shift+G           Find previous (global; hard-wired)
 {goto_note}
-Cmd+Shift+L           Delete line (hard-wired)
 {bm_note}
 Cmd+F2                Toggle bookmark (hard-wired)
 {diff_note}

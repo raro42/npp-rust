@@ -1059,15 +1059,47 @@ impl EditorApp {
                 self.follow_focused_caret();
             }
         }
-        // Delete line stays hard-wired (Cmd/Ctrl+Shift+L).
-        if cmd && l && mods.shift {
-            let tab = self.focused_edit_tab();
-            self.state.prepare_edit_at(tab);
-            if let Some(doc) = self.state.tabs.get_mut(tab) {
-                doc.buffer.delete_line();
+        // Remappable delete line (default Cmd+Shift+L; settings.shortcut_delete_line).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_DELETE_LINE};
+            let del_chord = resolve_chord(
+                &self.state.settings.shortcut_delete_line,
+                DEFAULT_DELETE_LINE,
+            );
+            let del_key_pressed = match del_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if del_key_pressed && del_chord.matches(mods, del_chord.key) {
+                let tab = self.focused_edit_tab();
+                self.state.prepare_edit_at(tab);
+                if let Some(doc) = self.state.tabs.get_mut(tab) {
+                    doc.buffer.delete_line();
+                }
+                self.state.mark_text_changed_at(tab);
+                self.follow_focused_caret();
             }
-            self.state.mark_text_changed_at(tab);
-            self.follow_focused_caret();
         }
 
         // Remappable go to line (default Cmd+L; settings.shortcut_goto_line).
@@ -1860,11 +1892,16 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_DUPLICATE_LINE,
                 )
                 .display();
+                let del_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_delete_line,
+                    crate::shortcut_chord::DEFAULT_DELETE_LINE,
+                )
+                .display();
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 27] = [
+                        let rows: [(&str, &str); 28] = [
                             ("⌘/Ctrl N", "New file"),
                             ("⌘/Ctrl O", "Open"),
                             ("⌘/Ctrl S", "Save"),
@@ -1891,6 +1928,7 @@ Tree-sitter highlight, and a calm UI.",
                             (wrap_keys.as_str(), "Word wrap"),
                             ("⌘/Ctrl A", "Select all"),
                             (dup_keys.as_str(), "Duplicate line"),
+                            (del_keys.as_str(), "Delete line"),
                             ("⌘/Ctrl ] / [", "Indent / Outdent"),
                             ("⌘/Ctrl ⇧ I", "Format document"),
                             ("⌘/Ctrl ⇧ T", "Toggle log tail"),
@@ -2211,11 +2249,9 @@ Tree-sitter highlight, and a calm UI.",
                             }
                         });
                         ui.label(
-                            RichText::new(
-                                "Example: Cmd+L, Ctrl+G. Cmd/Ctrl+Shift+L delete line stays hard-wired.",
-                            )
-                            .small()
-                            .weak(),
+                            RichText::new("Example: Cmd+L, Ctrl+G.")
+                                .small()
+                                .weak(),
                         );
                         ui.horizontal(|ui| {
                             ui.label("Duplicate line shortcut");
@@ -2244,6 +2280,36 @@ Tree-sitter highlight, and a calm UI.",
                         });
                         ui.label(
                             RichText::new("Example: Cmd+D, Ctrl+Shift+D.")
+                                .small()
+                                .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Delete line shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_delete_line,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Shift+L"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_delete_line.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_delete_line =
+                                        crate::shortcut_chord::DEFAULT_DELETE_LINE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_DELETE_LINE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_delete_line = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new("Example: Cmd+Shift+L, Ctrl+Shift+K.")
                                 .small()
                                 .weak(),
                         );
