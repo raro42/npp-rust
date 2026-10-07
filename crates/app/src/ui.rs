@@ -1092,6 +1092,7 @@ impl EditorApp {
                 Key::H => h,
                 Key::F2 => f2,
                 Key::F3 => f3,
+                Key::F7 => f7,
                 Key::Equals => equals,
                 Key::Minus => minus,
                 Key::Num0 => num0,
@@ -1140,6 +1141,7 @@ impl EditorApp {
                 Key::H => h,
                 Key::F2 => f2,
                 Key::F3 => f3,
+                Key::F7 => f7,
                 Key::Equals => equals,
                 Key::Minus => minus,
                 Key::Num0 => num0,
@@ -1191,6 +1193,7 @@ impl EditorApp {
                 Key::H => h,
                 Key::F2 => f2,
                 Key::F3 => f3,
+                Key::F7 => f7,
                 Key::Equals => equals,
                 Key::Minus => minus,
                 Key::Num0 => num0,
@@ -1210,24 +1213,57 @@ impl EditorApp {
             }
         }
 
-        // Compare hunks: F7 next, Shift+F7 previous, ⌘/Ctrl+F7 first, ⌘/Ctrl+Shift+F7 last.
-        // Hidden Equal (···N gaps): Alt+F7 family (same modifiers as hunk nav).
-        if f7 && mods.alt && cmd && mods.shift {
-            self.run_shortcut_cmd("IDM_VIEW_COMPARE_LAST_HIDDEN_EQUAL");
-        } else if f7 && mods.alt && cmd {
-            self.run_shortcut_cmd("IDM_VIEW_COMPARE_FIRST_HIDDEN_EQUAL");
-        } else if f7 && mods.alt && mods.shift {
-            self.run_shortcut_cmd("IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL");
-        } else if f7 && mods.alt {
-            self.run_shortcut_cmd("IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL");
-        } else if f7 && cmd && mods.shift {
-            self.run_shortcut_cmd("IDM_VIEW_LAST_DIFF");
-        } else if f7 && cmd {
-            self.run_shortcut_cmd("IDM_VIEW_FIRST_DIFF");
-        } else if f7 && mods.shift {
-            self.run_shortcut_cmd("IDM_VIEW_PREV_DIFF");
-        } else if f7 {
-            self.run_shortcut_cmd("IDM_VIEW_NEXT_DIFF");
+        // Compare hunks: remappable next (default F7; Shift flips to prev).
+        // ⌘/Ctrl+F7 first/last and Alt+F7 hidden-equal family stay hard-wired on F7.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_NEXT_DIFF};
+            let diff_chord =
+                resolve_chord(&self.state.settings.shortcut_next_diff, DEFAULT_NEXT_DIFF);
+            let diff_key_pressed = match diff_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_prev =
+                diff_key_pressed && diff_chord.flipped_shift().matches(mods, diff_chord.key);
+            let remapped_next = diff_key_pressed && diff_chord.matches(mods, diff_chord.key);
+            if f7 && mods.alt && cmd && mods.shift {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_LAST_HIDDEN_EQUAL");
+            } else if f7 && mods.alt && cmd {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_FIRST_HIDDEN_EQUAL");
+            } else if f7 && mods.alt && mods.shift {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL");
+            } else if f7 && mods.alt {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL");
+            } else if f7 && cmd && mods.shift {
+                self.run_shortcut_cmd("IDM_VIEW_LAST_DIFF");
+            } else if f7 && cmd {
+                self.run_shortcut_cmd("IDM_VIEW_FIRST_DIFF");
+            } else if remapped_prev {
+                self.run_shortcut_cmd("IDM_VIEW_PREV_DIFF");
+            } else if remapped_next {
+                self.run_shortcut_cmd("IDM_VIEW_NEXT_DIFF");
+            }
         }
 
         // Compare apply hunk: ⌘/Ctrl+Alt+←/→ one hunk; +Shift applies all.
@@ -1738,6 +1774,15 @@ Tree-sitter highlight, and a calm UI.",
                     bm_chord.display(),
                     bm_chord.flipped_shift().display()
                 );
+                let diff_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_next_diff,
+                    crate::shortcut_chord::DEFAULT_NEXT_DIFF,
+                );
+                let diff_keys = format!(
+                    "{} / {}",
+                    diff_chord.display(),
+                    diff_chord.flipped_shift().display()
+                );
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
                     .spacing([16.0, 4.0])
@@ -1752,7 +1797,7 @@ Tree-sitter highlight, and a calm UI.",
                             ("⌘/Ctrl G", "Find next (global)"),
                             ("⌘/Ctrl L", "Go to line"),
                             (bm_keys.as_str(), "Next / prev bookmark"),
-                            ("F7 / ⇧ F7", "Compare next / prev diff"),
+                            (diff_keys.as_str(), "Compare next / prev diff"),
                             ("⌘/Ctrl F7 · ⌘/Ctrl ⇧ F7", "Compare first / last diff"),
                             ("Alt F7 / Alt ⇧ F7", "Compare next / prev hidden equal"),
                             (
@@ -2029,6 +2074,37 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: F2, Alt+B. Shift + that key is Previous bookmark. Cmd/Ctrl+F2 toggle stays hard-wired.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Next difference shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_next_diff,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("F7"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_next_diff.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_next_diff =
+                                        crate::shortcut_chord::DEFAULT_NEXT_DIFF.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_NEXT_DIFF
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_next_diff = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: F7, Alt+D. Shift + that key is Previous difference. Cmd/Ctrl+F7 first/last and Alt+F7 hidden-equal stay hard-wired.",
                             )
                             .small()
                             .weak(),

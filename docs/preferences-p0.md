@@ -31,6 +31,7 @@ New keys:
 | `shortcut_word_wrap` | Word-wrap toggle chord (`Alt+Z` default; e.g. `Ctrl+W`) |
 | `shortcut_find_next` | Find-next chord (`F3` default; Shift flips to find previous) |
 | `shortcut_next_bookmark` | Next-bookmark chord (`F2` default; Shift flips to previous; Cmd/Ctrl+F2 toggle stays hard-wired) |
+| `shortcut_next_diff` | Next-compare-diff chord (`F7` default; Shift flips to previous; Cmd/Ctrl+F7 first/last and Alt+F7 hidden-equal stay hard-wired) |
 
 Unknown extra keys are kept on load/save (not dropped).
 

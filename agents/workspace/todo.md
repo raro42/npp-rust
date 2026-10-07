@@ -133,3 +133,5 @@
 009 keep: remappable Find next shortcut (shortcut_find_next, v0.3.104)
 
 009 keep: remappable next bookmark shortcut (shortcut_next_bookmark, v0.3.105)
+
+009 keep: remappable next difference shortcut (shortcut_next_diff, v0.3.106)

@@ -200,7 +200,8 @@ fn open_info_tab(state: &mut EditorState, title: &str, text: &str) {
 
 fn show_shortcut_mapper(state: &mut EditorState) {
     use crate::shortcut_chord::{
-        resolve_chord, DEFAULT_FIND_NEXT, DEFAULT_NEXT_BOOKMARK, DEFAULT_WORD_WRAP,
+        resolve_chord, DEFAULT_FIND_NEXT, DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF,
+        DEFAULT_WORD_WRAP,
     };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
@@ -234,14 +235,25 @@ fn show_shortcut_mapper(state: &mut EditorState) {
             "{bm_next} / {bm_prev} (from settings.shortcut_next_bookmark = {bm_raw:?}; Shift flips)"
         )
     };
+    let diff_chord = resolve_chord(&state.settings.shortcut_next_diff, DEFAULT_NEXT_DIFF);
+    let diff_next = diff_chord.display();
+    let diff_prev = diff_chord.flipped_shift().display();
+    let diff_raw = state.settings.shortcut_next_diff.trim();
+    let diff_note = if diff_raw.is_empty() || diff_raw.eq_ignore_ascii_case(DEFAULT_NEXT_DIFF) {
+        format!("{diff_next} / {diff_prev} (default; Preferences → Next difference shortcut)")
+    } else {
+        format!(
+            "{diff_next} / {diff_prev} (from settings.shortcut_next_diff = {diff_raw:?}; Shift flips)"
+        )
+    };
     // Mirrors crates/app/src/ui.rs handle_shortcuts (+ remappable bindings).
     let text = format!(
         "\
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, and Next bookmark are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Next bookmark, and Next difference are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_next_diff). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -275,14 +287,13 @@ Cmd+Shift+G           Find previous (global; hard-wired)
 Cmd+L                 Go to line
 {bm_note}
 Cmd+F2                Toggle bookmark (hard-wired)
-F7                    Compare next difference
-Shift+F7              Compare previous difference
-Cmd+F7                Compare first difference
-Cmd+Shift+F7          Compare last difference
-Alt+F7                Compare next hidden equal (···N)
-Alt+Shift+F7          Compare previous hidden equal
-Cmd+Alt+F7            Compare first hidden equal
-Cmd+Alt+Shift+F7      Compare last hidden equal
+{diff_note}
+Cmd+F7                Compare first difference (hard-wired)
+Cmd+Shift+F7          Compare last difference (hard-wired)
+Alt+F7                Compare next hidden equal (···N; hard-wired)
+Alt+Shift+F7          Compare previous hidden equal (hard-wired)
+Cmd+Alt+F7            Compare first hidden equal (hard-wired)
+Cmd+Alt+Shift+F7      Compare last hidden equal (hard-wired)
 Cmd+Alt+Left          Compare apply hunk from other view
 Cmd+Alt+Right         Compare apply hunk to other view
 Cmd+Alt+Shift+Left    Compare apply all hunks from other view

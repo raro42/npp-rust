@@ -14,6 +14,9 @@ pub const DEFAULT_FIND_NEXT: &str = "F3";
 /// Default next-bookmark binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_BOOKMARK: &str = "F2";
 
+/// Default next-compare-diff binding (matches historical hard-wire). Prev uses Shift toggled.
+pub const DEFAULT_NEXT_DIFF: &str = "F7";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -129,6 +132,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "z" => Some(Key::Z),
         "f2" => Some(Key::F2),
         "f3" => Some(Key::F3),
+        "f7" => Some(Key::F7),
         "escape" | "esc" => Some(Key::Escape),
         "equals" | "=" | "plus" => Some(Key::Equals),
         "minus" | "-" => Some(Key::Minus),
@@ -169,6 +173,7 @@ fn key_token(key: Key) -> &'static str {
         Key::Z => "Z",
         Key::F2 => "F2",
         Key::F3 => "F3",
+        Key::F7 => "F7",
         Key::Escape => "Escape",
         Key::Equals => "=",
         Key::Minus => "-",
@@ -244,5 +249,16 @@ mod tests {
         assert_eq!(c.key, Key::F2);
         assert_eq!(c.display(), "F2");
         assert_eq!(c.flipped_shift().display(), "Shift+F2");
+    }
+
+    #[test]
+    fn parse_f7_default_next_diff() {
+        let c = parse_chord(DEFAULT_NEXT_DIFF).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F7);
+        assert_eq!(c.display(), "F7");
+        assert_eq!(c.flipped_shift().display(), "Shift+F7");
     }
 }

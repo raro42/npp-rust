@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.106] — 2026-10-07
+
+Settings / shortcuts:
+
+- **Next difference** is remappable: Preferences → Next difference shortcut, or `shortcut_next_diff` in `npp-rs/settings.json` (default `F7`). Shift + that chord is Previous difference. Cmd/Ctrl+F7 first/last and Alt+F7 hidden-equal stay hard-wired. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.105] — 2026-10-07
 
 Settings / shortcuts:

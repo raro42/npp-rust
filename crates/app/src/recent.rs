@@ -96,6 +96,10 @@ fn default_shortcut_next_bookmark() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK.into()
 }
 
+fn default_shortcut_next_diff() -> String {
+    crate::shortcut_chord::DEFAULT_NEXT_DIFF.into()
+}
+
 fn default_compare_hide_equal_context() -> u8 {
     u8::try_from(crate::diff::COMPARE_HIDE_EQUAL_CONTEXT).unwrap_or(3)
 }
@@ -218,6 +222,9 @@ pub struct AppSettings {
     /// Next-bookmark chord (`F2` default). Shift + same key is previous bookmark.
     #[serde(default = "default_shortcut_next_bookmark")]
     pub shortcut_next_bookmark: String,
+    /// Next-compare-diff chord (`F7` default). Shift + same key is previous difference.
+    #[serde(default = "default_shortcut_next_diff")]
+    pub shortcut_next_diff: String,
     /// Unknown keys from disk. Kept so a save does not drop hand-edited or future fields.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     extra: serde_json::Map<String, serde_json::Value>,
@@ -265,6 +272,7 @@ impl Default for AppSettings {
             shortcut_word_wrap: default_shortcut_word_wrap(),
             shortcut_find_next: default_shortcut_find_next(),
             shortcut_next_bookmark: default_shortcut_next_bookmark(),
+            shortcut_next_diff: default_shortcut_next_diff(),
             extra: serde_json::Map::new(),
         }
     }
@@ -583,6 +591,7 @@ mod tests {
             autosave_interval_secs: 60,
             shortcut_find_next: "Ctrl+F3".into(),
             shortcut_next_bookmark: "Ctrl+F2".into(),
+            shortcut_next_diff: "Ctrl+F7".into(),
             ..Default::default()
         };
         let text = serde_json::to_string_pretty(&original).expect("serialize");
@@ -605,6 +614,7 @@ mod tests {
         assert_eq!(back.autosave_interval_secs, 60);
         assert_eq!(back.shortcut_find_next, "Ctrl+F3");
         assert_eq!(back.shortcut_next_bookmark, "Ctrl+F2");
+        assert_eq!(back.shortcut_next_diff, "Ctrl+F7");
     }
 
     #[test]
