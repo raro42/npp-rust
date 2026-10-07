@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.111] — 2026-10-07
+
+Settings / shortcuts:
+
+- **Outdent** is remappable: Preferences → Outdent shortcut, or `shortcut_outdent` in `npp-rs/settings.json` (default `Cmd+[`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.110] — 2026-10-07
 
 Settings / shortcuts:

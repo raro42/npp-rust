@@ -35,7 +35,8 @@ New keys:
 | `shortcut_goto_line` | Go-to-line chord (`Cmd+L` default; Cmd/Ctrl+Shift+L delete line stays hard-wired) |
 | `shortcut_duplicate_line` | Duplicate-line chord (`Cmd+D` default) |
 | `shortcut_delete_line` | Delete-line chord (`Cmd+Shift+L` default) |
-| `shortcut_indent` | Indent-lines chord (`Cmd+]` default; outdent stays Cmd+[) |
+| `shortcut_indent` | Indent-lines chord (`Cmd+]` default) |
+| `shortcut_outdent` | Outdent-lines chord (`Cmd+[` default) |
 
 Unknown extra keys are kept on load/save (not dropped).
 

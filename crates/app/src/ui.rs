@@ -1136,7 +1136,7 @@ impl EditorApp {
                 self.open_goto_line_dialog();
             }
         }
-        // Remappable indent (default Cmd+]; settings.shortcut_indent). Outdent stays Cmd+[.
+        // Remappable indent (default Cmd+]; settings.shortcut_indent).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_INDENT};
             let indent_chord = resolve_chord(&self.state.settings.shortcut_indent, DEFAULT_INDENT);
@@ -1177,15 +1177,46 @@ impl EditorApp {
                 self.follow_focused_caret();
             }
         }
-        if cmd && open_br {
-            let tab = self.focused_edit_tab();
-            self.state.prepare_edit_at(tab);
-            if let Some(doc) = self.state.tabs.get_mut(tab) {
-                let n = self.state.settings.tab_width.max(1) as usize;
-                doc.buffer.outdent_lines(n);
+        // Remappable outdent (default Cmd+[; settings.shortcut_outdent).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_OUTDENT};
+            let outdent_chord =
+                resolve_chord(&self.state.settings.shortcut_outdent, DEFAULT_OUTDENT);
+            let outdent_key_pressed = match outdent_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if outdent_key_pressed && outdent_chord.matches(mods, outdent_chord.key) {
+                let tab = self.focused_edit_tab();
+                self.state.prepare_edit_at(tab);
+                if let Some(doc) = self.state.tabs.get_mut(tab) {
+                    let n = self.state.settings.tab_width.max(1) as usize;
+                    doc.buffer.outdent_lines(n);
+                }
+                self.state.mark_text_changed_at(tab);
+                self.follow_focused_caret();
             }
-            self.state.mark_text_changed_at(tab);
-            self.follow_focused_caret();
         }
         if cmd && mods.shift && i_key {
             self.state.format_document();
@@ -1932,7 +1963,12 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_INDENT,
                 )
                 .display();
-                let indent_outdent_keys = format!("{indent_keys} / ⌘/Ctrl [");
+                let outdent_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_outdent,
+                    crate::shortcut_chord::DEFAULT_OUTDENT,
+                )
+                .display();
+                let indent_outdent_keys = format!("{indent_keys} / {outdent_keys}");
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
                     .spacing([16.0, 4.0])
@@ -2374,11 +2410,38 @@ Tree-sitter highlight, and a calm UI.",
                             }
                         });
                         ui.label(
-                            RichText::new(
-                                "Example: Cmd+], Ctrl+Shift+]. Outdent stays Cmd+[.",
-                            )
-                            .small()
-                            .weak(),
+                            RichText::new("Example: Cmd+], Ctrl+Shift+].")
+                                .small()
+                                .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Outdent shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_outdent,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+["),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_outdent.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_outdent =
+                                        crate::shortcut_chord::DEFAULT_OUTDENT.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_OUTDENT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_outdent = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new("Example: Cmd+[, Ctrl+Shift+[.")
+                                .small()
+                                .weak(),
                         );
                         ui.label("Default EOL (Enter key)");
                         let eol = &mut self.state.settings.default_eol;

@@ -14,7 +14,7 @@ Expect large gaps. The menu tree looks complete. Behaviour depth does not.
 |-------|-----------|--------------|
 | Menu IDs | Full Win32 tree | ~478 IDs, almost all teal |
 | Edit engine | Scintilla | Custom rope + egui paint |
-| Shortcuts | Remappable (`shortcuts.xml`) | Hard-wired set + remaps (`shortcut_word_wrap`, `shortcut_find_next`, `shortcut_next_bookmark`, `shortcut_next_diff`, `shortcut_goto_line`, `shortcut_duplicate_line`, `shortcut_delete_line`, `shortcut_indent`) |
+| Shortcuts | Remappable (`shortcuts.xml`) | Hard-wired set + remaps (`shortcut_word_wrap`, `shortcut_find_next`, `shortcut_next_bookmark`, `shortcut_next_diff`, `shortcut_goto_line`, `shortcut_duplicate_line`, `shortcut_delete_line`, `shortcut_indent`, `shortcut_outdent`) |
 | Plugins | DLL ABI + Admin | In-process builtins only |
 | Languages | 80+ + UDL | Tree-sitter subset (~7–8) |
 | Platforms | Windows-first | macOS / Linux / Windows |
@@ -27,7 +27,7 @@ Expect large gaps. The menu tree looks complete. Behaviour depth does not.
 
 **No.**
 
-Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus caret keys in `handle_editor_input`). Settings → Shortcut Mapper dumps that list and the effective **word wrap** / **find next** / **next bookmark** / **next difference** / **go to line** / **duplicate line** / **delete line** / **indent** chords. Word wrap remaps via Preferences / `shortcut_word_wrap`; Find next via Preferences / `shortcut_find_next` (Shift flips to Find previous); Next bookmark via Preferences / `shortcut_next_bookmark` (Shift flips to previous; Cmd/Ctrl+F2 toggle stays hard-wired); Next difference via Preferences / `shortcut_next_diff` (Shift flips to previous; Cmd/Ctrl+F7 first/last and Alt+F7 hidden-equal stay hard-wired); Go to line via Preferences / `shortcut_goto_line`; Duplicate line via Preferences / `shortcut_duplicate_line`; Delete line via Preferences / `shortcut_delete_line`; Indent via Preferences / `shortcut_indent` (Cmd/Ctrl+[ outdent stays hard-wired). There is **no** full `shortcuts.xml` remap yet.
+Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus caret keys in `handle_editor_input`). Settings → Shortcut Mapper dumps that list and the effective **word wrap** / **find next** / **next bookmark** / **next difference** / **go to line** / **duplicate line** / **delete line** / **indent** / **outdent** chords. Word wrap remaps via Preferences / `shortcut_word_wrap`; Find next via Preferences / `shortcut_find_next` (Shift flips to Find previous); Next bookmark via Preferences / `shortcut_next_bookmark` (Shift flips to previous; Cmd/Ctrl+F2 toggle stays hard-wired); Next difference via Preferences / `shortcut_next_diff` (Shift flips to previous; Cmd/Ctrl+F7 first/last and Alt+F7 hidden-equal stay hard-wired); Go to line via Preferences / `shortcut_goto_line`; Duplicate line via Preferences / `shortcut_duplicate_line`; Delete line via Preferences / `shortcut_delete_line`; Indent via Preferences / `shortcut_indent`; Outdent via Preferences / `shortcut_outdent`. There is **no** full `shortcuts.xml` remap yet.
 
 | Shortcut | Action |
 |----------|--------|
@@ -121,7 +121,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 
 ### P0 — daily editor feel
 
-1. **More hotkeys** + broader remap (`shortcuts.xml` or settings) — hard-wired set grew in v0.3.7; word wrap remaps in v0.3.19; find next remaps in v0.3.104; next bookmark remaps in v0.3.105; next difference remaps in v0.3.106; go to line remaps in v0.3.107; duplicate line remaps in v0.3.108; full mapper still open
+1. **More hotkeys** + broader remap (`shortcuts.xml` or settings) — hard-wired set grew in v0.3.7; word wrap remaps in v0.3.19; find next remaps in v0.3.104; next bookmark remaps in v0.3.105; next difference remaps in v0.3.106; go to line remaps in v0.3.107; duplicate line remaps in v0.3.108; indent remaps in v0.3.110; outdent remaps in v0.3.111; full mapper still open
 2. **Global Find next** (F3) — **done** in v0.3.7
 3. **File drop** onto the window — **done** in v0.3.8
 4. **Selection drag** move/copy — **done** in v0.3.8 (same-buffer; Ctrl/Cmd = copy)
@@ -155,7 +155,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | Claim | Reality |
 |-------|---------|
 | “478 IDs implemented / 0 stubs” | Handlers exist; many are MVP or status-only |
-| Shortcut Mapper | Static text of hard-wired keys + effective word-wrap / find-next / next-bookmark / next-diff / go-to-line / duplicate-line remaps |
+| Shortcut Mapper | Static text of hard-wired keys + effective word-wrap / find-next / next-bookmark / next-diff / go-to-line / duplicate-line / delete-line / indent / outdent remaps |
 | Plugin Admin | Lists builtins; does not load plugins |
 | Column mode tip | Tip string; no Scintilla rect mode |
 

@@ -202,7 +202,7 @@ fn show_shortcut_mapper(state: &mut EditorState) {
     use crate::shortcut_chord::{
         resolve_chord, DEFAULT_DELETE_LINE, DEFAULT_DUPLICATE_LINE, DEFAULT_FIND_NEXT,
         DEFAULT_GOTO_LINE, DEFAULT_INDENT, DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF,
-        DEFAULT_WORD_WRAP,
+        DEFAULT_OUTDENT, DEFAULT_WORD_WRAP,
     };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
@@ -279,14 +279,22 @@ fn show_shortcut_mapper(state: &mut EditorState) {
     } else {
         format!("{indent} (from settings.shortcut_indent = {indent_raw:?})")
     };
+    let outdent = resolve_chord(&state.settings.shortcut_outdent, DEFAULT_OUTDENT).display();
+    let outdent_raw = state.settings.shortcut_outdent.trim();
+    let outdent_note =
+        if outdent_raw.is_empty() || outdent_raw.eq_ignore_ascii_case(DEFAULT_OUTDENT) {
+            format!("{outdent} (default; Preferences → Outdent shortcut)")
+        } else {
+            format!("{outdent} (from settings.shortcut_outdent = {outdent_raw:?})")
+        };
     // Mirrors crates/app/src/ui.rs handle_shortcuts (+ remappable bindings).
     let text = format!(
         "\
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, Next bookmark, Next difference, Go to line, Duplicate line, Delete line, and Indent are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_next_diff, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Next bookmark, Next difference, Go to line, Duplicate line, Delete line, Indent, and Outdent are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_next_diff, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent, shortcut_outdent). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -307,7 +315,7 @@ Cmd+A                 Select all
 {dup_note}
 {del_note}
 {indent_note}
-Cmd+[                 Outdent lines (hard-wired)
+{outdent_note}
 Cmd+Shift+I           Format Document (format.document plugin)
 
 Find / navigate

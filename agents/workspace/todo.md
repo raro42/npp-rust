@@ -143,3 +143,5 @@
 009 keep: remappable delete line shortcut (shortcut_delete_line, v0.3.109)
 
 009 keep: remappable indent shortcut (shortcut_indent, v0.3.110)
+
+009 keep: remappable outdent shortcut (shortcut_outdent, v0.3.111)
