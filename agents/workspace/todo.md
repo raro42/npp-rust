@@ -141,3 +141,5 @@
 009 keep: remappable duplicate line shortcut (shortcut_duplicate_line, v0.3.108)
 
 009 keep: remappable delete line shortcut (shortcut_delete_line, v0.3.109)
+
+009 keep: remappable indent shortcut (shortcut_indent, v0.3.110)
