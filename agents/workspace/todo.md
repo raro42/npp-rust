@@ -153,3 +153,5 @@
 009 keep: remappable close tab shortcut (shortcut_close_tab, v0.3.114)
 
 009 keep: remappable save shortcut (shortcut_save, v0.3.115)
+
+009 keep: remappable find shortcut (shortcut_find, v0.3.116)

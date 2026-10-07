@@ -41,6 +41,7 @@ New keys:
 | `shortcut_format_document` | Format-document chord (`Cmd+Shift+I` default) |
 | `shortcut_close_tab` | Close-tab chord (`Cmd+W` default) |
 | `shortcut_save` | Save chord (`Cmd+S` default; Save As stays `Cmd+Shift+S`) |
+| `shortcut_find` | Find-bar chord (`Cmd+F` default; Replace stays `Cmd+H` / `Cmd+Shift+F`) |
 
 Unknown extra keys are kept on load/save (not dropped).
 

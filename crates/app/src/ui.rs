@@ -1031,16 +1031,49 @@ impl EditorApp {
                 self.state.save();
             }
         }
+        let mut opened_replace = false;
         if (cmd && h && !mods.shift) || (cmd && f && mods.shift) {
             self.show_replace = true;
             self.state.find_open = true;
             self.find_focus_once = true;
             self.state.prepare_find_bar_from_selection();
-        } else if cmd && f {
-            self.state.find_open = true;
-            self.show_replace = false;
-            self.find_focus_once = true;
-            self.state.prepare_find_bar_from_selection();
+            opened_replace = true;
+        }
+        // Remappable find (default Cmd+F; settings.shortcut_find). Replace stays Cmd+H / Cmd+Shift+F.
+        if !opened_replace {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND};
+            let find_chord = resolve_chord(&self.state.settings.shortcut_find, DEFAULT_FIND);
+            let find_key_pressed = match find_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if find_key_pressed && find_chord.matches(mods, find_chord.key) {
+                self.state.find_open = true;
+                self.show_replace = false;
+                self.find_focus_once = true;
+                self.state.prepare_find_bar_from_selection();
+            }
         }
         if cmd && a {
             let tab = self.focused_edit_tab();
@@ -2095,16 +2128,22 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_SAVE,
                 )
                 .display();
+                let find_open_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_find,
+                    crate::shortcut_chord::DEFAULT_FIND,
+                )
+                .display();
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 29] = [
+                        let rows: [(&str, &str); 30] = [
                             ("⌘/Ctrl N", "New file"),
                             ("⌘/Ctrl O", "Open"),
                             (save_keys.as_str(), "Save"),
                             ("⌘/Ctrl ⇧ S", "Save As"),
-                            ("⌘/Ctrl F / H", "Find / Replace"),
+                            (find_open_keys.as_str(), "Find"),
+                            ("⌘/Ctrl H · ⌘/Ctrl ⇧ F", "Replace"),
                             (find_keys.as_str(), "Find next / prev"),
                             ("⌘/Ctrl G", "Find next (global)"),
                             (goto_keys.as_str(), "Go to line"),
@@ -2693,6 +2732,35 @@ Tree-sitter highlight, and a calm UI.",
                             RichText::new("Example: Cmd+S, Ctrl+Alt+S. Save As stays Cmd+Shift+S.")
                                 .small()
                                 .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Find shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(&mut self.state.settings.shortcut_find)
+                                    .desired_width(120.0)
+                                    .hint_text("Cmd+F"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_find.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_find =
+                                        crate::shortcut_chord::DEFAULT_FIND.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIND
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_find = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+F, Ctrl+Alt+F. Replace stays Cmd+H / Cmd+Shift+F.",
+                            )
+                            .small()
+                            .weak(),
                         );
                         ui.label("Default EOL (Enter key)");
                         let eol = &mut self.state.settings.default_eol;

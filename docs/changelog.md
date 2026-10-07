@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.116] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Find** is remappable: Preferences → Find shortcut, or `shortcut_find` in `npp-rs/settings.json` (default `Cmd+F`). Replace stays hard-wired `Cmd+H` / `Cmd+Shift+F`. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.115] — 2026-10-08
 
 Settings / shortcuts:
