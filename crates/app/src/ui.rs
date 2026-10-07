@@ -6032,15 +6032,9 @@ Tree-sitter highlight, and a calm UI.",
 
     /// Park the other Compare pane on the LCS-aligned Equal partner of `line`.
     fn sync_compare_other_to_equal_line(&mut self, primary: bool, line: usize) {
-        let Some(oline) = crate::diff::aligned_equal_partner_line(
-            &self.compare_left_tags,
-            &self.compare_right_tags,
-            line,
-            primary,
-        ) else {
+        let Some(oline) = self.park_compare_other_on_equal_line(primary, line) else {
             return;
         };
-        self.park_compare_other_on_equal_line(primary, line);
         let (l, r) = if primary {
             (line + 1, oline + 1)
         } else {
@@ -6411,7 +6405,7 @@ Tree-sitter highlight, and a calm UI.",
     }
 
     /// After a debounce re-diff, park the other pane on the focused caret's hunk
-    /// (or Equal partner) and append `· at L|R …` when on a change hunk.
+    /// (or Equal partner) and append `· at L|R …` / `· equal L|R` landing bits.
     fn align_compare_partner_after_edit_rediff(&mut self, status: &mut String) {
         let primary = self.focused_pane == EditorPane::Primary || !self.dual_view;
         let tab = if primary {
@@ -6431,7 +6425,15 @@ Tree-sitter highlight, and a calm UI.",
             };
             crate::diff::hunk_ordinal(tags, line)
         }) else {
-            self.park_compare_other_on_equal_line(primary, line);
+            let Some(oline) = self.park_compare_other_on_equal_line(primary, line) else {
+                return;
+            };
+            let (l, r) = if primary {
+                (line + 1, oline + 1)
+            } else {
+                (oline + 1, line + 1)
+            };
+            status.push_str(&format!(" · equal L{l} | R{r}"));
             return;
         };
         let other_tab = if primary {
@@ -6466,15 +6468,51 @@ Tree-sitter highlight, and a calm UI.",
     }
 
     /// Park only the other Compare pane on the LCS-aligned Equal partner of `line`.
-    fn park_compare_other_on_equal_line(&mut self, primary: bool, line: usize) {
-        let Some(oline) = crate::diff::aligned_equal_partner_line(
+    ///
+    /// When Hide Unchanged Lines collapses that partner (or the focused Equal),
+    /// reveal those lines so the parked caret stays visible. Returns the partner
+    /// document line when a park happened.
+    fn park_compare_other_on_equal_line(&mut self, primary: bool, line: usize) -> Option<usize> {
+        let oline = crate::diff::aligned_equal_partner_line(
             &self.compare_left_tags,
             &self.compare_right_tags,
             line,
             primary,
-        ) else {
-            return;
-        };
+        )?;
+        if self.state.settings.compare_hide_equal {
+            let context = self.state.settings.compare_hide_equal_context_lines();
+            let (focus_tags, other_tags, focus_revealed, other_revealed) = if primary {
+                (
+                    &self.compare_left_tags,
+                    &self.compare_right_tags,
+                    &mut self.compare_hide_revealed_left,
+                    &mut self.compare_hide_revealed_right,
+                )
+            } else {
+                (
+                    &self.compare_right_tags,
+                    &self.compare_left_tags,
+                    &mut self.compare_hide_revealed_right,
+                    &mut self.compare_hide_revealed_left,
+                )
+            };
+            if crate::diff::compare_hide_line_is_collapsed(
+                focus_tags,
+                focus_revealed,
+                context,
+                line,
+            ) {
+                crate::diff::reveal_compare_lines(focus_revealed, &[line]);
+            }
+            if crate::diff::compare_hide_line_is_collapsed(
+                other_tags,
+                other_revealed,
+                context,
+                oline,
+            ) {
+                crate::diff::reveal_compare_lines(other_revealed, &[oline]);
+            }
+        }
         let other_tab = if primary {
             self.compare_right_tab
         } else {
@@ -6491,6 +6529,7 @@ Tree-sitter highlight, and a calm UI.",
         } else {
             self.follow_caret = true;
         }
+        Some(oline)
     }
 
     fn compute_compare_tags(

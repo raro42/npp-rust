@@ -62,7 +62,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - The other pane parks on the **same hunk ordinal** (line numbers may differ when sides disagree) and selects that side’s hunk too.
 - Mid-hunk Next skips to the following hunk, not the next red/green line.
 - Status shows both sides’ lines + hunk ordinal + kind + −/+ counts, e.g. `Compare Next difference → L12 | R15 (2/5 replace −1 +1)`.
-- Click a red/green change line, or move the caret onto one with the keyboard, to park **and select** the same hunk on both panes (status: `Compare hunk → L12 | R15 (2/5 replace −1 +1)`). Click or move the caret onto an **Equal** line to park the other pane on the LCS-aligned partner (status: `Compare equal → L12 | R12`; no hunk selection).
+- Click a red/green change line, or move the caret onto one with the keyboard, to park **and select** the same hunk on both panes (status: `Compare hunk → L12 | R15 (2/5 replace −1 +1)`). Click or move the caret onto an **Equal** line to park the other pane on the LCS-aligned partner (status: `Compare equal → L12 | R12`; no hunk selection). If Hide Unchanged Lines had collapsed that Equal partner (or the focused Equal), the park **reveals** those lines so the caret stays on-screen.
 - On replace hunks (a changed line on both sides), differing **words** (and refined characters inside a 1:1 token replace) get a stronger wash so you can see the intra-line edit. Insert-only / delete-only lines stay the usual full-line colour. Very long lines (over 256 characters) skip intra-line LCS.
 - When both sides match (including ignore-whitespace / ignore-case), status says `(identical)`.
 - Non-identical pairs append hunk-kind tallies after the hunk count (`· K hunks: N delete, M insert, P replace`) and an Equal-line match percent (`· N% equal`) on the live status line (same metrics as Compare Summary).
@@ -85,7 +85,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 
 ## Limits
 
-- Both panes stay editable. Line tags refresh after edits (~200 ms debounce). After that re-diff, the other pane parks on the focused caret’s change hunk (or Equal partner) and the pair status appends `· at L|R (i/n kind −/+)` when the caret is on a change; the focused caret and selection are left alone so typing is not yanked.
+- Both panes stay editable. Line tags refresh after edits (~200 ms debounce). After that re-diff, the other pane parks on the focused caret’s change hunk (or Equal partner) and the pair status appends `· at L|R (i/n kind −/+)` on a change or `· equal L|R` on Equal; hide-equal collapsed partners are revealed so the park is visible. The focused caret and selection are left alone so typing is not yanked.
 - MVP max: **3000 lines** per side.
 - No gap rows for inserts (line numbers stay per-file; sync is by scroll line).
 - Intra-line wash is word-aware LCS on paired replace lines (char refine on 1:1 tokens). Not 3-way.

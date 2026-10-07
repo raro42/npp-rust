@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.100] — 2026-10-07
+
+Compare:
+
+- Equal-line partner park (click / keyboard / edit re-diff) auto-reveals a Hide-Unchanged collapsed Equal line on either pane so the parked caret stays visible. Edit re-diff on Equal appends `· equal L|R` to pair status (hunk landings still use `· at L|R`).
+
 ## [0.3.99] — 2026-10-07
 
 Compare:

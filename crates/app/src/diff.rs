@@ -517,6 +517,19 @@ pub fn reveal_compare_lines(revealed: &mut BTreeSet<usize>, lines: &[usize]) -> 
     n
 }
 
+/// True when hide-equal would collapse `line` and it is not yet revealed.
+pub fn compare_hide_line_is_collapsed(
+    tags: &[LineKind],
+    revealed: &BTreeSet<usize>,
+    context: usize,
+    line: usize,
+) -> bool {
+    if revealed.contains(&line) {
+        return false;
+    }
+    equal_line_indices_to_hide_with_context(tags, context).contains(&line)
+}
+
 /// Reveal every Equal line currently hidden by hide-equal. Returns how many were new.
 pub fn reveal_all_compare_hidden(
     revealed: &mut BTreeSet<usize>,
@@ -1934,6 +1947,36 @@ mod tests {
         assert_eq!(aligned_equal_partner_line(&lt, &rt, 1, true), None); // Delete
         assert_eq!(aligned_equal_partner_line(&lt, &rt, 1, false), None); // Insert
         assert_eq!(aligned_equal_partner_line(&lt, &rt, 99, true), None);
+    }
+
+    #[test]
+    fn compare_hide_line_is_collapsed_respects_revealed() {
+        use LineKind::*;
+        let tags = vec![
+            Equal, Equal, Equal, Equal, Delete, Equal, Equal, Equal, Equal, Insert, Equal, Equal,
+            Equal, Equal,
+        ];
+        let empty = BTreeSet::new();
+        assert!(compare_hide_line_is_collapsed(
+            &tags,
+            &empty,
+            COMPARE_HIDE_EQUAL_CONTEXT,
+            0
+        ));
+        assert!(!compare_hide_line_is_collapsed(
+            &tags,
+            &empty,
+            COMPARE_HIDE_EQUAL_CONTEXT,
+            3
+        ));
+        let mut revealed = BTreeSet::new();
+        revealed.insert(0);
+        assert!(!compare_hide_line_is_collapsed(
+            &tags,
+            &revealed,
+            COMPARE_HIDE_EQUAL_CONTEXT,
+            0
+        ));
     }
 
     #[test]
