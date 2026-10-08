@@ -23,6 +23,9 @@ pub const DEFAULT_TOGGLE_BOOKMARK: &str = "Cmd+F2";
 /// Default next-compare-diff binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_DIFF: &str = "F7";
 
+/// Default next-hidden-equal binding (matches historical hard-wire). Prev uses Shift toggled.
+pub const DEFAULT_NEXT_HIDDEN_EQUAL: &str = "Alt+F7";
+
 /// Default go-to-line binding (matches historical hard-wire).
 pub const DEFAULT_GOTO_LINE: &str = "Cmd+L";
 
@@ -329,6 +332,17 @@ mod tests {
         assert_eq!(c.key, Key::F7);
         assert_eq!(c.display(), "F7");
         assert_eq!(c.flipped_shift().display(), "Shift+F7");
+    }
+
+    #[test]
+    fn parse_alt_f7_default_next_hidden_equal() {
+        let c = parse_chord(DEFAULT_NEXT_HIDDEN_EQUAL).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F7);
+        assert_eq!(c.display(), "Alt+F7");
+        assert_eq!(c.flipped_shift().display(), "Alt+Shift+F7");
     }
 
     #[test]

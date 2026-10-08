@@ -108,6 +108,10 @@ fn default_shortcut_next_diff() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_DIFF.into()
 }
 
+fn default_shortcut_next_hidden_equal() -> String {
+    crate::shortcut_chord::DEFAULT_NEXT_HIDDEN_EQUAL.into()
+}
+
 fn default_shortcut_goto_line() -> String {
     crate::shortcut_chord::DEFAULT_GOTO_LINE.into()
 }
@@ -323,6 +327,9 @@ pub struct AppSettings {
     /// Next-compare-diff chord (`F7` default). Shift + same key is previous difference.
     #[serde(default = "default_shortcut_next_diff")]
     pub shortcut_next_diff: String,
+    /// Next-hidden-equal chord (`Alt+F7` default). Shift + same key is previous hidden equal.
+    #[serde(default = "default_shortcut_next_hidden_equal")]
+    pub shortcut_next_hidden_equal: String,
     /// Go-to-line chord (`Cmd+L` default).
     #[serde(default = "default_shortcut_goto_line")]
     pub shortcut_goto_line: String,
@@ -436,6 +443,7 @@ impl Default for AppSettings {
             shortcut_next_bookmark: default_shortcut_next_bookmark(),
             shortcut_toggle_bookmark: default_shortcut_toggle_bookmark(),
             shortcut_next_diff: default_shortcut_next_diff(),
+            shortcut_next_hidden_equal: default_shortcut_next_hidden_equal(),
             shortcut_goto_line: default_shortcut_goto_line(),
             shortcut_duplicate_line: default_shortcut_duplicate_line(),
             shortcut_delete_line: default_shortcut_delete_line(),
@@ -778,6 +786,7 @@ mod tests {
             shortcut_next_bookmark: "Ctrl+F2".into(),
             shortcut_toggle_bookmark: "Ctrl+Shift+F2".into(),
             shortcut_next_diff: "Ctrl+F7".into(),
+            shortcut_next_hidden_equal: "Ctrl+Alt+H".into(),
             shortcut_goto_line: "Ctrl+Shift+G".into(),
             shortcut_duplicate_line: "Ctrl+Shift+D".into(),
             shortcut_delete_line: "Ctrl+Shift+K".into(),
@@ -824,6 +833,7 @@ mod tests {
         assert_eq!(back.shortcut_next_bookmark, "Ctrl+F2");
         assert_eq!(back.shortcut_toggle_bookmark, "Ctrl+Shift+F2");
         assert_eq!(back.shortcut_next_diff, "Ctrl+F7");
+        assert_eq!(back.shortcut_next_hidden_equal, "Ctrl+Alt+H");
         assert_eq!(back.shortcut_goto_line, "Ctrl+Shift+G");
         assert_eq!(back.shortcut_duplicate_line, "Ctrl+Shift+D");
         assert_eq!(back.shortcut_delete_line, "Ctrl+Shift+K");

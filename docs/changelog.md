@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.131] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Next hidden equal** is remappable: Preferences → Next hidden equal shortcut, or `shortcut_next_hidden_equal` in `npp-rs/settings.json` (default `Alt+F7`). Shift + that chord is Previous hidden equal. Cmd/Ctrl+Alt+F7 first/last stay hard-wired. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.130] — 2026-10-08
 
 Settings / shortcuts:

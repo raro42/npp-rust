@@ -1771,12 +1771,20 @@ impl EditorApp {
         }
 
         // Compare hunks: remappable next (default F7; Shift flips to prev).
-        // ⌘/Ctrl+F7 first/last and Alt+F7 hidden-equal family stay hard-wired on F7.
+        // ⌘/Ctrl+F7 first/last stay hard-wired on F7.
+        // Hidden equal: remappable next (default Alt+F7; Shift flips to prev).
+        // ⌘/Ctrl+Alt+F7 first/last stay hard-wired on F7.
         {
-            use crate::shortcut_chord::{resolve_chord, DEFAULT_NEXT_DIFF};
+            use crate::shortcut_chord::{
+                resolve_chord, DEFAULT_NEXT_DIFF, DEFAULT_NEXT_HIDDEN_EQUAL,
+            };
             let diff_chord =
                 resolve_chord(&self.state.settings.shortcut_next_diff, DEFAULT_NEXT_DIFF);
-            let diff_key_pressed = match diff_chord.key {
+            let hidden_chord = resolve_chord(
+                &self.state.settings.shortcut_next_hidden_equal,
+                DEFAULT_NEXT_HIDDEN_EQUAL,
+            );
+            let chord_key_pressed = |key: Key| match key {
                 Key::Z => z,
                 Key::N => n,
                 Key::O => o,
@@ -1801,24 +1809,29 @@ impl EditorApp {
                 Key::OpenBracket => open_br,
                 other => ctx.input(|i| i.key_pressed(other)),
             };
-            let remapped_prev =
-                diff_key_pressed && diff_chord.flipped_shift().matches(mods, diff_chord.key);
-            let remapped_next = diff_key_pressed && diff_chord.matches(mods, diff_chord.key);
+            let remapped_diff_prev = chord_key_pressed(diff_chord.key)
+                && diff_chord.flipped_shift().matches(mods, diff_chord.key);
+            let remapped_diff_next =
+                chord_key_pressed(diff_chord.key) && diff_chord.matches(mods, diff_chord.key);
+            let remapped_hidden_prev = chord_key_pressed(hidden_chord.key)
+                && hidden_chord.flipped_shift().matches(mods, hidden_chord.key);
+            let remapped_hidden_next =
+                chord_key_pressed(hidden_chord.key) && hidden_chord.matches(mods, hidden_chord.key);
             if f7 && mods.alt && cmd && mods.shift {
                 self.run_shortcut_cmd("IDM_VIEW_COMPARE_LAST_HIDDEN_EQUAL");
             } else if f7 && mods.alt && cmd {
                 self.run_shortcut_cmd("IDM_VIEW_COMPARE_FIRST_HIDDEN_EQUAL");
-            } else if f7 && mods.alt && mods.shift {
+            } else if remapped_hidden_prev {
                 self.run_shortcut_cmd("IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL");
-            } else if f7 && mods.alt {
+            } else if remapped_hidden_next {
                 self.run_shortcut_cmd("IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL");
             } else if f7 && cmd && mods.shift {
                 self.run_shortcut_cmd("IDM_VIEW_LAST_DIFF");
             } else if f7 && cmd {
                 self.run_shortcut_cmd("IDM_VIEW_FIRST_DIFF");
-            } else if remapped_prev {
+            } else if remapped_diff_prev {
                 self.run_shortcut_cmd("IDM_VIEW_PREV_DIFF");
-            } else if remapped_next {
+            } else if remapped_diff_next {
                 self.run_shortcut_cmd("IDM_VIEW_NEXT_DIFF");
             }
         }
@@ -2131,12 +2144,27 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, re-collapse the expanded Equal run nearest the caret on both panes (···N cue returns for that run)",
                     ),
-                    "IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL" => response.on_hover_text(
-                        "While Hide Unchanged Lines is on, jump to the next ···N collapsed Equal gap (Alt+F7; wraps; parks both panes)",
-                    ),
-                    "IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL" => response.on_hover_text(
-                        "While Hide Unchanged Lines is on, jump to the previous ···N collapsed Equal gap (Alt+Shift+F7; wraps; parks both panes)",
-                    ),
+                    "IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_next_hidden_equal,
+                            crate::shortcut_chord::DEFAULT_NEXT_HIDDEN_EQUAL,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "While Hide Unchanged Lines is on, jump to the next ···N collapsed Equal gap ({chord}; wraps; parks both panes)"
+                        ))
+                    }
+                    "IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_next_hidden_equal,
+                            crate::shortcut_chord::DEFAULT_NEXT_HIDDEN_EQUAL,
+                        )
+                        .flipped_shift()
+                        .display();
+                        response.on_hover_text(format!(
+                            "While Hide Unchanged Lines is on, jump to the previous ···N collapsed Equal gap ({chord}; wraps; parks both panes)"
+                        ))
+                    }
                     "IDM_VIEW_COMPARE_FIRST_HIDDEN_EQUAL" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, jump to the first ···N collapsed Equal gap (⌘/Ctrl+Alt+F7; parks both panes)",
                     ),
@@ -2399,6 +2427,15 @@ Tree-sitter highlight, and a calm UI.",
                     diff_chord.display(),
                     diff_chord.flipped_shift().display()
                 );
+                let hidden_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_next_hidden_equal,
+                    crate::shortcut_chord::DEFAULT_NEXT_HIDDEN_EQUAL,
+                );
+                let hidden_keys = format!(
+                    "{} / {}",
+                    hidden_chord.display(),
+                    hidden_chord.flipped_shift().display()
+                );
                 let goto_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_goto_line,
                     crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -2530,7 +2567,7 @@ Tree-sitter highlight, and a calm UI.",
                             (toggle_bm_keys.as_str(), "Toggle bookmark"),
                             (diff_keys.as_str(), "Compare next / prev diff"),
                             ("⌘/Ctrl F7 · ⌘/Ctrl ⇧ F7", "Compare first / last diff"),
-                            ("Alt F7 / Alt ⇧ F7", "Compare next / prev hidden equal"),
+                            (hidden_keys.as_str(), "Compare next / prev hidden equal"),
                             (
                                 "⌘/Ctrl Alt F7 · ⌘/Ctrl Alt ⇧ F7",
                                 "Compare first / last hidden equal",
@@ -2906,7 +2943,43 @@ Tree-sitter highlight, and a calm UI.",
                         });
                         ui.label(
                             RichText::new(
-                                "Example: F7, Alt+D. Shift + that key is Previous difference. Cmd/Ctrl+F7 first/last and Alt+F7 hidden-equal stay hard-wired.",
+                                "Example: F7, Alt+D. Shift + that key is Previous difference. Cmd/Ctrl+F7 first/last stay hard-wired. Hidden equal remaps separately.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Next hidden equal shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_next_hidden_equal,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+F7"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_next_hidden_equal
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_next_hidden_equal =
+                                        crate::shortcut_chord::DEFAULT_NEXT_HIDDEN_EQUAL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_NEXT_HIDDEN_EQUAL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_next_hidden_equal = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+F7, Alt+E. Shift + that key is Previous hidden equal. Cmd/Ctrl+Alt+F7 first/last stay hard-wired.",
                             )
                             .small()
                             .weak(),
