@@ -136,6 +136,10 @@ fn default_shortcut_new() -> String {
     crate::shortcut_chord::DEFAULT_NEW.into()
 }
 
+fn default_shortcut_open() -> String {
+    crate::shortcut_chord::DEFAULT_OPEN.into()
+}
+
 fn default_shortcut_save() -> String {
     crate::shortcut_chord::DEFAULT_SAVE.into()
 }
@@ -304,6 +308,9 @@ pub struct AppSettings {
     /// New-file chord (`Cmd+N` default).
     #[serde(default = "default_shortcut_new")]
     pub shortcut_new: String,
+    /// Open-file chord (`Cmd+O` default).
+    #[serde(default = "default_shortcut_open")]
+    pub shortcut_open: String,
     /// Save chord (`Cmd+S` default).
     #[serde(default = "default_shortcut_save")]
     pub shortcut_save: String,
@@ -373,6 +380,7 @@ impl Default for AppSettings {
             shortcut_format_document: default_shortcut_format_document(),
             shortcut_close_tab: default_shortcut_close_tab(),
             shortcut_new: default_shortcut_new(),
+            shortcut_open: default_shortcut_open(),
             shortcut_save: default_shortcut_save(),
             shortcut_save_as: default_shortcut_save_as(),
             shortcut_find: default_shortcut_find(),
@@ -705,6 +713,7 @@ mod tests {
             shortcut_format_document: "Ctrl+Alt+I".into(),
             shortcut_close_tab: "Ctrl+Shift+W".into(),
             shortcut_new: "Ctrl+Alt+N".into(),
+            shortcut_open: "Ctrl+Alt+O".into(),
             shortcut_save: "Ctrl+Alt+S".into(),
             shortcut_save_as: "Ctrl+Alt+Shift+S".into(),
             shortcut_find: "Ctrl+Alt+F".into(),
@@ -741,6 +750,7 @@ mod tests {
         assert_eq!(back.shortcut_format_document, "Ctrl+Alt+I");
         assert_eq!(back.shortcut_close_tab, "Ctrl+Shift+W");
         assert_eq!(back.shortcut_new, "Ctrl+Alt+N");
+        assert_eq!(back.shortcut_open, "Ctrl+Alt+O");
         assert_eq!(back.shortcut_save, "Ctrl+Alt+S");
         assert_eq!(back.shortcut_save_as, "Ctrl+Alt+Shift+S");
         assert_eq!(back.shortcut_find, "Ctrl+Alt+F");

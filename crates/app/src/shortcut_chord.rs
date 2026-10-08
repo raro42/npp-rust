@@ -44,6 +44,9 @@ pub const DEFAULT_CLOSE_TAB: &str = "Cmd+W";
 /// Default new-file binding (matches historical hard-wire).
 pub const DEFAULT_NEW: &str = "Cmd+N";
 
+/// Default open-file binding (matches historical hard-wire).
+pub const DEFAULT_OPEN: &str = "Cmd+O";
+
 /// Default save binding (matches historical hard-wire).
 pub const DEFAULT_SAVE: &str = "Cmd+S";
 
@@ -379,6 +382,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::N);
         assert_eq!(c.display(), "Cmd+N");
+    }
+
+    #[test]
+    fn parse_cmd_o_default_open() {
+        let c = parse_chord(DEFAULT_OPEN).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::O);
+        assert_eq!(c.display(), "Cmd+O");
     }
 
     #[test]

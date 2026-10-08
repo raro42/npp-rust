@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.120] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Open** is remappable: Preferences → Open shortcut, or `shortcut_open` in `npp-rs/settings.json` (default `Cmd+O`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.119] — 2026-10-08
 
 Settings / shortcuts:
