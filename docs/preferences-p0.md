@@ -39,6 +39,7 @@ New keys:
 | `shortcut_first_hidden_equal` | First-hidden-equal chord (`Cmd+Alt+F7` default; Shift flips to last) |
 | `shortcut_apply_compare_hunk` | Apply-compare-hunk-from chord (`Cmd+Alt+Left` default; opposite Left/Right applies to other; Shift applies all) |
 | `shortcut_hide_equal_context` | Hide-equal-context increase chord (`Alt+]` default; opposite `[` / `]` decreases) |
+| `shortcut_hide_equal` | Hide-unchanged-lines toggle chord (`Alt+H` default) |
 | `shortcut_goto_line` | Go-to-line chord (`Cmd+L` default; Cmd/Ctrl+Shift+L delete line stays hard-wired) |
 | `shortcut_duplicate_line` | Duplicate-line chord (`Cmd+D` default) |
 | `shortcut_delete_line` | Delete-line chord (`Cmd+Shift+L` default) |

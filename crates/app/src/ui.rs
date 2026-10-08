@@ -1985,6 +1985,41 @@ impl EditorApp {
             }
         }
 
+        // Remappable hide unchanged lines (default Alt+H; settings.shortcut_hide_equal).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_HIDE_EQUAL};
+            let hide_chord =
+                resolve_chord(&self.state.settings.shortcut_hide_equal, DEFAULT_HIDE_EQUAL);
+            let hide_key_pressed = match hide_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if hide_key_pressed && hide_chord.matches(mods, hide_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_HIDE_EQUAL");
+            }
+        }
+
         // Remappable zoom in / out / restore (defaults Cmd+= / Cmd+- / Cmd+0).
         // Mouse wheel stays hard-wired.
         {
@@ -2259,9 +2294,16 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_IGNORE_BLANK" => response.on_hover_text(
                         "Toggle ignore blank lines for Compare (Preferences persist)",
                     ),
-                    "IDM_VIEW_COMPARE_HIDE_EQUAL" => response.on_hover_text(
-                        "Hide Equal (unchanged) lines while Compare is on; parks both panes on the first change hunk; context size is Preferences Hide-equal context; gutter ···N marks collapsed runs — click a cue to expand that run on both panes (Preferences persist)",
-                    ),
+                    "IDM_VIEW_COMPARE_HIDE_EQUAL" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_hide_equal,
+                            crate::shortcut_chord::DEFAULT_HIDE_EQUAL,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Hide Equal (unchanged) lines while Compare is on ({chord}); parks both panes on the first change hunk; context size is Preferences Hide-equal context; gutter ···N marks collapsed runs — click a cue to expand that run on both panes (Preferences persist)"
+                        ))
+                    }
                     "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_INC" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_hide_equal_context,
@@ -2672,6 +2714,11 @@ Tree-sitter highlight, and a calm UI.",
                     hide_ctx_chord.display(),
                     hide_ctx_chord.flipped_bracket().display()
                 );
+                let hide_equal_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_hide_equal,
+                    crate::shortcut_chord::DEFAULT_HIDE_EQUAL,
+                )
+                .display();
                 let goto_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_goto_line,
                     crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -2794,7 +2841,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 31] = [
+                        let rows: [(&str, &str); 32] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -2822,6 +2869,7 @@ Tree-sitter highlight, and a calm UI.",
                                 apply_all_hunk_keys.as_str(),
                                 "Compare apply all hunks from / to other",
                             ),
+                            (hide_equal_keys.as_str(), "Compare hide unchanged lines"),
                             (hide_ctx_keys.as_str(), "Compare hide-equal context ±1"),
                             (zoom_row.as_str(), "Zoom in / out / restore"),
                             (wrap_keys.as_str(), "Word wrap"),
@@ -3364,6 +3412,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+], Alt+CloseBracket. Opposite [ / ] decreases. Keep ]/[ in the chord for ±1.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Hide unchanged lines shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_hide_equal,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+H"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_hide_equal
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_hide_equal =
+                                        crate::shortcut_chord::DEFAULT_HIDE_EQUAL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_HIDE_EQUAL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_hide_equal = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+H, Ctrl+Alt+U. Toggles View → Hide Unchanged Lines while Compare is on.",
                             )
                             .small()
                             .weak(),

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.137] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Hide unchanged lines** is remappable: Preferences → Hide unchanged lines shortcut, or `shortcut_hide_equal` in `npp-rs/settings.json` (default `Alt+H`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.136] — 2026-10-08
 
 Settings / shortcuts:

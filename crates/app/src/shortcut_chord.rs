@@ -40,6 +40,9 @@ pub const DEFAULT_APPLY_COMPARE_HUNK: &str = "Cmd+Alt+Left";
 /// Opposite bracket (`[` ↔ `]`) decreases.
 pub const DEFAULT_HIDE_EQUAL_CONTEXT: &str = "Alt+]";
 
+/// Default hide-unchanged-lines toggle (View → Hide Unchanged Lines).
+pub const DEFAULT_HIDE_EQUAL: &str = "Alt+H";
+
 /// Default go-to-line binding (matches historical hard-wire).
 pub const DEFAULT_GOTO_LINE: &str = "Cmd+L";
 
@@ -426,6 +429,16 @@ mod tests {
         assert_eq!(arrow_alias.key, Key::ArrowLeft);
         assert!(arrow_alias.ctrl_or_cmd);
         assert!(arrow_alias.alt);
+    }
+
+    #[test]
+    fn parse_alt_h_default_hide_equal() {
+        let c = parse_chord(DEFAULT_HIDE_EQUAL).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::H);
+        assert_eq!(c.display(), "Alt+H");
     }
 
     #[test]

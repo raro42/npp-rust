@@ -128,6 +128,10 @@ fn default_shortcut_hide_equal_context() -> String {
     crate::shortcut_chord::DEFAULT_HIDE_EQUAL_CONTEXT.into()
 }
 
+fn default_shortcut_hide_equal() -> String {
+    crate::shortcut_chord::DEFAULT_HIDE_EQUAL.into()
+}
+
 fn default_shortcut_goto_line() -> String {
     crate::shortcut_chord::DEFAULT_GOTO_LINE.into()
 }
@@ -362,6 +366,9 @@ pub struct AppSettings {
     /// Hide-equal-context increase chord (`Alt+]` default). Opposite bracket decreases.
     #[serde(default = "default_shortcut_hide_equal_context")]
     pub shortcut_hide_equal_context: String,
+    /// Hide-unchanged-lines toggle chord (`Alt+H` default).
+    #[serde(default = "default_shortcut_hide_equal")]
+    pub shortcut_hide_equal: String,
     /// Go-to-line chord (`Cmd+L` default).
     #[serde(default = "default_shortcut_goto_line")]
     pub shortcut_goto_line: String,
@@ -483,6 +490,7 @@ impl Default for AppSettings {
             shortcut_first_hidden_equal: default_shortcut_first_hidden_equal(),
             shortcut_apply_compare_hunk: default_shortcut_apply_compare_hunk(),
             shortcut_hide_equal_context: default_shortcut_hide_equal_context(),
+            shortcut_hide_equal: default_shortcut_hide_equal(),
             shortcut_goto_line: default_shortcut_goto_line(),
             shortcut_duplicate_line: default_shortcut_duplicate_line(),
             shortcut_delete_line: default_shortcut_delete_line(),
@@ -831,6 +839,7 @@ mod tests {
             shortcut_first_hidden_equal: "Ctrl+Alt+E".into(),
             shortcut_apply_compare_hunk: "Ctrl+Alt+Left".into(),
             shortcut_hide_equal_context: "Ctrl+Alt+]".into(),
+            shortcut_hide_equal: "Ctrl+Alt+U".into(),
             shortcut_goto_line: "Ctrl+Shift+G".into(),
             shortcut_duplicate_line: "Ctrl+Shift+D".into(),
             shortcut_delete_line: "Ctrl+Shift+K".into(),
@@ -882,6 +891,7 @@ mod tests {
         assert_eq!(back.shortcut_first_hidden_equal, "Ctrl+Alt+E");
         assert_eq!(back.shortcut_apply_compare_hunk, "Ctrl+Alt+Left");
         assert_eq!(back.shortcut_hide_equal_context, "Ctrl+Alt+]");
+        assert_eq!(back.shortcut_hide_equal, "Ctrl+Alt+U");
         assert_eq!(back.shortcut_goto_line, "Ctrl+Shift+G");
         assert_eq!(back.shortcut_duplicate_line, "Ctrl+Shift+D");
         assert_eq!(back.shortcut_delete_line, "Ctrl+Shift+K");
