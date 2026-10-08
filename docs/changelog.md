@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.128] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Toggle log tail** is remappable: Preferences → Toggle log tail shortcut, or `shortcut_toggle_log_tail` in `npp-rs/settings.json` (default `Cmd+Shift+T`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.127] — 2026-10-08
 
 Settings / shortcuts:

@@ -77,6 +77,9 @@ pub const DEFAULT_ZOOM_OUT: &str = "Cmd+-";
 /// Default zoom-restore binding (matches historical hard-wire). Mouse wheel stays hard-wired.
 pub const DEFAULT_ZOOM_RESTORE: &str = "Cmd+0";
 
+/// Default toggle-log-tail binding (matches historical hard-wire).
+pub const DEFAULT_TOGGLE_LOG_TAIL: &str = "Cmd+Shift+T";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -511,6 +514,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::Num0);
         assert_eq!(c.display(), "Cmd+0");
+    }
+
+    #[test]
+    fn parse_cmd_shift_t_default_toggle_log_tail() {
+        let c = parse_chord(DEFAULT_TOGGLE_LOG_TAIL).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::T);
+        assert_eq!(c.display(), "Cmd+Shift+T");
     }
 
     #[test]

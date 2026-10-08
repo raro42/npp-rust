@@ -180,6 +180,10 @@ fn default_shortcut_zoom_restore() -> String {
     crate::shortcut_chord::DEFAULT_ZOOM_RESTORE.into()
 }
 
+fn default_shortcut_toggle_log_tail() -> String {
+    crate::shortcut_chord::DEFAULT_TOGGLE_LOG_TAIL.into()
+}
+
 fn default_compare_hide_equal_context() -> u8 {
     u8::try_from(crate::diff::COMPARE_HIDE_EQUAL_CONTEXT).unwrap_or(3)
 }
@@ -365,6 +369,9 @@ pub struct AppSettings {
     /// Zoom-restore chord (`Cmd+0` default). Mouse wheel stays hard-wired.
     #[serde(default = "default_shortcut_zoom_restore")]
     pub shortcut_zoom_restore: String,
+    /// Toggle log-tail follow chord (`Cmd+Shift+T` default).
+    #[serde(default = "default_shortcut_toggle_log_tail")]
+    pub shortcut_toggle_log_tail: String,
     /// Unknown keys from disk. Kept so a save does not drop hand-edited or future fields.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     extra: serde_json::Map<String, serde_json::Value>,
@@ -433,6 +440,7 @@ impl Default for AppSettings {
             shortcut_zoom_in: default_shortcut_zoom_in(),
             shortcut_zoom_out: default_shortcut_zoom_out(),
             shortcut_zoom_restore: default_shortcut_zoom_restore(),
+            shortcut_toggle_log_tail: default_shortcut_toggle_log_tail(),
             extra: serde_json::Map::new(),
         }
     }
@@ -772,6 +780,7 @@ mod tests {
             shortcut_zoom_in: "Ctrl+Alt+=".into(),
             shortcut_zoom_out: "Ctrl+Alt+-".into(),
             shortcut_zoom_restore: "Ctrl+Alt+0".into(),
+            shortcut_toggle_log_tail: "Ctrl+Alt+T".into(),
             ..Default::default()
         };
         let text = serde_json::to_string_pretty(&original).expect("serialize");
@@ -815,6 +824,7 @@ mod tests {
         assert_eq!(back.shortcut_zoom_in, "Ctrl+Alt+=");
         assert_eq!(back.shortcut_zoom_out, "Ctrl+Alt+-");
         assert_eq!(back.shortcut_zoom_restore, "Ctrl+Alt+0");
+        assert_eq!(back.shortcut_toggle_log_tail, "Ctrl+Alt+T");
     }
 
     #[test]

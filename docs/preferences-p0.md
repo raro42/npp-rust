@@ -52,6 +52,7 @@ New keys:
 | `shortcut_zoom_in` | Zoom-in chord (`Cmd+=` default) |
 | `shortcut_zoom_out` | Zoom-out chord (`Cmd+-` default) |
 | `shortcut_zoom_restore` | Zoom-restore chord (`Cmd+0` default; mouse wheel stays hard-wired) |
+| `shortcut_toggle_log_tail` | Toggle log-tail follow chord (`Cmd+Shift+T` default) |
 
 Unknown extra keys are kept on load/save (not dropped).
 

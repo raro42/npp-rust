@@ -204,8 +204,8 @@ fn show_shortcut_mapper(state: &mut EditorState) {
         DEFAULT_FIND, DEFAULT_FIND_NEXT, DEFAULT_FORMAT_DOCUMENT, DEFAULT_GOTO_LINE,
         DEFAULT_INDENT, DEFAULT_NEW, DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF, DEFAULT_OPEN,
         DEFAULT_OUTDENT, DEFAULT_REDO, DEFAULT_REPLACE, DEFAULT_SAVE, DEFAULT_SAVE_AS,
-        DEFAULT_SELECT_ALL, DEFAULT_TOGGLE_BOOKMARK, DEFAULT_UNDO, DEFAULT_WORD_WRAP,
-        DEFAULT_ZOOM_IN, DEFAULT_ZOOM_OUT, DEFAULT_ZOOM_RESTORE,
+        DEFAULT_SELECT_ALL, DEFAULT_TOGGLE_BOOKMARK, DEFAULT_TOGGLE_LOG_TAIL, DEFAULT_UNDO,
+        DEFAULT_WORD_WRAP, DEFAULT_ZOOM_IN, DEFAULT_ZOOM_OUT, DEFAULT_ZOOM_RESTORE,
     };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
@@ -422,14 +422,26 @@ fn show_shortcut_mapper(state: &mut EditorState) {
     } else {
         format!("{zoom_restore} (from settings.shortcut_zoom_restore = {zoom_restore_raw:?})")
     };
+    let log_tail = resolve_chord(
+        &state.settings.shortcut_toggle_log_tail,
+        DEFAULT_TOGGLE_LOG_TAIL,
+    )
+    .display();
+    let log_tail_raw = state.settings.shortcut_toggle_log_tail.trim();
+    let log_tail_note =
+        if log_tail_raw.is_empty() || log_tail_raw.eq_ignore_ascii_case(DEFAULT_TOGGLE_LOG_TAIL) {
+            format!("{log_tail} (default; Preferences → Toggle log tail shortcut)")
+        } else {
+            format!("{log_tail} (from settings.shortcut_toggle_log_tail = {log_tail_raw:?})")
+        };
     // Mirrors crates/app/src/ui.rs handle_shortcuts (+ remappable bindings).
     let text = format!(
         "\
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, Next bookmark, Toggle bookmark, Next difference, Go to line, Duplicate line, Delete line, Indent, Outdent, Format document, Close tab, New, Open, Save, Save As, Find, Replace, Select all, Undo, Redo, Zoom in, Zoom out, and Zoom restore are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_next_diff, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent, shortcut_outdent, shortcut_format_document, shortcut_close_tab, shortcut_new, shortcut_open, shortcut_save, shortcut_save_as, shortcut_find, shortcut_replace, shortcut_select_all, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Next bookmark, Toggle bookmark, Next difference, Go to line, Duplicate line, Delete line, Indent, Outdent, Format document, Close tab, New, Open, Save, Save As, Find, Replace, Select all, Undo, Redo, Zoom in, Zoom out, Zoom restore, and Toggle log tail are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_next_diff, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent, shortcut_outdent, shortcut_format_document, shortcut_close_tab, shortcut_new, shortcut_open, shortcut_save, shortcut_save_as, shortcut_find, shortcut_replace, shortcut_select_all, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore, shortcut_toggle_log_tail). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -487,7 +499,7 @@ View / zoom
 Cmd+mouse wheel       Zoom in / out
 {wrap_note}
 Alt+drag              Rectangular / column select (multi-caret typing)
-Cmd+Shift+T           Toggle log tail follow
+{log_tail_note}
 
 Language / style
 ----------------

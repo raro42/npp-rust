@@ -1001,8 +1001,44 @@ impl EditorApp {
         ) = input;
         let cmd = mods.command || mods.ctrl;
 
-        if cmd && mods.shift && t && self.state.toggle_tail_follow() {
-            self.follow_caret = true;
+        // Remappable toggle log tail (default Cmd+Shift+T; settings.shortcut_toggle_log_tail).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_TOGGLE_LOG_TAIL};
+            let tail_chord = resolve_chord(
+                &self.state.settings.shortcut_toggle_log_tail,
+                DEFAULT_TOGGLE_LOG_TAIL,
+            );
+            let tail_key_pressed = match tail_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if tail_key_pressed
+                && tail_chord.matches(mods, tail_chord.key)
+                && self.state.toggle_tail_follow()
+            {
+                self.follow_caret = true;
+            }
         }
         // Remappable new file (default Cmd+N; settings.shortcut_new).
         {
@@ -2445,6 +2481,11 @@ Tree-sitter highlight, and a calm UI.",
                 )
                 .display();
                 let zoom_row = format!("{zoom_in_keys} · {zoom_out_keys} · {zoom_restore_keys}");
+                let log_tail_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_toggle_log_tail,
+                    crate::shortcut_chord::DEFAULT_TOGGLE_LOG_TAIL,
+                )
+                .display();
                 let replace_row = format!("{replace_keys} · ⌘/Ctrl ⇧ F");
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
@@ -2482,7 +2523,7 @@ Tree-sitter highlight, and a calm UI.",
                             (del_keys.as_str(), "Delete line"),
                             (indent_outdent_keys.as_str(), "Indent / Outdent"),
                             (format_keys.as_str(), "Format document"),
-                            ("⌘/Ctrl ⇧ T", "Toggle log tail"),
+                            (log_tail_keys.as_str(), "Toggle log tail"),
                             ("Alt ←/→", "Word jump"),
                             ("Double-click", "Select word"),
                             (undo_keys.as_str(), "Undo / Redo"),
@@ -3251,7 +3292,42 @@ Tree-sitter highlight, and a calm UI.",
                             .weak(),
                         );
                         ui.horizontal(|ui| {
-                            ui.label("Save shortcut");                            let edit = ui.add(
+                            ui.label("Toggle log tail shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_toggle_log_tail,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Shift+T"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_toggle_log_tail
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_toggle_log_tail =
+                                        crate::shortcut_chord::DEFAULT_TOGGLE_LOG_TAIL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_TOGGLE_LOG_TAIL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_toggle_log_tail = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new("Example: Cmd+Shift+T, Ctrl+Alt+T.")
+                                .small()
+                                .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Save shortcut");
+                            let edit = ui.add(
                                 egui::TextEdit::singleline(&mut self.state.settings.shortcut_save)
                                     .desired_width(120.0)
                                     .hint_text("Cmd+S"),
