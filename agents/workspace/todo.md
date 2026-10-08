@@ -169,3 +169,5 @@
 009 keep: remappable Undo shortcut (shortcut_undo, v0.3.122)
 
 009 keep: remappable Redo shortcut (shortcut_redo, v0.3.123)
+
+009 keep: compare soft-truncate oversize pairs (first 3000 lines + status, v0.3.124)
