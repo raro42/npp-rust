@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.130] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Replace (alternate)** is remappable: Preferences → Replace (alternate) shortcut, or `shortcut_replace_alt` in `npp-rs/settings.json` (default `Cmd+Shift+F`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.129] — 2026-10-08
 
 Settings / shortcuts:

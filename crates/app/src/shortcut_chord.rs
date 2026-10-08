@@ -59,8 +59,11 @@ pub const DEFAULT_SAVE_AS: &str = "Cmd+Shift+S";
 /// Default find-bar binding (matches historical hard-wire).
 pub const DEFAULT_FIND: &str = "Cmd+F";
 
-/// Default replace-bar binding (matches historical hard-wire). Cmd+Shift+F stays hard-wired.
+/// Default replace-bar binding (matches historical hard-wire).
 pub const DEFAULT_REPLACE: &str = "Cmd+H";
+
+/// Default alternate replace-bar binding (matches historical hard-wire).
+pub const DEFAULT_REPLACE_ALT: &str = "Cmd+Shift+F";
 
 /// Default select-all binding (matches historical hard-wire).
 pub const DEFAULT_SELECT_ALL: &str = "Cmd+A";
@@ -538,6 +541,16 @@ mod tests {
         assert_eq!(c.key, Key::G);
         assert_eq!(c.display(), "Cmd+G");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+G");
+    }
+
+    #[test]
+    fn parse_cmd_shift_f_default_replace_alt() {
+        let c = parse_chord(DEFAULT_REPLACE_ALT).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::F);
+        assert_eq!(c.display(), "Cmd+Shift+F");
     }
 
     #[test]

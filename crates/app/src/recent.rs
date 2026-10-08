@@ -160,6 +160,10 @@ fn default_shortcut_replace() -> String {
     crate::shortcut_chord::DEFAULT_REPLACE.into()
 }
 
+fn default_shortcut_replace_alt() -> String {
+    crate::shortcut_chord::DEFAULT_REPLACE_ALT.into()
+}
+
 fn default_shortcut_select_all() -> String {
     crate::shortcut_chord::DEFAULT_SELECT_ALL.into()
 }
@@ -355,9 +359,12 @@ pub struct AppSettings {
     /// Find-bar chord (`Cmd+F` default).
     #[serde(default = "default_shortcut_find")]
     pub shortcut_find: String,
-    /// Replace-bar chord (`Cmd+H` default). Cmd+Shift+F stays hard-wired.
+    /// Replace-bar chord (`Cmd+H` default).
     #[serde(default = "default_shortcut_replace")]
     pub shortcut_replace: String,
+    /// Alternate replace-bar chord (`Cmd+Shift+F` default).
+    #[serde(default = "default_shortcut_replace_alt")]
+    pub shortcut_replace_alt: String,
     /// Select-all chord (`Cmd+A` default).
     #[serde(default = "default_shortcut_select_all")]
     pub shortcut_select_all: String,
@@ -442,6 +449,7 @@ impl Default for AppSettings {
             shortcut_save_as: default_shortcut_save_as(),
             shortcut_find: default_shortcut_find(),
             shortcut_replace: default_shortcut_replace(),
+            shortcut_replace_alt: default_shortcut_replace_alt(),
             shortcut_select_all: default_shortcut_select_all(),
             shortcut_undo: default_shortcut_undo(),
             shortcut_redo: default_shortcut_redo(),
@@ -783,6 +791,7 @@ mod tests {
             shortcut_save_as: "Ctrl+Alt+Shift+S".into(),
             shortcut_find: "Ctrl+Alt+F".into(),
             shortcut_replace: "Ctrl+Alt+H".into(),
+            shortcut_replace_alt: "Ctrl+Alt+Shift+F".into(),
             shortcut_select_all: "Ctrl+Alt+A".into(),
             shortcut_undo: "Ctrl+Alt+Z".into(),
             shortcut_redo: "Ctrl+Alt+Y".into(),
@@ -828,6 +837,7 @@ mod tests {
         assert_eq!(back.shortcut_save_as, "Ctrl+Alt+Shift+S");
         assert_eq!(back.shortcut_find, "Ctrl+Alt+F");
         assert_eq!(back.shortcut_replace, "Ctrl+Alt+H");
+        assert_eq!(back.shortcut_replace_alt, "Ctrl+Alt+Shift+F");
         assert_eq!(back.shortcut_select_all, "Ctrl+Alt+A");
         assert_eq!(back.shortcut_undo, "Ctrl+Alt+Z");
         assert_eq!(back.shortcut_redo, "Ctrl+Alt+Y");
