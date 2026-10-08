@@ -179,3 +179,5 @@
 009 keep: remappable Zoom restore shortcut (shortcut_zoom_restore, v0.3.127)
 
 009 keep: remappable Toggle log tail shortcut (shortcut_toggle_log_tail, v0.3.128)
+
+009 keep: remappable Find next (global) shortcut (shortcut_find_next_global, v0.3.129)
