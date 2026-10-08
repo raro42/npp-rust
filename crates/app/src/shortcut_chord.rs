@@ -47,6 +47,9 @@ pub const DEFAULT_HIDE_EQUAL: &str = "Alt+H";
 /// Shift + same key is Clear Compare.
 pub const DEFAULT_COMPARE: &str = "Alt+D";
 
+/// Default swap-compare-sides binding (View → Swap Compare Sides).
+pub const DEFAULT_SWAP_COMPARE: &str = "Alt+S";
+
 /// Default go-to-line binding (matches historical hard-wire).
 pub const DEFAULT_GOTO_LINE: &str = "Cmd+L";
 
@@ -457,6 +460,16 @@ mod tests {
         assert_eq!(c.key, Key::D);
         assert_eq!(c.display(), "Alt+D");
         assert_eq!(c.flipped_shift().display(), "Alt+Shift+D");
+    }
+
+    #[test]
+    fn parse_alt_s_default_swap_compare() {
+        let c = parse_chord(DEFAULT_SWAP_COMPARE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::S);
+        assert_eq!(c.display(), "Alt+S");
     }
 
     #[test]

@@ -207,8 +207,8 @@ fn show_shortcut_mapper(state: &mut EditorState) {
         DEFAULT_HIDE_EQUAL_CONTEXT, DEFAULT_INDENT, DEFAULT_NEW, DEFAULT_NEXT_BOOKMARK,
         DEFAULT_NEXT_DIFF, DEFAULT_NEXT_HIDDEN_EQUAL, DEFAULT_OPEN, DEFAULT_OUTDENT, DEFAULT_REDO,
         DEFAULT_RELOAD, DEFAULT_REPLACE, DEFAULT_REPLACE_ALT, DEFAULT_SAVE, DEFAULT_SAVE_AS,
-        DEFAULT_SELECT_ALL, DEFAULT_TOGGLE_BOOKMARK, DEFAULT_TOGGLE_LOG_TAIL, DEFAULT_UNDO,
-        DEFAULT_WORD_WRAP, DEFAULT_ZOOM_IN, DEFAULT_ZOOM_OUT, DEFAULT_ZOOM_RESTORE,
+        DEFAULT_SELECT_ALL, DEFAULT_SWAP_COMPARE, DEFAULT_TOGGLE_BOOKMARK, DEFAULT_TOGGLE_LOG_TAIL,
+        DEFAULT_UNDO, DEFAULT_WORD_WRAP, DEFAULT_ZOOM_IN, DEFAULT_ZOOM_OUT, DEFAULT_ZOOM_RESTORE,
     };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
@@ -390,6 +390,16 @@ fn show_shortcut_mapper(state: &mut EditorState) {
         format!(
                 "{compare_start} / {compare_clear} (from settings.shortcut_compare = {compare_raw:?}; Shift flips to clear)"
             )
+    };
+    let swap_compare =
+        resolve_chord(&state.settings.shortcut_swap_compare, DEFAULT_SWAP_COMPARE).display();
+    let swap_compare_raw = state.settings.shortcut_swap_compare.trim();
+    let swap_compare_note = if swap_compare_raw.is_empty()
+        || swap_compare_raw.eq_ignore_ascii_case(DEFAULT_SWAP_COMPARE)
+    {
+        format!("{swap_compare} (default; Preferences → Swap Compare sides shortcut)")
+    } else {
+        format!("{swap_compare} (from settings.shortcut_swap_compare = {swap_compare_raw:?})")
     };
     let goto = resolve_chord(&state.settings.shortcut_goto_line, DEFAULT_GOTO_LINE).display();
     let goto_raw = state.settings.shortcut_goto_line.trim();
@@ -594,8 +604,8 @@ fn show_shortcut_mapper(state: &mut EditorState) {
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, Find next (global), Next bookmark, Toggle bookmark, Compare start/clear, Next difference, First difference, Next hidden equal, First hidden equal, Apply compare hunk, Hide unchanged lines, Hide-equal context, Go to line, Duplicate line, Delete line, Indent, Outdent, Format document, Close tab, New, Open, Reload, Save, Save As, Find, Close Find/Replace, Replace, Replace (alternate), Select all, Undo, Redo, Zoom in, Zoom out, Zoom restore, and Toggle log tail are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_find_next_global, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_compare, shortcut_next_diff, shortcut_first_diff, shortcut_next_hidden_equal, shortcut_first_hidden_equal, shortcut_apply_compare_hunk, shortcut_hide_equal, shortcut_hide_equal_context, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent, shortcut_outdent, shortcut_format_document, shortcut_close_tab, shortcut_new, shortcut_open, shortcut_reload, shortcut_save, shortcut_save_as, shortcut_find, shortcut_close_find, shortcut_replace, shortcut_replace_alt, shortcut_select_all, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore, shortcut_toggle_log_tail). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Find next (global), Next bookmark, Toggle bookmark, Compare start/clear, Swap Compare sides, Next difference, First difference, Next hidden equal, First hidden equal, Apply compare hunk, Hide unchanged lines, Hide-equal context, Go to line, Duplicate line, Delete line, Indent, Outdent, Format document, Close tab, New, Open, Reload, Save, Save As, Find, Close Find/Replace, Replace, Replace (alternate), Select all, Undo, Redo, Zoom in, Zoom out, Zoom restore, and Toggle log tail are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_find_next_global, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_compare, shortcut_swap_compare, shortcut_next_diff, shortcut_first_diff, shortcut_next_hidden_equal, shortcut_first_hidden_equal, shortcut_apply_compare_hunk, shortcut_hide_equal, shortcut_hide_equal_context, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent, shortcut_outdent, shortcut_format_document, shortcut_close_tab, shortcut_new, shortcut_open, shortcut_reload, shortcut_save, shortcut_save_as, shortcut_find, shortcut_close_find, shortcut_replace, shortcut_replace_alt, shortcut_select_all, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore, shortcut_toggle_log_tail). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -632,6 +642,7 @@ Find / navigate
 {bm_note}
 {toggle_bm_note}
 {compare_note}
+{swap_compare_note}
 {diff_note}
 {first_diff_note}
 {hidden_note}

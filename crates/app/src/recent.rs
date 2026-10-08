@@ -136,6 +136,10 @@ fn default_shortcut_compare() -> String {
     crate::shortcut_chord::DEFAULT_COMPARE.into()
 }
 
+fn default_shortcut_swap_compare() -> String {
+    crate::shortcut_chord::DEFAULT_SWAP_COMPARE.into()
+}
+
 fn default_shortcut_goto_line() -> String {
     crate::shortcut_chord::DEFAULT_GOTO_LINE.into()
 }
@@ -380,6 +384,9 @@ pub struct AppSettings {
     /// Start-compare chord (`Alt+D` default). Shift + same key is Clear Compare.
     #[serde(default = "default_shortcut_compare")]
     pub shortcut_compare: String,
+    /// Swap-compare-sides chord (`Alt+S` default).
+    #[serde(default = "default_shortcut_swap_compare")]
+    pub shortcut_swap_compare: String,
     /// Go-to-line chord (`Cmd+L` default).
     #[serde(default = "default_shortcut_goto_line")]
     pub shortcut_goto_line: String,
@@ -506,6 +513,7 @@ impl Default for AppSettings {
             shortcut_hide_equal_context: default_shortcut_hide_equal_context(),
             shortcut_hide_equal: default_shortcut_hide_equal(),
             shortcut_compare: default_shortcut_compare(),
+            shortcut_swap_compare: default_shortcut_swap_compare(),
             shortcut_goto_line: default_shortcut_goto_line(),
             shortcut_duplicate_line: default_shortcut_duplicate_line(),
             shortcut_delete_line: default_shortcut_delete_line(),
@@ -857,6 +865,7 @@ mod tests {
             shortcut_hide_equal_context: "Ctrl+Alt+]".into(),
             shortcut_hide_equal: "Ctrl+Alt+U".into(),
             shortcut_compare: "Ctrl+Alt+D".into(),
+            shortcut_swap_compare: "Ctrl+Alt+Shift+S".into(),
             shortcut_goto_line: "Ctrl+Shift+G".into(),
             shortcut_duplicate_line: "Ctrl+Shift+D".into(),
             shortcut_delete_line: "Ctrl+Shift+K".into(),
@@ -911,6 +920,7 @@ mod tests {
         assert_eq!(back.shortcut_hide_equal_context, "Ctrl+Alt+]");
         assert_eq!(back.shortcut_hide_equal, "Ctrl+Alt+U");
         assert_eq!(back.shortcut_compare, "Ctrl+Alt+D");
+        assert_eq!(back.shortcut_swap_compare, "Ctrl+Alt+Shift+S");
         assert_eq!(back.shortcut_goto_line, "Ctrl+Shift+G");
         assert_eq!(back.shortcut_duplicate_line, "Ctrl+Shift+D");
         assert_eq!(back.shortcut_delete_line, "Ctrl+Shift+K");

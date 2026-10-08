@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.141] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Swap Compare Sides** is remappable: Preferences → Swap Compare sides shortcut, or `shortcut_swap_compare` in `npp-rs/settings.json` (default `Alt+S`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.140] — 2026-10-08
 
 Settings / shortcuts:

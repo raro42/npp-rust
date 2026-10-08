@@ -201,3 +201,5 @@
 009 keep: remappable Compare start/clear shortcut (shortcut_compare, Alt+D default, v0.3.138)
 
 009 keep: remappable Close Find/Replace shortcut (shortcut_close_find, v0.3.140)
+
+009 keep: remappable Swap Compare sides shortcut (shortcut_swap_compare, Alt+S default, v0.3.141)

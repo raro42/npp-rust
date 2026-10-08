@@ -2059,6 +2059,43 @@ impl EditorApp {
             }
         }
 
+        // Remappable swap compare sides (default Alt+S; settings.shortcut_swap_compare).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SWAP_COMPARE};
+            let swap_chord = resolve_chord(
+                &self.state.settings.shortcut_swap_compare,
+                DEFAULT_SWAP_COMPARE,
+            );
+            let swap_key_pressed = match swap_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if swap_key_pressed && swap_chord.matches(mods, swap_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_SWAP_COMPARE");
+            }
+        }
+
         // Remappable zoom in / out / restore (defaults Cmd+= / Cmd+- / Cmd+0).
         // Mouse wheel stays hard-wired.
         {
@@ -2373,6 +2410,16 @@ impl EditorApp {
                         .display();
                         response.on_hover_text(format!(
                             "Clear Compare colours and pair pin ({clear}; Preferences remappable via Compare shortcut + Shift)"
+                        ))
+                    }
+                    "IDM_VIEW_SWAP_COMPARE" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_swap_compare,
+                            crate::shortcut_chord::DEFAULT_SWAP_COMPARE,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Swap left/right Compare panes ({chord}; Preferences remappable; re-diffs and parks on the first change hunk)"
                         ))
                     }
                     "IDM_VIEW_COMPARE_IGNORE_WS" => response.on_hover_text(
@@ -2818,6 +2865,11 @@ Tree-sitter highlight, and a calm UI.",
                     compare_chord.display(),
                     compare_chord.flipped_shift().display()
                 );
+                let swap_compare_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_swap_compare,
+                    crate::shortcut_chord::DEFAULT_SWAP_COMPARE,
+                )
+                .display();
                 let goto_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_goto_line,
                     crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -2940,7 +2992,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 33] = [
+                        let rows: [(&str, &str); 34] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -2954,6 +3006,7 @@ Tree-sitter highlight, and a calm UI.",
                             (bm_keys.as_str(), "Next / prev bookmark"),
                             (toggle_bm_keys.as_str(), "Toggle bookmark"),
                             (compare_keys.as_str(), "Compare start / clear"),
+                            (swap_compare_keys.as_str(), "Swap Compare sides"),
                             (diff_keys.as_str(), "Compare next / prev diff"),
                             (first_diff_keys.as_str(), "Compare first / last diff"),
                             (hidden_keys.as_str(), "Compare next / prev hidden equal"),
@@ -3584,6 +3637,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+D, Ctrl+Alt+D. Starts View → Compare with Other View. Shift + that chord is Clear Compare.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Swap Compare sides shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_swap_compare,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+S"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_swap_compare
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_swap_compare =
+                                        crate::shortcut_chord::DEFAULT_SWAP_COMPARE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SWAP_COMPARE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_swap_compare = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+S, Ctrl+Alt+Shift+S. Runs View → Swap Compare Sides while Compare is on.",
                             )
                             .small()
                             .weak(),
