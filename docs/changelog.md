@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.140] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Close Find/Replace** is remappable: Preferences → Close Find/Replace shortcut, or `shortcut_close_find` in `npp-rs/settings.json` (default `Escape`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.139] — 2026-10-08
 
 macOS install / Gatekeeper:

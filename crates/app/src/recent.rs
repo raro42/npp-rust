@@ -184,6 +184,10 @@ fn default_shortcut_find() -> String {
     crate::shortcut_chord::DEFAULT_FIND.into()
 }
 
+fn default_shortcut_close_find() -> String {
+    crate::shortcut_chord::DEFAULT_CLOSE_FIND.into()
+}
+
 fn default_shortcut_replace() -> String {
     crate::shortcut_chord::DEFAULT_REPLACE.into()
 }
@@ -412,6 +416,9 @@ pub struct AppSettings {
     /// Find-bar chord (`Cmd+F` default).
     #[serde(default = "default_shortcut_find")]
     pub shortcut_find: String,
+    /// Close Find/Replace chord (`Escape` default).
+    #[serde(default = "default_shortcut_close_find")]
+    pub shortcut_close_find: String,
     /// Replace-bar chord (`Cmd+H` default).
     #[serde(default = "default_shortcut_replace")]
     pub shortcut_replace: String,
@@ -511,6 +518,7 @@ impl Default for AppSettings {
             shortcut_save: default_shortcut_save(),
             shortcut_save_as: default_shortcut_save_as(),
             shortcut_find: default_shortcut_find(),
+            shortcut_close_find: default_shortcut_close_find(),
             shortcut_replace: default_shortcut_replace(),
             shortcut_replace_alt: default_shortcut_replace_alt(),
             shortcut_select_all: default_shortcut_select_all(),
@@ -861,6 +869,7 @@ mod tests {
             shortcut_save: "Ctrl+Alt+S".into(),
             shortcut_save_as: "Ctrl+Alt+Shift+S".into(),
             shortcut_find: "Ctrl+Alt+F".into(),
+            shortcut_close_find: "Ctrl+Alt+Escape".into(),
             shortcut_replace: "Ctrl+Alt+H".into(),
             shortcut_replace_alt: "Ctrl+Alt+Shift+F".into(),
             shortcut_select_all: "Ctrl+Alt+A".into(),
@@ -914,6 +923,7 @@ mod tests {
         assert_eq!(back.shortcut_save, "Ctrl+Alt+S");
         assert_eq!(back.shortcut_save_as, "Ctrl+Alt+Shift+S");
         assert_eq!(back.shortcut_find, "Ctrl+Alt+F");
+        assert_eq!(back.shortcut_close_find, "Ctrl+Alt+Escape");
         assert_eq!(back.shortcut_replace, "Ctrl+Alt+H");
         assert_eq!(back.shortcut_replace_alt, "Ctrl+Alt+Shift+F");
         assert_eq!(back.shortcut_select_all, "Ctrl+Alt+A");

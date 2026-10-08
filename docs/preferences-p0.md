@@ -53,6 +53,7 @@ New keys:
 | `shortcut_save` | Save chord (`Cmd+S` default) |
 | `shortcut_save_as` | Save-as chord (`Cmd+Shift+S` default) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
+| `shortcut_close_find` | Close Find/Replace chord (`Escape` default) |
 | `shortcut_replace` | Replace-bar chord (`Cmd+H` default) |
 | `shortcut_replace_alt` | Alternate replace-bar chord (`Cmd+Shift+F` default) |
 | `shortcut_select_all` | Select-all chord (`Cmd+A` default) |

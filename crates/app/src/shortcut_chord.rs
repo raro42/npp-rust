@@ -83,6 +83,9 @@ pub const DEFAULT_SAVE_AS: &str = "Cmd+Shift+S";
 /// Default find-bar binding (matches historical hard-wire).
 pub const DEFAULT_FIND: &str = "Cmd+F";
 
+/// Default close-find/replace binding (matches historical hard-wire).
+pub const DEFAULT_CLOSE_FIND: &str = "Escape";
+
 /// Default replace-bar binding (matches historical hard-wire).
 pub const DEFAULT_REPLACE: &str = "Cmd+H";
 
@@ -669,6 +672,17 @@ mod tests {
         assert!(c.shift);
         assert_eq!(c.key, Key::T);
         assert_eq!(c.display(), "Cmd+Shift+T");
+    }
+
+    #[test]
+    fn parse_escape_default_close_find() {
+        let c = parse_chord(DEFAULT_CLOSE_FIND).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Escape);
+        assert_eq!(c.display(), "Escape");
+        assert_eq!(parse_chord("Esc").unwrap().key, Key::Escape);
     }
 
     #[test]
