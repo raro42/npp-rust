@@ -43,6 +43,10 @@ pub const DEFAULT_HIDE_EQUAL_CONTEXT: &str = "Alt+]";
 /// Default hide-unchanged-lines toggle (View → Hide Unchanged Lines).
 pub const DEFAULT_HIDE_EQUAL: &str = "Alt+H";
 
+/// Default start-compare binding (View → Compare with Other View).
+/// Shift + same key is Clear Compare.
+pub const DEFAULT_COMPARE: &str = "Alt+D";
+
 /// Default go-to-line binding (matches historical hard-wire).
 pub const DEFAULT_GOTO_LINE: &str = "Cmd+L";
 
@@ -439,6 +443,17 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::H);
         assert_eq!(c.display(), "Alt+H");
+    }
+
+    #[test]
+    fn parse_alt_d_default_compare() {
+        let c = parse_chord(DEFAULT_COMPARE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::D);
+        assert_eq!(c.display(), "Alt+D");
+        assert_eq!(c.flipped_shift().display(), "Alt+Shift+D");
     }
 
     #[test]

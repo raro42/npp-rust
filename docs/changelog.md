@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.138] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Compare start / clear** is remappable: Preferences → Compare shortcut, or `shortcut_compare` in `npp-rs/settings.json` (default `Alt+D`). Shift + that chord is Clear Compare. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.137] — 2026-10-08
 
 Settings / shortcuts:

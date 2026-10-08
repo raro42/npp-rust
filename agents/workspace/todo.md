@@ -197,3 +197,5 @@
 009 keep: remappable First hidden equal shortcut (shortcut_first_hidden_equal, v0.3.136)
 
 009 keep: remappable Hide unchanged lines shortcut (shortcut_hide_equal, v0.3.137)
+
+009 keep: remappable Compare start/clear shortcut (shortcut_compare, Alt+D default, v0.3.138)

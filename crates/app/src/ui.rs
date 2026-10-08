@@ -2020,6 +2020,45 @@ impl EditorApp {
             }
         }
 
+        // Remappable start compare (default Alt+D; settings.shortcut_compare).
+        // Shift + same chord clears Compare.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_COMPARE};
+            let compare_chord =
+                resolve_chord(&self.state.settings.shortcut_compare, DEFAULT_COMPARE);
+            let clear_chord = compare_chord.flipped_shift();
+            let compare_key_pressed = match compare_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if compare_key_pressed && clear_chord.matches(mods, clear_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_CLEARCOMPARE");
+            } else if compare_key_pressed && compare_chord.matches(mods, compare_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE");
+            }
+        }
+
         // Remappable zoom in / out / restore (defaults Cmd+= / Cmd+- / Cmd+0).
         // Mouse wheel stays hard-wired.
         {
@@ -2285,6 +2324,27 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_TO_SAVED" => response.on_hover_text(
                         "Compare the active file to its last-saved disk contents (read-only snapshot)",
                     ),
+                    "IDM_VIEW_COMPARE" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_compare,
+                            crate::shortcut_chord::DEFAULT_COMPARE,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Start 2-way Compare against the partner tab ({chord}; Preferences remappable; Shift + that chord clears)"
+                        ))
+                    }
+                    "IDM_VIEW_CLEARCOMPARE" => {
+                        let clear = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_compare,
+                            crate::shortcut_chord::DEFAULT_COMPARE,
+                        )
+                        .flipped_shift()
+                        .display();
+                        response.on_hover_text(format!(
+                            "Clear Compare colours and pair pin ({clear}; Preferences remappable via Compare shortcut + Shift)"
+                        ))
+                    }
                     "IDM_VIEW_COMPARE_IGNORE_WS" => response.on_hover_text(
                         "Toggle ignore whitespace for Compare (Preferences persist)",
                     ),
@@ -2719,6 +2779,15 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_HIDE_EQUAL,
                 )
                 .display();
+                let compare_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_compare,
+                    crate::shortcut_chord::DEFAULT_COMPARE,
+                );
+                let compare_keys = format!(
+                    "{} / {}",
+                    compare_chord.display(),
+                    compare_chord.flipped_shift().display()
+                );
                 let goto_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_goto_line,
                     crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -2841,7 +2910,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 32] = [
+                        let rows: [(&str, &str); 33] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -2854,6 +2923,7 @@ Tree-sitter highlight, and a calm UI.",
                             (goto_keys.as_str(), "Go to line"),
                             (bm_keys.as_str(), "Next / prev bookmark"),
                             (toggle_bm_keys.as_str(), "Toggle bookmark"),
+                            (compare_keys.as_str(), "Compare start / clear"),
                             (diff_keys.as_str(), "Compare next / prev diff"),
                             (first_diff_keys.as_str(), "Compare first / last diff"),
                             (hidden_keys.as_str(), "Compare next / prev hidden equal"),
@@ -3448,6 +3518,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+H, Ctrl+Alt+U. Toggles View → Hide Unchanged Lines while Compare is on.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Compare shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_compare,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+D"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_compare
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_compare =
+                                        crate::shortcut_chord::DEFAULT_COMPARE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_COMPARE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_compare = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+D, Ctrl+Alt+D. Starts View → Compare with Other View. Shift + that chord is Clear Compare.",
                             )
                             .small()
                             .weak(),
