@@ -1888,7 +1888,7 @@ impl EditorApp {
 
         // Compare apply hunk: remappable from (default Cmd+Alt+Left).
         // Opposite horizontal arrow applies to other; Shift applies all in that direction.
-        // Alt alone stays word-jump in the editor; command+alt skips caret move there.
+        // Default word-jump is Alt alone (remappable); command+alt leaves that path.
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_APPLY_COMPARE_HUNK};
             let from_chord = resolve_chord(
@@ -2870,6 +2870,15 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_SWAP_COMPARE,
                 )
                 .display();
+                let word_jump_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_word_jump,
+                    crate::shortcut_chord::DEFAULT_WORD_JUMP,
+                );
+                let word_jump_keys = format!(
+                    "{} / {}",
+                    word_jump_chord.display(),
+                    word_jump_chord.flipped_horizontal().display()
+                );
                 let goto_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_goto_line,
                     crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -3032,7 +3041,7 @@ Tree-sitter highlight, and a calm UI.",
                             (indent_outdent_keys.as_str(), "Indent / Outdent"),
                             (format_keys.as_str(), "Format document"),
                             (log_tail_keys.as_str(), "Toggle log tail"),
-                            ("Alt ←/→", "Word jump"),
+                            (word_jump_keys.as_str(), "Word jump ← / →"),
                             ("Double-click", "Select word"),
                             (undo_keys.as_str(), "Undo / Redo"),
                             (close_keys.as_str(), "Close tab"),
@@ -3673,6 +3682,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+S, Ctrl+Alt+Shift+S. Runs View → Swap Compare Sides while Compare is on.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Word jump shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_word_jump,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+Left"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_word_jump
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_word_jump =
+                                        crate::shortcut_chord::DEFAULT_WORD_JUMP.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_WORD_JUMP
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_word_jump = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Left, Ctrl+Left. Opposite Left/Right jumps the other way; Shift extends the selection. Keep Left/Right in the chord.",
                             )
                             .small()
                             .weak(),
@@ -10053,11 +10098,23 @@ Tree-sitter highlight, and a calm UI.",
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
                     }
-                    // Alt alone = word jump. Cmd/Ctrl+Alt(+Shift)+← is Compare apply (handle_shortcuts).
-                    let cmd_mod = modifiers.command || modifiers.ctrl;
-                    if modifiers.alt && !cmd_mod {
+                    // Remappable word jump (default Alt+Left; opposite → forward).
+                    // Cmd/Ctrl+Alt(+Shift)+← stays Compare apply when word-jump omits Cmd.
+                    let jump = crate::shortcut_chord::resolve_chord(
+                        &self.state.settings.shortcut_word_jump,
+                        crate::shortcut_chord::DEFAULT_WORD_JUMP,
+                    );
+                    let jump_fwd = jump.flipped_horizontal();
+                    if jump.matches_ignore_shift(modifiers, Key::ArrowLeft) {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
                             doc.buffer.move_word(false, modifiers.shift);
+                        }
+                        caret_moved = true;
+                    } else if jump_fwd.key != jump.key
+                        && jump_fwd.matches_ignore_shift(modifiers, Key::ArrowLeft)
+                    {
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.buffer.move_word(true, modifiers.shift);
                         }
                         caret_moved = true;
                     } else if !modifiers.alt {
@@ -10085,9 +10142,20 @@ Tree-sitter highlight, and a calm UI.",
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
                     }
-                    // Alt alone = word jump. Cmd/Ctrl+Alt(+Shift)+→ is Compare apply (handle_shortcuts).
-                    let cmd_mod = modifiers.command || modifiers.ctrl;
-                    if modifiers.alt && !cmd_mod {
+                    // Remappable word jump (default Alt+Right = forward when base is Alt+Left).
+                    let jump = crate::shortcut_chord::resolve_chord(
+                        &self.state.settings.shortcut_word_jump,
+                        crate::shortcut_chord::DEFAULT_WORD_JUMP,
+                    );
+                    let jump_fwd = jump.flipped_horizontal();
+                    if jump.matches_ignore_shift(modifiers, Key::ArrowRight) {
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.buffer.move_word(false, modifiers.shift);
+                        }
+                        caret_moved = true;
+                    } else if jump_fwd.key != jump.key
+                        && jump_fwd.matches_ignore_shift(modifiers, Key::ArrowRight)
+                    {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
                             doc.buffer.move_word(true, modifiers.shift);
                         }

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.142] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Word jump** is remappable: Preferences → Word jump shortcut, or `shortcut_word_jump` in `npp-rs/settings.json` (default `Alt+Left`). Opposite Left/Right jumps forward; Shift extends the selection. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.141] — 2026-10-08
 
 Settings / shortcuts:

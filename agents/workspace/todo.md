@@ -203,3 +203,5 @@
 009 keep: remappable Close Find/Replace shortcut (shortcut_close_find, v0.3.140)
 
 009 keep: remappable Swap Compare sides shortcut (shortcut_swap_compare, Alt+S default, v0.3.141)
+
+009 keep: remappable Word jump shortcut (shortcut_word_jump, Alt+Left default, v0.3.142)

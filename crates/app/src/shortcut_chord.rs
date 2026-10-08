@@ -50,6 +50,9 @@ pub const DEFAULT_COMPARE: &str = "Alt+D";
 /// Default swap-compare-sides binding (View → Swap Compare Sides).
 pub const DEFAULT_SWAP_COMPARE: &str = "Alt+S";
 
+/// Default word-jump-back binding (opposite arrow jumps forward; Shift extends).
+pub const DEFAULT_WORD_JUMP: &str = "Alt+Left";
+
 /// Default go-to-line binding (matches historical hard-wire).
 pub const DEFAULT_GOTO_LINE: &str = "Cmd+L";
 
@@ -134,6 +137,15 @@ impl KeyChord {
         }
         let cmd = mods.command || mods.ctrl;
         cmd == self.ctrl_or_cmd && mods.shift == self.shift && mods.alt == self.alt
+    }
+
+    /// Match ctrl/alt/key; Shift may differ (word-jump extend selection).
+    pub fn matches_ignore_shift(self, mods: Modifiers, pressed: Key) -> bool {
+        if pressed != self.key {
+            return false;
+        }
+        let cmd = mods.command || mods.ctrl;
+        cmd == self.ctrl_or_cmd && mods.alt == self.alt
     }
 
     /// Same chord with Shift flipped (find next ↔ find previous).
@@ -470,6 +482,29 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::S);
         assert_eq!(c.display(), "Alt+S");
+    }
+
+    #[test]
+    fn parse_alt_left_default_word_jump() {
+        let c = parse_chord(DEFAULT_WORD_JUMP).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::ArrowLeft);
+        assert_eq!(c.display(), "Alt+Left");
+        assert_eq!(c.flipped_horizontal().display(), "Alt+Right");
+        let mods_alt = Modifiers {
+            alt: true,
+            ..Default::default()
+        };
+        assert!(c.matches_ignore_shift(mods_alt, Key::ArrowLeft));
+        let mods_alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Default::default()
+        };
+        assert!(c.matches_ignore_shift(mods_alt_shift, Key::ArrowLeft));
+        assert!(!c.matches(mods_alt_shift, Key::ArrowLeft));
     }
 
     #[test]
