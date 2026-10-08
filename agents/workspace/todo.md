@@ -207,3 +207,5 @@
 009 keep: remappable Word jump shortcut (shortcut_word_jump, Alt+Left default, v0.3.142)
 
 009 keep: remappable Compare to Saved shortcut (shortcut_compare_to_saved, Alt+Shift+S default, v0.3.143)
+
+009 keep: remappable Next / prev tab shortcut (shortcut_next_tab, Cmd+Tab default, v0.3.144)

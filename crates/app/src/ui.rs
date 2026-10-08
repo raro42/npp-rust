@@ -1687,6 +1687,43 @@ impl EditorApp {
             }
         }
 
+        // Remappable next tab (default Cmd+Tab; settings.shortcut_next_tab). Shift flips to prev.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_NEXT_TAB};
+            let next_chord =
+                resolve_chord(&self.state.settings.shortcut_next_tab, DEFAULT_NEXT_TAB);
+            let next_key_pressed = match next_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if next_key_pressed && next_chord.flipped_shift().matches(mods, next_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_TAB_PREV");
+            } else if next_key_pressed && next_chord.matches(mods, next_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_TAB_NEXT");
+            }
+        }
+
         // Find next/prev: remappable F3 (Shift flips) + remappable global Cmd+G (Shift flips).
         {
             use crate::shortcut_chord::{
@@ -2964,6 +3001,15 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_CLOSE_TAB,
                 )
                 .display();
+                let next_tab_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_next_tab,
+                    crate::shortcut_chord::DEFAULT_NEXT_TAB,
+                );
+                let next_tab_keys = format!(
+                    "{} / {}",
+                    next_tab_chord.display(),
+                    next_tab_chord.flipped_shift().display()
+                );
                 let new_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_new,
                     crate::shortcut_chord::DEFAULT_NEW,
@@ -3050,7 +3096,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 35] = [
+                        let rows: [(&str, &str); 36] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -3095,6 +3141,7 @@ Tree-sitter highlight, and a calm UI.",
                             ("Double-click", "Select word"),
                             (undo_keys.as_str(), "Undo / Redo"),
                             (close_keys.as_str(), "Close tab"),
+                            (next_tab_keys.as_str(), "Next / prev tab"),
                         ];
                         for (keys, action) in rows {
                             ui.monospace(keys);
@@ -4017,6 +4064,37 @@ Tree-sitter highlight, and a calm UI.",
                             RichText::new("Example: Cmd+W, Ctrl+Shift+W.")
                                 .small()
                                 .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Next tab shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_next_tab,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Tab"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_next_tab.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_next_tab =
+                                        crate::shortcut_chord::DEFAULT_NEXT_TAB.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_NEXT_TAB
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_next_tab = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Tab, Ctrl+Alt+Tab. Shift flips to previous tab.",
+                            )
+                            .small()
+                            .weak(),
                         );
                         ui.horizontal(|ui| {
                             ui.label("New shortcut");

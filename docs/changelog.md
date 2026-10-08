@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.144] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Next / previous tab** is remappable: Preferences → Next tab shortcut, or `shortcut_next_tab` in `npp-rs/settings.json` (default `Cmd+Tab`). Shift flips to previous tab. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.143] — 2026-10-09
 
 Settings / shortcuts:

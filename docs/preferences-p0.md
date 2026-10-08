@@ -51,6 +51,7 @@ New keys:
 | `shortcut_outdent` | Outdent-lines chord (`Cmd+[` default) |
 | `shortcut_format_document` | Format-document chord (`Cmd+Shift+I` default) |
 | `shortcut_close_tab` | Close-tab chord (`Cmd+W` default) |
+| `shortcut_next_tab` | Next-tab chord (`Cmd+Tab` default; Shift flips to previous) |
 | `shortcut_new` | New-file chord (`Cmd+N` default) |
 | `shortcut_open` | Open-file chord (`Cmd+O` default) |
 | `shortcut_save` | Save chord (`Cmd+S` default) |

@@ -176,6 +176,10 @@ fn default_shortcut_close_tab() -> String {
     crate::shortcut_chord::DEFAULT_CLOSE_TAB.into()
 }
 
+fn default_shortcut_next_tab() -> String {
+    crate::shortcut_chord::DEFAULT_NEXT_TAB.into()
+}
+
 fn default_shortcut_new() -> String {
     crate::shortcut_chord::DEFAULT_NEW.into()
 }
@@ -422,6 +426,9 @@ pub struct AppSettings {
     /// Close-tab chord (`Cmd+W` default).
     #[serde(default = "default_shortcut_close_tab")]
     pub shortcut_close_tab: String,
+    /// Next-tab chord (`Cmd+Tab` default; Shift flips to previous).
+    #[serde(default = "default_shortcut_next_tab")]
+    pub shortcut_next_tab: String,
     /// New-file chord (`Cmd+N` default).
     #[serde(default = "default_shortcut_new")]
     pub shortcut_new: String,
@@ -537,6 +544,7 @@ impl Default for AppSettings {
             shortcut_outdent: default_shortcut_outdent(),
             shortcut_format_document: default_shortcut_format_document(),
             shortcut_close_tab: default_shortcut_close_tab(),
+            shortcut_next_tab: default_shortcut_next_tab(),
             shortcut_new: default_shortcut_new(),
             shortcut_open: default_shortcut_open(),
             shortcut_save: default_shortcut_save(),
@@ -891,6 +899,7 @@ mod tests {
             shortcut_outdent: "Ctrl+Shift+[".into(),
             shortcut_format_document: "Ctrl+Alt+I".into(),
             shortcut_close_tab: "Ctrl+Shift+W".into(),
+            shortcut_next_tab: "Ctrl+Alt+Tab".into(),
             shortcut_new: "Ctrl+Alt+N".into(),
             shortcut_open: "Ctrl+Alt+O".into(),
             shortcut_save: "Ctrl+Alt+S".into(),
@@ -948,6 +957,7 @@ mod tests {
         assert_eq!(back.shortcut_outdent, "Ctrl+Shift+[");
         assert_eq!(back.shortcut_format_document, "Ctrl+Alt+I");
         assert_eq!(back.shortcut_close_tab, "Ctrl+Shift+W");
+        assert_eq!(back.shortcut_next_tab, "Ctrl+Alt+Tab");
         assert_eq!(back.shortcut_new, "Ctrl+Alt+N");
         assert_eq!(back.shortcut_open, "Ctrl+Alt+O");
         assert_eq!(back.shortcut_save, "Ctrl+Alt+S");

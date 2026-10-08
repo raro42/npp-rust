@@ -125,6 +125,9 @@ pub const DEFAULT_TOGGLE_LOG_TAIL: &str = "Cmd+Shift+T";
 /// Default reload-from-disk binding (new remappable chord; File → Reload).
 pub const DEFAULT_RELOAD: &str = "Cmd+R";
 
+/// Default next-tab binding (new remappable chord). Shift flips to previous tab.
+pub const DEFAULT_NEXT_TAB: &str = "Cmd+Tab";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -271,6 +274,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "f3" => Some(Key::F3),
         "f7" => Some(Key::F7),
         "escape" | "esc" => Some(Key::Escape),
+        "tab" => Some(Key::Tab),
         "equals" | "=" | "plus" => Some(Key::Equals),
         "minus" | "-" => Some(Key::Minus),
         "0" | "num0" | "digit0" => Some(Key::Num0),
@@ -314,6 +318,7 @@ fn key_token(key: Key) -> &'static str {
         Key::F3 => "F3",
         Key::F7 => "F7",
         Key::Escape => "Escape",
+        Key::Tab => "Tab",
         Key::Equals => "=",
         Key::Minus => "-",
         Key::Num0 => "0",
@@ -495,6 +500,17 @@ mod tests {
         assert!(c.shift);
         assert_eq!(c.key, Key::S);
         assert_eq!(c.display(), "Alt+Shift+S");
+    }
+
+    #[test]
+    fn parse_cmd_tab_default_next_tab() {
+        let c = parse_chord(DEFAULT_NEXT_TAB).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Tab);
+        assert_eq!(c.display(), "Cmd+Tab");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+Tab");
     }
 
     #[test]
