@@ -185,3 +185,5 @@
 009 keep: remappable Replace (alternate) shortcut (shortcut_replace_alt, v0.3.130)
 
 009 keep: remappable Next hidden equal shortcut (shortcut_next_hidden_equal, v0.3.131)
+
+009 keep: remappable Apply compare hunk shortcut (shortcut_apply_compare_hunk, v0.3.132)
