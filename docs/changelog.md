@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.146] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Print** is remappable: Preferences → Print shortcut, or `shortcut_print` in `npp-rs/settings.json` (default `Cmd+P`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.145] — 2026-10-09
 
 Settings / shortcuts:

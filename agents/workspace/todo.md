@@ -211,3 +211,5 @@
 009 keep: remappable Next / prev tab shortcut (shortcut_next_tab, Cmd+Tab default, v0.3.144)
 
 009 keep: remappable Save All shortcut (shortcut_save_all, Cmd+Alt+S default, v0.3.145)
+
+009 keep: remappable Print shortcut (shortcut_print, Cmd+P default, v0.3.146)

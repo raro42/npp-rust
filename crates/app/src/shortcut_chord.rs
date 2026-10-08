@@ -132,6 +132,9 @@ pub const DEFAULT_NEXT_TAB: &str = "Cmd+Tab";
 /// Uses Cmd+Alt+S so it does not collide with Save As (Cmd+Shift+S).
 pub const DEFAULT_SAVE_ALL: &str = "Cmd+Alt+S";
 
+/// Default print binding (new remappable chord; File → Print).
+pub const DEFAULT_PRINT: &str = "Cmd+P";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -525,6 +528,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::S);
         assert_eq!(c.display(), "Cmd+Alt+S");
+    }
+
+    #[test]
+    fn parse_cmd_p_default_print() {
+        let c = parse_chord(DEFAULT_PRINT).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::P);
+        assert_eq!(c.display(), "Cmd+P");
     }
 
     #[test]
