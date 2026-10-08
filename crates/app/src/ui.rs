@@ -1482,10 +1482,12 @@ impl EditorApp {
         }
 
         // Remappable undo (default Cmd+Z; settings.shortcut_undo). Shift flips to redo.
+        // Remappable redo alternate (default Cmd+Y; settings.shortcut_redo).
         {
-            use crate::shortcut_chord::{resolve_chord, DEFAULT_UNDO};
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_REDO, DEFAULT_UNDO};
             let undo_chord = resolve_chord(&self.state.settings.shortcut_undo, DEFAULT_UNDO);
-            let undo_key_pressed = match undo_chord.key {
+            let redo_chord = resolve_chord(&self.state.settings.shortcut_redo, DEFAULT_REDO);
+            let key_pressed = |key: Key| match key {
                 Key::Z => z,
                 Key::N => n,
                 Key::O => o,
@@ -1510,8 +1512,11 @@ impl EditorApp {
                 Key::OpenBracket => open_br,
                 other => ctx.input(|i| i.key_pressed(other)),
             };
-            let remapped_redo =
-                undo_key_pressed && undo_chord.flipped_shift().matches(mods, undo_chord.key);
+            let undo_key_pressed = key_pressed(undo_chord.key);
+            let redo_key_pressed = key_pressed(redo_chord.key);
+            let remapped_redo = (undo_key_pressed
+                && undo_chord.flipped_shift().matches(mods, undo_chord.key))
+                || (redo_key_pressed && redo_chord.matches(mods, redo_chord.key));
             let remapped_undo = undo_key_pressed && undo_chord.matches(mods, undo_chord.key);
             if remapped_redo {
                 self.state.redo_at(self.focused_edit_tab());
@@ -1560,10 +1565,6 @@ impl EditorApp {
                     if self.state.word_wrap { "on" } else { "off" }
                 );
             }
-        }
-        // Alternate hard-wired redo: Cmd+Y (Shift+undo chord also redo).
-        if cmd && y {
-            self.state.redo_at(self.focused_edit_tab());
         }
         // Remappable close tab (default Cmd+W; settings.shortcut_close_tab).
         {
@@ -2357,10 +2358,16 @@ Tree-sitter highlight, and a calm UI.",
                     &self.state.settings.shortcut_undo,
                     crate::shortcut_chord::DEFAULT_UNDO,
                 );
+                let redo_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_redo,
+                    crate::shortcut_chord::DEFAULT_REDO,
+                )
+                .display();
                 let undo_keys = format!(
-                    "{} / {} · ⌘/Ctrl Y",
+                    "{} / {} · {}",
                     undo_chord.display(),
-                    undo_chord.flipped_shift().display()
+                    undo_chord.flipped_shift().display(),
+                    redo_keys
                 );
                 let replace_row = format!("{replace_keys} · ⌘/Ctrl ⇧ F");
                 egui::Grid::new("about_shortcuts")
@@ -3043,7 +3050,36 @@ Tree-sitter highlight, and a calm UI.",
                         });
                         ui.label(
                             RichText::new(
-                                "Example: Cmd+Z, Ctrl+Alt+Z. Shift + that key is Redo. Cmd/Ctrl+Y stays hard-wired.",
+                                "Example: Cmd+Z, Ctrl+Alt+Z. Shift + that key is Redo. Alternate Redo is below.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Redo shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(&mut self.state.settings.shortcut_redo)
+                                    .desired_width(120.0)
+                                    .hint_text("Cmd+Y"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_redo.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_redo =
+                                        crate::shortcut_chord::DEFAULT_REDO.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_REDO
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_redo = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Y, Ctrl+Alt+Y. Shift + Undo chord also Redo.",
                             )
                             .small()
                             .weak(),

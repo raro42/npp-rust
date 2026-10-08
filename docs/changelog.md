@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.123] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Redo** is remappable: Preferences → Redo shortcut, or `shortcut_redo` in `npp-rs/settings.json` (default `Cmd+Y`). Shift + Undo chord remains Redo. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.122] — 2026-10-08
 
 Settings / shortcuts:
