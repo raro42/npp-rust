@@ -42,6 +42,7 @@ New keys:
 | `shortcut_hide_equal` | Hide-unchanged-lines toggle chord (`Alt+H` default) |
 | `shortcut_compare` | Start-compare chord (`Alt+D` default; Shift flips to Clear Compare) |
 | `shortcut_swap_compare` | Swap-compare-sides chord (`Alt+S` default) |
+| `shortcut_compare_to_saved` | Compare-to-saved chord (`Alt+Shift+S` default) |
 | `shortcut_word_jump` | Word-jump-back chord (`Alt+Left` default; opposite arrow forward; Shift extends) |
 | `shortcut_goto_line` | Go-to-line chord (`Cmd+L` default; Cmd/Ctrl+Shift+L delete line stays hard-wired) |
 | `shortcut_duplicate_line` | Duplicate-line chord (`Cmd+D` default) |

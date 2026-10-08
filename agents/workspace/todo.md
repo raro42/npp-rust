@@ -205,3 +205,5 @@
 009 keep: remappable Swap Compare sides shortcut (shortcut_swap_compare, Alt+S default, v0.3.141)
 
 009 keep: remappable Word jump shortcut (shortcut_word_jump, Alt+Left default, v0.3.142)
+
+009 keep: remappable Compare to Saved shortcut (shortcut_compare_to_saved, Alt+Shift+S default, v0.3.143)

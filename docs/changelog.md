@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.143] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Compare to Saved** is remappable: Preferences → Compare to Saved shortcut, or `shortcut_compare_to_saved` in `npp-rs/settings.json` (default `Alt+Shift+S`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.142] — 2026-10-09
 
 Settings / shortcuts:

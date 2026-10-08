@@ -2096,6 +2096,43 @@ impl EditorApp {
             }
         }
 
+        // Remappable compare to saved (default Alt+Shift+S; settings.shortcut_compare_to_saved).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_COMPARE_TO_SAVED};
+            let saved_chord = resolve_chord(
+                &self.state.settings.shortcut_compare_to_saved,
+                DEFAULT_COMPARE_TO_SAVED,
+            );
+            let saved_key_pressed = match saved_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if saved_key_pressed && saved_chord.matches(mods, saved_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_TO_SAVED");
+            }
+        }
+
         // Remappable zoom in / out / restore (defaults Cmd+= / Cmd+- / Cmd+0).
         // Mouse wheel stays hard-wired.
         {
@@ -2388,9 +2425,16 @@ impl EditorApp {
                     "IDM_DEBUGINFO" => {
                         response.on_hover_text("Open a tab with version, OS, and log status")
                     }
-                    "IDM_VIEW_COMPARE_TO_SAVED" => response.on_hover_text(
-                        "Compare the active file to its last-saved disk contents (read-only snapshot)",
-                    ),
+                    "IDM_VIEW_COMPARE_TO_SAVED" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_compare_to_saved,
+                            crate::shortcut_chord::DEFAULT_COMPARE_TO_SAVED,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Compare the active file to its last-saved disk contents ({chord}; Preferences remappable; read-only snapshot)"
+                        ))
+                    }
                     "IDM_VIEW_COMPARE" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_compare,
@@ -2870,6 +2914,11 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_SWAP_COMPARE,
                 )
                 .display();
+                let compare_to_saved_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_compare_to_saved,
+                    crate::shortcut_chord::DEFAULT_COMPARE_TO_SAVED,
+                )
+                .display();
                 let word_jump_chord = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_word_jump,
                     crate::shortcut_chord::DEFAULT_WORD_JUMP,
@@ -3001,7 +3050,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 34] = [
+                        let rows: [(&str, &str); 35] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -3016,6 +3065,7 @@ Tree-sitter highlight, and a calm UI.",
                             (toggle_bm_keys.as_str(), "Toggle bookmark"),
                             (compare_keys.as_str(), "Compare start / clear"),
                             (swap_compare_keys.as_str(), "Swap Compare sides"),
+                            (compare_to_saved_keys.as_str(), "Compare to Saved"),
                             (diff_keys.as_str(), "Compare next / prev diff"),
                             (first_diff_keys.as_str(), "Compare first / last diff"),
                             (hidden_keys.as_str(), "Compare next / prev hidden equal"),
@@ -3682,6 +3732,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+S, Ctrl+Alt+Shift+S. Runs View → Swap Compare Sides while Compare is on.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Compare to Saved shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_compare_to_saved,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+Shift+S"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_compare_to_saved
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_compare_to_saved =
+                                        crate::shortcut_chord::DEFAULT_COMPARE_TO_SAVED.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_COMPARE_TO_SAVED
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_compare_to_saved = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+S, Ctrl+Alt+Shift+V. Runs View → Compare to Saved (disk snapshot).",
                             )
                             .small()
                             .weak(),

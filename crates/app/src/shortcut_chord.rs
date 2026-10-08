@@ -50,6 +50,9 @@ pub const DEFAULT_COMPARE: &str = "Alt+D";
 /// Default swap-compare-sides binding (View → Swap Compare Sides).
 pub const DEFAULT_SWAP_COMPARE: &str = "Alt+S";
 
+/// Default compare-to-saved binding (View → Compare to Saved).
+pub const DEFAULT_COMPARE_TO_SAVED: &str = "Alt+Shift+S";
+
 /// Default word-jump-back binding (opposite arrow jumps forward; Shift extends).
 pub const DEFAULT_WORD_JUMP: &str = "Alt+Left";
 
@@ -482,6 +485,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::S);
         assert_eq!(c.display(), "Alt+S");
+    }
+
+    #[test]
+    fn parse_alt_shift_s_default_compare_to_saved() {
+        let c = parse_chord(DEFAULT_COMPARE_TO_SAVED).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::S);
+        assert_eq!(c.display(), "Alt+Shift+S");
     }
 
     #[test]

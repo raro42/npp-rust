@@ -26,7 +26,7 @@ Compare uses **two open tabs**. Left pane = active tab. Right pane = resolved pa
 ### Against last save
 
 1. Open a file from disk (and edit it if you want).
-2. **View → Compare to Saved** — opens (or refreshes) a read-only `name (saved)` snapshot of the on-disk bytes and starts Compare against it.
+2. **View → Compare to Saved** (remappable Alt+Shift+S; Preferences `shortcut_compare_to_saved`) — opens (or refreshes) a read-only `name (saved)` snapshot of the on-disk bytes and starts Compare against it.
 3. Untitled tabs need a path first (**File → Save**).
 
 ### Pick any second tab
