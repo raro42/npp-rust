@@ -108,6 +108,10 @@ fn default_shortcut_next_diff() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_DIFF.into()
 }
 
+fn default_shortcut_first_diff() -> String {
+    crate::shortcut_chord::DEFAULT_FIRST_DIFF.into()
+}
+
 fn default_shortcut_next_hidden_equal() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_HIDDEN_EQUAL.into()
 }
@@ -339,6 +343,9 @@ pub struct AppSettings {
     /// Next-compare-diff chord (`F7` default). Shift + same key is previous difference.
     #[serde(default = "default_shortcut_next_diff")]
     pub shortcut_next_diff: String,
+    /// First-compare-diff chord (`Cmd+F7` default). Shift + same key is last difference.
+    #[serde(default = "default_shortcut_first_diff")]
+    pub shortcut_first_diff: String,
     /// Next-hidden-equal chord (`Alt+F7` default). Shift + same key is previous hidden equal.
     #[serde(default = "default_shortcut_next_hidden_equal")]
     pub shortcut_next_hidden_equal: String,
@@ -464,6 +471,7 @@ impl Default for AppSettings {
             shortcut_next_bookmark: default_shortcut_next_bookmark(),
             shortcut_toggle_bookmark: default_shortcut_toggle_bookmark(),
             shortcut_next_diff: default_shortcut_next_diff(),
+            shortcut_first_diff: default_shortcut_first_diff(),
             shortcut_next_hidden_equal: default_shortcut_next_hidden_equal(),
             shortcut_apply_compare_hunk: default_shortcut_apply_compare_hunk(),
             shortcut_hide_equal_context: default_shortcut_hide_equal_context(),
@@ -810,6 +818,7 @@ mod tests {
             shortcut_next_bookmark: "Ctrl+F2".into(),
             shortcut_toggle_bookmark: "Ctrl+Shift+F2".into(),
             shortcut_next_diff: "Ctrl+F7".into(),
+            shortcut_first_diff: "Ctrl+Alt+F7".into(),
             shortcut_next_hidden_equal: "Ctrl+Alt+H".into(),
             shortcut_apply_compare_hunk: "Ctrl+Alt+Left".into(),
             shortcut_hide_equal_context: "Ctrl+Alt+]".into(),
@@ -859,6 +868,7 @@ mod tests {
         assert_eq!(back.shortcut_next_bookmark, "Ctrl+F2");
         assert_eq!(back.shortcut_toggle_bookmark, "Ctrl+Shift+F2");
         assert_eq!(back.shortcut_next_diff, "Ctrl+F7");
+        assert_eq!(back.shortcut_first_diff, "Ctrl+Alt+F7");
         assert_eq!(back.shortcut_next_hidden_equal, "Ctrl+Alt+H");
         assert_eq!(back.shortcut_apply_compare_hunk, "Ctrl+Alt+Left");
         assert_eq!(back.shortcut_hide_equal_context, "Ctrl+Alt+]");

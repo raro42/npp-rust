@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.135] — 2026-10-08
+
+Settings / shortcuts:
+
+- **First difference** is remappable: Preferences → First difference shortcut, or `shortcut_first_diff` in `npp-rs/settings.json` (default `Cmd+F7`). Shift + that chord is Last difference. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.134] — 2026-10-08
 
 Settings / shortcuts:

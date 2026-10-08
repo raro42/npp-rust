@@ -191,3 +191,5 @@
 009 keep: remappable Hide-equal context shortcut (shortcut_hide_equal_context, v0.3.133)
 
 009 keep: remappable Reload shortcut (shortcut_reload, v0.3.134)
+
+009 keep: remappable First difference shortcut (shortcut_first_diff, v0.3.135)

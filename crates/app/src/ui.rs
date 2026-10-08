@@ -1804,15 +1804,17 @@ impl EditorApp {
         }
 
         // Compare hunks: remappable next (default F7; Shift flips to prev).
-        // ⌘/Ctrl+F7 first/last stay hard-wired on F7.
+        // Remappable first (default Cmd+F7; Shift flips to last).
         // Hidden equal: remappable next (default Alt+F7; Shift flips to prev).
         // ⌘/Ctrl+Alt+F7 first/last stay hard-wired on F7.
         {
             use crate::shortcut_chord::{
-                resolve_chord, DEFAULT_NEXT_DIFF, DEFAULT_NEXT_HIDDEN_EQUAL,
+                resolve_chord, DEFAULT_FIRST_DIFF, DEFAULT_NEXT_DIFF, DEFAULT_NEXT_HIDDEN_EQUAL,
             };
             let diff_chord =
                 resolve_chord(&self.state.settings.shortcut_next_diff, DEFAULT_NEXT_DIFF);
+            let first_chord =
+                resolve_chord(&self.state.settings.shortcut_first_diff, DEFAULT_FIRST_DIFF);
             let hidden_chord = resolve_chord(
                 &self.state.settings.shortcut_next_hidden_equal,
                 DEFAULT_NEXT_HIDDEN_EQUAL,
@@ -1846,6 +1848,10 @@ impl EditorApp {
                 && diff_chord.flipped_shift().matches(mods, diff_chord.key);
             let remapped_diff_next =
                 chord_key_pressed(diff_chord.key) && diff_chord.matches(mods, diff_chord.key);
+            let remapped_first_last = chord_key_pressed(first_chord.key)
+                && first_chord.flipped_shift().matches(mods, first_chord.key);
+            let remapped_first =
+                chord_key_pressed(first_chord.key) && first_chord.matches(mods, first_chord.key);
             let remapped_hidden_prev = chord_key_pressed(hidden_chord.key)
                 && hidden_chord.flipped_shift().matches(mods, hidden_chord.key);
             let remapped_hidden_next =
@@ -1858,9 +1864,9 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL");
             } else if remapped_hidden_next {
                 self.run_shortcut_cmd("IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL");
-            } else if f7 && cmd && mods.shift {
+            } else if remapped_first_last {
                 self.run_shortcut_cmd("IDM_VIEW_LAST_DIFF");
-            } else if f7 && cmd {
+            } else if remapped_first {
                 self.run_shortcut_cmd("IDM_VIEW_FIRST_DIFF");
             } else if remapped_diff_prev {
                 self.run_shortcut_cmd("IDM_VIEW_PREV_DIFF");
@@ -2587,6 +2593,15 @@ Tree-sitter highlight, and a calm UI.",
                     diff_chord.display(),
                     diff_chord.flipped_shift().display()
                 );
+                let first_diff_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_first_diff,
+                    crate::shortcut_chord::DEFAULT_FIRST_DIFF,
+                );
+                let first_diff_keys = format!(
+                    "{} / {}",
+                    first_diff_chord.display(),
+                    first_diff_chord.flipped_shift().display()
+                );
                 let hidden_chord = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_next_hidden_equal,
                     crate::shortcut_chord::DEFAULT_NEXT_HIDDEN_EQUAL,
@@ -2758,7 +2773,7 @@ Tree-sitter highlight, and a calm UI.",
                             (bm_keys.as_str(), "Next / prev bookmark"),
                             (toggle_bm_keys.as_str(), "Toggle bookmark"),
                             (diff_keys.as_str(), "Compare next / prev diff"),
-                            ("⌘/Ctrl F7 · ⌘/Ctrl ⇧ F7", "Compare first / last diff"),
+                            (first_diff_keys.as_str(), "Compare first / last diff"),
                             (hidden_keys.as_str(), "Compare next / prev hidden equal"),
                             (
                                 "⌘/Ctrl Alt F7 · ⌘/Ctrl Alt ⇧ F7",
@@ -3138,7 +3153,38 @@ Tree-sitter highlight, and a calm UI.",
                         });
                         ui.label(
                             RichText::new(
-                                "Example: F7, Alt+D. Shift + that key is Previous difference. Cmd/Ctrl+F7 first/last stay hard-wired. Hidden equal remaps separately.",
+                                "Example: F7, Alt+D. Shift + that key is Previous difference. First/last remaps separately.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("First difference shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_first_diff,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+F7"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_first_diff.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_first_diff =
+                                        crate::shortcut_chord::DEFAULT_FIRST_DIFF.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIRST_DIFF
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_first_diff = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+F7, Ctrl+Alt+D. Shift + that chord is Last difference. Next/prev remaps separately.",
                             )
                             .small()
                             .weak(),
