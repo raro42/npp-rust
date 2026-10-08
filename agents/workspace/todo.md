@@ -173,3 +173,5 @@
 009 keep: compare soft-truncate oversize pairs (first 3000 lines + status, v0.3.124)
 
 009 keep: remappable Zoom in shortcut (shortcut_zoom_in, v0.3.125)
+
+009 keep: remappable Zoom out shortcut (shortcut_zoom_out, v0.3.126)
