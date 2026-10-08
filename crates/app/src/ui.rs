@@ -1205,10 +1205,41 @@ impl EditorApp {
                 self.state.prepare_find_bar_from_selection();
             }
         }
-        if cmd && a {
-            let tab = self.focused_edit_tab();
-            if let Some(doc) = self.state.tabs.get_mut(tab) {
-                doc.buffer.select_all();
+        // Remappable select all (default Cmd+A; settings.shortcut_select_all).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SELECT_ALL};
+            let select_chord =
+                resolve_chord(&self.state.settings.shortcut_select_all, DEFAULT_SELECT_ALL);
+            let select_key_pressed = match select_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if select_key_pressed && select_chord.matches(mods, select_chord.key) {
+                let tab = self.focused_edit_tab();
+                if let Some(doc) = self.state.tabs.get_mut(tab) {
+                    doc.buffer.select_all();
+                }
             }
         }
         // Remappable duplicate line (default Cmd+D; settings.shortcut_duplicate_line).
@@ -2283,6 +2314,11 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_REPLACE,
                 )
                 .display();
+                let select_all_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_select_all,
+                    crate::shortcut_chord::DEFAULT_SELECT_ALL,
+                )
+                .display();
                 let replace_row = format!("{replace_keys} · ⌘/Ctrl ⇧ F");
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
@@ -2315,7 +2351,7 @@ Tree-sitter highlight, and a calm UI.",
                             ("Alt ] / [", "Compare hide-equal context ±1"),
                             ("⌘/Ctrl = / -", "Zoom in / out"),
                             (wrap_keys.as_str(), "Word wrap"),
-                            ("⌘/Ctrl A", "Select all"),
+                            (select_all_keys.as_str(), "Select all"),
                             (dup_keys.as_str(), "Duplicate line"),
                             (del_keys.as_str(), "Delete line"),
                             (indent_outdent_keys.as_str(), "Indent / Outdent"),
@@ -2908,6 +2944,35 @@ Tree-sitter highlight, and a calm UI.",
                         });
                         ui.label(
                             RichText::new("Example: Cmd+O, Ctrl+Alt+O.")
+                                .small()
+                                .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Select all shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_select_all,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+A"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_select_all.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_select_all =
+                                        crate::shortcut_chord::DEFAULT_SELECT_ALL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SELECT_ALL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_select_all = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new("Example: Cmd+A, Ctrl+Alt+A.")
                                 .small()
                                 .weak(),
                         );

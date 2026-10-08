@@ -163,3 +163,5 @@
 009 keep: remappable New shortcut (shortcut_new, v0.3.119)
 
 009 keep: remappable Open shortcut (shortcut_open, v0.3.120)
+
+009 keep: remappable Select all shortcut (shortcut_select_all, v0.3.121)

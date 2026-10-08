@@ -59,6 +59,9 @@ pub const DEFAULT_FIND: &str = "Cmd+F";
 /// Default replace-bar binding (matches historical hard-wire). Cmd+Shift+F stays hard-wired.
 pub const DEFAULT_REPLACE: &str = "Cmd+H";
 
+/// Default select-all binding (matches historical hard-wire).
+pub const DEFAULT_SELECT_ALL: &str = "Cmd+A";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -432,6 +435,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::H);
         assert_eq!(c.display(), "Cmd+H");
+    }
+
+    #[test]
+    fn parse_cmd_a_default_select_all() {
+        let c = parse_chord(DEFAULT_SELECT_ALL).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::A);
+        assert_eq!(c.display(), "Cmd+A");
     }
 
     #[test]

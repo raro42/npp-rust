@@ -46,6 +46,7 @@ New keys:
 | `shortcut_save_as` | Save-as chord (`Cmd+Shift+S` default) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
 | `shortcut_replace` | Replace-bar chord (`Cmd+H` default; Cmd+Shift+F stays hard-wired) |
+| `shortcut_select_all` | Select-all chord (`Cmd+A` default) |
 
 Unknown extra keys are kept on load/save (not dropped).
 

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.121] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Select all** is remappable: Preferences → Select all shortcut, or `shortcut_select_all` in `npp-rs/settings.json` (default `Cmd+A`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.120] — 2026-10-08
 
 Settings / shortcuts:
