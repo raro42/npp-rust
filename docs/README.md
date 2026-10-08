@@ -9,6 +9,7 @@ Project docs live here. Root keeps only `README.md`, `LICENSE`, and `CONTRIBUTIN
 | [ci-node24.md](ci-node24.md) | Actions Node 20→24 deprecation fix |
 | [changelog.md](changelog.md) | Release history |
 | [release.md](release.md) | Version, CI, daily release |
+| [macos-install.md](macos-install.md) | macOS Gatekeeper install (one-liner) |
 | [branch-main-only.md](branch-main-only.md) | Work on `main` only (no `dev`) |
 | [../agents/AGENTS.md](../agents/AGENTS.md) | Short agent entry |
 | [agent-loop.md](agent-loop.md) | GitHub issue agent loop + overnight research |

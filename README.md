@@ -42,6 +42,14 @@ Binary name: `npp-rs`. On macOS you can also run `./scripts/run-npp-rust.command
 
 **Prebuilt binaries:** [GitHub Releases](https://github.com/raro42/npp-rust/releases/latest) (Linux, Windows, macOS via the Release workflow).
 
+**macOS (Apple Silicon) — avoid Gatekeeper “damaged”:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/raro42/npp-rust/main/scripts/install-macos.sh | bash
+```
+
+That clears quarantine and installs `npp-rs`. Details: [docs/macos-install.md](docs/macos-install.md).
+
 ```bash
 cargo test --workspace
 # or match CI:

@@ -34,6 +34,12 @@ git push origin v0.2.0
 
 Watch: Actions → Release. Assets appear on the GitHub Releases page.
 
+## macOS assets
+
+- Release workflow ad-hoc codesigns the macOS binary and packs with execute bit set.
+- End users should prefer the install one-liner (clears quarantine). See [macos-install.md](macos-install.md).
+- Builds are not Apple-notarized yet. Gatekeeper may say “damaged” for browser downloads until quarantine is cleared.
+
 ## Local artifacts
 
 Do not stockpile. Prefer CI assets. Clean with `./scripts/daily-clean.sh`.

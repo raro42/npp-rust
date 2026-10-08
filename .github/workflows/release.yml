@@ -47,6 +47,9 @@ jobs:
           mkdir -p dist
           cp "target/release/${{ matrix.bin }}" "dist/${{ matrix.artifact_name }}"
           chmod +x "dist/${{ matrix.artifact_name }}"
+      - name: Ad-hoc codesign (macOS)
+        if: runner.os == 'macOS'
+        run: codesign --force --sign - "dist/${{ matrix.artifact_name }}"
       - name: Stage binary (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -79,6 +82,8 @@ jobs:
             if [[ "$f" == *.exe ]]; then
               zip -9 "${f%.exe}.zip" "$f"
             else
+              # Preserve execute bit (upload-artifact often drops mode bits)
+              chmod +x "$f"
               tar -czf "${f}.tar.gz" "$f"
             fi
           done

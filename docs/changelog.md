@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.139] — 2026-10-08
+
+macOS install / Gatekeeper:
+
+- Release pack keeps the execute bit on Unix binaries; macOS artifact is ad-hoc codesigned in CI
+- One-liner install: `scripts/install-macos.sh` (download, clear quarantine, install to Applications)
+- Docs: `docs/macos-install.md` — Gatekeeper “damaged” is quarantine, not a corrupt file
+
 ## [0.3.138] — 2026-10-08
 
 Settings / shortcuts:
