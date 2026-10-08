@@ -62,6 +62,9 @@ pub const DEFAULT_REPLACE: &str = "Cmd+H";
 /// Default select-all binding (matches historical hard-wire).
 pub const DEFAULT_SELECT_ALL: &str = "Cmd+A";
 
+/// Default undo binding (matches historical hard-wire). Shift flips to redo; Cmd+Y stays hard-wired.
+pub const DEFAULT_UNDO: &str = "Cmd+Z";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -445,6 +448,17 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::A);
         assert_eq!(c.display(), "Cmd+A");
+    }
+
+    #[test]
+    fn parse_cmd_z_default_undo() {
+        let c = parse_chord(DEFAULT_UNDO).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Z);
+        assert_eq!(c.display(), "Cmd+Z");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+Z");
     }
 
     #[test]

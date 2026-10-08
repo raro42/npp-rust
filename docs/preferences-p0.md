@@ -47,6 +47,7 @@ New keys:
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
 | `shortcut_replace` | Replace-bar chord (`Cmd+H` default; Cmd+Shift+F stays hard-wired) |
 | `shortcut_select_all` | Select-all chord (`Cmd+A` default) |
+| `shortcut_undo` | Undo chord (`Cmd+Z` default; Shift flips to redo; Cmd/Ctrl+Y stays hard-wired) |
 
 Unknown extra keys are kept on load/save (not dropped).
 

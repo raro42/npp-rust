@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.122] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Undo** is remappable: Preferences → Undo shortcut, or `shortcut_undo` in `npp-rs/settings.json` (default `Cmd+Z`). Shift + that chord is Redo. Cmd/Ctrl+Y stays hard-wired as an alternate. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.121] — 2026-10-08
 
 Settings / shortcuts:

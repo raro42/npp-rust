@@ -66,6 +66,7 @@ cargo test --workspace
 | New / Open / Save | Ctrl/Cmd+N / O / S |
 | Find / Replace | Ctrl/Cmd+F / Shift+F |
 | Select all | Ctrl/Cmd+A |
+| Undo / Redo | Ctrl/Cmd+Z · Shift+Z / Y |
 | Duplicate line | Ctrl/Cmd+D |
 | Format document | Ctrl/Cmd+Shift+I |
 | Word jump | Alt+← / → |

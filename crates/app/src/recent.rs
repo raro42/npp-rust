@@ -160,6 +160,10 @@ fn default_shortcut_select_all() -> String {
     crate::shortcut_chord::DEFAULT_SELECT_ALL.into()
 }
 
+fn default_shortcut_undo() -> String {
+    crate::shortcut_chord::DEFAULT_UNDO.into()
+}
+
 fn default_compare_hide_equal_context() -> u8 {
     u8::try_from(crate::diff::COMPARE_HIDE_EQUAL_CONTEXT).unwrap_or(3)
 }
@@ -330,6 +334,9 @@ pub struct AppSettings {
     /// Select-all chord (`Cmd+A` default).
     #[serde(default = "default_shortcut_select_all")]
     pub shortcut_select_all: String,
+    /// Undo chord (`Cmd+Z` default; Shift flips to redo; Cmd+Y stays hard-wired).
+    #[serde(default = "default_shortcut_undo")]
+    pub shortcut_undo: String,
     /// Unknown keys from disk. Kept so a save does not drop hand-edited or future fields.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     extra: serde_json::Map<String, serde_json::Value>,
@@ -393,6 +400,7 @@ impl Default for AppSettings {
             shortcut_find: default_shortcut_find(),
             shortcut_replace: default_shortcut_replace(),
             shortcut_select_all: default_shortcut_select_all(),
+            shortcut_undo: default_shortcut_undo(),
             extra: serde_json::Map::new(),
         }
     }
@@ -727,6 +735,7 @@ mod tests {
             shortcut_find: "Ctrl+Alt+F".into(),
             shortcut_replace: "Ctrl+Alt+H".into(),
             shortcut_select_all: "Ctrl+Alt+A".into(),
+            shortcut_undo: "Ctrl+Alt+Z".into(),
             ..Default::default()
         };
         let text = serde_json::to_string_pretty(&original).expect("serialize");
@@ -765,6 +774,7 @@ mod tests {
         assert_eq!(back.shortcut_find, "Ctrl+Alt+F");
         assert_eq!(back.shortcut_replace, "Ctrl+Alt+H");
         assert_eq!(back.shortcut_select_all, "Ctrl+Alt+A");
+        assert_eq!(back.shortcut_undo, "Ctrl+Alt+Z");
     }
 
     #[test]
