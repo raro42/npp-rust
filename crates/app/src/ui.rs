@@ -1795,14 +1795,20 @@ impl EditorApp {
             self.run_shortcut_cmd("IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_DEC");
         }
 
-        // Remappable zoom in / out (defaults Cmd+= / Cmd+-).
-        // Restore / mouse wheel stay hard-wired.
+        // Remappable zoom in / out / restore (defaults Cmd+= / Cmd+- / Cmd+0).
+        // Mouse wheel stays hard-wired.
         {
-            use crate::shortcut_chord::{resolve_chord, DEFAULT_ZOOM_IN, DEFAULT_ZOOM_OUT};
+            use crate::shortcut_chord::{
+                resolve_chord, DEFAULT_ZOOM_IN, DEFAULT_ZOOM_OUT, DEFAULT_ZOOM_RESTORE,
+            };
             let zoom_in_chord =
                 resolve_chord(&self.state.settings.shortcut_zoom_in, DEFAULT_ZOOM_IN);
             let zoom_out_chord =
                 resolve_chord(&self.state.settings.shortcut_zoom_out, DEFAULT_ZOOM_OUT);
+            let zoom_restore_chord = resolve_chord(
+                &self.state.settings.shortcut_zoom_restore,
+                DEFAULT_ZOOM_RESTORE,
+            );
             let zoom_key_pressed = |key: Key| match key {
                 Key::Z => z,
                 Key::N => n,
@@ -1832,13 +1838,15 @@ impl EditorApp {
                 && zoom_in_chord.matches(mods, zoom_in_chord.key);
             let remapped_zoom_out = zoom_key_pressed(zoom_out_chord.key)
                 && zoom_out_chord.matches(mods, zoom_out_chord.key);
+            let remapped_zoom_restore = zoom_key_pressed(zoom_restore_chord.key)
+                && zoom_restore_chord.matches(mods, zoom_restore_chord.key);
             if remapped_zoom_in {
                 self.font_size = (self.font_size + 1.0).min(48.0);
                 self.persist_font_size();
             } else if remapped_zoom_out {
                 self.font_size = (self.font_size - 1.0).max(8.0);
                 self.persist_font_size();
-            } else if cmd && num0 {
+            } else if remapped_zoom_restore {
                 self.font_size = 14.0;
                 self.persist_font_size();
             } else if cmd && scroll_y != 0.0 {
@@ -2431,7 +2439,12 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_ZOOM_OUT,
                 )
                 .display();
-                let zoom_row = format!("{zoom_in_keys} · {zoom_out_keys}");
+                let zoom_restore_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_zoom_restore,
+                    crate::shortcut_chord::DEFAULT_ZOOM_RESTORE,
+                )
+                .display();
+                let zoom_row = format!("{zoom_in_keys} · {zoom_out_keys} · {zoom_restore_keys}");
                 let replace_row = format!("{replace_keys} · ⌘/Ctrl ⇧ F");
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
@@ -2462,7 +2475,7 @@ Tree-sitter highlight, and a calm UI.",
                                 "Compare apply all hunks from / to other",
                             ),
                             ("Alt ] / [", "Compare hide-equal context ±1"),
-                            (zoom_row.as_str(), "Zoom in / out"),
+                            (zoom_row.as_str(), "Zoom in / out / restore"),
                             (wrap_keys.as_str(), "Word wrap"),
                             (select_all_keys.as_str(), "Select all"),
                             (dup_keys.as_str(), "Duplicate line"),
@@ -3172,11 +3185,9 @@ Tree-sitter highlight, and a calm UI.",
                             }
                         });
                         ui.label(
-                            RichText::new(
-                                "Example: Cmd+=, Ctrl+Alt+=. Restore (Cmd+0) stays hard-wired.",
-                            )
-                            .small()
-                            .weak(),
+                            RichText::new("Example: Cmd+=, Ctrl+Alt+=.")
+                                .small()
+                                .weak(),
                         );
                         ui.horizontal(|ui| {
                             ui.label("Zoom out shortcut");
@@ -3203,15 +3214,44 @@ Tree-sitter highlight, and a calm UI.",
                             }
                         });
                         ui.label(
+                            RichText::new("Example: Cmd+-, Ctrl+Alt+-.")
+                                .small()
+                                .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Zoom restore shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_zoom_restore,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+0"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_zoom_restore.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_zoom_restore =
+                                        crate::shortcut_chord::DEFAULT_ZOOM_RESTORE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_ZOOM_RESTORE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_zoom_restore = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
                             RichText::new(
-                                "Example: Cmd+-, Ctrl+Alt+-. Restore (Cmd+0) stays hard-wired.",
+                                "Example: Cmd+0, Ctrl+Alt+0. Mouse wheel zoom stays hard-wired.",
                             )
                             .small()
                             .weak(),
                         );
                         ui.horizontal(|ui| {
-                            ui.label("Save shortcut");
-                            let edit = ui.add(
+                            ui.label("Save shortcut");                            let edit = ui.add(
                                 egui::TextEdit::singleline(&mut self.state.settings.shortcut_save)
                                     .desired_width(120.0)
                                     .hint_text("Cmd+S"),

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.127] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Zoom restore** is remappable: Preferences → Zoom restore shortcut, or `shortcut_zoom_restore` in `npp-rs/settings.json` (default `Cmd+0`). Mouse wheel zoom stays hard-wired. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.126] — 2026-10-08
 
 Settings / shortcuts:

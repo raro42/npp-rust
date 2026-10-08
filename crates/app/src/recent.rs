@@ -176,6 +176,10 @@ fn default_shortcut_zoom_out() -> String {
     crate::shortcut_chord::DEFAULT_ZOOM_OUT.into()
 }
 
+fn default_shortcut_zoom_restore() -> String {
+    crate::shortcut_chord::DEFAULT_ZOOM_RESTORE.into()
+}
+
 fn default_compare_hide_equal_context() -> u8 {
     u8::try_from(crate::diff::COMPARE_HIDE_EQUAL_CONTEXT).unwrap_or(3)
 }
@@ -352,12 +356,15 @@ pub struct AppSettings {
     /// Redo alternate chord (`Cmd+Y` default; Shift+undo also redo).
     #[serde(default = "default_shortcut_redo")]
     pub shortcut_redo: String,
-    /// Zoom-in chord (`Cmd+=` default). Restore stays hard-wired.
+    /// Zoom-in chord (`Cmd+=` default).
     #[serde(default = "default_shortcut_zoom_in")]
     pub shortcut_zoom_in: String,
-    /// Zoom-out chord (`Cmd+-` default). Restore stays hard-wired.
+    /// Zoom-out chord (`Cmd+-` default).
     #[serde(default = "default_shortcut_zoom_out")]
     pub shortcut_zoom_out: String,
+    /// Zoom-restore chord (`Cmd+0` default). Mouse wheel stays hard-wired.
+    #[serde(default = "default_shortcut_zoom_restore")]
+    pub shortcut_zoom_restore: String,
     /// Unknown keys from disk. Kept so a save does not drop hand-edited or future fields.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     extra: serde_json::Map<String, serde_json::Value>,
@@ -425,6 +432,7 @@ impl Default for AppSettings {
             shortcut_redo: default_shortcut_redo(),
             shortcut_zoom_in: default_shortcut_zoom_in(),
             shortcut_zoom_out: default_shortcut_zoom_out(),
+            shortcut_zoom_restore: default_shortcut_zoom_restore(),
             extra: serde_json::Map::new(),
         }
     }
@@ -763,6 +771,7 @@ mod tests {
             shortcut_redo: "Ctrl+Alt+Y".into(),
             shortcut_zoom_in: "Ctrl+Alt+=".into(),
             shortcut_zoom_out: "Ctrl+Alt+-".into(),
+            shortcut_zoom_restore: "Ctrl+Alt+0".into(),
             ..Default::default()
         };
         let text = serde_json::to_string_pretty(&original).expect("serialize");
@@ -805,6 +814,7 @@ mod tests {
         assert_eq!(back.shortcut_redo, "Ctrl+Alt+Y");
         assert_eq!(back.shortcut_zoom_in, "Ctrl+Alt+=");
         assert_eq!(back.shortcut_zoom_out, "Ctrl+Alt+-");
+        assert_eq!(back.shortcut_zoom_restore, "Ctrl+Alt+0");
     }
 
     #[test]
