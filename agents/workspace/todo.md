@@ -181,3 +181,5 @@
 009 keep: remappable Toggle log tail shortcut (shortcut_toggle_log_tail, v0.3.128)
 
 009 keep: remappable Find next (global) shortcut (shortcut_find_next_global, v0.3.129)
+
+009 keep: remappable Replace (alternate) shortcut (shortcut_replace_alt, v0.3.130)
