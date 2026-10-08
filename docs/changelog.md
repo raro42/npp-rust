@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.136] — 2026-10-08
+
+Settings / shortcuts:
+
+- **First hidden equal** is remappable: Preferences → First hidden equal shortcut, or `shortcut_first_hidden_equal` in `npp-rs/settings.json` (default `Cmd+Alt+F7`). Shift + that chord is Last hidden equal. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.135] — 2026-10-08
 
 Settings / shortcuts:

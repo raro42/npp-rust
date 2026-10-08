@@ -116,6 +116,10 @@ fn default_shortcut_next_hidden_equal() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_HIDDEN_EQUAL.into()
 }
 
+fn default_shortcut_first_hidden_equal() -> String {
+    crate::shortcut_chord::DEFAULT_FIRST_HIDDEN_EQUAL.into()
+}
+
 fn default_shortcut_apply_compare_hunk() -> String {
     crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK.into()
 }
@@ -349,6 +353,9 @@ pub struct AppSettings {
     /// Next-hidden-equal chord (`Alt+F7` default). Shift + same key is previous hidden equal.
     #[serde(default = "default_shortcut_next_hidden_equal")]
     pub shortcut_next_hidden_equal: String,
+    /// First-hidden-equal chord (`Cmd+Alt+F7` default). Shift + same key is last hidden equal.
+    #[serde(default = "default_shortcut_first_hidden_equal")]
+    pub shortcut_first_hidden_equal: String,
     /// Apply-compare-hunk-from chord (`Cmd+Alt+Left` default). Opposite arrow applies to other; Shift applies all.
     #[serde(default = "default_shortcut_apply_compare_hunk")]
     pub shortcut_apply_compare_hunk: String,
@@ -473,6 +480,7 @@ impl Default for AppSettings {
             shortcut_next_diff: default_shortcut_next_diff(),
             shortcut_first_diff: default_shortcut_first_diff(),
             shortcut_next_hidden_equal: default_shortcut_next_hidden_equal(),
+            shortcut_first_hidden_equal: default_shortcut_first_hidden_equal(),
             shortcut_apply_compare_hunk: default_shortcut_apply_compare_hunk(),
             shortcut_hide_equal_context: default_shortcut_hide_equal_context(),
             shortcut_goto_line: default_shortcut_goto_line(),
@@ -820,6 +828,7 @@ mod tests {
             shortcut_next_diff: "Ctrl+F7".into(),
             shortcut_first_diff: "Ctrl+Alt+F7".into(),
             shortcut_next_hidden_equal: "Ctrl+Alt+H".into(),
+            shortcut_first_hidden_equal: "Ctrl+Alt+E".into(),
             shortcut_apply_compare_hunk: "Ctrl+Alt+Left".into(),
             shortcut_hide_equal_context: "Ctrl+Alt+]".into(),
             shortcut_goto_line: "Ctrl+Shift+G".into(),
@@ -870,6 +879,7 @@ mod tests {
         assert_eq!(back.shortcut_next_diff, "Ctrl+F7");
         assert_eq!(back.shortcut_first_diff, "Ctrl+Alt+F7");
         assert_eq!(back.shortcut_next_hidden_equal, "Ctrl+Alt+H");
+        assert_eq!(back.shortcut_first_hidden_equal, "Ctrl+Alt+E");
         assert_eq!(back.shortcut_apply_compare_hunk, "Ctrl+Alt+Left");
         assert_eq!(back.shortcut_hide_equal_context, "Ctrl+Alt+]");
         assert_eq!(back.shortcut_goto_line, "Ctrl+Shift+G");

@@ -29,6 +29,9 @@ pub const DEFAULT_FIRST_DIFF: &str = "Cmd+F7";
 /// Default next-hidden-equal binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_HIDDEN_EQUAL: &str = "Alt+F7";
 
+/// Default first-hidden-equal binding (matches historical hard-wire). Last uses Shift toggled.
+pub const DEFAULT_FIRST_HIDDEN_EQUAL: &str = "Cmd+Alt+F7";
+
 /// Default apply-compare-hunk-from binding (matches historical hard-wire).
 /// Opposite horizontal arrow applies to other; Shift applies all in that direction.
 pub const DEFAULT_APPLY_COMPARE_HUNK: &str = "Cmd+Alt+Left";
@@ -392,6 +395,17 @@ mod tests {
         assert_eq!(c.key, Key::F7);
         assert_eq!(c.display(), "Alt+F7");
         assert_eq!(c.flipped_shift().display(), "Alt+Shift+F7");
+    }
+
+    #[test]
+    fn parse_cmd_alt_f7_default_first_hidden_equal() {
+        let c = parse_chord(DEFAULT_FIRST_HIDDEN_EQUAL).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F7);
+        assert_eq!(c.display(), "Cmd+Alt+F7");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+F7");
     }
 
     #[test]

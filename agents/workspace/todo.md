@@ -193,3 +193,5 @@
 009 keep: remappable Reload shortcut (shortcut_reload, v0.3.134)
 
 009 keep: remappable First difference shortcut (shortcut_first_diff, v0.3.135)
+
+009 keep: remappable First hidden equal shortcut (shortcut_first_hidden_equal, v0.3.136)
