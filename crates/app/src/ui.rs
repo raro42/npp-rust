@@ -1889,11 +1889,50 @@ impl EditorApp {
             }
         }
 
-        // Hide-equal context ±1: Alt+] increase, Alt+[ decrease (Cmd+[ / ] stay indent).
-        if mods.alt && !cmd && close_br {
-            self.run_shortcut_cmd("IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_INC");
-        } else if mods.alt && !cmd && open_br {
-            self.run_shortcut_cmd("IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_DEC");
+        // Hide-equal context ±1: remappable increase (default Alt+]).
+        // Opposite bracket decreases. Cmd+[ / ] stay indent when remapped away from Alt.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_HIDE_EQUAL_CONTEXT};
+            let inc_chord = resolve_chord(
+                &self.state.settings.shortcut_hide_equal_context,
+                DEFAULT_HIDE_EQUAL_CONTEXT,
+            );
+            let dec_chord = inc_chord.flipped_bracket();
+            let chord_key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                Key::ArrowLeft => arrow_left,
+                Key::ArrowRight => arrow_right,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let hit = |chord: crate::shortcut_chord::KeyChord| {
+                chord_key_pressed(chord.key) && chord.matches(mods, chord.key)
+            };
+            if hit(inc_chord) {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_INC");
+            } else if hit(dec_chord) && dec_chord.key != inc_chord.key {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_DEC");
+            }
         }
 
         // Remappable zoom in / out / restore (defaults Cmd+= / Cmd+- / Cmd+0).
@@ -2173,12 +2212,27 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_HIDE_EQUAL" => response.on_hover_text(
                         "Hide Equal (unchanged) lines while Compare is on; parks both panes on the first change hunk; context size is Preferences Hide-equal context; gutter ···N marks collapsed runs — click a cue to expand that run on both panes (Preferences persist)",
                     ),
-                    "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_INC" => response.on_hover_text(
-                        "Increase Equal context lines kept around each change when Hide Unchanged Lines is on (Alt+]; 0–10; Preferences persist; while Compare is on parks both panes on the first change hunk)",
-                    ),
-                    "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_DEC" => response.on_hover_text(
-                        "Decrease Equal context lines kept around each change when Hide Unchanged Lines is on (Alt+[; 0–10; Preferences persist; while Compare is on parks both panes on the first change hunk)",
-                    ),
+                    "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_INC" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_hide_equal_context,
+                            crate::shortcut_chord::DEFAULT_HIDE_EQUAL_CONTEXT,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Increase Equal context lines kept around each change when Hide Unchanged Lines is on ({chord}; 0–10; Preferences persist; while Compare is on parks both panes on the first change hunk)"
+                        ))
+                    }
+                    "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_DEC" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_hide_equal_context,
+                            crate::shortcut_chord::DEFAULT_HIDE_EQUAL_CONTEXT,
+                        )
+                        .flipped_bracket()
+                        .display();
+                        response.on_hover_text(format!(
+                            "Decrease Equal context lines kept around each change when Hide Unchanged Lines is on ({chord}; 0–10; Preferences persist; while Compare is on parks both panes on the first change hunk)"
+                        ))
+                    }
                     "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET" => response.on_hover_text(
                         "While Hide Unchanged Lines is on, expand the collapsed Equal run nearest the caret on both panes (same as clicking that ···N cue)",
                     ),
@@ -2526,6 +2580,15 @@ Tree-sitter highlight, and a calm UI.",
                         .flipped_shift()
                         .display()
                 );
+                let hide_ctx_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_hide_equal_context,
+                    crate::shortcut_chord::DEFAULT_HIDE_EQUAL_CONTEXT,
+                );
+                let hide_ctx_keys = format!(
+                    "{} / {}",
+                    hide_ctx_chord.display(),
+                    hide_ctx_chord.flipped_bracket().display()
+                );
                 let goto_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_goto_line,
                     crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -2670,7 +2733,7 @@ Tree-sitter highlight, and a calm UI.",
                                 apply_all_hunk_keys.as_str(),
                                 "Compare apply all hunks from / to other",
                             ),
-                            ("Alt ] / [", "Compare hide-equal context ±1"),
+                            (hide_ctx_keys.as_str(), "Compare hide-equal context ±1"),
                             (zoom_row.as_str(), "Zoom in / out / restore"),
                             (wrap_keys.as_str(), "Word wrap"),
                             (select_all_keys.as_str(), "Select all"),
@@ -3109,6 +3172,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+Left, Ctrl+Alt+ArrowLeft. Opposite Left/Right applies to other; Shift applies all. Keep Left/Right in the chord for From/To.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Hide-equal context shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_hide_equal_context,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+]"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_hide_equal_context
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_hide_equal_context =
+                                        crate::shortcut_chord::DEFAULT_HIDE_EQUAL_CONTEXT.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_HIDE_EQUAL_CONTEXT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_hide_equal_context = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+], Alt+CloseBracket. Opposite [ / ] decreases. Keep ]/[ in the chord for ±1.",
                             )
                             .small()
                             .weak(),

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.133] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Hide-equal context** is remappable: Preferences → Hide-equal context shortcut, or `shortcut_hide_equal_context` in `npp-rs/settings.json` (default `Alt+]`). Opposite `[` / `]` decreases. Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.132] — 2026-10-08
 
 Settings / shortcuts:

@@ -30,6 +30,10 @@ pub const DEFAULT_NEXT_HIDDEN_EQUAL: &str = "Alt+F7";
 /// Opposite horizontal arrow applies to other; Shift applies all in that direction.
 pub const DEFAULT_APPLY_COMPARE_HUNK: &str = "Cmd+Alt+Left";
 
+/// Default hide-equal-context increase binding (matches historical hard-wire).
+/// Opposite bracket (`[` ↔ `]`) decreases.
+pub const DEFAULT_HIDE_EQUAL_CONTEXT: &str = "Alt+]";
+
 /// Default go-to-line binding (matches historical hard-wire).
 pub const DEFAULT_GOTO_LINE: &str = "Cmd+L";
 
@@ -123,6 +127,16 @@ impl KeyChord {
         let key = match self.key {
             Key::ArrowLeft => Key::ArrowRight,
             Key::ArrowRight => Key::ArrowLeft,
+            other => other,
+        };
+        Self { key, ..self }
+    }
+
+    /// Same chord with `]` ↔ `[` (hide-equal context ±1). Non-bracket keys unchanged.
+    pub fn flipped_bracket(self) -> Self {
+        let key = match self.key {
+            Key::CloseBracket => Key::OpenBracket,
+            Key::OpenBracket => Key::CloseBracket,
             other => other,
         };
         Self { key, ..self }
@@ -381,6 +395,20 @@ mod tests {
         assert_eq!(arrow_alias.key, Key::ArrowLeft);
         assert!(arrow_alias.ctrl_or_cmd);
         assert!(arrow_alias.alt);
+    }
+
+    #[test]
+    fn parse_alt_close_bracket_default_hide_equal_context() {
+        let c = parse_chord(DEFAULT_HIDE_EQUAL_CONTEXT).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::CloseBracket);
+        assert_eq!(c.display(), "Alt+]");
+        assert_eq!(c.flipped_bracket().display(), "Alt+[");
+        let open = parse_chord("Alt+OpenBracket").unwrap();
+        assert_eq!(open.key, Key::OpenBracket);
+        assert!(open.alt);
     }
 
     #[test]

@@ -202,11 +202,12 @@ fn show_shortcut_mapper(state: &mut EditorState) {
     use crate::shortcut_chord::{
         resolve_chord, DEFAULT_APPLY_COMPARE_HUNK, DEFAULT_CLOSE_TAB, DEFAULT_DELETE_LINE,
         DEFAULT_DUPLICATE_LINE, DEFAULT_FIND, DEFAULT_FIND_NEXT, DEFAULT_FIND_NEXT_GLOBAL,
-        DEFAULT_FORMAT_DOCUMENT, DEFAULT_GOTO_LINE, DEFAULT_INDENT, DEFAULT_NEW,
-        DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF, DEFAULT_NEXT_HIDDEN_EQUAL, DEFAULT_OPEN,
-        DEFAULT_OUTDENT, DEFAULT_REDO, DEFAULT_REPLACE, DEFAULT_REPLACE_ALT, DEFAULT_SAVE,
-        DEFAULT_SAVE_AS, DEFAULT_SELECT_ALL, DEFAULT_TOGGLE_BOOKMARK, DEFAULT_TOGGLE_LOG_TAIL,
-        DEFAULT_UNDO, DEFAULT_WORD_WRAP, DEFAULT_ZOOM_IN, DEFAULT_ZOOM_OUT, DEFAULT_ZOOM_RESTORE,
+        DEFAULT_FORMAT_DOCUMENT, DEFAULT_GOTO_LINE, DEFAULT_HIDE_EQUAL_CONTEXT, DEFAULT_INDENT,
+        DEFAULT_NEW, DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF, DEFAULT_NEXT_HIDDEN_EQUAL,
+        DEFAULT_OPEN, DEFAULT_OUTDENT, DEFAULT_REDO, DEFAULT_REPLACE, DEFAULT_REPLACE_ALT,
+        DEFAULT_SAVE, DEFAULT_SAVE_AS, DEFAULT_SELECT_ALL, DEFAULT_TOGGLE_BOOKMARK,
+        DEFAULT_TOGGLE_LOG_TAIL, DEFAULT_UNDO, DEFAULT_WORD_WRAP, DEFAULT_ZOOM_IN,
+        DEFAULT_ZOOM_OUT, DEFAULT_ZOOM_RESTORE,
     };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
@@ -316,6 +317,24 @@ fn show_shortcut_mapper(state: &mut EditorState) {
     } else {
         format!(
             "{apply_from} / {apply_to} · {apply_all_from} / {apply_all_to} (from settings.shortcut_apply_compare_hunk = {apply_raw:?}; opposite arrow = to other; Shift = apply all)"
+        )
+    };
+    let hide_ctx_chord = resolve_chord(
+        &state.settings.shortcut_hide_equal_context,
+        DEFAULT_HIDE_EQUAL_CONTEXT,
+    );
+    let hide_ctx_inc = hide_ctx_chord.display();
+    let hide_ctx_dec = hide_ctx_chord.flipped_bracket().display();
+    let hide_ctx_raw = state.settings.shortcut_hide_equal_context.trim();
+    let hide_ctx_note = if hide_ctx_raw.is_empty()
+        || hide_ctx_raw.eq_ignore_ascii_case(DEFAULT_HIDE_EQUAL_CONTEXT)
+    {
+        format!(
+            "{hide_ctx_inc} / {hide_ctx_dec} (default; Preferences → Hide-equal context shortcut)"
+        )
+    } else {
+        format!(
+            "{hide_ctx_inc} / {hide_ctx_dec} (from settings.shortcut_hide_equal_context = {hide_ctx_raw:?}; opposite bracket = decrease)"
         )
     };
     let goto = resolve_chord(&state.settings.shortcut_goto_line, DEFAULT_GOTO_LINE).display();
@@ -505,8 +524,8 @@ fn show_shortcut_mapper(state: &mut EditorState) {
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, Find next (global), Next bookmark, Toggle bookmark, Next difference, Next hidden equal, Apply compare hunk, Go to line, Duplicate line, Delete line, Indent, Outdent, Format document, Close tab, New, Open, Save, Save As, Find, Replace, Replace (alternate), Select all, Undo, Redo, Zoom in, Zoom out, Zoom restore, and Toggle log tail are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_find_next_global, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_next_diff, shortcut_next_hidden_equal, shortcut_apply_compare_hunk, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent, shortcut_outdent, shortcut_format_document, shortcut_close_tab, shortcut_new, shortcut_open, shortcut_save, shortcut_save_as, shortcut_find, shortcut_replace, shortcut_replace_alt, shortcut_select_all, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore, shortcut_toggle_log_tail). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Find next (global), Next bookmark, Toggle bookmark, Next difference, Next hidden equal, Apply compare hunk, Hide-equal context, Go to line, Duplicate line, Delete line, Indent, Outdent, Format document, Close tab, New, Open, Save, Save As, Find, Replace, Replace (alternate), Select all, Undo, Redo, Zoom in, Zoom out, Zoom restore, and Toggle log tail are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_find_next_global, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_next_diff, shortcut_next_hidden_equal, shortcut_apply_compare_hunk, shortcut_hide_equal_context, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent, shortcut_outdent, shortcut_format_document, shortcut_close_tab, shortcut_new, shortcut_open, shortcut_save, shortcut_save_as, shortcut_find, shortcut_replace, shortcut_replace_alt, shortcut_select_all, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore, shortcut_toggle_log_tail). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -547,8 +566,7 @@ Cmd+Shift+F7          Compare last difference (hard-wired)
 Cmd+Alt+F7            Compare first hidden equal (hard-wired)
 Cmd+Alt+Shift+F7      Compare last hidden equal (hard-wired)
 {apply_note}
-Alt+]                 Compare increase hide-equal context
-Alt+[                 Compare decrease hide-equal context
+{hide_ctx_note}
 Escape                Close Find/Replace
 
 View / zoom
