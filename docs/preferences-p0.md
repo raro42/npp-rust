@@ -49,7 +49,8 @@ New keys:
 | `shortcut_select_all` | Select-all chord (`Cmd+A` default) |
 | `shortcut_undo` | Undo chord (`Cmd+Z` default; Shift flips to redo) |
 | `shortcut_redo` | Redo alternate chord (`Cmd+Y` default; Shift+undo also redo) |
-| `shortcut_zoom_in` | Zoom-in chord (`Cmd+=` default; zoom out / restore stay hard-wired) |
+| `shortcut_zoom_in` | Zoom-in chord (`Cmd+=` default; restore stays hard-wired) |
+| `shortcut_zoom_out` | Zoom-out chord (`Cmd+-` default; restore stays hard-wired) |
 
 Unknown extra keys are kept on load/save (not dropped).
 

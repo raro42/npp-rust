@@ -172,6 +172,10 @@ fn default_shortcut_zoom_in() -> String {
     crate::shortcut_chord::DEFAULT_ZOOM_IN.into()
 }
 
+fn default_shortcut_zoom_out() -> String {
+    crate::shortcut_chord::DEFAULT_ZOOM_OUT.into()
+}
+
 fn default_compare_hide_equal_context() -> u8 {
     u8::try_from(crate::diff::COMPARE_HIDE_EQUAL_CONTEXT).unwrap_or(3)
 }
@@ -348,9 +352,12 @@ pub struct AppSettings {
     /// Redo alternate chord (`Cmd+Y` default; Shift+undo also redo).
     #[serde(default = "default_shortcut_redo")]
     pub shortcut_redo: String,
-    /// Zoom-in chord (`Cmd+=` default). Zoom out / restore stay hard-wired.
+    /// Zoom-in chord (`Cmd+=` default). Restore stays hard-wired.
     #[serde(default = "default_shortcut_zoom_in")]
     pub shortcut_zoom_in: String,
+    /// Zoom-out chord (`Cmd+-` default). Restore stays hard-wired.
+    #[serde(default = "default_shortcut_zoom_out")]
+    pub shortcut_zoom_out: String,
     /// Unknown keys from disk. Kept so a save does not drop hand-edited or future fields.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     extra: serde_json::Map<String, serde_json::Value>,
@@ -417,6 +424,7 @@ impl Default for AppSettings {
             shortcut_undo: default_shortcut_undo(),
             shortcut_redo: default_shortcut_redo(),
             shortcut_zoom_in: default_shortcut_zoom_in(),
+            shortcut_zoom_out: default_shortcut_zoom_out(),
             extra: serde_json::Map::new(),
         }
     }
@@ -754,6 +762,7 @@ mod tests {
             shortcut_undo: "Ctrl+Alt+Z".into(),
             shortcut_redo: "Ctrl+Alt+Y".into(),
             shortcut_zoom_in: "Ctrl+Alt+=".into(),
+            shortcut_zoom_out: "Ctrl+Alt+-".into(),
             ..Default::default()
         };
         let text = serde_json::to_string_pretty(&original).expect("serialize");
@@ -795,6 +804,7 @@ mod tests {
         assert_eq!(back.shortcut_undo, "Ctrl+Alt+Z");
         assert_eq!(back.shortcut_redo, "Ctrl+Alt+Y");
         assert_eq!(back.shortcut_zoom_in, "Ctrl+Alt+=");
+        assert_eq!(back.shortcut_zoom_out, "Ctrl+Alt+-");
     }
 
     #[test]

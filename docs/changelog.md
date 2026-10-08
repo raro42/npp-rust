@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.126] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Zoom out** is remappable: Preferences → Zoom out shortcut, or `shortcut_zoom_out` in `npp-rs/settings.json` (default `Cmd+-`). Restore (`Cmd+0`) stays hard-wired. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.125] — 2026-10-08
 
 Settings / shortcuts:
