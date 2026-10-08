@@ -97,6 +97,9 @@ pub const DEFAULT_ZOOM_RESTORE: &str = "Cmd+0";
 /// Default toggle-log-tail binding (matches historical hard-wire).
 pub const DEFAULT_TOGGLE_LOG_TAIL: &str = "Cmd+Shift+T";
 
+/// Default reload-from-disk binding (new remappable chord; File → Reload).
+pub const DEFAULT_RELOAD: &str = "Cmd+R";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -641,5 +644,15 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::OpenBracket);
         assert_eq!(c.display(), "Cmd+[");
+    }
+
+    #[test]
+    fn parse_cmd_r_default_reload() {
+        let c = parse_chord(DEFAULT_RELOAD).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::R);
+        assert_eq!(c.display(), "Cmd+R");
     }
 }

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.134] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Reload from disk** is remappable: Preferences → Reload shortcut, or `shortcut_reload` in `npp-rs/settings.json` (default `Cmd+R`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.133] — 2026-10-08
 
 Settings / shortcuts:

@@ -189,3 +189,5 @@
 009 keep: remappable Apply compare hunk shortcut (shortcut_apply_compare_hunk, v0.3.132)
 
 009 keep: remappable Hide-equal context shortcut (shortcut_hide_equal_context, v0.3.133)
+
+009 keep: remappable Reload shortcut (shortcut_reload, v0.3.134)

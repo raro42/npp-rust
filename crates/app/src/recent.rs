@@ -204,6 +204,10 @@ fn default_shortcut_toggle_log_tail() -> String {
     crate::shortcut_chord::DEFAULT_TOGGLE_LOG_TAIL.into()
 }
 
+fn default_shortcut_reload() -> String {
+    crate::shortcut_chord::DEFAULT_RELOAD.into()
+}
+
 fn default_compare_hide_equal_context() -> u8 {
     u8::try_from(crate::diff::COMPARE_HIDE_EQUAL_CONTEXT).unwrap_or(3)
 }
@@ -407,6 +411,9 @@ pub struct AppSettings {
     /// Toggle log-tail follow chord (`Cmd+Shift+T` default).
     #[serde(default = "default_shortcut_toggle_log_tail")]
     pub shortcut_toggle_log_tail: String,
+    /// Reload-from-disk chord (`Cmd+R` default).
+    #[serde(default = "default_shortcut_reload")]
+    pub shortcut_reload: String,
     /// Unknown keys from disk. Kept so a save does not drop hand-edited or future fields.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     extra: serde_json::Map<String, serde_json::Value>,
@@ -481,6 +488,7 @@ impl Default for AppSettings {
             shortcut_zoom_out: default_shortcut_zoom_out(),
             shortcut_zoom_restore: default_shortcut_zoom_restore(),
             shortcut_toggle_log_tail: default_shortcut_toggle_log_tail(),
+            shortcut_reload: default_shortcut_reload(),
             extra: serde_json::Map::new(),
         }
     }

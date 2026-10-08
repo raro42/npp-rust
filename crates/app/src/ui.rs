@@ -1106,6 +1106,39 @@ impl EditorApp {
                 self.state.open_dialog();
             }
         }
+        // Remappable reload from disk (default Cmd+R; settings.shortcut_reload).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_RELOAD};
+            let reload_chord = resolve_chord(&self.state.settings.shortcut_reload, DEFAULT_RELOAD);
+            let reload_key_pressed = match reload_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if reload_key_pressed && reload_chord.matches(mods, reload_chord.key) {
+                self.run_shortcut_cmd("IDM_FILE_RELOAD");
+            }
+        }
         // Remappable save (default Cmd+S; settings.shortcut_save).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_SAVE};
@@ -2701,14 +2734,20 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_TOGGLE_LOG_TAIL,
                 )
                 .display();
+                let reload_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_reload,
+                    crate::shortcut_chord::DEFAULT_RELOAD,
+                )
+                .display();
                 let replace_row = format!("{replace_keys} · {replace_alt_keys}");
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 30] = [
+                        let rows: [(&str, &str); 31] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
+                            (reload_keys.as_str(), "Reload from disk"),
                             (save_keys.as_str(), "Save"),
                             (save_as_keys.as_str(), "Save As"),
                             (find_open_keys.as_str(), "Find"),
@@ -3473,6 +3512,35 @@ Tree-sitter highlight, and a calm UI.",
                         });
                         ui.label(
                             RichText::new("Example: Cmd+O, Ctrl+Alt+O.")
+                                .small()
+                                .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Reload shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_reload,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+R"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_reload.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_reload =
+                                        crate::shortcut_chord::DEFAULT_RELOAD.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_RELOAD
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_reload = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new("Example: Cmd+R, Ctrl+Shift+R. Reloads the active file from disk.")
                                 .small()
                                 .weak(),
                         );
