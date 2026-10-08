@@ -177,3 +177,5 @@
 009 keep: remappable Zoom out shortcut (shortcut_zoom_out, v0.3.126)
 
 009 keep: remappable Zoom restore shortcut (shortcut_zoom_restore, v0.3.127)
+
+009 keep: remappable Toggle log tail shortcut (shortcut_toggle_log_tail, v0.3.128)
