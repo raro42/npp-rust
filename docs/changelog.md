@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.145] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Save All** is remappable: Preferences → Save All shortcut, or `shortcut_save_all` in `npp-rs/settings.json` (default `Cmd+Alt+S`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.144] — 2026-10-09
 
 Settings / shortcuts:

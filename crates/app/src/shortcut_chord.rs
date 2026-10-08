@@ -128,6 +128,10 @@ pub const DEFAULT_RELOAD: &str = "Cmd+R";
 /// Default next-tab binding (new remappable chord). Shift flips to previous tab.
 pub const DEFAULT_NEXT_TAB: &str = "Cmd+Tab";
 
+/// Default save-all binding (new remappable chord; File → Save All).
+/// Uses Cmd+Alt+S so it does not collide with Save As (Cmd+Shift+S).
+pub const DEFAULT_SAVE_ALL: &str = "Cmd+Alt+S";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -511,6 +515,16 @@ mod tests {
         assert_eq!(c.key, Key::Tab);
         assert_eq!(c.display(), "Cmd+Tab");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+Tab");
+    }
+
+    #[test]
+    fn parse_cmd_alt_s_default_save_all() {
+        let c = parse_chord(DEFAULT_SAVE_ALL).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::S);
+        assert_eq!(c.display(), "Cmd+Alt+S");
     }
 
     #[test]

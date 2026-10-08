@@ -196,6 +196,10 @@ fn default_shortcut_save_as() -> String {
     crate::shortcut_chord::DEFAULT_SAVE_AS.into()
 }
 
+fn default_shortcut_save_all() -> String {
+    crate::shortcut_chord::DEFAULT_SAVE_ALL.into()
+}
+
 fn default_shortcut_find() -> String {
     crate::shortcut_chord::DEFAULT_FIND.into()
 }
@@ -441,6 +445,9 @@ pub struct AppSettings {
     /// Save-as chord (`Cmd+Shift+S` default).
     #[serde(default = "default_shortcut_save_as")]
     pub shortcut_save_as: String,
+    /// Save-all chord (`Cmd+Alt+S` default).
+    #[serde(default = "default_shortcut_save_all")]
+    pub shortcut_save_all: String,
     /// Find-bar chord (`Cmd+F` default).
     #[serde(default = "default_shortcut_find")]
     pub shortcut_find: String,
@@ -549,6 +556,7 @@ impl Default for AppSettings {
             shortcut_open: default_shortcut_open(),
             shortcut_save: default_shortcut_save(),
             shortcut_save_as: default_shortcut_save_as(),
+            shortcut_save_all: default_shortcut_save_all(),
             shortcut_find: default_shortcut_find(),
             shortcut_close_find: default_shortcut_close_find(),
             shortcut_replace: default_shortcut_replace(),
@@ -904,6 +912,7 @@ mod tests {
             shortcut_open: "Ctrl+Alt+O".into(),
             shortcut_save: "Ctrl+Alt+S".into(),
             shortcut_save_as: "Ctrl+Alt+Shift+S".into(),
+            shortcut_save_all: "Ctrl+Shift+A".into(),
             shortcut_find: "Ctrl+Alt+F".into(),
             shortcut_close_find: "Ctrl+Alt+Escape".into(),
             shortcut_replace: "Ctrl+Alt+H".into(),
@@ -962,6 +971,7 @@ mod tests {
         assert_eq!(back.shortcut_open, "Ctrl+Alt+O");
         assert_eq!(back.shortcut_save, "Ctrl+Alt+S");
         assert_eq!(back.shortcut_save_as, "Ctrl+Alt+Shift+S");
+        assert_eq!(back.shortcut_save_all, "Ctrl+Shift+A");
         assert_eq!(back.shortcut_find, "Ctrl+Alt+F");
         assert_eq!(back.shortcut_close_find, "Ctrl+Alt+Escape");
         assert_eq!(back.shortcut_replace, "Ctrl+Alt+H");
