@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.125] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Zoom in** is remappable: Preferences → Zoom in shortcut, or `shortcut_zoom_in` in `npp-rs/settings.json` (default `Cmd+=`). Zoom out (`Cmd+-`) and restore (`Cmd+0`) stay hard-wired. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.124] — 2026-10-08
 
 Compare:

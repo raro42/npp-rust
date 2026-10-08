@@ -1795,23 +1795,56 @@ impl EditorApp {
             self.run_shortcut_cmd("IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_DEC");
         }
 
-        // Zoom: Cmd+= / Cmd+- / Cmd+0, and Cmd+mouse wheel.
-        if cmd && equals {
-            self.font_size = (self.font_size + 1.0).min(48.0);
-            self.persist_font_size();
-        } else if cmd && minus {
-            self.font_size = (self.font_size - 1.0).max(8.0);
-            self.persist_font_size();
-        } else if cmd && num0 {
-            self.font_size = 14.0;
-            self.persist_font_size();
-        } else if cmd && scroll_y != 0.0 {
-            if scroll_y > 0.0 {
+        // Remappable zoom in (default Cmd+=; settings.shortcut_zoom_in).
+        // Zoom out / restore / mouse wheel stay hard-wired.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_ZOOM_IN};
+            let zoom_in_chord =
+                resolve_chord(&self.state.settings.shortcut_zoom_in, DEFAULT_ZOOM_IN);
+            let zoom_in_key_pressed = match zoom_in_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_zoom_in =
+                zoom_in_key_pressed && zoom_in_chord.matches(mods, zoom_in_chord.key);
+            if remapped_zoom_in {
                 self.font_size = (self.font_size + 1.0).min(48.0);
-            } else {
+                self.persist_font_size();
+            } else if cmd && minus {
                 self.font_size = (self.font_size - 1.0).max(8.0);
+                self.persist_font_size();
+            } else if cmd && num0 {
+                self.font_size = 14.0;
+                self.persist_font_size();
+            } else if cmd && scroll_y != 0.0 {
+                if scroll_y > 0.0 {
+                    self.font_size = (self.font_size + 1.0).min(48.0);
+                } else {
+                    self.font_size = (self.font_size - 1.0).max(8.0);
+                }
+                self.persist_font_size();
             }
-            self.persist_font_size();
         }
 
         if (self.state.find_open || self.show_replace) && ctx.input(|i| i.key_pressed(Key::Escape))
@@ -2384,6 +2417,12 @@ Tree-sitter highlight, and a calm UI.",
                     undo_chord.flipped_shift().display(),
                     redo_keys
                 );
+                let zoom_in_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_zoom_in,
+                    crate::shortcut_chord::DEFAULT_ZOOM_IN,
+                )
+                .display();
+                let zoom_row = format!("{zoom_in_keys} · ⌘/Ctrl -");
                 let replace_row = format!("{replace_keys} · ⌘/Ctrl ⇧ F");
                 egui::Grid::new("about_shortcuts")
                     .num_columns(2)
@@ -2414,7 +2453,7 @@ Tree-sitter highlight, and a calm UI.",
                                 "Compare apply all hunks from / to other",
                             ),
                             ("Alt ] / [", "Compare hide-equal context ±1"),
-                            ("⌘/Ctrl = / -", "Zoom in / out"),
+                            (zoom_row.as_str(), "Zoom in / out"),
                             (wrap_keys.as_str(), "Word wrap"),
                             (select_all_keys.as_str(), "Select all"),
                             (dup_keys.as_str(), "Duplicate line"),
@@ -3095,6 +3134,37 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Y, Ctrl+Alt+Y. Shift + Undo chord also Redo.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Zoom in shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_zoom_in,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+="),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_zoom_in.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_zoom_in =
+                                        crate::shortcut_chord::DEFAULT_ZOOM_IN.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_ZOOM_IN
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_zoom_in = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+=, Ctrl+Alt+=. Zoom out (Cmd+-) and restore (Cmd+0) stay hard-wired.",
                             )
                             .small()
                             .weak(),

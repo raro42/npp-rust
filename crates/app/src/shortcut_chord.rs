@@ -68,6 +68,9 @@ pub const DEFAULT_UNDO: &str = "Cmd+Z";
 /// Default redo alternate binding (matches historical hard-wire). Shift+undo also redo.
 pub const DEFAULT_REDO: &str = "Cmd+Y";
 
+/// Default zoom-in binding (matches historical hard-wire). Zoom out / restore stay hard-wired.
+pub const DEFAULT_ZOOM_IN: &str = "Cmd+=";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -472,6 +475,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::Y);
         assert_eq!(c.display(), "Cmd+Y");
+    }
+
+    #[test]
+    fn parse_cmd_equals_default_zoom_in() {
+        let c = parse_chord(DEFAULT_ZOOM_IN).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Equals);
+        assert_eq!(c.display(), "Cmd+=");
     }
 
     #[test]

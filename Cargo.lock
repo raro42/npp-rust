@@ -180,7 +180,7 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "app"
-version = "0.3.124"
+version = "0.3.125"
 dependencies = [
  "anyhow",
  "buffer",
@@ -560,7 +560,7 @@ dependencies = [
 
 [[package]]
 name = "buffer"
-version = "0.3.124"
+version = "0.3.125"
 dependencies = [
  "ropey",
 ]
@@ -861,7 +861,7 @@ dependencies = [
 
 [[package]]
 name = "doc"
-version = "0.3.124"
+version = "0.3.125"
 dependencies = [
  "buffer",
 ]
@@ -1191,11 +1191,11 @@ dependencies = [
 
 [[package]]
 name = "format"
-version = "0.3.124"
+version = "0.3.125"
 
 [[package]]
 name = "fs"
-version = "0.3.124"
+version = "0.3.125"
 dependencies = [
  "anyhow",
  "thiserror 2.0.20",
@@ -1508,7 +1508,7 @@ checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 
 [[package]]
 name = "highlight"
-version = "0.3.124"
+version = "0.3.125"
 dependencies = [
  "thiserror 2.0.20",
  "tree-sitter",
@@ -2440,7 +2440,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "plugins"
-version = "0.3.124"
+version = "0.3.125"
 dependencies = [
  "format",
 ]
