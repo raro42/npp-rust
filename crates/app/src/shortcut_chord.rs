@@ -26,6 +26,10 @@ pub const DEFAULT_NEXT_DIFF: &str = "F7";
 /// Default next-hidden-equal binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_HIDDEN_EQUAL: &str = "Alt+F7";
 
+/// Default apply-compare-hunk-from binding (matches historical hard-wire).
+/// Opposite horizontal arrow applies to other; Shift applies all in that direction.
+pub const DEFAULT_APPLY_COMPARE_HUNK: &str = "Cmd+Alt+Left";
+
 /// Default go-to-line binding (matches historical hard-wire).
 pub const DEFAULT_GOTO_LINE: &str = "Cmd+L";
 
@@ -112,6 +116,16 @@ impl KeyChord {
             shift: !self.shift,
             ..self
         }
+    }
+
+    /// Same chord with Left ↔ Right (apply hunk from ↔ to). Non-arrow keys unchanged.
+    pub fn flipped_horizontal(self) -> Self {
+        let key = match self.key {
+            Key::ArrowLeft => Key::ArrowRight,
+            Key::ArrowRight => Key::ArrowLeft,
+            other => other,
+        };
+        Self { key, ..self }
     }
 
     /// Human-readable form for Shortcut Mapper / About (`Cmd` = Ctrl on non-mac).
@@ -211,6 +225,8 @@ fn parse_key(lower: &str) -> Option<Key> {
         "0" | "num0" | "digit0" => Some(Key::Num0),
         "]" | "closebracket" | "bracketright" => Some(Key::CloseBracket),
         "[" | "openbracket" | "bracketleft" => Some(Key::OpenBracket),
+        "left" | "arrowleft" => Some(Key::ArrowLeft),
+        "right" | "arrowright" => Some(Key::ArrowRight),
         _ => None,
     }
 }
@@ -252,6 +268,8 @@ fn key_token(key: Key) -> &'static str {
         Key::Num0 => "0",
         Key::CloseBracket => "]",
         Key::OpenBracket => "[",
+        Key::ArrowLeft => "Left",
+        Key::ArrowRight => "Right",
         _ => "?",
     }
 }
@@ -343,6 +361,26 @@ mod tests {
         assert_eq!(c.key, Key::F7);
         assert_eq!(c.display(), "Alt+F7");
         assert_eq!(c.flipped_shift().display(), "Alt+Shift+F7");
+    }
+
+    #[test]
+    fn parse_cmd_alt_left_default_apply_compare_hunk() {
+        let c = parse_chord(DEFAULT_APPLY_COMPARE_HUNK).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::ArrowLeft);
+        assert_eq!(c.display(), "Cmd+Alt+Left");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+Left");
+        assert_eq!(c.flipped_horizontal().display(), "Cmd+Alt+Right");
+        assert_eq!(
+            c.flipped_horizontal().flipped_shift().display(),
+            "Cmd+Alt+Shift+Right"
+        );
+        let arrow_alias = parse_chord("Ctrl+Alt+ArrowLeft").unwrap();
+        assert_eq!(arrow_alias.key, Key::ArrowLeft);
+        assert!(arrow_alias.ctrl_or_cmd);
+        assert!(arrow_alias.alt);
     }
 
     #[test]

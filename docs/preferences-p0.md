@@ -35,6 +35,7 @@ New keys:
 | `shortcut_toggle_bookmark` | Toggle-bookmark chord (`Cmd+F2` default) |
 | `shortcut_next_diff` | Next-compare-diff chord (`F7` default; Shift flips to previous; Cmd/Ctrl+F7 first/last stay hard-wired) |
 | `shortcut_next_hidden_equal` | Next-hidden-equal chord (`Alt+F7` default; Shift flips to previous; Cmd/Ctrl+Alt+F7 first/last stay hard-wired) |
+| `shortcut_apply_compare_hunk` | Apply-compare-hunk-from chord (`Cmd+Alt+Left` default; opposite Left/Right applies to other; Shift applies all) |
 | `shortcut_goto_line` | Go-to-line chord (`Cmd+L` default; Cmd/Ctrl+Shift+L delete line stays hard-wired) |
 | `shortcut_duplicate_line` | Duplicate-line chord (`Cmd+D` default) |
 | `shortcut_delete_line` | Delete-line chord (`Cmd+Shift+L` default) |

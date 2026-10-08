@@ -1836,16 +1836,57 @@ impl EditorApp {
             }
         }
 
-        // Compare apply hunk: ⌘/Ctrl+Alt+←/→ one hunk; +Shift applies all.
+        // Compare apply hunk: remappable from (default Cmd+Alt+Left).
+        // Opposite horizontal arrow applies to other; Shift applies all in that direction.
         // Alt alone stays word-jump in the editor; command+alt skips caret move there.
-        if cmd && mods.alt && mods.shift && arrow_left {
-            self.run_shortcut_cmd("IDM_VIEW_APPLY_ALL_COMPARE_HUNKS");
-        } else if cmd && mods.alt && mods.shift && arrow_right {
-            self.run_shortcut_cmd("IDM_VIEW_APPLY_ALL_COMPARE_HUNKS_TO_OTHER");
-        } else if cmd && mods.alt && arrow_left {
-            self.run_shortcut_cmd("IDM_VIEW_APPLY_COMPARE_HUNK");
-        } else if cmd && mods.alt && arrow_right {
-            self.run_shortcut_cmd("IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER");
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_APPLY_COMPARE_HUNK};
+            let from_chord = resolve_chord(
+                &self.state.settings.shortcut_apply_compare_hunk,
+                DEFAULT_APPLY_COMPARE_HUNK,
+            );
+            let to_chord = from_chord.flipped_horizontal();
+            let all_from = from_chord.flipped_shift();
+            let all_to = to_chord.flipped_shift();
+            let chord_key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                Key::ArrowLeft => arrow_left,
+                Key::ArrowRight => arrow_right,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let hit = |chord: crate::shortcut_chord::KeyChord| {
+                chord_key_pressed(chord.key) && chord.matches(mods, chord.key)
+            };
+            if hit(all_from) {
+                self.run_shortcut_cmd("IDM_VIEW_APPLY_ALL_COMPARE_HUNKS");
+            } else if hit(all_to) && to_chord.key != from_chord.key {
+                self.run_shortcut_cmd("IDM_VIEW_APPLY_ALL_COMPARE_HUNKS_TO_OTHER");
+            } else if hit(from_chord) {
+                self.run_shortcut_cmd("IDM_VIEW_APPLY_COMPARE_HUNK");
+            } else if hit(to_chord) && to_chord.key != from_chord.key {
+                self.run_shortcut_cmd("IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER");
+            }
         }
 
         // Hide-equal context ±1: Alt+] increase, Alt+[ decrease (Cmd+[ / ] stay indent).
@@ -2200,18 +2241,50 @@ impl EditorApp {
                     "IDM_VIEW_OPEN_COMPARE_HUNK" => response.on_hover_text(
                         "Open the change hunk at the caret as a unified-diff tab (clears Compare)",
                     ),
-                    "IDM_VIEW_APPLY_COMPARE_HUNK" => response.on_hover_text(
-                        "Replace the focused pane's change hunk with the other pane (⌘/Ctrl+Alt+←, one undo)",
-                    ),
-                    "IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER" => response.on_hover_text(
-                        "Replace the other pane's change hunk with the focused pane (⌘/Ctrl+Alt+→, one undo)",
-                    ),
-                    "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS" => response.on_hover_text(
-                        "Replace every change hunk on the focused pane with the other pane (⌘/Ctrl+Alt+Shift+←, one undo)",
-                    ),
-                    "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS_TO_OTHER" => response.on_hover_text(
-                        "Replace every change hunk on the other pane with the focused pane (⌘/Ctrl+Alt+Shift+→, one undo)",
-                    ),
+                    "IDM_VIEW_APPLY_COMPARE_HUNK" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_apply_compare_hunk,
+                            crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Replace the focused pane's change hunk with the other pane ({chord}, one undo)"
+                        ))
+                    }
+                    "IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_apply_compare_hunk,
+                            crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK,
+                        )
+                        .flipped_horizontal()
+                        .display();
+                        response.on_hover_text(format!(
+                            "Replace the other pane's change hunk with the focused pane ({chord}, one undo)"
+                        ))
+                    }
+                    "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_apply_compare_hunk,
+                            crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK,
+                        )
+                        .flipped_shift()
+                        .display();
+                        response.on_hover_text(format!(
+                            "Replace every change hunk on the focused pane with the other pane ({chord}, one undo)"
+                        ))
+                    }
+                    "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS_TO_OTHER" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_apply_compare_hunk,
+                            crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK,
+                        )
+                        .flipped_horizontal()
+                        .flipped_shift()
+                        .display();
+                        response.on_hover_text(format!(
+                            "Replace every change hunk on the other pane with the focused pane ({chord}, one undo)"
+                        ))
+                    }
                     _ => response,
                 };
                 if response.clicked() {
@@ -2436,6 +2509,23 @@ Tree-sitter highlight, and a calm UI.",
                     hidden_chord.display(),
                     hidden_chord.flipped_shift().display()
                 );
+                let apply_hunk_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_apply_compare_hunk,
+                    crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK,
+                );
+                let apply_hunk_keys = format!(
+                    "{} / {}",
+                    apply_hunk_chord.display(),
+                    apply_hunk_chord.flipped_horizontal().display()
+                );
+                let apply_all_hunk_keys = format!(
+                    "{} / {}",
+                    apply_hunk_chord.flipped_shift().display(),
+                    apply_hunk_chord
+                        .flipped_horizontal()
+                        .flipped_shift()
+                        .display()
+                );
                 let goto_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_goto_line,
                     crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -2572,9 +2662,12 @@ Tree-sitter highlight, and a calm UI.",
                                 "⌘/Ctrl Alt F7 · ⌘/Ctrl Alt ⇧ F7",
                                 "Compare first / last hidden equal",
                             ),
-                            ("⌘/Ctrl Alt ←/→", "Compare apply hunk from / to other"),
                             (
-                                "⌘/Ctrl Alt ⇧ ←/→",
+                                apply_hunk_keys.as_str(),
+                                "Compare apply hunk from / to other",
+                            ),
+                            (
+                                apply_all_hunk_keys.as_str(),
                                 "Compare apply all hunks from / to other",
                             ),
                             ("Alt ] / [", "Compare hide-equal context ±1"),
@@ -2980,6 +3073,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+F7, Alt+E. Shift + that key is Previous hidden equal. Cmd/Ctrl+Alt+F7 first/last stay hard-wired.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Apply compare hunk shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_apply_compare_hunk,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+Left"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_apply_compare_hunk
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_apply_compare_hunk =
+                                        crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_apply_compare_hunk = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+Left, Ctrl+Alt+ArrowLeft. Opposite Left/Right applies to other; Shift applies all. Keep Left/Right in the chord for From/To.",
                             )
                             .small()
                             .weak(),

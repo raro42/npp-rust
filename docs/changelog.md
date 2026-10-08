@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.132] — 2026-10-08
+
+Settings / shortcuts:
+
+- **Apply compare hunk** is remappable: Preferences → Apply compare hunk shortcut, or `shortcut_apply_compare_hunk` in `npp-rs/settings.json` (default `Cmd+Alt+Left`). Opposite Left/Right applies the hunk to the other pane; Shift applies all hunks in that direction. Chord parser accepts `Left` / `Right` / `ArrowLeft` / `ArrowRight`. Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.131] — 2026-10-08
 
 Settings / shortcuts:
