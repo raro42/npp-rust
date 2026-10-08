@@ -201,11 +201,11 @@ fn open_info_tab(state: &mut EditorState, title: &str, text: &str) {
 fn show_shortcut_mapper(state: &mut EditorState) {
     use crate::shortcut_chord::{
         resolve_chord, DEFAULT_CLOSE_TAB, DEFAULT_DELETE_LINE, DEFAULT_DUPLICATE_LINE,
-        DEFAULT_FIND, DEFAULT_FIND_NEXT, DEFAULT_FORMAT_DOCUMENT, DEFAULT_GOTO_LINE,
-        DEFAULT_INDENT, DEFAULT_NEW, DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF, DEFAULT_OPEN,
-        DEFAULT_OUTDENT, DEFAULT_REDO, DEFAULT_REPLACE, DEFAULT_SAVE, DEFAULT_SAVE_AS,
-        DEFAULT_SELECT_ALL, DEFAULT_TOGGLE_BOOKMARK, DEFAULT_TOGGLE_LOG_TAIL, DEFAULT_UNDO,
-        DEFAULT_WORD_WRAP, DEFAULT_ZOOM_IN, DEFAULT_ZOOM_OUT, DEFAULT_ZOOM_RESTORE,
+        DEFAULT_FIND, DEFAULT_FIND_NEXT, DEFAULT_FIND_NEXT_GLOBAL, DEFAULT_FORMAT_DOCUMENT,
+        DEFAULT_GOTO_LINE, DEFAULT_INDENT, DEFAULT_NEW, DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF,
+        DEFAULT_OPEN, DEFAULT_OUTDENT, DEFAULT_REDO, DEFAULT_REPLACE, DEFAULT_SAVE,
+        DEFAULT_SAVE_AS, DEFAULT_SELECT_ALL, DEFAULT_TOGGLE_BOOKMARK, DEFAULT_TOGGLE_LOG_TAIL,
+        DEFAULT_UNDO, DEFAULT_WORD_WRAP, DEFAULT_ZOOM_IN, DEFAULT_ZOOM_OUT, DEFAULT_ZOOM_RESTORE,
     };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
@@ -223,6 +223,24 @@ fn show_shortcut_mapper(state: &mut EditorState) {
     } else {
         format!(
             "{find_next} / {find_prev} (from settings.shortcut_find_next = {find_raw:?}; Shift flips)"
+        )
+    };
+    let find_global_chord = resolve_chord(
+        &state.settings.shortcut_find_next_global,
+        DEFAULT_FIND_NEXT_GLOBAL,
+    );
+    let find_global_next = find_global_chord.display();
+    let find_global_prev = find_global_chord.flipped_shift().display();
+    let find_global_raw = state.settings.shortcut_find_next_global.trim();
+    let find_global_note = if find_global_raw.is_empty()
+        || find_global_raw.eq_ignore_ascii_case(DEFAULT_FIND_NEXT_GLOBAL)
+    {
+        format!(
+            "{find_global_next} / {find_global_prev} (default; Preferences → Find next (global) shortcut)"
+        )
+    } else {
+        format!(
+            "{find_global_next} / {find_global_prev} (from settings.shortcut_find_next_global = {find_global_raw:?}; Shift flips)"
         )
     };
     let bm_chord = resolve_chord(
@@ -440,8 +458,8 @@ fn show_shortcut_mapper(state: &mut EditorState) {
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, Next bookmark, Toggle bookmark, Next difference, Go to line, Duplicate line, Delete line, Indent, Outdent, Format document, Close tab, New, Open, Save, Save As, Find, Replace, Select all, Undo, Redo, Zoom in, Zoom out, Zoom restore, and Toggle log tail are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_next_diff, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent, shortcut_outdent, shortcut_format_document, shortcut_close_tab, shortcut_new, shortcut_open, shortcut_save, shortcut_save_as, shortcut_find, shortcut_replace, shortcut_select_all, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore, shortcut_toggle_log_tail). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Find next (global), Next bookmark, Toggle bookmark, Next difference, Go to line, Duplicate line, Delete line, Indent, Outdent, Format document, Close tab, New, Open, Save, Save As, Find, Replace, Select all, Undo, Redo, Zoom in, Zoom out, Zoom restore, and Toggle log tail are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_find_next_global, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_next_diff, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_indent, shortcut_outdent, shortcut_format_document, shortcut_close_tab, shortcut_new, shortcut_open, shortcut_save, shortcut_save_as, shortcut_find, shortcut_replace, shortcut_select_all, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore, shortcut_toggle_log_tail). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -471,8 +489,7 @@ Find / navigate
 {replace_note}
 Cmd+Shift+F           Replace (alternate; hard-wired)
 {find_note}
-Cmd+G                 Find next (global; hard-wired)
-Cmd+Shift+G           Find previous (global; hard-wired)
+{find_global_note}
 {goto_note}
 {bm_note}
 {toggle_bm_note}

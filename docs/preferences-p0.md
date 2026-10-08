@@ -30,6 +30,7 @@ New keys:
 | `show_indent_guide` | Vertical indent guides; default off |
 | `shortcut_word_wrap` | Word-wrap toggle chord (`Alt+Z` default; e.g. `Ctrl+W`) |
 | `shortcut_find_next` | Find-next chord (`F3` default; Shift flips to find previous) |
+| `shortcut_find_next_global` | Global find-next chord (`Cmd+G` default; Shift flips to find previous) |
 | `shortcut_next_bookmark` | Next-bookmark chord (`F2` default; Shift flips to previous) |
 | `shortcut_toggle_bookmark` | Toggle-bookmark chord (`Cmd+F2` default) |
 | `shortcut_next_diff` | Next-compare-diff chord (`F7` default; Shift flips to previous; Cmd/Ctrl+F7 first/last and Alt+F7 hidden-equal stay hard-wired) |

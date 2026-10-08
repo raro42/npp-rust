@@ -11,6 +11,9 @@ pub const DEFAULT_WORD_WRAP: &str = "Alt+Z";
 /// Default find-next binding (matches historical hard-wire). Find prev uses Shift toggled.
 pub const DEFAULT_FIND_NEXT: &str = "F3";
 
+/// Default global find-next binding (matches historical hard-wire). Find prev uses Shift toggled.
+pub const DEFAULT_FIND_NEXT_GLOBAL: &str = "Cmd+G";
+
 /// Default next-bookmark binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_BOOKMARK: &str = "F2";
 
@@ -524,6 +527,17 @@ mod tests {
         assert!(c.shift);
         assert_eq!(c.key, Key::T);
         assert_eq!(c.display(), "Cmd+Shift+T");
+    }
+
+    #[test]
+    fn parse_cmd_g_default_find_next_global() {
+        let c = parse_chord(DEFAULT_FIND_NEXT_GLOBAL).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::G);
+        assert_eq!(c.display(), "Cmd+G");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+G");
     }
 
     #[test]

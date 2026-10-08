@@ -92,6 +92,10 @@ fn default_shortcut_find_next() -> String {
     crate::shortcut_chord::DEFAULT_FIND_NEXT.into()
 }
 
+fn default_shortcut_find_next_global() -> String {
+    crate::shortcut_chord::DEFAULT_FIND_NEXT_GLOBAL.into()
+}
+
 fn default_shortcut_next_bookmark() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK.into()
 }
@@ -303,6 +307,9 @@ pub struct AppSettings {
     /// Find-next chord (`F3` default). Shift + same key is find previous.
     #[serde(default = "default_shortcut_find_next")]
     pub shortcut_find_next: String,
+    /// Global find-next chord (`Cmd+G` default). Shift + same key is find previous.
+    #[serde(default = "default_shortcut_find_next_global")]
+    pub shortcut_find_next_global: String,
     /// Next-bookmark chord (`F2` default). Shift + same key is previous bookmark.
     #[serde(default = "default_shortcut_next_bookmark")]
     pub shortcut_next_bookmark: String,
@@ -418,6 +425,7 @@ impl Default for AppSettings {
             autosave_interval_secs: 0,
             shortcut_word_wrap: default_shortcut_word_wrap(),
             shortcut_find_next: default_shortcut_find_next(),
+            shortcut_find_next_global: default_shortcut_find_next_global(),
             shortcut_next_bookmark: default_shortcut_next_bookmark(),
             shortcut_toggle_bookmark: default_shortcut_toggle_bookmark(),
             shortcut_next_diff: default_shortcut_next_diff(),
@@ -758,6 +766,7 @@ mod tests {
             backup_on_save: true,
             autosave_interval_secs: 60,
             shortcut_find_next: "Ctrl+F3".into(),
+            shortcut_find_next_global: "Ctrl+Alt+G".into(),
             shortcut_next_bookmark: "Ctrl+F2".into(),
             shortcut_toggle_bookmark: "Ctrl+Shift+F2".into(),
             shortcut_next_diff: "Ctrl+F7".into(),
@@ -802,6 +811,7 @@ mod tests {
         assert!(back.backup_on_save);
         assert_eq!(back.autosave_interval_secs, 60);
         assert_eq!(back.shortcut_find_next, "Ctrl+F3");
+        assert_eq!(back.shortcut_find_next_global, "Ctrl+Alt+G");
         assert_eq!(back.shortcut_next_bookmark, "Ctrl+F2");
         assert_eq!(back.shortcut_toggle_bookmark, "Ctrl+Shift+F2");
         assert_eq!(back.shortcut_next_diff, "Ctrl+F7");

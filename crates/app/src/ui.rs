@@ -1654,12 +1654,18 @@ impl EditorApp {
             }
         }
 
-        // Find next/prev: remappable chord (default F3; Shift flips to prev) + Cmd+G / Cmd+Shift+G.
+        // Find next/prev: remappable F3 (Shift flips) + remappable global Cmd+G (Shift flips).
         {
-            use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND_NEXT};
+            use crate::shortcut_chord::{
+                resolve_chord, DEFAULT_FIND_NEXT, DEFAULT_FIND_NEXT_GLOBAL,
+            };
             let find_chord =
                 resolve_chord(&self.state.settings.shortcut_find_next, DEFAULT_FIND_NEXT);
-            let find_key_pressed = match find_chord.key {
+            let global_chord = resolve_chord(
+                &self.state.settings.shortcut_find_next_global,
+                DEFAULT_FIND_NEXT_GLOBAL,
+            );
+            let find_key_pressed = |key: Key| match key {
                 Key::Z => z,
                 Key::N => n,
                 Key::O => o,
@@ -1684,11 +1690,16 @@ impl EditorApp {
                 Key::OpenBracket => open_br,
                 other => ctx.input(|i| i.key_pressed(other)),
             };
-            let remapped_prev =
-                find_key_pressed && find_chord.flipped_shift().matches(mods, find_chord.key);
-            let remapped_next = find_key_pressed && find_chord.matches(mods, find_chord.key);
-            let find_prev_key = remapped_prev || (cmd && g && mods.shift);
-            let find_next_key = remapped_next || (cmd && g && !mods.shift);
+            let remapped_prev = find_key_pressed(find_chord.key)
+                && find_chord.flipped_shift().matches(mods, find_chord.key);
+            let remapped_next =
+                find_key_pressed(find_chord.key) && find_chord.matches(mods, find_chord.key);
+            let global_prev = find_key_pressed(global_chord.key)
+                && global_chord.flipped_shift().matches(mods, global_chord.key);
+            let global_next =
+                find_key_pressed(global_chord.key) && global_chord.matches(mods, global_chord.key);
+            let find_prev_key = remapped_prev || global_prev;
+            let find_next_key = remapped_next || global_next;
             if find_prev_key {
                 if self.state.find_query.is_empty() {
                     self.seed_find_from_selection();
@@ -2356,6 +2367,15 @@ Tree-sitter highlight, and a calm UI.",
                     find_chord.display(),
                     find_chord.flipped_shift().display()
                 );
+                let find_global_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_find_next_global,
+                    crate::shortcut_chord::DEFAULT_FIND_NEXT_GLOBAL,
+                );
+                let find_global_keys = format!(
+                    "{} / {}",
+                    find_global_chord.display(),
+                    find_global_chord.flipped_shift().display()
+                );
                 let bm_chord = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_next_bookmark,
                     crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
@@ -2499,7 +2519,7 @@ Tree-sitter highlight, and a calm UI.",
                             (find_open_keys.as_str(), "Find"),
                             (replace_row.as_str(), "Replace"),
                             (find_keys.as_str(), "Find next / prev"),
-                            ("⌘/Ctrl G", "Find next (global)"),
+                            (find_global_keys.as_str(), "Find next / prev (global)"),
                             (goto_keys.as_str(), "Go to line"),
                             (bm_keys.as_str(), "Next / prev bookmark"),
                             (toggle_bm_keys.as_str(), "Toggle bookmark"),
@@ -2748,7 +2768,43 @@ Tree-sitter highlight, and a calm UI.",
                         });
                         ui.label(
                             RichText::new(
-                                "Example: F3, Alt+N. Shift + that key is Find previous. Cmd/Ctrl+G stays hard-wired.",
+                                "Example: F3, Alt+N. Shift + that key is Find previous. Global Cmd+G remaps separately.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Find next (global) shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_find_next_global,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+G"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_find_next_global
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_find_next_global =
+                                        crate::shortcut_chord::DEFAULT_FIND_NEXT_GLOBAL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIND_NEXT_GLOBAL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_find_next_global = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+G, Ctrl+Alt+G. Shift + that key is Find previous.",
                             )
                             .small()
                             .weak(),
