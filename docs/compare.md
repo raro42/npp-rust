@@ -86,7 +86,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 ## Limits
 
 - Both panes stay editable. Line tags refresh after edits (~200 ms debounce). After that re-diff, the other pane parks on the focused caret’s change hunk (or Equal partner) and the pair status appends `· at L|R (i/n kind −/+)` on a change or `· equal L|R` on Equal; hide-equal collapsed partners are revealed so the park is visible. The focused caret and selection are left alone so typing is not yanked.
-- MVP max: **3000 lines** per side.
+- MVP max: **3000 lines** per side. Larger files still Compare: LCS uses the first 3000 lines on each side; the rest stays uncoloured and status appends `· first 3000 lines`.
 - No gap rows for inserts (line numbers stay per-file; sync is by scroll line).
 - Intra-line wash is word-aware LCS on paired replace lines (char refine on 1:1 tokens). Not 3-way.
 - Start Compare turns on sync H + V scroll.

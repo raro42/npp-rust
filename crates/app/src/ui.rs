@@ -177,15 +177,26 @@ fn compare_hide_status_bit(hide: CompareHideStatus) -> String {
     format!(" · hide equal ±{ctx}{count_bit}")
 }
 
+/// Status when Compare only diffs the first [`crate::diff::MAX_COMPARE_LINES`] per side.
+fn compare_truncation_status_bit(truncated: bool) -> String {
+    if truncated {
+        format!(" · first {} lines", crate::diff::MAX_COMPARE_LINES)
+    } else {
+        String::new()
+    }
+}
+
 fn compare_pair_status(
     lname: &str,
     rname: &str,
     counts: ComparePairCounts,
     ignore: CompareIgnoreBits,
     hide: CompareHideStatus,
+    truncated: bool,
 ) -> String {
     let ignore_bit = compare_ignore_status_bit(ignore);
     let hide_bit = compare_hide_status_bit(hide);
+    let trunc_bit = compare_truncation_status_bit(truncated);
     let ComparePairCounts {
         del,
         ins,
@@ -194,7 +205,9 @@ fn compare_pair_status(
         kind_bit,
     } = counts;
     if del == 0 && ins == 0 {
-        return format!("Compare “{lname}” | “{rname}” (identical){ignore_bit}{hide_bit}");
+        return format!(
+            "Compare “{lname}” | “{rname}” (identical){ignore_bit}{hide_bit}{trunc_bit}"
+        );
     }
     let hunk_bit = if hunk_n > 0 {
         format!(
@@ -205,7 +218,7 @@ fn compare_pair_status(
         String::new()
     };
     format!(
-        "Compare “{lname}” | “{rname}” (−{del} +{ins}){hunk_bit} · {equal_pct}% equal{ignore_bit}{hide_bit}"
+        "Compare “{lname}” | “{rname}” (−{del} +{ins}){hunk_bit} · {equal_pct}% equal{ignore_bit}{hide_bit}{trunc_bit}"
     )
 }
 
@@ -275,9 +288,11 @@ fn compare_equal_park_status(
     counts: &ComparePairCounts,
     ignore: CompareIgnoreBits,
     hide: CompareHideStatus,
+    truncated: bool,
 ) -> String {
     let ignore_bit = compare_ignore_status_bit(ignore);
     let hide_bit = compare_hide_status_bit(hide);
+    let trunc_bit = compare_truncation_status_bit(truncated);
     let ComparePairCounts {
         del,
         ins,
@@ -286,11 +301,11 @@ fn compare_equal_park_status(
         kind_bit,
     } = counts;
     if *del == 0 && *ins == 0 {
-        format!("Compare equal → L{l} | R{r} (identical){ignore_bit}{hide_bit}")
+        format!("Compare equal → L{l} | R{r} (identical){ignore_bit}{hide_bit}{trunc_bit}")
     } else {
         let hunk_word = if *hunk_n == 1 { "hunk" } else { "hunks" };
         format!(
-            "Compare equal → L{l} | R{r} (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit}) · {equal_pct}% equal{ignore_bit}{hide_bit}"
+            "Compare equal → L{l} | R{r} (−{del} +{ins}, {hunk_n} {hunk_word}{kind_bit}) · {equal_pct}% equal{ignore_bit}{hide_bit}{trunc_bit}"
         )
     }
 }
@@ -5847,6 +5862,7 @@ Tree-sitter highlight, and a calm UI.",
                         hidden: hide,
                         context: self.state.settings.compare_hide_equal_context_lines(),
                     },
+                    self.compare_sides_truncated(),
                 );
                 if hunk_n > 0 {
                     let lr = self.compare_hunk_lr_label(1);
@@ -6388,6 +6404,7 @@ Tree-sitter highlight, and a calm UI.",
                     hidden: hide,
                     context: self.state.settings.compare_hide_equal_context_lines(),
                 },
+                self.compare_sides_truncated(),
             );
             if hunk_n > 0 {
                 let lr = self.compare_hunk_lr_label(1);
@@ -6482,6 +6499,7 @@ Tree-sitter highlight, and a calm UI.",
                     hidden: hide,
                     context: ctx,
                 },
+                self.compare_sides_truncated(),
             );
             if hide_equal && hunk_n > 0 {
                 let lr = self.compare_hunk_lr_label(1);
@@ -6496,16 +6514,36 @@ Tree-sitter highlight, and a calm UI.",
         }
     }
 
+    /// Lines used for Compare LCS / unified diff (capped at [`crate::diff::MAX_COMPARE_LINES`]).
     fn tab_compare_lines(&self, tab: usize) -> Vec<String> {
         self.state
             .tabs
             .get(tab)
             .map(|d| {
-                (0..d.buffer.line_count())
+                let n = d.buffer.line_count().min(crate::diff::MAX_COMPARE_LINES);
+                (0..n)
                     .map(|i| d.buffer.line(i).trim_end_matches(['\n', '\r']).to_string())
                     .collect()
             })
             .unwrap_or_default()
+    }
+
+    /// True when either Compare side has more lines than the LCS cap (tail uncoloured).
+    fn compare_sides_truncated(&self) -> bool {
+        let max = crate::diff::MAX_COMPARE_LINES;
+        let left = self
+            .state
+            .tabs
+            .get(self.compare_left_tab)
+            .map(|d| d.buffer.line_count())
+            .unwrap_or(0);
+        let right = self
+            .state
+            .tabs
+            .get(self.compare_right_tab)
+            .map(|d| d.buffer.line_count())
+            .unwrap_or(0);
+        left > max || right > max
     }
 
     fn compare_side_name(title: &str) -> String {
@@ -7399,6 +7437,7 @@ Tree-sitter highlight, and a calm UI.",
                 hidden: hide,
                 context: self.state.settings.compare_hide_equal_context_lines(),
             },
+            self.compare_sides_truncated(),
         );
     }
 
@@ -7472,6 +7511,7 @@ Tree-sitter highlight, and a calm UI.",
                 hidden: hide,
                 context: self.state.settings.compare_hide_equal_context_lines(),
             },
+            self.compare_sides_truncated(),
         );
         if hunk_n > 0 {
             let lr = self.compare_hunk_lr_label(1);
@@ -7750,6 +7790,7 @@ Tree-sitter highlight, and a calm UI.",
                         hidden: hide,
                         context: self.state.settings.compare_hide_equal_context_lines(),
                     },
+                    self.compare_sides_truncated(),
                 );
                 // Keep the other pane on the focused caret's hunk/equal partner after
                 // edit re-diff. Do not move the focused caret or force hunk selection
@@ -7901,17 +7942,9 @@ Tree-sitter highlight, and a calm UI.",
         usize,
         usize,
     )> {
+        // Soft-cap: LCS runs on the first MAX_COMPARE_LINES per side; longer tails stay uncoloured.
         let left_lines = self.tab_compare_lines(left);
         let right_lines = self.tab_compare_lines(right);
-        if left_lines.len() > crate::diff::MAX_COMPARE_LINES
-            || right_lines.len() > crate::diff::MAX_COMPARE_LINES
-        {
-            self.state.status = format!(
-                "Compare MVP max is {} lines per side",
-                crate::diff::MAX_COMPARE_LINES
-            );
-            return None;
-        }
         let ignore_ws = self.state.settings.compare_ignore_ws;
         let ignore_case = self.state.settings.compare_ignore_case;
         let ignore_blank = self.state.settings.compare_ignore_blank;
@@ -8078,6 +8111,7 @@ Tree-sitter highlight, and a calm UI.",
                 hidden: hide,
                 context: self.state.settings.compare_hide_equal_context_lines(),
             },
+            self.compare_sides_truncated(),
         );
         // Start parks both panes on the first change; surface that landing in status.
         if hunk_n > 0 {
@@ -9166,8 +9200,9 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 #[cfg(test)]
 mod compare_pair_tests {
     use super::{
-        compare_pair_status, compare_saved_snapshot_title, index_after_tab_close,
-        is_compare_saved_snapshot, pick_compare_right, CompareHideStatus, ComparePairCounts,
+        compare_pair_status, compare_saved_snapshot_title, compare_truncation_status_bit,
+        index_after_tab_close, is_compare_saved_snapshot, pick_compare_right, CompareHideStatus,
+        ComparePairCounts,
     };
 
     #[test]
@@ -9230,10 +9265,33 @@ mod compare_pair_tests {
                 CompareHideStatus {
                     hidden: None,
                     context: 3
-                }
+                },
+                false,
             ),
             "Compare “a” | “b” (identical)"
         );
+        assert_eq!(
+            compare_pair_status(
+                "a",
+                "b",
+                counts(0, 0, 0, 100, ""),
+                none,
+                CompareHideStatus {
+                    hidden: None,
+                    context: 3
+                },
+                true,
+            ),
+            format!(
+                "Compare “a” | “b” (identical) · first {} lines",
+                crate::diff::MAX_COMPARE_LINES
+            )
+        );
+        assert_eq!(
+            compare_truncation_status_bit(true),
+            format!(" · first {} lines", crate::diff::MAX_COMPARE_LINES)
+        );
+        assert_eq!(compare_truncation_status_bit(false), "");
         assert_eq!(
             compare_pair_status(
                 "a",
@@ -9243,7 +9301,8 @@ mod compare_pair_tests {
                 CompareHideStatus {
                     hidden: None,
                     context: 3
-                }
+                },
+                false,
             ),
             "Compare “a” | “b” (−1 +2) · 2 hunks: 1 delete, 1 insert · 50% equal"
         );
@@ -9260,7 +9319,8 @@ mod compare_pair_tests {
                 CompareHideStatus {
                     hidden: None,
                     context: 3
-                }
+                },
+                false,
             ),
             "Compare “a” | “b” (identical) · ignore ws+case"
         );
@@ -9277,7 +9337,8 @@ mod compare_pair_tests {
                 CompareHideStatus {
                     hidden: None,
                     context: 3
-                }
+                },
+                false,
             ),
             "Compare “a” | “b” (−1 +0) · 1 hunk: 1 delete · 80% equal · ignore ws"
         );
@@ -9294,7 +9355,8 @@ mod compare_pair_tests {
                 CompareHideStatus {
                     hidden: None,
                     context: 3
-                }
+                },
+                false,
             ),
             "Compare “a” | “b” (identical) · ignore blank"
         );
@@ -9311,7 +9373,8 @@ mod compare_pair_tests {
                 CompareHideStatus {
                     hidden: Some((4, 7)),
                     context: 3
-                }
+                },
+                false,
             ),
             "Compare “a” | “b” (−1 +0) · 1 hunk: 1 delete · 75% equal · ignore ws+case+blank · hide equal ±3 · L4|R7 hidden"
         );
@@ -9324,7 +9387,8 @@ mod compare_pair_tests {
                 CompareHideStatus {
                     hidden: Some((5, 5)),
                     context: 3
-                }
+                },
+                false,
             ),
             "Compare “a” | “b” (−1 +0) · 1 hunk: 1 delete · 90% equal · hide equal ±3 · 5 hidden"
         );
@@ -9506,15 +9570,15 @@ mod compare_pair_tests {
         let one_del = counts(1, 0, 1, 80, ": 1 delete");
         let ident = counts(0, 0, 0, 100, "");
         assert_eq!(
-            super::compare_equal_park_status(12, 12, &two, none, no_hide),
+            super::compare_equal_park_status(12, 12, &two, none, no_hide, false,),
             "Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert) · 50% equal"
         );
         assert_eq!(
-            super::compare_equal_park_status(3, 5, &one_del, none, no_hide),
+            super::compare_equal_park_status(3, 5, &one_del, none, no_hide, false,),
             "Compare equal → L3 | R5 (−1 +0, 1 hunk: 1 delete) · 80% equal"
         );
         assert_eq!(
-            super::compare_equal_park_status(8, 8, &ident, none, no_hide),
+            super::compare_equal_park_status(8, 8, &ident, none, no_hide, false,),
             "Compare equal → L8 | R8 (identical)"
         );
         assert_eq!(
@@ -9530,7 +9594,8 @@ mod compare_pair_tests {
                 CompareHideStatus {
                     hidden: Some((5, 5)),
                     context: 3
-                }
+                },
+                false,
             ),
             "Compare equal → L12 | R12 (−1 +2, 2 hunks: 1 delete, 1 insert) · 50% equal · ignore ws+case · hide equal ±3 · 5 hidden"
         );
@@ -9544,7 +9609,8 @@ mod compare_pair_tests {
                     case: false,
                     blank: true
                 },
-                no_hide
+                no_hide,
+                false,
             ),
             "Compare equal → L8 | R8 (identical) · ignore blank"
         );

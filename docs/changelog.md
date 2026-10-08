@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.124] — 2026-10-08
+
+Compare:
+
+- Files longer than **3000 lines** still Compare: LCS uses the first 3000 lines per side (tail stays uncoloured). Live status appends `· first 3000 lines` instead of refusing the pair.
+
 ## [0.3.123] — 2026-10-08
 
 Settings / shortcuts:
