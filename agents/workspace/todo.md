@@ -171,3 +171,5 @@
 009 keep: remappable Redo shortcut (shortcut_redo, v0.3.123)
 
 009 keep: compare soft-truncate oversize pairs (first 3000 lines + status, v0.3.124)
+
+009 keep: remappable Zoom in shortcut (shortcut_zoom_in, v0.3.125)
