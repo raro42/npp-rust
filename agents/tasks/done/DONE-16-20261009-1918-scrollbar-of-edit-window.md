@@ -21,3 +21,10 @@ The scrollbar is not clickable ... also i want to click and drag the scrollbar m
 - Editor vertical scrollbar is clickable (track jump) and draggable (thumb) on primary and dual-view secondary panes.
 - Wider hit strip; unit tests for layout/scroll mapping.
 - Version **0.3.163**, commit `a2282e4`. Handoff to tester as TEST- (do not close #16).
+
+- **2026-10-09 (tester):** Verified `crates/app/src/ui.rs` scrollbar layout/drag on primary + dual-view; `editor_scrollbar_tests` present. `./scripts/ci-local.sh` green (fmt, clippy -D warnings, 182+workspace tests, release). → DONE. Issue left open for handoff.
+
+## Handoff (2026-10-09)
+- User-facing notes already in `docs/changelog.md` under **[0.3.163]**.
+- Task goal met: clickable track jump + draggable thumb (v0.3.163, `a2282e4`).
+- Close issue #16 with `agent:done`.

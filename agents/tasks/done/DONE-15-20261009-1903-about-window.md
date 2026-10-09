@@ -26,3 +26,5 @@ The about window is full of keyboard short-cuts. Can we move them into a separat
 - User-facing notes already in `docs/changelog.md` under **[0.3.161]** (not Unreleased).
 - Task goal met: clean About + separate scrollable Keyboard shortcuts window (v0.3.161, `9450c8f`).
 - Close issue #15 with `agent:done`.
+Handoff: complete
+GitHub: closed
