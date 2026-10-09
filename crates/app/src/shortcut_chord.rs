@@ -135,6 +135,9 @@ pub const DEFAULT_SAVE_ALL: &str = "Cmd+Alt+S";
 /// Default print binding (new remappable chord; File → Print).
 pub const DEFAULT_PRINT: &str = "Cmd+P";
 
+/// Default Shift+Tab outdent binding (editor Tab arm; remappable alternate to Cmd+[).
+pub const DEFAULT_SHIFT_TAB_OUTDENT: &str = "Shift+Tab";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -538,6 +541,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::P);
         assert_eq!(c.display(), "Cmd+P");
+    }
+
+    #[test]
+    fn parse_shift_tab_default_outdent() {
+        let c = parse_chord(DEFAULT_SHIFT_TAB_OUTDENT).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::Tab);
+        assert_eq!(c.display(), "Shift+Tab");
     }
 
     #[test]

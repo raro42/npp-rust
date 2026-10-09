@@ -204,6 +204,10 @@ fn default_shortcut_print() -> String {
     crate::shortcut_chord::DEFAULT_PRINT.into()
 }
 
+fn default_shortcut_shift_tab_outdent() -> String {
+    crate::shortcut_chord::DEFAULT_SHIFT_TAB_OUTDENT.into()
+}
+
 fn default_shortcut_find() -> String {
     crate::shortcut_chord::DEFAULT_FIND.into()
 }
@@ -455,6 +459,9 @@ pub struct AppSettings {
     /// Print chord (`Cmd+P` default).
     #[serde(default = "default_shortcut_print")]
     pub shortcut_print: String,
+    /// Shift+Tab outdent chord (`Shift+Tab` default; alternate to `shortcut_outdent`).
+    #[serde(default = "default_shortcut_shift_tab_outdent")]
+    pub shortcut_shift_tab_outdent: String,
     /// Find-bar chord (`Cmd+F` default).
     #[serde(default = "default_shortcut_find")]
     pub shortcut_find: String,
@@ -565,6 +572,7 @@ impl Default for AppSettings {
             shortcut_save_as: default_shortcut_save_as(),
             shortcut_save_all: default_shortcut_save_all(),
             shortcut_print: default_shortcut_print(),
+            shortcut_shift_tab_outdent: default_shortcut_shift_tab_outdent(),
             shortcut_find: default_shortcut_find(),
             shortcut_close_find: default_shortcut_close_find(),
             shortcut_replace: default_shortcut_replace(),
@@ -922,6 +930,7 @@ mod tests {
             shortcut_save_as: "Ctrl+Alt+Shift+S".into(),
             shortcut_save_all: "Ctrl+Shift+A".into(),
             shortcut_print: "Ctrl+Alt+P".into(),
+            shortcut_shift_tab_outdent: "Ctrl+Shift+Tab".into(),
             shortcut_find: "Ctrl+Alt+F".into(),
             shortcut_close_find: "Ctrl+Alt+Escape".into(),
             shortcut_replace: "Ctrl+Alt+H".into(),
@@ -982,6 +991,7 @@ mod tests {
         assert_eq!(back.shortcut_save_as, "Ctrl+Alt+Shift+S");
         assert_eq!(back.shortcut_save_all, "Ctrl+Shift+A");
         assert_eq!(back.shortcut_print, "Ctrl+Alt+P");
+        assert_eq!(back.shortcut_shift_tab_outdent, "Ctrl+Shift+Tab");
         assert_eq!(back.shortcut_find, "Ctrl+Alt+F");
         assert_eq!(back.shortcut_close_find, "Ctrl+Alt+Escape");
         assert_eq!(back.shortcut_replace, "Ctrl+Alt+H");

@@ -1594,6 +1594,52 @@ impl EditorApp {
                 self.follow_focused_caret();
             }
         }
+        // Remappable Shift+Tab outdent (default Shift+Tab; settings.shortcut_shift_tab_outdent).
+        // Tab-key default is handled in handle_editor_input; non-Tab remaps land here.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SHIFT_TAB_OUTDENT};
+            let shift_tab_chord = resolve_chord(
+                &self.state.settings.shortcut_shift_tab_outdent,
+                DEFAULT_SHIFT_TAB_OUTDENT,
+            );
+            if shift_tab_chord.key != Key::Tab {
+                let shift_tab_pressed = match shift_tab_chord.key {
+                    Key::Z => z,
+                    Key::N => n,
+                    Key::O => o,
+                    Key::S => s,
+                    Key::F => f,
+                    Key::Y => y,
+                    Key::W => w,
+                    Key::G => g,
+                    Key::A => a,
+                    Key::D => d,
+                    Key::L => l,
+                    Key::I => i_key,
+                    Key::T => t,
+                    Key::H => h,
+                    Key::F2 => f2,
+                    Key::F3 => f3,
+                    Key::F7 => f7,
+                    Key::Equals => equals,
+                    Key::Minus => minus,
+                    Key::Num0 => num0,
+                    Key::CloseBracket => close_br,
+                    Key::OpenBracket => open_br,
+                    other => ctx.input(|i| i.key_pressed(other)),
+                };
+                if shift_tab_pressed && shift_tab_chord.matches(mods, shift_tab_chord.key) {
+                    let tab = self.focused_edit_tab();
+                    self.state.prepare_edit_at(tab);
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        let n = self.state.settings.tab_width.max(1) as usize;
+                        doc.buffer.outdent_lines(n);
+                    }
+                    self.state.mark_text_changed_at(tab);
+                    self.follow_focused_caret();
+                }
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -3057,7 +3103,13 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_OUTDENT,
                 )
                 .display();
-                let indent_outdent_keys = format!("{indent_keys} / {outdent_keys}");
+                let shift_tab_outdent_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_shift_tab_outdent,
+                    crate::shortcut_chord::DEFAULT_SHIFT_TAB_OUTDENT,
+                )
+                .display();
+                let indent_outdent_keys =
+                    format!("{indent_keys} / {outdent_keys} / {shift_tab_outdent_keys}");
                 let format_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_format_document,
                     crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -4078,6 +4130,36 @@ Tree-sitter highlight, and a calm UI.",
                         });
                         ui.label(
                             RichText::new("Example: Cmd+[, Ctrl+Shift+[.")
+                                .small()
+                                .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Shift+Tab outdent shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_shift_tab_outdent,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Shift+Tab"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_shift_tab_outdent.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_shift_tab_outdent =
+                                        crate::shortcut_chord::DEFAULT_SHIFT_TAB_OUTDENT.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SHIFT_TAB_OUTDENT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_shift_tab_outdent = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new("Example: Shift+Tab, Ctrl+Shift+Tab.")
                                 .small()
                                 .weak(),
                         );
@@ -10342,17 +10424,35 @@ Tree-sitter highlight, and a calm UI.",
                     modifiers,
                     ..
                 } if !modifiers.command && !modifiers.ctrl => {
-                    if read_only {
-                        self.state.status = "Document is read-only".into();
-                    } else {
-                        self.state.prepare_edit_at(tab);
-                        let n = self.state.settings.tab_width.max(1) as usize;
-                        let pad = " ".repeat(n);
-                        if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            if !doc.insert_multi(&pad) {
-                                doc.buffer.insert(&pad);
+                    // Remappable Shift+Tab outdent (default Shift+Tab; settings.shortcut_shift_tab_outdent).
+                    let outdent_tab = crate::shortcut_chord::resolve_chord(
+                        &self.state.settings.shortcut_shift_tab_outdent,
+                        crate::shortcut_chord::DEFAULT_SHIFT_TAB_OUTDENT,
+                    );
+                    if outdent_tab.key == Key::Tab && outdent_tab.matches(modifiers, Key::Tab) {
+                        if read_only {
+                            self.state.status = "Document is read-only".into();
+                        } else {
+                            self.state.prepare_edit_at(tab);
+                            if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                let n = self.state.settings.tab_width.max(1) as usize;
+                                doc.buffer.outdent_lines(n);
                             }
                             changed = true;
+                        }
+                    } else if !modifiers.shift {
+                        if read_only {
+                            self.state.status = "Document is read-only".into();
+                        } else {
+                            self.state.prepare_edit_at(tab);
+                            let n = self.state.settings.tab_width.max(1) as usize;
+                            let pad = " ".repeat(n);
+                            if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                if !doc.insert_multi(&pad) {
+                                    doc.buffer.insert(&pad);
+                                }
+                                changed = true;
+                            }
                         }
                     }
                 }

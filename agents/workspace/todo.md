@@ -213,3 +213,5 @@
 009 keep: remappable Save All shortcut (shortcut_save_all, Cmd+Alt+S default, v0.3.145)
 
 009 keep: remappable Print shortcut (shortcut_print, Cmd+P default, v0.3.146)
+
+009 keep: remappable Shift+Tab outdent (shortcut_shift_tab_outdent, Shift+Tab default, v0.3.147)

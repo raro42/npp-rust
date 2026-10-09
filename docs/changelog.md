@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.147] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Shift+Tab outdent** is remappable: Preferences → Shift+Tab outdent shortcut, or `shortcut_shift_tab_outdent` in `npp-rs/settings.json` (default `Shift+Tab`). Outdents the current line(s); `Cmd+[` (`shortcut_outdent`) stays as the other outdent binding. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.146] — 2026-10-09
 
 Settings / shortcuts:

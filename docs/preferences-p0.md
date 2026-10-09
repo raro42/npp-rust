@@ -58,6 +58,7 @@ New keys:
 | `shortcut_save_as` | Save-as chord (`Cmd+Shift+S` default) |
 | `shortcut_save_all` | Save-all chord (`Cmd+Alt+S` default) |
 | `shortcut_print` | Print chord (`Cmd+P` default) |
+| `shortcut_shift_tab_outdent` | Shift+Tab outdent chord (`Shift+Tab` default; alternate to `shortcut_outdent`) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
 | `shortcut_close_find` | Close Find/Replace chord (`Escape` default) |
 | `shortcut_replace` | Replace-bar chord (`Cmd+H` default) |
