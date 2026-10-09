@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.155] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Copy / Open Compare Hunk** is remappable: Preferences → Copy Compare Hunk shortcut, or `shortcut_copy_compare_hunk` in `npp-rs/settings.json` (default `Alt+K`). Shift flips to Open Compare Hunk (`Alt+Shift+K`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.154] — 2026-10-09
 
 Settings / shortcuts:

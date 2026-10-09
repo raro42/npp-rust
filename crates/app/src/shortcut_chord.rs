@@ -61,6 +61,10 @@ pub const DEFAULT_COPY_COMPARE_DIFF: &str = "Alt+C";
 /// Shift flips to Open Compare Summary.
 pub const DEFAULT_COPY_COMPARE_SUMMARY: &str = "Alt+Y";
 
+/// Default copy-compare-hunk binding (View → Copy Compare Hunk).
+/// Shift flips to Open Compare Hunk.
+pub const DEFAULT_COPY_COMPARE_HUNK: &str = "Alt+K";
+
 /// Default word-jump-back binding (opposite arrow jumps forward; Shift extends).
 pub const DEFAULT_WORD_JUMP: &str = "Alt+Left";
 
@@ -582,6 +586,17 @@ mod tests {
         assert_eq!(c.key, Key::Y);
         assert_eq!(c.display(), "Alt+Y");
         assert_eq!(c.flipped_shift().display(), "Alt+Shift+Y");
+    }
+
+    #[test]
+    fn parse_alt_k_default_copy_compare_hunk() {
+        let c = parse_chord(DEFAULT_COPY_COMPARE_HUNK).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::K);
+        assert_eq!(c.display(), "Alt+K");
+        assert_eq!(c.flipped_shift().display(), "Alt+Shift+K");
     }
 
     #[test]

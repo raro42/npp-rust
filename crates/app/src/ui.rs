@@ -2571,6 +2571,46 @@ impl EditorApp {
             }
         }
 
+        // Remappable copy compare hunk (default Alt+K; settings.shortcut_copy_compare_hunk).
+        // Shift flips to Open Compare Hunk.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_COPY_COMPARE_HUNK};
+            let hunk_chord = resolve_chord(
+                &self.state.settings.shortcut_copy_compare_hunk,
+                DEFAULT_COPY_COMPARE_HUNK,
+            );
+            let hunk_key_pressed = match hunk_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if hunk_key_pressed && hunk_chord.flipped_shift().matches(mods, hunk_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_OPEN_COMPARE_HUNK");
+            } else if hunk_key_pressed && hunk_chord.matches(mods, hunk_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COPY_COMPARE_HUNK");
+            }
+        }
+
         // Remappable zoom in / out / restore (defaults Cmd+= / Cmd+- / Cmd+0).
         // Mouse wheel stays hard-wired.
         {
@@ -3046,12 +3086,27 @@ impl EditorApp {
                             "Open a tab listing every Compare change hunk with L|R line ranges (clears Compare; {open}; Preferences remappable via Copy Compare Summary shortcut + Shift)"
                         ))
                     }
-                    "IDM_VIEW_COPY_COMPARE_HUNK" => response.on_hover_text(
-                        "Copy the change hunk at the caret as a unified diff (clipboard)",
-                    ),
-                    "IDM_VIEW_OPEN_COMPARE_HUNK" => response.on_hover_text(
-                        "Open the change hunk at the caret as a unified-diff tab (clears Compare)",
-                    ),
+                    "IDM_VIEW_COPY_COMPARE_HUNK" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_copy_compare_hunk,
+                            crate::shortcut_chord::DEFAULT_COPY_COMPARE_HUNK,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Copy the change hunk at the caret as a unified diff (clipboard; {chord}; Preferences remappable; Shift + that chord opens)"
+                        ))
+                    }
+                    "IDM_VIEW_OPEN_COMPARE_HUNK" => {
+                        let open = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_copy_compare_hunk,
+                            crate::shortcut_chord::DEFAULT_COPY_COMPARE_HUNK,
+                        )
+                        .flipped_shift()
+                        .display();
+                        response.on_hover_text(format!(
+                            "Open the change hunk at the caret as a unified-diff tab (clears Compare; {open}; Preferences remappable via Copy Compare Hunk shortcut + Shift)"
+                        ))
+                    }
                     "IDM_VIEW_APPLY_COMPARE_HUNK" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_apply_compare_hunk,
@@ -3406,6 +3461,15 @@ Tree-sitter highlight, and a calm UI.",
                     copy_compare_summary_chord.display(),
                     copy_compare_summary_chord.flipped_shift().display()
                 );
+                let copy_compare_hunk_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_copy_compare_hunk,
+                    crate::shortcut_chord::DEFAULT_COPY_COMPARE_HUNK,
+                );
+                let copy_compare_hunk_keys = format!(
+                    "{} / {}",
+                    copy_compare_hunk_chord.display(),
+                    copy_compare_hunk_chord.flipped_shift().display()
+                );
                 let word_jump_chord = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_word_jump,
                     crate::shortcut_chord::DEFAULT_WORD_JUMP,
@@ -3607,7 +3671,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 45] = [
+                        let rows: [(&str, &str); 46] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -3630,6 +3694,7 @@ Tree-sitter highlight, and a calm UI.",
                                 copy_compare_summary_keys.as_str(),
                                 "Copy / Open Compare Summary",
                             ),
+                            (copy_compare_hunk_keys.as_str(), "Copy / Open Compare Hunk"),
                             (diff_keys.as_str(), "Compare next / prev diff"),
                             (first_diff_keys.as_str(), "Compare first / last diff"),
                             (hidden_keys.as_str(), "Compare next / prev hidden equal"),
@@ -4413,6 +4478,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+Y, Ctrl+Alt+Y. Copies View → Copy Compare Summary. Shift + that chord is Open Compare Summary.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Copy Compare Hunk shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_copy_compare_hunk,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+K"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_copy_compare_hunk
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_copy_compare_hunk =
+                                        crate::shortcut_chord::DEFAULT_COPY_COMPARE_HUNK.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_COPY_COMPARE_HUNK
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_copy_compare_hunk = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+K, Ctrl+Alt+K. Copies View → Copy Compare Hunk. Shift + that chord is Open Compare Hunk.",
                             )
                             .small()
                             .weak(),

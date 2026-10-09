@@ -228,3 +228,4 @@
 
 009 keep: remappable Copy / Open Compare Diff (shortcut_copy_compare_diff, Alt+C default, v0.3.153)
 009 keep: remappable Copy / Open Compare Summary (shortcut_copy_compare_summary, Alt+Y default, v0.3.154)
+009 keep: remappable Copy / Open Compare Hunk (shortcut_copy_compare_hunk, Alt+K default, v0.3.155)
