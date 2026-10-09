@@ -224,6 +224,10 @@ fn default_shortcut_move_line() -> String {
     crate::shortcut_chord::DEFAULT_MOVE_LINE.into()
 }
 
+fn default_shortcut_toggle_comment() -> String {
+    crate::shortcut_chord::DEFAULT_TOGGLE_COMMENT.into()
+}
+
 fn default_shortcut_find() -> String {
     crate::shortcut_chord::DEFAULT_FIND.into()
 }
@@ -490,6 +494,9 @@ pub struct AppSettings {
     /// Move-line-up chord (`Cmd+Shift+Up` default; opposite arrow / Shift moves down).
     #[serde(default = "default_shortcut_move_line")]
     pub shortcut_move_line: String,
+    /// Toggle line-comment chord (`Cmd+/` default; Shift flips to Block Comment).
+    #[serde(default = "default_shortcut_toggle_comment")]
+    pub shortcut_toggle_comment: String,
     /// Find-bar chord (`Cmd+F` default).
     #[serde(default = "default_shortcut_find")]
     pub shortcut_find: String,
@@ -605,6 +612,7 @@ impl Default for AppSettings {
             shortcut_fold_current: default_shortcut_fold_current(),
             shortcut_matching_brace: default_shortcut_matching_brace(),
             shortcut_move_line: default_shortcut_move_line(),
+            shortcut_toggle_comment: default_shortcut_toggle_comment(),
             shortcut_find: default_shortcut_find(),
             shortcut_close_find: default_shortcut_close_find(),
             shortcut_replace: default_shortcut_replace(),
@@ -967,6 +975,7 @@ mod tests {
             shortcut_fold_current: "Ctrl+Alt+F".into(),
             shortcut_matching_brace: "Ctrl+Alt+B".into(),
             shortcut_move_line: "Ctrl+Alt+Up".into(),
+            shortcut_toggle_comment: "Ctrl+Alt+/".into(),
             shortcut_find: "Ctrl+Alt+G".into(),
             shortcut_close_find: "Ctrl+Alt+Escape".into(),
             shortcut_replace: "Ctrl+Alt+H".into(),
@@ -1032,6 +1041,7 @@ mod tests {
         assert_eq!(back.shortcut_fold_current, "Ctrl+Alt+F");
         assert_eq!(back.shortcut_matching_brace, "Ctrl+Alt+B");
         assert_eq!(back.shortcut_move_line, "Ctrl+Alt+Up");
+        assert_eq!(back.shortcut_toggle_comment, "Ctrl+Alt+/");
         assert_eq!(back.shortcut_find, "Ctrl+Alt+G");
         assert_eq!(back.shortcut_close_find, "Ctrl+Alt+Escape");
         assert_eq!(back.shortcut_replace, "Ctrl+Alt+H");

@@ -223,3 +223,5 @@
 009 keep: remappable Matching brace (shortcut_matching_brace, Cmd+B default, v0.3.150)
 
 009 keep: remappable Move line (shortcut_move_line, Cmd+Shift+Up default, v0.3.151)
+
+009 keep: remappable Toggle comment (shortcut_toggle_comment, Cmd+/ default, v0.3.152)

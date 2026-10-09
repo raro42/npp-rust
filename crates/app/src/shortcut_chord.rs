@@ -152,6 +152,10 @@ pub const DEFAULT_MATCHING_BRACE: &str = "Cmd+B";
 /// Opposite Up/Down moves the line down; non-arrow remaps use Shift for down.
 pub const DEFAULT_MOVE_LINE: &str = "Cmd+Shift+Up";
 
+/// Default toggle single-line comment binding (Edit → Toggle Single Line Comment).
+/// Shift flips to Block Comment. Uses `/` (not `Q`) so macOS Cmd+Q quit stays free.
+pub const DEFAULT_TOGGLE_COMMENT: &str = "Cmd+/";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -322,6 +326,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "0" | "num0" | "digit0" => Some(Key::Num0),
         "]" | "closebracket" | "bracketright" => Some(Key::CloseBracket),
         "[" | "openbracket" | "bracketleft" => Some(Key::OpenBracket),
+        "/" | "slash" => Some(Key::Slash),
         "left" | "arrowleft" => Some(Key::ArrowLeft),
         "right" | "arrowright" => Some(Key::ArrowRight),
         "up" | "arrowup" => Some(Key::ArrowUp),
@@ -368,6 +373,7 @@ fn key_token(key: Key) -> &'static str {
         Key::Num0 => "0",
         Key::CloseBracket => "]",
         Key::OpenBracket => "[",
+        Key::Slash => "/",
         Key::ArrowLeft => "Left",
         Key::ArrowRight => "Right",
         Key::ArrowUp => "Up",
@@ -871,6 +877,21 @@ mod tests {
         assert_eq!(arrow_alias.key, Key::ArrowUp);
         let letter = parse_chord("Alt+M").unwrap();
         assert_eq!(letter.move_line_down_chord().display(), "Alt+Shift+M");
+    }
+
+    #[test]
+    fn parse_cmd_slash_default_toggle_comment() {
+        let c = parse_chord(DEFAULT_TOGGLE_COMMENT).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Slash);
+        assert_eq!(c.display(), "Cmd+/");
+        let stream = c.flipped_shift();
+        assert!(stream.shift);
+        assert_eq!(stream.display(), "Cmd+Shift+/");
+        let alias = parse_chord("Ctrl+Slash").unwrap();
+        assert_eq!(alias.key, Key::Slash);
     }
 
     #[test]

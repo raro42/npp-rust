@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.152] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Toggle comment** is remappable: Preferences → Toggle comment shortcut, or `shortcut_toggle_comment` in `npp-rs/settings.json` (default `Cmd+/`). Shift flips to Block Comment (`Cmd+Shift+/`). Shortcut Mapper and About show the effective binding. Uses `/` so macOS Cmd+Q Quit stays free (N++ Ctrl+Q remaps via Preferences).
+
 ## [0.3.151] — 2026-10-09
 
 Settings / shortcuts:
