@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.175] — 2026-10-10
+
+View / Settings:
+
+- **Document Map** toggle is remappable (`shortcut_document_map`, default Cmd+Shift+D). Menu, Preferences, Shortcut Mapper, and the chord all open/close the panel (no longer open-only).
+
 ## [0.3.174] — 2026-10-10
 
 View:

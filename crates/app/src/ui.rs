@@ -1118,6 +1118,42 @@ impl EditorApp {
                 self.follow_caret = true;
             }
         }
+        // Remappable Document Map toggle (default Cmd+Shift+D; settings.shortcut_document_map).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_DOCUMENT_MAP};
+            let map_chord = resolve_chord(
+                &self.state.settings.shortcut_document_map,
+                DEFAULT_DOCUMENT_MAP,
+            );
+            let map_key_pressed = match map_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if map_key_pressed && map_chord.matches(mods, map_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_DOC_MAP");
+            }
+        }
         // Remappable new file (default Cmd+N; settings.shortcut_new).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_NEW};
@@ -3137,7 +3173,12 @@ impl EditorApp {
                 self.show_theme_picker = true;
             }
             if flags.show_doc_map {
-                self.show_doc_map = true;
+                self.show_doc_map = !self.show_doc_map;
+                self.state.status = if self.show_doc_map {
+                    "Document Map".into()
+                } else {
+                    "Document Map closed".into()
+                };
             }
             if flags.show_func_list {
                 self.show_func_list = true;
@@ -3548,6 +3589,16 @@ impl EditorApp {
                             "Replace every change hunk on the other pane with the focused pane ({chord}, one undo)"
                         ))
                     }
+                    "IDM_VIEW_DOC_MAP" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_document_map,
+                            crate::shortcut_chord::DEFAULT_DOCUMENT_MAP,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Toggle the Document Map panel ({chord}; Preferences remappable)"
+                        ))
+                    }
                     _ => response,
                 };
                 if response.clicked() {
@@ -3949,6 +4000,10 @@ impl EditorApp {
                 &s.shortcut_apply_compare_hunk,
                 crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK,
             ),
+            "IDM_VIEW_DOC_MAP" => primary(
+                &s.shortcut_document_map,
+                crate::shortcut_chord::DEFAULT_DOCUMENT_MAP,
+            ),
             _ => return None,
         })
     }
@@ -4342,13 +4397,18 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_TOGGLE_LOG_TAIL,
         )
         .display();
+        let document_map_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_document_map,
+            crate::shortcut_chord::DEFAULT_DOCUMENT_MAP,
+        )
+        .display();
         let reload_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_reload,
             crate::shortcut_chord::DEFAULT_RELOAD,
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 51] = [
+        let rows: [(&str, &str); 52] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -4422,6 +4482,7 @@ impl EditorApp {
             (fold_current_keys.as_str(), "Fold / Unfold current"),
             (matching_brace_keys.as_str(), "Matching brace / Select pair"),
             (log_tail_keys.as_str(), "Toggle log tail"),
+            (document_map_keys.as_str(), "Toggle Document Map"),
             (word_jump_keys.as_str(), "Word jump ← / →"),
             ("Double-click", "Select word"),
             (undo_keys.as_str(), "Undo / Redo"),
@@ -6364,6 +6425,42 @@ impl EditorApp {
                             RichText::new("Example: Cmd+Shift+T, Ctrl+Alt+T.")
                                 .small()
                                 .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Document Map shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_document_map,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Shift+D"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_document_map
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_document_map =
+                                        crate::shortcut_chord::DEFAULT_DOCUMENT_MAP.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_DOCUMENT_MAP
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_document_map = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+D, Ctrl+Alt+D. Toggles View → Document Map.",
+                            )
+                            .small()
+                            .weak(),
                         );
                         ui.horizontal(|ui| {
                             ui.label("Save shortcut");

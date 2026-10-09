@@ -153,6 +153,9 @@ pub const DEFAULT_ZOOM_RESTORE: &str = "Cmd+0";
 /// Default toggle-log-tail binding (matches historical hard-wire).
 pub const DEFAULT_TOGGLE_LOG_TAIL: &str = "Cmd+Shift+T";
 
+/// Default Document Map toggle binding (View → Document Map).
+pub const DEFAULT_DOCUMENT_MAP: &str = "Cmd+Shift+D";
+
 /// Default reload-from-disk binding (new remappable chord; File → Reload).
 pub const DEFAULT_RELOAD: &str = "Cmd+R";
 
@@ -1033,6 +1036,16 @@ mod tests {
         assert!(c.shift);
         assert_eq!(c.key, Key::T);
         assert_eq!(c.display(), "Cmd+Shift+T");
+    }
+
+    #[test]
+    fn parse_cmd_shift_d_default_document_map() {
+        let c = parse_chord(DEFAULT_DOCUMENT_MAP).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::D);
+        assert_eq!(c.display(), "Cmd+Shift+D");
     }
 
     #[test]

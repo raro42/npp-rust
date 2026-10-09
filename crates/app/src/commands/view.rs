@@ -477,8 +477,8 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_VIEW_DOC_MAP" => {
+            // Flag means "toggle Document Map"; NppApp applies the flip.
             ui.show_doc_map = true;
-            state.status = "Document Map".into();
             CmdResult::Handled
         }
         "IDM_VIEW_FUNC_LIST" => {

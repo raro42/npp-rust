@@ -84,6 +84,7 @@ New keys:
 | `shortcut_zoom_out` | Zoom-out chord (`Cmd+-` default) |
 | `shortcut_zoom_restore` | Zoom-restore chord (`Cmd+0` default; mouse wheel stays hard-wired) |
 | `shortcut_toggle_log_tail` | Toggle log-tail follow chord (`Cmd+Shift+T` default) |
+| `shortcut_document_map` | Document Map toggle chord (`Cmd+Shift+D` default) |
 | `shortcut_reload` | Reload-from-disk chord (`Cmd+R` default) |
 | `ollama_host` | Local Ollama base URL (loopback only; default `http://127.0.0.1:11434`) |
 | `ollama_model` | Model for Plugins → Ask Ollama (default `llama3.2`) |
