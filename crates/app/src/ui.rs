@@ -7495,8 +7495,49 @@ impl EditorApp {
         if !self.show_doc_map {
             return;
         }
-        let line_count = self.state.tabs.active().buffer.line_count().max(1);
-        let max_scroll = (line_count.saturating_sub(1) as f32).max(0.0);
+        let map_tab = self.focused_edit_tab();
+        let secondary = self.dual_view && self.focused_pane == EditorPane::Secondary;
+        let scroll_now = if secondary {
+            self.scroll_line_other
+        } else {
+            self.scroll_line
+        };
+        let (line_count, sample_n, strips, compare_active, max_scroll) = {
+            let Some(doc) = self.state.tabs.get(map_tab) else {
+                return;
+            };
+            let line_count = doc.buffer.line_count().max(1);
+            let max_scroll = (line_count.saturating_sub(1) as f32).max(0.0);
+            let compare_tags = if self.compare_on {
+                if map_tab == self.compare_left_tab {
+                    Some(self.compare_left_tags.as_slice())
+                } else if map_tab == self.compare_right_tab {
+                    Some(self.compare_right_tags.as_slice())
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            let compare_active = compare_tags.is_some();
+            let sample_n = 128.min(line_count);
+            let mut strips = Vec::with_capacity(sample_n);
+            for i in 0..sample_n {
+                let line_idx = i * line_count / sample_n;
+                let raw = doc.buffer.line(line_idx);
+                let dens = (raw.trim_end_matches(['\n', '\r']).chars().count() as f32 / 80.0)
+                    .clamp(0.05, 1.0);
+                let color = compare_tags
+                    .and_then(|tags| tags.get(line_idx).copied())
+                    .and_then(crate::diff::line_kind_map_color)
+                    .unwrap_or_else(|| {
+                        let g = (40.0 + dens * 140.0) as u8;
+                        Color32::from_rgb(g, g, g.saturating_add(8))
+                    });
+                strips.push(color);
+            }
+            (line_count, sample_n, strips, compare_active, max_scroll)
+        };
         let mut open = self.show_doc_map;
         let mut jump_line: Option<f32> = None;
         egui::Window::new("Document Map")
@@ -7505,7 +7546,12 @@ impl EditorApp {
             .default_height(360.0)
             .resizable(true)
             .show(ctx, |ui| {
-                ui.label(format!("{line_count} lines"));
+                let label = if compare_active {
+                    format!("{line_count} lines · compare")
+                } else {
+                    format!("{line_count} lines")
+                };
+                ui.label(label);
                 let (resp, painter) = ui.allocate_painter(
                     Vec2::new(
                         ui.available_width().max(40.0),
@@ -7515,23 +7561,17 @@ impl EditorApp {
                 );
                 let rect = resp.rect;
                 painter.rect_filled(rect, 0.0, Color32::from_rgb(28, 28, 32));
-                let sample_n = 128.min(line_count);
-                for i in 0..sample_n {
-                    let line_idx = i * line_count / sample_n;
-                    let raw = self.state.tabs.active().buffer.line(line_idx);
-                    let dens = (raw.trim_end_matches(['\n', '\r']).chars().count() as f32 / 80.0)
-                        .clamp(0.05, 1.0);
+                for (i, color) in strips.iter().enumerate() {
                     let y0 = rect.top() + (i as f32 / sample_n as f32) * rect.height();
                     let y1 = rect.top() + ((i + 1) as f32 / sample_n as f32) * rect.height();
-                    let g = (40.0 + dens * 140.0) as u8;
                     painter.rect_filled(
                         Rect::from_min_max(Pos2::new(rect.left(), y0), Pos2::new(rect.right(), y1)),
                         0.0,
-                        Color32::from_rgb(g, g, g.saturating_add(8)),
+                        *color,
                     );
                 }
                 if max_scroll > 0.0 {
-                    let frac = (self.scroll_line / max_scroll).clamp(0.0, 1.0);
+                    let frac = (scroll_now / max_scroll).clamp(0.0, 1.0);
                     let mark_h = (rect.height() * 0.08).max(6.0);
                     let mark_y = rect.top() + frac * (rect.height() - mark_h);
                     painter.rect_stroke(
@@ -7552,8 +7592,13 @@ impl EditorApp {
                 }
             });
         if let Some(line) = jump_line {
-            self.scroll_line = line;
-            self.follow_caret = false;
+            if secondary {
+                self.scroll_line_other = line;
+                self.follow_caret_other = false;
+            } else {
+                self.scroll_line = line;
+                self.follow_caret = false;
+            }
             self.state.status = format!("Document Map → line {}", line as usize + 1);
         }
         self.show_doc_map = open;

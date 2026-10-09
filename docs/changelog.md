@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.166] — 2026-10-09
+
+Compare / View:
+
+- **Document Map** shows 2-way Compare colours while Compare is on: delete lines red, insert lines green, equal lines stay density gray. Map follows the focused dual-view pane (scroll mark + jump). Title appends `· compare` when tags apply.
+
 ## [0.3.165] — 2026-10-09
 
 Plugins / local AI:

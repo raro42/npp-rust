@@ -247,3 +247,5 @@
 009 keep: remappable Bookmark / Clear Compare Difference Bookmarks (shortcut_bookmark_compare_diffs, Alt+M default, v0.3.162)
 
 009 keep: scrollable tall menus + menu shortcut labels (v0.3.164)
+
+009 keep: Document Map compare colours (focused pane, v0.3.166)

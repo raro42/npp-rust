@@ -39,6 +39,16 @@ pub fn line_kind_inline_bg(kind: LineKind) -> Option<eframe::egui::Color32> {
     }
 }
 
+/// Opaque Document Map strip color for a compare line (Equal stays density gray).
+pub fn line_kind_map_color(kind: LineKind) -> Option<eframe::egui::Color32> {
+    use eframe::egui::Color32;
+    match kind {
+        LineKind::Equal => None,
+        LineKind::Delete => Some(Color32::from_rgb(160, 55, 55)),
+        LineKind::Insert => Some(Color32::from_rgb(45, 130, 70)),
+    }
+}
+
 /// Max lines per side for the MVP LCS (O(n·m) memory).
 pub const MAX_COMPARE_LINES: usize = 3_000;
 
@@ -1689,6 +1699,13 @@ mod tests {
         let (l, r) = diff_line_tags(&a, &a);
         assert!(l.iter().all(|k| *k == LineKind::Equal));
         assert!(r.iter().all(|k| *k == LineKind::Equal));
+    }
+
+    #[test]
+    fn line_kind_map_color_marks_changes_only() {
+        assert!(line_kind_map_color(LineKind::Equal).is_none());
+        assert!(line_kind_map_color(LineKind::Delete).is_some());
+        assert!(line_kind_map_color(LineKind::Insert).is_some());
     }
 
     #[test]
