@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.170] — 2026-10-09
+
+View:
+
+- **Document Map** paints cyan ticks at bookmark lines (same hue as the gutter mark). Title appends bookmark count. Click near a tick parks the caret on that bookmark (status `Document Map → bookmark line N`); while Compare is on, the click also syncs the partner pane like a hunk/Equal park.
+
 ## [0.3.169] — 2026-10-09
 
 Compare / View:

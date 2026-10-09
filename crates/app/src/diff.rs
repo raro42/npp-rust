@@ -513,6 +513,15 @@ pub fn doc_map_compare_hide_gap_at(line: usize, gaps: &[(usize, usize)]) -> Opti
     })
 }
 
+/// Document Map hit-test: nearest mark (bookmark, etc.) within `max_dist` lines.
+pub fn doc_map_nearest_mark(line: usize, marks: &[usize], max_dist: usize) -> Option<usize> {
+    marks
+        .iter()
+        .copied()
+        .filter(|&m| m.abs_diff(line) <= max_dist)
+        .min_by_key(|m| m.abs_diff(line))
+}
+
 /// Insert every line in an inclusive gap into `revealed`. Returns how many were new.
 pub fn reveal_compare_gap(revealed: &mut BTreeSet<usize>, gap: (usize, usize)) -> usize {
     let mut n = 0usize;
@@ -1887,6 +1896,12 @@ mod tests {
         assert_eq!(doc_map_compare_hide_gap_at(4, &gaps), Some((5, 7)));
         assert_eq!(doc_map_compare_hide_gap_at(6, &gaps), Some((5, 7)));
         assert_eq!(doc_map_compare_hide_gap_at(8, &gaps), None);
+        let marks = [2usize, 10, 20];
+        assert_eq!(doc_map_nearest_mark(0, &marks, 2), Some(2));
+        assert_eq!(doc_map_nearest_mark(11, &marks, 2), Some(10));
+        assert_eq!(doc_map_nearest_mark(15, &marks, 2), None);
+        assert_eq!(doc_map_nearest_mark(10, &marks, 0), Some(10));
+        assert_eq!(doc_map_nearest_mark(9, &[], 5), None);
         assert_eq!(next_compare_hide_gap(0, &[]), None);
         let mut revealed = BTreeSet::new();
         assert_eq!(reveal_compare_gap(&mut revealed, (0, 0)), 1);

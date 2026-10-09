@@ -7502,12 +7502,22 @@ impl EditorApp {
         } else {
             self.scroll_line
         };
-        let (line_count, sample_n, strips, hunk_ticks, hide_gaps, compare_active, max_scroll) = {
+        let (
+            line_count,
+            sample_n,
+            strips,
+            hunk_ticks,
+            bookmark_ticks,
+            hide_gaps,
+            compare_active,
+            max_scroll,
+        ) = {
             let Some(doc) = self.state.tabs.get(map_tab) else {
                 return;
             };
             let line_count = doc.buffer.line_count().max(1);
             let max_scroll = (line_count.saturating_sub(1) as f32).max(0.0);
+            let bookmark_ticks: Vec<usize> = doc.bookmarks.iter().copied().collect();
             let compare_tags = if self.compare_on {
                 if map_tab == self.compare_left_tab {
                     Some(self.compare_left_tags.as_slice())
@@ -7570,6 +7580,7 @@ impl EditorApp {
                 sample_n,
                 strips,
                 hunk_ticks,
+                bookmark_ticks,
                 hide_gaps,
                 compare_active,
                 max_scroll,
@@ -7581,25 +7592,32 @@ impl EditorApp {
         let mut compare_click_line: Option<usize> = None;
         // Click on a hide-equal ···N band: park like Alt+F7 family (not expand).
         let mut hide_gap_click: Option<(usize, usize)> = None;
+        // Click near a bookmark tick: park caret on that bookmark line.
+        let mut bookmark_click: Option<usize> = None;
         egui::Window::new("Document Map")
             .open(&mut open)
             .default_width(72.0)
             .default_height(360.0)
             .resizable(true)
             .show(ctx, |ui| {
-                let label = if compare_active {
-                    if hide_gaps.is_empty() {
-                        format!("{line_count} lines · compare")
-                    } else {
-                        format!(
-                            "{line_count} lines · compare · {} gap{}",
+                let mut label = format!("{line_count} lines");
+                if compare_active {
+                    label.push_str(" · compare");
+                    if !hide_gaps.is_empty() {
+                        label.push_str(&format!(
+                            " · {} gap{}",
                             hide_gaps.len(),
                             if hide_gaps.len() == 1 { "" } else { "s" }
-                        )
+                        ));
                     }
-                } else {
-                    format!("{line_count} lines")
-                };
+                }
+                if !bookmark_ticks.is_empty() {
+                    label.push_str(&format!(
+                        " · {} bookmark{}",
+                        bookmark_ticks.len(),
+                        if bookmark_ticks.len() == 1 { "" } else { "s" }
+                    ));
+                }
                 ui.label(label);
                 let (resp, painter) = ui.allocate_painter(
                     Vec2::new(
@@ -7655,6 +7673,20 @@ impl EditorApp {
                         );
                     }
                 }
+                // Bookmark ticks (cyan, left half) — same hue as the gutter bookmark mark.
+                if max_scroll > 0.0 {
+                    let tick = Color32::from_rgb(80, 180, 220);
+                    let w = (rect.width() * 0.45).max(3.0);
+                    for &line_idx in &bookmark_ticks {
+                        let frac = (line_idx as f32 / max_scroll).clamp(0.0, 1.0);
+                        let y = rect.top() + frac * rect.height();
+                        painter.rect_filled(
+                            Rect::from_min_size(Pos2::new(rect.left(), y - 1.0), Vec2::new(w, 2.0)),
+                            0.0,
+                            tick,
+                        );
+                    }
+                }
                 if max_scroll > 0.0 {
                     let frac = (scroll_now / max_scroll).clamp(0.0, 1.0);
                     let mark_h = (rect.height() * 0.08).max(6.0);
@@ -7674,16 +7706,34 @@ impl EditorApp {
                         let t = ((pos.y - rect.top()) / rect.height()).clamp(0.0, 1.0);
                         jump_line = Some(t * max_scroll);
                     }
-                    if resp.clicked() && compare_active {
+                    if resp.clicked() {
                         let t = ((pos.y - rect.top()) / rect.height()).clamp(0.0, 1.0);
                         let line_idx = (t * max_scroll).round() as usize;
                         let line_idx = line_idx.min(line_count.saturating_sub(1));
-                        if let Some(gap) =
-                            crate::diff::doc_map_compare_hide_gap_at(line_idx, &hide_gaps)
-                        {
-                            hide_gap_click = Some(gap);
+                        if compare_active {
+                            if let Some(gap) =
+                                crate::diff::doc_map_compare_hide_gap_at(line_idx, &hide_gaps)
+                            {
+                                hide_gap_click = Some(gap);
+                            } else {
+                                let snap = ((max_scroll / 64.0).ceil() as usize).max(1);
+                                if let Some(bm) = crate::diff::doc_map_nearest_mark(
+                                    line_idx,
+                                    &bookmark_ticks,
+                                    snap,
+                                ) {
+                                    bookmark_click = Some(bm);
+                                } else {
+                                    compare_click_line = Some(line_idx);
+                                }
+                            }
                         } else {
-                            compare_click_line = Some(line_idx);
+                            let snap = ((max_scroll / 64.0).ceil() as usize).max(1);
+                            if let Some(bm) =
+                                crate::diff::doc_map_nearest_mark(line_idx, &bookmark_ticks, snap)
+                            {
+                                bookmark_click = Some(bm);
+                            }
                         }
                     }
                 }
@@ -7715,6 +7765,30 @@ impl EditorApp {
             let counts =
                 compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
             self.state.status = compare_hide_gap_nav_status("Map", n, ord, total, &counts, false);
+        } else if let Some(line_idx) = bookmark_click {
+            if let Some(doc) = self.state.tabs.get_mut(map_tab) {
+                let at = doc
+                    .buffer
+                    .line_to_char(line_idx.min(doc.buffer.line_count().saturating_sub(1)));
+                doc.buffer.set_caret(at);
+            }
+            if secondary {
+                self.follow_caret_other = true;
+                if self.sync_scroll_v {
+                    self.follow_caret = true;
+                }
+            } else {
+                self.follow_caret = true;
+                if self.sync_scroll_v {
+                    self.follow_caret_other = true;
+                }
+            }
+            if compare_active {
+                // Parks partner + selects hunk (or Equal partner); sets Compare status.
+                self.sync_compare_other_to_caret_hunk(map_tab == self.compare_left_tab);
+            } else {
+                self.state.status = format!("Document Map → bookmark line {}", line_idx + 1);
+            }
         } else if let Some(line_idx) = compare_click_line {
             if let Some(doc) = self.state.tabs.get_mut(map_tab) {
                 let at = doc
