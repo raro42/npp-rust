@@ -20,4 +20,4 @@ If the submenu is to big to fit the screen it starts covering the menu bar itsel
 ## Progress
 - Tall menu popups (View and nested) wrap in a vertical `ScrollArea` capped to window height so egui does not flip them over the menu bar.
 - Remappable shortcuts show as weak right-side text on matching menu items.
-- Version **0.3.164**. Handoff to tester as `TEST-17`. Do not close the issue.
+- Version **0.3.164** (`8c7889f`). Handoff to tester as `TEST-17`. Do not close the issue.
