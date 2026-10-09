@@ -138,6 +138,9 @@ pub const DEFAULT_PRINT: &str = "Cmd+P";
 /// Default Shift+Tab outdent binding (editor Tab arm; remappable alternate to Cmd+[).
 pub const DEFAULT_SHIFT_TAB_OUTDENT: &str = "Shift+Tab";
 
+/// Default fold-all binding (View → Fold All). Shift flips to Unfold All.
+pub const DEFAULT_FOLD_ALL: &str = "Alt+0";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -779,6 +782,19 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::Num0);
         assert_eq!(c.display(), "Cmd+0");
+    }
+
+    #[test]
+    fn parse_alt_zero_default_fold_all() {
+        let c = parse_chord(DEFAULT_FOLD_ALL).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Num0);
+        assert_eq!(c.display(), "Alt+0");
+        let unfold = c.flipped_shift();
+        assert!(unfold.shift);
+        assert_eq!(unfold.display(), "Alt+Shift+0");
     }
 
     #[test]

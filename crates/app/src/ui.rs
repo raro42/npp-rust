@@ -1640,6 +1640,44 @@ impl EditorApp {
                 }
             }
         }
+        // Remappable fold all (default Alt+0; settings.shortcut_fold_all).
+        // Shift + same chord unfolds all.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FOLD_ALL};
+            let fold_chord =
+                resolve_chord(&self.state.settings.shortcut_fold_all, DEFAULT_FOLD_ALL);
+            let unfold_chord = fold_chord.flipped_shift();
+            let fold_key_pressed = match fold_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if fold_key_pressed && unfold_chord.matches(mods, unfold_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_UNFOLDALL");
+            } else if fold_key_pressed && fold_chord.matches(mods, fold_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_FOLDALL");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -3110,6 +3148,15 @@ Tree-sitter highlight, and a calm UI.",
                 .display();
                 let indent_outdent_keys =
                     format!("{indent_keys} / {outdent_keys} / {shift_tab_outdent_keys}");
+                let fold_all_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_fold_all,
+                    crate::shortcut_chord::DEFAULT_FOLD_ALL,
+                );
+                let fold_all_keys = format!(
+                    "{} / {}",
+                    fold_all_chord.display(),
+                    fold_all_chord.flipped_shift().display()
+                );
                 let format_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_format_document,
                     crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -3225,7 +3272,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 38] = [
+                        let rows: [(&str, &str); 39] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -3267,6 +3314,7 @@ Tree-sitter highlight, and a calm UI.",
                             (del_keys.as_str(), "Delete line"),
                             (indent_outdent_keys.as_str(), "Indent / Outdent"),
                             (format_keys.as_str(), "Format document"),
+                            (fold_all_keys.as_str(), "Fold / Unfold all"),
                             (log_tail_keys.as_str(), "Toggle log tail"),
                             (word_jump_keys.as_str(), "Word jump ← / →"),
                             ("Double-click", "Select word"),
@@ -4162,6 +4210,38 @@ Tree-sitter highlight, and a calm UI.",
                             RichText::new("Example: Shift+Tab, Ctrl+Shift+Tab.")
                                 .small()
                                 .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Fold all shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_fold_all,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+0"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_fold_all.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_fold_all =
+                                        crate::shortcut_chord::DEFAULT_FOLD_ALL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FOLD_ALL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_fold_all = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+0, Ctrl+Alt+0. Shift flips to Unfold All.",
+                            )
+                            .small()
+                            .weak(),
                         );
                         ui.horizontal(|ui| {
                             ui.label("Format document shortcut");

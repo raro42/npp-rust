@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.148] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Fold / Unfold all** is remappable: Preferences → Fold all shortcut, or `shortcut_fold_all` in `npp-rs/settings.json` (default `Alt+0`). Shift flips to Unfold All (`Alt+Shift+0`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.147] — 2026-10-09
 
 Settings / shortcuts:

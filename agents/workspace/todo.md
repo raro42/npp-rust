@@ -215,3 +215,5 @@
 009 keep: remappable Print shortcut (shortcut_print, Cmd+P default, v0.3.146)
 
 009 keep: remappable Shift+Tab outdent (shortcut_shift_tab_outdent, Shift+Tab default, v0.3.147)
+
+009 keep: remappable Fold / Unfold all (shortcut_fold_all, Alt+0 default, v0.3.148)
