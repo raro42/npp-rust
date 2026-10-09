@@ -117,7 +117,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | Clipboard history | Partial | One entry, not a panel |
 | Run / external tools | Partial | Pick+spawn / shell; no saved Run list |
 | Updater | Partial | Opens GitHub Releases |
-| Doc map / function list | Partial | Density strip; Compare paints delete/insert on focused pane |
+| Doc map / function list | Partial | Density strip; Compare paints delete/insert on focused pane; click parks hunk / Equal partner |
 | RTL | Partial | Line anchors + status; chrome not mirrored |
 
 ---

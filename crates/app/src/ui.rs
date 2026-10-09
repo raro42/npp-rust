@@ -7540,6 +7540,8 @@ impl EditorApp {
         };
         let mut open = self.show_doc_map;
         let mut jump_line: Option<f32> = None;
+        // Click (not drag) while Compare tags apply: park/select hunk like a gutter click.
+        let mut compare_click_line: Option<usize> = None;
         egui::Window::new("Document Map")
             .open(&mut open)
             .default_width(72.0)
@@ -7589,9 +7591,34 @@ impl EditorApp {
                         let t = ((pos.y - rect.top()) / rect.height()).clamp(0.0, 1.0);
                         jump_line = Some(t * max_scroll);
                     }
+                    if resp.clicked() && compare_active {
+                        let t = ((pos.y - rect.top()) / rect.height()).clamp(0.0, 1.0);
+                        let line_idx = (t * max_scroll).round() as usize;
+                        compare_click_line = Some(line_idx.min(line_count.saturating_sub(1)));
+                    }
                 }
             });
-        if let Some(line) = jump_line {
+        if let Some(line_idx) = compare_click_line {
+            if let Some(doc) = self.state.tabs.get_mut(map_tab) {
+                let at = doc
+                    .buffer
+                    .line_to_char(line_idx.min(doc.buffer.line_count().saturating_sub(1)));
+                doc.buffer.set_caret(at);
+            }
+            if secondary {
+                self.follow_caret_other = true;
+                if self.sync_scroll_v {
+                    self.follow_caret = true;
+                }
+            } else {
+                self.follow_caret = true;
+                if self.sync_scroll_v {
+                    self.follow_caret_other = true;
+                }
+            }
+            // Parks partner + selects hunk (or Equal partner); sets Compare status.
+            self.sync_compare_other_to_caret_hunk(map_tab == self.compare_left_tab);
+        } else if let Some(line) = jump_line {
             if secondary {
                 self.scroll_line_other = line;
                 self.follow_caret_other = false;

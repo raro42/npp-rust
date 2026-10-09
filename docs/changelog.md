@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.167] — 2026-10-09
+
+Compare / View:
+
+- **Document Map** click while Compare is on parks the caret on that line and syncs the other pane (hunk select or Equal partner park, same status as a gutter click). Drag still only scrolls.
+
 ## [0.3.166] — 2026-10-09
 
 Compare / View:

@@ -249,3 +249,5 @@
 009 keep: scrollable tall menus + menu shortcut labels (v0.3.164)
 
 009 keep: Document Map compare colours (focused pane, v0.3.166)
+
+009 keep: Document Map click parks compare hunk / Equal partner (v0.3.167)
