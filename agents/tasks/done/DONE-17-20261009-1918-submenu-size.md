@@ -31,3 +31,5 @@ If the submenu is to big to fit the screen it starts covering the menu bar itsel
 - User-facing notes already in `docs/changelog.md` under **[0.3.164]**.
 - Task goal met: tall menus scroll within the window (no flip over the menu bar); remappable shortcuts show on matching items (v0.3.164, `8c7889f`).
 - Close issue #17 with `agent:done`.
+Handoff: complete
+GitHub: closed
