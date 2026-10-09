@@ -28,3 +28,5 @@ The scrollbar is not clickable ... also i want to click and drag the scrollbar m
 - User-facing notes already in `docs/changelog.md` under **[0.3.163]**.
 - Task goal met: clickable track jump + draggable thumb (v0.3.163, `a2282e4`).
 - Close issue #16 with `agent:done`.
+Handoff: complete
+GitHub: closed
