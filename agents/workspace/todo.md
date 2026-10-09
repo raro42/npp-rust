@@ -8,6 +8,7 @@
 - [x] Loop: #12 Find in Files TEST → DONE (open for handoff)
 - [ ] Loop: #14 TEST / handoff
 - [ ] Loop: #15 About window TEST / handoff
+- [ ] Loop: #16 scrollbar TEST / handoff
 - [ ] Run `./scripts/ci-local.sh` before every push
 - [ ] Skim `logs/panic.log` if the app crashed
 - 009 keep: Find wrap toggle (v0.3.14); regex still open

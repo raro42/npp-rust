@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.163] — 2026-10-09
+
+Editor:
+
+- Vertical **scrollbar** in the edit window is clickable and draggable: click the track to jump, drag the thumb to scroll (primary and dual-view secondary panes). Wider hit strip so the thin thumb is easier to grab.
+
 ## [0.3.162] — 2026-10-09
 
 Settings / shortcuts:

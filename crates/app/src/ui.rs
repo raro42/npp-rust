@@ -37,6 +37,77 @@ struct SelTextDrag {
     drop_at: usize,
 }
 
+/// In-progress drag of the editor vertical scrollbar thumb.
+struct ScrollbarDrag {
+    pane: EditorPane,
+    /// Pointer Y minus thumb top at grab time.
+    grab_offset_y: f32,
+}
+
+/// Geometry for the editor vertical scrollbar (thumb + hit track).
+struct EditorScrollbarLayout {
+    hit_track: Rect,
+    thumb: Rect,
+    /// Vertical pixels the thumb can travel (`rect.height() - thumb_h`).
+    travel: f32,
+    track_top: f32,
+}
+
+const EDITOR_SCROLLBAR_W: f32 = 8.0;
+const EDITOR_SCROLLBAR_PAD: f32 = 2.0;
+/// Extra hit width left of the drawn bar (8px is hard to click).
+const EDITOR_SCROLLBAR_HIT_PAD: f32 = 6.0;
+
+fn editor_scrollbar_layout(
+    rect: Rect,
+    scroll_line: f32,
+    max_scroll: f32,
+    visible_rows: usize,
+    display_count: usize,
+) -> Option<EditorScrollbarLayout> {
+    if max_scroll <= 0.0 || rect.height() <= 0.0 {
+        return None;
+    }
+    let bar_x = rect.right() - EDITOR_SCROLLBAR_W - EDITOR_SCROLLBAR_PAD;
+    let thumb_h = (rect.height() * (visible_rows as f32 / display_count.max(1) as f32))
+        .clamp(20.0, rect.height());
+    let travel = (rect.height() - thumb_h).max(0.0);
+    let frac = (scroll_line / max_scroll).clamp(0.0, 1.0);
+    let thumb_y = rect.top() + frac * travel;
+    let thumb = Rect::from_min_size(
+        Pos2::new(bar_x, thumb_y),
+        Vec2::new(EDITOR_SCROLLBAR_W, thumb_h),
+    );
+    let hit_left = (bar_x - EDITOR_SCROLLBAR_HIT_PAD).max(rect.left());
+    let hit_track = Rect::from_min_max(
+        Pos2::new(hit_left, rect.top()),
+        Pos2::new(rect.right(), rect.bottom()),
+    );
+    Some(EditorScrollbarLayout {
+        hit_track,
+        thumb,
+        travel,
+        track_top: rect.top(),
+    })
+}
+
+fn scroll_line_from_scrollbar_pointer(
+    pointer_y: f32,
+    grab_offset_y: f32,
+    layout: &EditorScrollbarLayout,
+    max_scroll: f32,
+) -> f32 {
+    if layout.travel <= 0.0 {
+        return 0.0;
+    }
+    let thumb_top = (pointer_y - grab_offset_y - layout.track_top).clamp(0.0, layout.travel);
+    ((thumb_top / layout.travel) * max_scroll).clamp(0.0, max_scroll)
+}
+
+fn paint_editor_scrollbar(painter: &egui::Painter, layout: &EditorScrollbarLayout, color: Color32) {
+    painter.rect_filled(layout.thumb, 2.0, color);
+}
+
 /// Choose the right-hand tab for Compare.
 ///
 /// Order: marked partner → dual-view other pane → tab to the right → tab to the left.
@@ -611,6 +682,8 @@ pub struct EditorApp {
     rect_drag: bool,
     /// Drag selected text to move (or Ctrl/Cmd+drag to copy).
     sel_text_drag: Option<SelTextDrag>,
+    /// Drag the editor vertical scrollbar thumb (primary or secondary pane).
+    scrollbar_drag: Option<ScrollbarDrag>,
     /// Tab bar drag-reorder: source index while the pointer drags a tab.
     tab_drag_from: Option<usize>,
     show_replace: bool,
@@ -685,6 +758,7 @@ impl EditorApp {
             drag_anchor: None,
             rect_drag: false,
             sel_text_drag: None,
+            scrollbar_drag: None,
             tab_drag_from: None,
             show_replace: false,
             replace_with: String::new(),
@@ -7782,6 +7856,70 @@ impl EditorApp {
                 }
             }
 
+            let sync_scroll = self.dual_view && (self.sync_scroll_v || self.sync_scroll_h);
+            let sb_layout = editor_scrollbar_layout(
+                rect,
+                self.scroll_line,
+                max_scroll,
+                visible_rows,
+                display_count,
+            );
+            let mut scrollbar_consumed = false;
+            if let Some(ScrollbarDrag {
+                pane: EditorPane::Primary,
+                grab_offset_y,
+            }) = self.scrollbar_drag
+            {
+                if ui.input(|i| i.pointer.primary_down()) {
+                    if let (Some(pos), Some(layout)) =
+                        (ui.input(|i| i.pointer.interact_pos()), sb_layout.as_ref())
+                    {
+                        self.scroll_line = scroll_line_from_scrollbar_pointer(
+                            pos.y,
+                            grab_offset_y,
+                            layout,
+                            max_scroll,
+                        );
+                        self.follow_caret = false;
+                        if sync_scroll {
+                            self.scroll_line_other = self.scroll_line;
+                        }
+                        scrollbar_consumed = true;
+                        ui.ctx().set_cursor_icon(CursorIcon::ResizeVertical);
+                    }
+                } else {
+                    self.scrollbar_drag = None;
+                }
+            }
+            if !scrollbar_consumed && (response.clicked() || response.drag_started()) {
+                if let (Some(pos), Some(layout)) =
+                    (response.interact_pointer_pos(), sb_layout.as_ref())
+                {
+                    if layout.hit_track.contains(pos) {
+                        let grab = if layout.thumb.contains(pos) {
+                            (pos.y - layout.thumb.top()).clamp(0.0, layout.thumb.height())
+                        } else {
+                            layout.thumb.height() * 0.5
+                        };
+                        self.scroll_line =
+                            scroll_line_from_scrollbar_pointer(pos.y, grab, layout, max_scroll);
+                        self.follow_caret = false;
+                        self.drag_anchor = None;
+                        self.rect_drag = false;
+                        self.sel_text_drag = None;
+                        self.scrollbar_drag = Some(ScrollbarDrag {
+                            pane: EditorPane::Primary,
+                            grab_offset_y: grab,
+                        });
+                        if sync_scroll {
+                            self.scroll_line_other = self.scroll_line;
+                        }
+                        scrollbar_consumed = true;
+                        ui.ctx().set_cursor_icon(CursorIcon::ResizeVertical);
+                    }
+                }
+            }
+
             let show_ln = self.state.settings.show_line_numbers;
             let show_fold = self.state.settings.show_fold_margin;
             let fold_w = if show_fold { FOLD_MARGIN_W } else { 0.0 };
@@ -7824,7 +7962,7 @@ impl EditorApp {
 
             let mut fold_click = false;
             let mut hide_gap_click = false;
-            if response.clicked() || response.drag_started() {
+            if !scrollbar_consumed && (response.clicked() || response.drag_started()) {
                 if let Some(pos) = response.interact_pointer_pos() {
                     if self.try_expand_compare_hide_gap_at(
                         pos,
@@ -7865,8 +8003,8 @@ impl EditorApp {
             // Double-click → word; triple-click → line; click → caret;
             // Alt+drag → rect/column multi-carets; drag inside selection → move/copy;
             // else drag → select.
-            if fold_click || hide_gap_click {
-                // Fold margin or hide-equal ···N cue consumed the pointer.
+            if scrollbar_consumed || fold_click || hide_gap_click {
+                // Scrollbar, fold margin, or hide-equal ···N cue consumed the pointer.
             } else if response.triple_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let idx = hit_index(
@@ -8028,6 +8166,13 @@ impl EditorApp {
                 }
                 self.drag_anchor = None;
                 self.rect_drag = false;
+                if self
+                    .scrollbar_drag
+                    .as_ref()
+                    .is_some_and(|d| d.pane == EditorPane::Primary)
+                {
+                    self.scrollbar_drag = None;
+                }
             }
 
             // Text input (arrows / typing may request caret follow)
@@ -8473,19 +8618,15 @@ impl EditorApp {
                 let _ = line_rect;
             }
 
-            // Scrollbar thumb
-            if max_scroll > 0.0 {
-                let bar_w = 8.0;
-                let bar_x = rect.right() - bar_w - 2.0;
-                let frac = (self.scroll_line / max_scroll).clamp(0.0, 1.0);
-                let thumb_h =
-                    (rect.height() * (visible_rows as f32 / display_count as f32)).max(20.0);
-                let thumb_y = rect.top() + frac * (rect.height() - thumb_h);
-                painter.rect_filled(
-                    Rect::from_min_size(Pos2::new(bar_x, thumb_y), Vec2::new(bar_w, thumb_h)),
-                    2.0,
-                    theme.gutter_line,
-                );
+            // Scrollbar thumb (click / drag handled above).
+            if let Some(layout) = editor_scrollbar_layout(
+                rect,
+                self.scroll_line,
+                max_scroll,
+                visible_rows,
+                display_count,
+            ) {
+                paint_editor_scrollbar(&painter, &layout, theme.gutter_line);
             }
         });
     }
@@ -11189,6 +11330,65 @@ impl EditorApp {
             }
         }
 
+        let sb_layout =
+            editor_scrollbar_layout(rect, scroll_line, max_scroll, visible_rows, display_count);
+        let mut scrollbar_consumed = false;
+        if let Some(ScrollbarDrag {
+            pane: EditorPane::Secondary,
+            grab_offset_y,
+        }) = self.scrollbar_drag
+        {
+            if ui.input(|i| i.pointer.primary_down()) {
+                if let (Some(pos), Some(layout)) =
+                    (ui.input(|i| i.pointer.interact_pos()), sb_layout.as_ref())
+                {
+                    scroll_line = scroll_line_from_scrollbar_pointer(
+                        pos.y,
+                        grab_offset_y,
+                        layout,
+                        max_scroll,
+                    );
+                    self.follow_caret_other = false;
+                    self.scroll_line_other = scroll_line;
+                    if sync {
+                        self.scroll_line = scroll_line;
+                    }
+                    scrollbar_consumed = true;
+                    ui.ctx().set_cursor_icon(CursorIcon::ResizeVertical);
+                }
+            } else {
+                self.scrollbar_drag = None;
+            }
+        }
+        if !scrollbar_consumed && (response.clicked() || response.drag_started()) {
+            if let (Some(pos), Some(layout)) = (response.interact_pointer_pos(), sb_layout.as_ref())
+            {
+                if layout.hit_track.contains(pos) {
+                    let grab = if layout.thumb.contains(pos) {
+                        (pos.y - layout.thumb.top()).clamp(0.0, layout.thumb.height())
+                    } else {
+                        layout.thumb.height() * 0.5
+                    };
+                    scroll_line =
+                        scroll_line_from_scrollbar_pointer(pos.y, grab, layout, max_scroll);
+                    self.follow_caret_other = false;
+                    self.drag_anchor = None;
+                    self.rect_drag = false;
+                    self.sel_text_drag = None;
+                    self.scroll_line_other = scroll_line;
+                    if sync {
+                        self.scroll_line = scroll_line;
+                    }
+                    self.scrollbar_drag = Some(ScrollbarDrag {
+                        pane: EditorPane::Secondary,
+                        grab_offset_y: grab,
+                    });
+                    scrollbar_consumed = true;
+                    ui.ctx().set_cursor_icon(CursorIcon::ResizeVertical);
+                }
+            }
+        }
+
         let show_ln = self.state.settings.show_line_numbers;
         let show_fold = self.state.settings.show_fold_margin;
         let fold_w = if show_fold { FOLD_MARGIN_W } else { 0.0 };
@@ -11229,7 +11429,7 @@ impl EditorApp {
 
         let mut fold_click = false;
         let mut hide_gap_click = false;
-        if response.clicked() || response.drag_started() {
+        if !scrollbar_consumed && (response.clicked() || response.drag_started()) {
             if let Some(pos) = response.interact_pointer_pos() {
                 if self.try_expand_compare_hide_gap_at(
                     pos,
@@ -11267,8 +11467,8 @@ impl EditorApp {
             }
         }
 
-        if fold_click || hide_gap_click {
-            // Fold margin or hide-equal ···N cue consumed the pointer.
+        if scrollbar_consumed || fold_click || hide_gap_click {
+            // Scrollbar, fold margin, or hide-equal ···N cue consumed the pointer.
         } else if response.triple_clicked() {
             if let Some(pos) = response.interact_pointer_pos() {
                 if let Some(doc) = self.state.tabs.get(tab) {
@@ -11397,6 +11597,13 @@ impl EditorApp {
             }
             self.drag_anchor = None;
             self.rect_drag = false;
+            if self
+                .scrollbar_drag
+                .as_ref()
+                .is_some_and(|d| d.pane == EditorPane::Secondary)
+            {
+                self.scrollbar_drag = None;
+            }
         }
 
         if response.has_focus()
@@ -11728,6 +11935,12 @@ impl EditorApp {
                     );
                 }
             }
+        }
+
+        if let Some(layout) =
+            editor_scrollbar_layout(rect, scroll_line, max_scroll, visible_rows, display_count)
+        {
+            paint_editor_scrollbar(&painter, &layout, theme.gutter_line);
         }
     }
 
@@ -12748,5 +12961,40 @@ mod compare_pair_tests {
         assert_eq!(index_after_tab_close(0, 0), None);
         assert_eq!(index_after_tab_close(2, 2), None);
         assert_eq!(index_after_tab_close(0, 2), Some(0));
+    }
+}
+
+#[cfg(test)]
+mod editor_scrollbar_tests {
+    use super::{editor_scrollbar_layout, scroll_line_from_scrollbar_pointer, EDITOR_SCROLLBAR_W};
+    use eframe::egui::{Pos2, Rect, Vec2};
+
+    #[test]
+    fn layout_none_when_nothing_to_scroll() {
+        let rect = Rect::from_min_size(Pos2::ZERO, Vec2::new(200.0, 100.0));
+        assert!(editor_scrollbar_layout(rect, 0.0, 0.0, 10, 10).is_none());
+    }
+
+    #[test]
+    fn pointer_at_track_bottom_reaches_max_scroll() {
+        let rect = Rect::from_min_size(Pos2::ZERO, Vec2::new(200.0, 100.0));
+        let max_scroll = 40.0;
+        let layout = editor_scrollbar_layout(rect, 0.0, max_scroll, 10, 50).expect("layout");
+        assert!(layout.thumb.width() <= EDITOR_SCROLLBAR_W + 0.1);
+        let grab = layout.thumb.height() * 0.5;
+        let y = rect.bottom() - 0.1;
+        let scroll = scroll_line_from_scrollbar_pointer(y, grab, &layout, max_scroll);
+        assert!((scroll - max_scroll).abs() < 0.5, "got {scroll}");
+    }
+
+    #[test]
+    fn pointer_at_track_top_is_zero() {
+        let rect = Rect::from_min_size(Pos2::ZERO, Vec2::new(200.0, 100.0));
+        let max_scroll = 40.0;
+        let layout = editor_scrollbar_layout(rect, 0.0, max_scroll, 10, 50).expect("layout");
+        let grab = layout.thumb.height() * 0.5;
+        let y = rect.top() + grab;
+        let scroll = scroll_line_from_scrollbar_pointer(y, grab, &layout, max_scroll);
+        assert!(scroll.abs() < 0.01, "got {scroll}");
     }
 }
