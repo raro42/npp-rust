@@ -3221,7 +3221,11 @@ impl EditorApp {
                 } else {
                     RichText::new(shown)
                 };
-                let response = ui.button(text);
+                let mut btn = egui::Button::new(text);
+                if let Some(sc) = self.menu_shortcut_display(cmd) {
+                    btn = btn.shortcut_text(RichText::new(sc).small().weak());
+                }
+                let response = ui.add(btn);
                 let response = match cmd.as_str() {
                     "IDM_OPEN_NPP_LOGS" => response.on_hover_text(
                         "Open logs/*.log relative to the process cwd (e.g. logs/panic.log)",
@@ -3556,80 +3560,375 @@ impl EditorApp {
                 let is_file = top_level && label == "File";
                 let is_plugins = top_level && label == "Plugins";
                 ui.menu_button(label, |ui| {
-                    if is_file {
-                        // Match N++: recent list near the end; we place after Open block via full tree,
-                        // and also expose an explicit Recent submenu at the top of File for clarity.
-                        ui.menu_button(RichText::new("Recent Files").color(MENU_READY), |ui| {
-                            let recent_paths: Vec<_> = self.state.recent.paths().to_vec();
-                            if recent_paths.is_empty() {
-                                ui.label(RichText::new("(empty)").italics().weak());
-                            } else {
-                                let mut open_path = None;
-                                for (i, path) in recent_paths.iter().enumerate() {
-                                    let label = crate::recent::recent_label(path);
-                                    let exists = path.exists();
-                                    let text = if exists {
-                                        RichText::new(format!("{}.  {label}", i + 1))
-                                            .color(MENU_READY)
+                    // Tall menus (esp. View) otherwise flip upward and cover the menu bar.
+                    Self::scrollable_menu_body(ui, |ui| {
+                        if is_file {
+                            // Match N++: recent list near the end; we place after Open block via full tree,
+                            // and also expose an explicit Recent submenu at the top of File for clarity.
+                            ui.menu_button(RichText::new("Recent Files").color(MENU_READY), |ui| {
+                                Self::scrollable_menu_body(ui, |ui| {
+                                    let recent_paths: Vec<_> = self.state.recent.paths().to_vec();
+                                    if recent_paths.is_empty() {
+                                        ui.label(RichText::new("(empty)").italics().weak());
                                     } else {
-                                        RichText::new(format!("{}.  {label}  (missing)", i + 1))
-                                            .weak()
-                                    };
-                                    if ui
-                                        .add_enabled(exists, egui::Button::new(text))
-                                        .on_hover_text(path.display().to_string())
-                                        .clicked()
-                                    {
-                                        open_path = Some(path.clone());
+                                        let mut open_path = None;
+                                        for (i, path) in recent_paths.iter().enumerate() {
+                                            let label = crate::recent::recent_label(path);
+                                            let exists = path.exists();
+                                            let text = if exists {
+                                                RichText::new(format!("{}.  {label}", i + 1))
+                                                    .color(MENU_READY)
+                                            } else {
+                                                RichText::new(format!(
+                                                    "{}.  {label}  (missing)",
+                                                    i + 1
+                                                ))
+                                                .weak()
+                                            };
+                                            if ui
+                                                .add_enabled(exists, egui::Button::new(text))
+                                                .on_hover_text(path.display().to_string())
+                                                .clicked()
+                                            {
+                                                open_path = Some(path.clone());
+                                            }
+                                        }
+                                        ui.separator();
+                                        if ui
+                                            .button(
+                                                RichText::new("Clear Recent Files")
+                                                    .color(MENU_READY),
+                                            )
+                                            .clicked()
+                                        {
+                                            self.state.clear_recent();
+                                            ui.close_menu();
+                                        }
+                                        if let Some(path) = open_path {
+                                            self.state.open_path(path);
+                                            ui.close_menu();
+                                        }
                                     }
-                                }
-                                ui.separator();
+                                });
+                            });
+                            ui.separator();
+                        }
+                        for child in children {
+                            self.render_menu_node(ui, child, run_cmd, false);
+                        }
+                        if is_plugins {
+                            ui.separator();
+                            ui.label(RichText::new("npp-rs builtins").small().weak());
+                            let host = plugins::PluginHost::new();
+                            let mut run_id = None;
+                            for p in host.list() {
                                 if ui
-                                    .button(RichText::new("Clear Recent Files").color(MENU_READY))
+                                    .button(RichText::new(p.name()).color(MENU_READY))
                                     .clicked()
                                 {
-                                    self.state.clear_recent();
-                                    ui.close_menu();
-                                }
-                                if let Some(path) = open_path {
-                                    self.state.open_path(path);
-                                    ui.close_menu();
+                                    run_id = Some(p.id().to_string());
                                 }
                             }
-                        });
-                        ui.separator();
-                    }
-                    for child in children {
-                        self.render_menu_node(ui, child, run_cmd, false);
-                    }
-                    if is_plugins {
-                        ui.separator();
-                        ui.label(RichText::new("npp-rs builtins").small().weak());
-                        let host = plugins::PluginHost::new();
-                        let mut run_id = None;
-                        for p in host.list() {
                             if ui
-                                .button(RichText::new(p.name()).color(MENU_READY))
+                                .button(RichText::new("Format Document").color(MENU_READY))
                                 .clicked()
                             {
-                                run_id = Some(p.id().to_string());
+                                self.state.format_document();
+                                ui.close_menu();
+                            }
+                            if let Some(id) = run_id {
+                                self.state.run_plugin(&id);
+                                ui.close_menu();
                             }
                         }
-                        if ui
-                            .button(RichText::new("Format Document").color(MENU_READY))
-                            .clicked()
-                        {
-                            self.state.format_document();
-                            ui.close_menu();
-                        }
-                        if let Some(id) = run_id {
-                            self.state.run_plugin(&id);
-                            ui.close_menu();
-                        }
-                    }
+                    });
                 });
             }
         }
+    }
+
+    /// Cap popup height so egui keeps the menu below the bar instead of flipping it upward.
+    fn menu_popup_max_height(ui: &egui::Ui) -> f32 {
+        let screen_h = ui.ctx().screen_rect().height();
+        let top_reserve = ui.spacing().interact_size.y * 2.0 + 16.0;
+        (screen_h - top_reserve).clamp(120.0, screen_h)
+    }
+
+    fn scrollable_menu_body(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui)) {
+        let max_h = Self::menu_popup_max_height(ui);
+        egui::ScrollArea::vertical()
+            .max_height(max_h)
+            .show(ui, add_contents);
+    }
+
+    /// Primary remappable chord for a menu command, shown on the right of the item.
+    fn menu_shortcut_display(&self, cmd: &str) -> Option<String> {
+        use crate::shortcut_chord::{resolve_chord, KeyChord};
+        let s = &self.state.settings;
+        let primary = |raw: &str, default: &str| resolve_chord(raw, default).display();
+        let shifted =
+            |raw: &str, default: &str| resolve_chord(raw, default).flipped_shift().display();
+        let hflip =
+            |raw: &str, default: &str| resolve_chord(raw, default).flipped_horizontal().display();
+        let hflip_shift = |raw: &str, default: &str| -> String {
+            let c: KeyChord = resolve_chord(raw, default);
+            c.flipped_horizontal().flipped_shift().display()
+        };
+        let bracket_flip =
+            |raw: &str, default: &str| resolve_chord(raw, default).flipped_bracket().display();
+
+        Some(match cmd {
+            "IDM_FILE_NEW" => primary(&s.shortcut_new, crate::shortcut_chord::DEFAULT_NEW),
+            "IDM_FILE_OPEN" => primary(&s.shortcut_open, crate::shortcut_chord::DEFAULT_OPEN),
+            "IDM_FILE_RELOAD" => primary(&s.shortcut_reload, crate::shortcut_chord::DEFAULT_RELOAD),
+            "IDM_FILE_SAVE" => primary(&s.shortcut_save, crate::shortcut_chord::DEFAULT_SAVE),
+            "IDM_FILE_SAVEAS" => {
+                primary(&s.shortcut_save_as, crate::shortcut_chord::DEFAULT_SAVE_AS)
+            }
+            "IDM_FILE_SAVEALL" => primary(
+                &s.shortcut_save_all,
+                crate::shortcut_chord::DEFAULT_SAVE_ALL,
+            ),
+            "IDM_FILE_PRINT" => primary(&s.shortcut_print, crate::shortcut_chord::DEFAULT_PRINT),
+            "IDM_FILE_CLOSE" => primary(
+                &s.shortcut_close_tab,
+                crate::shortcut_chord::DEFAULT_CLOSE_TAB,
+            ),
+            "IDM_VIEW_TAB_NEXT" => primary(
+                &s.shortcut_next_tab,
+                crate::shortcut_chord::DEFAULT_NEXT_TAB,
+            ),
+            "IDM_VIEW_TAB_PREV" => shifted(
+                &s.shortcut_next_tab,
+                crate::shortcut_chord::DEFAULT_NEXT_TAB,
+            ),
+            "IDM_EDIT_UNDO" => primary(&s.shortcut_undo, crate::shortcut_chord::DEFAULT_UNDO),
+            "IDM_EDIT_REDO" => primary(&s.shortcut_redo, crate::shortcut_chord::DEFAULT_REDO),
+            "IDM_EDIT_SELECTALL" => primary(
+                &s.shortcut_select_all,
+                crate::shortcut_chord::DEFAULT_SELECT_ALL,
+            ),
+            "IDM_EDIT_DUP_LINE" => primary(
+                &s.shortcut_duplicate_line,
+                crate::shortcut_chord::DEFAULT_DUPLICATE_LINE,
+            ),
+            "IDM_EDIT_INS_TAB" => {
+                primary(&s.shortcut_indent, crate::shortcut_chord::DEFAULT_INDENT)
+            }
+            "IDM_EDIT_RMV_TAB" => {
+                primary(&s.shortcut_outdent, crate::shortcut_chord::DEFAULT_OUTDENT)
+            }
+            "IDM_EDIT_LINE_UP" => primary(
+                &s.shortcut_move_line,
+                crate::shortcut_chord::DEFAULT_MOVE_LINE,
+            ),
+            "IDM_EDIT_LINE_DOWN" => shifted(
+                &s.shortcut_move_line,
+                crate::shortcut_chord::DEFAULT_MOVE_LINE,
+            ),
+            "IDM_EDIT_BLOCK_COMMENT" | "IDM_EDIT_STREAM_COMMENT" => primary(
+                &s.shortcut_toggle_comment,
+                crate::shortcut_chord::DEFAULT_TOGGLE_COMMENT,
+            ),
+            "IDM_SEARCH_FIND" => primary(&s.shortcut_find, crate::shortcut_chord::DEFAULT_FIND),
+            "IDM_SEARCH_REPLACE" => {
+                primary(&s.shortcut_replace, crate::shortcut_chord::DEFAULT_REPLACE)
+            }
+            "IDM_SEARCH_FINDNEXT" => primary(
+                &s.shortcut_find_next,
+                crate::shortcut_chord::DEFAULT_FIND_NEXT,
+            ),
+            "IDM_SEARCH_FINDPREV" => shifted(
+                &s.shortcut_find_next,
+                crate::shortcut_chord::DEFAULT_FIND_NEXT,
+            ),
+            "IDM_SEARCH_GOTOLINE" => primary(
+                &s.shortcut_goto_line,
+                crate::shortcut_chord::DEFAULT_GOTO_LINE,
+            ),
+            "IDM_SEARCH_GOTOMATCHINGBRACE" | "IDM_SEARCH_SELECTMATCHINGBRACES" => primary(
+                &s.shortcut_matching_brace,
+                crate::shortcut_chord::DEFAULT_MATCHING_BRACE,
+            ),
+            "IDM_SEARCH_TOGGLE_BOOKMARK" => primary(
+                &s.shortcut_toggle_bookmark,
+                crate::shortcut_chord::DEFAULT_TOGGLE_BOOKMARK,
+            ),
+            "IDM_SEARCH_NEXT_BOOKMARK" => primary(
+                &s.shortcut_next_bookmark,
+                crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
+            ),
+            "IDM_SEARCH_PREV_BOOKMARK" => shifted(
+                &s.shortcut_next_bookmark,
+                crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
+            ),
+            "IDM_VIEW_WRAP" => primary(
+                &s.shortcut_word_wrap,
+                crate::shortcut_chord::DEFAULT_WORD_WRAP,
+            ),
+            "IDM_VIEW_ZOOMIN" => {
+                primary(&s.shortcut_zoom_in, crate::shortcut_chord::DEFAULT_ZOOM_IN)
+            }
+            "IDM_VIEW_ZOOMOUT" => primary(
+                &s.shortcut_zoom_out,
+                crate::shortcut_chord::DEFAULT_ZOOM_OUT,
+            ),
+            "IDM_VIEW_ZOOMRESTORE" => primary(
+                &s.shortcut_zoom_restore,
+                crate::shortcut_chord::DEFAULT_ZOOM_RESTORE,
+            ),
+            "IDM_VIEW_FOLDALL" => primary(
+                &s.shortcut_fold_all,
+                crate::shortcut_chord::DEFAULT_FOLD_ALL,
+            ),
+            "IDM_VIEW_UNFOLDALL" => shifted(
+                &s.shortcut_fold_all,
+                crate::shortcut_chord::DEFAULT_FOLD_ALL,
+            ),
+            "IDM_VIEW_FOLD_CURRENT" => primary(
+                &s.shortcut_fold_current,
+                crate::shortcut_chord::DEFAULT_FOLD_CURRENT,
+            ),
+            "IDM_VIEW_UNFOLD_CURRENT" => shifted(
+                &s.shortcut_fold_current,
+                crate::shortcut_chord::DEFAULT_FOLD_CURRENT,
+            ),
+            "IDM_VIEW_COMPARE" => {
+                primary(&s.shortcut_compare, crate::shortcut_chord::DEFAULT_COMPARE)
+            }
+            "IDM_VIEW_CLEARCOMPARE" => {
+                shifted(&s.shortcut_compare, crate::shortcut_chord::DEFAULT_COMPARE)
+            }
+            "IDM_VIEW_SWAP_COMPARE" => primary(
+                &s.shortcut_swap_compare,
+                crate::shortcut_chord::DEFAULT_SWAP_COMPARE,
+            ),
+            "IDM_VIEW_COMPARE_TO_SAVED" => primary(
+                &s.shortcut_compare_to_saved,
+                crate::shortcut_chord::DEFAULT_COMPARE_TO_SAVED,
+            ),
+            "IDM_VIEW_COMPARE_IGNORE_WS" => primary(
+                &s.shortcut_compare_ignore_ws,
+                crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_WS,
+            ),
+            "IDM_VIEW_COMPARE_IGNORE_CASE" => shifted(
+                &s.shortcut_compare_ignore_ws,
+                crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_WS,
+            ),
+            "IDM_VIEW_COMPARE_IGNORE_BLANK" => primary(
+                &s.shortcut_compare_ignore_blank,
+                crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_BLANK,
+            ),
+            "IDM_VIEW_COMPARE_HIDE_EQUAL" => primary(
+                &s.shortcut_hide_equal,
+                crate::shortcut_chord::DEFAULT_HIDE_EQUAL,
+            ),
+            "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_INC" => primary(
+                &s.shortcut_hide_equal_context,
+                crate::shortcut_chord::DEFAULT_HIDE_EQUAL_CONTEXT,
+            ),
+            "IDM_VIEW_COMPARE_HIDE_EQUAL_CONTEXT_DEC" => bracket_flip(
+                &s.shortcut_hide_equal_context,
+                crate::shortcut_chord::DEFAULT_HIDE_EQUAL_CONTEXT,
+            ),
+            "IDM_VIEW_NEXT_DIFF" => primary(
+                &s.shortcut_next_diff,
+                crate::shortcut_chord::DEFAULT_NEXT_DIFF,
+            ),
+            "IDM_VIEW_PREV_DIFF" => shifted(
+                &s.shortcut_next_diff,
+                crate::shortcut_chord::DEFAULT_NEXT_DIFF,
+            ),
+            "IDM_VIEW_FIRST_DIFF" => primary(
+                &s.shortcut_first_diff,
+                crate::shortcut_chord::DEFAULT_FIRST_DIFF,
+            ),
+            "IDM_VIEW_LAST_DIFF" => shifted(
+                &s.shortcut_first_diff,
+                crate::shortcut_chord::DEFAULT_FIRST_DIFF,
+            ),
+            "IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL" => primary(
+                &s.shortcut_next_hidden_equal,
+                crate::shortcut_chord::DEFAULT_NEXT_HIDDEN_EQUAL,
+            ),
+            "IDM_VIEW_COMPARE_PREV_HIDDEN_EQUAL" => shifted(
+                &s.shortcut_next_hidden_equal,
+                crate::shortcut_chord::DEFAULT_NEXT_HIDDEN_EQUAL,
+            ),
+            "IDM_VIEW_COMPARE_FIRST_HIDDEN_EQUAL" => primary(
+                &s.shortcut_first_hidden_equal,
+                crate::shortcut_chord::DEFAULT_FIRST_HIDDEN_EQUAL,
+            ),
+            "IDM_VIEW_COMPARE_LAST_HIDDEN_EQUAL" => shifted(
+                &s.shortcut_first_hidden_equal,
+                crate::shortcut_chord::DEFAULT_FIRST_HIDDEN_EQUAL,
+            ),
+            "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL" => primary(
+                &s.shortcut_expand_all_unchanged,
+                crate::shortcut_chord::DEFAULT_EXPAND_ALL_UNCHANGED,
+            ),
+            "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL" => shifted(
+                &s.shortcut_expand_all_unchanged,
+                crate::shortcut_chord::DEFAULT_EXPAND_ALL_UNCHANGED,
+            ),
+            "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET" => primary(
+                &s.shortcut_expand_unchanged_at_caret,
+                crate::shortcut_chord::DEFAULT_EXPAND_UNCHANGED_AT_CARET,
+            ),
+            "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET" => shifted(
+                &s.shortcut_expand_unchanged_at_caret,
+                crate::shortcut_chord::DEFAULT_EXPAND_UNCHANGED_AT_CARET,
+            ),
+            "IDM_VIEW_COMPARE_BOOKMARK_DIFFS" => primary(
+                &s.shortcut_bookmark_compare_diffs,
+                crate::shortcut_chord::DEFAULT_BOOKMARK_COMPARE_DIFFS,
+            ),
+            "IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS" => shifted(
+                &s.shortcut_bookmark_compare_diffs,
+                crate::shortcut_chord::DEFAULT_BOOKMARK_COMPARE_DIFFS,
+            ),
+            "IDM_VIEW_COPY_COMPARE_DIFF" => primary(
+                &s.shortcut_copy_compare_diff,
+                crate::shortcut_chord::DEFAULT_COPY_COMPARE_DIFF,
+            ),
+            "IDM_VIEW_OPEN_COMPARE_DIFF" => shifted(
+                &s.shortcut_copy_compare_diff,
+                crate::shortcut_chord::DEFAULT_COPY_COMPARE_DIFF,
+            ),
+            "IDM_VIEW_COPY_COMPARE_SUMMARY" => primary(
+                &s.shortcut_copy_compare_summary,
+                crate::shortcut_chord::DEFAULT_COPY_COMPARE_SUMMARY,
+            ),
+            "IDM_VIEW_OPEN_COMPARE_SUMMARY" => shifted(
+                &s.shortcut_copy_compare_summary,
+                crate::shortcut_chord::DEFAULT_COPY_COMPARE_SUMMARY,
+            ),
+            "IDM_VIEW_COPY_COMPARE_HUNK" => primary(
+                &s.shortcut_copy_compare_hunk,
+                crate::shortcut_chord::DEFAULT_COPY_COMPARE_HUNK,
+            ),
+            "IDM_VIEW_OPEN_COMPARE_HUNK" => shifted(
+                &s.shortcut_copy_compare_hunk,
+                crate::shortcut_chord::DEFAULT_COPY_COMPARE_HUNK,
+            ),
+            "IDM_VIEW_APPLY_COMPARE_HUNK" => primary(
+                &s.shortcut_apply_compare_hunk,
+                crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK,
+            ),
+            "IDM_VIEW_APPLY_COMPARE_HUNK_TO_OTHER" => hflip(
+                &s.shortcut_apply_compare_hunk,
+                crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK,
+            ),
+            "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS" => shifted(
+                &s.shortcut_apply_compare_hunk,
+                crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK,
+            ),
+            "IDM_VIEW_APPLY_ALL_COMPARE_HUNKS_TO_OTHER" => hflip_shift(
+                &s.shortcut_apply_compare_hunk,
+                crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK,
+            ),
+            _ => return None,
+        })
     }
 
     fn shortcut_help_rows(&self) -> Vec<(String, String)> {

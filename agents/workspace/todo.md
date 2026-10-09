@@ -9,6 +9,7 @@
 - [x] Loop: #14 TEST / handoff
 - [x] Loop: #15 About window TEST / handoff
 - [x] Loop: #16 scrollbar TEST → DONE (open for close)
+- [ ] Loop: #17 submenu size (coder → TEST)
 - [ ] Run `./scripts/ci-local.sh` before every push
 - [ ] Skim `logs/panic.log` if the app crashed
 - 009 keep: Find wrap toggle (v0.3.14); regex still open
@@ -243,3 +244,5 @@
 009 keep: remappable Expand / Collapse Unchanged at Caret (shortcut_expand_unchanged_at_caret, Alt+X default, v0.3.160)
 
 009 keep: remappable Bookmark / Clear Compare Difference Bookmarks (shortcut_bookmark_compare_diffs, Alt+M default, v0.3.162)
+
+009 keep: scrollable tall menus + menu shortcut labels (v0.3.164)

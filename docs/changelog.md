@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.164] — 2026-10-09
+
+UI / menus:
+
+- Tall menus (especially **View**) stay on screen: popup bodies use a vertical scroll area capped to the window height so egui does not flip them upward over the menu bar.
+- Remappable shortcuts show on the right of matching menu items (weak shortcut text).
+
 ## [0.3.163] — 2026-10-09
 
 Editor:
