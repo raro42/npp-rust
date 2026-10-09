@@ -7502,7 +7502,7 @@ impl EditorApp {
         } else {
             self.scroll_line
         };
-        let (line_count, sample_n, strips, hunk_ticks, compare_active, max_scroll) = {
+        let (line_count, sample_n, strips, hunk_ticks, hide_gaps, compare_active, max_scroll) = {
             let Some(doc) = self.state.tabs.get(map_tab) else {
                 return;
             };
@@ -7523,6 +7523,32 @@ impl EditorApp {
             let hunk_ticks = compare_tags
                 .map(crate::diff::hunk_starts)
                 .unwrap_or_default();
+            let hide_gaps = if compare_active && self.state.settings.compare_hide_equal {
+                let left_pane = map_tab == self.compare_left_tab;
+                let (tags, revealed) = if left_pane {
+                    (
+                        self.compare_left_tags.as_slice(),
+                        &self.compare_hide_revealed_left,
+                    )
+                } else {
+                    (
+                        self.compare_right_tags.as_slice(),
+                        &self.compare_hide_revealed_right,
+                    )
+                };
+                let visible = visible_lines_with_compare_hide(
+                    line_count,
+                    &doc.hidden_lines,
+                    true,
+                    true,
+                    tags,
+                    revealed,
+                    self.state.settings.compare_hide_equal_context_lines(),
+                );
+                crate::diff::list_compare_hide_gaps(&visible)
+            } else {
+                Vec::new()
+            };
             let sample_n = 128.min(line_count);
             let mut strips = Vec::with_capacity(sample_n);
             for i in 0..sample_n {
@@ -7544,6 +7570,7 @@ impl EditorApp {
                 sample_n,
                 strips,
                 hunk_ticks,
+                hide_gaps,
                 compare_active,
                 max_scroll,
             )
@@ -7552,6 +7579,8 @@ impl EditorApp {
         let mut jump_line: Option<f32> = None;
         // Click (not drag) while Compare tags apply: park/select hunk like a gutter click.
         let mut compare_click_line: Option<usize> = None;
+        // Click on a hide-equal ···N band: park like Alt+F7 family (not expand).
+        let mut hide_gap_click: Option<(usize, usize)> = None;
         egui::Window::new("Document Map")
             .open(&mut open)
             .default_width(72.0)
@@ -7559,7 +7588,15 @@ impl EditorApp {
             .resizable(true)
             .show(ctx, |ui| {
                 let label = if compare_active {
-                    format!("{line_count} lines · compare")
+                    if hide_gaps.is_empty() {
+                        format!("{line_count} lines · compare")
+                    } else {
+                        format!(
+                            "{line_count} lines · compare · {} gap{}",
+                            hide_gaps.len(),
+                            if hide_gaps.len() == 1 { "" } else { "s" }
+                        )
+                    }
                 } else {
                     format!("{line_count} lines")
                 };
@@ -7581,6 +7618,26 @@ impl EditorApp {
                         0.0,
                         *color,
                     );
+                }
+                // Hide-equal collapsed Equal runs (···N) as muted bands while Hide Unchanged is on.
+                if max_scroll > 0.0 {
+                    let gap_fill = Color32::from_rgba_unmultiplied(70, 110, 160, 90);
+                    for &(a, b) in &hide_gaps {
+                        let y0 =
+                            rect.top() + ((a as f32 / max_scroll).clamp(0.0, 1.0) * rect.height());
+                        let y1 = rect.top()
+                            + (((b as f32 + 0.5) / max_scroll).clamp(0.0, 1.0) * rect.height());
+                        let top = y0.min(y1);
+                        let h = (y1 - y0).abs().max(2.0);
+                        painter.rect_filled(
+                            Rect::from_min_size(
+                                Pos2::new(rect.left(), top),
+                                Vec2::new(rect.width(), h),
+                            ),
+                            0.0,
+                            gap_fill,
+                        );
+                    }
                 }
                 // Tick marks at change-hunk starts (Compare) so clusters read at a glance.
                 if max_scroll > 0.0 {
@@ -7620,11 +7677,45 @@ impl EditorApp {
                     if resp.clicked() && compare_active {
                         let t = ((pos.y - rect.top()) / rect.height()).clamp(0.0, 1.0);
                         let line_idx = (t * max_scroll).round() as usize;
-                        compare_click_line = Some(line_idx.min(line_count.saturating_sub(1)));
+                        let line_idx = line_idx.min(line_count.saturating_sub(1));
+                        if let Some(gap) =
+                            crate::diff::doc_map_compare_hide_gap_at(line_idx, &hide_gaps)
+                        {
+                            hide_gap_click = Some(gap);
+                        } else {
+                            compare_click_line = Some(line_idx);
+                        }
                     }
                 }
             });
-        if let Some(line_idx) = compare_click_line {
+        if let Some(gap) = hide_gap_click {
+            let left_pane = map_tab == self.compare_left_tab;
+            let park = crate::diff::compare_hide_gap_park_line(gap);
+            let n = gap.1 - gap.0 + 1;
+            let (ord, total) =
+                crate::diff::compare_hide_gap_ordinal(&hide_gaps, gap).unwrap_or((1, 1));
+            if let Some(doc) = self.state.tabs.get_mut(map_tab) {
+                let at = doc
+                    .buffer
+                    .line_to_char(park.min(doc.buffer.line_count().saturating_sub(1)));
+                doc.buffer.set_caret(at);
+            }
+            if secondary {
+                self.follow_caret_other = true;
+                if self.sync_scroll_v {
+                    self.follow_caret = true;
+                }
+            } else {
+                self.follow_caret = true;
+                if self.sync_scroll_v {
+                    self.follow_caret_other = true;
+                }
+            }
+            self.sync_compare_other_to_equal_line(left_pane, park);
+            let counts =
+                compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
+            self.state.status = compare_hide_gap_nav_status("Map", n, ord, total, &counts, false);
+        } else if let Some(line_idx) = compare_click_line {
             if let Some(doc) = self.state.tabs.get_mut(map_tab) {
                 let at = doc
                     .buffer

@@ -505,6 +505,14 @@ pub fn compare_hide_gap_ordinal(
     Some((idx + 1, gaps.len()))
 }
 
+/// Document Map hit-test: gap whose park line or collapsed range contains `line`.
+pub fn doc_map_compare_hide_gap_at(line: usize, gaps: &[(usize, usize)]) -> Option<(usize, usize)> {
+    gaps.iter().copied().find(|&gap| {
+        let park = compare_hide_gap_park_line(gap);
+        line == park || (line >= gap.0 && line <= gap.1)
+    })
+}
+
 /// Insert every line in an inclusive gap into `revealed`. Returns how many were new.
 pub fn reveal_compare_gap(revealed: &mut BTreeSet<usize>, gap: (usize, usize)) -> usize {
     let mut n = 0usize;
@@ -1874,6 +1882,11 @@ mod tests {
         assert_eq!(gaps.first().copied(), Some((1, 3)));
         assert_eq!(gaps.last().copied(), Some((5, 7)));
         assert_eq!(compare_hide_gap_ordinal(&gaps, (5, 7)), Some((2, 2)));
+        assert_eq!(doc_map_compare_hide_gap_at(0, &gaps), Some((1, 3)));
+        assert_eq!(doc_map_compare_hide_gap_at(2, &gaps), Some((1, 3)));
+        assert_eq!(doc_map_compare_hide_gap_at(4, &gaps), Some((5, 7)));
+        assert_eq!(doc_map_compare_hide_gap_at(6, &gaps), Some((5, 7)));
+        assert_eq!(doc_map_compare_hide_gap_at(8, &gaps), None);
         assert_eq!(next_compare_hide_gap(0, &[]), None);
         let mut revealed = BTreeSet::new();
         assert_eq!(reveal_compare_gap(&mut revealed, (0, 0)), 1);

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.169] — 2026-10-09
+
+Compare / View:
+
+- **Document Map** while Compare + Hide Unchanged Lines is on paints muted bands over collapsed Equal runs (`···N` gaps). Title shows gap count. Click a band to park on that gap (same status shape as Alt+F7 hidden-equal nav); other Compare clicks still park hunk / Equal partner.
+
 ## [0.3.168] — 2026-10-09
 
 Compare / View:
