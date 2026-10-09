@@ -123,6 +123,10 @@ pub const DEFAULT_SAVE_AS: &str = "Cmd+Shift+S";
 /// Default find-bar binding (matches historical hard-wire).
 pub const DEFAULT_FIND: &str = "Cmd+F";
 
+/// Default Find in Files binding (Search → Find in Files).
+/// Uses Cmd+Alt+F so it does not collide with Find (Cmd+F) or Replace alt (Cmd+Shift+F).
+pub const DEFAULT_FIND_IN_FILES: &str = "Cmd+Alt+F";
+
 /// Default close-find/replace binding (matches historical hard-wire).
 pub const DEFAULT_CLOSE_FIND: &str = "Escape";
 
@@ -1046,6 +1050,16 @@ mod tests {
         assert!(c.shift);
         assert_eq!(c.key, Key::D);
         assert_eq!(c.display(), "Cmd+Shift+D");
+    }
+
+    #[test]
+    fn parse_cmd_alt_f_default_find_in_files() {
+        let c = parse_chord(DEFAULT_FIND_IN_FILES).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F);
+        assert_eq!(c.display(), "Cmd+Alt+F");
     }
 
     #[test]

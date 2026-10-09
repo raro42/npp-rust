@@ -74,6 +74,7 @@ New keys:
 | `shortcut_move_line` | Move-line-up chord (`Cmd+Shift+Up` default; opposite Down moves down; letter remaps use Shift for down) |
 | `shortcut_toggle_comment` | Toggle line-comment chord (`Cmd+/` default; Shift flips to Block Comment) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
+| `shortcut_find_in_files` | Find in Files chord (`Cmd+Alt+F` default) |
 | `shortcut_close_find` | Close Find/Replace chord (`Escape` default) |
 | `shortcut_replace` | Replace-bar chord (`Cmd+H` default) |
 | `shortcut_replace_alt` | Alternate replace-bar chord (`Cmd+Shift+F` default) |

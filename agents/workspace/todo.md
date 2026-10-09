@@ -262,3 +262,5 @@
 009 keep: Document Map selection wash + caret / multi-caret ticks (v0.3.174)
 
 009 keep: remappable Document Map toggle (shortcut_document_map, Cmd+Shift+D default, v0.3.175)
+
+009 keep: remappable Find in Files (shortcut_find_in_files, Cmd+Alt+F default, v0.3.176)

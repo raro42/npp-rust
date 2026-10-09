@@ -312,6 +312,10 @@ fn default_shortcut_document_map() -> String {
     crate::shortcut_chord::DEFAULT_DOCUMENT_MAP.into()
 }
 
+fn default_shortcut_find_in_files() -> String {
+    crate::shortcut_chord::DEFAULT_FIND_IN_FILES.into()
+}
+
 fn default_shortcut_reload() -> String {
     crate::shortcut_chord::DEFAULT_RELOAD.into()
 }
@@ -608,6 +612,9 @@ pub struct AppSettings {
     /// Document Map toggle chord (`Cmd+Shift+D` default).
     #[serde(default = "default_shortcut_document_map")]
     pub shortcut_document_map: String,
+    /// Find in Files chord (`Cmd+Alt+F` default).
+    #[serde(default = "default_shortcut_find_in_files")]
+    pub shortcut_find_in_files: String,
     /// Reload-from-disk chord (`Cmd+R` default).
     #[serde(default = "default_shortcut_reload")]
     pub shortcut_reload: String,
@@ -718,6 +725,7 @@ impl Default for AppSettings {
             shortcut_zoom_restore: default_shortcut_zoom_restore(),
             shortcut_toggle_log_tail: default_shortcut_toggle_log_tail(),
             shortcut_document_map: default_shortcut_document_map(),
+            shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             ollama_host: default_ollama_host(),
             ollama_model: default_ollama_model(),
@@ -1093,6 +1101,7 @@ mod tests {
             shortcut_zoom_restore: "Ctrl+Alt+0".into(),
             shortcut_toggle_log_tail: "Ctrl+Alt+T".into(),
             shortcut_document_map: "Ctrl+Alt+Shift+D".into(),
+            shortcut_find_in_files: "Alt+Shift+F".into(),
             ..Default::default()
         };
         let text = serde_json::to_string_pretty(&original).expect("serialize");
@@ -1169,6 +1178,7 @@ mod tests {
         assert_eq!(back.shortcut_zoom_restore, "Ctrl+Alt+0");
         assert_eq!(back.shortcut_toggle_log_tail, "Ctrl+Alt+T");
         assert_eq!(back.shortcut_document_map, "Ctrl+Alt+Shift+D");
+        assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
     }
 
     #[test]

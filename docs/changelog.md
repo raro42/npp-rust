@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.176] — 2026-10-10
+
+Search / Settings:
+
+- **Find in Files** is remappable (`shortcut_find_in_files`, default Cmd+Alt+F). Menu, Find bar button, Preferences, Shortcut Mapper, and the chord run the workspace scan (empty Find text still opens the Find bar).
+
 ## [0.3.175] — 2026-10-10
 
 View / Settings:

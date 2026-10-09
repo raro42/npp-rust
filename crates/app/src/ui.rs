@@ -1470,6 +1470,42 @@ impl EditorApp {
                 self.state.prepare_find_bar_from_selection();
             }
         }
+        // Remappable Find in Files (default Cmd+Alt+F; settings.shortcut_find_in_files).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND_IN_FILES};
+            let fif_chord = resolve_chord(
+                &self.state.settings.shortcut_find_in_files,
+                DEFAULT_FIND_IN_FILES,
+            );
+            let fif_key_pressed = match fif_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if fif_key_pressed && fif_chord.matches(mods, fif_chord.key) {
+                self.run_shortcut_cmd("IDM_SEARCH_FINDINFILES");
+            }
+        }
         // Remappable select all (default Cmd+A; settings.shortcut_select_all).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_SELECT_ALL};
@@ -3599,6 +3635,16 @@ impl EditorApp {
                             "Toggle the Document Map panel ({chord}; Preferences remappable)"
                         ))
                     }
+                    "IDM_SEARCH_FINDINFILES" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_find_in_files,
+                            crate::shortcut_chord::DEFAULT_FIND_IN_FILES,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Search the workspace root recursively ({chord}; Preferences remappable; uses Find text + filters)"
+                        ))
+                    }
                     _ => response,
                 };
                 if response.clicked() {
@@ -3804,6 +3850,10 @@ impl EditorApp {
                 crate::shortcut_chord::DEFAULT_TOGGLE_COMMENT,
             ),
             "IDM_SEARCH_FIND" => primary(&s.shortcut_find, crate::shortcut_chord::DEFAULT_FIND),
+            "IDM_SEARCH_FINDINFILES" => primary(
+                &s.shortcut_find_in_files,
+                crate::shortcut_chord::DEFAULT_FIND_IN_FILES,
+            ),
             "IDM_SEARCH_REPLACE" => {
                 primary(&s.shortcut_replace, crate::shortcut_chord::DEFAULT_REPLACE)
             }
@@ -4402,13 +4452,18 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_DOCUMENT_MAP,
         )
         .display();
+        let find_in_files_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_find_in_files,
+            crate::shortcut_chord::DEFAULT_FIND_IN_FILES,
+        )
+        .display();
         let reload_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_reload,
             crate::shortcut_chord::DEFAULT_RELOAD,
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 52] = [
+        let rows: [(&str, &str); 53] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -4417,6 +4472,7 @@ impl EditorApp {
             (save_all_keys.as_str(), "Save All"),
             (print_keys.as_str(), "Print"),
             (find_open_keys.as_str(), "Find"),
+            (find_in_files_keys.as_str(), "Find in Files"),
             (replace_row.as_str(), "Replace"),
             (find_keys.as_str(), "Find next / prev"),
             (find_global_keys.as_str(), "Find next / prev (global)"),
@@ -6599,9 +6655,45 @@ impl EditorApp {
                             }
                         });
                         ui.label(
-                            RichText::new("Example: Cmd+F, Ctrl+Alt+F.")
+                            RichText::new("Example: Cmd+F, Ctrl+Shift+G.")
                                 .small()
                                 .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Find in Files shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_find_in_files,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+F"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_find_in_files
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_find_in_files =
+                                        crate::shortcut_chord::DEFAULT_FIND_IN_FILES.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIND_IN_FILES
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_find_in_files = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+F, Alt+Shift+F. Runs Search → Find in Files (workspace root).",
+                            )
+                            .small()
+                            .weak(),
                         );
                         ui.horizontal(|ui| {
                             ui.label("Close Find/Replace shortcut");
@@ -8734,7 +8826,14 @@ impl EditorApp {
                 }
                 if ui
                     .button("Find in Files")
-                    .on_hover_text("Search workspace root recursively")
+                    .on_hover_text({
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_find_in_files,
+                            crate::shortcut_chord::DEFAULT_FIND_IN_FILES,
+                        )
+                        .display();
+                        format!("Search workspace root recursively ({chord})")
+                    })
                     .clicked()
                 {
                     persist = true;
