@@ -54,6 +54,10 @@ pub const DEFAULT_COMPARE_IGNORE_BLANK: &str = "Alt+B";
 /// Shift + same key is Collapse All Unchanged Lines.
 pub const DEFAULT_EXPAND_ALL_UNCHANGED: &str = "Alt+E";
 
+/// Default expand-unchanged-at-caret binding (View → Expand Unchanged at Caret).
+/// Shift + same key is Collapse Unchanged at Caret.
+pub const DEFAULT_EXPAND_UNCHANGED_AT_CARET: &str = "Alt+X";
+
 /// Default start-compare binding (View → Compare with Other View).
 /// Shift + same key is Clear Compare.
 pub const DEFAULT_COMPARE: &str = "Alt+D";
@@ -579,6 +583,17 @@ mod tests {
         assert_eq!(c.key, Key::E);
         assert_eq!(c.display(), "Alt+E");
         assert_eq!(c.flipped_shift().display(), "Alt+Shift+E");
+    }
+
+    #[test]
+    fn parse_alt_x_default_expand_unchanged_at_caret() {
+        let c = parse_chord(DEFAULT_EXPAND_UNCHANGED_AT_CARET).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::X);
+        assert_eq!(c.display(), "Alt+X");
+        assert_eq!(c.flipped_shift().display(), "Alt+Shift+X");
     }
 
     #[test]

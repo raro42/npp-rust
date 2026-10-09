@@ -237,3 +237,5 @@
 009 keep: remappable Compare ignore blank lines (shortcut_compare_ignore_blank, Alt+B default, v0.3.158)
 
 009 keep: remappable Expand / Collapse All Unchanged (shortcut_expand_all_unchanged, Alt+E default, v0.3.159)
+
+009 keep: remappable Expand / Collapse Unchanged at Caret (shortcut_expand_unchanged_at_caret, Alt+X default, v0.3.160)

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.160] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Expand / Collapse Unchanged at Caret** (Compare) is remappable: Preferences → Expand unchanged at caret shortcut, or `shortcut_expand_unchanged_at_caret` in `npp-rs/settings.json` (default `Alt+X`). Shift flips to Collapse at Caret (`Alt+Shift+X`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.159] — 2026-10-09
 
 Settings / shortcuts:

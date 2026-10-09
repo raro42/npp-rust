@@ -2540,6 +2540,47 @@ impl EditorApp {
             }
         }
 
+        // Remappable expand unchanged at caret (default Alt+X; settings.shortcut_expand_unchanged_at_caret).
+        // Shift flips to Collapse Unchanged at Caret.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_EXPAND_UNCHANGED_AT_CARET};
+            let expand_chord = resolve_chord(
+                &self.state.settings.shortcut_expand_unchanged_at_caret,
+                DEFAULT_EXPAND_UNCHANGED_AT_CARET,
+            );
+            let collapse_chord = expand_chord.flipped_shift();
+            let expand_key_pressed = match expand_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if expand_key_pressed && collapse_chord.matches(mods, collapse_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET");
+            } else if expand_key_pressed && expand_chord.matches(mods, expand_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET");
+            }
+        }
+
         // Remappable start compare (default Alt+D; settings.shortcut_compare).
         // Shift + same chord clears Compare.
         {
@@ -3172,12 +3213,27 @@ impl EditorApp {
                             "Decrease Equal context lines kept around each change when Hide Unchanged Lines is on ({chord}; 0–10; Preferences persist; while Compare is on parks both panes on the first change hunk)"
                         ))
                     }
-                    "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET" => response.on_hover_text(
-                        "While Hide Unchanged Lines is on, expand the collapsed Equal run nearest the caret on both panes (same as clicking that ···N cue)",
-                    ),
-                    "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET" => response.on_hover_text(
-                        "While Hide Unchanged Lines is on, re-collapse the expanded Equal run nearest the caret on both panes (···N cue returns for that run)",
-                    ),
+                    "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL_AT_CARET" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_expand_unchanged_at_caret,
+                            crate::shortcut_chord::DEFAULT_EXPAND_UNCHANGED_AT_CARET,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "While Hide Unchanged Lines is on, expand the collapsed Equal run nearest the caret on both panes ({chord}; same as clicking that ···N cue; Preferences remappable; Shift collapses)"
+                        ))
+                    }
+                    "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL_AT_CARET" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_expand_unchanged_at_caret,
+                            crate::shortcut_chord::DEFAULT_EXPAND_UNCHANGED_AT_CARET,
+                        )
+                        .flipped_shift()
+                        .display();
+                        response.on_hover_text(format!(
+                            "While Hide Unchanged Lines is on, re-collapse the expanded Equal run nearest the caret on both panes ({chord}; ···N cue returns for that run; Preferences remappable)"
+                        ))
+                    }
                     "IDM_VIEW_COMPARE_NEXT_HIDDEN_EQUAL" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_next_hidden_equal,
@@ -3650,6 +3706,15 @@ Tree-sitter highlight, and a calm UI.",
                     expand_all_unchanged_chord.display(),
                     expand_all_unchanged_chord.flipped_shift().display()
                 );
+                let expand_unchanged_at_caret_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_expand_unchanged_at_caret,
+                    crate::shortcut_chord::DEFAULT_EXPAND_UNCHANGED_AT_CARET,
+                );
+                let expand_unchanged_at_caret_keys = format!(
+                    "{} / {}",
+                    expand_unchanged_at_caret_chord.display(),
+                    expand_unchanged_at_caret_chord.flipped_shift().display()
+                );
                 let compare_chord = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_compare,
                     crate::shortcut_chord::DEFAULT_COMPARE,
@@ -3903,7 +3968,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 49] = [
+                        let rows: [(&str, &str); 50] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -3951,6 +4016,10 @@ Tree-sitter highlight, and a calm UI.",
                             (
                                 expand_all_unchanged_keys.as_str(),
                                 "Compare expand / collapse all unchanged",
+                            ),
+                            (
+                                expand_unchanged_at_caret_keys.as_str(),
+                                "Compare expand / collapse unchanged at caret",
                             ),
                             (hide_ctx_keys.as_str(), "Compare hide-equal context ±1"),
                             (zoom_row.as_str(), "Zoom in / out / restore"),
@@ -4647,6 +4716,43 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+E, Ctrl+Alt+E. Expands all ···N gaps. Shift + that chord collapses expanded Equal runs.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Expand unchanged at caret shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_expand_unchanged_at_caret,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+X"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_expand_unchanged_at_caret
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_expand_unchanged_at_caret =
+                                        crate::shortcut_chord::DEFAULT_EXPAND_UNCHANGED_AT_CARET
+                                            .into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_EXPAND_UNCHANGED_AT_CARET
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_expand_unchanged_at_caret = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+X, Ctrl+Alt+X. Expands the ···N gap nearest the caret. Shift + that chord collapses that expanded Equal run.",
                             )
                             .small()
                             .weak(),
