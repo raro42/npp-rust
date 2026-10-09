@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.161] — 2026-10-09
+
+Help / About:
+
+- **About** is clean again: version, links, short why/made-by copy. Keyboard shortcuts moved to a separate **Keyboard shortcuts** window (About → Keyboard shortcuts…), with a vertical scroll area when the list is tall. Settings → Shortcut Mapper still opens the text dump.
+
 ## [0.3.160] — 2026-10-09
 
 Settings / shortcuts:

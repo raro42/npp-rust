@@ -600,6 +600,8 @@ pub struct EditorApp {
     /// Caret-follow for the secondary pane.
     follow_caret_other: bool,
     show_about: bool,
+    /// Keyboard shortcuts help window (opened from About).
+    show_shortcuts_help: bool,
     show_preferences: bool,
     /// Checkbox state for the log-tail prompt.
     log_tail_remember: bool,
@@ -677,6 +679,7 @@ impl EditorApp {
             follow_caret: false,
             follow_caret_other: false,
             show_about: false,
+            show_shortcuts_help: false,
             show_preferences: false,
             log_tail_remember: true,
             drag_anchor: None,
@@ -852,6 +855,7 @@ impl eframe::App for EditorApp {
         self.status_bar(ctx);
         self.editor_pane(ctx);
         self.about_window(ctx);
+        self.shortcuts_help_window(ctx);
         self.preferences_window(ctx);
         self.log_tail_prompt_window(ctx);
         self.encoding_notice_window(ctx);
@@ -3498,557 +3502,574 @@ impl EditorApp {
         }
     }
 
+    fn shortcut_help_rows(&self) -> Vec<(String, String)> {
+        let wrap_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_word_wrap,
+            crate::shortcut_chord::DEFAULT_WORD_WRAP,
+        )
+        .display();
+        let find_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_find_next,
+            crate::shortcut_chord::DEFAULT_FIND_NEXT,
+        );
+        let find_keys = format!(
+            "{} / {}",
+            find_chord.display(),
+            find_chord.flipped_shift().display()
+        );
+        let find_global_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_find_next_global,
+            crate::shortcut_chord::DEFAULT_FIND_NEXT_GLOBAL,
+        );
+        let find_global_keys = format!(
+            "{} / {}",
+            find_global_chord.display(),
+            find_global_chord.flipped_shift().display()
+        );
+        let bm_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_next_bookmark,
+            crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
+        );
+        let bm_keys = format!(
+            "{} / {}",
+            bm_chord.display(),
+            bm_chord.flipped_shift().display()
+        );
+        let toggle_bm_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_toggle_bookmark,
+            crate::shortcut_chord::DEFAULT_TOGGLE_BOOKMARK,
+        )
+        .display();
+        let diff_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_next_diff,
+            crate::shortcut_chord::DEFAULT_NEXT_DIFF,
+        );
+        let diff_keys = format!(
+            "{} / {}",
+            diff_chord.display(),
+            diff_chord.flipped_shift().display()
+        );
+        let first_diff_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_first_diff,
+            crate::shortcut_chord::DEFAULT_FIRST_DIFF,
+        );
+        let first_diff_keys = format!(
+            "{} / {}",
+            first_diff_chord.display(),
+            first_diff_chord.flipped_shift().display()
+        );
+        let hidden_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_next_hidden_equal,
+            crate::shortcut_chord::DEFAULT_NEXT_HIDDEN_EQUAL,
+        );
+        let hidden_keys = format!(
+            "{} / {}",
+            hidden_chord.display(),
+            hidden_chord.flipped_shift().display()
+        );
+        let first_hidden_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_first_hidden_equal,
+            crate::shortcut_chord::DEFAULT_FIRST_HIDDEN_EQUAL,
+        );
+        let first_hidden_keys = format!(
+            "{} / {}",
+            first_hidden_chord.display(),
+            first_hidden_chord.flipped_shift().display()
+        );
+        let apply_hunk_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_apply_compare_hunk,
+            crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK,
+        );
+        let apply_hunk_keys = format!(
+            "{} / {}",
+            apply_hunk_chord.display(),
+            apply_hunk_chord.flipped_horizontal().display()
+        );
+        let apply_all_hunk_keys = format!(
+            "{} / {}",
+            apply_hunk_chord.flipped_shift().display(),
+            apply_hunk_chord
+                .flipped_horizontal()
+                .flipped_shift()
+                .display()
+        );
+        let hide_ctx_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_hide_equal_context,
+            crate::shortcut_chord::DEFAULT_HIDE_EQUAL_CONTEXT,
+        );
+        let hide_ctx_keys = format!(
+            "{} / {}",
+            hide_ctx_chord.display(),
+            hide_ctx_chord.flipped_bracket().display()
+        );
+        let hide_equal_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_hide_equal,
+            crate::shortcut_chord::DEFAULT_HIDE_EQUAL,
+        )
+        .display();
+        let ignore_ws_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_compare_ignore_ws,
+            crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_WS,
+        );
+        let ignore_ws_keys = format!(
+            "{} / {}",
+            ignore_ws_chord.display(),
+            ignore_ws_chord.flipped_shift().display()
+        );
+        let ignore_blank_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_compare_ignore_blank,
+            crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_BLANK,
+        )
+        .display();
+        let expand_all_unchanged_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_expand_all_unchanged,
+            crate::shortcut_chord::DEFAULT_EXPAND_ALL_UNCHANGED,
+        );
+        let expand_all_unchanged_keys = format!(
+            "{} / {}",
+            expand_all_unchanged_chord.display(),
+            expand_all_unchanged_chord.flipped_shift().display()
+        );
+        let expand_unchanged_at_caret_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_expand_unchanged_at_caret,
+            crate::shortcut_chord::DEFAULT_EXPAND_UNCHANGED_AT_CARET,
+        );
+        let expand_unchanged_at_caret_keys = format!(
+            "{} / {}",
+            expand_unchanged_at_caret_chord.display(),
+            expand_unchanged_at_caret_chord.flipped_shift().display()
+        );
+        let compare_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_compare,
+            crate::shortcut_chord::DEFAULT_COMPARE,
+        );
+        let compare_keys = format!(
+            "{} / {}",
+            compare_chord.display(),
+            compare_chord.flipped_shift().display()
+        );
+        let swap_compare_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_swap_compare,
+            crate::shortcut_chord::DEFAULT_SWAP_COMPARE,
+        )
+        .display();
+        let compare_to_saved_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_compare_to_saved,
+            crate::shortcut_chord::DEFAULT_COMPARE_TO_SAVED,
+        )
+        .display();
+        let copy_compare_diff_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_copy_compare_diff,
+            crate::shortcut_chord::DEFAULT_COPY_COMPARE_DIFF,
+        );
+        let copy_compare_diff_keys = format!(
+            "{} / {}",
+            copy_compare_diff_chord.display(),
+            copy_compare_diff_chord.flipped_shift().display()
+        );
+        let copy_compare_summary_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_copy_compare_summary,
+            crate::shortcut_chord::DEFAULT_COPY_COMPARE_SUMMARY,
+        );
+        let copy_compare_summary_keys = format!(
+            "{} / {}",
+            copy_compare_summary_chord.display(),
+            copy_compare_summary_chord.flipped_shift().display()
+        );
+        let copy_compare_hunk_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_copy_compare_hunk,
+            crate::shortcut_chord::DEFAULT_COPY_COMPARE_HUNK,
+        );
+        let copy_compare_hunk_keys = format!(
+            "{} / {}",
+            copy_compare_hunk_chord.display(),
+            copy_compare_hunk_chord.flipped_shift().display()
+        );
+        let word_jump_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_word_jump,
+            crate::shortcut_chord::DEFAULT_WORD_JUMP,
+        );
+        let word_jump_keys = format!(
+            "{} / {}",
+            word_jump_chord.display(),
+            word_jump_chord.flipped_horizontal().display()
+        );
+        let goto_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_goto_line,
+            crate::shortcut_chord::DEFAULT_GOTO_LINE,
+        )
+        .display();
+        let dup_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_duplicate_line,
+            crate::shortcut_chord::DEFAULT_DUPLICATE_LINE,
+        )
+        .display();
+        let del_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_delete_line,
+            crate::shortcut_chord::DEFAULT_DELETE_LINE,
+        )
+        .display();
+        let indent_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_indent,
+            crate::shortcut_chord::DEFAULT_INDENT,
+        )
+        .display();
+        let outdent_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_outdent,
+            crate::shortcut_chord::DEFAULT_OUTDENT,
+        )
+        .display();
+        let tab_indent_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_tab_indent,
+            crate::shortcut_chord::DEFAULT_TAB_INDENT,
+        )
+        .display();
+        let shift_tab_outdent_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_shift_tab_outdent,
+            crate::shortcut_chord::DEFAULT_SHIFT_TAB_OUTDENT,
+        )
+        .display();
+        let indent_outdent_keys = format!(
+            "{indent_keys} / {outdent_keys} / {tab_indent_keys} / {shift_tab_outdent_keys}"
+        );
+        let fold_all_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_fold_all,
+            crate::shortcut_chord::DEFAULT_FOLD_ALL,
+        );
+        let fold_all_keys = format!(
+            "{} / {}",
+            fold_all_chord.display(),
+            fold_all_chord.flipped_shift().display()
+        );
+        let fold_current_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_fold_current,
+            crate::shortcut_chord::DEFAULT_FOLD_CURRENT,
+        );
+        let fold_current_keys = format!(
+            "{} / {}",
+            fold_current_chord.display(),
+            fold_current_chord.flipped_shift().display()
+        );
+        let matching_brace_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_matching_brace,
+            crate::shortcut_chord::DEFAULT_MATCHING_BRACE,
+        );
+        let matching_brace_keys = format!(
+            "{} / {}",
+            matching_brace_chord.display(),
+            matching_brace_chord.flipped_shift().display()
+        );
+        let move_line_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_move_line,
+            crate::shortcut_chord::DEFAULT_MOVE_LINE,
+        );
+        let move_line_keys = format!(
+            "{} / {}",
+            move_line_chord.display(),
+            move_line_chord.move_line_down_chord().display()
+        );
+        let toggle_comment_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_toggle_comment,
+            crate::shortcut_chord::DEFAULT_TOGGLE_COMMENT,
+        );
+        let toggle_comment_keys = format!(
+            "{} / {}",
+            toggle_comment_chord.display(),
+            toggle_comment_chord.flipped_shift().display()
+        );
+        let format_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_format_document,
+            crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
+        )
+        .display();
+        let close_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_close_tab,
+            crate::shortcut_chord::DEFAULT_CLOSE_TAB,
+        )
+        .display();
+        let next_tab_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_next_tab,
+            crate::shortcut_chord::DEFAULT_NEXT_TAB,
+        );
+        let next_tab_keys = format!(
+            "{} / {}",
+            next_tab_chord.display(),
+            next_tab_chord.flipped_shift().display()
+        );
+        let new_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_new,
+            crate::shortcut_chord::DEFAULT_NEW,
+        )
+        .display();
+        let open_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_open,
+            crate::shortcut_chord::DEFAULT_OPEN,
+        )
+        .display();
+        let save_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_save,
+            crate::shortcut_chord::DEFAULT_SAVE,
+        )
+        .display();
+        let save_as_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_save_as,
+            crate::shortcut_chord::DEFAULT_SAVE_AS,
+        )
+        .display();
+        let save_all_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_save_all,
+            crate::shortcut_chord::DEFAULT_SAVE_ALL,
+        )
+        .display();
+        let print_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_print,
+            crate::shortcut_chord::DEFAULT_PRINT,
+        )
+        .display();
+        let find_open_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_find,
+            crate::shortcut_chord::DEFAULT_FIND,
+        )
+        .display();
+        let replace_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_replace,
+            crate::shortcut_chord::DEFAULT_REPLACE,
+        )
+        .display();
+        let replace_alt_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_replace_alt,
+            crate::shortcut_chord::DEFAULT_REPLACE_ALT,
+        )
+        .display();
+        let select_all_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_select_all,
+            crate::shortcut_chord::DEFAULT_SELECT_ALL,
+        )
+        .display();
+        let undo_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_undo,
+            crate::shortcut_chord::DEFAULT_UNDO,
+        );
+        let redo_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_redo,
+            crate::shortcut_chord::DEFAULT_REDO,
+        )
+        .display();
+        let undo_keys = format!(
+            "{} / {} · {}",
+            undo_chord.display(),
+            undo_chord.flipped_shift().display(),
+            redo_keys
+        );
+        let zoom_in_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_zoom_in,
+            crate::shortcut_chord::DEFAULT_ZOOM_IN,
+        )
+        .display();
+        let zoom_out_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_zoom_out,
+            crate::shortcut_chord::DEFAULT_ZOOM_OUT,
+        )
+        .display();
+        let zoom_restore_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_zoom_restore,
+            crate::shortcut_chord::DEFAULT_ZOOM_RESTORE,
+        )
+        .display();
+        let zoom_row = format!("{zoom_in_keys} · {zoom_out_keys} · {zoom_restore_keys}");
+        let log_tail_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_toggle_log_tail,
+            crate::shortcut_chord::DEFAULT_TOGGLE_LOG_TAIL,
+        )
+        .display();
+        let reload_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_reload,
+            crate::shortcut_chord::DEFAULT_RELOAD,
+        )
+        .display();
+        let replace_row = format!("{replace_keys} · {replace_alt_keys}");
+        let rows: [(&str, &str); 50] = [
+            (new_keys.as_str(), "New file"),
+            (open_keys.as_str(), "Open"),
+            (reload_keys.as_str(), "Reload from disk"),
+            (save_keys.as_str(), "Save"),
+            (save_as_keys.as_str(), "Save As"),
+            (save_all_keys.as_str(), "Save All"),
+            (print_keys.as_str(), "Print"),
+            (find_open_keys.as_str(), "Find"),
+            (replace_row.as_str(), "Replace"),
+            (find_keys.as_str(), "Find next / prev"),
+            (find_global_keys.as_str(), "Find next / prev (global)"),
+            (goto_keys.as_str(), "Go to line"),
+            (bm_keys.as_str(), "Next / prev bookmark"),
+            (toggle_bm_keys.as_str(), "Toggle bookmark"),
+            (compare_keys.as_str(), "Compare start / clear"),
+            (swap_compare_keys.as_str(), "Swap Compare sides"),
+            (compare_to_saved_keys.as_str(), "Compare to Saved"),
+            (copy_compare_diff_keys.as_str(), "Copy / Open Compare Diff"),
+            (
+                copy_compare_summary_keys.as_str(),
+                "Copy / Open Compare Summary",
+            ),
+            (copy_compare_hunk_keys.as_str(), "Copy / Open Compare Hunk"),
+            (diff_keys.as_str(), "Compare next / prev diff"),
+            (first_diff_keys.as_str(), "Compare first / last diff"),
+            (hidden_keys.as_str(), "Compare next / prev hidden equal"),
+            (
+                first_hidden_keys.as_str(),
+                "Compare first / last hidden equal",
+            ),
+            (
+                apply_hunk_keys.as_str(),
+                "Compare apply hunk from / to other",
+            ),
+            (
+                apply_all_hunk_keys.as_str(),
+                "Compare apply all hunks from / to other",
+            ),
+            (hide_equal_keys.as_str(), "Compare hide unchanged lines"),
+            (
+                ignore_ws_keys.as_str(),
+                "Compare ignore whitespace / ignore case",
+            ),
+            (ignore_blank_keys.as_str(), "Compare ignore blank lines"),
+            (
+                expand_all_unchanged_keys.as_str(),
+                "Compare expand / collapse all unchanged",
+            ),
+            (
+                expand_unchanged_at_caret_keys.as_str(),
+                "Compare expand / collapse unchanged at caret",
+            ),
+            (hide_ctx_keys.as_str(), "Compare hide-equal context ±1"),
+            (zoom_row.as_str(), "Zoom in / out / restore"),
+            (wrap_keys.as_str(), "Word wrap"),
+            (select_all_keys.as_str(), "Select all"),
+            (dup_keys.as_str(), "Duplicate line"),
+            (del_keys.as_str(), "Delete line"),
+            (move_line_keys.as_str(), "Move line up / down"),
+            (
+                toggle_comment_keys.as_str(),
+                "Toggle line comment / Block comment",
+            ),
+            (indent_outdent_keys.as_str(), "Indent / Outdent"),
+            (format_keys.as_str(), "Format document"),
+            (fold_all_keys.as_str(), "Fold / Unfold all"),
+            (fold_current_keys.as_str(), "Fold / Unfold current"),
+            (matching_brace_keys.as_str(), "Matching brace / Select pair"),
+            (log_tail_keys.as_str(), "Toggle log tail"),
+            (word_jump_keys.as_str(), "Word jump ← / →"),
+            ("Double-click", "Select word"),
+            (undo_keys.as_str(), "Undo / Redo"),
+            (close_keys.as_str(), "Close tab"),
+            (next_tab_keys.as_str(), "Next / prev tab"),
+        ];
+        rows.into_iter()
+            .map(|(keys, action)| (keys.to_string(), action.to_string()))
+            .collect()
+    }
+
     fn about_window(&mut self, ctx: &egui::Context) {
         if !self.show_about {
             return;
         }
         let mut open = true;
+        let mut open_shortcuts = false;
         egui::Window::new("About npp-rust")
             .open(&mut open)
             .collapsible(false)
             .resizable(true)
-            .default_size([440.0, 420.0])
+            .default_size([420.0, 360.0])
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
             .show(ctx, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.add_space(8.0);
-                    ui.heading(
-                        RichText::new("npp-rust")
-                            .size(28.0)
-                            .color(Color32::from_rgb(120, 200, 255)),
-                    );
-                    ui.label(
-                        RichText::new("a Notepad++ inspired editor, rebuilt for fun")
-                            .italics()
-                            .color(Color32::from_rgb(180, 180, 190)),
-                    );
-                    ui.add_space(6.0);
-                    ui.label(
-                        RichText::new(format!(
-                            "v{} · {} · Rust · macOS / Linux / Windows",
-                            env!("CARGO_PKG_VERSION"),
-                            env!("NPP_GIT_HASH")
-                        ))
-                        .small(),
-                    );
-                    ui.add_space(8.0);
-                    ui.horizontal_wrapped(|ui| {
-                        ui.hyperlink_to("GitHub", "https://github.com/raro42/npp-rust");
-                        ui.label("·");
-                        ui.hyperlink_to("Issues", "https://github.com/raro42/npp-rust/issues");
-                        ui.label("·");
-                        ui.hyperlink_to(
-                            "Discussions",
-                            "https://github.com/raro42/npp-rust/discussions",
-                        );
-                        ui.label("·");
-                        ui.hyperlink_to("Wiki", "https://github.com/raro42/npp-rust/wiki");
-                        ui.label("·");
-                        ui.hyperlink_to("Releases", "https://github.com/raro42/npp-rust/releases");
-                        ui.label("·");
-                        ui.hyperlink_to(
-                            "Changelog",
-                            "https://github.com/raro42/npp-rust/blob/main/docs/changelog.md",
-                        );
-                    });
-                });
-
-                ui.add_space(12.0);
-                ui.separator();
-                ui.add_space(8.0);
-
-                ui.label(RichText::new("Why it exists").strong());
-                ui.label(
-                    "Built as a side adventure — something nice to grow in the background \
-while other work runs. Not a line-by-line port. A fresh editor with a rope buffer, \
-Tree-sitter highlight, and a calm UI.",
-                );
-
-                ui.add_space(10.0);
-                ui.label(RichText::new("Made by").strong());
-                ui.horizontal_wrapped(|ui| {
-                    ui.label(RichText::new("Ralf Roeber").strong());
-                    ui.label("·");
-                    ui.label("El Masnou (Barcelona), Catalonia");
-                });
-                ui.label(
-                    RichText::new("Germany roots · Spain home · open source habit")
-                        .small()
-                        .color(Color32::from_rgb(150, 150, 160)),
-                );
-
-                ui.add_space(10.0);
-                ui.label(RichText::new("Shortcuts").strong());
-                let wrap_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_word_wrap,
-                    crate::shortcut_chord::DEFAULT_WORD_WRAP,
-                )
-                .display();
-                let find_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_find_next,
-                    crate::shortcut_chord::DEFAULT_FIND_NEXT,
-                );
-                let find_keys = format!(
-                    "{} / {}",
-                    find_chord.display(),
-                    find_chord.flipped_shift().display()
-                );
-                let find_global_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_find_next_global,
-                    crate::shortcut_chord::DEFAULT_FIND_NEXT_GLOBAL,
-                );
-                let find_global_keys = format!(
-                    "{} / {}",
-                    find_global_chord.display(),
-                    find_global_chord.flipped_shift().display()
-                );
-                let bm_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_next_bookmark,
-                    crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
-                );
-                let bm_keys = format!(
-                    "{} / {}",
-                    bm_chord.display(),
-                    bm_chord.flipped_shift().display()
-                );
-                let toggle_bm_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_toggle_bookmark,
-                    crate::shortcut_chord::DEFAULT_TOGGLE_BOOKMARK,
-                )
-                .display();
-                let diff_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_next_diff,
-                    crate::shortcut_chord::DEFAULT_NEXT_DIFF,
-                );
-                let diff_keys = format!(
-                    "{} / {}",
-                    diff_chord.display(),
-                    diff_chord.flipped_shift().display()
-                );
-                let first_diff_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_first_diff,
-                    crate::shortcut_chord::DEFAULT_FIRST_DIFF,
-                );
-                let first_diff_keys = format!(
-                    "{} / {}",
-                    first_diff_chord.display(),
-                    first_diff_chord.flipped_shift().display()
-                );
-                let hidden_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_next_hidden_equal,
-                    crate::shortcut_chord::DEFAULT_NEXT_HIDDEN_EQUAL,
-                );
-                let hidden_keys = format!(
-                    "{} / {}",
-                    hidden_chord.display(),
-                    hidden_chord.flipped_shift().display()
-                );
-                let first_hidden_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_first_hidden_equal,
-                    crate::shortcut_chord::DEFAULT_FIRST_HIDDEN_EQUAL,
-                );
-                let first_hidden_keys = format!(
-                    "{} / {}",
-                    first_hidden_chord.display(),
-                    first_hidden_chord.flipped_shift().display()
-                );
-                let apply_hunk_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_apply_compare_hunk,
-                    crate::shortcut_chord::DEFAULT_APPLY_COMPARE_HUNK,
-                );
-                let apply_hunk_keys = format!(
-                    "{} / {}",
-                    apply_hunk_chord.display(),
-                    apply_hunk_chord.flipped_horizontal().display()
-                );
-                let apply_all_hunk_keys = format!(
-                    "{} / {}",
-                    apply_hunk_chord.flipped_shift().display(),
-                    apply_hunk_chord
-                        .flipped_horizontal()
-                        .flipped_shift()
-                        .display()
-                );
-                let hide_ctx_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_hide_equal_context,
-                    crate::shortcut_chord::DEFAULT_HIDE_EQUAL_CONTEXT,
-                );
-                let hide_ctx_keys = format!(
-                    "{} / {}",
-                    hide_ctx_chord.display(),
-                    hide_ctx_chord.flipped_bracket().display()
-                );
-                let hide_equal_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_hide_equal,
-                    crate::shortcut_chord::DEFAULT_HIDE_EQUAL,
-                )
-                .display();
-                let ignore_ws_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_compare_ignore_ws,
-                    crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_WS,
-                );
-                let ignore_ws_keys = format!(
-                    "{} / {}",
-                    ignore_ws_chord.display(),
-                    ignore_ws_chord.flipped_shift().display()
-                );
-                let ignore_blank_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_compare_ignore_blank,
-                    crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_BLANK,
-                )
-                .display();
-                let expand_all_unchanged_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_expand_all_unchanged,
-                    crate::shortcut_chord::DEFAULT_EXPAND_ALL_UNCHANGED,
-                );
-                let expand_all_unchanged_keys = format!(
-                    "{} / {}",
-                    expand_all_unchanged_chord.display(),
-                    expand_all_unchanged_chord.flipped_shift().display()
-                );
-                let expand_unchanged_at_caret_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_expand_unchanged_at_caret,
-                    crate::shortcut_chord::DEFAULT_EXPAND_UNCHANGED_AT_CARET,
-                );
-                let expand_unchanged_at_caret_keys = format!(
-                    "{} / {}",
-                    expand_unchanged_at_caret_chord.display(),
-                    expand_unchanged_at_caret_chord.flipped_shift().display()
-                );
-                let compare_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_compare,
-                    crate::shortcut_chord::DEFAULT_COMPARE,
-                );
-                let compare_keys = format!(
-                    "{} / {}",
-                    compare_chord.display(),
-                    compare_chord.flipped_shift().display()
-                );
-                let swap_compare_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_swap_compare,
-                    crate::shortcut_chord::DEFAULT_SWAP_COMPARE,
-                )
-                .display();
-                let compare_to_saved_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_compare_to_saved,
-                    crate::shortcut_chord::DEFAULT_COMPARE_TO_SAVED,
-                )
-                .display();
-                let copy_compare_diff_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_copy_compare_diff,
-                    crate::shortcut_chord::DEFAULT_COPY_COMPARE_DIFF,
-                );
-                let copy_compare_diff_keys = format!(
-                    "{} / {}",
-                    copy_compare_diff_chord.display(),
-                    copy_compare_diff_chord.flipped_shift().display()
-                );
-                let copy_compare_summary_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_copy_compare_summary,
-                    crate::shortcut_chord::DEFAULT_COPY_COMPARE_SUMMARY,
-                );
-                let copy_compare_summary_keys = format!(
-                    "{} / {}",
-                    copy_compare_summary_chord.display(),
-                    copy_compare_summary_chord.flipped_shift().display()
-                );
-                let copy_compare_hunk_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_copy_compare_hunk,
-                    crate::shortcut_chord::DEFAULT_COPY_COMPARE_HUNK,
-                );
-                let copy_compare_hunk_keys = format!(
-                    "{} / {}",
-                    copy_compare_hunk_chord.display(),
-                    copy_compare_hunk_chord.flipped_shift().display()
-                );
-                let word_jump_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_word_jump,
-                    crate::shortcut_chord::DEFAULT_WORD_JUMP,
-                );
-                let word_jump_keys = format!(
-                    "{} / {}",
-                    word_jump_chord.display(),
-                    word_jump_chord.flipped_horizontal().display()
-                );
-                let goto_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_goto_line,
-                    crate::shortcut_chord::DEFAULT_GOTO_LINE,
-                )
-                .display();
-                let dup_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_duplicate_line,
-                    crate::shortcut_chord::DEFAULT_DUPLICATE_LINE,
-                )
-                .display();
-                let del_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_delete_line,
-                    crate::shortcut_chord::DEFAULT_DELETE_LINE,
-                )
-                .display();
-                let indent_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_indent,
-                    crate::shortcut_chord::DEFAULT_INDENT,
-                )
-                .display();
-                let outdent_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_outdent,
-                    crate::shortcut_chord::DEFAULT_OUTDENT,
-                )
-                .display();
-                let tab_indent_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_tab_indent,
-                    crate::shortcut_chord::DEFAULT_TAB_INDENT,
-                )
-                .display();
-                let shift_tab_outdent_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_shift_tab_outdent,
-                    crate::shortcut_chord::DEFAULT_SHIFT_TAB_OUTDENT,
-                )
-                .display();
-                let indent_outdent_keys = format!(
-                    "{indent_keys} / {outdent_keys} / {tab_indent_keys} / {shift_tab_outdent_keys}"
-                );
-                let fold_all_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_fold_all,
-                    crate::shortcut_chord::DEFAULT_FOLD_ALL,
-                );
-                let fold_all_keys = format!(
-                    "{} / {}",
-                    fold_all_chord.display(),
-                    fold_all_chord.flipped_shift().display()
-                );
-                let fold_current_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_fold_current,
-                    crate::shortcut_chord::DEFAULT_FOLD_CURRENT,
-                );
-                let fold_current_keys = format!(
-                    "{} / {}",
-                    fold_current_chord.display(),
-                    fold_current_chord.flipped_shift().display()
-                );
-                let matching_brace_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_matching_brace,
-                    crate::shortcut_chord::DEFAULT_MATCHING_BRACE,
-                );
-                let matching_brace_keys = format!(
-                    "{} / {}",
-                    matching_brace_chord.display(),
-                    matching_brace_chord.flipped_shift().display()
-                );
-                let move_line_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_move_line,
-                    crate::shortcut_chord::DEFAULT_MOVE_LINE,
-                );
-                let move_line_keys = format!(
-                    "{} / {}",
-                    move_line_chord.display(),
-                    move_line_chord.move_line_down_chord().display()
-                );
-                let toggle_comment_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_toggle_comment,
-                    crate::shortcut_chord::DEFAULT_TOGGLE_COMMENT,
-                );
-                let toggle_comment_keys = format!(
-                    "{} / {}",
-                    toggle_comment_chord.display(),
-                    toggle_comment_chord.flipped_shift().display()
-                );
-                let format_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_format_document,
-                    crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
-                )
-                .display();
-                let close_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_close_tab,
-                    crate::shortcut_chord::DEFAULT_CLOSE_TAB,
-                )
-                .display();
-                let next_tab_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_next_tab,
-                    crate::shortcut_chord::DEFAULT_NEXT_TAB,
-                );
-                let next_tab_keys = format!(
-                    "{} / {}",
-                    next_tab_chord.display(),
-                    next_tab_chord.flipped_shift().display()
-                );
-                let new_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_new,
-                    crate::shortcut_chord::DEFAULT_NEW,
-                )
-                .display();
-                let open_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_open,
-                    crate::shortcut_chord::DEFAULT_OPEN,
-                )
-                .display();
-                let save_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_save,
-                    crate::shortcut_chord::DEFAULT_SAVE,
-                )
-                .display();
-                let save_as_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_save_as,
-                    crate::shortcut_chord::DEFAULT_SAVE_AS,
-                )
-                .display();
-                let save_all_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_save_all,
-                    crate::shortcut_chord::DEFAULT_SAVE_ALL,
-                )
-                .display();
-                let print_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_print,
-                    crate::shortcut_chord::DEFAULT_PRINT,
-                )
-                .display();
-                let find_open_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_find,
-                    crate::shortcut_chord::DEFAULT_FIND,
-                )
-                .display();
-                let replace_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_replace,
-                    crate::shortcut_chord::DEFAULT_REPLACE,
-                )
-                .display();
-                let replace_alt_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_replace_alt,
-                    crate::shortcut_chord::DEFAULT_REPLACE_ALT,
-                )
-                .display();
-                let select_all_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_select_all,
-                    crate::shortcut_chord::DEFAULT_SELECT_ALL,
-                )
-                .display();
-                let undo_chord = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_undo,
-                    crate::shortcut_chord::DEFAULT_UNDO,
-                );
-                let redo_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_redo,
-                    crate::shortcut_chord::DEFAULT_REDO,
-                )
-                .display();
-                let undo_keys = format!(
-                    "{} / {} · {}",
-                    undo_chord.display(),
-                    undo_chord.flipped_shift().display(),
-                    redo_keys
-                );
-                let zoom_in_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_zoom_in,
-                    crate::shortcut_chord::DEFAULT_ZOOM_IN,
-                )
-                .display();
-                let zoom_out_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_zoom_out,
-                    crate::shortcut_chord::DEFAULT_ZOOM_OUT,
-                )
-                .display();
-                let zoom_restore_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_zoom_restore,
-                    crate::shortcut_chord::DEFAULT_ZOOM_RESTORE,
-                )
-                .display();
-                let zoom_row = format!("{zoom_in_keys} · {zoom_out_keys} · {zoom_restore_keys}");
-                let log_tail_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_toggle_log_tail,
-                    crate::shortcut_chord::DEFAULT_TOGGLE_LOG_TAIL,
-                )
-                .display();
-                let reload_keys = crate::shortcut_chord::resolve_chord(
-                    &self.state.settings.shortcut_reload,
-                    crate::shortcut_chord::DEFAULT_RELOAD,
-                )
-                .display();
-                let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-                egui::Grid::new("about_shortcuts")
-                    .num_columns(2)
-                    .spacing([16.0, 4.0])
+                egui::ScrollArea::vertical()
+                    .max_height(420.0)
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 50] = [
-                            (new_keys.as_str(), "New file"),
-                            (open_keys.as_str(), "Open"),
-                            (reload_keys.as_str(), "Reload from disk"),
-                            (save_keys.as_str(), "Save"),
-                            (save_as_keys.as_str(), "Save As"),
-                            (save_all_keys.as_str(), "Save All"),
-                            (print_keys.as_str(), "Print"),
-                            (find_open_keys.as_str(), "Find"),
-                            (replace_row.as_str(), "Replace"),
-                            (find_keys.as_str(), "Find next / prev"),
-                            (find_global_keys.as_str(), "Find next / prev (global)"),
-                            (goto_keys.as_str(), "Go to line"),
-                            (bm_keys.as_str(), "Next / prev bookmark"),
-                            (toggle_bm_keys.as_str(), "Toggle bookmark"),
-                            (compare_keys.as_str(), "Compare start / clear"),
-                            (swap_compare_keys.as_str(), "Swap Compare sides"),
-                            (compare_to_saved_keys.as_str(), "Compare to Saved"),
-                            (copy_compare_diff_keys.as_str(), "Copy / Open Compare Diff"),
-                            (
-                                copy_compare_summary_keys.as_str(),
-                                "Copy / Open Compare Summary",
-                            ),
-                            (copy_compare_hunk_keys.as_str(), "Copy / Open Compare Hunk"),
-                            (diff_keys.as_str(), "Compare next / prev diff"),
-                            (first_diff_keys.as_str(), "Compare first / last diff"),
-                            (hidden_keys.as_str(), "Compare next / prev hidden equal"),
-                            (
-                                first_hidden_keys.as_str(),
-                                "Compare first / last hidden equal",
-                            ),
-                            (
-                                apply_hunk_keys.as_str(),
-                                "Compare apply hunk from / to other",
-                            ),
-                            (
-                                apply_all_hunk_keys.as_str(),
-                                "Compare apply all hunks from / to other",
-                            ),
-                            (hide_equal_keys.as_str(), "Compare hide unchanged lines"),
-                            (
-                                ignore_ws_keys.as_str(),
-                                "Compare ignore whitespace / ignore case",
-                            ),
-                            (ignore_blank_keys.as_str(), "Compare ignore blank lines"),
-                            (
-                                expand_all_unchanged_keys.as_str(),
-                                "Compare expand / collapse all unchanged",
-                            ),
-                            (
-                                expand_unchanged_at_caret_keys.as_str(),
-                                "Compare expand / collapse unchanged at caret",
-                            ),
-                            (hide_ctx_keys.as_str(), "Compare hide-equal context ±1"),
-                            (zoom_row.as_str(), "Zoom in / out / restore"),
-                            (wrap_keys.as_str(), "Word wrap"),
-                            (select_all_keys.as_str(), "Select all"),
-                            (dup_keys.as_str(), "Duplicate line"),
-                            (del_keys.as_str(), "Delete line"),
-                            (move_line_keys.as_str(), "Move line up / down"),
-                            (
-                                toggle_comment_keys.as_str(),
-                                "Toggle line comment / Block comment",
-                            ),
-                            (indent_outdent_keys.as_str(), "Indent / Outdent"),
-                            (format_keys.as_str(), "Format document"),
-                            (fold_all_keys.as_str(), "Fold / Unfold all"),
-                            (fold_current_keys.as_str(), "Fold / Unfold current"),
-                            (matching_brace_keys.as_str(), "Matching brace / Select pair"),
-                            (log_tail_keys.as_str(), "Toggle log tail"),
-                            (word_jump_keys.as_str(), "Word jump ← / →"),
-                            ("Double-click", "Select word"),
-                            (undo_keys.as_str(), "Undo / Redo"),
-                            (close_keys.as_str(), "Close tab"),
-                            (next_tab_keys.as_str(), "Next / prev tab"),
-                        ];
-                        for (keys, action) in rows {
-                            ui.monospace(keys);
-                            ui.label(action);
-                            ui.end_row();
+                        ui.vertical_centered(|ui| {
+                            ui.add_space(8.0);
+                            ui.heading(
+                                RichText::new("npp-rust")
+                                    .size(28.0)
+                                    .color(Color32::from_rgb(120, 200, 255)),
+                            );
+                            ui.label(
+                                RichText::new("a Notepad++ inspired editor, rebuilt for fun")
+                                    .italics()
+                                    .color(Color32::from_rgb(180, 180, 190)),
+                            );
+                            ui.add_space(6.0);
+                            ui.label(
+                                RichText::new(format!(
+                                    "v{} · {} · Rust · macOS / Linux / Windows",
+                                    env!("CARGO_PKG_VERSION"),
+                                    env!("NPP_GIT_HASH")
+                                ))
+                                .small(),
+                            );
+                            ui.add_space(8.0);
+                            ui.horizontal_wrapped(|ui| {
+                                ui.hyperlink_to("GitHub", "https://github.com/raro42/npp-rust");
+                                ui.label("·");
+                                ui.hyperlink_to(
+                                    "Issues",
+                                    "https://github.com/raro42/npp-rust/issues",
+                                );
+                                ui.label("·");
+                                ui.hyperlink_to(
+                                    "Discussions",
+                                    "https://github.com/raro42/npp-rust/discussions",
+                                );
+                                ui.label("·");
+                                ui.hyperlink_to(
+                                    "Wiki",
+                                    "https://github.com/raro42/npp-rust/wiki",
+                                );
+                                ui.label("·");
+                                ui.hyperlink_to(
+                                    "Releases",
+                                    "https://github.com/raro42/npp-rust/releases",
+                                );
+                                ui.label("·");
+                                ui.hyperlink_to(
+                                    "Changelog",
+                                    "https://github.com/raro42/npp-rust/blob/main/docs/changelog.md",
+                                );
+                            });
+                        });
+
+                        ui.add_space(12.0);
+                        ui.separator();
+                        ui.add_space(8.0);
+
+                        ui.label(RichText::new("Why it exists").strong());
+                        ui.label(
+                            "Built as a side adventure: something nice to grow in the background while other work runs. Not a line-by-line port. A fresh editor with a rope buffer, Tree-sitter highlight, and a calm UI.",
+                        );
+
+                        ui.add_space(10.0);
+                        ui.label(RichText::new("Made by").strong());
+                        ui.horizontal_wrapped(|ui| {
+                            ui.label(RichText::new("Ralf Roeber").strong());
+                            ui.label("·");
+                            ui.label("El Masnou (Barcelona), Catalonia");
+                        });
+                        ui.label(
+                            RichText::new("Germany roots · Spain home · open source habit")
+                                .small()
+                                .color(Color32::from_rgb(150, 150, 160)),
+                        );
+
+                        ui.add_space(14.0);
+                        if ui.button("Keyboard shortcuts…").clicked() {
+                            open_shortcuts = true;
                         }
+                        ui.label(
+                            RichText::new(
+                                "Remappable keys also appear under Settings → Shortcut Mapper."
+                            )
+                            .small()
+                            .color(Color32::from_rgb(150, 150, 160)),
+                        );
                     });
 
                 ui.add_space(12.0);
@@ -4067,8 +4088,71 @@ Tree-sitter highlight, and a calm UI.",
                     });
                 });
             });
+        if open_shortcuts {
+            self.show_shortcuts_help = true;
+        }
         if !open {
             self.show_about = false;
+        }
+    }
+
+    fn shortcuts_help_window(&mut self, ctx: &egui::Context) {
+        if !self.show_shortcuts_help {
+            return;
+        }
+        let rows = self.shortcut_help_rows();
+        let mut open = true;
+        egui::Window::new("Keyboard shortcuts")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(true)
+            .default_size([480.0, 440.0])
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
+                ui.label(
+                    RichText::new(
+                        "Effective bindings (Preferences remaps apply). Scroll if the list is tall."
+                    )
+                    .small()
+                    .color(Color32::from_rgb(150, 150, 160)),
+                );
+                ui.add_space(6.0);
+                egui::ScrollArea::vertical()
+                    .max_height(360.0)
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        egui::Grid::new("shortcuts_help_grid")
+                            .num_columns(2)
+                            .spacing([16.0, 4.0])
+                            .striped(true)
+                            .show(ui, |ui| {
+                                for (keys, action) in &rows {
+                                    ui.monospace(keys);
+                                    ui.label(action);
+                                    ui.end_row();
+                                }
+                            });
+                    });
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(
+                            "Settings → Shortcut Mapper opens a text dump of the same list.",
+                        )
+                        .small()
+                        .color(Color32::from_rgb(140, 140, 150)),
+                    );
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("Close").clicked() {
+                            self.show_shortcuts_help = false;
+                        }
+                    });
+                });
+            });
+        if !open {
+            self.show_shortcuts_help = false;
         }
     }
 
