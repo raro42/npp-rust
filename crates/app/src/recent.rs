@@ -148,6 +148,10 @@ fn default_shortcut_expand_unchanged_at_caret() -> String {
     crate::shortcut_chord::DEFAULT_EXPAND_UNCHANGED_AT_CARET.into()
 }
 
+fn default_shortcut_bookmark_compare_diffs() -> String {
+    crate::shortcut_chord::DEFAULT_BOOKMARK_COMPARE_DIFFS.into()
+}
+
 fn default_shortcut_compare() -> String {
     crate::shortcut_chord::DEFAULT_COMPARE.into()
 }
@@ -469,6 +473,9 @@ pub struct AppSettings {
     /// Expand-unchanged-at-caret chord (`Alt+X` default). Shift flips to Collapse Unchanged at Caret.
     #[serde(default = "default_shortcut_expand_unchanged_at_caret")]
     pub shortcut_expand_unchanged_at_caret: String,
+    /// Bookmark-compare-differences chord (`Alt+M` default). Shift flips to Clear Compare Difference Bookmarks.
+    #[serde(default = "default_shortcut_bookmark_compare_diffs")]
+    pub shortcut_bookmark_compare_diffs: String,
     /// Start-compare chord (`Alt+D` default). Shift + same key is Clear Compare.
     #[serde(default = "default_shortcut_compare")]
     pub shortcut_compare: String,
@@ -649,6 +656,7 @@ impl Default for AppSettings {
             shortcut_compare_ignore_blank: default_shortcut_compare_ignore_blank(),
             shortcut_expand_all_unchanged: default_shortcut_expand_all_unchanged(),
             shortcut_expand_unchanged_at_caret: default_shortcut_expand_unchanged_at_caret(),
+            shortcut_bookmark_compare_diffs: default_shortcut_bookmark_compare_diffs(),
             shortcut_compare: default_shortcut_compare(),
             shortcut_swap_compare: default_shortcut_swap_compare(),
             shortcut_compare_to_saved: default_shortcut_compare_to_saved(),
@@ -1020,6 +1028,7 @@ mod tests {
             shortcut_compare_ignore_blank: "Ctrl+Alt+B".into(),
             shortcut_expand_all_unchanged: "Ctrl+Alt+Shift+E".into(),
             shortcut_expand_unchanged_at_caret: "Ctrl+Alt+X".into(),
+            shortcut_bookmark_compare_diffs: "Ctrl+Alt+M".into(),
             shortcut_compare: "Ctrl+Alt+D".into(),
             shortcut_swap_compare: "Ctrl+Alt+Shift+S".into(),
             shortcut_compare_to_saved: "Ctrl+Alt+Shift+V".into(),
@@ -1094,6 +1103,7 @@ mod tests {
         assert_eq!(back.shortcut_compare_ignore_blank, "Ctrl+Alt+B");
         assert_eq!(back.shortcut_expand_all_unchanged, "Ctrl+Alt+Shift+E");
         assert_eq!(back.shortcut_expand_unchanged_at_caret, "Ctrl+Alt+X");
+        assert_eq!(back.shortcut_bookmark_compare_diffs, "Ctrl+Alt+M");
         assert_eq!(back.shortcut_compare, "Ctrl+Alt+D");
         assert_eq!(back.shortcut_swap_compare, "Ctrl+Alt+Shift+S");
         assert_eq!(back.shortcut_compare_to_saved, "Ctrl+Alt+Shift+V");

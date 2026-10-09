@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.162] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Bookmark / Clear Compare Difference Bookmarks** is remappable: Preferences → Bookmark compare differences shortcut, or `shortcut_bookmark_compare_diffs` in `npp-rs/settings.json` (default `Alt+M`). Shift flips to Clear (`Alt+Shift+M`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.161] — 2026-10-09
 
 Help / About:

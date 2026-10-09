@@ -240,3 +240,5 @@
 009 keep: remappable Expand / Collapse All Unchanged (shortcut_expand_all_unchanged, Alt+E default, v0.3.159)
 
 009 keep: remappable Expand / Collapse Unchanged at Caret (shortcut_expand_unchanged_at_caret, Alt+X default, v0.3.160)
+
+009 keep: remappable Bookmark / Clear Compare Difference Bookmarks (shortcut_bookmark_compare_diffs, Alt+M default, v0.3.162)

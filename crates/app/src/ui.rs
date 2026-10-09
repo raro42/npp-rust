@@ -2585,6 +2585,47 @@ impl EditorApp {
             }
         }
 
+        // Remappable bookmark compare differences (default Alt+M; settings.shortcut_bookmark_compare_diffs).
+        // Shift flips to Clear Compare Difference Bookmarks.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_BOOKMARK_COMPARE_DIFFS};
+            let bookmark_chord = resolve_chord(
+                &self.state.settings.shortcut_bookmark_compare_diffs,
+                DEFAULT_BOOKMARK_COMPARE_DIFFS,
+            );
+            let clear_chord = bookmark_chord.flipped_shift();
+            let bookmark_key_pressed = match bookmark_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if bookmark_key_pressed && clear_chord.matches(mods, clear_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS");
+            } else if bookmark_key_pressed && bookmark_chord.matches(mods, bookmark_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_BOOKMARK_DIFFS");
+            }
+        }
+
         // Remappable start compare (default Alt+D; settings.shortcut_compare).
         // Shift + same chord clears Compare.
         {
@@ -3301,12 +3342,27 @@ impl EditorApp {
                             "While Hide Unchanged Lines is on, re-collapse every click/menu-expanded Equal run on both panes ({chord}; ···N cues return; hide-equal preference stays on; Preferences remappable)"
                         ))
                     }
-                    "IDM_VIEW_COMPARE_BOOKMARK_DIFFS" => response.on_hover_text(
-                        "Bookmark the start of every Compare change hunk on both panes (then F2 / Shift+F2)",
-                    ),
-                    "IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS" => response.on_hover_text(
-                        "Remove bookmarks at every Compare change-hunk start on both panes (other bookmarks stay)",
-                    ),
+                    "IDM_VIEW_COMPARE_BOOKMARK_DIFFS" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_bookmark_compare_diffs,
+                            crate::shortcut_chord::DEFAULT_BOOKMARK_COMPARE_DIFFS,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Bookmark the start of every Compare change hunk on both panes (then F2 / Shift+F2; {chord}; Preferences remappable; Shift clears)"
+                        ))
+                    }
+                    "IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS" => {
+                        let clear = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_bookmark_compare_diffs,
+                            crate::shortcut_chord::DEFAULT_BOOKMARK_COMPARE_DIFFS,
+                        )
+                        .flipped_shift()
+                        .display();
+                        response.on_hover_text(format!(
+                            "Remove bookmarks at every Compare change-hunk start on both panes (other bookmarks stay; {clear}; Preferences remappable via Bookmark Compare Differences shortcut + Shift)"
+                        ))
+                    }
                     "IDM_VIEW_COPY_COMPARE_DIFF" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_copy_compare_diff,
@@ -3639,6 +3695,15 @@ impl EditorApp {
             expand_unchanged_at_caret_chord.display(),
             expand_unchanged_at_caret_chord.flipped_shift().display()
         );
+        let bookmark_compare_diffs_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_bookmark_compare_diffs,
+            crate::shortcut_chord::DEFAULT_BOOKMARK_COMPARE_DIFFS,
+        );
+        let bookmark_compare_diffs_keys = format!(
+            "{} / {}",
+            bookmark_compare_diffs_chord.display(),
+            bookmark_compare_diffs_chord.flipped_shift().display()
+        );
         let compare_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_compare,
             crate::shortcut_chord::DEFAULT_COMPARE,
@@ -3888,7 +3953,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 50] = [
+        let rows: [(&str, &str); 51] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -3940,6 +4005,10 @@ impl EditorApp {
             (
                 expand_unchanged_at_caret_keys.as_str(),
                 "Compare expand / collapse unchanged at caret",
+            ),
+            (
+                bookmark_compare_diffs_keys.as_str(),
+                "Compare bookmark / clear difference bookmarks",
             ),
             (hide_ctx_keys.as_str(), "Compare hide-equal context ±1"),
             (zoom_row.as_str(), "Zoom in / out / restore"),
@@ -4837,6 +4906,43 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+X, Ctrl+Alt+X. Expands the ···N gap nearest the caret. Shift + that chord collapses that expanded Equal run.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Bookmark compare differences shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_bookmark_compare_diffs,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+M"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_bookmark_compare_diffs
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_bookmark_compare_diffs =
+                                        crate::shortcut_chord::DEFAULT_BOOKMARK_COMPARE_DIFFS
+                                            .into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_BOOKMARK_COMPARE_DIFFS
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_bookmark_compare_diffs = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+M, Ctrl+Alt+M. Bookmarks every Compare change-hunk start. Shift + that chord clears those difference bookmarks.",
                             )
                             .small()
                             .weak(),

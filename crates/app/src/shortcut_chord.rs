@@ -58,6 +58,10 @@ pub const DEFAULT_EXPAND_ALL_UNCHANGED: &str = "Alt+E";
 /// Shift + same key is Collapse Unchanged at Caret.
 pub const DEFAULT_EXPAND_UNCHANGED_AT_CARET: &str = "Alt+X";
 
+/// Default bookmark-compare-differences binding (View → Bookmark Compare Differences).
+/// Shift + same key is Clear Compare Difference Bookmarks.
+pub const DEFAULT_BOOKMARK_COMPARE_DIFFS: &str = "Alt+M";
+
 /// Default start-compare binding (View → Compare with Other View).
 /// Shift + same key is Clear Compare.
 pub const DEFAULT_COMPARE: &str = "Alt+D";
@@ -594,6 +598,17 @@ mod tests {
         assert_eq!(c.key, Key::X);
         assert_eq!(c.display(), "Alt+X");
         assert_eq!(c.flipped_shift().display(), "Alt+Shift+X");
+    }
+
+    #[test]
+    fn parse_alt_m_default_bookmark_compare_diffs() {
+        let c = parse_chord(DEFAULT_BOOKMARK_COMPARE_DIFFS).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::M);
+        assert_eq!(c.display(), "Alt+M");
+        assert_eq!(c.flipped_shift().display(), "Alt+Shift+M");
     }
 
     #[test]
