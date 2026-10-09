@@ -30,3 +30,5 @@ Let's think about how NPP could benefit from Cursor plugin and using local Ollam
 - User-facing notes already in `docs/changelog.md` under **[0.3.165]**.
 - Task goal met: in-app loopback Ollama helper (Plugins → Ask Ollama / Ollama Status) instead of a VS Code/Cursor plugin; prefs + design note (`docs/ollama-helper.md`). Commit `90b5d1b`.
 - Close issue #18 with `agent:done`.
+Handoff: complete
+GitHub: closed
