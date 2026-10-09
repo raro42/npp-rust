@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.171] — 2026-10-09
+
+View:
+
+- **Document Map** paints change-history ticks on the right (amber unsaved, green saved, same hues as the gutter bars). Title appends change count. Click near a tick parks the caret on that line (status `Document Map → change history line N (unsaved|saved)`); while Compare is on, the click also syncs the partner pane like a hunk/Equal park. Bookmark ticks stay on the left.
+
 ## [0.3.170] — 2026-10-09
 
 View:

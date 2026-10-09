@@ -255,3 +255,4 @@
 009 keep: Document Map hunk-start ticks + drag sync scroll (v0.3.168)
 009 keep: Document Map hide-equal ···N gap bands + click park (v0.3.169)
 009 keep: Document Map bookmark ticks + click park (v0.3.170)
+009 keep: Document Map change-history ticks + click park (v0.3.171)
