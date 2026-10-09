@@ -260,3 +260,5 @@
 
 009 keep: Document Map fold-header ticks + click toggle (v0.3.173)
 009 keep: Document Map selection wash + caret / multi-caret ticks (v0.3.174)
+
+009 keep: remappable Document Map toggle (shortcut_document_map, Cmd+Shift+D default, v0.3.175)
