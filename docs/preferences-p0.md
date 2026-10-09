@@ -40,6 +40,7 @@ New keys:
 | `shortcut_apply_compare_hunk` | Apply-compare-hunk-from chord (`Cmd+Alt+Left` default; opposite Left/Right applies to other; Shift applies all) |
 | `shortcut_hide_equal_context` | Hide-equal-context increase chord (`Alt+]` default; opposite `[` / `]` decreases) |
 | `shortcut_hide_equal` | Hide-unchanged-lines toggle chord (`Alt+H` default) |
+| `shortcut_compare_ignore_ws` | Ignore-whitespace chord (`Alt+W` default; Shift flips to Ignore Case) |
 | `shortcut_compare` | Start-compare chord (`Alt+D` default; Shift flips to Clear Compare) |
 | `shortcut_swap_compare` | Swap-compare-sides chord (`Alt+S` default) |
 | `shortcut_compare_to_saved` | Compare-to-saved chord (`Alt+Shift+S` default) |

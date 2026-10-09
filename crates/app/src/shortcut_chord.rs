@@ -43,6 +43,10 @@ pub const DEFAULT_HIDE_EQUAL_CONTEXT: &str = "Alt+]";
 /// Default hide-unchanged-lines toggle (View → Hide Unchanged Lines).
 pub const DEFAULT_HIDE_EQUAL: &str = "Alt+H";
 
+/// Default ignore-whitespace-differences toggle (View → Ignore Whitespace Differences).
+/// Shift + same key is Ignore Case Differences.
+pub const DEFAULT_COMPARE_IGNORE_WS: &str = "Alt+W";
+
 /// Default start-compare binding (View → Compare with Other View).
 /// Shift + same key is Clear Compare.
 pub const DEFAULT_COMPARE: &str = "Alt+D";
@@ -536,6 +540,17 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::H);
         assert_eq!(c.display(), "Alt+H");
+    }
+
+    #[test]
+    fn parse_alt_w_default_compare_ignore_ws() {
+        let c = parse_chord(DEFAULT_COMPARE_IGNORE_WS).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::W);
+        assert_eq!(c.display(), "Alt+W");
+        assert_eq!(c.flipped_shift().display(), "Alt+Shift+W");
     }
 
     #[test]

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.157] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Ignore whitespace / Ignore case** (Compare) is remappable: Preferences → Ignore whitespace shortcut, or `shortcut_compare_ignore_ws` in `npp-rs/settings.json` (default `Alt+W`). Shift flips to Ignore Case (`Alt+Shift+W`). Ignore Blank Lines stays menu-only. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.156] — 2026-10-09
 
 Settings / shortcuts:

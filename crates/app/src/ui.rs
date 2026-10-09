@@ -2421,6 +2421,47 @@ impl EditorApp {
             }
         }
 
+        // Remappable ignore whitespace (default Alt+W; settings.shortcut_compare_ignore_ws).
+        // Shift flips to Ignore Case Differences.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_COMPARE_IGNORE_WS};
+            let ignore_chord = resolve_chord(
+                &self.state.settings.shortcut_compare_ignore_ws,
+                DEFAULT_COMPARE_IGNORE_WS,
+            );
+            let case_chord = ignore_chord.flipped_shift();
+            let ignore_key_pressed = match ignore_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if ignore_key_pressed && case_chord.matches(mods, case_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_IGNORE_CASE");
+            } else if ignore_key_pressed && ignore_chord.matches(mods, ignore_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_IGNORE_WS");
+            }
+        }
+
         // Remappable start compare (default Alt+D; settings.shortcut_compare).
         // Shift + same chord clears Compare.
         {
@@ -2991,12 +3032,27 @@ impl EditorApp {
                             "Swap left/right Compare panes ({chord}; Preferences remappable; re-diffs and parks on the first change hunk)"
                         ))
                     }
-                    "IDM_VIEW_COMPARE_IGNORE_WS" => response.on_hover_text(
-                        "Toggle ignore whitespace for Compare (Preferences persist)",
-                    ),
-                    "IDM_VIEW_COMPARE_IGNORE_CASE" => response.on_hover_text(
-                        "Toggle ignore letter case for Compare (Preferences persist)",
-                    ),
+                    "IDM_VIEW_COMPARE_IGNORE_WS" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_compare_ignore_ws,
+                            crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_WS,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Toggle ignore whitespace for Compare ({chord}; Preferences remappable; Shift + that chord is Ignore Case; Preferences persist)"
+                        ))
+                    }
+                    "IDM_VIEW_COMPARE_IGNORE_CASE" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_compare_ignore_ws,
+                            crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_WS,
+                        )
+                        .flipped_shift()
+                        .display();
+                        response.on_hover_text(format!(
+                            "Toggle ignore letter case for Compare ({chord}; Preferences remappable via Ignore whitespace shortcut + Shift; Preferences persist)"
+                        ))
+                    }
                     "IDM_VIEW_COMPARE_IGNORE_BLANK" => response.on_hover_text(
                         "Toggle ignore blank lines for Compare (Preferences persist)",
                     ),
@@ -3471,6 +3527,15 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_HIDE_EQUAL,
                 )
                 .display();
+                let ignore_ws_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_compare_ignore_ws,
+                    crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_WS,
+                );
+                let ignore_ws_keys = format!(
+                    "{} / {}",
+                    ignore_ws_chord.display(),
+                    ignore_ws_chord.flipped_shift().display()
+                );
                 let compare_chord = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_compare,
                     crate::shortcut_chord::DEFAULT_COMPARE,
@@ -3724,7 +3789,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 46] = [
+                        let rows: [(&str, &str); 47] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -3764,6 +3829,10 @@ Tree-sitter highlight, and a calm UI.",
                                 "Compare apply all hunks from / to other",
                             ),
                             (hide_equal_keys.as_str(), "Compare hide unchanged lines"),
+                            (
+                                ignore_ws_keys.as_str(),
+                                "Compare ignore whitespace / ignore case",
+                            ),
                             (hide_ctx_keys.as_str(), "Compare hide-equal context ±1"),
                             (zoom_row.as_str(), "Zoom in / out / restore"),
                             (wrap_keys.as_str(), "Word wrap"),
@@ -4351,6 +4420,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+H, Ctrl+Alt+U. Toggles View → Hide Unchanged Lines while Compare is on.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Ignore whitespace shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_compare_ignore_ws,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+W"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_compare_ignore_ws
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_compare_ignore_ws =
+                                        crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_WS.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_WS
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_compare_ignore_ws = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+W, Ctrl+Alt+W. Toggles Ignore Whitespace. Shift + that chord is Ignore Case.",
                             )
                             .small()
                             .weak(),
