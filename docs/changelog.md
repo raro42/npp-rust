@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.154] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Copy / Open Compare Summary** is remappable: Preferences → Copy Compare Summary shortcut, or `shortcut_copy_compare_summary` in `npp-rs/settings.json` (default `Alt+Y`). Shift flips to Open Compare Summary (`Alt+Shift+Y`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.153] — 2026-10-09
 
 Settings / shortcuts:

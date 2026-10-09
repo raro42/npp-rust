@@ -2527,6 +2527,50 @@ impl EditorApp {
             }
         }
 
+        // Remappable copy compare summary (default Alt+Y; settings.shortcut_copy_compare_summary).
+        // Shift flips to Open Compare Summary.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_COPY_COMPARE_SUMMARY};
+            let summary_chord = resolve_chord(
+                &self.state.settings.shortcut_copy_compare_summary,
+                DEFAULT_COPY_COMPARE_SUMMARY,
+            );
+            let summary_key_pressed = match summary_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if summary_key_pressed
+                && summary_chord
+                    .flipped_shift()
+                    .matches(mods, summary_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_VIEW_OPEN_COMPARE_SUMMARY");
+            } else if summary_key_pressed && summary_chord.matches(mods, summary_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COPY_COMPARE_SUMMARY");
+            }
+        }
+
         // Remappable zoom in / out / restore (defaults Cmd+= / Cmd+- / Cmd+0).
         // Mouse wheel stays hard-wired.
         {
@@ -2981,12 +3025,27 @@ impl EditorApp {
                             "Open the Compare pair as a unified-diff tab (clears Compare; {open}; Preferences remappable via Copy Compare Diff shortcut + Shift)"
                         ))
                     }
-                    "IDM_VIEW_COPY_COMPARE_SUMMARY" => response.on_hover_text(
-                        "Copy a text summary of every Compare change hunk (clipboard)",
-                    ),
-                    "IDM_VIEW_OPEN_COMPARE_SUMMARY" => response.on_hover_text(
-                        "Open a tab listing every Compare change hunk with L|R line ranges (clears Compare)",
-                    ),
+                    "IDM_VIEW_COPY_COMPARE_SUMMARY" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_copy_compare_summary,
+                            crate::shortcut_chord::DEFAULT_COPY_COMPARE_SUMMARY,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Copy a text summary of every Compare change hunk (clipboard; {chord}; Preferences remappable; Shift + that chord opens)"
+                        ))
+                    }
+                    "IDM_VIEW_OPEN_COMPARE_SUMMARY" => {
+                        let open = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_copy_compare_summary,
+                            crate::shortcut_chord::DEFAULT_COPY_COMPARE_SUMMARY,
+                        )
+                        .flipped_shift()
+                        .display();
+                        response.on_hover_text(format!(
+                            "Open a tab listing every Compare change hunk with L|R line ranges (clears Compare; {open}; Preferences remappable via Copy Compare Summary shortcut + Shift)"
+                        ))
+                    }
                     "IDM_VIEW_COPY_COMPARE_HUNK" => response.on_hover_text(
                         "Copy the change hunk at the caret as a unified diff (clipboard)",
                     ),
@@ -3338,6 +3397,15 @@ Tree-sitter highlight, and a calm UI.",
                     copy_compare_diff_chord.display(),
                     copy_compare_diff_chord.flipped_shift().display()
                 );
+                let copy_compare_summary_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_copy_compare_summary,
+                    crate::shortcut_chord::DEFAULT_COPY_COMPARE_SUMMARY,
+                );
+                let copy_compare_summary_keys = format!(
+                    "{} / {}",
+                    copy_compare_summary_chord.display(),
+                    copy_compare_summary_chord.flipped_shift().display()
+                );
                 let word_jump_chord = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_word_jump,
                     crate::shortcut_chord::DEFAULT_WORD_JUMP,
@@ -3539,7 +3607,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 44] = [
+                        let rows: [(&str, &str); 45] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -3558,6 +3626,10 @@ Tree-sitter highlight, and a calm UI.",
                             (swap_compare_keys.as_str(), "Swap Compare sides"),
                             (compare_to_saved_keys.as_str(), "Compare to Saved"),
                             (copy_compare_diff_keys.as_str(), "Copy / Open Compare Diff"),
+                            (
+                                copy_compare_summary_keys.as_str(),
+                                "Copy / Open Compare Summary",
+                            ),
                             (diff_keys.as_str(), "Compare next / prev diff"),
                             (first_diff_keys.as_str(), "Compare first / last diff"),
                             (hidden_keys.as_str(), "Compare next / prev hidden equal"),
@@ -4305,6 +4377,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+C, Ctrl+Alt+C. Copies View → Copy Compare Diff. Shift + that chord is Open Compare Diff.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Copy Compare Summary shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_copy_compare_summary,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+Y"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_copy_compare_summary
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_copy_compare_summary =
+                                        crate::shortcut_chord::DEFAULT_COPY_COMPARE_SUMMARY.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_COPY_COMPARE_SUMMARY
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_copy_compare_summary = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Y, Ctrl+Alt+Y. Copies View → Copy Compare Summary. Shift + that chord is Open Compare Summary.",
                             )
                             .small()
                             .weak(),
