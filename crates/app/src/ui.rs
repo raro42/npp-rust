@@ -7514,6 +7514,9 @@ impl EditorApp {
             fold_ticks,
             folded_fold_ticks,
             hide_gaps,
+            sel_ranges,
+            caret_line,
+            multi_caret_ticks,
             compare_active,
             max_scroll,
         ) = {
@@ -7522,6 +7525,30 @@ impl EditorApp {
             };
             let line_count = doc.buffer.line_count().max(1);
             let max_scroll = (line_count.saturating_sub(1) as f32).max(0.0);
+            let caret_line = doc.buffer.char_to_line(doc.buffer.caret());
+            let mut sel_ranges: Vec<(usize, usize)> = Vec::new();
+            if let Some((s, e)) = doc.buffer.selection() {
+                if let Some(span) =
+                    crate::diff::doc_map_char_range_lines(s, e, |c| doc.buffer.char_to_line(c))
+                {
+                    sel_ranges.push(span);
+                }
+            }
+            let mut multi_caret_ticks: Vec<usize> = Vec::new();
+            if doc.multi_sels.len() >= 2 {
+                for &(s, e) in &doc.multi_sels {
+                    if s == e {
+                        multi_caret_ticks.push(doc.buffer.char_to_line(s));
+                    } else if let Some(span) =
+                        crate::diff::doc_map_char_range_lines(s, e, |c| doc.buffer.char_to_line(c))
+                    {
+                        sel_ranges.push(span);
+                    }
+                }
+            }
+            crate::diff::doc_map_merge_line_ranges(&mut sel_ranges);
+            multi_caret_ticks.sort_unstable();
+            multi_caret_ticks.dedup();
             let bookmark_ticks: Vec<usize> = doc.bookmarks.iter().copied().collect();
             let ch_unsaved_ticks: Vec<usize> = doc.changed_unsaved.iter().copied().collect();
             let ch_saved_ticks: Vec<usize> = doc
@@ -7604,6 +7631,9 @@ impl EditorApp {
                 fold_ticks,
                 folded_fold_ticks,
                 hide_gaps,
+                sel_ranges,
+                caret_line,
+                multi_caret_ticks,
                 compare_active,
                 max_scroll,
             )
@@ -7622,7 +7652,14 @@ impl EditorApp {
         let mut find_click: Option<(usize, usize, usize)> = None;
         // Click near a change-history tick: park caret on that changed line.
         let mut ch_click: Option<(usize, bool)> = None;
+        // Click near caret / multi-caret tick: park on that caret line.
+        let mut caret_click: Option<usize> = None;
         let find_tick_lines: Vec<usize> = find_match_hits.iter().map(|&(l, _, _)| l).collect();
+        let mut caret_tick_marks: Vec<usize> = Vec::with_capacity(1 + multi_caret_ticks.len());
+        caret_tick_marks.push(caret_line);
+        caret_tick_marks.extend_from_slice(&multi_caret_ticks);
+        caret_tick_marks.sort_unstable();
+        caret_tick_marks.dedup();
         egui::Window::new("Document Map")
             .open(&mut open)
             .default_width(72.0)
@@ -7677,6 +7714,12 @@ impl EditorApp {
                         if ch_n == 1 { "" } else { "s" }
                     ));
                 }
+                if !sel_ranges.is_empty() {
+                    label.push_str(" · sel");
+                }
+                if multi_caret_ticks.len() >= 2 {
+                    label.push_str(&format!(" · {} carets", multi_caret_ticks.len()));
+                }
                 ui.label(label);
                 let (resp, painter) = ui.allocate_painter(
                     Vec2::new(
@@ -7695,6 +7738,26 @@ impl EditorApp {
                         0.0,
                         *color,
                     );
+                }
+                // Selection wash (soft blue) so selected spans read on the map.
+                if max_scroll > 0.0 {
+                    let sel_fill = Color32::from_rgba_unmultiplied(90, 150, 230, 85);
+                    for &(a, b) in &sel_ranges {
+                        let y0 =
+                            rect.top() + ((a as f32 / max_scroll).clamp(0.0, 1.0) * rect.height());
+                        let y1 = rect.top()
+                            + (((b as f32 + 0.5) / max_scroll).clamp(0.0, 1.0) * rect.height());
+                        let top = y0.min(y1);
+                        let h = (y1 - y0).abs().max(2.0);
+                        painter.rect_filled(
+                            Rect::from_min_size(
+                                Pos2::new(rect.left(), top),
+                                Vec2::new(rect.width(), h),
+                            ),
+                            0.0,
+                            sel_fill,
+                        );
+                    }
                 }
                 // Hide-equal collapsed Equal runs (···N) as muted bands while Hide Unchanged is on.
                 if max_scroll > 0.0 {
@@ -7802,6 +7865,35 @@ impl EditorApp {
                         paint_ch(line_idx, change_history_unsaved_color());
                     }
                 }
+                // Multi-caret ticks (orange, center third) when column / multi-select is active.
+                if max_scroll > 0.0 {
+                    let tick = Color32::from_rgb(240, 160, 70);
+                    let w = (rect.width() * 0.34).max(3.0);
+                    let x = rect.left() + (rect.width() - w) * 0.5;
+                    for &line_idx in &multi_caret_ticks {
+                        let frac = (line_idx as f32 / max_scroll).clamp(0.0, 1.0);
+                        let y = rect.top() + frac * rect.height();
+                        painter.rect_filled(
+                            Rect::from_min_size(Pos2::new(x, y - 1.0), Vec2::new(w, 2.0)),
+                            0.0,
+                            tick,
+                        );
+                    }
+                }
+                // Primary caret tick (white, full width) — where the focused caret sits.
+                if max_scroll > 0.0 {
+                    let tick = Color32::from_rgb(245, 245, 250);
+                    let frac = (caret_line as f32 / max_scroll).clamp(0.0, 1.0);
+                    let y = rect.top() + frac * rect.height();
+                    painter.rect_filled(
+                        Rect::from_min_size(
+                            Pos2::new(rect.left(), y - 0.75),
+                            Vec2::new(rect.width(), 1.5),
+                        ),
+                        0.0,
+                        tick,
+                    );
+                }
                 if max_scroll > 0.0 {
                     let frac = (scroll_now / max_scroll).clamp(0.0, 1.0);
                     let mark_h = (rect.height() * 0.08).max(6.0);
@@ -7845,6 +7937,8 @@ impl EditorApp {
                         };
                         let nearest_fold =
                             || crate::diff::doc_map_nearest_mark(line_idx, &fold_ticks, snap);
+                        let nearest_caret =
+                            || crate::diff::doc_map_nearest_mark(line_idx, &caret_tick_marks, snap);
                         if compare_active {
                             if let Some(gap) =
                                 crate::diff::doc_map_compare_hide_gap_at(line_idx, &hide_gaps)
@@ -7860,6 +7954,8 @@ impl EditorApp {
                                 find_click = Some(hit);
                             } else if let Some(ch) = nearest_ch() {
                                 ch_click = Some(ch);
+                            } else if let Some(cl) = nearest_caret() {
+                                caret_click = Some(cl);
                             } else {
                                 compare_click_line = Some(line_idx);
                             }
@@ -7873,6 +7969,8 @@ impl EditorApp {
                             find_click = Some(hit);
                         } else if let Some(ch) = nearest_ch() {
                             ch_click = Some(ch);
+                        } else if let Some(cl) = nearest_caret() {
+                            caret_click = Some(cl);
                         }
                     }
                 }
@@ -8035,6 +8133,36 @@ impl EditorApp {
                     "Document Map → change history line {} ({kind})",
                     line_idx + 1
                 );
+            }
+        } else if let Some(line_idx) = caret_click {
+            if let Some(doc) = self.state.tabs.get_mut(map_tab) {
+                let at = doc
+                    .buffer
+                    .line_to_char(line_idx.min(doc.buffer.line_count().saturating_sub(1)));
+                doc.buffer.set_caret(at);
+            }
+            if secondary {
+                self.follow_caret_other = true;
+                if self.sync_scroll_v {
+                    self.follow_caret = true;
+                }
+            } else {
+                self.follow_caret = true;
+                if self.sync_scroll_v {
+                    self.follow_caret_other = true;
+                }
+            }
+            if compare_active {
+                // Parks partner + selects hunk (or Equal partner); sets Compare status.
+                self.sync_compare_other_to_caret_hunk(map_tab == self.compare_left_tab);
+            } else if multi_caret_ticks.len() >= 2 {
+                self.state.status = format!(
+                    "Document Map → caret line {} · {} carets",
+                    line_idx + 1,
+                    multi_caret_ticks.len()
+                );
+            } else {
+                self.state.status = format!("Document Map → caret line {}", line_idx + 1);
             }
         } else if let Some(line_idx) = compare_click_line {
             if let Some(doc) = self.state.tabs.get_mut(map_tab) {

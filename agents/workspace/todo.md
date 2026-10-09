@@ -259,3 +259,4 @@
 009 keep: Document Map Find match ticks + click select (v0.3.172)
 
 009 keep: Document Map fold-header ticks + click toggle (v0.3.173)
+009 keep: Document Map selection wash + caret / multi-caret ticks (v0.3.174)

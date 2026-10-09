@@ -522,6 +522,42 @@ pub fn doc_map_nearest_mark(line: usize, marks: &[usize], max_dist: usize) -> Op
         .min_by_key(|m| m.abs_diff(line))
 }
 
+/// Inclusive line span for a half-open char range `[start, end)`.
+///
+/// `char_to_line` maps a char index to a 0-based line. Empty ranges yield `None`.
+pub fn doc_map_char_range_lines(
+    start: usize,
+    end: usize,
+    char_to_line: impl Fn(usize) -> usize,
+) -> Option<(usize, usize)> {
+    if start >= end {
+        return None;
+    }
+    let lo = char_to_line(start);
+    let hi = char_to_line(end - 1);
+    Some((lo.min(hi), lo.max(hi)))
+}
+
+/// Merge overlapping / adjacent inclusive line ranges in place (sorted).
+pub fn doc_map_merge_line_ranges(ranges: &mut Vec<(usize, usize)>) {
+    if ranges.is_empty() {
+        return;
+    }
+    ranges.sort_unstable_by_key(|&(a, _)| a);
+    let mut out = Vec::with_capacity(ranges.len());
+    let mut cur = ranges[0];
+    for &(a, b) in ranges.iter().skip(1) {
+        if a <= cur.1.saturating_add(1) {
+            cur.1 = cur.1.max(b);
+        } else {
+            out.push(cur);
+            cur = (a, b);
+        }
+    }
+    out.push(cur);
+    *ranges = out;
+}
+
 /// Insert every line in an inclusive gap into `revealed`. Returns how many were new.
 pub fn reveal_compare_gap(revealed: &mut BTreeSet<usize>, gap: (usize, usize)) -> usize {
     let mut n = 0usize;
@@ -1902,6 +1938,22 @@ mod tests {
         assert_eq!(doc_map_nearest_mark(15, &marks, 2), None);
         assert_eq!(doc_map_nearest_mark(10, &marks, 0), Some(10));
         assert_eq!(doc_map_nearest_mark(9, &[], 5), None);
+        // char→line: every 10 chars is a new line (0..9 → 0, 10..19 → 1, …).
+        let ctl = |c: usize| c / 10;
+        assert_eq!(doc_map_char_range_lines(0, 0, ctl), None);
+        assert_eq!(doc_map_char_range_lines(5, 5, ctl), None);
+        assert_eq!(doc_map_char_range_lines(0, 1, ctl), Some((0, 0)));
+        assert_eq!(doc_map_char_range_lines(5, 25, ctl), Some((0, 2)));
+        assert_eq!(doc_map_char_range_lines(10, 11, ctl), Some((1, 1)));
+        let mut ranges = vec![(0, 2), (3, 5), (8, 9), (1, 1)];
+        doc_map_merge_line_ranges(&mut ranges);
+        assert_eq!(ranges, vec![(0, 5), (8, 9)]);
+        let mut single = vec![(4, 4)];
+        doc_map_merge_line_ranges(&mut single);
+        assert_eq!(single, vec![(4, 4)]);
+        let mut empty: Vec<(usize, usize)> = vec![];
+        doc_map_merge_line_ranges(&mut empty);
+        assert!(empty.is_empty());
         assert_eq!(next_compare_hide_gap(0, &[]), None);
         let mut revealed = BTreeSet::new();
         assert_eq!(reveal_compare_gap(&mut revealed, (0, 0)), 1);

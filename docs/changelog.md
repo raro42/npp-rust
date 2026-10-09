@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.174] — 2026-10-10
+
+View:
+
+- **Document Map** paints a soft blue wash over the current selection (title `· sel`), a white caret tick at the focused caret, and orange center ticks for multi-carets when column / multi-select is active (title `· N carets`). Click near a caret tick parks on that line (status `Document Map → caret line N` / `… · N carets`); while Compare is on, the click also syncs the partner pane like a hunk/Equal park.
+
 ## [0.3.173] — 2026-10-10
 
 View / Fold:
