@@ -144,6 +144,10 @@ fn default_shortcut_compare_to_saved() -> String {
     crate::shortcut_chord::DEFAULT_COMPARE_TO_SAVED.into()
 }
 
+fn default_shortcut_copy_compare_diff() -> String {
+    crate::shortcut_chord::DEFAULT_COPY_COMPARE_DIFF.into()
+}
+
 fn default_shortcut_word_jump() -> String {
     crate::shortcut_chord::DEFAULT_WORD_JUMP.into()
 }
@@ -434,6 +438,9 @@ pub struct AppSettings {
     /// Compare-to-saved chord (`Alt+Shift+S` default).
     #[serde(default = "default_shortcut_compare_to_saved")]
     pub shortcut_compare_to_saved: String,
+    /// Copy-compare-diff chord (`Alt+C` default; Shift flips to Open Compare Diff).
+    #[serde(default = "default_shortcut_copy_compare_diff")]
+    pub shortcut_copy_compare_diff: String,
     /// Word-jump-back chord (`Alt+Left` default). Opposite arrow jumps forward; Shift extends.
     #[serde(default = "default_shortcut_word_jump")]
     pub shortcut_word_jump: String,
@@ -592,6 +599,7 @@ impl Default for AppSettings {
             shortcut_compare: default_shortcut_compare(),
             shortcut_swap_compare: default_shortcut_swap_compare(),
             shortcut_compare_to_saved: default_shortcut_compare_to_saved(),
+            shortcut_copy_compare_diff: default_shortcut_copy_compare_diff(),
             shortcut_word_jump: default_shortcut_word_jump(),
             shortcut_goto_line: default_shortcut_goto_line(),
             shortcut_duplicate_line: default_shortcut_duplicate_line(),
@@ -955,6 +963,7 @@ mod tests {
             shortcut_compare: "Ctrl+Alt+D".into(),
             shortcut_swap_compare: "Ctrl+Alt+Shift+S".into(),
             shortcut_compare_to_saved: "Ctrl+Alt+Shift+V".into(),
+            shortcut_copy_compare_diff: "Ctrl+Alt+C".into(),
             shortcut_word_jump: "Ctrl+Alt+Left".into(),
             shortcut_goto_line: "Ctrl+Shift+G".into(),
             shortcut_duplicate_line: "Ctrl+Shift+D".into(),
@@ -1021,6 +1030,7 @@ mod tests {
         assert_eq!(back.shortcut_compare, "Ctrl+Alt+D");
         assert_eq!(back.shortcut_swap_compare, "Ctrl+Alt+Shift+S");
         assert_eq!(back.shortcut_compare_to_saved, "Ctrl+Alt+Shift+V");
+        assert_eq!(back.shortcut_copy_compare_diff, "Ctrl+Alt+C");
         assert_eq!(back.shortcut_word_jump, "Ctrl+Alt+Left");
         assert_eq!(back.shortcut_goto_line, "Ctrl+Shift+G");
         assert_eq!(back.shortcut_duplicate_line, "Ctrl+Shift+D");

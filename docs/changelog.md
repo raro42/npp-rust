@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.153] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Copy / Open Compare Diff** is remappable: Preferences → Copy Compare Diff shortcut, or `shortcut_copy_compare_diff` in `npp-rs/settings.json` (default `Alt+C`). Shift flips to Open Compare Diff (`Alt+Shift+C`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.152] — 2026-10-09
 
 Settings / shortcuts:

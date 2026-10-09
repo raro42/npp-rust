@@ -2487,6 +2487,46 @@ impl EditorApp {
             }
         }
 
+        // Remappable copy compare diff (default Alt+C; settings.shortcut_copy_compare_diff).
+        // Shift flips to Open Compare Diff.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_COPY_COMPARE_DIFF};
+            let copy_chord = resolve_chord(
+                &self.state.settings.shortcut_copy_compare_diff,
+                DEFAULT_COPY_COMPARE_DIFF,
+            );
+            let copy_key_pressed = match copy_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if copy_key_pressed && copy_chord.flipped_shift().matches(mods, copy_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_OPEN_COMPARE_DIFF");
+            } else if copy_key_pressed && copy_chord.matches(mods, copy_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COPY_COMPARE_DIFF");
+            }
+        }
+
         // Remappable zoom in / out / restore (defaults Cmd+= / Cmd+- / Cmd+0).
         // Mouse wheel stays hard-wired.
         {
@@ -2920,11 +2960,27 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS" => response.on_hover_text(
                         "Remove bookmarks at every Compare change-hunk start on both panes (other bookmarks stay)",
                     ),
-                    "IDM_VIEW_COPY_COMPARE_DIFF" => response
-                        .on_hover_text("Copy the Compare pair as a unified diff (clipboard)"),
-                    "IDM_VIEW_OPEN_COMPARE_DIFF" => response.on_hover_text(
-                        "Open the Compare pair as a unified-diff tab (clears Compare)",
-                    ),
+                    "IDM_VIEW_COPY_COMPARE_DIFF" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_copy_compare_diff,
+                            crate::shortcut_chord::DEFAULT_COPY_COMPARE_DIFF,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Copy the Compare pair as a unified diff (clipboard; {chord}; Preferences remappable; Shift + that chord opens)"
+                        ))
+                    }
+                    "IDM_VIEW_OPEN_COMPARE_DIFF" => {
+                        let open = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_copy_compare_diff,
+                            crate::shortcut_chord::DEFAULT_COPY_COMPARE_DIFF,
+                        )
+                        .flipped_shift()
+                        .display();
+                        response.on_hover_text(format!(
+                            "Open the Compare pair as a unified-diff tab (clears Compare; {open}; Preferences remappable via Copy Compare Diff shortcut + Shift)"
+                        ))
+                    }
                     "IDM_VIEW_COPY_COMPARE_SUMMARY" => response.on_hover_text(
                         "Copy a text summary of every Compare change hunk (clipboard)",
                     ),
@@ -3273,6 +3329,15 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_COMPARE_TO_SAVED,
                 )
                 .display();
+                let copy_compare_diff_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_copy_compare_diff,
+                    crate::shortcut_chord::DEFAULT_COPY_COMPARE_DIFF,
+                );
+                let copy_compare_diff_keys = format!(
+                    "{} / {}",
+                    copy_compare_diff_chord.display(),
+                    copy_compare_diff_chord.flipped_shift().display()
+                );
                 let word_jump_chord = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_word_jump,
                     crate::shortcut_chord::DEFAULT_WORD_JUMP,
@@ -3474,7 +3539,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 43] = [
+                        let rows: [(&str, &str); 44] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -3492,6 +3557,7 @@ Tree-sitter highlight, and a calm UI.",
                             (compare_keys.as_str(), "Compare start / clear"),
                             (swap_compare_keys.as_str(), "Swap Compare sides"),
                             (compare_to_saved_keys.as_str(), "Compare to Saved"),
+                            (copy_compare_diff_keys.as_str(), "Copy / Open Compare Diff"),
                             (diff_keys.as_str(), "Compare next / prev diff"),
                             (first_diff_keys.as_str(), "Compare first / last diff"),
                             (hidden_keys.as_str(), "Compare next / prev hidden equal"),
@@ -4203,6 +4269,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+Shift+S, Ctrl+Alt+Shift+V. Runs View → Compare to Saved (disk snapshot).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Copy Compare Diff shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_copy_compare_diff,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+C"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_copy_compare_diff
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_copy_compare_diff =
+                                        crate::shortcut_chord::DEFAULT_COPY_COMPARE_DIFF.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_COPY_COMPARE_DIFF
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_copy_compare_diff = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+C, Ctrl+Alt+C. Copies View → Copy Compare Diff. Shift + that chord is Open Compare Diff.",
                             )
                             .small()
                             .weak(),
