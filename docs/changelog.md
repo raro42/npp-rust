@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.156] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Tab indent** is remappable: Preferences → Tab indent shortcut, or `shortcut_tab_indent` in `npp-rs/settings.json` (default `Tab`). Inserts spaces at the caret (and multi-carets); `Cmd+]` (`shortcut_indent`) stays as line-indent. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.155] — 2026-10-09
 
 Settings / shortcuts:

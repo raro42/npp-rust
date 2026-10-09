@@ -61,6 +61,7 @@ New keys:
 | `shortcut_save_as` | Save-as chord (`Cmd+Shift+S` default) |
 | `shortcut_save_all` | Save-all chord (`Cmd+Alt+S` default) |
 | `shortcut_print` | Print chord (`Cmd+P` default) |
+| `shortcut_tab_indent` | Tab indent chord (`Tab` default; inserts spaces at caret / multi-carets) |
 | `shortcut_shift_tab_outdent` | Shift+Tab outdent chord (`Shift+Tab` default; alternate to `shortcut_outdent`) |
 | `shortcut_fold_all` | Fold-all chord (`Alt+0` default; Shift flips to Unfold All) |
 | `shortcut_fold_current` | Fold-current chord (`Alt+F` default; Shift flips to Unfold Current) |

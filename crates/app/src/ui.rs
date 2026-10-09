@@ -1594,6 +1594,53 @@ impl EditorApp {
                 self.follow_focused_caret();
             }
         }
+        // Remappable Tab indent (default Tab; settings.shortcut_tab_indent).
+        // Tab-key default is handled in handle_editor_input; non-Tab remaps land here.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_TAB_INDENT};
+            let tab_indent_chord =
+                resolve_chord(&self.state.settings.shortcut_tab_indent, DEFAULT_TAB_INDENT);
+            if tab_indent_chord.key != Key::Tab {
+                let tab_indent_pressed = match tab_indent_chord.key {
+                    Key::Z => z,
+                    Key::N => n,
+                    Key::O => o,
+                    Key::S => s,
+                    Key::F => f,
+                    Key::Y => y,
+                    Key::W => w,
+                    Key::G => g,
+                    Key::A => a,
+                    Key::D => d,
+                    Key::L => l,
+                    Key::I => i_key,
+                    Key::T => t,
+                    Key::H => h,
+                    Key::F2 => f2,
+                    Key::F3 => f3,
+                    Key::F7 => f7,
+                    Key::Equals => equals,
+                    Key::Minus => minus,
+                    Key::Num0 => num0,
+                    Key::CloseBracket => close_br,
+                    Key::OpenBracket => open_br,
+                    other => ctx.input(|i| i.key_pressed(other)),
+                };
+                if tab_indent_pressed && tab_indent_chord.matches(mods, tab_indent_chord.key) {
+                    let tab = self.focused_edit_tab();
+                    self.state.prepare_edit_at(tab);
+                    let n = self.state.settings.tab_width.max(1) as usize;
+                    let pad = " ".repeat(n);
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        if !doc.insert_multi(&pad) {
+                            doc.buffer.insert(&pad);
+                        }
+                    }
+                    self.state.mark_text_changed_at(tab);
+                    self.follow_focused_caret();
+                }
+            }
+        }
         // Remappable Shift+Tab outdent (default Shift+Tab; settings.shortcut_shift_tab_outdent).
         // Tab-key default is handled in handle_editor_input; non-Tab remaps land here.
         {
@@ -3504,13 +3551,19 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_OUTDENT,
                 )
                 .display();
+                let tab_indent_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_tab_indent,
+                    crate::shortcut_chord::DEFAULT_TAB_INDENT,
+                )
+                .display();
                 let shift_tab_outdent_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_shift_tab_outdent,
                     crate::shortcut_chord::DEFAULT_SHIFT_TAB_OUTDENT,
                 )
                 .display();
-                let indent_outdent_keys =
-                    format!("{indent_keys} / {outdent_keys} / {shift_tab_outdent_keys}");
+                let indent_outdent_keys = format!(
+                    "{indent_keys} / {outdent_keys} / {tab_indent_keys} / {shift_tab_outdent_keys}"
+                );
                 let fold_all_chord = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_fold_all,
                     crate::shortcut_chord::DEFAULT_FOLD_ALL,
@@ -4698,6 +4751,36 @@ Tree-sitter highlight, and a calm UI.",
                         });
                         ui.label(
                             RichText::new("Example: Cmd+[, Ctrl+Shift+[.")
+                                .small()
+                                .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Tab indent shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_tab_indent,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Tab"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_tab_indent.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_tab_indent =
+                                        crate::shortcut_chord::DEFAULT_TAB_INDENT.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_TAB_INDENT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_tab_indent = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new("Example: Tab, Ctrl+I. Inserts spaces at caret.")
                                 .small()
                                 .weak(),
                         );
@@ -11168,7 +11251,11 @@ Tree-sitter highlight, and a calm UI.",
                     modifiers,
                     ..
                 } if !modifiers.command && !modifiers.ctrl => {
-                    // Remappable Shift+Tab outdent (default Shift+Tab; settings.shortcut_shift_tab_outdent).
+                    // Remappable Tab indent (default Tab) + Shift+Tab outdent.
+                    let indent_tab = crate::shortcut_chord::resolve_chord(
+                        &self.state.settings.shortcut_tab_indent,
+                        crate::shortcut_chord::DEFAULT_TAB_INDENT,
+                    );
                     let outdent_tab = crate::shortcut_chord::resolve_chord(
                         &self.state.settings.shortcut_shift_tab_outdent,
                         crate::shortcut_chord::DEFAULT_SHIFT_TAB_OUTDENT,
@@ -11184,7 +11271,8 @@ Tree-sitter highlight, and a calm UI.",
                             }
                             changed = true;
                         }
-                    } else if !modifiers.shift {
+                    } else if indent_tab.key == Key::Tab && indent_tab.matches(modifiers, Key::Tab)
+                    {
                         if read_only {
                             self.state.status = "Document is read-only".into();
                         } else {
