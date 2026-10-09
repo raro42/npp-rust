@@ -19,4 +19,4 @@ Let's think about how NPP could benefit from Cursor plugin and using local Ollam
 
 ## Progress
 - **Coder (v0.3.165):** Local Ollama helper instead of a VS Code/Cursor plugin. Plugins → Ask Ollama / Ollama Status (loopback only). Preferences `ollama_host` / `ollama_model`. Design note in `docs/ollama-helper.md`. Handoff to tester.
-- Commit: (filled after push)
+- Commit: 90b5d1b
