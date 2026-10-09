@@ -19,3 +19,10 @@ The about window is full of keyboard short-cuts. Can we move them into a separat
 
 ## Progress
 - **2026-10-09 (coder):** Slim About (version, links, why/made-by). Shortcuts moved to scrollable **Keyboard shortcuts** window via About button. Shared `shortcut_help_rows`. Version **0.3.161** (commit `9450c8f`). `./scripts/ci-local.sh` green. Handoff → TEST (issue left open).
+
+- **2026-10-09 (tester):** Verified slim About (version/links/why/made-by) + scrollable Keyboard shortcuts window via button; `shortcut_help_rows` shared. `./scripts/ci-local.sh` green (fmt, clippy -D warnings, 178+workspace tests, release). → DONE. Issue left open for handoff.
+
+## Handoff (2026-10-09)
+- User-facing notes already in `docs/changelog.md` under **[0.3.161]** (not Unreleased).
+- Task goal met: clean About + separate scrollable Keyboard shortcuts window (v0.3.161, `9450c8f`).
+- Close issue #15 with `agent:done`.
