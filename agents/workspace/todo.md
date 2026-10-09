@@ -233,3 +233,5 @@
 009 keep: remappable Tab indent (shortcut_tab_indent, Tab default, v0.3.156)
 
 009 keep: remappable Compare ignore whitespace / ignore case (shortcut_compare_ignore_ws, Alt+W default, v0.3.157)
+
+009 keep: remappable Compare ignore blank lines (shortcut_compare_ignore_blank, Alt+B default, v0.3.158)

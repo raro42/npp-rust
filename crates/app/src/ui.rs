@@ -2462,6 +2462,43 @@ impl EditorApp {
             }
         }
 
+        // Remappable ignore blank lines (default Alt+B; settings.shortcut_compare_ignore_blank).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_COMPARE_IGNORE_BLANK};
+            let blank_chord = resolve_chord(
+                &self.state.settings.shortcut_compare_ignore_blank,
+                DEFAULT_COMPARE_IGNORE_BLANK,
+            );
+            let blank_key_pressed = match blank_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if blank_key_pressed && blank_chord.matches(mods, blank_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_IGNORE_BLANK");
+            }
+        }
+
         // Remappable start compare (default Alt+D; settings.shortcut_compare).
         // Shift + same chord clears Compare.
         {
@@ -3053,9 +3090,16 @@ impl EditorApp {
                             "Toggle ignore letter case for Compare ({chord}; Preferences remappable via Ignore whitespace shortcut + Shift; Preferences persist)"
                         ))
                     }
-                    "IDM_VIEW_COMPARE_IGNORE_BLANK" => response.on_hover_text(
-                        "Toggle ignore blank lines for Compare (Preferences persist)",
-                    ),
+                    "IDM_VIEW_COMPARE_IGNORE_BLANK" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_compare_ignore_blank,
+                            crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_BLANK,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Toggle ignore blank lines for Compare ({chord}; Preferences remappable; Preferences persist)"
+                        ))
+                    }
                     "IDM_VIEW_COMPARE_HIDE_EQUAL" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_hide_equal,
@@ -3536,6 +3580,11 @@ Tree-sitter highlight, and a calm UI.",
                     ignore_ws_chord.display(),
                     ignore_ws_chord.flipped_shift().display()
                 );
+                let ignore_blank_keys = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_compare_ignore_blank,
+                    crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_BLANK,
+                )
+                .display();
                 let compare_chord = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_compare,
                     crate::shortcut_chord::DEFAULT_COMPARE,
@@ -3789,7 +3838,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 47] = [
+                        let rows: [(&str, &str); 48] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -3833,6 +3882,7 @@ Tree-sitter highlight, and a calm UI.",
                                 ignore_ws_keys.as_str(),
                                 "Compare ignore whitespace / ignore case",
                             ),
+                            (ignore_blank_keys.as_str(), "Compare ignore blank lines"),
                             (hide_ctx_keys.as_str(), "Compare hide-equal context ±1"),
                             (zoom_row.as_str(), "Zoom in / out / restore"),
                             (wrap_keys.as_str(), "Word wrap"),
@@ -4456,6 +4506,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+W, Ctrl+Alt+W. Toggles Ignore Whitespace. Shift + that chord is Ignore Case.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Ignore blank lines shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_compare_ignore_blank,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+B"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_compare_ignore_blank
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_compare_ignore_blank =
+                                        crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_BLANK.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_BLANK
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_compare_ignore_blank = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+B, Ctrl+Alt+B. Toggles View → Ignore Blank Lines while Compare is on.",
                             )
                             .small()
                             .weak(),

@@ -201,19 +201,20 @@ fn open_info_tab(state: &mut EditorState, title: &str, text: &str) {
 fn show_shortcut_mapper(state: &mut EditorState) {
     use crate::shortcut_chord::{
         resolve_chord, DEFAULT_APPLY_COMPARE_HUNK, DEFAULT_CLOSE_FIND, DEFAULT_CLOSE_TAB,
-        DEFAULT_COMPARE, DEFAULT_COMPARE_IGNORE_WS, DEFAULT_COMPARE_TO_SAVED,
-        DEFAULT_COPY_COMPARE_DIFF, DEFAULT_COPY_COMPARE_HUNK, DEFAULT_COPY_COMPARE_SUMMARY,
-        DEFAULT_DELETE_LINE, DEFAULT_DUPLICATE_LINE, DEFAULT_FIND, DEFAULT_FIND_NEXT,
-        DEFAULT_FIND_NEXT_GLOBAL, DEFAULT_FIRST_DIFF, DEFAULT_FIRST_HIDDEN_EQUAL, DEFAULT_FOLD_ALL,
-        DEFAULT_FOLD_CURRENT, DEFAULT_FORMAT_DOCUMENT, DEFAULT_GOTO_LINE, DEFAULT_HIDE_EQUAL,
-        DEFAULT_HIDE_EQUAL_CONTEXT, DEFAULT_INDENT, DEFAULT_MATCHING_BRACE, DEFAULT_MOVE_LINE,
-        DEFAULT_NEW, DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF, DEFAULT_NEXT_HIDDEN_EQUAL,
-        DEFAULT_NEXT_TAB, DEFAULT_OPEN, DEFAULT_OUTDENT, DEFAULT_PRINT, DEFAULT_REDO,
-        DEFAULT_RELOAD, DEFAULT_REPLACE, DEFAULT_REPLACE_ALT, DEFAULT_SAVE, DEFAULT_SAVE_ALL,
-        DEFAULT_SAVE_AS, DEFAULT_SELECT_ALL, DEFAULT_SHIFT_TAB_OUTDENT, DEFAULT_SWAP_COMPARE,
-        DEFAULT_TAB_INDENT, DEFAULT_TOGGLE_BOOKMARK, DEFAULT_TOGGLE_COMMENT,
-        DEFAULT_TOGGLE_LOG_TAIL, DEFAULT_UNDO, DEFAULT_WORD_JUMP, DEFAULT_WORD_WRAP,
-        DEFAULT_ZOOM_IN, DEFAULT_ZOOM_OUT, DEFAULT_ZOOM_RESTORE,
+        DEFAULT_COMPARE, DEFAULT_COMPARE_IGNORE_BLANK, DEFAULT_COMPARE_IGNORE_WS,
+        DEFAULT_COMPARE_TO_SAVED, DEFAULT_COPY_COMPARE_DIFF, DEFAULT_COPY_COMPARE_HUNK,
+        DEFAULT_COPY_COMPARE_SUMMARY, DEFAULT_DELETE_LINE, DEFAULT_DUPLICATE_LINE, DEFAULT_FIND,
+        DEFAULT_FIND_NEXT, DEFAULT_FIND_NEXT_GLOBAL, DEFAULT_FIRST_DIFF,
+        DEFAULT_FIRST_HIDDEN_EQUAL, DEFAULT_FOLD_ALL, DEFAULT_FOLD_CURRENT,
+        DEFAULT_FORMAT_DOCUMENT, DEFAULT_GOTO_LINE, DEFAULT_HIDE_EQUAL, DEFAULT_HIDE_EQUAL_CONTEXT,
+        DEFAULT_INDENT, DEFAULT_MATCHING_BRACE, DEFAULT_MOVE_LINE, DEFAULT_NEW,
+        DEFAULT_NEXT_BOOKMARK, DEFAULT_NEXT_DIFF, DEFAULT_NEXT_HIDDEN_EQUAL, DEFAULT_NEXT_TAB,
+        DEFAULT_OPEN, DEFAULT_OUTDENT, DEFAULT_PRINT, DEFAULT_REDO, DEFAULT_RELOAD,
+        DEFAULT_REPLACE, DEFAULT_REPLACE_ALT, DEFAULT_SAVE, DEFAULT_SAVE_ALL, DEFAULT_SAVE_AS,
+        DEFAULT_SELECT_ALL, DEFAULT_SHIFT_TAB_OUTDENT, DEFAULT_SWAP_COMPARE, DEFAULT_TAB_INDENT,
+        DEFAULT_TOGGLE_BOOKMARK, DEFAULT_TOGGLE_COMMENT, DEFAULT_TOGGLE_LOG_TAIL, DEFAULT_UNDO,
+        DEFAULT_WORD_JUMP, DEFAULT_WORD_WRAP, DEFAULT_ZOOM_IN, DEFAULT_ZOOM_OUT,
+        DEFAULT_ZOOM_RESTORE,
     };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
@@ -397,6 +398,21 @@ fn show_shortcut_mapper(state: &mut EditorState) {
     } else {
         format!(
             "{ignore_ws} / {ignore_case} (from settings.shortcut_compare_ignore_ws = {ignore_ws_raw:?}; Shift flips to ignore case)"
+        )
+    };
+    let ignore_blank = resolve_chord(
+        &state.settings.shortcut_compare_ignore_blank,
+        DEFAULT_COMPARE_IGNORE_BLANK,
+    )
+    .display();
+    let ignore_blank_raw = state.settings.shortcut_compare_ignore_blank.trim();
+    let ignore_blank_note = if ignore_blank_raw.is_empty()
+        || ignore_blank_raw.eq_ignore_ascii_case(DEFAULT_COMPARE_IGNORE_BLANK)
+    {
+        format!("{ignore_blank} (default; Preferences → Ignore blank lines shortcut)")
+    } else {
+        format!(
+            "{ignore_blank} (from settings.shortcut_compare_ignore_blank = {ignore_blank_raw:?})"
         )
     };
     let compare_chord = resolve_chord(&state.settings.shortcut_compare, DEFAULT_COMPARE);
@@ -837,8 +853,8 @@ fn show_shortcut_mapper(state: &mut EditorState) {
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, Find next (global), Next bookmark, Toggle bookmark, Compare start/clear, Swap Compare sides, Compare to Saved, Copy / Open Compare Diff, Copy / Open Compare Summary, Copy / Open Compare Hunk, Word jump, Next difference, First difference, Next hidden equal, First hidden equal, Apply compare hunk, Hide unchanged lines, Ignore whitespace / Ignore case, Hide-equal context, Go to line, Duplicate line, Delete line, Move line, Toggle comment, Indent, Outdent, Tab indent, Shift+Tab outdent, Fold / Unfold all, Fold / Unfold current, Matching brace, Format document, Close tab, Next / prev tab, New, Open, Reload, Save, Save As, Save All, Print, Find, Close Find/Replace, Replace, Replace (alternate), Select all, Undo, Redo, Zoom in, Zoom out, Zoom restore, and Toggle log tail are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_find_next_global, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_compare, shortcut_swap_compare, shortcut_compare_to_saved, shortcut_copy_compare_diff, shortcut_copy_compare_summary, shortcut_copy_compare_hunk, shortcut_word_jump, shortcut_next_diff, shortcut_first_diff, shortcut_next_hidden_equal, shortcut_first_hidden_equal, shortcut_apply_compare_hunk, shortcut_hide_equal, shortcut_compare_ignore_ws, shortcut_hide_equal_context, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_move_line, shortcut_toggle_comment, shortcut_indent, shortcut_outdent, shortcut_tab_indent, shortcut_shift_tab_outdent, shortcut_fold_all, shortcut_fold_current, shortcut_matching_brace, shortcut_format_document, shortcut_close_tab, shortcut_next_tab, shortcut_new, shortcut_open, shortcut_reload, shortcut_save, shortcut_save_as, shortcut_save_all, shortcut_print, shortcut_find, shortcut_close_find, shortcut_replace, shortcut_replace_alt, shortcut_select_all, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore, shortcut_toggle_log_tail). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Find next (global), Next bookmark, Toggle bookmark, Compare start/clear, Swap Compare sides, Compare to Saved, Copy / Open Compare Diff, Copy / Open Compare Summary, Copy / Open Compare Hunk, Word jump, Next difference, First difference, Next hidden equal, First hidden equal, Apply compare hunk, Hide unchanged lines, Ignore whitespace / Ignore case, Ignore blank lines, Hide-equal context, Go to line, Duplicate line, Delete line, Move line, Toggle comment, Indent, Outdent, Tab indent, Shift+Tab outdent, Fold / Unfold all, Fold / Unfold current, Matching brace, Format document, Close tab, Next / prev tab, New, Open, Reload, Save, Save As, Save All, Print, Find, Close Find/Replace, Replace, Replace (alternate), Select all, Undo, Redo, Zoom in, Zoom out, Zoom restore, and Toggle log tail are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_find_next_global, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_compare, shortcut_swap_compare, shortcut_compare_to_saved, shortcut_copy_compare_diff, shortcut_copy_compare_summary, shortcut_copy_compare_hunk, shortcut_word_jump, shortcut_next_diff, shortcut_first_diff, shortcut_next_hidden_equal, shortcut_first_hidden_equal, shortcut_apply_compare_hunk, shortcut_hide_equal, shortcut_compare_ignore_ws, shortcut_compare_ignore_blank, shortcut_hide_equal_context, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_move_line, shortcut_toggle_comment, shortcut_indent, shortcut_outdent, shortcut_tab_indent, shortcut_shift_tab_outdent, shortcut_fold_all, shortcut_fold_current, shortcut_matching_brace, shortcut_format_document, shortcut_close_tab, shortcut_next_tab, shortcut_new, shortcut_open, shortcut_reload, shortcut_save, shortcut_save_as, shortcut_save_all, shortcut_print, shortcut_find, shortcut_close_find, shortcut_replace, shortcut_replace_alt, shortcut_select_all, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore, shortcut_toggle_log_tail). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -898,6 +914,7 @@ Find / navigate
 {apply_note}
 {hide_equal_note}
 {ignore_ws_note}
+{ignore_blank_note}
 {hide_ctx_note}
 
 View / zoom

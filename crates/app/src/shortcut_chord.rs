@@ -47,6 +47,9 @@ pub const DEFAULT_HIDE_EQUAL: &str = "Alt+H";
 /// Shift + same key is Ignore Case Differences.
 pub const DEFAULT_COMPARE_IGNORE_WS: &str = "Alt+W";
 
+/// Default ignore-blank-lines toggle (View → Ignore Blank Lines).
+pub const DEFAULT_COMPARE_IGNORE_BLANK: &str = "Alt+B";
+
 /// Default start-compare binding (View → Compare with Other View).
 /// Shift + same key is Clear Compare.
 pub const DEFAULT_COMPARE: &str = "Alt+D";
@@ -551,6 +554,16 @@ mod tests {
         assert_eq!(c.key, Key::W);
         assert_eq!(c.display(), "Alt+W");
         assert_eq!(c.flipped_shift().display(), "Alt+Shift+W");
+    }
+
+    #[test]
+    fn parse_alt_b_default_compare_ignore_blank() {
+        let c = parse_chord(DEFAULT_COMPARE_IGNORE_BLANK).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::B);
+        assert_eq!(c.display(), "Alt+B");
     }
 
     #[test]

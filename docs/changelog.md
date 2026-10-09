@@ -2,11 +2,17 @@
 
 ## [Unreleased]
 
+## [0.3.158] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Ignore blank lines** (Compare) is remappable: Preferences → Ignore blank lines shortcut, or `shortcut_compare_ignore_blank` in `npp-rs/settings.json` (default `Alt+B`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.157] — 2026-10-09
 
 Settings / shortcuts:
 
-- **Ignore whitespace / Ignore case** (Compare) is remappable: Preferences → Ignore whitespace shortcut, or `shortcut_compare_ignore_ws` in `npp-rs/settings.json` (default `Alt+W`). Shift flips to Ignore Case (`Alt+Shift+W`). Ignore Blank Lines stays menu-only. Shortcut Mapper and About show the effective binding.
+- **Ignore whitespace / Ignore case** (Compare) is remappable: Preferences → Ignore whitespace shortcut, or `shortcut_compare_ignore_ws` in `npp-rs/settings.json` (default `Alt+W`). Shift flips to Ignore Case (`Alt+Shift+W`). Ignore Blank Lines stayed menu-only until v0.3.158. Shortcut Mapper and About show the effective binding.
 
 ## [0.3.156] — 2026-10-09
 
