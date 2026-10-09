@@ -7502,7 +7502,7 @@ impl EditorApp {
         } else {
             self.scroll_line
         };
-        let (line_count, sample_n, strips, compare_active, max_scroll) = {
+        let (line_count, sample_n, strips, hunk_ticks, compare_active, max_scroll) = {
             let Some(doc) = self.state.tabs.get(map_tab) else {
                 return;
             };
@@ -7520,6 +7520,9 @@ impl EditorApp {
                 None
             };
             let compare_active = compare_tags.is_some();
+            let hunk_ticks = compare_tags
+                .map(crate::diff::hunk_starts)
+                .unwrap_or_default();
             let sample_n = 128.min(line_count);
             let mut strips = Vec::with_capacity(sample_n);
             for i in 0..sample_n {
@@ -7536,7 +7539,14 @@ impl EditorApp {
                     });
                 strips.push(color);
             }
-            (line_count, sample_n, strips, compare_active, max_scroll)
+            (
+                line_count,
+                sample_n,
+                strips,
+                hunk_ticks,
+                compare_active,
+                max_scroll,
+            )
         };
         let mut open = self.show_doc_map;
         let mut jump_line: Option<f32> = None;
@@ -7571,6 +7581,22 @@ impl EditorApp {
                         0.0,
                         *color,
                     );
+                }
+                // Tick marks at change-hunk starts (Compare) so clusters read at a glance.
+                if max_scroll > 0.0 {
+                    let tick = Color32::from_rgb(230, 200, 90);
+                    for &line_idx in &hunk_ticks {
+                        let frac = (line_idx as f32 / max_scroll).clamp(0.0, 1.0);
+                        let y = rect.top() + frac * rect.height();
+                        painter.rect_filled(
+                            Rect::from_min_size(
+                                Pos2::new(rect.left(), y - 0.75),
+                                Vec2::new(rect.width(), 1.5),
+                            ),
+                            0.0,
+                            tick,
+                        );
+                    }
                 }
                 if max_scroll > 0.0 {
                     let frac = (scroll_now / max_scroll).clamp(0.0, 1.0);
@@ -7622,9 +7648,17 @@ impl EditorApp {
             if secondary {
                 self.scroll_line_other = line;
                 self.follow_caret_other = false;
+                if self.dual_view && (self.sync_scroll_v || self.sync_scroll_h) {
+                    self.scroll_line = line;
+                    self.follow_caret = false;
+                }
             } else {
                 self.scroll_line = line;
                 self.follow_caret = false;
+                if self.dual_view && (self.sync_scroll_v || self.sync_scroll_h) {
+                    self.scroll_line_other = line;
+                    self.follow_caret_other = false;
+                }
             }
             self.state.status = format!("Document Map → line {}", line as usize + 1);
         }

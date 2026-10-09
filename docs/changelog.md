@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.168] — 2026-10-09
+
+Compare / View:
+
+- **Document Map** while Compare is on paints amber tick marks at each change-hunk start so clusters read at a glance. Drag (and non-Compare click) also syncs the partner pane when sync H/V scroll is on (Compare starts with sync V).
+
 ## [0.3.167] — 2026-10-09
 
 Compare / View:

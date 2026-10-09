@@ -79,7 +79,7 @@ Hundreds of menu commands have **no** accelerator.
 |------|--------|
 | Drag to select / double-click word / triple-click line | Done |
 | Tab drag-reorder | Done |
-| Document map click/drag scroll | Done |
+| Document map click/drag scroll | Done | Compare colours + hunk-start ticks; click parks hunk; drag syncs partner when sync scroll on |
 | Drag selection to move or copy text | Done (same buffer; Ctrl/Cmd = copy) |
 | Drop files onto the window to open | Done |
 
@@ -117,7 +117,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | Clipboard history | Partial | One entry, not a panel |
 | Run / external tools | Partial | Pick+spawn / shell; no saved Run list |
 | Updater | Partial | Opens GitHub Releases |
-| Doc map / function list | Partial | Density strip; Compare paints delete/insert on focused pane; click parks hunk / Equal partner |
+| Doc map / function list | Partial | Density strip; Compare paints delete/insert + hunk-start ticks on focused pane; click parks hunk / Equal partner; drag syncs partner when sync scroll on |
 | RTL | Partial | Line anchors + status; chrome not mirrored |
 
 ---

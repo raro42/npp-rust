@@ -251,3 +251,5 @@
 009 keep: Document Map compare colours (focused pane, v0.3.166)
 
 009 keep: Document Map click parks compare hunk / Equal partner (v0.3.167)
+
+009 keep: Document Map hunk-start ticks + drag sync scroll (v0.3.168)
