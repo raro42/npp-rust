@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.151] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Move line** is remappable: Preferences → Move line shortcut, or `shortcut_move_line` in `npp-rs/settings.json` (default `Cmd+Shift+Up`). Opposite Down moves the line down; letter remaps use Shift for down. Shortcut Mapper and About show the effective binding. `Cmd+Up` / `Cmd+Down` still jump to document start / end.
+
 ## [0.3.150] — 2026-10-09
 
 Settings / shortcuts:

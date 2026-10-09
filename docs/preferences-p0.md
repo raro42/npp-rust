@@ -62,6 +62,7 @@ New keys:
 | `shortcut_fold_all` | Fold-all chord (`Alt+0` default; Shift flips to Unfold All) |
 | `shortcut_fold_current` | Fold-current chord (`Alt+F` default; Shift flips to Unfold Current) |
 | `shortcut_matching_brace` | Matching-brace chord (`Cmd+B` default; Shift flips to Select matching braces) |
+| `shortcut_move_line` | Move-line-up chord (`Cmd+Shift+Up` default; opposite Down moves down; letter remaps use Shift for down) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
 | `shortcut_close_find` | Close Find/Replace chord (`Escape` default) |
 | `shortcut_replace` | Replace-bar chord (`Cmd+H` default) |

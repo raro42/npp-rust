@@ -221,3 +221,5 @@
 009 keep: remappable Fold / Unfold current (shortcut_fold_current, Alt+F default, v0.3.149)
 
 009 keep: remappable Matching brace (shortcut_matching_brace, Cmd+B default, v0.3.150)
+
+009 keep: remappable Move line (shortcut_move_line, Cmd+Shift+Up default, v0.3.151)

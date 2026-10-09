@@ -148,6 +148,10 @@ pub const DEFAULT_FOLD_CURRENT: &str = "Alt+F";
 /// Shift flips to Select matching braces.
 pub const DEFAULT_MATCHING_BRACE: &str = "Cmd+B";
 
+/// Default move-line-up binding (Edit → Move Up Current Line).
+/// Opposite Up/Down moves the line down; non-arrow remaps use Shift for down.
+pub const DEFAULT_MOVE_LINE: &str = "Cmd+Shift+Up";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -190,6 +194,24 @@ impl KeyChord {
             other => other,
         };
         Self { key, ..self }
+    }
+
+    /// Same chord with Up ↔ Down (move line up ↔ down). Non-arrow keys unchanged.
+    pub fn flipped_vertical(self) -> Self {
+        let key = match self.key {
+            Key::ArrowUp => Key::ArrowDown,
+            Key::ArrowDown => Key::ArrowUp,
+            other => other,
+        };
+        Self { key, ..self }
+    }
+
+    /// Partner chord for move-line-down: opposite vertical arrow, else Shift flip.
+    pub fn move_line_down_chord(self) -> Self {
+        match self.key {
+            Key::ArrowUp | Key::ArrowDown => self.flipped_vertical(),
+            _ => self.flipped_shift(),
+        }
     }
 
     /// Same chord with `]` ↔ `[` (hide-equal context ±1). Non-bracket keys unchanged.
@@ -302,6 +324,8 @@ fn parse_key(lower: &str) -> Option<Key> {
         "[" | "openbracket" | "bracketleft" => Some(Key::OpenBracket),
         "left" | "arrowleft" => Some(Key::ArrowLeft),
         "right" | "arrowright" => Some(Key::ArrowRight),
+        "up" | "arrowup" => Some(Key::ArrowUp),
+        "down" | "arrowdown" => Some(Key::ArrowDown),
         _ => None,
     }
 }
@@ -346,6 +370,8 @@ fn key_token(key: Key) -> &'static str {
         Key::OpenBracket => "[",
         Key::ArrowLeft => "Left",
         Key::ArrowRight => "Right",
+        Key::ArrowUp => "Up",
+        Key::ArrowDown => "Down",
         _ => "?",
     }
 }
@@ -828,6 +854,23 @@ mod tests {
         let select = c.flipped_shift();
         assert!(select.shift);
         assert_eq!(select.display(), "Cmd+Shift+B");
+    }
+
+    #[test]
+    fn parse_cmd_shift_up_default_move_line() {
+        let c = parse_chord(DEFAULT_MOVE_LINE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::ArrowUp);
+        assert_eq!(c.display(), "Cmd+Shift+Up");
+        let down = c.move_line_down_chord();
+        assert_eq!(down.key, Key::ArrowDown);
+        assert_eq!(down.display(), "Cmd+Shift+Down");
+        let arrow_alias = parse_chord("Ctrl+Shift+ArrowUp").unwrap();
+        assert_eq!(arrow_alias.key, Key::ArrowUp);
+        let letter = parse_chord("Alt+M").unwrap();
+        assert_eq!(letter.move_line_down_chord().display(), "Alt+Shift+M");
     }
 
     #[test]

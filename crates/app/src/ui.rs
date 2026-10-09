@@ -1758,6 +1758,49 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_SEARCH_GOTOMATCHINGBRACE");
             }
         }
+        // Remappable move line up (default Cmd+Shift+Up; settings.shortcut_move_line).
+        // Opposite Up/Down moves down; non-arrow remaps use Shift for down.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_MOVE_LINE};
+            let up_chord =
+                resolve_chord(&self.state.settings.shortcut_move_line, DEFAULT_MOVE_LINE);
+            let down_chord = up_chord.move_line_down_chord();
+            let chord_key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                Key::ArrowLeft => arrow_left,
+                Key::ArrowRight => arrow_right,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let hit = |chord: crate::shortcut_chord::KeyChord| {
+                chord_key_pressed(chord.key) && chord.matches(mods, chord.key)
+            };
+            if hit(down_chord) && down_chord.key != up_chord.key {
+                self.run_shortcut_cmd("IDM_EDIT_LINE_DOWN");
+            } else if hit(up_chord) {
+                self.run_shortcut_cmd("IDM_EDIT_LINE_UP");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -3255,6 +3298,15 @@ Tree-sitter highlight, and a calm UI.",
                     matching_brace_chord.display(),
                     matching_brace_chord.flipped_shift().display()
                 );
+                let move_line_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_move_line,
+                    crate::shortcut_chord::DEFAULT_MOVE_LINE,
+                );
+                let move_line_keys = format!(
+                    "{} / {}",
+                    move_line_chord.display(),
+                    move_line_chord.move_line_down_chord().display()
+                );
                 let format_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_format_document,
                     crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -3370,7 +3422,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 41] = [
+                        let rows: [(&str, &str); 42] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -3410,6 +3462,7 @@ Tree-sitter highlight, and a calm UI.",
                             (select_all_keys.as_str(), "Select all"),
                             (dup_keys.as_str(), "Duplicate line"),
                             (del_keys.as_str(), "Delete line"),
+                            (move_line_keys.as_str(), "Move line up / down"),
                             (indent_outdent_keys.as_str(), "Indent / Outdent"),
                             (format_keys.as_str(), "Format document"),
                             (fold_all_keys.as_str(), "Fold / Unfold all"),
@@ -4411,6 +4464,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+B, Ctrl+B. Shift flips to Select matching braces.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Move line shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_move_line,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Shift+Up"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_move_line
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_move_line =
+                                        crate::shortcut_chord::DEFAULT_MOVE_LINE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MOVE_LINE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_move_line = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+Up, Alt+Up. Opposite Down moves the line down; letter remaps use Shift for down.",
                             )
                             .small()
                             .weak(),
@@ -10836,15 +10925,29 @@ Tree-sitter highlight, and a calm UI.",
                     modifiers,
                     ..
                 } => {
-                    if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
-                    }
-                    if modifiers.command || modifiers.ctrl {
-                        go_doc_start(&mut self.state, tab, modifiers.shift);
+                    // Remappable move-line (default Cmd+Shift+Up) is handled in
+                    // handle_shortcuts; skip caret nav so we do not also jump to doc start.
+                    let move_up = crate::shortcut_chord::resolve_chord(
+                        &self.state.settings.shortcut_move_line,
+                        crate::shortcut_chord::DEFAULT_MOVE_LINE,
+                    );
+                    let move_down = move_up.move_line_down_chord();
+                    if move_up.matches(modifiers, Key::ArrowUp)
+                        || (move_down.key != move_up.key
+                            && move_down.matches(modifiers, Key::ArrowUp))
+                    {
+                        caret_moved = true;
                     } else {
-                        move_caret_vert(&mut self.state, tab, -1);
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.clear_multi_sels();
+                        }
+                        if modifiers.command || modifiers.ctrl {
+                            go_doc_start(&mut self.state, tab, modifiers.shift);
+                        } else {
+                            move_caret_vert(&mut self.state, tab, -1);
+                        }
+                        caret_moved = true;
                     }
-                    caret_moved = true;
                 }
                 egui::Event::Key {
                     key: Key::ArrowDown,
@@ -10852,15 +10955,27 @@ Tree-sitter highlight, and a calm UI.",
                     modifiers,
                     ..
                 } => {
-                    if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
-                    }
-                    if modifiers.command || modifiers.ctrl {
-                        go_doc_end(&mut self.state, tab, modifiers.shift);
+                    let move_up = crate::shortcut_chord::resolve_chord(
+                        &self.state.settings.shortcut_move_line,
+                        crate::shortcut_chord::DEFAULT_MOVE_LINE,
+                    );
+                    let move_down = move_up.move_line_down_chord();
+                    if move_down.matches(modifiers, Key::ArrowDown)
+                        || (move_down.key != move_up.key
+                            && move_up.matches(modifiers, Key::ArrowDown))
+                    {
+                        caret_moved = true;
                     } else {
-                        move_caret_vert(&mut self.state, tab, 1);
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.clear_multi_sels();
+                        }
+                        if modifiers.command || modifiers.ctrl {
+                            go_doc_end(&mut self.state, tab, modifiers.shift);
+                        } else {
+                            move_caret_vert(&mut self.state, tab, 1);
+                        }
+                        caret_moved = true;
                     }
-                    caret_moved = true;
                 }
                 egui::Event::Key {
                     key: Key::Home,
