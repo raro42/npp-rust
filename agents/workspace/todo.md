@@ -257,3 +257,5 @@
 009 keep: Document Map bookmark ticks + click park (v0.3.170)
 009 keep: Document Map change-history ticks + click park (v0.3.171)
 009 keep: Document Map Find match ticks + click select (v0.3.172)
+
+009 keep: Document Map fold-header ticks + click toggle (v0.3.173)

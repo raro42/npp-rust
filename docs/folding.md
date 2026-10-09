@@ -7,6 +7,7 @@ Issue: https://github.com/raro42/npp-rust/issues/14
 
 - Gutter fold margin shows `−` (open) or `+` (folded) on fold headers.
 - Click the fold margin on a header **or** any line inside a foldable region to toggle that region (same pick as View → Fold/Unfold Current).
+- **Document Map** paints slate ticks at fold headers (brighter when folded). Title shows fold counts. Click near a tick parks the caret and toggles that fold.
 - **Fold All / Unfold All** hotkey: Preferences → Fold all shortcut, or `shortcut_fold_all` in `npp-rs/settings.json` (default `Alt+0`; Shift flips to Unfold All).
 - **Fold Current / Unfold Current** hotkey: Preferences → Fold current shortcut, or `shortcut_fold_current` in `npp-rs/settings.json` (default `Alt+F`; Shift flips to Unfold Current).
 - Preferences → Editor → **Show fold margin** (`show_fold_margin`, default on).

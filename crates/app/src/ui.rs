@@ -7511,6 +7511,8 @@ impl EditorApp {
             bookmark_ticks,
             ch_unsaved_ticks,
             ch_saved_ticks,
+            fold_ticks,
+            folded_fold_ticks,
             hide_gaps,
             compare_active,
             max_scroll,
@@ -7528,6 +7530,12 @@ impl EditorApp {
                 .copied()
                 .filter(|l| !doc.changed_unsaved.contains(l))
                 .collect();
+            let fold_regions =
+                crate::fold::compute_fold_regions(doc.language.as_str(), &doc.buffer);
+            let mut fold_ticks: Vec<usize> = fold_regions.iter().map(|r| r.header).collect();
+            fold_ticks.sort_unstable();
+            fold_ticks.dedup();
+            let folded_fold_ticks = crate::fold::folded_headers(&doc.hidden_lines, &fold_regions);
             let compare_tags = if self.compare_on {
                 if map_tab == self.compare_left_tab {
                     Some(self.compare_left_tags.as_slice())
@@ -7593,6 +7601,8 @@ impl EditorApp {
                 bookmark_ticks,
                 ch_unsaved_ticks,
                 ch_saved_ticks,
+                fold_ticks,
+                folded_fold_ticks,
                 hide_gaps,
                 compare_active,
                 max_scroll,
@@ -7606,6 +7616,8 @@ impl EditorApp {
         let mut hide_gap_click: Option<(usize, usize)> = None;
         // Click near a bookmark tick: park caret on that bookmark line.
         let mut bookmark_click: Option<usize> = None;
+        // Click near a fold-header tick: park caret and toggle that fold.
+        let mut fold_click: Option<usize> = None;
         // Click near a find-match tick: select that match span.
         let mut find_click: Option<(usize, usize, usize)> = None;
         // Click near a change-history tick: park caret on that changed line.
@@ -7640,6 +7652,23 @@ impl EditorApp {
                         bookmark_ticks.len(),
                         if bookmark_ticks.len() == 1 { "" } else { "s" }
                     ));
+                }
+                if !fold_ticks.is_empty() {
+                    let folded_n = folded_fold_ticks.len();
+                    if folded_n > 0 {
+                        label.push_str(&format!(
+                            " · {} fold{} ({} folded)",
+                            fold_ticks.len(),
+                            if fold_ticks.len() == 1 { "" } else { "s" },
+                            folded_n
+                        ));
+                    } else {
+                        label.push_str(&format!(
+                            " · {} fold{}",
+                            fold_ticks.len(),
+                            if fold_ticks.len() == 1 { "" } else { "s" }
+                        ));
+                    }
                 }
                 let ch_n = ch_unsaved_ticks.len() + ch_saved_ticks.len();
                 if ch_n > 0 {
@@ -7733,6 +7762,26 @@ impl EditorApp {
                         );
                     }
                 }
+                // Fold-header ticks (slate, left quarter). Brighter when that region is folded.
+                if max_scroll > 0.0 {
+                    let open_tick = Color32::from_rgb(100, 140, 190);
+                    let folded_tick = Color32::from_rgb(170, 200, 235);
+                    let w = (rect.width() * 0.28).max(2.5);
+                    for &line_idx in &fold_ticks {
+                        let frac = (line_idx as f32 / max_scroll).clamp(0.0, 1.0);
+                        let y = rect.top() + frac * rect.height();
+                        let color = if folded_fold_ticks.binary_search(&line_idx).is_ok() {
+                            folded_tick
+                        } else {
+                            open_tick
+                        };
+                        painter.rect_filled(
+                            Rect::from_min_size(Pos2::new(rect.left(), y - 1.0), Vec2::new(w, 2.0)),
+                            0.0,
+                            color,
+                        );
+                    }
+                }
                 // Change-history ticks (right half): amber unsaved, green saved.
                 if max_scroll > 0.0 {
                     let w = (rect.width() * 0.45).max(3.0);
@@ -7794,6 +7843,8 @@ impl EditorApp {
                                     find_match_hits.iter().copied().find(|(l, _, _)| *l == line)
                                 })
                         };
+                        let nearest_fold =
+                            || crate::diff::doc_map_nearest_mark(line_idx, &fold_ticks, snap);
                         if compare_active {
                             if let Some(gap) =
                                 crate::diff::doc_map_compare_hide_gap_at(line_idx, &hide_gaps)
@@ -7803,6 +7854,8 @@ impl EditorApp {
                                 crate::diff::doc_map_nearest_mark(line_idx, &bookmark_ticks, snap)
                             {
                                 bookmark_click = Some(bm);
+                            } else if let Some(fh) = nearest_fold() {
+                                fold_click = Some(fh);
                             } else if let Some(hit) = nearest_find() {
                                 find_click = Some(hit);
                             } else if let Some(ch) = nearest_ch() {
@@ -7814,6 +7867,8 @@ impl EditorApp {
                             crate::diff::doc_map_nearest_mark(line_idx, &bookmark_ticks, snap)
                         {
                             bookmark_click = Some(bm);
+                        } else if let Some(fh) = nearest_fold() {
+                            fold_click = Some(fh);
                         } else if let Some(hit) = nearest_find() {
                             find_click = Some(hit);
                         } else if let Some(ch) = nearest_ch() {
@@ -7872,6 +7927,61 @@ impl EditorApp {
                 self.sync_compare_other_to_caret_hunk(map_tab == self.compare_left_tab);
             } else {
                 self.state.status = format!("Document Map → bookmark line {}", line_idx + 1);
+            }
+        } else if let Some(line_idx) = fold_click {
+            if let Some(doc) = self.state.tabs.get(map_tab) {
+                let lang = doc.language.clone();
+                let regions = crate::fold::compute_fold_regions(lang.as_str(), &doc.buffer);
+                if let Some(region) = crate::fold::region_at_header(&regions, line_idx) {
+                    if let Some(doc) = self.state.tabs.get_mut(map_tab) {
+                        let was = crate::fold::is_folded(&doc.hidden_lines, &region);
+                        crate::fold::toggle_region(&mut doc.hidden_lines, &region);
+                        let at = doc
+                            .buffer
+                            .line_to_char(line_idx.min(doc.buffer.line_count().saturating_sub(1)));
+                        doc.buffer.set_caret(at);
+                        let n = region.end - region.header;
+                        if !compare_active {
+                            self.state.status = if was {
+                                format!(
+                                    "Document Map → unfolded {n} line{} at {}",
+                                    if n == 1 { "" } else { "s" },
+                                    line_idx + 1
+                                )
+                            } else {
+                                format!(
+                                    "Document Map → folded {n} line{} at {}",
+                                    if n == 1 { "" } else { "s" },
+                                    line_idx + 1
+                                )
+                            };
+                        }
+                    }
+                } else if let Some(doc) = self.state.tabs.get_mut(map_tab) {
+                    let at = doc
+                        .buffer
+                        .line_to_char(line_idx.min(doc.buffer.line_count().saturating_sub(1)));
+                    doc.buffer.set_caret(at);
+                    if !compare_active {
+                        self.state.status =
+                            format!("Document Map → fold header line {}", line_idx + 1);
+                    }
+                }
+            }
+            if secondary {
+                self.follow_caret_other = true;
+                if self.sync_scroll_v {
+                    self.follow_caret = true;
+                }
+            } else {
+                self.follow_caret = true;
+                if self.sync_scroll_v {
+                    self.follow_caret_other = true;
+                }
+            }
+            if compare_active {
+                // Parks partner after fold toggle; sets Compare status.
+                self.sync_compare_other_to_caret_hunk(map_tab == self.compare_left_tab);
             }
         } else if let Some((line_idx, start, end)) = find_click {
             if let Some(doc) = self.state.tabs.get_mut(map_tab) {

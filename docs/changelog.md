@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.173] — 2026-10-10
+
+View / Fold:
+
+- **Document Map** paints slate fold-header ticks (brighter when that region is folded). Title appends fold count (`· N folds` / `· N folds (M folded)`). Click near a tick parks the caret and toggles that fold (status `Document Map → folded|unfolded K lines at N`); while Compare is on, the click also syncs the partner pane like a hunk/Equal park.
+
 ## [0.3.172] — 2026-10-10
 
 Search / View:
