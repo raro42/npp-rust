@@ -2499,6 +2499,47 @@ impl EditorApp {
             }
         }
 
+        // Remappable expand all unchanged (default Alt+E; settings.shortcut_expand_all_unchanged).
+        // Shift flips to Collapse All Unchanged Lines.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_EXPAND_ALL_UNCHANGED};
+            let expand_chord = resolve_chord(
+                &self.state.settings.shortcut_expand_all_unchanged,
+                DEFAULT_EXPAND_ALL_UNCHANGED,
+            );
+            let collapse_chord = expand_chord.flipped_shift();
+            let expand_key_pressed = match expand_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if expand_key_pressed && collapse_chord.matches(mods, collapse_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL");
+            } else if expand_key_pressed && expand_chord.matches(mods, expand_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL");
+            }
+        }
+
         // Remappable start compare (default Alt+D; settings.shortcut_compare).
         // Shift + same chord clears Compare.
         {
@@ -3179,12 +3220,27 @@ impl EditorApp {
                             "While Hide Unchanged Lines is on, jump to the last ···N collapsed Equal gap ({chord}; parks both panes)"
                         ))
                     }
-                    "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL" => response.on_hover_text(
-                        "While Hide Unchanged Lines is on, reveal every collapsed Equal run on both panes (···N cues clear; hide-equal preference stays on)",
-                    ),
-                    "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL" => response.on_hover_text(
-                        "While Hide Unchanged Lines is on, re-collapse every click/menu-expanded Equal run on both panes (···N cues return; hide-equal preference stays on)",
-                    ),
+                    "IDM_VIEW_COMPARE_EXPAND_HIDDEN_EQUAL" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_expand_all_unchanged,
+                            crate::shortcut_chord::DEFAULT_EXPAND_ALL_UNCHANGED,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "While Hide Unchanged Lines is on, reveal every collapsed Equal run on both panes ({chord}; ···N cues clear; hide-equal preference stays on; Preferences remappable; Shift collapses)"
+                        ))
+                    }
+                    "IDM_VIEW_COMPARE_COLLAPSE_HIDDEN_EQUAL" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_expand_all_unchanged,
+                            crate::shortcut_chord::DEFAULT_EXPAND_ALL_UNCHANGED,
+                        )
+                        .flipped_shift()
+                        .display();
+                        response.on_hover_text(format!(
+                            "While Hide Unchanged Lines is on, re-collapse every click/menu-expanded Equal run on both panes ({chord}; ···N cues return; hide-equal preference stays on; Preferences remappable)"
+                        ))
+                    }
                     "IDM_VIEW_COMPARE_BOOKMARK_DIFFS" => response.on_hover_text(
                         "Bookmark the start of every Compare change hunk on both panes (then F2 / Shift+F2)",
                     ),
@@ -3585,6 +3641,15 @@ Tree-sitter highlight, and a calm UI.",
                     crate::shortcut_chord::DEFAULT_COMPARE_IGNORE_BLANK,
                 )
                 .display();
+                let expand_all_unchanged_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_expand_all_unchanged,
+                    crate::shortcut_chord::DEFAULT_EXPAND_ALL_UNCHANGED,
+                );
+                let expand_all_unchanged_keys = format!(
+                    "{} / {}",
+                    expand_all_unchanged_chord.display(),
+                    expand_all_unchanged_chord.flipped_shift().display()
+                );
                 let compare_chord = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_compare,
                     crate::shortcut_chord::DEFAULT_COMPARE,
@@ -3838,7 +3903,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 48] = [
+                        let rows: [(&str, &str); 49] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -3883,6 +3948,10 @@ Tree-sitter highlight, and a calm UI.",
                                 "Compare ignore whitespace / ignore case",
                             ),
                             (ignore_blank_keys.as_str(), "Compare ignore blank lines"),
+                            (
+                                expand_all_unchanged_keys.as_str(),
+                                "Compare expand / collapse all unchanged",
+                            ),
                             (hide_ctx_keys.as_str(), "Compare hide-equal context ±1"),
                             (zoom_row.as_str(), "Zoom in / out / restore"),
                             (wrap_keys.as_str(), "Word wrap"),
@@ -4542,6 +4611,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+B, Ctrl+Alt+B. Toggles View → Ignore Blank Lines while Compare is on.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Expand all unchanged shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_expand_all_unchanged,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+E"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_expand_all_unchanged
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_expand_all_unchanged =
+                                        crate::shortcut_chord::DEFAULT_EXPAND_ALL_UNCHANGED.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_EXPAND_ALL_UNCHANGED
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_expand_all_unchanged = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+E, Ctrl+Alt+E. Expands all ···N gaps. Shift + that chord collapses expanded Equal runs.",
                             )
                             .small()
                             .weak(),

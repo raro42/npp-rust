@@ -50,6 +50,10 @@ pub const DEFAULT_COMPARE_IGNORE_WS: &str = "Alt+W";
 /// Default ignore-blank-lines toggle (View → Ignore Blank Lines).
 pub const DEFAULT_COMPARE_IGNORE_BLANK: &str = "Alt+B";
 
+/// Default expand-all-unchanged binding (View → Expand All Unchanged Lines).
+/// Shift + same key is Collapse All Unchanged Lines.
+pub const DEFAULT_EXPAND_ALL_UNCHANGED: &str = "Alt+E";
+
 /// Default start-compare binding (View → Compare with Other View).
 /// Shift + same key is Clear Compare.
 pub const DEFAULT_COMPARE: &str = "Alt+D";
@@ -564,6 +568,17 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::B);
         assert_eq!(c.display(), "Alt+B");
+    }
+
+    #[test]
+    fn parse_alt_e_default_expand_all_unchanged() {
+        let c = parse_chord(DEFAULT_EXPAND_ALL_UNCHANGED).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::E);
+        assert_eq!(c.display(), "Alt+E");
+        assert_eq!(c.flipped_shift().display(), "Alt+Shift+E");
     }
 
     #[test]

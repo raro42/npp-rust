@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.159] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Expand / Collapse All Unchanged Lines** (Compare) is remappable: Preferences → Expand all unchanged shortcut, or `shortcut_expand_all_unchanged` in `npp-rs/settings.json` (default `Alt+E`). Shift flips to Collapse All (`Alt+Shift+E`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.158] — 2026-10-09
 
 Settings / shortcuts:

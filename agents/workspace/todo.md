@@ -235,3 +235,5 @@
 009 keep: remappable Compare ignore whitespace / ignore case (shortcut_compare_ignore_ws, Alt+W default, v0.3.157)
 
 009 keep: remappable Compare ignore blank lines (shortcut_compare_ignore_blank, Alt+B default, v0.3.158)
+
+009 keep: remappable Expand / Collapse All Unchanged (shortcut_expand_all_unchanged, Alt+E default, v0.3.159)
