@@ -1238,6 +1238,120 @@ impl EditorState {
         self.run_plugin("format.document");
     }
 
+    /// Ask local Ollama about the selection (or whole buffer). Opens a reply tab.
+    pub fn ask_ollama(&mut self) {
+        let lang = self.tabs.active().language.clone();
+        let (body, used_selection) = if let Some((s, e)) = self.tabs.active().buffer.selection() {
+            let slice = self.tabs.active().buffer.slice(s, e);
+            if slice.trim().is_empty() {
+                (self.tabs.active().buffer.to_string(), false)
+            } else {
+                (slice, true)
+            }
+        } else {
+            (self.tabs.active().buffer.to_string(), false)
+        };
+        if body.trim().is_empty() {
+            self.status = "Ask Ollama: buffer is empty".into();
+            return;
+        }
+        let (truncated, cut) =
+            crate::ollama::truncate_prompt(&body, crate::ollama::MAX_PROMPT_CHARS);
+        let prompt = crate::ollama::build_ask_prompt(&lang, &truncated, cut);
+        self.status = format!(
+            "Ask Ollama: calling {} ({})…",
+            self.settings.ollama_model, self.settings.ollama_host
+        );
+        match crate::ollama::generate(
+            &self.settings.ollama_host,
+            &self.settings.ollama_model,
+            &prompt,
+        ) {
+            Ok(reply) => {
+                let model = self.settings.ollama_model.trim().to_string();
+                let host = self.settings.ollama_host.trim().to_string();
+                let scope = match (used_selection, cut) {
+                    (true, true) => "selection (truncated)",
+                    (true, false) => "selection",
+                    (false, true) => "whole buffer (truncated)",
+                    (false, false) => "whole buffer",
+                };
+                let mut text = format!(
+                    "Ollama reply ({model})\n\
+                     =====================\n\
+                     Host: {host}\n\
+                     Scope: {scope}\n\
+                     \n\
+                     {reply}\n"
+                );
+                if cut {
+                    text.push_str("\n(Note: input was truncated before send.)\n");
+                }
+                self.open_ollama_tab("Ollama reply", &text);
+                self.status = format!("Ask Ollama: reply from {model}");
+            }
+            Err(e) => {
+                self.status = format!("Ask Ollama: {e}");
+            }
+        }
+    }
+
+    /// Ping loopback Ollama and list installed models in a tab.
+    pub fn ollama_status(&mut self) {
+        let host = self.settings.ollama_host.clone();
+        match crate::ollama::list_models(&host) {
+            Ok(models) => {
+                let mut text = format!(
+                    "Ollama status\n\
+                     =============\n\
+                     Host: {host}\n\
+                     Preferred model: {model}\n\
+                     \n\
+                     Installed models ({n})\n\
+                     --------------------\n",
+                    model = self.settings.ollama_model.trim(),
+                    n = models.len(),
+                );
+                if models.is_empty() {
+                    text.push_str("(none — run `ollama pull llama3.2` in a terminal)\n");
+                } else {
+                    for m in &models {
+                        text.push_str("- ");
+                        text.push_str(m);
+                        text.push('\n');
+                    }
+                }
+                text.push_str(
+                    "\n\
+                     Notes\n\
+                     -----\n\
+                     - npp-rs talks to loopback only (127.0.0.1 / localhost / ::1).\n\
+                     - Plugins → Ask Ollama sends the selection (or whole buffer) locally.\n\
+                     - See docs/ollama-helper.md.\n",
+                );
+                self.open_ollama_tab("Ollama status", &text);
+                self.status = format!("Ollama: {} model(s) on {}", models.len(), host.trim());
+            }
+            Err(e) => {
+                self.status = format!("Ollama status: {e}");
+            }
+        }
+    }
+
+    fn open_ollama_tab(&mut self, title: &str, text: &str) {
+        self.tabs.open_untitled();
+        {
+            let doc = self.tabs.active_mut();
+            doc.title = title.into();
+            doc.buffer = buffer::TextBuffer::from_str(text);
+            doc.dirty = false;
+            doc.language = "markdown".into();
+            doc.read_only = true;
+        }
+        self.highlight_dirty = true;
+        self.reset_view = true;
+    }
+
     fn find_flags(&self) -> crate::search_util::FindFlags {
         crate::search_util::FindFlags {
             match_case: self.settings.find_match_case,

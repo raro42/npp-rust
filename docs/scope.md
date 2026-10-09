@@ -19,7 +19,7 @@ Deep gap list (hotkeys, DnD, feature table): [gap-analysis-vs-npp.md](gap-analys
 - Rope buffer, undo/redo, dual view, 2-way compare
 - Tree-sitter highlight subset; theme JSON + N++ XML subset
 - Encoding: UTF-8 / BOM / ANSI / UTF-16 LE·BE (BOM or no-BOM detect)
-- In-process plugin builtins (not N++ DLL ABI)
+- In-process plugin builtins (not N++ DLL ABI); optional local Ollama helper (loopback)
 
 ## Still not Notepad++
 

@@ -3636,6 +3636,28 @@ impl EditorApp {
                                 self.state.format_document();
                                 ui.close_menu();
                             }
+                            ui.separator();
+                            ui.label(RichText::new("Local AI (Ollama)").small().weak());
+                            if ui
+                                .button(RichText::new("Ask Ollama").color(MENU_READY))
+                                .on_hover_text(
+                                    "Send selection (or whole buffer) to local Ollama; reply opens in a tab",
+                                )
+                                .clicked()
+                            {
+                                self.state.ask_ollama();
+                                ui.close_menu();
+                            }
+                            if ui
+                                .button(RichText::new("Ollama Status").color(MENU_READY))
+                                .on_hover_text(
+                                    "Ping loopback Ollama and list installed models",
+                                )
+                                .clicked()
+                            {
+                                self.state.ollama_status();
+                                ui.close_menu();
+                            }
                             if let Some(id) = run_id {
                                 self.state.run_plugin(&id);
                                 ui.close_menu();
@@ -6648,6 +6670,41 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "0 = off; otherwise 15–900. Dirty tabs with a path only (skip untitled).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.add_space(10.0);
+                        ui.label(RichText::new("Local AI (Ollama)").strong());
+                        ui.add_space(4.0);
+                        ui.horizontal(|ui| {
+                            ui.label("Host");
+                            if ui
+                                .text_edit_singleline(&mut self.state.settings.ollama_host)
+                                .changed()
+                            {
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Loopback only (127.0.0.1 / localhost / ::1). Default http://127.0.0.1:11434.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Model");
+                            if ui
+                                .text_edit_singleline(&mut self.state.settings.ollama_model)
+                                .changed()
+                            {
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Plugins → Ask Ollama / Ollama Status. See docs/ollama-helper.md.",
                             )
                             .small()
                             .weak(),

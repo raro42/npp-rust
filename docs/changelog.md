@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.165] — 2026-10-09
+
+Plugins / local AI:
+
+- **Ask Ollama** and **Ollama Status** under Plugins: talk to a user-run Ollama on loopback only (`127.0.0.1` / `localhost` / `::1`). Selection (or whole buffer) goes to `/api/generate`; reply opens in a tab. Status lists `/api/tags` models.
+- Preferences / `settings.json`: `ollama_host` (default `http://127.0.0.1:11434`), `ollama_model` (default `llama3.2`). Remote hosts rejected. See `docs/ollama-helper.md` (issue #18).
+
 ## [0.3.164] — 2026-10-09
 
 UI / menus:

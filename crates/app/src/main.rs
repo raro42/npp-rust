@@ -6,6 +6,7 @@ mod diff;
 mod editor;
 mod fold;
 mod menu_data;
+mod ollama;
 mod recent;
 mod search_util;
 mod session;

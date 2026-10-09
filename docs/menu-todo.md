@@ -77,5 +77,5 @@ Paint path hides `hidden_lines` and paints `style_marks` / bookmark ticks. Menu 
 - View Document Map: density strip; click/drag sets `scroll_line` (`UiFlags.show_doc_map`) (1)
 - View Function List: fn/class-like line list; click jumps caret (`UiFlags.show_func_list`) (1)
 - Edit Character Panel: egui grid inserts basic/unicode at caret (`UiFlags.show_char_panel`) (1)
-- Settings Shortcut Mapper / Style Config tabs; Import plugins+themes open folders + list tabs; Plugin Admin lists builtins (5)
+- Settings Shortcut Mapper / Style Config tabs; Import plugins+themes open folders + list tabs; Plugin Admin lists builtins; Plugins Ask Ollama / Ollama Status (loopback)
 - Run… (rfd pick or shell-here) + validate shortcuts.xml absence (2)

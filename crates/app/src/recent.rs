@@ -312,6 +312,14 @@ fn default_shortcut_reload() -> String {
     crate::shortcut_chord::DEFAULT_RELOAD.into()
 }
 
+fn default_ollama_host() -> String {
+    crate::ollama::DEFAULT_OLLAMA_HOST.into()
+}
+
+fn default_ollama_model() -> String {
+    crate::ollama::DEFAULT_OLLAMA_MODEL.into()
+}
+
 fn default_compare_hide_equal_context() -> u8 {
     u8::try_from(crate::diff::COMPARE_HIDE_EQUAL_CONTEXT).unwrap_or(3)
 }
@@ -596,6 +604,12 @@ pub struct AppSettings {
     /// Reload-from-disk chord (`Cmd+R` default).
     #[serde(default = "default_shortcut_reload")]
     pub shortcut_reload: String,
+    /// Local Ollama base URL (loopback only). Empty → `http://127.0.0.1:11434`.
+    #[serde(default = "default_ollama_host")]
+    pub ollama_host: String,
+    /// Ollama model name for Plugins → Ask Ollama (e.g. `llama3.2`).
+    #[serde(default = "default_ollama_model")]
+    pub ollama_model: String,
     /// Unknown keys from disk. Kept so a save does not drop hand-edited or future fields.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     extra: serde_json::Map<String, serde_json::Value>,
@@ -697,6 +711,8 @@ impl Default for AppSettings {
             shortcut_zoom_restore: default_shortcut_zoom_restore(),
             shortcut_toggle_log_tail: default_shortcut_toggle_log_tail(),
             shortcut_reload: default_shortcut_reload(),
+            ollama_host: default_ollama_host(),
+            ollama_model: default_ollama_model(),
             extra: serde_json::Map::new(),
         }
     }

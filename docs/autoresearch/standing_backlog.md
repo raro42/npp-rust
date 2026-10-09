@@ -25,6 +25,7 @@ When the issue queue is idle, overnight 009 **must** pull from this list (top fi
 10. Popup autocomplete / call tips, then LSP.
 11. Macro record + named macros.
 12. Drop-in plugins, UDL, hex, UI i18n, full RTL chrome.
+13. ~~Local Ollama Ask / Status (loopback; `docs/ollama-helper.md`)~~ — deeper agent/apply later.
 
 ## How to pick
 

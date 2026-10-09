@@ -1142,6 +1142,7 @@ Action
 ------
 - Run a builtin: Plugins menu (uses PluginHost id).
 - Format Document: also {format_chord}.
+- Ask Ollama / Ollama Status: local loopback helper (Preferences ollama_host / ollama_model).
 - Import Plugin: opens plugins/ and refreshes this listing in a tab.
 - Drop-in files in plugins/ are listed only; they do not load.
 ",
