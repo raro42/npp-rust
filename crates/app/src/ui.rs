@@ -1718,6 +1718,46 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_FOLD_CURRENT");
             }
         }
+        // Remappable matching brace (default Cmd+B; settings.shortcut_matching_brace).
+        // Shift + same chord selects the brace pair.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_MATCHING_BRACE};
+            let brace_chord = resolve_chord(
+                &self.state.settings.shortcut_matching_brace,
+                DEFAULT_MATCHING_BRACE,
+            );
+            let select_chord = brace_chord.flipped_shift();
+            let brace_key_pressed = match brace_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if brace_key_pressed && select_chord.matches(mods, select_chord.key) {
+                self.run_shortcut_cmd("IDM_SEARCH_SELECTMATCHINGBRACES");
+            } else if brace_key_pressed && brace_chord.matches(mods, brace_chord.key) {
+                self.run_shortcut_cmd("IDM_SEARCH_GOTOMATCHINGBRACE");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -3206,6 +3246,15 @@ Tree-sitter highlight, and a calm UI.",
                     fold_current_chord.display(),
                     fold_current_chord.flipped_shift().display()
                 );
+                let matching_brace_chord = crate::shortcut_chord::resolve_chord(
+                    &self.state.settings.shortcut_matching_brace,
+                    crate::shortcut_chord::DEFAULT_MATCHING_BRACE,
+                );
+                let matching_brace_keys = format!(
+                    "{} / {}",
+                    matching_brace_chord.display(),
+                    matching_brace_chord.flipped_shift().display()
+                );
                 let format_keys = crate::shortcut_chord::resolve_chord(
                     &self.state.settings.shortcut_format_document,
                     crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -3321,7 +3370,7 @@ Tree-sitter highlight, and a calm UI.",
                     .num_columns(2)
                     .spacing([16.0, 4.0])
                     .show(ui, |ui| {
-                        let rows: [(&str, &str); 40] = [
+                        let rows: [(&str, &str); 41] = [
                             (new_keys.as_str(), "New file"),
                             (open_keys.as_str(), "Open"),
                             (reload_keys.as_str(), "Reload from disk"),
@@ -3365,6 +3414,7 @@ Tree-sitter highlight, and a calm UI.",
                             (format_keys.as_str(), "Format document"),
                             (fold_all_keys.as_str(), "Fold / Unfold all"),
                             (fold_current_keys.as_str(), "Fold / Unfold current"),
+                            (matching_brace_keys.as_str(), "Matching brace / Select pair"),
                             (log_tail_keys.as_str(), "Toggle log tail"),
                             (word_jump_keys.as_str(), "Word jump ← / →"),
                             ("Double-click", "Select word"),
@@ -4325,6 +4375,42 @@ Tree-sitter highlight, and a calm UI.",
                         ui.label(
                             RichText::new(
                                 "Example: Alt+F, Ctrl+Alt+F. Shift flips to Unfold Current.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Matching brace shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_matching_brace,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+B"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_matching_brace
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_matching_brace =
+                                        crate::shortcut_chord::DEFAULT_MATCHING_BRACE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MATCHING_BRACE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_matching_brace = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+B, Ctrl+B. Shift flips to Select matching braces.",
                             )
                             .small()
                             .weak(),

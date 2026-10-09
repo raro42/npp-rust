@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.150] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Matching brace** is remappable: Preferences → Matching brace shortcut, or `shortcut_matching_brace` in `npp-rs/settings.json` (default `Cmd+B`). Shift flips to Select matching braces (`Cmd+Shift+B`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.149] — 2026-10-09
 
 Settings / shortcuts:

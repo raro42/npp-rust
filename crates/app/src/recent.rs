@@ -216,6 +216,10 @@ fn default_shortcut_fold_current() -> String {
     crate::shortcut_chord::DEFAULT_FOLD_CURRENT.into()
 }
 
+fn default_shortcut_matching_brace() -> String {
+    crate::shortcut_chord::DEFAULT_MATCHING_BRACE.into()
+}
+
 fn default_shortcut_find() -> String {
     crate::shortcut_chord::DEFAULT_FIND.into()
 }
@@ -476,6 +480,9 @@ pub struct AppSettings {
     /// Fold-current chord (`Alt+F` default; Shift flips to Unfold Current).
     #[serde(default = "default_shortcut_fold_current")]
     pub shortcut_fold_current: String,
+    /// Matching-brace chord (`Cmd+B` default; Shift flips to Select matching braces).
+    #[serde(default = "default_shortcut_matching_brace")]
+    pub shortcut_matching_brace: String,
     /// Find-bar chord (`Cmd+F` default).
     #[serde(default = "default_shortcut_find")]
     pub shortcut_find: String,
@@ -589,6 +596,7 @@ impl Default for AppSettings {
             shortcut_shift_tab_outdent: default_shortcut_shift_tab_outdent(),
             shortcut_fold_all: default_shortcut_fold_all(),
             shortcut_fold_current: default_shortcut_fold_current(),
+            shortcut_matching_brace: default_shortcut_matching_brace(),
             shortcut_find: default_shortcut_find(),
             shortcut_close_find: default_shortcut_close_find(),
             shortcut_replace: default_shortcut_replace(),
@@ -949,6 +957,7 @@ mod tests {
             shortcut_shift_tab_outdent: "Ctrl+Shift+Tab".into(),
             shortcut_fold_all: "Ctrl+Alt+0".into(),
             shortcut_fold_current: "Ctrl+Alt+F".into(),
+            shortcut_matching_brace: "Ctrl+Alt+B".into(),
             shortcut_find: "Ctrl+Alt+G".into(),
             shortcut_close_find: "Ctrl+Alt+Escape".into(),
             shortcut_replace: "Ctrl+Alt+H".into(),
@@ -1012,6 +1021,7 @@ mod tests {
         assert_eq!(back.shortcut_shift_tab_outdent, "Ctrl+Shift+Tab");
         assert_eq!(back.shortcut_fold_all, "Ctrl+Alt+0");
         assert_eq!(back.shortcut_fold_current, "Ctrl+Alt+F");
+        assert_eq!(back.shortcut_matching_brace, "Ctrl+Alt+B");
         assert_eq!(back.shortcut_find, "Ctrl+Alt+G");
         assert_eq!(back.shortcut_close_find, "Ctrl+Alt+Escape");
         assert_eq!(back.shortcut_replace, "Ctrl+Alt+H");

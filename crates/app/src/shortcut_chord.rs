@@ -144,6 +144,10 @@ pub const DEFAULT_FOLD_ALL: &str = "Alt+0";
 /// Default fold-current binding (View → Fold Current). Shift flips to Unfold Current.
 pub const DEFAULT_FOLD_CURRENT: &str = "Alt+F";
 
+/// Default go-to-matching-brace binding (Search → Go to matching brace).
+/// Shift flips to Select matching braces.
+pub const DEFAULT_MATCHING_BRACE: &str = "Cmd+B";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -811,6 +815,19 @@ mod tests {
         let unfold = c.flipped_shift();
         assert!(unfold.shift);
         assert_eq!(unfold.display(), "Alt+Shift+F");
+    }
+
+    #[test]
+    fn parse_cmd_b_default_matching_brace() {
+        let c = parse_chord(DEFAULT_MATCHING_BRACE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::B);
+        assert_eq!(c.display(), "Cmd+B");
+        let select = c.flipped_shift();
+        assert!(select.shift);
+        assert_eq!(select.display(), "Cmd+Shift+B");
     }
 
     #[test]
