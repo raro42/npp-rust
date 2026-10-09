@@ -141,6 +141,9 @@ pub const DEFAULT_SHIFT_TAB_OUTDENT: &str = "Shift+Tab";
 /// Default fold-all binding (View → Fold All). Shift flips to Unfold All.
 pub const DEFAULT_FOLD_ALL: &str = "Alt+0";
 
+/// Default fold-current binding (View → Fold Current). Shift flips to Unfold Current.
+pub const DEFAULT_FOLD_CURRENT: &str = "Alt+F";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -795,6 +798,19 @@ mod tests {
         let unfold = c.flipped_shift();
         assert!(unfold.shift);
         assert_eq!(unfold.display(), "Alt+Shift+0");
+    }
+
+    #[test]
+    fn parse_alt_f_default_fold_current() {
+        let c = parse_chord(DEFAULT_FOLD_CURRENT).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F);
+        assert_eq!(c.display(), "Alt+F");
+        let unfold = c.flipped_shift();
+        assert!(unfold.shift);
+        assert_eq!(unfold.display(), "Alt+Shift+F");
     }
 
     #[test]

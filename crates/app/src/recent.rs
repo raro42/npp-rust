@@ -212,6 +212,10 @@ fn default_shortcut_fold_all() -> String {
     crate::shortcut_chord::DEFAULT_FOLD_ALL.into()
 }
 
+fn default_shortcut_fold_current() -> String {
+    crate::shortcut_chord::DEFAULT_FOLD_CURRENT.into()
+}
+
 fn default_shortcut_find() -> String {
     crate::shortcut_chord::DEFAULT_FIND.into()
 }
@@ -469,6 +473,9 @@ pub struct AppSettings {
     /// Fold-all chord (`Alt+0` default; Shift flips to Unfold All).
     #[serde(default = "default_shortcut_fold_all")]
     pub shortcut_fold_all: String,
+    /// Fold-current chord (`Alt+F` default; Shift flips to Unfold Current).
+    #[serde(default = "default_shortcut_fold_current")]
+    pub shortcut_fold_current: String,
     /// Find-bar chord (`Cmd+F` default).
     #[serde(default = "default_shortcut_find")]
     pub shortcut_find: String,
@@ -581,6 +588,7 @@ impl Default for AppSettings {
             shortcut_print: default_shortcut_print(),
             shortcut_shift_tab_outdent: default_shortcut_shift_tab_outdent(),
             shortcut_fold_all: default_shortcut_fold_all(),
+            shortcut_fold_current: default_shortcut_fold_current(),
             shortcut_find: default_shortcut_find(),
             shortcut_close_find: default_shortcut_close_find(),
             shortcut_replace: default_shortcut_replace(),
@@ -940,7 +948,8 @@ mod tests {
             shortcut_print: "Ctrl+Alt+P".into(),
             shortcut_shift_tab_outdent: "Ctrl+Shift+Tab".into(),
             shortcut_fold_all: "Ctrl+Alt+0".into(),
-            shortcut_find: "Ctrl+Alt+F".into(),
+            shortcut_fold_current: "Ctrl+Alt+F".into(),
+            shortcut_find: "Ctrl+Alt+G".into(),
             shortcut_close_find: "Ctrl+Alt+Escape".into(),
             shortcut_replace: "Ctrl+Alt+H".into(),
             shortcut_replace_alt: "Ctrl+Alt+Shift+F".into(),
@@ -1002,7 +1011,8 @@ mod tests {
         assert_eq!(back.shortcut_print, "Ctrl+Alt+P");
         assert_eq!(back.shortcut_shift_tab_outdent, "Ctrl+Shift+Tab");
         assert_eq!(back.shortcut_fold_all, "Ctrl+Alt+0");
-        assert_eq!(back.shortcut_find, "Ctrl+Alt+F");
+        assert_eq!(back.shortcut_fold_current, "Ctrl+Alt+F");
+        assert_eq!(back.shortcut_find, "Ctrl+Alt+G");
         assert_eq!(back.shortcut_close_find, "Ctrl+Alt+Escape");
         assert_eq!(back.shortcut_replace, "Ctrl+Alt+H");
         assert_eq!(back.shortcut_replace_alt, "Ctrl+Alt+Shift+F");

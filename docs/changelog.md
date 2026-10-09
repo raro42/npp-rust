@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.149] — 2026-10-09
+
+Settings / shortcuts:
+
+- **Fold / Unfold current** is remappable: Preferences → Fold current shortcut, or `shortcut_fold_current` in `npp-rs/settings.json` (default `Alt+F`). Shift flips to Unfold Current (`Alt+Shift+F`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.148] — 2026-10-09
 
 Settings / shortcuts:
