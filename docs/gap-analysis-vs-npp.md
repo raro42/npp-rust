@@ -79,7 +79,7 @@ Hundreds of menu commands have **no** accelerator.
 |------|--------|
 | Drag to select / double-click word / triple-click line | Done |
 | Tab drag-reorder | Done |
-| Document map click/drag scroll | Done | Compare colours + hunk-start ticks; click parks hunk; drag syncs partner when sync scroll on |
+| Document map click/drag scroll | Done | Compare colours + hunk-start ticks; Find match ticks; click parks hunk/match; drag syncs partner when sync scroll on |
 | Drag selection to move or copy text | Done (same buffer; Ctrl/Cmd = copy) |
 | Drop files onto the window to open | Done |
 

@@ -595,6 +595,25 @@ pub fn find_all_matches_in(
         .collect()
 }
 
+/// First match span per line (ascending lines) for Document Map find ticks.
+///
+/// `char_to_line` maps absolute char index → 0-based line. Later matches on the
+/// same line are skipped.
+pub fn find_match_line_hits(
+    matches: &[(usize, usize)],
+    char_to_line: impl Fn(usize) -> usize,
+) -> Vec<(usize, usize, usize)> {
+    let mut out = Vec::with_capacity(matches.len().min(64));
+    let mut seen = std::collections::BTreeSet::new();
+    for &(s, e) in matches {
+        let line = char_to_line(s);
+        if seen.insert(line) {
+            out.push((line, s, e));
+        }
+    }
+    out
+}
+
 /// Next match at or after `from` inside `span` (`[lo, hi)`). Wraps within the span.
 pub fn find_next_in(
     text: &str,
@@ -723,6 +742,20 @@ mod tests {
         let next = find_next_in(text, "foo", 6, true, (0, 8), lit);
         assert_eq!(next, Some((3, 6)));
         assert_eq!(find_next_in(text, "foo", 6, false, (0, 8), lit), None);
+        // Document Map: first span per line (multi-hit lines collapse).
+        let multi = "ab\nab\ncab";
+        let hits = find_all_matches(multi, "ab", lit);
+        assert_eq!(hits, vec![(0, 2), (3, 5), (7, 9)]);
+        let lines: Vec<usize> = multi
+            .char_indices()
+            .filter(|(_, c)| *c == '\n')
+            .map(|(i, _)| i)
+            .collect();
+        let char_to_line = |c: usize| lines.iter().filter(|&&nl| nl < c).count();
+        let per_line = find_match_line_hits(&hits, char_to_line);
+        assert_eq!(per_line, vec![(0, 0, 2), (1, 3, 5), (2, 7, 9)]);
+        let same_line = find_all_matches("abab", "ab", lit);
+        assert_eq!(find_match_line_hits(&same_line, |_| 0), vec![(0, 0, 2)]);
         let (out, n, new_hi) = replace_all_in(text, "foo", "BAR", 8, text.chars().count(), lit);
         assert_eq!(n, 1);
         assert_eq!(out, "xx foo yy BAR zz");

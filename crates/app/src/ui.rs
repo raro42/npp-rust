@@ -7502,6 +7502,7 @@ impl EditorApp {
         } else {
             self.scroll_line
         };
+        let (find_match_total, find_match_hits) = self.state.find_match_line_hits_for_tab(map_tab);
         let (
             line_count,
             sample_n,
@@ -7605,8 +7606,11 @@ impl EditorApp {
         let mut hide_gap_click: Option<(usize, usize)> = None;
         // Click near a bookmark tick: park caret on that bookmark line.
         let mut bookmark_click: Option<usize> = None;
+        // Click near a find-match tick: select that match span.
+        let mut find_click: Option<(usize, usize, usize)> = None;
         // Click near a change-history tick: park caret on that changed line.
         let mut ch_click: Option<(usize, bool)> = None;
+        let find_tick_lines: Vec<usize> = find_match_hits.iter().map(|&(l, _, _)| l).collect();
         egui::Window::new("Document Map")
             .open(&mut open)
             .default_width(72.0)
@@ -7623,6 +7627,12 @@ impl EditorApp {
                             if hide_gaps.len() == 1 { "" } else { "s" }
                         ));
                     }
+                }
+                if find_match_total > 0 {
+                    label.push_str(&format!(
+                        " · {find_match_total} match{}",
+                        if find_match_total == 1 { "" } else { "es" }
+                    ));
                 }
                 if !bookmark_ticks.is_empty() {
                     label.push_str(&format!(
@@ -7681,6 +7691,22 @@ impl EditorApp {
                 if max_scroll > 0.0 {
                     let tick = Color32::from_rgb(230, 200, 90);
                     for &line_idx in &hunk_ticks {
+                        let frac = (line_idx as f32 / max_scroll).clamp(0.0, 1.0);
+                        let y = rect.top() + frac * rect.height();
+                        painter.rect_filled(
+                            Rect::from_min_size(
+                                Pos2::new(rect.left(), y - 0.75),
+                                Vec2::new(rect.width(), 1.5),
+                            ),
+                            0.0,
+                            tick,
+                        );
+                    }
+                }
+                // Find-match ticks (magenta, full width) when Find query has hits.
+                if max_scroll > 0.0 {
+                    let tick = Color32::from_rgb(210, 90, 200);
+                    for &(line_idx, _, _) in &find_match_hits {
                         let frac = (line_idx as f32 / max_scroll).clamp(0.0, 1.0);
                         let y = rect.top() + frac * rect.height();
                         painter.rect_filled(
@@ -7762,6 +7788,12 @@ impl EditorApp {
                                 (m, saved)
                             })
                         };
+                        let nearest_find = || {
+                            crate::diff::doc_map_nearest_mark(line_idx, &find_tick_lines, snap)
+                                .and_then(|line| {
+                                    find_match_hits.iter().copied().find(|(l, _, _)| *l == line)
+                                })
+                        };
                         if compare_active {
                             if let Some(gap) =
                                 crate::diff::doc_map_compare_hide_gap_at(line_idx, &hide_gaps)
@@ -7771,6 +7803,8 @@ impl EditorApp {
                                 crate::diff::doc_map_nearest_mark(line_idx, &bookmark_ticks, snap)
                             {
                                 bookmark_click = Some(bm);
+                            } else if let Some(hit) = nearest_find() {
+                                find_click = Some(hit);
                             } else if let Some(ch) = nearest_ch() {
                                 ch_click = Some(ch);
                             } else {
@@ -7780,6 +7814,8 @@ impl EditorApp {
                             crate::diff::doc_map_nearest_mark(line_idx, &bookmark_ticks, snap)
                         {
                             bookmark_click = Some(bm);
+                        } else if let Some(hit) = nearest_find() {
+                            find_click = Some(hit);
                         } else if let Some(ch) = nearest_ch() {
                             ch_click = Some(ch);
                         }
@@ -7836,6 +7872,31 @@ impl EditorApp {
                 self.sync_compare_other_to_caret_hunk(map_tab == self.compare_left_tab);
             } else {
                 self.state.status = format!("Document Map → bookmark line {}", line_idx + 1);
+            }
+        } else if let Some((line_idx, start, end)) = find_click {
+            if let Some(doc) = self.state.tabs.get_mut(map_tab) {
+                doc.buffer.set_selection(start, end);
+            }
+            if secondary {
+                self.follow_caret_other = true;
+                if self.sync_scroll_v {
+                    self.follow_caret = true;
+                }
+            } else {
+                self.follow_caret = true;
+                if self.sync_scroll_v {
+                    self.follow_caret_other = true;
+                }
+            }
+            if compare_active {
+                // Parks partner + selects hunk (or Equal partner); sets Compare status.
+                self.sync_compare_other_to_caret_hunk(map_tab == self.compare_left_tab);
+            } else {
+                self.state.status = format!(
+                    "Document Map → find line {} · {find_match_total} match{}",
+                    line_idx + 1,
+                    if find_match_total == 1 { "" } else { "es" }
+                );
             }
         } else if let Some((line_idx, saved)) = ch_click {
             if let Some(doc) = self.state.tabs.get_mut(map_tab) {

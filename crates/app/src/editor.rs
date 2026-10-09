@@ -1548,6 +1548,32 @@ impl EditorState {
         crate::search_util::find_all_matches_in(&text, q, lo, hi, self.find_flags()).len()
     }
 
+    /// Find hits for Document Map: `(total_matches, first_span_per_line)`.
+    ///
+    /// Uses the active tab's Find bounds when `tab` is active; otherwise the whole
+    /// buffer. Empty query or Sel-without-scope yields no ticks.
+    pub fn find_match_line_hits_for_tab(&self, tab: usize) -> (usize, Vec<(usize, usize, usize)>) {
+        let q = self.find_query.as_str();
+        if q.is_empty() {
+            return (0, Vec::new());
+        }
+        let Some(doc) = self.tabs.get(tab) else {
+            return (0, Vec::new());
+        };
+        let text = doc.buffer.to_string();
+        let n = doc.buffer.len_chars();
+        let (lo, hi) = if tab == self.tabs.active_index() {
+            self.find_bounds()
+        } else {
+            (0, n)
+        };
+        let matches = crate::search_util::find_all_matches_in(&text, q, lo, hi, self.find_flags());
+        let total = matches.len();
+        let hits =
+            crate::search_util::find_match_line_hits(&matches, |c| doc.buffer.char_to_line(c));
+        (total, hits)
+    }
+
     pub fn find_next(&mut self) {
         let q = self.find_query.clone();
         if q.is_empty() {

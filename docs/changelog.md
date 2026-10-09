@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.172] — 2026-10-10
+
+Search / View:
+
+- **Document Map** paints magenta ticks on Find match lines when the Find query has hits. Title appends match count. Click near a tick selects the first match on that line (status `Document Map → find line N · K matches`); while Compare is on, the click also syncs the partner pane like a hunk/Equal park.
+
 ## [0.3.171] — 2026-10-09
 
 View:
