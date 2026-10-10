@@ -1695,6 +1695,47 @@ impl EditorApp {
                 }
             }
         }
+        // Remappable forward Delete (default Delete; settings.shortcut_delete_forward).
+        // Default Delete stays in handle_editor_input to avoid double-delete. When remapped,
+        // chord runs IDM_EDIT_DELETE.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_DELETE_FORWARD};
+            let delete_chord = resolve_chord(
+                &self.state.settings.shortcut_delete_forward,
+                DEFAULT_DELETE_FORWARD,
+            );
+            let default_chord = resolve_chord(DEFAULT_DELETE_FORWARD, DEFAULT_DELETE_FORWARD);
+            if delete_chord != default_chord {
+                let delete_key_pressed = match delete_chord.key {
+                    Key::Z => z,
+                    Key::N => n,
+                    Key::O => o,
+                    Key::S => s,
+                    Key::F => f,
+                    Key::Y => y,
+                    Key::W => w,
+                    Key::G => g,
+                    Key::A => a,
+                    Key::D => d,
+                    Key::L => l,
+                    Key::I => i_key,
+                    Key::T => t,
+                    Key::H => h,
+                    Key::F2 => f2,
+                    Key::F3 => f3,
+                    Key::F7 => f7,
+                    Key::Equals => equals,
+                    Key::Minus => minus,
+                    Key::Num0 => num0,
+                    Key::CloseBracket => close_br,
+                    Key::OpenBracket => open_br,
+                    other => ctx.input(|i| i.key_pressed(other)),
+                };
+                if delete_key_pressed && delete_chord.matches(mods, delete_chord.key) {
+                    self.run_shortcut_cmd("IDM_EDIT_DELETE");
+                }
+            }
+        }
         // Remappable duplicate line (default Cmd+D; settings.shortcut_duplicate_line).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_DUPLICATE_LINE};
@@ -4268,6 +4309,10 @@ impl EditorApp {
             "IDM_EDIT_COPY" => primary(&s.shortcut_copy, crate::shortcut_chord::DEFAULT_COPY),
             "IDM_EDIT_CUT" => primary(&s.shortcut_cut, crate::shortcut_chord::DEFAULT_CUT),
             "IDM_EDIT_PASTE" => primary(&s.shortcut_paste, crate::shortcut_chord::DEFAULT_PASTE),
+            "IDM_EDIT_DELETE" => primary(
+                &s.shortcut_delete_forward,
+                crate::shortcut_chord::DEFAULT_DELETE_FORWARD,
+            ),
             "IDM_EDIT_DUP_LINE" => primary(
                 &s.shortcut_duplicate_line,
                 crate::shortcut_chord::DEFAULT_DUPLICATE_LINE,
@@ -4985,6 +5030,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_PASTE,
         )
         .display();
+        let delete_forward_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_delete_forward,
+            crate::shortcut_chord::DEFAULT_DELETE_FORWARD,
+        )
+        .display();
         let undo_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_undo,
             crate::shortcut_chord::DEFAULT_UNDO,
@@ -5046,7 +5096,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 64] = [
+        let rows: [(&str, &str); 65] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -5113,6 +5163,7 @@ impl EditorApp {
             (copy_keys.as_str(), "Copy"),
             (cut_keys.as_str(), "Cut"),
             (paste_keys.as_str(), "Paste"),
+            (delete_forward_keys.as_str(), "Delete"),
             (dup_keys.as_str(), "Duplicate line"),
             (del_keys.as_str(), "Delete line"),
             (move_line_keys.as_str(), "Move line up / down"),
@@ -7209,6 +7260,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+V, Ctrl+Alt+V. When remapped, platform Cmd+V no longer pastes; remapped chord pastes last copied text.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Delete shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_delete_forward,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Delete"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_delete_forward.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_delete_forward =
+                                        crate::shortcut_chord::DEFAULT_DELETE_FORWARD.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_DELETE_FORWARD
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_delete_forward = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Delete, Ctrl+Alt+D. When remapped, bare Delete no longer deletes forward.",
                             )
                             .small()
                             .weak(),
@@ -14379,6 +14462,20 @@ impl EditorApp {
                     pressed: true,
                     ..
                 } => {
+                    // Remappable forward Delete (default Delete). When remapped away from
+                    // default, ignore Delete; remapped chord is handled in handle_shortcuts.
+                    {
+                        use crate::shortcut_chord::{resolve_chord, DEFAULT_DELETE_FORWARD};
+                        let delete_chord = resolve_chord(
+                            &self.state.settings.shortcut_delete_forward,
+                            DEFAULT_DELETE_FORWARD,
+                        );
+                        let default_chord =
+                            resolve_chord(DEFAULT_DELETE_FORWARD, DEFAULT_DELETE_FORWARD);
+                        if delete_chord != default_chord {
+                            continue;
+                        }
+                    }
                     if read_only {
                         self.state.status = "Document is read-only".into();
                     } else {

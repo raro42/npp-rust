@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.189] — 2026-10-10
+
+Edit / Settings:
+
+- **Delete** (forward) is remappable (`shortcut_delete_forward`, default Delete). When remapped, bare Delete no longer deletes forward; the remapped chord runs Edit → Delete. Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.188] — 2026-10-10
 
 Edit / Settings:

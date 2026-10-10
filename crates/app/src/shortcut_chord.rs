@@ -158,6 +158,11 @@ pub const DEFAULT_CUT: &str = "Cmd+X";
 /// ignored and the chord runs menu Paste (`last_copied`).
 pub const DEFAULT_PASTE: &str = "Cmd+V";
 
+/// Default forward-delete binding (Edit → Delete; matches historical hard-wire).
+/// Default stays in `handle_editor_input`. When remapped, bare Delete is ignored and the chord
+/// runs menu Delete (`IDM_EDIT_DELETE`).
+pub const DEFAULT_DELETE_FORWARD: &str = "Delete";
+
 /// Default undo binding (matches historical hard-wire). Shift flips to redo.
 pub const DEFAULT_UNDO: &str = "Cmd+Z";
 
@@ -410,6 +415,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "f8" => Some(Key::F8),
         "escape" | "esc" => Some(Key::Escape),
         "tab" => Some(Key::Tab),
+        "delete" | "del" => Some(Key::Delete),
         "enter" | "return" => Some(Key::Enter),
         "equals" | "=" | "plus" => Some(Key::Equals),
         "minus" | "-" => Some(Key::Minus),
@@ -460,6 +466,7 @@ fn key_token(key: Key) -> &'static str {
         Key::F8 => "F8",
         Key::Escape => "Escape",
         Key::Tab => "Tab",
+        Key::Delete => "Delete",
         Key::Enter => "Enter",
         Key::Equals => "=",
         Key::Minus => "-",
@@ -1245,6 +1252,17 @@ mod tests {
         assert_eq!(c.key, Key::Escape);
         assert_eq!(c.display(), "Escape");
         assert_eq!(parse_chord("Esc").unwrap().key, Key::Escape);
+    }
+
+    #[test]
+    fn parse_delete_default_delete_forward() {
+        let c = parse_chord(DEFAULT_DELETE_FORWARD).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Delete);
+        assert_eq!(c.display(), "Delete");
+        assert_eq!(parse_chord("Del").unwrap().key, Key::Delete);
     }
 
     #[test]

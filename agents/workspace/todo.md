@@ -282,3 +282,5 @@
 009 keep: remappable Cut (shortcut_cut, Cmd+X default, v0.3.187)
 
 009 keep: remappable Paste (shortcut_paste, Cmd+V default, v0.3.188)
+
+009 keep: remappable Delete forward (shortcut_delete_forward, Delete default, v0.3.189)
