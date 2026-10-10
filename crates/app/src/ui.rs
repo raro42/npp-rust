@@ -724,6 +724,8 @@ pub struct EditorApp {
     sync_scroll_v: bool,
     /// Sync flag for horizontal (MVP shares line scroll with V when either is on).
     sync_scroll_h: bool,
+    /// Sync H/V flags captured when Compare first turns on (restored on Clear).
+    compare_saved_sync_scroll: Option<(bool, bool)>,
     /// Session flag: both panes share font size (always true in practice).
     zoom_sync: bool,
     /// 2-way compare mode (colours + dual view).
@@ -789,6 +791,7 @@ impl EditorApp {
             scroll_line_other: 0.0,
             sync_scroll_v: false,
             sync_scroll_h: false,
+            compare_saved_sync_scroll: None,
             zoom_sync: false,
             compare_on: false,
             compare_left_tab: 0,
@@ -13726,6 +13729,11 @@ impl EditorApp {
         self.compare_hide_revealed_right.clear();
         self.state.compare_stale = false;
         self.compare_refresh_at = None;
+        // Undo Start Compare forcing sync H+V so dual-view editing is not stuck synced.
+        if let Some((v, h)) = self.compare_saved_sync_scroll.take() {
+            self.sync_scroll_v = v;
+            self.sync_scroll_h = h;
+        }
         let mut closed_saved = false;
         if let Some(i) = snapshot {
             if self
@@ -14093,6 +14101,10 @@ impl EditorApp {
         let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) else {
             return;
         };
+        // Remember pre-Compare sync so Clear can restore (re-start keeps the first capture).
+        if !self.compare_on {
+            self.compare_saved_sync_scroll = Some((self.sync_scroll_v, self.sync_scroll_h));
+        }
         self.compare_on = true;
         self.state.compare_stale = false;
         self.compare_left_tab = left;

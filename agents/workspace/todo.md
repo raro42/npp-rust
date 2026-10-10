@@ -297,3 +297,5 @@
 009 keep: Shift+Up/Down and Shift+PageUp/PageDown selection extend (v0.3.195)
 
 009 keep: remappable Document Home / End aliases (shortcut_document_home, Cmd+Home default, v0.3.196)
+
+009 keep: Clear Compare restores pre-start sync H/V scroll (v0.3.197)

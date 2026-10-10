@@ -91,7 +91,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - MVP max: **3000 lines** per side. Larger files still Compare: LCS uses the first 3000 lines on each side; the rest stays uncoloured and status appends `· first 3000 lines`.
 - No gap rows for inserts (line numbers stay per-file; sync is by scroll line).
 - Intra-line wash is word-aware LCS on paired replace lines (char refine on 1:1 tokens). Not 3-way.
-- Start Compare turns on sync H + V scroll.
+- Start Compare turns on sync H + V scroll. Clear Compare restores the sync H/V flags from before that Start (re-Start while Compare is already on keeps the first capture).
 - Preferences: **Ignore whitespace differences** collapses whitespace runs before LCS.
 - Preferences: **Ignore case differences** folds letter case before LCS (combines with ignore-whitespace).
 - Preferences: **Ignore blank lines** skips blank / whitespace-only lines in the LCS (combines with the other ignore toggles).

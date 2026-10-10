@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.197] — 2026-10-10
+
+View / Compare:
+
+- **Clear Compare** restores the dual-pane sync H/V scroll flags from before Start Compare forced them on (so leaving Compare does not leave scroll stuck synced).
+
 ## [0.3.196] — 2026-10-10
 
 Edit / Settings:
