@@ -20,6 +20,9 @@ pub const DEFAULT_NEXT_BOOKMARK: &str = "F2";
 /// Default toggle-bookmark binding (matches historical hard-wire).
 pub const DEFAULT_TOGGLE_BOOKMARK: &str = "Cmd+F2";
 
+/// Default next change-history mark binding (Search → Next Change). Prev uses Shift toggled.
+pub const DEFAULT_NEXT_CHANGED: &str = "F8";
+
 /// Default next-compare-diff binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_DIFF: &str = "F7";
 
@@ -375,6 +378,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "f3" => Some(Key::F3),
         "f6" => Some(Key::F6),
         "f7" => Some(Key::F7),
+        "f8" => Some(Key::F8),
         "escape" | "esc" => Some(Key::Escape),
         "tab" => Some(Key::Tab),
         "equals" | "=" | "plus" => Some(Key::Equals),
@@ -423,6 +427,7 @@ fn key_token(key: Key) -> &'static str {
         Key::F3 => "F3",
         Key::F6 => "F6",
         Key::F7 => "F7",
+        Key::F8 => "F8",
         Key::Escape => "Escape",
         Key::Tab => "Tab",
         Key::Equals => "=",
@@ -1092,6 +1097,17 @@ mod tests {
         assert_eq!(c.key, Key::F6);
         assert_eq!(c.display(), "F6");
         assert_eq!(c.flipped_shift().display(), "Shift+F6");
+    }
+
+    #[test]
+    fn parse_f8_default_next_changed() {
+        let c = parse_chord(DEFAULT_NEXT_CHANGED).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F8);
+        assert_eq!(c.display(), "F8");
+        assert_eq!(c.flipped_shift().display(), "Shift+F8");
     }
 
     #[test]

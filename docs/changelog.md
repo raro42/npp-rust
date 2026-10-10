@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.180] — 2026-10-10
+
+Search / Settings:
+
+- **Next / Previous Change History** is remappable (`shortcut_next_changed`, default F8). Shift + that chord jumps to the previous change-history mark. Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.179] — 2026-10-10
 
 View / Compare:

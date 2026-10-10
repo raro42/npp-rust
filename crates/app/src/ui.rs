@@ -2461,6 +2461,49 @@ impl EditorApp {
             }
         }
 
+        // Change history: remappable next (default F8; Shift flips to prev).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_NEXT_CHANGED};
+            let ch_chord = resolve_chord(
+                &self.state.settings.shortcut_next_changed,
+                DEFAULT_NEXT_CHANGED,
+            );
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let ch_key_pressed = key_pressed(ch_chord.key);
+            let remapped_prev =
+                ch_key_pressed && ch_chord.flipped_shift().matches(mods, ch_chord.key);
+            let remapped_next = ch_key_pressed && ch_chord.matches(mods, ch_chord.key);
+            if remapped_prev {
+                self.run_shortcut_cmd("IDM_SEARCH_CHANGED_PREV");
+            } else if remapped_next {
+                self.run_shortcut_cmd("IDM_SEARCH_CHANGED_NEXT");
+            }
+        }
+
         // Compare hunks: remappable next (default F7; Shift flips to prev).
         // Remappable first (default Cmd+F7; Shift flips to last).
         // Hidden equal: remappable next (default Alt+F7; Shift flips to prev).
@@ -4014,6 +4057,14 @@ impl EditorApp {
                 &s.shortcut_next_bookmark,
                 crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
             ),
+            "IDM_SEARCH_CHANGED_NEXT" => primary(
+                &s.shortcut_next_changed,
+                crate::shortcut_chord::DEFAULT_NEXT_CHANGED,
+            ),
+            "IDM_SEARCH_CHANGED_PREV" => shifted(
+                &s.shortcut_next_changed,
+                crate::shortcut_chord::DEFAULT_NEXT_CHANGED,
+            ),
             "IDM_VIEW_WRAP" => primary(
                 &s.shortcut_word_wrap,
                 crate::shortcut_chord::DEFAULT_WORD_WRAP,
@@ -4229,6 +4280,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_TOGGLE_BOOKMARK,
         )
         .display();
+        let changed_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_next_changed,
+            crate::shortcut_chord::DEFAULT_NEXT_CHANGED,
+        );
+        let changed_keys = format!(
+            "{} / {}",
+            changed_chord.display(),
+            changed_chord.flipped_shift().display()
+        );
         let diff_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_next_diff,
             crate::shortcut_chord::DEFAULT_NEXT_DIFF,
@@ -4614,7 +4674,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 55] = [
+        let rows: [(&str, &str); 56] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -4630,6 +4690,7 @@ impl EditorApp {
             (goto_keys.as_str(), "Go to line"),
             (bm_keys.as_str(), "Next / prev bookmark"),
             (toggle_bm_keys.as_str(), "Toggle bookmark"),
+            (changed_keys.as_str(), "Next / prev change history"),
             (compare_keys.as_str(), "Compare start / clear"),
             (swap_compare_keys.as_str(), "Swap Compare sides"),
             (compare_to_saved_keys.as_str(), "Compare to Saved"),
@@ -5187,6 +5248,38 @@ impl EditorApp {
                             RichText::new("Example: Cmd+F2, Ctrl+Shift+F2.")
                                 .small()
                                 .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Next change history shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_next_changed,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("F8"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_next_changed.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_next_changed =
+                                        crate::shortcut_chord::DEFAULT_NEXT_CHANGED.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_NEXT_CHANGED
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_next_changed = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: F8, Alt+F8. Shift + that key is Previous change history.",
+                            )
+                            .small()
+                            .weak(),
                         );
                         ui.horizontal(|ui| {
                             ui.label("Next difference shortcut");
