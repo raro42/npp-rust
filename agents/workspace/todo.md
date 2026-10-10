@@ -278,3 +278,5 @@
 009 keep: remappable Clear all bookmarks (shortcut_clear_bookmarks, Cmd+Shift+F2 default, v0.3.185)
 
 009 keep: remappable Copy (shortcut_copy, Cmd+C default, v0.3.186)
+
+009 keep: remappable Cut (shortcut_cut, Cmd+X default, v0.3.187)

@@ -149,6 +149,10 @@ pub const DEFAULT_SELECT_ALL: &str = "Cmd+A";
 /// When remapped away from this default, platform `Event::Copy` is ignored so Cmd+C does not still copy.
 pub const DEFAULT_COPY: &str = "Cmd+C";
 
+/// Default cut binding (Edit → Cut; matches platform Cmd/Ctrl+X).
+/// When remapped away from this default, platform `Event::Cut` is ignored so Cmd+X does not still cut.
+pub const DEFAULT_CUT: &str = "Cmd+X";
+
 /// Default undo binding (matches historical hard-wire). Shift flips to redo.
 pub const DEFAULT_UNDO: &str = "Cmd+Z";
 
@@ -971,6 +975,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::C);
         assert_eq!(c.display(), "Cmd+C");
+    }
+
+    #[test]
+    fn parse_cmd_x_default_cut() {
+        let c = parse_chord(DEFAULT_CUT).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::X);
+        assert_eq!(c.display(), "Cmd+X");
     }
 
     #[test]

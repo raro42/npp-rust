@@ -85,6 +85,7 @@ New keys:
 | `shortcut_replace_alt` | Alternate replace-bar chord (`Cmd+Shift+F` default) |
 | `shortcut_select_all` | Select-all chord (`Cmd+A` default) |
 | `shortcut_copy` | Copy chord (`Cmd+C` default; when remapped, platform Cmd+C no longer copies) |
+| `shortcut_cut` | Cut chord (`Cmd+X` default; when remapped, platform Cmd+X no longer cuts) |
 | `shortcut_undo` | Undo chord (`Cmd+Z` default; Shift flips to redo) |
 | `shortcut_redo` | Redo alternate chord (`Cmd+Y` default; Shift+undo also redo) |
 | `shortcut_zoom_in` | Zoom-in chord (`Cmd+=` default) |

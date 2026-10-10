@@ -1624,6 +1624,39 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_COPY");
             }
         }
+        // Remappable cut (default Cmd+X; settings.shortcut_cut).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_CUT};
+            let cut_chord = resolve_chord(&self.state.settings.shortcut_cut, DEFAULT_CUT);
+            let cut_key_pressed = match cut_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if cut_key_pressed && cut_chord.matches(mods, cut_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_CUT");
+            }
+        }
         // Remappable duplicate line (default Cmd+D; settings.shortcut_duplicate_line).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_DUPLICATE_LINE};
@@ -4195,6 +4228,7 @@ impl EditorApp {
                 crate::shortcut_chord::DEFAULT_SELECT_ALL,
             ),
             "IDM_EDIT_COPY" => primary(&s.shortcut_copy, crate::shortcut_chord::DEFAULT_COPY),
+            "IDM_EDIT_CUT" => primary(&s.shortcut_cut, crate::shortcut_chord::DEFAULT_CUT),
             "IDM_EDIT_DUP_LINE" => primary(
                 &s.shortcut_duplicate_line,
                 crate::shortcut_chord::DEFAULT_DUPLICATE_LINE,
@@ -4902,6 +4936,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_COPY,
         )
         .display();
+        let cut_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_cut,
+            crate::shortcut_chord::DEFAULT_CUT,
+        )
+        .display();
         let undo_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_undo,
             crate::shortcut_chord::DEFAULT_UNDO,
@@ -4963,7 +5002,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 62] = [
+        let rows: [(&str, &str); 63] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -5028,6 +5067,7 @@ impl EditorApp {
             (wrap_keys.as_str(), "Word wrap"),
             (select_all_keys.as_str(), "Select all"),
             (copy_keys.as_str(), "Copy"),
+            (cut_keys.as_str(), "Cut"),
             (dup_keys.as_str(), "Duplicate line"),
             (del_keys.as_str(), "Delete line"),
             (move_line_keys.as_str(), "Move line up / down"),
@@ -7066,6 +7106,35 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+C, Ctrl+Alt+C. When remapped, platform Cmd+C no longer copies.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Cut shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(&mut self.state.settings.shortcut_cut)
+                                    .desired_width(120.0)
+                                    .hint_text("Cmd+X"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_cut.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_cut =
+                                        crate::shortcut_chord::DEFAULT_CUT.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CUT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_cut = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+X, Ctrl+Alt+X. When remapped, platform Cmd+X no longer cuts.",
                             )
                             .small()
                             .weak(),
@@ -14075,6 +14144,18 @@ impl EditorApp {
                             resolve_chord(&self.state.settings.shortcut_copy, DEFAULT_COPY);
                         let default_chord = resolve_chord(DEFAULT_COPY, DEFAULT_COPY);
                         if copy_chord != default_chord {
+                            continue;
+                        }
+                    }
+                    // When Cut is remapped away from default Cmd+X, ignore platform
+                    // Event::Cut so the old chord does not still cut; remapped chord
+                    // is handled in handle_shortcuts → IDM_EDIT_CUT.
+                    if matches!(event, egui::Event::Cut) {
+                        use crate::shortcut_chord::{resolve_chord, DEFAULT_CUT};
+                        let cut_chord =
+                            resolve_chord(&self.state.settings.shortcut_cut, DEFAULT_CUT);
+                        let default_chord = resolve_chord(DEFAULT_CUT, DEFAULT_CUT);
+                        if cut_chord != default_chord {
                             continue;
                         }
                     }

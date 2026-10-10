@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.187] — 2026-10-10
+
+Edit / Settings:
+
+- **Cut** is remappable (`shortcut_cut`, default Cmd+X). When remapped, platform Cmd+X no longer cuts. Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.186] — 2026-10-10
 
 Edit / Settings:
