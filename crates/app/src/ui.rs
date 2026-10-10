@@ -1885,12 +1885,23 @@ impl EditorApp {
                 if chord_key_pressed(page_down_chord.key)
                     && page_down_chord.matches_ignore_shift(mods, page_down_chord.key)
                 {
-                    move_caret_vert(&mut self.state, tab, 30);
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
+                    move_caret_vert(
+                        &mut self.state,
+                        tab,
+                        30,
+                        mods.shift != page_down_chord.shift,
+                    );
                     self.follow_focused_caret();
                 } else if chord_key_pressed(page_up_chord.key)
                     && page_up_chord.matches_ignore_shift(mods, page_up_chord.key)
                 {
-                    move_caret_vert(&mut self.state, tab, -30);
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
+                    move_caret_vert(&mut self.state, tab, -30, mods.shift != page_up_chord.shift);
                     self.follow_focused_caret();
                 }
             }
@@ -2007,7 +2018,7 @@ impl EditorApp {
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
                     }
-                    move_caret_vert(&mut self.state, tab, 1);
+                    move_caret_vert(&mut self.state, tab, 1, mods.shift != down_chord.shift);
                     self.follow_focused_caret();
                 } else if chord_key_pressed(up_chord.key)
                     && up_chord.matches_ignore_shift(mods, up_chord.key)
@@ -2015,7 +2026,7 @@ impl EditorApp {
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
                     }
-                    move_caret_vert(&mut self.state, tab, -1);
+                    move_caret_vert(&mut self.state, tab, -1, mods.shift != up_chord.shift);
                     self.follow_focused_caret();
                 }
             }
@@ -7715,7 +7726,7 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: PageUp, Ctrl+Alt+P. Opposite PageDown jumps page down; letter remaps use Shift for page down. When remapped, bare PageUp/PageDown no longer page.",
+                                "Example: PageUp, Ctrl+Alt+P. Opposite PageDown jumps page down; letter remaps use Shift for page down. Arrow defaults: Shift extends selection. When remapped, bare PageUp/PageDown no longer page.",
                             )
                             .small()
                             .weak(),
@@ -7777,7 +7788,7 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: Up, Ctrl+Alt+I. Opposite Down jumps one line down; letter remaps use Shift for down. When remapped, bare Up/Down no longer move by line. Move line and document start/end stay separate.",
+                                "Example: Up, Ctrl+Alt+I. Opposite Down jumps one line down; letter remaps use Shift for down. Arrow defaults: Shift extends selection. When remapped, bare Up/Down no longer move by line. Move line and document start/end stay separate.",
                             )
                             .small()
                             .weak(),
@@ -15166,7 +15177,7 @@ impl EditorApp {
                             // Remapped away from bare Up; ignore for line move.
                             continue;
                         } else {
-                            move_caret_vert(&mut self.state, tab, -1);
+                            move_caret_vert(&mut self.state, tab, -1, modifiers.shift);
                             caret_moved = true;
                         }
                     }
@@ -15218,7 +15229,7 @@ impl EditorApp {
                             // Remapped away from bare Down; ignore for line move.
                             continue;
                         } else {
-                            move_caret_vert(&mut self.state, tab, 1);
+                            move_caret_vert(&mut self.state, tab, 1, modifiers.shift);
                             caret_moved = true;
                         }
                     }
@@ -15312,7 +15323,10 @@ impl EditorApp {
                         // Remapped away from bare PageUp; ignore.
                         continue;
                     }
-                    move_caret_vert(&mut self.state, tab, -30);
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
+                    move_caret_vert(&mut self.state, tab, -30, modifiers.shift);
                     caret_moved = true;
                 }
                 egui::Event::Key {
@@ -15337,7 +15351,10 @@ impl EditorApp {
                         // Remapped away from bare PageDown; ignore.
                         continue;
                     }
-                    move_caret_vert(&mut self.state, tab, 30);
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
+                    move_caret_vert(&mut self.state, tab, 30, modifiers.shift);
                     caret_moved = true;
                 }
                 _ => {}
@@ -15411,25 +15428,31 @@ fn collect_func_like_lines(buf: &buffer::TextBuffer) -> Vec<(usize, String)> {
     out
 }
 
-fn move_caret_vert(state: &mut EditorState, tab: usize, delta: i32) {
+fn move_caret_vert(state: &mut EditorState, tab: usize, delta: i32, select: bool) {
     let Some(b) = state.tabs.get_mut(tab) else {
         return;
     };
     let caret = b.buffer.caret();
     let line = b.buffer.char_to_line(caret) as i32 + delta;
-    if line < 0 {
-        b.buffer.set_caret(0);
-        return;
+    let next = if line < 0 {
+        0
+    } else {
+        let line = line as usize;
+        if line >= b.buffer.line_count() {
+            b.buffer.len_chars()
+        } else {
+            let col = caret - b.buffer.line_to_char(b.buffer.char_to_line(caret));
+            let raw = b.buffer.line(line);
+            let n = raw.trim_end_matches(['\n', '\r']).chars().count();
+            b.buffer.line_to_char(line) + col.min(n)
+        }
+    };
+    if select {
+        let anchor = b.buffer.selection().map(|(s, _)| s).unwrap_or(caret);
+        b.buffer.set_selection(anchor, next);
+    } else {
+        b.buffer.set_caret(next);
     }
-    let line = line as usize;
-    if line >= b.buffer.line_count() {
-        b.buffer.set_caret(b.buffer.len_chars());
-        return;
-    }
-    let col = caret - b.buffer.line_to_char(b.buffer.char_to_line(caret));
-    let raw = b.buffer.line(line);
-    let n = raw.trim_end_matches(['\n', '\r']).chars().count();
-    b.buffer.set_caret(b.buffer.line_to_char(line) + col.min(n));
 }
 
 fn go_doc_start(state: &mut EditorState, tab: usize, select: bool) {

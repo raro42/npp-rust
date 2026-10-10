@@ -294,3 +294,4 @@
 009 keep: remappable Character left / right (shortcut_char_left, Left default, v0.3.193)
 
 009 keep: remappable line up / down (shortcut_line_up, Up default, v0.3.194)
+009 keep: Shift+Up/Down and Shift+PageUp/PageDown selection extend (v0.3.195)

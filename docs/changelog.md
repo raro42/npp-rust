@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.195] — 2026-10-10
+
+Edit:
+
+- **Shift+Up / Down** and **Shift+PageUp / PageDown** extend the selection while moving (same as Shift+Left/Right and Shift+Home/End). Letter remaps that use Shift for the opposite direction keep that meaning and do not also extend.
+
 ## [0.3.194] — 2026-10-10
 
 Edit / Settings:
