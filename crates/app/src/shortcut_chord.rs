@@ -171,8 +171,14 @@ pub const DEFAULT_DELETE_BACKWARD: &str = "Backspace";
 /// Default line-start binding (matches historical hard-wire).
 /// Opposite Home/End jumps to line end; non-Home/End remaps use Shift for end.
 /// Default stays in `handle_editor_input`. When remapped, bare Home/End no longer move on the line;
-/// `Cmd+Home` / `Cmd+End` stay hard-wired document start/end aliases.
+/// `Cmd+Home` / `Cmd+End` document aliases use `shortcut_document_home`.
 pub const DEFAULT_LINE_HOME: &str = "Home";
+
+/// Default document-start Home alias (matches historical hard-wire).
+/// Opposite Home/End jumps to document end; non-Home/End remaps use Shift for end.
+/// Default stays in `handle_editor_input`. When remapped, bare `Cmd+Home` / `Cmd+End` no longer
+/// jump (`shortcut_goto_document_start` / Cmd+Up stays separate).
+pub const DEFAULT_DOCUMENT_HOME: &str = "Cmd+Home";
 
 /// Default page-up binding (matches historical hard-wire).
 /// Opposite PageUp/PageDown jumps page down; non-Page remaps use Shift for page down.
@@ -251,7 +257,7 @@ pub const DEFAULT_MOVE_LINE: &str = "Cmd+Shift+Up";
 
 /// Default go-to-document-start binding (View → Go to start of file).
 /// Opposite Up/Down jumps to end; non-arrow remaps use Shift for end.
-/// `Cmd+Home` / `Cmd+End` stay hard-wired aliases.
+/// `Cmd+Home` / `Cmd+End` aliases use `shortcut_document_home`.
 pub const DEFAULT_GOTO_DOCUMENT_START: &str = "Cmd+Up";
 
 /// Default toggle single-line comment binding (Edit → Toggle Single Line Comment).
@@ -351,6 +357,11 @@ impl KeyChord {
             },
             _ => self.flipped_shift(),
         }
+    }
+
+    /// Partner chord for document-end Home alias: Home ↔ End, else Shift flip.
+    pub fn document_end_chord(self) -> Self {
+        self.line_end_chord()
     }
 
     /// Partner chord for page-down: PageUp ↔ PageDown, else Shift flip (letter remaps).
@@ -1371,6 +1382,19 @@ mod tests {
         assert_eq!(c.line_end_chord().display(), "End");
         let letter = parse_chord("Ctrl+Alt+H").unwrap();
         assert_eq!(letter.line_end_chord().display(), "Cmd+Alt+Shift+H");
+    }
+
+    #[test]
+    fn parse_cmd_home_default_document_home() {
+        let c = parse_chord(DEFAULT_DOCUMENT_HOME).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Home);
+        assert_eq!(c.display(), "Cmd+Home");
+        assert_eq!(c.document_end_chord().display(), "Cmd+End");
+        let letter = parse_chord("Ctrl+Alt+H").unwrap();
+        assert_eq!(letter.document_end_chord().display(), "Cmd+Alt+Shift+H");
     }
 
     #[test]

@@ -336,6 +336,10 @@ fn default_shortcut_line_home() -> String {
     crate::shortcut_chord::DEFAULT_LINE_HOME.into()
 }
 
+fn default_shortcut_document_home() -> String {
+    crate::shortcut_chord::DEFAULT_DOCUMENT_HOME.into()
+}
+
 fn default_shortcut_page_up() -> String {
     crate::shortcut_chord::DEFAULT_PAGE_UP.into()
 }
@@ -645,7 +649,7 @@ pub struct AppSettings {
     #[serde(default = "default_shortcut_move_line")]
     pub shortcut_move_line: String,
     /// Go-to-document-start chord (`Cmd+Up` default; opposite arrow / Shift jumps to end).
-    /// `Cmd+Home` / `Cmd+End` stay hard-wired aliases.
+    /// `Cmd+Home` / `Cmd+End` aliases use `shortcut_document_home`.
     #[serde(default = "default_shortcut_goto_document_start")]
     pub shortcut_goto_document_start: String,
     /// Toggle line-comment chord (`Cmd+/` default; Shift flips to Block Comment).
@@ -685,10 +689,15 @@ pub struct AppSettings {
     #[serde(default = "default_shortcut_delete_backward")]
     pub shortcut_delete_backward: String,
     /// Line-start chord (`Home` default; opposite End = line end; letter remaps use Shift for end).
-    /// When remapped, bare Home/End no longer move on the line. `Cmd+Home` / `Cmd+End` stay
-    /// hard-wired document start/end aliases.
+    /// When remapped, bare Home/End no longer move on the line. `Cmd+Home` / `Cmd+End` aliases
+    /// use `shortcut_document_home`.
     #[serde(default = "default_shortcut_line_home")]
     pub shortcut_line_home: String,
+    /// Document-start Home alias (`Cmd+Home` default; opposite End = document end; letter remaps
+    /// use Shift for end). When remapped, bare `Cmd+Home` / `Cmd+End` no longer jump.
+    /// `shortcut_goto_document_start` (Cmd+Up) stays separate.
+    #[serde(default = "default_shortcut_document_home")]
+    pub shortcut_document_home: String,
     /// Page-up chord (`PageUp` default; opposite PageDown = page down; letter remaps use Shift).
     /// When remapped, bare PageUp/PageDown no longer page.
     #[serde(default = "default_shortcut_page_up")]
@@ -854,6 +863,7 @@ impl Default for AppSettings {
             shortcut_delete_forward: default_shortcut_delete_forward(),
             shortcut_delete_backward: default_shortcut_delete_backward(),
             shortcut_line_home: default_shortcut_line_home(),
+            shortcut_document_home: default_shortcut_document_home(),
             shortcut_page_up: default_shortcut_page_up(),
             shortcut_char_left: default_shortcut_char_left(),
             shortcut_line_up: default_shortcut_line_up(),
@@ -1247,6 +1257,7 @@ mod tests {
             shortcut_delete_forward: "Ctrl+Alt+Delete".into(),
             shortcut_delete_backward: "Ctrl+Alt+Backspace".into(),
             shortcut_line_home: "Ctrl+Alt+Home".into(),
+            shortcut_document_home: "Ctrl+Alt+Shift+Home".into(),
             shortcut_page_up: "Ctrl+Alt+PageUp".into(),
             shortcut_char_left: "Ctrl+Alt+Left".into(),
             shortcut_line_up: "Ctrl+Alt+Up".into(),
@@ -1341,6 +1352,7 @@ mod tests {
         assert_eq!(back.shortcut_delete_forward, "Ctrl+Alt+Delete");
         assert_eq!(back.shortcut_delete_backward, "Ctrl+Alt+Backspace");
         assert_eq!(back.shortcut_line_home, "Ctrl+Alt+Home");
+        assert_eq!(back.shortcut_document_home, "Ctrl+Alt+Shift+Home");
         assert_eq!(back.shortcut_page_up, "Ctrl+Alt+PageUp");
         assert_eq!(back.shortcut_char_left, "Ctrl+Alt+Left");
         assert_eq!(back.shortcut_line_up, "Ctrl+Alt+Up");

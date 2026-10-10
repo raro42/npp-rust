@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.196] — 2026-10-10
+
+Edit / Settings:
+
+- **Document Home / End aliases** are remappable (`shortcut_document_home`, default Cmd+Home). Opposite End jumps to document end; letter remaps use Shift for end. When remapped, bare Cmd+Home/End no longer jump. Document start (Cmd+Up) stays separate. Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.195] — 2026-10-10
 
 Edit:

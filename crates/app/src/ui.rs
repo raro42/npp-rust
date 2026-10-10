@@ -1790,7 +1790,7 @@ impl EditorApp {
         }
         // Remappable line Home/End (default Home; settings.shortcut_line_home).
         // Default Home/End stay in handle_editor_input. When remapped, chords move on the line.
-        // Cmd+Home / Cmd+End stay hard-wired document start/end aliases.
+        // Cmd+Home / Cmd+End document aliases use shortcut_document_home.
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_LINE_HOME};
             let home_chord =
@@ -1841,6 +1841,65 @@ impl EditorApp {
                         doc.clear_multi_sels();
                     }
                     go_line_start(&mut self.state, tab, mods.shift != home_chord.shift);
+                    self.follow_focused_caret();
+                }
+            }
+        }
+        // Remappable document Home/End aliases (default Cmd+Home; settings.shortcut_document_home).
+        // Default Cmd+Home/End stay in handle_editor_input. When remapped, chords jump here.
+        // shortcut_goto_document_start (Cmd+Up) stays separate.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_DOCUMENT_HOME};
+            let home_chord = resolve_chord(
+                &self.state.settings.shortcut_document_home,
+                DEFAULT_DOCUMENT_HOME,
+            );
+            let default_chord = resolve_chord(DEFAULT_DOCUMENT_HOME, DEFAULT_DOCUMENT_HOME);
+            if home_chord != default_chord {
+                let end_chord = home_chord.document_end_chord();
+                let chord_key_pressed = |key: Key| -> bool {
+                    match key {
+                        Key::Z => z,
+                        Key::N => n,
+                        Key::O => o,
+                        Key::S => s,
+                        Key::F => f,
+                        Key::Y => y,
+                        Key::W => w,
+                        Key::G => g,
+                        Key::A => a,
+                        Key::D => d,
+                        Key::L => l,
+                        Key::I => i_key,
+                        Key::T => t,
+                        Key::H => h,
+                        Key::F2 => f2,
+                        Key::F3 => f3,
+                        Key::F7 => f7,
+                        Key::Equals => equals,
+                        Key::Minus => minus,
+                        Key::Num0 => num0,
+                        Key::CloseBracket => close_br,
+                        Key::OpenBracket => open_br,
+                        other => ctx.input(|i| i.key_pressed(other)),
+                    }
+                };
+                let tab = self.focused_edit_tab();
+                if chord_key_pressed(end_chord.key)
+                    && end_chord.matches_ignore_shift(mods, end_chord.key)
+                {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
+                    go_doc_end(&mut self.state, tab, mods.shift != end_chord.shift);
+                    self.follow_focused_caret();
+                } else if chord_key_pressed(home_chord.key)
+                    && home_chord.matches_ignore_shift(mods, home_chord.key)
+                {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
+                    go_doc_start(&mut self.state, tab, mods.shift != home_chord.shift);
                     self.follow_focused_caret();
                 }
             }
@@ -5344,6 +5403,15 @@ impl EditorApp {
             line_home_chord.display(),
             line_home_chord.line_end_chord().display()
         );
+        let document_home_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_document_home,
+            crate::shortcut_chord::DEFAULT_DOCUMENT_HOME,
+        );
+        let document_home_keys = format!(
+            "{} / {}",
+            document_home_chord.display(),
+            document_home_chord.document_end_chord().display()
+        );
         let page_up_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_page_up,
             crate::shortcut_chord::DEFAULT_PAGE_UP,
@@ -5432,7 +5500,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 70] = [
+        let rows: [(&str, &str); 71] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -5502,6 +5570,10 @@ impl EditorApp {
             (delete_forward_keys.as_str(), "Delete"),
             (delete_backward_keys.as_str(), "Backspace"),
             (line_home_keys.as_str(), "Line start / end"),
+            (
+                document_home_keys.as_str(),
+                "Document start / end (Home aliases)",
+            ),
             (page_up_keys.as_str(), "Page up / down"),
             (char_left_keys.as_str(), "Character left / right"),
             (line_up_keys.as_str(), "Line up / down"),
@@ -7143,7 +7215,39 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: Cmd+Up, Alt+Up. Opposite Down jumps to end; letter remaps use Shift for end. Cmd+Home / Cmd+End stay hard-wired.",
+                                "Example: Cmd+Up, Alt+Up. Opposite Down jumps to end; letter remaps use Shift for end. Cmd+Home / Cmd+End aliases use Document Home shortcut.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Document Home shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_document_home,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Home"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_document_home.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_document_home =
+                                        crate::shortcut_chord::DEFAULT_DOCUMENT_HOME.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_DOCUMENT_HOME
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_document_home = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Home, Ctrl+Alt+Home. Opposite End jumps to document end; letter remaps use Shift for end. When remapped, bare Cmd+Home / Cmd+End no longer jump. Document start (Cmd+Up) stays separate.",
                             )
                             .small()
                             .weak(),
@@ -7695,7 +7799,7 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: Home, Ctrl+Alt+H. Opposite End jumps to line end; letter remaps use Shift for end. When remapped, bare Home/End no longer move on the line. Cmd+Home / Cmd+End stay hard-wired document start/end.",
+                                "Example: Home, Ctrl+Alt+H. Opposite End jumps to line end; letter remaps use Shift for end. When remapped, bare Home/End no longer move on the line. Cmd+Home / Cmd+End aliases use Document Home shortcut.",
                             )
                             .small()
                             .weak(),
@@ -15240,7 +15344,9 @@ impl EditorApp {
                     modifiers,
                     ..
                 } => {
-                    use crate::shortcut_chord::{resolve_chord, DEFAULT_LINE_HOME};
+                    use crate::shortcut_chord::{
+                        resolve_chord, DEFAULT_DOCUMENT_HOME, DEFAULT_LINE_HOME,
+                    };
                     let home_chord =
                         resolve_chord(&self.state.settings.shortcut_line_home, DEFAULT_LINE_HOME);
                     let default_chord = resolve_chord(DEFAULT_LINE_HOME, DEFAULT_LINE_HOME);
@@ -15253,11 +15359,29 @@ impl EditorApp {
                         // Remapped chord handled in handle_shortcuts.
                         continue;
                     }
+                    let doc_home = resolve_chord(
+                        &self.state.settings.shortcut_document_home,
+                        DEFAULT_DOCUMENT_HOME,
+                    );
+                    let default_doc_home =
+                        resolve_chord(DEFAULT_DOCUMENT_HOME, DEFAULT_DOCUMENT_HOME);
+                    let doc_end = doc_home.document_end_chord();
+                    if doc_home != default_doc_home
+                        && (doc_home.matches_ignore_shift(modifiers, Key::Home)
+                            || doc_end.matches_ignore_shift(modifiers, Key::Home))
+                    {
+                        // Remapped document-home chord handled in handle_shortcuts.
+                        continue;
+                    }
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
                     }
                     if modifiers.command || modifiers.ctrl {
-                        // Hard-wired Cmd+Home → document start (unless remapped above).
+                        if doc_home != default_doc_home {
+                            // Remapped away from Cmd+Home; ignore bare Cmd+Home.
+                            continue;
+                        }
+                        // Default Cmd+Home → document start.
                         go_doc_start(&mut self.state, tab, modifiers.shift);
                         caret_moved = true;
                     } else if home_chord != default_chord {
@@ -15274,7 +15398,9 @@ impl EditorApp {
                     modifiers,
                     ..
                 } => {
-                    use crate::shortcut_chord::{resolve_chord, DEFAULT_LINE_HOME};
+                    use crate::shortcut_chord::{
+                        resolve_chord, DEFAULT_DOCUMENT_HOME, DEFAULT_LINE_HOME,
+                    };
                     let home_chord =
                         resolve_chord(&self.state.settings.shortcut_line_home, DEFAULT_LINE_HOME);
                     let default_chord = resolve_chord(DEFAULT_LINE_HOME, DEFAULT_LINE_HOME);
@@ -15286,11 +15412,29 @@ impl EditorApp {
                         // Remapped chord handled in handle_shortcuts.
                         continue;
                     }
+                    let doc_home = resolve_chord(
+                        &self.state.settings.shortcut_document_home,
+                        DEFAULT_DOCUMENT_HOME,
+                    );
+                    let default_doc_home =
+                        resolve_chord(DEFAULT_DOCUMENT_HOME, DEFAULT_DOCUMENT_HOME);
+                    let doc_end = doc_home.document_end_chord();
+                    if doc_home != default_doc_home
+                        && (doc_home.matches_ignore_shift(modifiers, Key::End)
+                            || doc_end.matches_ignore_shift(modifiers, Key::End))
+                    {
+                        // Remapped document-home chord handled in handle_shortcuts.
+                        continue;
+                    }
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
                     }
                     if modifiers.command || modifiers.ctrl {
-                        // Hard-wired Cmd+End → document end (unless remapped above).
+                        if doc_home != default_doc_home {
+                            // Remapped away from Cmd+End; ignore bare Cmd+End.
+                            continue;
+                        }
+                        // Default Cmd+End → document end.
                         go_doc_end(&mut self.state, tab, modifiers.shift);
                         caret_moved = true;
                     } else if home_chord != default_chord {

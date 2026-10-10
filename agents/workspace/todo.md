@@ -295,3 +295,5 @@
 
 009 keep: remappable line up / down (shortcut_line_up, Up default, v0.3.194)
 009 keep: Shift+Up/Down and Shift+PageUp/PageDown selection extend (v0.3.195)
+
+009 keep: remappable Document Home / End aliases (shortcut_document_home, Cmd+Home default, v0.3.196)
