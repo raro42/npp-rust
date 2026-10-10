@@ -288,3 +288,5 @@
 009 keep: remappable Backspace / delete backward (shortcut_delete_backward, Backspace default, v0.3.190)
 
 009 keep: remappable line start / end (shortcut_line_home, Home default, v0.3.191)
+
+009 keep: remappable Page up / down (shortcut_page_up, PageUp default, v0.3.192)

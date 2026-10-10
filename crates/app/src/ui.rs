@@ -1845,6 +1845,56 @@ impl EditorApp {
                 }
             }
         }
+        // Remappable PageUp/PageDown (default PageUp; settings.shortcut_page_up).
+        // Default PageUp/PageDown stay in handle_editor_input. When remapped, chords page here.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_PAGE_UP};
+            let page_up_chord =
+                resolve_chord(&self.state.settings.shortcut_page_up, DEFAULT_PAGE_UP);
+            let default_chord = resolve_chord(DEFAULT_PAGE_UP, DEFAULT_PAGE_UP);
+            if page_up_chord != default_chord {
+                let page_down_chord = page_up_chord.page_down_chord();
+                let chord_key_pressed = |key: Key| -> bool {
+                    match key {
+                        Key::Z => z,
+                        Key::N => n,
+                        Key::O => o,
+                        Key::S => s,
+                        Key::F => f,
+                        Key::Y => y,
+                        Key::W => w,
+                        Key::G => g,
+                        Key::A => a,
+                        Key::D => d,
+                        Key::L => l,
+                        Key::I => i_key,
+                        Key::T => t,
+                        Key::H => h,
+                        Key::F2 => f2,
+                        Key::F3 => f3,
+                        Key::F7 => f7,
+                        Key::Equals => equals,
+                        Key::Minus => minus,
+                        Key::Num0 => num0,
+                        Key::CloseBracket => close_br,
+                        Key::OpenBracket => open_br,
+                        other => ctx.input(|i| i.key_pressed(other)),
+                    }
+                };
+                let tab = self.focused_edit_tab();
+                if chord_key_pressed(page_down_chord.key)
+                    && page_down_chord.matches_ignore_shift(mods, page_down_chord.key)
+                {
+                    move_caret_vert(&mut self.state, tab, 30);
+                    self.follow_focused_caret();
+                } else if chord_key_pressed(page_up_chord.key)
+                    && page_up_chord.matches_ignore_shift(mods, page_up_chord.key)
+                {
+                    move_caret_vert(&mut self.state, tab, -30);
+                    self.follow_focused_caret();
+                }
+            }
+        }
         // Remappable duplicate line (default Cmd+D; settings.shortcut_duplicate_line).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_DUPLICATE_LINE};
@@ -5158,6 +5208,15 @@ impl EditorApp {
             line_home_chord.display(),
             line_home_chord.line_end_chord().display()
         );
+        let page_up_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_page_up,
+            crate::shortcut_chord::DEFAULT_PAGE_UP,
+        );
+        let page_up_keys = format!(
+            "{} / {}",
+            page_up_chord.display(),
+            page_up_chord.page_down_chord().display()
+        );
         let undo_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_undo,
             crate::shortcut_chord::DEFAULT_UNDO,
@@ -5219,7 +5278,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 67] = [
+        let rows: [(&str, &str); 68] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -5289,6 +5348,7 @@ impl EditorApp {
             (delete_forward_keys.as_str(), "Delete"),
             (delete_backward_keys.as_str(), "Backspace"),
             (line_home_keys.as_str(), "Line start / end"),
+            (page_up_keys.as_str(), "Page up / down"),
             (dup_keys.as_str(), "Duplicate line"),
             (del_keys.as_str(), "Delete line"),
             (move_line_keys.as_str(), "Move line up / down"),
@@ -7480,6 +7540,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Home, Ctrl+Alt+H. Opposite End jumps to line end; letter remaps use Shift for end. When remapped, bare Home/End no longer move on the line. Cmd+Home / Cmd+End stay hard-wired document start/end.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Page up shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_page_up,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("PageUp"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_page_up.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_page_up =
+                                        crate::shortcut_chord::DEFAULT_PAGE_UP.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_PAGE_UP
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_page_up = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: PageUp, Ctrl+Alt+P. Opposite PageDown jumps page down; letter remaps use Shift for page down. When remapped, bare PageUp/PageDown no longer page.",
                             )
                             .small()
                             .weak(),
@@ -14921,16 +15012,50 @@ impl EditorApp {
                 egui::Event::Key {
                     key: Key::PageUp,
                     pressed: true,
+                    modifiers,
                     ..
                 } => {
+                    use crate::shortcut_chord::{resolve_chord, DEFAULT_PAGE_UP};
+                    let page_up_chord =
+                        resolve_chord(&self.state.settings.shortcut_page_up, DEFAULT_PAGE_UP);
+                    let default_chord = resolve_chord(DEFAULT_PAGE_UP, DEFAULT_PAGE_UP);
+                    let page_down_chord = page_up_chord.page_down_chord();
+                    if page_up_chord != default_chord
+                        && (page_up_chord.matches_ignore_shift(modifiers, Key::PageUp)
+                            || page_down_chord.matches_ignore_shift(modifiers, Key::PageUp))
+                    {
+                        // Remapped chord handled in handle_shortcuts.
+                        continue;
+                    }
+                    if page_up_chord != default_chord {
+                        // Remapped away from bare PageUp; ignore.
+                        continue;
+                    }
                     move_caret_vert(&mut self.state, tab, -30);
                     caret_moved = true;
                 }
                 egui::Event::Key {
                     key: Key::PageDown,
                     pressed: true,
+                    modifiers,
                     ..
                 } => {
+                    use crate::shortcut_chord::{resolve_chord, DEFAULT_PAGE_UP};
+                    let page_up_chord =
+                        resolve_chord(&self.state.settings.shortcut_page_up, DEFAULT_PAGE_UP);
+                    let default_chord = resolve_chord(DEFAULT_PAGE_UP, DEFAULT_PAGE_UP);
+                    let page_down_chord = page_up_chord.page_down_chord();
+                    if page_up_chord != default_chord
+                        && (page_up_chord.matches_ignore_shift(modifiers, Key::PageDown)
+                            || page_down_chord.matches_ignore_shift(modifiers, Key::PageDown))
+                    {
+                        // Remapped chord handled in handle_shortcuts.
+                        continue;
+                    }
+                    if page_up_chord != default_chord {
+                        // Remapped away from bare PageDown; ignore.
+                        continue;
+                    }
                     move_caret_vert(&mut self.state, tab, 30);
                     caret_moved = true;
                 }

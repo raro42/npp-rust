@@ -336,6 +336,10 @@ fn default_shortcut_line_home() -> String {
     crate::shortcut_chord::DEFAULT_LINE_HOME.into()
 }
 
+fn default_shortcut_page_up() -> String {
+    crate::shortcut_chord::DEFAULT_PAGE_UP.into()
+}
+
 fn default_shortcut_undo() -> String {
     crate::shortcut_chord::DEFAULT_UNDO.into()
 }
@@ -677,6 +681,10 @@ pub struct AppSettings {
     /// hard-wired document start/end aliases.
     #[serde(default = "default_shortcut_line_home")]
     pub shortcut_line_home: String,
+    /// Page-up chord (`PageUp` default; opposite PageDown = page down; letter remaps use Shift).
+    /// When remapped, bare PageUp/PageDown no longer page.
+    #[serde(default = "default_shortcut_page_up")]
+    pub shortcut_page_up: String,
     /// Undo chord (`Cmd+Z` default; Shift flips to redo).
     #[serde(default = "default_shortcut_undo")]
     pub shortcut_undo: String,
@@ -830,6 +838,7 @@ impl Default for AppSettings {
             shortcut_delete_forward: default_shortcut_delete_forward(),
             shortcut_delete_backward: default_shortcut_delete_backward(),
             shortcut_line_home: default_shortcut_line_home(),
+            shortcut_page_up: default_shortcut_page_up(),
             shortcut_undo: default_shortcut_undo(),
             shortcut_redo: default_shortcut_redo(),
             shortcut_zoom_in: default_shortcut_zoom_in(),
@@ -1220,6 +1229,7 @@ mod tests {
             shortcut_delete_forward: "Ctrl+Alt+Delete".into(),
             shortcut_delete_backward: "Ctrl+Alt+Backspace".into(),
             shortcut_line_home: "Ctrl+Alt+Home".into(),
+            shortcut_page_up: "Ctrl+Alt+PageUp".into(),
             shortcut_undo: "Ctrl+Alt+Z".into(),
             shortcut_redo: "Ctrl+Alt+Y".into(),
             shortcut_zoom_in: "Ctrl+Alt+=".into(),
@@ -1311,6 +1321,7 @@ mod tests {
         assert_eq!(back.shortcut_delete_forward, "Ctrl+Alt+Delete");
         assert_eq!(back.shortcut_delete_backward, "Ctrl+Alt+Backspace");
         assert_eq!(back.shortcut_line_home, "Ctrl+Alt+Home");
+        assert_eq!(back.shortcut_page_up, "Ctrl+Alt+PageUp");
         assert_eq!(back.shortcut_undo, "Ctrl+Alt+Z");
         assert_eq!(back.shortcut_redo, "Ctrl+Alt+Y");
         assert_eq!(back.shortcut_zoom_in, "Ctrl+Alt+=");

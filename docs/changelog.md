@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.192] — 2026-10-10
+
+Edit / Settings:
+
+- **Page up / down** is remappable (`shortcut_page_up`, default PageUp). Opposite PageDown jumps page down; letter remaps use Shift for page down. When remapped, bare PageUp/PageDown no longer page. Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.191] — 2026-10-10
 
 Edit / Settings:

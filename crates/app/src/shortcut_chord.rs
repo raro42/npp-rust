@@ -174,6 +174,11 @@ pub const DEFAULT_DELETE_BACKWARD: &str = "Backspace";
 /// `Cmd+Home` / `Cmd+End` stay hard-wired document start/end aliases.
 pub const DEFAULT_LINE_HOME: &str = "Home";
 
+/// Default page-up binding (matches historical hard-wire).
+/// Opposite PageUp/PageDown jumps page down; non-Page remaps use Shift for page down.
+/// Default stays in `handle_editor_input`. When remapped, bare PageUp/PageDown no longer page.
+pub const DEFAULT_PAGE_UP: &str = "PageUp";
+
 /// Default undo binding (matches historical hard-wire). Shift flips to redo.
 pub const DEFAULT_UNDO: &str = "Cmd+Z";
 
@@ -336,6 +341,21 @@ impl KeyChord {
         }
     }
 
+    /// Partner chord for page-down: PageUp ↔ PageDown, else Shift flip (letter remaps).
+    pub fn page_down_chord(self) -> Self {
+        match self.key {
+            Key::PageUp => Self {
+                key: Key::PageDown,
+                ..self
+            },
+            Key::PageDown => Self {
+                key: Key::PageUp,
+                ..self
+            },
+            _ => self.flipped_shift(),
+        }
+    }
+
     /// Same chord with `]` ↔ `[` (hide-equal context ±1). Non-bracket keys unchanged.
     pub fn flipped_bracket(self) -> Self {
         let key = match self.key {
@@ -445,6 +465,8 @@ fn parse_key(lower: &str) -> Option<Key> {
         "backspace" | "bs" => Some(Key::Backspace),
         "home" => Some(Key::Home),
         "end" => Some(Key::End),
+        "pageup" | "pgup" => Some(Key::PageUp),
+        "pagedown" | "pgdn" | "pgdown" => Some(Key::PageDown),
         "enter" | "return" => Some(Key::Enter),
         "equals" | "=" | "plus" => Some(Key::Equals),
         "minus" | "-" => Some(Key::Minus),
@@ -499,6 +521,8 @@ fn key_token(key: Key) -> &'static str {
         Key::Backspace => "Backspace",
         Key::Home => "Home",
         Key::End => "End",
+        Key::PageUp => "PageUp",
+        Key::PageDown => "PageDown",
         Key::Enter => "Enter",
         Key::Equals => "=",
         Key::Minus => "-",
@@ -1319,6 +1343,21 @@ mod tests {
         assert_eq!(c.line_end_chord().display(), "End");
         let letter = parse_chord("Ctrl+Alt+H").unwrap();
         assert_eq!(letter.line_end_chord().display(), "Cmd+Alt+Shift+H");
+    }
+
+    #[test]
+    fn parse_pageup_default_page_up() {
+        let c = parse_chord(DEFAULT_PAGE_UP).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::PageUp);
+        assert_eq!(c.display(), "PageUp");
+        assert_eq!(c.page_down_chord().display(), "PageDown");
+        assert_eq!(parse_chord("PgUp").unwrap().key, Key::PageUp);
+        assert_eq!(parse_chord("PgDn").unwrap().key, Key::PageDown);
+        let letter = parse_chord("Ctrl+Alt+P").unwrap();
+        assert_eq!(letter.page_down_chord().display(), "Cmd+Alt+Shift+P");
     }
 
     #[test]
