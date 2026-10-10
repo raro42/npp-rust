@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.190] — 2026-10-10
+
+Edit / Settings:
+
+- **Backspace** (delete backward) is remappable (`shortcut_delete_backward`, default Backspace). When remapped, bare Backspace no longer deletes backward; the remapped chord deletes backward (same as editor Backspace). Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.189] — 2026-10-10
 
 Edit / Settings:

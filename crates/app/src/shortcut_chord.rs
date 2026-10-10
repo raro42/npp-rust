@@ -163,6 +163,11 @@ pub const DEFAULT_PASTE: &str = "Cmd+V";
 /// runs menu Delete (`IDM_EDIT_DELETE`).
 pub const DEFAULT_DELETE_FORWARD: &str = "Delete";
 
+/// Default backward-delete binding (matches historical hard-wire).
+/// Default stays in `handle_editor_input`. When remapped, bare Backspace is ignored and the chord
+/// deletes backward (same as Backspace in the editor).
+pub const DEFAULT_DELETE_BACKWARD: &str = "Backspace";
+
 /// Default undo binding (matches historical hard-wire). Shift flips to redo.
 pub const DEFAULT_UNDO: &str = "Cmd+Z";
 
@@ -416,6 +421,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "escape" | "esc" => Some(Key::Escape),
         "tab" => Some(Key::Tab),
         "delete" | "del" => Some(Key::Delete),
+        "backspace" | "bs" => Some(Key::Backspace),
         "enter" | "return" => Some(Key::Enter),
         "equals" | "=" | "plus" => Some(Key::Equals),
         "minus" | "-" => Some(Key::Minus),
@@ -467,6 +473,7 @@ fn key_token(key: Key) -> &'static str {
         Key::Escape => "Escape",
         Key::Tab => "Tab",
         Key::Delete => "Delete",
+        Key::Backspace => "Backspace",
         Key::Enter => "Enter",
         Key::Equals => "=",
         Key::Minus => "-",
@@ -1263,6 +1270,17 @@ mod tests {
         assert_eq!(c.key, Key::Delete);
         assert_eq!(c.display(), "Delete");
         assert_eq!(parse_chord("Del").unwrap().key, Key::Delete);
+    }
+
+    #[test]
+    fn parse_backspace_default_delete_backward() {
+        let c = parse_chord(DEFAULT_DELETE_BACKWARD).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Backspace);
+        assert_eq!(c.display(), "Backspace");
+        assert_eq!(parse_chord("Bs").unwrap().key, Key::Backspace);
     }
 
     #[test]

@@ -88,6 +88,7 @@ New keys:
 | `shortcut_cut` | Cut chord (`Cmd+X` default; when remapped, platform Cmd+X no longer cuts) |
 | `shortcut_paste` | Paste chord (`Cmd+V` default; when remapped, platform Cmd+V no longer pastes; remapped chord pastes last copied text) |
 | `shortcut_delete_forward` | Forward-delete chord (`Delete` default; when remapped, bare Delete no longer deletes forward) |
+| `shortcut_delete_backward` | Backward-delete chord (`Backspace` default; when remapped, bare Backspace no longer deletes backward) |
 | `shortcut_undo` | Undo chord (`Cmd+Z` default; Shift flips to redo) |
 | `shortcut_redo` | Redo alternate chord (`Cmd+Y` default; Shift+undo also redo) |
 | `shortcut_zoom_in` | Zoom-in chord (`Cmd+=` default) |

@@ -1736,6 +1736,58 @@ impl EditorApp {
                 }
             }
         }
+        // Remappable Backspace (default Backspace; settings.shortcut_delete_backward).
+        // Default Backspace stays in handle_editor_input. When remapped, chord deletes backward.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_DELETE_BACKWARD};
+            let back_chord = resolve_chord(
+                &self.state.settings.shortcut_delete_backward,
+                DEFAULT_DELETE_BACKWARD,
+            );
+            let default_chord = resolve_chord(DEFAULT_DELETE_BACKWARD, DEFAULT_DELETE_BACKWARD);
+            if back_chord != default_chord {
+                let back_key_pressed = match back_chord.key {
+                    Key::Z => z,
+                    Key::N => n,
+                    Key::O => o,
+                    Key::S => s,
+                    Key::F => f,
+                    Key::Y => y,
+                    Key::W => w,
+                    Key::G => g,
+                    Key::A => a,
+                    Key::D => d,
+                    Key::L => l,
+                    Key::I => i_key,
+                    Key::T => t,
+                    Key::H => h,
+                    Key::F2 => f2,
+                    Key::F3 => f3,
+                    Key::F7 => f7,
+                    Key::Equals => equals,
+                    Key::Minus => minus,
+                    Key::Num0 => num0,
+                    Key::CloseBracket => close_br,
+                    Key::OpenBracket => open_br,
+                    other => ctx.input(|i| i.key_pressed(other)),
+                };
+                if back_key_pressed && back_chord.matches(mods, back_chord.key) {
+                    let tab = self.focused_edit_tab();
+                    if self.state.tabs.get(tab).is_some_and(|d| d.read_only) {
+                        self.state.status = "Document is read-only".into();
+                    } else {
+                        self.state.prepare_edit_at(tab);
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            if !doc.delete_backward_multi() {
+                                doc.buffer.delete_backward();
+                            }
+                        }
+                        self.state.mark_text_changed_at(tab);
+                        self.follow_focused_caret();
+                    }
+                }
+            }
+        }
         // Remappable duplicate line (default Cmd+D; settings.shortcut_duplicate_line).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_DUPLICATE_LINE};
@@ -5035,6 +5087,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_DELETE_FORWARD,
         )
         .display();
+        let delete_backward_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_delete_backward,
+            crate::shortcut_chord::DEFAULT_DELETE_BACKWARD,
+        )
+        .display();
         let undo_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_undo,
             crate::shortcut_chord::DEFAULT_UNDO,
@@ -5096,7 +5153,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 65] = [
+        let rows: [(&str, &str); 66] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -5164,6 +5221,7 @@ impl EditorApp {
             (cut_keys.as_str(), "Cut"),
             (paste_keys.as_str(), "Paste"),
             (delete_forward_keys.as_str(), "Delete"),
+            (delete_backward_keys.as_str(), "Backspace"),
             (dup_keys.as_str(), "Duplicate line"),
             (del_keys.as_str(), "Delete line"),
             (move_line_keys.as_str(), "Move line up / down"),
@@ -7292,6 +7350,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Delete, Ctrl+Alt+D. When remapped, bare Delete no longer deletes forward.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Backspace shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_delete_backward,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Backspace"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_delete_backward.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_delete_backward =
+                                        crate::shortcut_chord::DEFAULT_DELETE_BACKWARD.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_DELETE_BACKWARD
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_delete_backward = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Backspace, Ctrl+H. When remapped, bare Backspace no longer deletes backward.",
                             )
                             .small()
                             .weak(),
@@ -14445,6 +14535,20 @@ impl EditorApp {
                     pressed: true,
                     ..
                 } => {
+                    // Remappable Backspace (default Backspace). When remapped away from
+                    // default, ignore Backspace; remapped chord is handled in handle_shortcuts.
+                    {
+                        use crate::shortcut_chord::{resolve_chord, DEFAULT_DELETE_BACKWARD};
+                        let back_chord = resolve_chord(
+                            &self.state.settings.shortcut_delete_backward,
+                            DEFAULT_DELETE_BACKWARD,
+                        );
+                        let default_chord =
+                            resolve_chord(DEFAULT_DELETE_BACKWARD, DEFAULT_DELETE_BACKWARD);
+                        if back_chord != default_chord {
+                            continue;
+                        }
+                    }
                     if read_only {
                         self.state.status = "Document is read-only".into();
                     } else {

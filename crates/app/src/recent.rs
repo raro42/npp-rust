@@ -328,6 +328,10 @@ fn default_shortcut_delete_forward() -> String {
     crate::shortcut_chord::DEFAULT_DELETE_FORWARD.into()
 }
 
+fn default_shortcut_delete_backward() -> String {
+    crate::shortcut_chord::DEFAULT_DELETE_BACKWARD.into()
+}
+
 fn default_shortcut_undo() -> String {
     crate::shortcut_chord::DEFAULT_UNDO.into()
 }
@@ -660,6 +664,10 @@ pub struct AppSettings {
     /// remapped chord runs Edit → Delete.
     #[serde(default = "default_shortcut_delete_forward")]
     pub shortcut_delete_forward: String,
+    /// Backward-delete chord (`Backspace` default). When remapped, bare Backspace is ignored;
+    /// remapped chord deletes backward (same as editor Backspace).
+    #[serde(default = "default_shortcut_delete_backward")]
+    pub shortcut_delete_backward: String,
     /// Undo chord (`Cmd+Z` default; Shift flips to redo).
     #[serde(default = "default_shortcut_undo")]
     pub shortcut_undo: String,
@@ -811,6 +819,7 @@ impl Default for AppSettings {
             shortcut_cut: default_shortcut_cut(),
             shortcut_paste: default_shortcut_paste(),
             shortcut_delete_forward: default_shortcut_delete_forward(),
+            shortcut_delete_backward: default_shortcut_delete_backward(),
             shortcut_undo: default_shortcut_undo(),
             shortcut_redo: default_shortcut_redo(),
             shortcut_zoom_in: default_shortcut_zoom_in(),
@@ -1199,6 +1208,7 @@ mod tests {
             shortcut_cut: "Ctrl+Alt+X".into(),
             shortcut_paste: "Ctrl+Alt+V".into(),
             shortcut_delete_forward: "Ctrl+Alt+Delete".into(),
+            shortcut_delete_backward: "Ctrl+Alt+Backspace".into(),
             shortcut_undo: "Ctrl+Alt+Z".into(),
             shortcut_redo: "Ctrl+Alt+Y".into(),
             shortcut_zoom_in: "Ctrl+Alt+=".into(),
@@ -1288,6 +1298,7 @@ mod tests {
         assert_eq!(back.shortcut_cut, "Ctrl+Alt+X");
         assert_eq!(back.shortcut_paste, "Ctrl+Alt+V");
         assert_eq!(back.shortcut_delete_forward, "Ctrl+Alt+Delete");
+        assert_eq!(back.shortcut_delete_backward, "Ctrl+Alt+Backspace");
         assert_eq!(back.shortcut_undo, "Ctrl+Alt+Z");
         assert_eq!(back.shortcut_redo, "Ctrl+Alt+Y");
         assert_eq!(back.shortcut_zoom_in, "Ctrl+Alt+=");
