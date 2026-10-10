@@ -63,7 +63,8 @@ pub struct UiFlags {
     pub zoom_delta: Option<i8>,
     /// Open Go to Line dialog.
     pub show_goto_line: bool,
-    pub always_on_top: Option<bool>,
+    /// Toggle always-on-top window level.
+    pub always_on_top_toggle: bool,
     /// Toggle OS fullscreen.
     pub fullscreen_toggle: bool,
     /// Show document summary dialog.

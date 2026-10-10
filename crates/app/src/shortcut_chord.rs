@@ -230,6 +230,9 @@ pub const DEFAULT_FOCUS_OTHER_VIEW: &str = "F6";
 /// Default fullscreen toggle binding (View → Toggle Full Screen Mode).
 pub const DEFAULT_FULLSCREEN: &str = "F11";
 
+/// Default always-on-top toggle binding (View → Always on Top).
+pub const DEFAULT_ALWAYS_ON_TOP: &str = "Alt+T";
+
 /// Default reload-from-disk binding (new remappable chord; File → Reload).
 pub const DEFAULT_RELOAD: &str = "Cmd+R";
 
@@ -1305,6 +1308,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::F11);
         assert_eq!(c.display(), "F11");
+    }
+
+    #[test]
+    fn parse_alt_t_default_always_on_top() {
+        let c = parse_chord(DEFAULT_ALWAYS_ON_TOP).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::T);
+        assert_eq!(c.display(), "Alt+T");
     }
 
     #[test]

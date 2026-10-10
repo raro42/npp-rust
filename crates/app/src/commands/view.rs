@@ -49,8 +49,8 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_VIEW_ALWAYSONTOP" => {
-            ui.always_on_top = Some(true);
-            state.status = "Always on top requested".into();
+            // Flag means "toggle always-on-top"; NppApp flips and applies WindowLevel.
+            ui.always_on_top_toggle = true;
             CmdResult::Handled
         }
         "IDM_VIEW_MONITORING" => {

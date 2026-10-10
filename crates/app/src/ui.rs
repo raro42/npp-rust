@@ -745,6 +745,12 @@ pub struct EditorApp {
     compare_hide_revealed_left: BTreeSet<usize>,
     /// Equal lines temporarily shown after clicking a ···N hide-equal gap (right).
     compare_hide_revealed_right: BTreeSet<usize>,
+    /// Session: window stays above others (View → Always on Top).
+    always_on_top: bool,
+    /// Apply always-on-top WindowLevel on the next frame that has a context.
+    pending_always_on_top: Option<bool>,
+    /// Apply fullscreen toggle on the next frame that has a context.
+    pending_fullscreen_toggle: bool,
 }
 
 impl EditorApp {
@@ -804,6 +810,9 @@ impl EditorApp {
             compare_partner_tab: None,
             compare_hide_revealed_left: BTreeSet::new(),
             compare_hide_revealed_right: BTreeSet::new(),
+            always_on_top: false,
+            pending_always_on_top: None,
+            pending_fullscreen_toggle: false,
         };
         let had_argv = !cli.paths.is_empty();
         app.replace_with = app.state.settings.replace_with.clone();
@@ -916,6 +925,7 @@ impl eframe::App for EditorApp {
         self.apply_theme_visuals(ctx);
         self.handle_file_drops(ctx);
         self.handle_shortcuts(ctx);
+        self.flush_pending_viewport_cmds(ctx);
         self.menu_bar(ctx);
         self.refresh_compare_if_stale(ctx);
         if self.compare_on && self.state.settings.compare_hide_equal {
@@ -1195,6 +1205,42 @@ impl EditorApp {
             };
             if fs_key_pressed && fs_chord.matches(mods, fs_chord.key) {
                 self.run_shortcut_cmd("IDM_VIEW_FULLSCREENTOGGLE");
+            }
+        }
+        // Remappable always-on-top toggle (default Alt+T; settings.shortcut_always_on_top).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_ALWAYS_ON_TOP};
+            let aot_chord = resolve_chord(
+                &self.state.settings.shortcut_always_on_top,
+                DEFAULT_ALWAYS_ON_TOP,
+            );
+            let aot_key_pressed = match aot_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if aot_key_pressed && aot_chord.matches(mods, aot_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_ALWAYSONTOP");
             }
         }
         // Remappable Focus on Another View (default F6; settings.shortcut_focus_other_view).
@@ -4099,6 +4145,38 @@ impl EditorApp {
             _ => {}
         }
         self.apply_dual_view_flags(&mut flags);
+        self.queue_viewport_toggles(&mut flags);
+    }
+
+    /// Queue WindowLevel / fullscreen toggles for `flush_pending_viewport_cmds`.
+    fn queue_viewport_toggles(&mut self, flags: &mut crate::commands::UiFlags) {
+        if flags.always_on_top_toggle {
+            self.always_on_top = !self.always_on_top;
+            self.pending_always_on_top = Some(self.always_on_top);
+            self.state.status = format!(
+                "Always on top: {}",
+                if self.always_on_top { "on" } else { "off" }
+            );
+        }
+        if flags.fullscreen_toggle {
+            self.pending_fullscreen_toggle = true;
+        }
+    }
+
+    fn flush_pending_viewport_cmds(&mut self, ctx: &egui::Context) {
+        if let Some(on) = self.pending_always_on_top.take() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(if on {
+                egui::WindowLevel::AlwaysOnTop
+            } else {
+                egui::WindowLevel::Normal
+            }));
+        }
+        if self.pending_fullscreen_toggle {
+            self.pending_fullscreen_toggle = false;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(
+                !ctx.input(|i| i.viewport().fullscreen.unwrap_or(false)),
+            ));
+        }
     }
 
     fn menu_bar(&mut self, ctx: &egui::Context) {
@@ -4190,18 +4268,8 @@ impl EditorApp {
                 _ => {}
             }
             self.apply_dual_view_flags(&mut flags);
-            if let Some(on) = flags.always_on_top {
-                ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(if on {
-                    egui::WindowLevel::AlwaysOnTop
-                } else {
-                    egui::WindowLevel::Normal
-                }));
-            }
-            if flags.fullscreen_toggle {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(
-                    !ctx.input(|i| i.viewport().fullscreen.unwrap_or(false)),
-                ));
-            }
+            self.queue_viewport_toggles(&mut flags);
+            self.flush_pending_viewport_cmds(ctx);
             if let Some(t) = flags.pending_clipboard.take() {
                 self.last_app_clipboard = Some(t.clone());
                 ctx.copy_text(t);
@@ -4606,6 +4674,16 @@ impl EditorApp {
                         .display();
                         response.on_hover_text(format!(
                             "Toggle fullscreen ({chord}; Preferences remappable)"
+                        ))
+                    }
+                    "IDM_VIEW_ALWAYSONTOP" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_always_on_top,
+                            crate::shortcut_chord::DEFAULT_ALWAYS_ON_TOP,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Toggle always on top ({chord}; Preferences remappable)"
                         ))
                     }
                     "IDM_SEARCH_FINDINFILES" => {
@@ -5104,6 +5182,10 @@ impl EditorApp {
             "IDM_VIEW_FULLSCREENTOGGLE" | "IDM_VIEW_DISTRACTIONFREE" => primary(
                 &s.shortcut_fullscreen,
                 crate::shortcut_chord::DEFAULT_FULLSCREEN,
+            ),
+            "IDM_VIEW_ALWAYSONTOP" => primary(
+                &s.shortcut_always_on_top,
+                crate::shortcut_chord::DEFAULT_ALWAYS_ON_TOP,
             ),
             _ => return None,
         })
@@ -5651,6 +5733,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_FULLSCREEN,
         )
         .display();
+        let always_on_top_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_always_on_top,
+            crate::shortcut_chord::DEFAULT_ALWAYS_ON_TOP,
+        )
+        .display();
         let focus_other_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_focus_other_view,
             crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW,
@@ -5671,7 +5758,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 74] = [
+        let rows: [(&str, &str); 75] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -5773,6 +5860,7 @@ impl EditorApp {
             (log_tail_keys.as_str(), "Toggle log tail"),
             (document_map_keys.as_str(), "Toggle Document Map"),
             (fullscreen_keys.as_str(), "Toggle fullscreen"),
+            (always_on_top_keys.as_str(), "Toggle always on top"),
             (focus_other_keys.as_str(), "Focus other view / swap tabs"),
             (word_jump_keys.as_str(), "Word jump ← / →"),
             ("Double-click", "Select word"),
@@ -8437,6 +8525,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: F11, Ctrl+Alt+F11. Toggles View → Toggle Full Screen Mode.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Always on top shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_always_on_top,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+T"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_always_on_top
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_always_on_top =
+                                        crate::shortcut_chord::DEFAULT_ALWAYS_ON_TOP.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_ALWAYS_ON_TOP
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_always_on_top = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+T, Ctrl+Alt+T. Toggles View → Always on Top.",
                             )
                             .small()
                             .weak(),

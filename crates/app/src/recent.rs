@@ -396,6 +396,10 @@ fn default_shortcut_fullscreen() -> String {
     crate::shortcut_chord::DEFAULT_FULLSCREEN.into()
 }
 
+fn default_shortcut_always_on_top() -> String {
+    crate::shortcut_chord::DEFAULT_ALWAYS_ON_TOP.into()
+}
+
 fn default_shortcut_find_in_files() -> String {
     crate::shortcut_chord::DEFAULT_FIND_IN_FILES.into()
 }
@@ -756,6 +760,9 @@ pub struct AppSettings {
     /// Fullscreen toggle chord (`F11` default).
     #[serde(default = "default_shortcut_fullscreen")]
     pub shortcut_fullscreen: String,
+    /// Always-on-top toggle chord (`Alt+T` default).
+    #[serde(default = "default_shortcut_always_on_top")]
+    pub shortcut_always_on_top: String,
     /// Next change-history mark chord (`F8` default; Shift flips to previous).
     #[serde(default = "default_shortcut_next_changed")]
     pub shortcut_next_changed: String,
@@ -903,6 +910,7 @@ impl Default for AppSettings {
             shortcut_document_map: default_shortcut_document_map(),
             shortcut_focus_other_view: default_shortcut_focus_other_view(),
             shortcut_fullscreen: default_shortcut_fullscreen(),
+            shortcut_always_on_top: default_shortcut_always_on_top(),
             shortcut_next_changed: default_shortcut_next_changed(),
             shortcut_lowercase: default_shortcut_lowercase(),
             shortcut_join_lines: default_shortcut_join_lines(),
@@ -1304,6 +1312,7 @@ mod tests {
             shortcut_document_map: "Ctrl+Alt+Shift+D".into(),
             shortcut_focus_other_view: "Ctrl+Alt+F6".into(),
             shortcut_fullscreen: "Ctrl+Alt+F11".into(),
+            shortcut_always_on_top: "Ctrl+Alt+Shift+T".into(),
             shortcut_next_changed: "Ctrl+F8".into(),
             shortcut_lowercase: "Ctrl+U".into(),
             shortcut_join_lines: "Ctrl+J".into(),
@@ -1403,6 +1412,7 @@ mod tests {
         assert_eq!(back.shortcut_document_map, "Ctrl+Alt+Shift+D");
         assert_eq!(back.shortcut_focus_other_view, "Ctrl+Alt+F6");
         assert_eq!(back.shortcut_fullscreen, "Ctrl+Alt+F11");
+        assert_eq!(back.shortcut_always_on_top, "Ctrl+Alt+Shift+T");
         assert_eq!(back.shortcut_next_changed, "Ctrl+F8");
         assert_eq!(back.shortcut_lowercase, "Ctrl+U");
         assert_eq!(back.shortcut_join_lines, "Ctrl+J");

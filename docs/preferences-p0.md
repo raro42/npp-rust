@@ -105,6 +105,7 @@ New keys:
 | `shortcut_toggle_log_tail` | Toggle log-tail follow chord (`Cmd+Shift+T` default) |
 | `shortcut_document_map` | Document Map toggle chord (`Cmd+Shift+D` default) |
 | `shortcut_fullscreen` | Fullscreen toggle chord (`F11` default) |
+| `shortcut_always_on_top` | Always-on-top toggle chord (`Alt+T` default) |
 | `shortcut_focus_other_view` | Focus other dual-view pane chord (`F6` default; Shift swaps tabs) |
 | `shortcut_reload` | Reload-from-disk chord (`Cmd+R` default) |
 | `ollama_host` | Local Ollama base URL (loopback only; default `http://127.0.0.1:11434`) |

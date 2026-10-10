@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.203] — 2026-10-11
+
+View / Settings:
+
+- **Always on Top** toggles on/off (was set-only) and is remappable (`shortcut_always_on_top`, default Alt+T). Menu, Preferences, Shortcut Mapper, and About show the effective binding. Keyboard fullscreen toggle also applies the viewport command (same path as menu).
+
 ## [0.3.202] — 2026-10-11
 
 View / Settings:
