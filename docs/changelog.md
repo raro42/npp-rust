@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.184] — 2026-10-10
+
+Edit / Settings:
+
+- **Blank line below / above** is remappable (`shortcut_blank_line`, default Cmd+Enter). Shift + that chord inserts a blank line above. Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.183] — 2026-10-10
 
 Edit / Settings:

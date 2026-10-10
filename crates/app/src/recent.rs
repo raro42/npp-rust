@@ -120,6 +120,10 @@ fn default_shortcut_invert_case() -> String {
     crate::shortcut_chord::DEFAULT_INVERT_CASE.into()
 }
 
+fn default_shortcut_blank_line() -> String {
+    crate::shortcut_chord::DEFAULT_BLANK_LINE.into()
+}
+
 fn default_shortcut_next_diff() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_DIFF.into()
 }
@@ -655,6 +659,9 @@ pub struct AppSettings {
     /// Invert Case chord (`Cmd+Alt+U` default; Shift flips to Proper Case).
     #[serde(default = "default_shortcut_invert_case")]
     pub shortcut_invert_case: String,
+    /// Blank line below chord (`Cmd+Enter` default; Shift flips to blank line above).
+    #[serde(default = "default_shortcut_blank_line")]
+    pub shortcut_blank_line: String,
     /// Find in Files chord (`Cmd+Alt+F` default).
     #[serde(default = "default_shortcut_find_in_files")]
     pub shortcut_find_in_files: String,
@@ -774,6 +781,7 @@ impl Default for AppSettings {
             shortcut_lowercase: default_shortcut_lowercase(),
             shortcut_join_lines: default_shortcut_join_lines(),
             shortcut_invert_case: default_shortcut_invert_case(),
+            shortcut_blank_line: default_shortcut_blank_line(),
             shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             ollama_host: default_ollama_host(),
@@ -1156,6 +1164,7 @@ mod tests {
             shortcut_lowercase: "Ctrl+U".into(),
             shortcut_join_lines: "Ctrl+J".into(),
             shortcut_invert_case: "Ctrl+Alt+Shift+U".into(),
+            shortcut_blank_line: "Ctrl+Alt+Enter".into(),
             shortcut_find_in_files: "Alt+Shift+F".into(),
             ..Default::default()
         };
@@ -1239,6 +1248,7 @@ mod tests {
         assert_eq!(back.shortcut_lowercase, "Ctrl+U");
         assert_eq!(back.shortcut_join_lines, "Ctrl+J");
         assert_eq!(back.shortcut_invert_case, "Ctrl+Alt+Shift+U");
+        assert_eq!(back.shortcut_blank_line, "Ctrl+Alt+Enter");
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
     }
 

@@ -272,3 +272,5 @@
 009 keep: remappable Join Lines / Split Lines (shortcut_join_lines, Cmd+J default, v0.3.182)
 
 009 keep: remappable Invert Case / Proper Case (shortcut_invert_case, Cmd+Alt+U default, v0.3.183)
+
+009 keep: remappable blank line below / above (shortcut_blank_line, Cmd+Enter default, v0.3.184)

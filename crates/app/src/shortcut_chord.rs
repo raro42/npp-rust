@@ -218,6 +218,10 @@ pub const DEFAULT_JOIN_LINES: &str = "Cmd+J";
 /// Default invert-case binding (Edit → iNVERT cASE). Shift flips to Proper Case.
 pub const DEFAULT_INVERT_CASE: &str = "Cmd+Alt+U";
 
+/// Default blank-line-below binding (Edit → Insert Empty Line Below Current).
+/// Shift flips to Insert Empty Line Above Current.
+pub const DEFAULT_BLANK_LINE: &str = "Cmd+Enter";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -390,6 +394,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "f8" => Some(Key::F8),
         "escape" | "esc" => Some(Key::Escape),
         "tab" => Some(Key::Tab),
+        "enter" | "return" => Some(Key::Enter),
         "equals" | "=" | "plus" => Some(Key::Equals),
         "minus" | "-" => Some(Key::Minus),
         "0" | "num0" | "digit0" => Some(Key::Num0),
@@ -439,6 +444,7 @@ fn key_token(key: Key) -> &'static str {
         Key::F8 => "F8",
         Key::Escape => "Escape",
         Key::Tab => "Tab",
+        Key::Enter => "Enter",
         Key::Equals => "=",
         Key::Minus => "-",
         Key::Num0 => "0",
@@ -1150,6 +1156,18 @@ mod tests {
         assert_eq!(c.key, Key::U);
         assert_eq!(c.display(), "Cmd+Alt+U");
         assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+U");
+    }
+
+    #[test]
+    fn parse_cmd_enter_default_blank_line() {
+        let c = parse_chord(DEFAULT_BLANK_LINE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Enter);
+        assert_eq!(c.display(), "Cmd+Enter");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+Enter");
+        assert_eq!(parse_chord("Cmd+Return").unwrap().key, Key::Enter);
     }
 
     #[test]
