@@ -145,6 +145,10 @@ pub const DEFAULT_REPLACE_ALT: &str = "Cmd+Shift+F";
 /// Default select-all binding (matches historical hard-wire).
 pub const DEFAULT_SELECT_ALL: &str = "Cmd+A";
 
+/// Default copy binding (Edit → Copy; matches platform Cmd/Ctrl+C).
+/// When remapped away from this default, platform `Event::Copy` is ignored so Cmd+C does not still copy.
+pub const DEFAULT_COPY: &str = "Cmd+C";
+
 /// Default undo binding (matches historical hard-wire). Shift flips to redo.
 pub const DEFAULT_UNDO: &str = "Cmd+Z";
 
@@ -957,6 +961,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::A);
         assert_eq!(c.display(), "Cmd+A");
+    }
+
+    #[test]
+    fn parse_cmd_c_default_copy() {
+        let c = parse_chord(DEFAULT_COPY).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::C);
+        assert_eq!(c.display(), "Cmd+C");
     }
 
     #[test]

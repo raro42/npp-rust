@@ -276,3 +276,5 @@
 009 keep: remappable blank line below / above (shortcut_blank_line, Cmd+Enter default, v0.3.184)
 
 009 keep: remappable Clear all bookmarks (shortcut_clear_bookmarks, Cmd+Shift+F2 default, v0.3.185)
+
+009 keep: remappable Copy (shortcut_copy, Cmd+C default, v0.3.186)

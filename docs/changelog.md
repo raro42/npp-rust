@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.186] — 2026-10-10
+
+Edit / Settings:
+
+- **Copy** is remappable (`shortcut_copy`, default Cmd+C). When remapped, platform Cmd+C no longer copies. Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.185] — 2026-10-10
 
 Search / Settings:
