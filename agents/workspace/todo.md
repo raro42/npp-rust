@@ -280,3 +280,5 @@
 009 keep: remappable Copy (shortcut_copy, Cmd+C default, v0.3.186)
 
 009 keep: remappable Cut (shortcut_cut, Cmd+X default, v0.3.187)
+
+009 keep: remappable Paste (shortcut_paste, Cmd+V default, v0.3.188)
