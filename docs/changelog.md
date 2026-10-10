@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.182] — 2026-10-10
+
+Edit / Settings:
+
+- **Join Lines / Split Lines** is remappable (`shortcut_join_lines`, default Cmd+J). Shift + that chord runs Split Lines. Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.181] — 2026-10-10
 
 Edit / Settings:

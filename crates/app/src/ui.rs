@@ -2188,6 +2188,46 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_LOWERCASE");
             }
         }
+        // Remappable join lines (default Cmd+J; settings.shortcut_join_lines).
+        // Shift flips to Split Lines (N++ Ctrl+J family).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_JOIN_LINES};
+            let join_chord =
+                resolve_chord(&self.state.settings.shortcut_join_lines, DEFAULT_JOIN_LINES);
+            let join_key_pressed = match join_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_split =
+                join_key_pressed && join_chord.flipped_shift().matches(mods, join_chord.key);
+            let remapped_join = join_key_pressed && join_chord.matches(mods, join_chord.key);
+            if remapped_split {
+                self.run_shortcut_cmd("IDM_EDIT_SPLIT_LINES");
+            } else if remapped_join {
+                self.run_shortcut_cmd("IDM_EDIT_JOIN_LINES");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -4069,6 +4109,14 @@ impl EditorApp {
                 &s.shortcut_lowercase,
                 crate::shortcut_chord::DEFAULT_LOWERCASE,
             ),
+            "IDM_EDIT_JOIN_LINES" => primary(
+                &s.shortcut_join_lines,
+                crate::shortcut_chord::DEFAULT_JOIN_LINES,
+            ),
+            "IDM_EDIT_SPLIT_LINES" => shifted(
+                &s.shortcut_join_lines,
+                crate::shortcut_chord::DEFAULT_JOIN_LINES,
+            ),
             "IDM_SEARCH_FIND" => primary(&s.shortcut_find, crate::shortcut_chord::DEFAULT_FIND),
             "IDM_SEARCH_FINDINFILES" => primary(
                 &s.shortcut_find_in_files,
@@ -4601,6 +4649,15 @@ impl EditorApp {
             case_chord.display(),
             case_chord.flipped_shift().display()
         );
+        let join_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_join_lines,
+            crate::shortcut_chord::DEFAULT_JOIN_LINES,
+        );
+        let join_keys = format!(
+            "{} / {}",
+            join_chord.display(),
+            join_chord.flipped_shift().display()
+        );
         let format_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_format_document,
             crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -4731,7 +4788,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 57] = [
+        let rows: [(&str, &str); 58] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -4803,6 +4860,7 @@ impl EditorApp {
                 "Toggle line comment / Block comment",
             ),
             (case_keys.as_str(), "lowercase / UPPERCASE"),
+            (join_keys.as_str(), "Join Lines / Split Lines"),
             (indent_outdent_keys.as_str(), "Indent / Outdent"),
             (format_keys.as_str(), "Format document"),
             (fold_all_keys.as_str(), "Fold / Unfold all"),
@@ -6462,6 +6520,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+U, Ctrl+U. Shift + that chord is UPPERCASE.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Join Lines shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_join_lines,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+J"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_join_lines.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_join_lines =
+                                        crate::shortcut_chord::DEFAULT_JOIN_LINES.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_JOIN_LINES
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_join_lines = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+J, Ctrl+J. Shift + that chord is Split Lines.",
                             )
                             .small()
                             .weak(),

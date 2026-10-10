@@ -112,6 +112,10 @@ fn default_shortcut_lowercase() -> String {
     crate::shortcut_chord::DEFAULT_LOWERCASE.into()
 }
 
+fn default_shortcut_join_lines() -> String {
+    crate::shortcut_chord::DEFAULT_JOIN_LINES.into()
+}
+
 fn default_shortcut_next_diff() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_DIFF.into()
 }
@@ -641,6 +645,9 @@ pub struct AppSettings {
     /// Lowercase chord (`Cmd+U` default; Shift flips to UPPERCASE).
     #[serde(default = "default_shortcut_lowercase")]
     pub shortcut_lowercase: String,
+    /// Join Lines chord (`Cmd+J` default; Shift flips to Split Lines).
+    #[serde(default = "default_shortcut_join_lines")]
+    pub shortcut_join_lines: String,
     /// Find in Files chord (`Cmd+Alt+F` default).
     #[serde(default = "default_shortcut_find_in_files")]
     pub shortcut_find_in_files: String,
@@ -758,6 +765,7 @@ impl Default for AppSettings {
             shortcut_focus_other_view: default_shortcut_focus_other_view(),
             shortcut_next_changed: default_shortcut_next_changed(),
             shortcut_lowercase: default_shortcut_lowercase(),
+            shortcut_join_lines: default_shortcut_join_lines(),
             shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             ollama_host: default_ollama_host(),
@@ -1138,6 +1146,7 @@ mod tests {
             shortcut_focus_other_view: "Ctrl+Alt+F6".into(),
             shortcut_next_changed: "Ctrl+F8".into(),
             shortcut_lowercase: "Ctrl+U".into(),
+            shortcut_join_lines: "Ctrl+J".into(),
             shortcut_find_in_files: "Alt+Shift+F".into(),
             ..Default::default()
         };
@@ -1219,6 +1228,7 @@ mod tests {
         assert_eq!(back.shortcut_focus_other_view, "Ctrl+Alt+F6");
         assert_eq!(back.shortcut_next_changed, "Ctrl+F8");
         assert_eq!(back.shortcut_lowercase, "Ctrl+U");
+        assert_eq!(back.shortcut_join_lines, "Ctrl+J");
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
     }
 

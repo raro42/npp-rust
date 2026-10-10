@@ -269,3 +269,4 @@
 009 keep: Focus on Another View toggles pane focus (F6 remappable; Shift swaps; v0.3.179)
 009 keep: remappable Next / Previous Change History (shortcut_next_changed, F8 default, v0.3.180)
 009 keep: remappable lowercase / UPPERCASE (shortcut_lowercase, Cmd+U default, v0.3.181)
+009 keep: remappable Join Lines / Split Lines (shortcut_join_lines, Cmd+J default, v0.3.182)

@@ -212,6 +212,9 @@ pub const DEFAULT_TOGGLE_COMMENT: &str = "Cmd+/";
 /// Default lowercase binding (Edit → lowercase). Shift flips to UPPERCASE (N++ Ctrl+U family).
 pub const DEFAULT_LOWERCASE: &str = "Cmd+U";
 
+/// Default join-lines binding (Edit → Join Lines). Shift flips to Split Lines (N++ Ctrl+J family).
+pub const DEFAULT_JOIN_LINES: &str = "Cmd+J";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1122,6 +1125,17 @@ mod tests {
         assert_eq!(c.key, Key::U);
         assert_eq!(c.display(), "Cmd+U");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+U");
+    }
+
+    #[test]
+    fn parse_cmd_j_default_join_lines() {
+        let c = parse_chord(DEFAULT_JOIN_LINES).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::J);
+        assert_eq!(c.display(), "Cmd+J");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+J");
     }
 
     #[test]
