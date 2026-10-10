@@ -16,10 +16,10 @@ New keys:
 | `restore_session` | Reopen session on launch |
 | `find_match_case` / `find_whole_word` / `find_in_selection` / `find_wrap` / `find_regex` | Find options |
 | `find_query` / `replace_with` | Last find/replace strings |
-| `compare_ignore_ws` | Compare ignores whitespace runs (also View menu toggle) |
-| `compare_ignore_case` | Compare ignores letter case (also View menu toggle) |
-| `compare_ignore_blank` | Compare skips blank lines in LCS (also View menu toggle) |
-| `compare_hide_equal` | Compare hides Equal (unchanged) lines in both panes (also View menu toggle) |
+| `compare_ignore_ws` | Compare ignores whitespace runs (View menu + Preferences; live re-diff + first-hunk park while Compare is on) |
+| `compare_ignore_case` | Compare ignores letter case (View menu + Preferences; live re-diff + first-hunk park while Compare is on) |
+| `compare_ignore_blank` | Compare skips blank lines in LCS (View menu + Preferences; live re-diff + first-hunk park while Compare is on) |
+| `compare_hide_equal` | Compare hides Equal (unchanged) lines in both panes (View menu + Preferences; live apply + first-hunk park while Compare is on) |
 | `compare_hide_equal_context` | Equal lines kept visible on each side of a change when hide-equal is on (`0`–`10`, default `3`) |
 | `backup_on_save` | Copy on-disk file into `npp-rs/backup/` before overwrite |
 | `autosave_interval_secs` | Autosave dirty named tabs (`0` = off; else 15–900) |

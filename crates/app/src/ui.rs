@@ -5805,6 +5805,8 @@ impl EditorApp {
         use crate::recent::{DefaultEol, LogTailOnOpen};
         let mut open = true;
         let mut changed = false;
+        let mut compare_ignore_live = false;
+        let mut compare_hide_equal_live = false;
         egui::Window::new("Preferences")
             .open(&mut open)
             .collapsible(false)
@@ -8586,11 +8588,14 @@ impl EditorApp {
                                 &mut self.state.settings.compare_ignore_ws,
                                 "Ignore whitespace differences",
                             )
+                            .on_hover_text(
+                                "While Compare is on, re-diffs immediately and parks both panes on the first change hunk (same as View → Ignore Whitespace Differences)",
+                            )
                             .changed()
                         {
                             changed = true;
                             if self.compare_on {
-                                self.state.compare_stale = true;
+                                compare_ignore_live = true;
                             }
                         }
                         if ui
@@ -8598,11 +8603,14 @@ impl EditorApp {
                                 &mut self.state.settings.compare_ignore_case,
                                 "Ignore case differences",
                             )
+                            .on_hover_text(
+                                "While Compare is on, re-diffs immediately and parks both panes on the first change hunk (same as View → Ignore Case Differences)",
+                            )
                             .changed()
                         {
                             changed = true;
                             if self.compare_on {
-                                self.state.compare_stale = true;
+                                compare_ignore_live = true;
                             }
                         }
                         if ui
@@ -8610,11 +8618,14 @@ impl EditorApp {
                                 &mut self.state.settings.compare_ignore_blank,
                                 "Ignore blank lines",
                             )
+                            .on_hover_text(
+                                "While Compare is on, re-diffs immediately and parks both panes on the first change hunk (same as View → Ignore Blank Lines)",
+                            )
                             .changed()
                         {
                             changed = true;
                             if self.compare_on {
-                                self.state.compare_stale = true;
+                                compare_ignore_live = true;
                             }
                         }
                         if ui
@@ -8622,9 +8633,15 @@ impl EditorApp {
                                 &mut self.state.settings.compare_hide_equal,
                                 "Hide unchanged lines",
                             )
+                            .on_hover_text(
+                                "While Compare is on, applies immediately and parks both panes on the first change hunk (same as View → Hide Unchanged Lines)",
+                            )
                             .changed()
                         {
                             changed = true;
+                            if self.compare_on {
+                                compare_hide_equal_live = true;
+                            }
                         }
                         ui.horizontal(|ui| {
                             ui.label("Hide-equal context");
@@ -8694,6 +8711,13 @@ impl EditorApp {
             self.state.settings.font_size = self.font_size;
             self.state.settings.save();
             self.state.status = format!("Preferences saved ({})", crate::recent::SETTINGS_REL);
+        }
+        // Compare toggles: match View menu (immediate re-diff / hide + first-hunk park).
+        // Runs after save so the pair status overwrites the generic "Preferences saved" line.
+        if compare_ignore_live {
+            self.refresh_compare_after_ignore_change();
+        } else if compare_hide_equal_live {
+            self.refresh_compare_after_hide_equal_change();
         }
         if !open {
             self.show_preferences = false;
@@ -11846,76 +11870,8 @@ impl EditorApp {
             case: self.state.settings.compare_ignore_case,
             blank: self.state.settings.compare_ignore_blank,
         };
-        let hide_equal = self.state.settings.compare_hide_equal;
         if self.compare_on {
-            // Refresh immediately so the toggle is visible without waiting for debounce.
-            self.state.compare_stale = false;
-            self.compare_refresh_at = None;
-            let left = self.compare_left_tab;
-            let right = self.compare_right_tab;
-            if let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) {
-                self.compare_left_tags = lt;
-                self.compare_right_tags = rt;
-                crate::diff::prune_compare_hide_revealed(
-                    &mut self.compare_hide_revealed_left,
-                    &self.compare_left_tags,
-                    self.state.settings.compare_hide_equal_context_lines(),
-                );
-                crate::diff::prune_compare_hide_revealed(
-                    &mut self.compare_hide_revealed_right,
-                    &self.compare_right_tags,
-                    self.state.settings.compare_hide_equal_context_lines(),
-                );
-                let lname = self
-                    .state
-                    .tabs
-                    .get(left)
-                    .map(|d| d.title.clone())
-                    .unwrap_or_else(|| "left".into());
-                let rname = self
-                    .state
-                    .tabs
-                    .get(right)
-                    .map(|d| d.title.clone())
-                    .unwrap_or_else(|| "right".into());
-                let hide = compare_hide_opt(
-                    hide_equal,
-                    &self.compare_left_tags,
-                    &self.compare_right_tags,
-                    &self.compare_hide_revealed_left,
-                    &self.compare_hide_revealed_right,
-                    self.state.settings.compare_hide_equal_context_lines(),
-                );
-                let counts = compare_pair_counts_from_tags(
-                    &self.compare_left_tags,
-                    &self.compare_right_tags,
-                );
-                let hunk_n = counts.hunk_n;
-                // Ignore toggles reshuffle hunks — re-park like Compare start.
-                if hunk_n > 0 {
-                    self.park_compare_hunk_ordinal(1);
-                    self.select_compare_hunk_on_pane(true, 1);
-                    self.select_compare_hunk_on_pane(false, 1);
-                }
-                let mut status = compare_pair_status(
-                    &lname,
-                    &rname,
-                    counts,
-                    ignore,
-                    CompareHideStatus {
-                        hidden: hide,
-                        context: self.state.settings.compare_hide_equal_context_lines(),
-                    },
-                    self.compare_sides_truncated(),
-                );
-                if hunk_n > 0 {
-                    let lr = self.compare_hunk_lr_label(1);
-                    let ordinal = self.compare_hunk_ordinal_bit(1, hunk_n);
-                    status.push_str(&compare_at_hunk_status_bit(&lr, &ordinal));
-                }
-                self.state.status = status;
-                self.state.highlight_dirty = true;
-            }
+            self.refresh_compare_after_ignore_change();
         } else {
             let which = match toggle {
                 crate::commands::CompareIgnoreToggle::Whitespace => "Ignore whitespace",
@@ -11933,6 +11889,87 @@ impl EditorApp {
                 compare_ignore_status_bit(ignore)
             );
         }
+    }
+
+    /// Re-diff the active pair after ignore settings already changed (View or Preferences).
+    /// Parks and selects the first change hunk; updates pair status with `· at L|R …`.
+    fn refresh_compare_after_ignore_change(&mut self) {
+        if !self.compare_on {
+            return;
+        }
+        let ignore = CompareIgnoreBits {
+            ws: self.state.settings.compare_ignore_ws,
+            case: self.state.settings.compare_ignore_case,
+            blank: self.state.settings.compare_ignore_blank,
+        };
+        let hide_equal = self.state.settings.compare_hide_equal;
+        // Refresh immediately so the toggle is visible without waiting for debounce.
+        self.state.compare_stale = false;
+        self.compare_refresh_at = None;
+        let left = self.compare_left_tab;
+        let right = self.compare_right_tab;
+        let Some((lt, rt, _, _)) = self.compute_compare_tags(left, right) else {
+            return;
+        };
+        self.compare_left_tags = lt;
+        self.compare_right_tags = rt;
+        crate::diff::prune_compare_hide_revealed(
+            &mut self.compare_hide_revealed_left,
+            &self.compare_left_tags,
+            self.state.settings.compare_hide_equal_context_lines(),
+        );
+        crate::diff::prune_compare_hide_revealed(
+            &mut self.compare_hide_revealed_right,
+            &self.compare_right_tags,
+            self.state.settings.compare_hide_equal_context_lines(),
+        );
+        let lname = self
+            .state
+            .tabs
+            .get(left)
+            .map(|d| d.title.clone())
+            .unwrap_or_else(|| "left".into());
+        let rname = self
+            .state
+            .tabs
+            .get(right)
+            .map(|d| d.title.clone())
+            .unwrap_or_else(|| "right".into());
+        let hide = compare_hide_opt(
+            hide_equal,
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            &self.compare_hide_revealed_left,
+            &self.compare_hide_revealed_right,
+            self.state.settings.compare_hide_equal_context_lines(),
+        );
+        let counts =
+            compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
+        let hunk_n = counts.hunk_n;
+        // Ignore toggles reshuffle hunks — re-park like Compare start.
+        if hunk_n > 0 {
+            self.park_compare_hunk_ordinal(1);
+            self.select_compare_hunk_on_pane(true, 1);
+            self.select_compare_hunk_on_pane(false, 1);
+        }
+        let mut status = compare_pair_status(
+            &lname,
+            &rname,
+            counts,
+            ignore,
+            CompareHideStatus {
+                hidden: hide,
+                context: self.state.settings.compare_hide_equal_context_lines(),
+            },
+            self.compare_sides_truncated(),
+        );
+        if hunk_n > 0 {
+            let lr = self.compare_hunk_lr_label(1);
+            let ordinal = self.compare_hunk_ordinal_bit(1, hunk_n);
+            status.push_str(&compare_at_hunk_status_bit(&lr, &ordinal));
+        }
+        self.state.status = status;
+        self.state.highlight_dirty = true;
     }
 
     /// Click a ···N hide-equal cue to reveal that collapsed Equal run on both panes.
@@ -12397,66 +12434,13 @@ impl EditorApp {
         self.state.settings.compare_hide_equal = !self.state.settings.compare_hide_equal;
         self.state.settings.save();
         let hide_equal = self.state.settings.compare_hide_equal;
-        if !hide_equal {
-            self.compare_hide_revealed_left.clear();
-            self.compare_hide_revealed_right.clear();
-        }
-        let ignore = CompareIgnoreBits {
-            ws: self.state.settings.compare_ignore_ws,
-            case: self.state.settings.compare_ignore_case,
-            blank: self.state.settings.compare_ignore_blank,
-        };
         if self.compare_on {
-            let left = self.compare_left_tab;
-            let right = self.compare_right_tab;
-            let lname = self
-                .state
-                .tabs
-                .get(left)
-                .map(|d| d.title.clone())
-                .unwrap_or_else(|| "left".into());
-            let rname = self
-                .state
-                .tabs
-                .get(right)
-                .map(|d| d.title.clone())
-                .unwrap_or_else(|| "right".into());
-            let hide = compare_hide_opt(
-                hide_equal,
-                &self.compare_left_tags,
-                &self.compare_right_tags,
-                &self.compare_hide_revealed_left,
-                &self.compare_hide_revealed_right,
-                self.state.settings.compare_hide_equal_context_lines(),
-            );
-            let counts =
-                compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
-            let hunk_n = counts.hunk_n;
-            // Hide toggle can orphan the caret on a now-hidden Equal line — re-park like
-            // Compare start / ignore re-diff / swap.
-            if hunk_n > 0 {
-                self.park_compare_hunk_ordinal(1);
-                self.select_compare_hunk_on_pane(true, 1);
-                self.select_compare_hunk_on_pane(false, 1);
-            }
-            let mut status = compare_pair_status(
-                &lname,
-                &rname,
-                counts,
-                ignore,
-                CompareHideStatus {
-                    hidden: hide,
-                    context: self.state.settings.compare_hide_equal_context_lines(),
-                },
-                self.compare_sides_truncated(),
-            );
-            if hunk_n > 0 {
-                let lr = self.compare_hunk_lr_label(1);
-                let ordinal = self.compare_hunk_ordinal_bit(1, hunk_n);
-                status.push_str(&compare_at_hunk_status_bit(&lr, &ordinal));
-            }
-            self.state.status = status;
+            self.refresh_compare_after_hide_equal_change();
         } else {
+            if !hide_equal {
+                self.compare_hide_revealed_left.clear();
+                self.compare_hide_revealed_right.clear();
+            }
             self.state.status = format!(
                 "Hide unchanged lines: {}{}",
                 if hide_equal { "on" } else { "off" },
@@ -12470,6 +12454,73 @@ impl EditorApp {
                 }
             );
         }
+    }
+
+    /// Apply hide-unchanged after the setting already changed (View or Preferences).
+    /// Clears ···N expansions when hiding turns off; parks first hunk while Compare is on.
+    fn refresh_compare_after_hide_equal_change(&mut self) {
+        let hide_equal = self.state.settings.compare_hide_equal;
+        if !hide_equal {
+            self.compare_hide_revealed_left.clear();
+            self.compare_hide_revealed_right.clear();
+        }
+        if !self.compare_on {
+            return;
+        }
+        let ignore = CompareIgnoreBits {
+            ws: self.state.settings.compare_ignore_ws,
+            case: self.state.settings.compare_ignore_case,
+            blank: self.state.settings.compare_ignore_blank,
+        };
+        let left = self.compare_left_tab;
+        let right = self.compare_right_tab;
+        let lname = self
+            .state
+            .tabs
+            .get(left)
+            .map(|d| d.title.clone())
+            .unwrap_or_else(|| "left".into());
+        let rname = self
+            .state
+            .tabs
+            .get(right)
+            .map(|d| d.title.clone())
+            .unwrap_or_else(|| "right".into());
+        let hide = compare_hide_opt(
+            hide_equal,
+            &self.compare_left_tags,
+            &self.compare_right_tags,
+            &self.compare_hide_revealed_left,
+            &self.compare_hide_revealed_right,
+            self.state.settings.compare_hide_equal_context_lines(),
+        );
+        let counts =
+            compare_pair_counts_from_tags(&self.compare_left_tags, &self.compare_right_tags);
+        let hunk_n = counts.hunk_n;
+        // Hide toggle can orphan the caret on a now-hidden Equal line — re-park like
+        // Compare start / ignore re-diff / swap.
+        if hunk_n > 0 {
+            self.park_compare_hunk_ordinal(1);
+            self.select_compare_hunk_on_pane(true, 1);
+            self.select_compare_hunk_on_pane(false, 1);
+        }
+        let mut status = compare_pair_status(
+            &lname,
+            &rname,
+            counts,
+            ignore,
+            CompareHideStatus {
+                hidden: hide,
+                context: self.state.settings.compare_hide_equal_context_lines(),
+            },
+            self.compare_sides_truncated(),
+        );
+        if hunk_n > 0 {
+            let lr = self.compare_hunk_lr_label(1);
+            let ordinal = self.compare_hunk_ordinal_bit(1, hunk_n);
+            status.push_str(&compare_at_hunk_status_bit(&lr, &ordinal));
+        }
+        self.state.status = status;
     }
 
     /// Bump Preferences hide-equal context by ±1 (clamped 0..=10).

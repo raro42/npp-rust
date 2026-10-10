@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.198] — 2026-10-10
+
+View / Compare:
+
+- **Preferences Compare toggles** (ignore whitespace / case / blank, hide unchanged) match the View menu while Compare is on: immediate re-diff or hide apply, first-hunk park + select, and pair status with `· at L|R …` (no more delayed stale re-diff / generic “Preferences saved” only).
+
 ## [0.3.197] — 2026-10-10
 
 View / Compare:
