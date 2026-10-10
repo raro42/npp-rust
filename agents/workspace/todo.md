@@ -265,3 +265,4 @@
 
 009 keep: remappable Find in Files (shortcut_find_in_files, Cmd+Alt+F default, v0.3.176)
 009 keep: Document Map viewport band sized to editor page (v0.3.177)
+009 keep: remappable go to document start/end (shortcut_goto_document_start, Cmd+Up default, v0.3.178)

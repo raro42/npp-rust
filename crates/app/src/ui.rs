@@ -2004,6 +2004,65 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_LINE_UP");
             }
         }
+        // Remappable document start (default Cmd+Up; settings.shortcut_goto_document_start).
+        // Opposite Up/Down jumps to end; non-arrow remaps use Shift for end.
+        // Arrow defaults are handled in handle_editor_input (Shift selects; dual-view focus).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_GOTO_DOCUMENT_START};
+            let start_chord = resolve_chord(
+                &self.state.settings.shortcut_goto_document_start,
+                DEFAULT_GOTO_DOCUMENT_START,
+            );
+            let end_chord = start_chord.goto_document_end_chord();
+            let arrow_pair = matches!(start_chord.key, Key::ArrowUp | Key::ArrowDown)
+                && matches!(end_chord.key, Key::ArrowUp | Key::ArrowDown);
+            if !arrow_pair {
+                let chord_key_pressed = |key: Key| match key {
+                    Key::Z => z,
+                    Key::N => n,
+                    Key::O => o,
+                    Key::S => s,
+                    Key::F => f,
+                    Key::Y => y,
+                    Key::W => w,
+                    Key::G => g,
+                    Key::A => a,
+                    Key::D => d,
+                    Key::L => l,
+                    Key::I => i_key,
+                    Key::T => t,
+                    Key::H => h,
+                    Key::F2 => f2,
+                    Key::F3 => f3,
+                    Key::F7 => f7,
+                    Key::Equals => equals,
+                    Key::Minus => minus,
+                    Key::Num0 => num0,
+                    Key::CloseBracket => close_br,
+                    Key::OpenBracket => open_br,
+                    Key::ArrowLeft => arrow_left,
+                    Key::ArrowRight => arrow_right,
+                    other => ctx.input(|i| i.key_pressed(other)),
+                };
+                let hit = |chord: crate::shortcut_chord::KeyChord| {
+                    chord_key_pressed(chord.key) && chord.matches(mods, chord.key)
+                };
+                let tab = self.focused_edit_tab();
+                if hit(end_chord) && end_chord.key != start_chord.key {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
+                    go_doc_end(&mut self.state, tab, false);
+                    self.follow_focused_caret();
+                } else if hit(start_chord) {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
+                    go_doc_start(&mut self.state, tab, false);
+                    self.follow_focused_caret();
+                }
+            }
+        }
         // Remappable toggle line comment (default Cmd+/; settings.shortcut_toggle_comment).
         // Shift flips to Block Comment (stream delimiters).
         {
@@ -3851,6 +3910,17 @@ impl EditorApp {
                 &s.shortcut_move_line,
                 crate::shortcut_chord::DEFAULT_MOVE_LINE,
             ),
+            "IDM_VIEW_GOTO_START" => primary(
+                &s.shortcut_goto_document_start,
+                crate::shortcut_chord::DEFAULT_GOTO_DOCUMENT_START,
+            ),
+            "IDM_VIEW_GOTO_END" => {
+                let c = crate::shortcut_chord::resolve_chord(
+                    &s.shortcut_goto_document_start,
+                    crate::shortcut_chord::DEFAULT_GOTO_DOCUMENT_START,
+                );
+                c.goto_document_end_chord().display()
+            }
             "IDM_EDIT_BLOCK_COMMENT" | "IDM_EDIT_STREAM_COMMENT" => primary(
                 &s.shortcut_toggle_comment,
                 crate::shortcut_chord::DEFAULT_TOGGLE_COMMENT,
@@ -4339,6 +4409,15 @@ impl EditorApp {
             move_line_chord.display(),
             move_line_chord.move_line_down_chord().display()
         );
+        let goto_doc_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_goto_document_start,
+            crate::shortcut_chord::DEFAULT_GOTO_DOCUMENT_START,
+        );
+        let goto_doc_keys = format!(
+            "{} / {}",
+            goto_doc_chord.display(),
+            goto_doc_chord.goto_document_end_chord().display()
+        );
         let toggle_comment_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_toggle_comment,
             crate::shortcut_chord::DEFAULT_TOGGLE_COMMENT,
@@ -4469,7 +4548,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 53] = [
+        let rows: [(&str, &str); 54] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -4534,6 +4613,7 @@ impl EditorApp {
             (dup_keys.as_str(), "Duplicate line"),
             (del_keys.as_str(), "Delete line"),
             (move_line_keys.as_str(), "Move line up / down"),
+            (goto_doc_keys.as_str(), "Go to document start / end"),
             (
                 toggle_comment_keys.as_str(),
                 "Toggle line comment / Block comment",
@@ -6060,6 +6140,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Shift+Up, Alt+Up. Opposite Down moves the line down; letter remaps use Shift for down.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Document start shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_goto_document_start,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Up"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_goto_document_start
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_goto_document_start =
+                                        crate::shortcut_chord::DEFAULT_GOTO_DOCUMENT_START.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_GOTO_DOCUMENT_START
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_goto_document_start = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Up, Alt+Up. Opposite Down jumps to end; letter remaps use Shift for end. Cmd+Home / Cmd+End stay hard-wired.",
                             )
                             .small()
                             .weak(),
@@ -13446,7 +13562,7 @@ impl EditorApp {
                     ..
                 } => {
                     // Remappable move-line (default Cmd+Shift+Up) is handled in
-                    // handle_shortcuts; skip caret nav so we do not also jump to doc start.
+                    // handle_shortcuts; skip caret nav so we do not also jump.
                     let move_up = crate::shortcut_chord::resolve_chord(
                         &self.state.settings.shortcut_move_line,
                         crate::shortcut_chord::DEFAULT_MOVE_LINE,
@@ -13458,11 +13574,19 @@ impl EditorApp {
                     {
                         caret_moved = true;
                     } else {
+                        // Remappable document start/end (default Cmd+Up / Cmd+Down).
+                        let doc_start = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_goto_document_start,
+                            crate::shortcut_chord::DEFAULT_GOTO_DOCUMENT_START,
+                        );
+                        let doc_end = doc_start.goto_document_end_chord();
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
                             doc.clear_multi_sels();
                         }
-                        if modifiers.command || modifiers.ctrl {
-                            go_doc_start(&mut self.state, tab, modifiers.shift);
+                        if doc_start.matches_ignore_shift(modifiers, Key::ArrowUp) {
+                            go_doc_start(&mut self.state, tab, modifiers.shift != doc_start.shift);
+                        } else if doc_end.matches_ignore_shift(modifiers, Key::ArrowUp) {
+                            go_doc_end(&mut self.state, tab, modifiers.shift != doc_end.shift);
                         } else {
                             move_caret_vert(&mut self.state, tab, -1);
                         }
@@ -13486,11 +13610,18 @@ impl EditorApp {
                     {
                         caret_moved = true;
                     } else {
+                        let doc_start = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_goto_document_start,
+                            crate::shortcut_chord::DEFAULT_GOTO_DOCUMENT_START,
+                        );
+                        let doc_end = doc_start.goto_document_end_chord();
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
                             doc.clear_multi_sels();
                         }
-                        if modifiers.command || modifiers.ctrl {
-                            go_doc_end(&mut self.state, tab, modifiers.shift);
+                        if doc_end.matches_ignore_shift(modifiers, Key::ArrowDown) {
+                            go_doc_end(&mut self.state, tab, modifiers.shift != doc_end.shift);
+                        } else if doc_start.matches_ignore_shift(modifiers, Key::ArrowDown) {
+                            go_doc_start(&mut self.state, tab, modifiers.shift != doc_start.shift);
                         } else {
                             move_caret_vert(&mut self.state, tab, 1);
                         }

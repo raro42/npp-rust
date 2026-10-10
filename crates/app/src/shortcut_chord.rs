@@ -193,6 +193,11 @@ pub const DEFAULT_MATCHING_BRACE: &str = "Cmd+B";
 /// Opposite Up/Down moves the line down; non-arrow remaps use Shift for down.
 pub const DEFAULT_MOVE_LINE: &str = "Cmd+Shift+Up";
 
+/// Default go-to-document-start binding (View → Go to start of file).
+/// Opposite Up/Down jumps to end; non-arrow remaps use Shift for end.
+/// `Cmd+Home` / `Cmd+End` stay hard-wired aliases.
+pub const DEFAULT_GOTO_DOCUMENT_START: &str = "Cmd+Up";
+
 /// Default toggle single-line comment binding (Edit → Toggle Single Line Comment).
 /// Shift flips to Block Comment. Uses `/` (not `Q`) so macOS Cmd+Q quit stays free.
 pub const DEFAULT_TOGGLE_COMMENT: &str = "Cmd+/";
@@ -257,6 +262,11 @@ impl KeyChord {
             Key::ArrowUp | Key::ArrowDown => self.flipped_vertical(),
             _ => self.flipped_shift(),
         }
+    }
+
+    /// Partner chord for document-end: same rules as [`Self::move_line_down_chord`].
+    pub fn goto_document_end_chord(self) -> Self {
+        self.move_line_down_chord()
     }
 
     /// Same chord with `]` ↔ `[` (hide-equal context ±1). Non-bracket keys unchanged.
@@ -1015,6 +1025,21 @@ mod tests {
         assert_eq!(arrow_alias.key, Key::ArrowUp);
         let letter = parse_chord("Alt+M").unwrap();
         assert_eq!(letter.move_line_down_chord().display(), "Alt+Shift+M");
+    }
+
+    #[test]
+    fn parse_cmd_up_default_goto_document_start() {
+        let c = parse_chord(DEFAULT_GOTO_DOCUMENT_START).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::ArrowUp);
+        assert_eq!(c.display(), "Cmd+Up");
+        let end = c.goto_document_end_chord();
+        assert_eq!(end.key, Key::ArrowDown);
+        assert_eq!(end.display(), "Cmd+Down");
+        let letter = parse_chord("Alt+G").unwrap();
+        assert_eq!(letter.goto_document_end_chord().display(), "Alt+Shift+G");
     }
 
     #[test]

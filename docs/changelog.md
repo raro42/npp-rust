@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.178] — 2026-10-10
+
+View / Settings:
+
+- **Go to document start / end** is remappable (`shortcut_goto_document_start`, default Cmd+Up). Opposite Down jumps to end; letter remaps use Shift for end. Menu, Preferences, Shortcut Mapper, and About show the effective binding. `Cmd+Home` / `Cmd+End` stay hard-wired aliases.
+
 ## [0.3.177] — 2026-10-10
 
 View:
