@@ -1163,6 +1163,40 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_DOC_MAP");
             }
         }
+        // Remappable fullscreen toggle (default F11; settings.shortcut_fullscreen).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FULLSCREEN};
+            let fs_chord =
+                resolve_chord(&self.state.settings.shortcut_fullscreen, DEFAULT_FULLSCREEN);
+            let fs_key_pressed = match fs_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if fs_key_pressed && fs_chord.matches(mods, fs_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_FULLSCREENTOGGLE");
+            }
+        }
         // Remappable Focus on Another View (default F6; settings.shortcut_focus_other_view).
         // Shift + that chord swaps the active tab with the other view (header Switch).
         {
@@ -4564,6 +4598,16 @@ impl EditorApp {
                             "Toggle keyboard focus between dual-view panes ({focus}; Preferences remappable; {swap} swaps tabs)"
                         ))
                     }
+                    "IDM_VIEW_FULLSCREENTOGGLE" | "IDM_VIEW_DISTRACTIONFREE" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_fullscreen,
+                            crate::shortcut_chord::DEFAULT_FULLSCREEN,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Toggle fullscreen ({chord}; Preferences remappable)"
+                        ))
+                    }
                     "IDM_SEARCH_FINDINFILES" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_find_in_files,
@@ -5056,6 +5100,10 @@ impl EditorApp {
             "IDM_VIEW_SWITCHTO_OTHER_VIEW" => primary(
                 &s.shortcut_focus_other_view,
                 crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW,
+            ),
+            "IDM_VIEW_FULLSCREENTOGGLE" | "IDM_VIEW_DISTRACTIONFREE" => primary(
+                &s.shortcut_fullscreen,
+                crate::shortcut_chord::DEFAULT_FULLSCREEN,
             ),
             _ => return None,
         })
@@ -5598,6 +5646,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_DOCUMENT_MAP,
         )
         .display();
+        let fullscreen_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_fullscreen,
+            crate::shortcut_chord::DEFAULT_FULLSCREEN,
+        )
+        .display();
         let focus_other_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_focus_other_view,
             crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW,
@@ -5618,7 +5671,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 73] = [
+        let rows: [(&str, &str); 74] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -5719,6 +5772,7 @@ impl EditorApp {
             (matching_brace_keys.as_str(), "Matching brace / Select pair"),
             (log_tail_keys.as_str(), "Toggle log tail"),
             (document_map_keys.as_str(), "Toggle Document Map"),
+            (fullscreen_keys.as_str(), "Toggle fullscreen"),
             (focus_other_keys.as_str(), "Focus other view / swap tabs"),
             (word_jump_keys.as_str(), "Word jump ← / →"),
             ("Double-click", "Select word"),
@@ -8347,6 +8401,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: F6, Ctrl+Alt+F6. Toggles View → Focus on Another View. Shift + that chord swaps tabs (header Switch).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Fullscreen shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_fullscreen,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("F11"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_fullscreen
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_fullscreen =
+                                        crate::shortcut_chord::DEFAULT_FULLSCREEN.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FULLSCREEN
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_fullscreen = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: F11, Ctrl+Alt+F11. Toggles View → Toggle Full Screen Mode.",
                             )
                             .small()
                             .weak(),

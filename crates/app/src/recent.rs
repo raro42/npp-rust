@@ -392,6 +392,10 @@ fn default_shortcut_focus_other_view() -> String {
     crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW.into()
 }
 
+fn default_shortcut_fullscreen() -> String {
+    crate::shortcut_chord::DEFAULT_FULLSCREEN.into()
+}
+
 fn default_shortcut_find_in_files() -> String {
     crate::shortcut_chord::DEFAULT_FIND_IN_FILES.into()
 }
@@ -749,6 +753,9 @@ pub struct AppSettings {
     /// Focus other dual-view pane chord (`F6` default; Shift swaps tabs).
     #[serde(default = "default_shortcut_focus_other_view")]
     pub shortcut_focus_other_view: String,
+    /// Fullscreen toggle chord (`F11` default).
+    #[serde(default = "default_shortcut_fullscreen")]
+    pub shortcut_fullscreen: String,
     /// Next change-history mark chord (`F8` default; Shift flips to previous).
     #[serde(default = "default_shortcut_next_changed")]
     pub shortcut_next_changed: String,
@@ -895,6 +902,7 @@ impl Default for AppSettings {
             shortcut_toggle_log_tail: default_shortcut_toggle_log_tail(),
             shortcut_document_map: default_shortcut_document_map(),
             shortcut_focus_other_view: default_shortcut_focus_other_view(),
+            shortcut_fullscreen: default_shortcut_fullscreen(),
             shortcut_next_changed: default_shortcut_next_changed(),
             shortcut_lowercase: default_shortcut_lowercase(),
             shortcut_join_lines: default_shortcut_join_lines(),
@@ -1295,6 +1303,7 @@ mod tests {
             shortcut_toggle_log_tail: "Ctrl+Alt+T".into(),
             shortcut_document_map: "Ctrl+Alt+Shift+D".into(),
             shortcut_focus_other_view: "Ctrl+Alt+F6".into(),
+            shortcut_fullscreen: "Ctrl+Alt+F11".into(),
             shortcut_next_changed: "Ctrl+F8".into(),
             shortcut_lowercase: "Ctrl+U".into(),
             shortcut_join_lines: "Ctrl+J".into(),
@@ -1393,6 +1402,7 @@ mod tests {
         assert_eq!(back.shortcut_toggle_log_tail, "Ctrl+Alt+T");
         assert_eq!(back.shortcut_document_map, "Ctrl+Alt+Shift+D");
         assert_eq!(back.shortcut_focus_other_view, "Ctrl+Alt+F6");
+        assert_eq!(back.shortcut_fullscreen, "Ctrl+Alt+F11");
         assert_eq!(back.shortcut_next_changed, "Ctrl+F8");
         assert_eq!(back.shortcut_lowercase, "Ctrl+U");
         assert_eq!(back.shortcut_join_lines, "Ctrl+J");

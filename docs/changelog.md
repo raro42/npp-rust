@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.202] — 2026-10-11
+
+View / Settings:
+
+- **Fullscreen** is remappable (`shortcut_fullscreen`, default F11). Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.201] — 2026-10-11
 
 Edit / Settings:

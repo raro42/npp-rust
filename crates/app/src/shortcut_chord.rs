@@ -227,6 +227,9 @@ pub const DEFAULT_DOCUMENT_MAP: &str = "Cmd+Shift+D";
 /// Shift flips to swap the active tab with the other view (header Switch).
 pub const DEFAULT_FOCUS_OTHER_VIEW: &str = "F6";
 
+/// Default fullscreen toggle binding (View → Toggle Full Screen Mode).
+pub const DEFAULT_FULLSCREEN: &str = "F11";
+
 /// Default reload-from-disk binding (new remappable chord; File → Reload).
 pub const DEFAULT_RELOAD: &str = "Cmd+R";
 
@@ -507,6 +510,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "f6" => Some(Key::F6),
         "f7" => Some(Key::F7),
         "f8" => Some(Key::F8),
+        "f11" => Some(Key::F11),
         "escape" | "esc" => Some(Key::Escape),
         "tab" => Some(Key::Tab),
         "delete" | "del" => Some(Key::Delete),
@@ -563,6 +567,7 @@ fn key_token(key: Key) -> &'static str {
         Key::F6 => "F6",
         Key::F7 => "F7",
         Key::F8 => "F8",
+        Key::F11 => "F11",
         Key::Escape => "Escape",
         Key::Tab => "Tab",
         Key::Delete => "Delete",
@@ -1290,6 +1295,16 @@ mod tests {
         assert_eq!(c.key, Key::F8);
         assert_eq!(c.display(), "F8");
         assert_eq!(c.flipped_shift().display(), "Shift+F8");
+    }
+
+    #[test]
+    fn parse_f11_default_fullscreen() {
+        let c = parse_chord(DEFAULT_FULLSCREEN).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F11);
+        assert_eq!(c.display(), "F11");
     }
 
     #[test]
