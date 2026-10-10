@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.193] — 2026-10-10
+
+Edit / Settings:
+
+- **Character left / right** is remappable (`shortcut_char_left`, default Left). Opposite Right jumps one character right; letter remaps use Shift for right. When remapped, bare Left/Right no longer move by character. Word jump stays separate. Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.192] — 2026-10-10
 
 Edit / Settings:

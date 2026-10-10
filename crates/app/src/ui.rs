@@ -1895,6 +1895,76 @@ impl EditorApp {
                 }
             }
         }
+        // Remappable character Left/Right (default Left; settings.shortcut_char_left).
+        // Default Left/Right stay in handle_editor_input. When remapped, chords move here.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_CHAR_LEFT};
+            let left_chord =
+                resolve_chord(&self.state.settings.shortcut_char_left, DEFAULT_CHAR_LEFT);
+            let default_chord = resolve_chord(DEFAULT_CHAR_LEFT, DEFAULT_CHAR_LEFT);
+            if left_chord != default_chord {
+                let right_chord = left_chord.char_right_chord();
+                let chord_key_pressed = |key: Key| -> bool {
+                    match key {
+                        Key::Z => z,
+                        Key::N => n,
+                        Key::O => o,
+                        Key::S => s,
+                        Key::F => f,
+                        Key::Y => y,
+                        Key::W => w,
+                        Key::G => g,
+                        Key::A => a,
+                        Key::D => d,
+                        Key::L => l,
+                        Key::I => i_key,
+                        Key::T => t,
+                        Key::H => h,
+                        Key::F2 => f2,
+                        Key::F3 => f3,
+                        Key::F7 => f7,
+                        Key::Equals => equals,
+                        Key::Minus => minus,
+                        Key::Num0 => num0,
+                        Key::CloseBracket => close_br,
+                        Key::OpenBracket => open_br,
+                        other => ctx.input(|i| i.key_pressed(other)),
+                    }
+                };
+                let tab = self.focused_edit_tab();
+                let move_by = |state: &mut EditorState, tab: usize, delta: isize, extend: bool| {
+                    if let Some(doc) = state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                        let c = doc.buffer.caret();
+                        let len = doc.buffer.len_chars();
+                        let next = if delta < 0 {
+                            c.saturating_sub((-delta) as usize)
+                        } else {
+                            (c + delta as usize).min(len)
+                        };
+                        if next != c {
+                            if extend {
+                                let anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
+                                doc.buffer.set_selection(anchor, next);
+                            } else {
+                                doc.buffer.set_caret(next);
+                            }
+                        }
+                    }
+                };
+                if chord_key_pressed(right_chord.key)
+                    && right_chord.matches_ignore_shift(mods, right_chord.key)
+                {
+                    move_by(&mut self.state, tab, 1, mods.shift != right_chord.shift);
+                    self.follow_focused_caret();
+                } else if chord_key_pressed(left_chord.key)
+                    && left_chord.matches_ignore_shift(mods, left_chord.key)
+                {
+                    move_by(&mut self.state, tab, -1, mods.shift != left_chord.shift);
+                    self.follow_focused_caret();
+                }
+            }
+        }
         // Remappable duplicate line (default Cmd+D; settings.shortcut_duplicate_line).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_DUPLICATE_LINE};
@@ -5217,6 +5287,15 @@ impl EditorApp {
             page_up_chord.display(),
             page_up_chord.page_down_chord().display()
         );
+        let char_left_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_char_left,
+            crate::shortcut_chord::DEFAULT_CHAR_LEFT,
+        );
+        let char_left_keys = format!(
+            "{} / {}",
+            char_left_chord.display(),
+            char_left_chord.char_right_chord().display()
+        );
         let undo_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_undo,
             crate::shortcut_chord::DEFAULT_UNDO,
@@ -5278,7 +5357,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 68] = [
+        let rows: [(&str, &str); 69] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -5349,6 +5428,7 @@ impl EditorApp {
             (delete_backward_keys.as_str(), "Backspace"),
             (line_home_keys.as_str(), "Line start / end"),
             (page_up_keys.as_str(), "Page up / down"),
+            (char_left_keys.as_str(), "Character left / right"),
             (dup_keys.as_str(), "Duplicate line"),
             (del_keys.as_str(), "Delete line"),
             (move_line_keys.as_str(), "Move line up / down"),
@@ -7571,6 +7651,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: PageUp, Ctrl+Alt+P. Opposite PageDown jumps page down; letter remaps use Shift for page down. When remapped, bare PageUp/PageDown no longer page.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Character left shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_char_left,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Left"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_char_left.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_char_left =
+                                        crate::shortcut_chord::DEFAULT_CHAR_LEFT.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CHAR_LEFT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_char_left = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Left, Ctrl+Alt+L. Opposite Right jumps one character right; letter remaps use Shift for right. When remapped, bare Left/Right no longer move by character. Word jump stays separate.",
                             )
                             .small()
                             .weak(),
@@ -14809,18 +14920,38 @@ impl EditorApp {
                             doc.buffer.move_word(true, modifiers.shift);
                         }
                         caret_moved = true;
-                    } else if !modifiers.alt {
-                        if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            let c = doc.buffer.caret();
-                            if c > 0 {
-                                if modifiers.shift {
-                                    let anchor =
-                                        doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
-                                    doc.buffer.set_selection(anchor, c - 1);
-                                } else {
-                                    doc.buffer.set_caret(c - 1);
+                    } else {
+                        use crate::shortcut_chord::{resolve_chord, DEFAULT_CHAR_LEFT};
+                        let left_chord = resolve_chord(
+                            &self.state.settings.shortcut_char_left,
+                            DEFAULT_CHAR_LEFT,
+                        );
+                        let default_chord = resolve_chord(DEFAULT_CHAR_LEFT, DEFAULT_CHAR_LEFT);
+                        let right_chord = left_chord.char_right_chord();
+                        if left_chord != default_chord
+                            && (left_chord.matches_ignore_shift(modifiers, Key::ArrowLeft)
+                                || right_chord.matches_ignore_shift(modifiers, Key::ArrowLeft))
+                        {
+                            // Remapped chord handled in handle_shortcuts.
+                            continue;
+                        }
+                        if left_chord != default_chord {
+                            // Remapped away from bare Left; ignore for char move.
+                            continue;
+                        }
+                        if !modifiers.alt {
+                            if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                let c = doc.buffer.caret();
+                                if c > 0 {
+                                    if modifiers.shift {
+                                        let anchor =
+                                            doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
+                                        doc.buffer.set_selection(anchor, c - 1);
+                                    } else {
+                                        doc.buffer.set_caret(c - 1);
+                                    }
+                                    caret_moved = true;
                                 }
-                                caret_moved = true;
                             }
                         }
                     }
@@ -14852,19 +14983,39 @@ impl EditorApp {
                             doc.buffer.move_word(true, modifiers.shift);
                         }
                         caret_moved = true;
-                    } else if !modifiers.alt {
-                        if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            let c = doc.buffer.caret();
-                            let len = doc.buffer.len_chars();
-                            if c < len {
-                                if modifiers.shift {
-                                    let anchor =
-                                        doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
-                                    doc.buffer.set_selection(anchor, c + 1);
-                                } else {
-                                    doc.buffer.set_caret(c + 1);
+                    } else {
+                        use crate::shortcut_chord::{resolve_chord, DEFAULT_CHAR_LEFT};
+                        let left_chord = resolve_chord(
+                            &self.state.settings.shortcut_char_left,
+                            DEFAULT_CHAR_LEFT,
+                        );
+                        let default_chord = resolve_chord(DEFAULT_CHAR_LEFT, DEFAULT_CHAR_LEFT);
+                        let right_chord = left_chord.char_right_chord();
+                        if left_chord != default_chord
+                            && (left_chord.matches_ignore_shift(modifiers, Key::ArrowRight)
+                                || right_chord.matches_ignore_shift(modifiers, Key::ArrowRight))
+                        {
+                            // Remapped chord handled in handle_shortcuts.
+                            continue;
+                        }
+                        if left_chord != default_chord {
+                            // Remapped away from bare Right; ignore for char move.
+                            continue;
+                        }
+                        if !modifiers.alt {
+                            if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                let c = doc.buffer.caret();
+                                let len = doc.buffer.len_chars();
+                                if c < len {
+                                    if modifiers.shift {
+                                        let anchor =
+                                            doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
+                                        doc.buffer.set_selection(anchor, c + 1);
+                                    } else {
+                                        doc.buffer.set_caret(c + 1);
+                                    }
+                                    caret_moved = true;
                                 }
-                                caret_moved = true;
                             }
                         }
                     }

@@ -290,3 +290,5 @@
 009 keep: remappable line start / end (shortcut_line_home, Home default, v0.3.191)
 
 009 keep: remappable Page up / down (shortcut_page_up, PageUp default, v0.3.192)
+
+009 keep: remappable Character left / right (shortcut_char_left, Left default, v0.3.193)

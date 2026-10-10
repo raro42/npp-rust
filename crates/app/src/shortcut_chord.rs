@@ -179,6 +179,12 @@ pub const DEFAULT_LINE_HOME: &str = "Home";
 /// Default stays in `handle_editor_input`. When remapped, bare PageUp/PageDown no longer page.
 pub const DEFAULT_PAGE_UP: &str = "PageUp";
 
+/// Default character-left binding (matches historical hard-wire).
+/// Opposite Left/Right jumps one character right; non-arrow remaps use Shift for right.
+/// Default stays in `handle_editor_input`. When remapped, bare Left/Right no longer move by char
+/// (word jump via `shortcut_word_jump` stays separate).
+pub const DEFAULT_CHAR_LEFT: &str = "Left";
+
 /// Default undo binding (matches historical hard-wire). Shift flips to redo.
 pub const DEFAULT_UNDO: &str = "Cmd+Z";
 
@@ -352,6 +358,14 @@ impl KeyChord {
                 key: Key::PageUp,
                 ..self
             },
+            _ => self.flipped_shift(),
+        }
+    }
+
+    /// Partner chord for character-right: Left ↔ Right, else Shift flip (letter remaps).
+    pub fn char_right_chord(self) -> Self {
+        match self.key {
+            Key::ArrowLeft | Key::ArrowRight => self.flipped_horizontal(),
             _ => self.flipped_shift(),
         }
     }
@@ -1358,6 +1372,21 @@ mod tests {
         assert_eq!(parse_chord("PgDn").unwrap().key, Key::PageDown);
         let letter = parse_chord("Ctrl+Alt+P").unwrap();
         assert_eq!(letter.page_down_chord().display(), "Cmd+Alt+Shift+P");
+    }
+
+    #[test]
+    fn parse_left_default_char_left() {
+        let c = parse_chord(DEFAULT_CHAR_LEFT).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::ArrowLeft);
+        assert_eq!(c.display(), "Left");
+        assert_eq!(c.char_right_chord().display(), "Right");
+        assert_eq!(parse_chord("ArrowLeft").unwrap().key, Key::ArrowLeft);
+        assert_eq!(parse_chord("ArrowRight").unwrap().key, Key::ArrowRight);
+        let letter = parse_chord("Ctrl+Alt+L").unwrap();
+        assert_eq!(letter.char_right_chord().display(), "Cmd+Alt+Shift+L");
     }
 
     #[test]
