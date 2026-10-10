@@ -33,6 +33,7 @@ New keys:
 | `shortcut_find_next_global` | Global find-next chord (`Cmd+G` default; Shift flips to find previous) |
 | `shortcut_next_bookmark` | Next-bookmark chord (`F2` default; Shift flips to previous) |
 | `shortcut_toggle_bookmark` | Toggle-bookmark chord (`Cmd+F2` default) |
+| `shortcut_clear_bookmarks` | Clear-all-bookmarks chord (`Cmd+Shift+F2` default) |
 | `shortcut_next_diff` | Next-compare-diff chord (`F7` default; Shift flips to previous) |
 | `shortcut_first_diff` | First-compare-diff chord (`Cmd+F7` default; Shift flips to last) |
 | `shortcut_next_hidden_equal` | Next-hidden-equal chord (`Alt+F7` default; Shift flips to previous) |

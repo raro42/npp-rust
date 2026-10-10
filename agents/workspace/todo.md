@@ -274,3 +274,5 @@
 009 keep: remappable Invert Case / Proper Case (shortcut_invert_case, Cmd+Alt+U default, v0.3.183)
 
 009 keep: remappable blank line below / above (shortcut_blank_line, Cmd+Enter default, v0.3.184)
+
+009 keep: remappable Clear all bookmarks (shortcut_clear_bookmarks, Cmd+Shift+F2 default, v0.3.185)

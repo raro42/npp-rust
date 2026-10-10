@@ -2570,10 +2570,12 @@ impl EditorApp {
         }
 
         // Bookmarks: remappable next (default F2; Shift flips to prev) + remappable toggle
-        // (default Cmd+F2; settings.shortcut_toggle_bookmark).
+        // (default Cmd+F2; settings.shortcut_toggle_bookmark) + remappable clear all
+        // (default Cmd+Shift+F2; settings.shortcut_clear_bookmarks).
         {
             use crate::shortcut_chord::{
-                resolve_chord, DEFAULT_NEXT_BOOKMARK, DEFAULT_TOGGLE_BOOKMARK,
+                resolve_chord, DEFAULT_CLEAR_BOOKMARKS, DEFAULT_NEXT_BOOKMARK,
+                DEFAULT_TOGGLE_BOOKMARK,
             };
             let bm_chord = resolve_chord(
                 &self.state.settings.shortcut_next_bookmark,
@@ -2582,6 +2584,10 @@ impl EditorApp {
             let toggle_chord = resolve_chord(
                 &self.state.settings.shortcut_toggle_bookmark,
                 DEFAULT_TOGGLE_BOOKMARK,
+            );
+            let clear_chord = resolve_chord(
+                &self.state.settings.shortcut_clear_bookmarks,
+                DEFAULT_CLEAR_BOOKMARKS,
             );
             let key_pressed = |key: Key| match key {
                 Key::Z => z,
@@ -2610,13 +2616,17 @@ impl EditorApp {
             };
             let bm_key_pressed = key_pressed(bm_chord.key);
             let toggle_key_pressed = key_pressed(toggle_chord.key);
+            let clear_key_pressed = key_pressed(clear_chord.key);
             let remapped_toggle =
                 toggle_key_pressed && toggle_chord.matches(mods, toggle_chord.key);
+            let remapped_clear = clear_key_pressed && clear_chord.matches(mods, clear_chord.key);
             let remapped_prev =
                 bm_key_pressed && bm_chord.flipped_shift().matches(mods, bm_chord.key);
             let remapped_next = bm_key_pressed && bm_chord.matches(mods, bm_chord.key);
             if remapped_toggle {
                 self.run_shortcut_cmd("IDM_SEARCH_TOGGLE_BOOKMARK");
+            } else if remapped_clear {
+                self.run_shortcut_cmd("IDM_SEARCH_CLEAR_BOOKMARKS");
             } else if remapped_prev {
                 self.run_shortcut_cmd("IDM_SEARCH_PREV_BOOKMARK");
             } else if remapped_next {
@@ -4244,6 +4254,10 @@ impl EditorApp {
                 &s.shortcut_toggle_bookmark,
                 crate::shortcut_chord::DEFAULT_TOGGLE_BOOKMARK,
             ),
+            "IDM_SEARCH_CLEAR_BOOKMARKS" => primary(
+                &s.shortcut_clear_bookmarks,
+                crate::shortcut_chord::DEFAULT_CLEAR_BOOKMARKS,
+            ),
             "IDM_SEARCH_NEXT_BOOKMARK" => primary(
                 &s.shortcut_next_bookmark,
                 crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
@@ -4473,6 +4487,11 @@ impl EditorApp {
         let toggle_bm_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_toggle_bookmark,
             crate::shortcut_chord::DEFAULT_TOGGLE_BOOKMARK,
+        )
+        .display();
+        let clear_bm_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_clear_bookmarks,
+            crate::shortcut_chord::DEFAULT_CLEAR_BOOKMARKS,
         )
         .display();
         let changed_chord = crate::shortcut_chord::resolve_chord(
@@ -4905,7 +4924,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 60] = [
+        let rows: [(&str, &str); 61] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -4921,6 +4940,7 @@ impl EditorApp {
             (goto_keys.as_str(), "Go to line"),
             (bm_keys.as_str(), "Next / prev bookmark"),
             (toggle_bm_keys.as_str(), "Toggle bookmark"),
+            (clear_bm_keys.as_str(), "Clear all bookmarks"),
             (changed_keys.as_str(), "Next / prev change history"),
             (compare_keys.as_str(), "Compare start / clear"),
             (swap_compare_keys.as_str(), "Swap Compare sides"),
@@ -5480,9 +5500,45 @@ impl EditorApp {
                             }
                         });
                         ui.label(
-                            RichText::new("Example: Cmd+F2, Ctrl+Shift+F2.")
+                            RichText::new("Example: Cmd+F2, Alt+F2.")
                                 .small()
                                 .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Clear all bookmarks shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_clear_bookmarks,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Shift+F2"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_clear_bookmarks
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_clear_bookmarks =
+                                        crate::shortcut_chord::DEFAULT_CLEAR_BOOKMARKS.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CLEAR_BOOKMARKS
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_clear_bookmarks = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+F2, Ctrl+Shift+F2. Clears every bookmark in the active tab.",
+                            )
+                            .small()
+                            .weak(),
                         );
                         ui.horizontal(|ui| {
                             ui.label("Next change history shortcut");

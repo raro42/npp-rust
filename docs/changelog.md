@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.185] — 2026-10-10
+
+Search / Settings:
+
+- **Clear all bookmarks** is remappable (`shortcut_clear_bookmarks`, default Cmd+Shift+F2). Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.184] — 2026-10-10
 
 Edit / Settings:

@@ -104,6 +104,10 @@ fn default_shortcut_toggle_bookmark() -> String {
     crate::shortcut_chord::DEFAULT_TOGGLE_BOOKMARK.into()
 }
 
+fn default_shortcut_clear_bookmarks() -> String {
+    crate::shortcut_chord::DEFAULT_CLEAR_BOOKMARKS.into()
+}
+
 fn default_shortcut_next_changed() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_CHANGED.into()
 }
@@ -484,6 +488,9 @@ pub struct AppSettings {
     /// Toggle-bookmark chord (`Cmd+F2` default).
     #[serde(default = "default_shortcut_toggle_bookmark")]
     pub shortcut_toggle_bookmark: String,
+    /// Clear-all-bookmarks chord (`Cmd+Shift+F2` default).
+    #[serde(default = "default_shortcut_clear_bookmarks")]
+    pub shortcut_clear_bookmarks: String,
     /// Next-compare-diff chord (`F7` default). Shift + same key is previous difference.
     #[serde(default = "default_shortcut_next_diff")]
     pub shortcut_next_diff: String,
@@ -723,6 +730,7 @@ impl Default for AppSettings {
             shortcut_find_next_global: default_shortcut_find_next_global(),
             shortcut_next_bookmark: default_shortcut_next_bookmark(),
             shortcut_toggle_bookmark: default_shortcut_toggle_bookmark(),
+            shortcut_clear_bookmarks: default_shortcut_clear_bookmarks(),
             shortcut_next_diff: default_shortcut_next_diff(),
             shortcut_first_diff: default_shortcut_first_diff(),
             shortcut_next_hidden_equal: default_shortcut_next_hidden_equal(),
@@ -1105,7 +1113,8 @@ mod tests {
             shortcut_find_next: "Ctrl+F3".into(),
             shortcut_find_next_global: "Ctrl+Alt+G".into(),
             shortcut_next_bookmark: "Ctrl+F2".into(),
-            shortcut_toggle_bookmark: "Ctrl+Shift+F2".into(),
+            shortcut_toggle_bookmark: "Alt+F2".into(),
+            shortcut_clear_bookmarks: "Ctrl+Shift+F2".into(),
             shortcut_next_diff: "Ctrl+F7".into(),
             shortcut_first_diff: "Ctrl+Alt+F7".into(),
             shortcut_next_hidden_equal: "Ctrl+Alt+H".into(),
@@ -1189,7 +1198,8 @@ mod tests {
         assert_eq!(back.shortcut_find_next, "Ctrl+F3");
         assert_eq!(back.shortcut_find_next_global, "Ctrl+Alt+G");
         assert_eq!(back.shortcut_next_bookmark, "Ctrl+F2");
-        assert_eq!(back.shortcut_toggle_bookmark, "Ctrl+Shift+F2");
+        assert_eq!(back.shortcut_toggle_bookmark, "Alt+F2");
+        assert_eq!(back.shortcut_clear_bookmarks, "Ctrl+Shift+F2");
         assert_eq!(back.shortcut_next_diff, "Ctrl+F7");
         assert_eq!(back.shortcut_first_diff, "Ctrl+Alt+F7");
         assert_eq!(back.shortcut_next_hidden_equal, "Ctrl+Alt+H");

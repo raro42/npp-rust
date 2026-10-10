@@ -20,6 +20,9 @@ pub const DEFAULT_NEXT_BOOKMARK: &str = "F2";
 /// Default toggle-bookmark binding (matches historical hard-wire).
 pub const DEFAULT_TOGGLE_BOOKMARK: &str = "Cmd+F2";
 
+/// Default clear-all-bookmarks binding (Search → Clear all bookmarks; N++ Ctrl+Shift+F2 family).
+pub const DEFAULT_CLEAR_BOOKMARKS: &str = "Cmd+Shift+F2";
+
 /// Default next change-history mark binding (Search → Next Change). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_CHANGED: &str = "F8";
 
@@ -814,6 +817,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::F2);
         assert_eq!(c.display(), "Cmd+F2");
+    }
+
+    #[test]
+    fn parse_cmd_shift_f2_default_clear_bookmarks() {
+        let c = parse_chord(DEFAULT_CLEAR_BOOKMARKS).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::F2);
+        assert_eq!(c.display(), "Cmd+Shift+F2");
     }
 
     #[test]
