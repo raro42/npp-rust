@@ -303,3 +303,7 @@
 009 keep: Preferences Compare ignore/hide toggles match View live park (v0.3.198)
 
 009 keep: RTL/LTR text_rtl persists (Edit + Preferences, v0.3.199)
+
+009 keep: remappable Enter / newline (shortcut_enter, Enter default, v0.3.200)
+
+009 keep: remappable Multi-select Next / Skip (shortcut_multi_select_next, Cmd+Alt+N default, v0.3.201)

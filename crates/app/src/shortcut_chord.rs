@@ -282,6 +282,10 @@ pub const DEFAULT_INVERT_CASE: &str = "Cmd+Alt+U";
 /// Shift flips to Insert Empty Line Above Current.
 pub const DEFAULT_BLANK_LINE: &str = "Cmd+Enter";
 
+/// Default multi-select-next binding (Edit → Multi-select Next).
+/// Shift flips to Skip Current / Go to Next Multi-select.
+pub const DEFAULT_MULTI_SELECT_NEXT: &str = "Cmd+Alt+N";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1331,6 +1335,17 @@ mod tests {
         assert_eq!(c.display(), "Cmd+Enter");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+Enter");
         assert_eq!(parse_chord("Cmd+Return").unwrap().key, Key::Enter);
+    }
+
+    #[test]
+    fn parse_cmd_alt_n_default_multi_select_next() {
+        let c = parse_chord(DEFAULT_MULTI_SELECT_NEXT).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::N);
+        assert_eq!(c.display(), "Cmd+Alt+N");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+N");
     }
 
     #[test]

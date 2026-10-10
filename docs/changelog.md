@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.201] — 2026-10-11
+
+Edit / Settings:
+
+- **Multi-select Next / Skip** is remappable (`shortcut_multi_select_next`, default Cmd+Alt+N). Shift + that chord skips the current match and jumps to the next. Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.200] — 2026-10-11
 
 Edit / Settings:
