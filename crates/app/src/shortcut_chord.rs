@@ -209,6 +209,9 @@ pub const DEFAULT_GOTO_DOCUMENT_START: &str = "Cmd+Up";
 /// Shift flips to Block Comment. Uses `/` (not `Q`) so macOS Cmd+Q quit stays free.
 pub const DEFAULT_TOGGLE_COMMENT: &str = "Cmd+/";
 
+/// Default lowercase binding (Edit → lowercase). Shift flips to UPPERCASE (N++ Ctrl+U family).
+pub const DEFAULT_LOWERCASE: &str = "Cmd+U";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1108,6 +1111,17 @@ mod tests {
         assert_eq!(c.key, Key::F8);
         assert_eq!(c.display(), "F8");
         assert_eq!(c.flipped_shift().display(), "Shift+F8");
+    }
+
+    #[test]
+    fn parse_cmd_u_default_lowercase() {
+        let c = parse_chord(DEFAULT_LOWERCASE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::U);
+        assert_eq!(c.display(), "Cmd+U");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+U");
     }
 
     #[test]

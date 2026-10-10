@@ -73,6 +73,7 @@ New keys:
 | `shortcut_matching_brace` | Matching-brace chord (`Cmd+B` default; Shift flips to Select matching braces) |
 | `shortcut_move_line` | Move-line-up chord (`Cmd+Shift+Up` default; opposite Down moves down; letter remaps use Shift for down) |
 | `shortcut_toggle_comment` | Toggle line-comment chord (`Cmd+/` default; Shift flips to Block Comment) |
+| `shortcut_lowercase` | Lowercase chord (`Cmd+U` default; Shift flips to UPPERCASE) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
 | `shortcut_find_in_files` | Find in Files chord (`Cmd+Alt+F` default) |
 | `shortcut_close_find` | Close Find/Replace chord (`Escape` default) |

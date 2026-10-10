@@ -2148,6 +2148,46 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_BLOCK_COMMENT");
             }
         }
+        // Remappable lowercase (default Cmd+U; settings.shortcut_lowercase).
+        // Shift flips to UPPERCASE (N++ Ctrl+U / Ctrl+Shift+U family).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_LOWERCASE};
+            let case_chord =
+                resolve_chord(&self.state.settings.shortcut_lowercase, DEFAULT_LOWERCASE);
+            let case_key_pressed = match case_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_upper =
+                case_key_pressed && case_chord.flipped_shift().matches(mods, case_chord.key);
+            let remapped_lower = case_key_pressed && case_chord.matches(mods, case_chord.key);
+            if remapped_upper {
+                self.run_shortcut_cmd("IDM_EDIT_UPPERCASE");
+            } else if remapped_lower {
+                self.run_shortcut_cmd("IDM_EDIT_LOWERCASE");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -4021,6 +4061,14 @@ impl EditorApp {
                 &s.shortcut_toggle_comment,
                 crate::shortcut_chord::DEFAULT_TOGGLE_COMMENT,
             ),
+            "IDM_EDIT_LOWERCASE" => primary(
+                &s.shortcut_lowercase,
+                crate::shortcut_chord::DEFAULT_LOWERCASE,
+            ),
+            "IDM_EDIT_UPPERCASE" => shifted(
+                &s.shortcut_lowercase,
+                crate::shortcut_chord::DEFAULT_LOWERCASE,
+            ),
             "IDM_SEARCH_FIND" => primary(&s.shortcut_find, crate::shortcut_chord::DEFAULT_FIND),
             "IDM_SEARCH_FINDINFILES" => primary(
                 &s.shortcut_find_in_files,
@@ -4544,6 +4592,15 @@ impl EditorApp {
             toggle_comment_chord.display(),
             toggle_comment_chord.flipped_shift().display()
         );
+        let case_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_lowercase,
+            crate::shortcut_chord::DEFAULT_LOWERCASE,
+        );
+        let case_keys = format!(
+            "{} / {}",
+            case_chord.display(),
+            case_chord.flipped_shift().display()
+        );
         let format_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_format_document,
             crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -4674,7 +4731,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 56] = [
+        let rows: [(&str, &str); 57] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -4745,6 +4802,7 @@ impl EditorApp {
                 toggle_comment_keys.as_str(),
                 "Toggle line comment / Block comment",
             ),
+            (case_keys.as_str(), "lowercase / UPPERCASE"),
             (indent_outdent_keys.as_str(), "Indent / Outdent"),
             (format_keys.as_str(), "Format document"),
             (fold_all_keys.as_str(), "Fold / Unfold all"),
@@ -6372,6 +6430,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+/, Ctrl+/. Shift flips to Block Comment. Avoid Cmd+Q on macOS (Quit).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Lowercase shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_lowercase,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+U"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_lowercase.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_lowercase =
+                                        crate::shortcut_chord::DEFAULT_LOWERCASE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_LOWERCASE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_lowercase = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+U, Ctrl+U. Shift + that chord is UPPERCASE.",
                             )
                             .small()
                             .weak(),

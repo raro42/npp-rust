@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.181] — 2026-10-10
+
+Edit / Settings:
+
+- **lowercase / UPPERCASE** is remappable (`shortcut_lowercase`, default Cmd+U). Shift + that chord runs UPPERCASE. Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.180] — 2026-10-10
 
 Search / Settings:

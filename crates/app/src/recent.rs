@@ -108,6 +108,10 @@ fn default_shortcut_next_changed() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_CHANGED.into()
 }
 
+fn default_shortcut_lowercase() -> String {
+    crate::shortcut_chord::DEFAULT_LOWERCASE.into()
+}
+
 fn default_shortcut_next_diff() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_DIFF.into()
 }
@@ -634,6 +638,9 @@ pub struct AppSettings {
     /// Next change-history mark chord (`F8` default; Shift flips to previous).
     #[serde(default = "default_shortcut_next_changed")]
     pub shortcut_next_changed: String,
+    /// Lowercase chord (`Cmd+U` default; Shift flips to UPPERCASE).
+    #[serde(default = "default_shortcut_lowercase")]
+    pub shortcut_lowercase: String,
     /// Find in Files chord (`Cmd+Alt+F` default).
     #[serde(default = "default_shortcut_find_in_files")]
     pub shortcut_find_in_files: String,
@@ -750,6 +757,7 @@ impl Default for AppSettings {
             shortcut_document_map: default_shortcut_document_map(),
             shortcut_focus_other_view: default_shortcut_focus_other_view(),
             shortcut_next_changed: default_shortcut_next_changed(),
+            shortcut_lowercase: default_shortcut_lowercase(),
             shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             ollama_host: default_ollama_host(),
@@ -1129,6 +1137,7 @@ mod tests {
             shortcut_document_map: "Ctrl+Alt+Shift+D".into(),
             shortcut_focus_other_view: "Ctrl+Alt+F6".into(),
             shortcut_next_changed: "Ctrl+F8".into(),
+            shortcut_lowercase: "Ctrl+U".into(),
             shortcut_find_in_files: "Alt+Shift+F".into(),
             ..Default::default()
         };
@@ -1209,6 +1218,7 @@ mod tests {
         assert_eq!(back.shortcut_document_map, "Ctrl+Alt+Shift+D");
         assert_eq!(back.shortcut_focus_other_view, "Ctrl+Alt+F6");
         assert_eq!(back.shortcut_next_changed, "Ctrl+F8");
+        assert_eq!(back.shortcut_lowercase, "Ctrl+U");
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
     }
 
