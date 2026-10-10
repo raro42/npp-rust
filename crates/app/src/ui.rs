@@ -1965,6 +1965,61 @@ impl EditorApp {
                 }
             }
         }
+        // Remappable line Up/Down (default Up; settings.shortcut_line_up).
+        // Default Up/Down stay in handle_editor_input. When remapped, chords move here.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_LINE_UP};
+            let up_chord = resolve_chord(&self.state.settings.shortcut_line_up, DEFAULT_LINE_UP);
+            let default_chord = resolve_chord(DEFAULT_LINE_UP, DEFAULT_LINE_UP);
+            if up_chord != default_chord {
+                let down_chord = up_chord.line_down_chord();
+                let chord_key_pressed = |key: Key| -> bool {
+                    match key {
+                        Key::Z => z,
+                        Key::N => n,
+                        Key::O => o,
+                        Key::S => s,
+                        Key::F => f,
+                        Key::Y => y,
+                        Key::W => w,
+                        Key::G => g,
+                        Key::A => a,
+                        Key::D => d,
+                        Key::L => l,
+                        Key::I => i_key,
+                        Key::T => t,
+                        Key::H => h,
+                        Key::F2 => f2,
+                        Key::F3 => f3,
+                        Key::F7 => f7,
+                        Key::Equals => equals,
+                        Key::Minus => minus,
+                        Key::Num0 => num0,
+                        Key::CloseBracket => close_br,
+                        Key::OpenBracket => open_br,
+                        other => ctx.input(|i| i.key_pressed(other)),
+                    }
+                };
+                let tab = self.focused_edit_tab();
+                if chord_key_pressed(down_chord.key)
+                    && down_chord.matches_ignore_shift(mods, down_chord.key)
+                {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
+                    move_caret_vert(&mut self.state, tab, 1);
+                    self.follow_focused_caret();
+                } else if chord_key_pressed(up_chord.key)
+                    && up_chord.matches_ignore_shift(mods, up_chord.key)
+                {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
+                    move_caret_vert(&mut self.state, tab, -1);
+                    self.follow_focused_caret();
+                }
+            }
+        }
         // Remappable duplicate line (default Cmd+D; settings.shortcut_duplicate_line).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_DUPLICATE_LINE};
@@ -5296,6 +5351,15 @@ impl EditorApp {
             char_left_chord.display(),
             char_left_chord.char_right_chord().display()
         );
+        let line_up_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_line_up,
+            crate::shortcut_chord::DEFAULT_LINE_UP,
+        );
+        let line_up_keys = format!(
+            "{} / {}",
+            line_up_chord.display(),
+            line_up_chord.line_down_chord().display()
+        );
         let undo_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_undo,
             crate::shortcut_chord::DEFAULT_UNDO,
@@ -5357,7 +5421,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 69] = [
+        let rows: [(&str, &str); 70] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -5429,6 +5493,7 @@ impl EditorApp {
             (line_home_keys.as_str(), "Line start / end"),
             (page_up_keys.as_str(), "Page up / down"),
             (char_left_keys.as_str(), "Character left / right"),
+            (line_up_keys.as_str(), "Line up / down"),
             (dup_keys.as_str(), "Duplicate line"),
             (del_keys.as_str(), "Delete line"),
             (move_line_keys.as_str(), "Move line up / down"),
@@ -7682,6 +7747,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Left, Ctrl+Alt+L. Opposite Right jumps one character right; letter remaps use Shift for right. When remapped, bare Left/Right no longer move by character. Word jump stays separate.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Line up shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_line_up,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Up"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_line_up.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_line_up =
+                                        crate::shortcut_chord::DEFAULT_LINE_UP.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_LINE_UP
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_line_up = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Up, Ctrl+Alt+I. Opposite Down jumps one line down; letter remaps use Shift for down. When remapped, bare Up/Down no longer move by line. Move line and document start/end stay separate.",
                             )
                             .small()
                             .weak(),
@@ -15039,6 +15135,18 @@ impl EditorApp {
                     {
                         caret_moved = true;
                     } else {
+                        use crate::shortcut_chord::{resolve_chord, DEFAULT_LINE_UP};
+                        let up_chord =
+                            resolve_chord(&self.state.settings.shortcut_line_up, DEFAULT_LINE_UP);
+                        let default_chord = resolve_chord(DEFAULT_LINE_UP, DEFAULT_LINE_UP);
+                        let down_chord = up_chord.line_down_chord();
+                        if up_chord != default_chord
+                            && (up_chord.matches_ignore_shift(modifiers, Key::ArrowUp)
+                                || down_chord.matches_ignore_shift(modifiers, Key::ArrowUp))
+                        {
+                            // Remapped chord handled in handle_shortcuts.
+                            continue;
+                        }
                         // Remappable document start/end (default Cmd+Up / Cmd+Down).
                         let doc_start = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_goto_document_start,
@@ -15050,12 +15158,17 @@ impl EditorApp {
                         }
                         if doc_start.matches_ignore_shift(modifiers, Key::ArrowUp) {
                             go_doc_start(&mut self.state, tab, modifiers.shift != doc_start.shift);
+                            caret_moved = true;
                         } else if doc_end.matches_ignore_shift(modifiers, Key::ArrowUp) {
                             go_doc_end(&mut self.state, tab, modifiers.shift != doc_end.shift);
+                            caret_moved = true;
+                        } else if up_chord != default_chord {
+                            // Remapped away from bare Up; ignore for line move.
+                            continue;
                         } else {
                             move_caret_vert(&mut self.state, tab, -1);
+                            caret_moved = true;
                         }
-                        caret_moved = true;
                     }
                 }
                 egui::Event::Key {
@@ -15075,6 +15188,18 @@ impl EditorApp {
                     {
                         caret_moved = true;
                     } else {
+                        use crate::shortcut_chord::{resolve_chord, DEFAULT_LINE_UP};
+                        let up_chord =
+                            resolve_chord(&self.state.settings.shortcut_line_up, DEFAULT_LINE_UP);
+                        let default_chord = resolve_chord(DEFAULT_LINE_UP, DEFAULT_LINE_UP);
+                        let down_chord = up_chord.line_down_chord();
+                        if up_chord != default_chord
+                            && (up_chord.matches_ignore_shift(modifiers, Key::ArrowDown)
+                                || down_chord.matches_ignore_shift(modifiers, Key::ArrowDown))
+                        {
+                            // Remapped chord handled in handle_shortcuts.
+                            continue;
+                        }
                         let doc_start = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_goto_document_start,
                             crate::shortcut_chord::DEFAULT_GOTO_DOCUMENT_START,
@@ -15085,12 +15210,17 @@ impl EditorApp {
                         }
                         if doc_end.matches_ignore_shift(modifiers, Key::ArrowDown) {
                             go_doc_end(&mut self.state, tab, modifiers.shift != doc_end.shift);
+                            caret_moved = true;
                         } else if doc_start.matches_ignore_shift(modifiers, Key::ArrowDown) {
                             go_doc_start(&mut self.state, tab, modifiers.shift != doc_start.shift);
+                            caret_moved = true;
+                        } else if up_chord != default_chord {
+                            // Remapped away from bare Down; ignore for line move.
+                            continue;
                         } else {
                             move_caret_vert(&mut self.state, tab, 1);
+                            caret_moved = true;
                         }
-                        caret_moved = true;
                     }
                 }
                 egui::Event::Key {

@@ -92,6 +92,7 @@ New keys:
 | `shortcut_line_home` | Line-start chord (`Home` default; opposite End = line end; letter remaps use Shift for end; when remapped, bare Home/End no longer move on the line; Cmd+Home/End stay hard-wired document start/end) |
 | `shortcut_page_up` | Page-up chord (`PageUp` default; opposite PageDown = page down; letter remaps use Shift for page down; when remapped, bare PageUp/PageDown no longer page) |
 | `shortcut_char_left` | Character-left chord (`Left` default; opposite Right = char right; letter remaps use Shift for right; when remapped, bare Left/Right no longer move by character; word jump stays separate) |
+| `shortcut_line_up` | Line-up chord (`Up` default; opposite Down = line down; letter remaps use Shift for down; when remapped, bare Up/Down no longer move by line; move-line and document start/end stay separate) |
 | `shortcut_undo` | Undo chord (`Cmd+Z` default; Shift flips to redo) |
 | `shortcut_redo` | Redo alternate chord (`Cmd+Y` default; Shift+undo also redo) |
 | `shortcut_zoom_in` | Zoom-in chord (`Cmd+=` default) |

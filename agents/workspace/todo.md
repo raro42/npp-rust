@@ -292,3 +292,5 @@
 009 keep: remappable Page up / down (shortcut_page_up, PageUp default, v0.3.192)
 
 009 keep: remappable Character left / right (shortcut_char_left, Left default, v0.3.193)
+
+009 keep: remappable line up / down (shortcut_line_up, Up default, v0.3.194)

@@ -344,6 +344,10 @@ fn default_shortcut_char_left() -> String {
     crate::shortcut_chord::DEFAULT_CHAR_LEFT.into()
 }
 
+fn default_shortcut_line_up() -> String {
+    crate::shortcut_chord::DEFAULT_LINE_UP.into()
+}
+
 fn default_shortcut_undo() -> String {
     crate::shortcut_chord::DEFAULT_UNDO.into()
 }
@@ -693,6 +697,10 @@ pub struct AppSettings {
     /// When remapped, bare Left/Right no longer move by character. Word jump stays separate.
     #[serde(default = "default_shortcut_char_left")]
     pub shortcut_char_left: String,
+    /// Line-up chord (`Up` default; opposite Down = line down; letter remaps use Shift).
+    /// When remapped, bare Up/Down no longer move by line. Move-line and document start/end stay separate.
+    #[serde(default = "default_shortcut_line_up")]
+    pub shortcut_line_up: String,
     /// Undo chord (`Cmd+Z` default; Shift flips to redo).
     #[serde(default = "default_shortcut_undo")]
     pub shortcut_undo: String,
@@ -848,6 +856,7 @@ impl Default for AppSettings {
             shortcut_line_home: default_shortcut_line_home(),
             shortcut_page_up: default_shortcut_page_up(),
             shortcut_char_left: default_shortcut_char_left(),
+            shortcut_line_up: default_shortcut_line_up(),
             shortcut_undo: default_shortcut_undo(),
             shortcut_redo: default_shortcut_redo(),
             shortcut_zoom_in: default_shortcut_zoom_in(),
@@ -1240,6 +1249,7 @@ mod tests {
             shortcut_line_home: "Ctrl+Alt+Home".into(),
             shortcut_page_up: "Ctrl+Alt+PageUp".into(),
             shortcut_char_left: "Ctrl+Alt+Left".into(),
+            shortcut_line_up: "Ctrl+Alt+Up".into(),
             shortcut_undo: "Ctrl+Alt+Z".into(),
             shortcut_redo: "Ctrl+Alt+Y".into(),
             shortcut_zoom_in: "Ctrl+Alt+=".into(),
@@ -1333,6 +1343,7 @@ mod tests {
         assert_eq!(back.shortcut_line_home, "Ctrl+Alt+Home");
         assert_eq!(back.shortcut_page_up, "Ctrl+Alt+PageUp");
         assert_eq!(back.shortcut_char_left, "Ctrl+Alt+Left");
+        assert_eq!(back.shortcut_line_up, "Ctrl+Alt+Up");
         assert_eq!(back.shortcut_undo, "Ctrl+Alt+Z");
         assert_eq!(back.shortcut_redo, "Ctrl+Alt+Y");
         assert_eq!(back.shortcut_zoom_in, "Ctrl+Alt+=");

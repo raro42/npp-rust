@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.194] — 2026-10-10
+
+Edit / Settings:
+
+- **Line up / down** is remappable (`shortcut_line_up`, default Up). Opposite Down jumps one line down; letter remaps use Shift for down. When remapped, bare Up/Down no longer move by line. Move line and document start/end stay separate. Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.193] — 2026-10-10
 
 Edit / Settings:
