@@ -168,6 +168,12 @@ pub const DEFAULT_DELETE_FORWARD: &str = "Delete";
 /// deletes backward (same as Backspace in the editor).
 pub const DEFAULT_DELETE_BACKWARD: &str = "Backspace";
 
+/// Default line-start binding (matches historical hard-wire).
+/// Opposite Home/End jumps to line end; non-Home/End remaps use Shift for end.
+/// Default stays in `handle_editor_input`. When remapped, bare Home/End no longer move on the line;
+/// `Cmd+Home` / `Cmd+End` stay hard-wired document start/end aliases.
+pub const DEFAULT_LINE_HOME: &str = "Home";
+
 /// Default undo binding (matches historical hard-wire). Shift flips to redo.
 pub const DEFAULT_UNDO: &str = "Cmd+Z";
 
@@ -315,6 +321,21 @@ impl KeyChord {
         self.move_line_down_chord()
     }
 
+    /// Partner chord for line-end: Home ↔ End, else Shift flip (letter remaps).
+    pub fn line_end_chord(self) -> Self {
+        match self.key {
+            Key::Home => Self {
+                key: Key::End,
+                ..self
+            },
+            Key::End => Self {
+                key: Key::Home,
+                ..self
+            },
+            _ => self.flipped_shift(),
+        }
+    }
+
     /// Same chord with `]` ↔ `[` (hide-equal context ±1). Non-bracket keys unchanged.
     pub fn flipped_bracket(self) -> Self {
         let key = match self.key {
@@ -422,6 +443,8 @@ fn parse_key(lower: &str) -> Option<Key> {
         "tab" => Some(Key::Tab),
         "delete" | "del" => Some(Key::Delete),
         "backspace" | "bs" => Some(Key::Backspace),
+        "home" => Some(Key::Home),
+        "end" => Some(Key::End),
         "enter" | "return" => Some(Key::Enter),
         "equals" | "=" | "plus" => Some(Key::Equals),
         "minus" | "-" => Some(Key::Minus),
@@ -474,6 +497,8 @@ fn key_token(key: Key) -> &'static str {
         Key::Tab => "Tab",
         Key::Delete => "Delete",
         Key::Backspace => "Backspace",
+        Key::Home => "Home",
+        Key::End => "End",
         Key::Enter => "Enter",
         Key::Equals => "=",
         Key::Minus => "-",
@@ -1281,6 +1306,19 @@ mod tests {
         assert_eq!(c.key, Key::Backspace);
         assert_eq!(c.display(), "Backspace");
         assert_eq!(parse_chord("Bs").unwrap().key, Key::Backspace);
+    }
+
+    #[test]
+    fn parse_home_default_line_home() {
+        let c = parse_chord(DEFAULT_LINE_HOME).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Home);
+        assert_eq!(c.display(), "Home");
+        assert_eq!(c.line_end_chord().display(), "End");
+        let letter = parse_chord("Ctrl+Alt+H").unwrap();
+        assert_eq!(letter.line_end_chord().display(), "Cmd+Alt+Shift+H");
     }
 
     #[test]

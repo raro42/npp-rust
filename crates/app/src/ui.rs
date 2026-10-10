@@ -1788,6 +1788,63 @@ impl EditorApp {
                 }
             }
         }
+        // Remappable line Home/End (default Home; settings.shortcut_line_home).
+        // Default Home/End stay in handle_editor_input. When remapped, chords move on the line.
+        // Cmd+Home / Cmd+End stay hard-wired document start/end aliases.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_LINE_HOME};
+            let home_chord =
+                resolve_chord(&self.state.settings.shortcut_line_home, DEFAULT_LINE_HOME);
+            let default_chord = resolve_chord(DEFAULT_LINE_HOME, DEFAULT_LINE_HOME);
+            if home_chord != default_chord {
+                let end_chord = home_chord.line_end_chord();
+                let chord_key_pressed = |key: Key| -> bool {
+                    match key {
+                        Key::Z => z,
+                        Key::N => n,
+                        Key::O => o,
+                        Key::S => s,
+                        Key::F => f,
+                        Key::Y => y,
+                        Key::W => w,
+                        Key::G => g,
+                        Key::A => a,
+                        Key::D => d,
+                        Key::L => l,
+                        Key::I => i_key,
+                        Key::T => t,
+                        Key::H => h,
+                        Key::F2 => f2,
+                        Key::F3 => f3,
+                        Key::F7 => f7,
+                        Key::Equals => equals,
+                        Key::Minus => minus,
+                        Key::Num0 => num0,
+                        Key::CloseBracket => close_br,
+                        Key::OpenBracket => open_br,
+                        other => ctx.input(|i| i.key_pressed(other)),
+                    }
+                };
+                let tab = self.focused_edit_tab();
+                if chord_key_pressed(end_chord.key)
+                    && end_chord.matches_ignore_shift(mods, end_chord.key)
+                {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
+                    go_line_end(&mut self.state, tab, mods.shift != end_chord.shift);
+                    self.follow_focused_caret();
+                } else if chord_key_pressed(home_chord.key)
+                    && home_chord.matches_ignore_shift(mods, home_chord.key)
+                {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
+                    go_line_start(&mut self.state, tab, mods.shift != home_chord.shift);
+                    self.follow_focused_caret();
+                }
+            }
+        }
         // Remappable duplicate line (default Cmd+D; settings.shortcut_duplicate_line).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_DUPLICATE_LINE};
@@ -5092,6 +5149,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_DELETE_BACKWARD,
         )
         .display();
+        let line_home_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_line_home,
+            crate::shortcut_chord::DEFAULT_LINE_HOME,
+        );
+        let line_home_keys = format!(
+            "{} / {}",
+            line_home_chord.display(),
+            line_home_chord.line_end_chord().display()
+        );
         let undo_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_undo,
             crate::shortcut_chord::DEFAULT_UNDO,
@@ -5153,7 +5219,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 66] = [
+        let rows: [(&str, &str); 67] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -5222,6 +5288,7 @@ impl EditorApp {
             (paste_keys.as_str(), "Paste"),
             (delete_forward_keys.as_str(), "Delete"),
             (delete_backward_keys.as_str(), "Backspace"),
+            (line_home_keys.as_str(), "Line start / end"),
             (dup_keys.as_str(), "Duplicate line"),
             (del_keys.as_str(), "Delete line"),
             (move_line_keys.as_str(), "Move line up / down"),
@@ -7382,6 +7449,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Backspace, Ctrl+H. When remapped, bare Backspace no longer deletes backward.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Line start shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_line_home,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Home"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_line_home.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_line_home =
+                                        crate::shortcut_chord::DEFAULT_LINE_HOME.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_LINE_HOME
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_line_home = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Home, Ctrl+Alt+H. Opposite End jumps to line end; letter remaps use Shift for end. When remapped, bare Home/End no longer move on the line. Cmd+Home / Cmd+End stay hard-wired document start/end.",
                             )
                             .small()
                             .weak(),
@@ -14759,23 +14857,33 @@ impl EditorApp {
                     modifiers,
                     ..
                 } => {
+                    use crate::shortcut_chord::{resolve_chord, DEFAULT_LINE_HOME};
+                    let home_chord =
+                        resolve_chord(&self.state.settings.shortcut_line_home, DEFAULT_LINE_HOME);
+                    let default_chord = resolve_chord(DEFAULT_LINE_HOME, DEFAULT_LINE_HOME);
+                    let end_chord = home_chord.line_end_chord();
+                    // Remapped chord that uses Home (with or without Cmd) wins over aliases.
+                    if home_chord != default_chord
+                        && (home_chord.matches_ignore_shift(modifiers, Key::Home)
+                            || end_chord.matches_ignore_shift(modifiers, Key::Home))
+                    {
+                        // Remapped chord handled in handle_shortcuts.
+                        continue;
+                    }
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
                     }
                     if modifiers.command || modifiers.ctrl {
+                        // Hard-wired Cmd+Home → document start (unless remapped above).
                         go_doc_start(&mut self.state, tab, modifiers.shift);
-                    } else if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        let c = doc.buffer.caret();
-                        let line = doc.buffer.char_to_line(c);
-                        let line_start = doc.buffer.line_to_char(line);
-                        if modifiers.shift {
-                            let anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
-                            doc.buffer.set_selection(anchor, line_start);
-                        } else {
-                            doc.buffer.set_caret(line_start);
-                        }
+                        caret_moved = true;
+                    } else if home_chord != default_chord {
+                        // Remapped away from bare Home; ignore for line start.
+                        continue;
+                    } else {
+                        go_line_start(&mut self.state, tab, modifiers.shift);
+                        caret_moved = true;
                     }
-                    caret_moved = true;
                 }
                 egui::Event::Key {
                     key: Key::End,
@@ -14783,22 +14891,32 @@ impl EditorApp {
                     modifiers,
                     ..
                 } => {
-                    if modifiers.command || modifiers.ctrl {
-                        go_doc_end(&mut self.state, tab, modifiers.shift);
-                    } else if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        let c = doc.buffer.caret();
-                        let line = doc.buffer.char_to_line(c);
-                        let raw = doc.buffer.line(line);
-                        let n = raw.trim_end_matches(['\n', '\r']).chars().count();
-                        let line_end = doc.buffer.line_to_char(line) + n;
-                        if modifiers.shift {
-                            let anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
-                            doc.buffer.set_selection(anchor, line_end);
-                        } else {
-                            doc.buffer.set_caret(line_end);
-                        }
+                    use crate::shortcut_chord::{resolve_chord, DEFAULT_LINE_HOME};
+                    let home_chord =
+                        resolve_chord(&self.state.settings.shortcut_line_home, DEFAULT_LINE_HOME);
+                    let default_chord = resolve_chord(DEFAULT_LINE_HOME, DEFAULT_LINE_HOME);
+                    let end_chord = home_chord.line_end_chord();
+                    if home_chord != default_chord
+                        && (home_chord.matches_ignore_shift(modifiers, Key::End)
+                            || end_chord.matches_ignore_shift(modifiers, Key::End))
+                    {
+                        // Remapped chord handled in handle_shortcuts.
+                        continue;
                     }
-                    caret_moved = true;
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        doc.clear_multi_sels();
+                    }
+                    if modifiers.command || modifiers.ctrl {
+                        // Hard-wired Cmd+End → document end (unless remapped above).
+                        go_doc_end(&mut self.state, tab, modifiers.shift);
+                        caret_moved = true;
+                    } else if home_chord != default_chord {
+                        // Remapped away from bare Home/End; ignore for line end.
+                        continue;
+                    } else {
+                        go_line_end(&mut self.state, tab, modifiers.shift);
+                        caret_moved = true;
+                    }
                 }
                 egui::Event::Key {
                     key: Key::PageUp,
@@ -14938,6 +15056,38 @@ fn go_doc_end(state: &mut EditorState, tab: usize, select: bool) {
         b.buffer.set_selection(anchor, end);
     } else {
         b.buffer.set_caret(end);
+    }
+}
+
+fn go_line_start(state: &mut EditorState, tab: usize, select: bool) {
+    let Some(b) = state.tabs.get_mut(tab) else {
+        return;
+    };
+    let c = b.buffer.caret();
+    let line = b.buffer.char_to_line(c);
+    let line_start = b.buffer.line_to_char(line);
+    if select {
+        let anchor = b.buffer.selection().map(|(s, _)| s).unwrap_or(c);
+        b.buffer.set_selection(anchor, line_start);
+    } else {
+        b.buffer.set_caret(line_start);
+    }
+}
+
+fn go_line_end(state: &mut EditorState, tab: usize, select: bool) {
+    let Some(b) = state.tabs.get_mut(tab) else {
+        return;
+    };
+    let c = b.buffer.caret();
+    let line = b.buffer.char_to_line(c);
+    let raw = b.buffer.line(line);
+    let n = raw.trim_end_matches(['\n', '\r']).chars().count();
+    let line_end = b.buffer.line_to_char(line) + n;
+    if select {
+        let anchor = b.buffer.selection().map(|(s, _)| s).unwrap_or(c);
+        b.buffer.set_selection(anchor, line_end);
+    } else {
+        b.buffer.set_caret(line_end);
     }
 }
 

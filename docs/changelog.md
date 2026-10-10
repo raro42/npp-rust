@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.191] — 2026-10-10
+
+Edit / Settings:
+
+- **Line start / end** is remappable (`shortcut_line_home`, default Home). Opposite End jumps to line end; letter remaps use Shift for end. When remapped, bare Home/End no longer move on the line. `Cmd+Home` / `Cmd+End` stay hard-wired document start/end aliases. Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.190] — 2026-10-10
 
 Edit / Settings:

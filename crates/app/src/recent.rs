@@ -332,6 +332,10 @@ fn default_shortcut_delete_backward() -> String {
     crate::shortcut_chord::DEFAULT_DELETE_BACKWARD.into()
 }
 
+fn default_shortcut_line_home() -> String {
+    crate::shortcut_chord::DEFAULT_LINE_HOME.into()
+}
+
 fn default_shortcut_undo() -> String {
     crate::shortcut_chord::DEFAULT_UNDO.into()
 }
@@ -668,6 +672,11 @@ pub struct AppSettings {
     /// remapped chord deletes backward (same as editor Backspace).
     #[serde(default = "default_shortcut_delete_backward")]
     pub shortcut_delete_backward: String,
+    /// Line-start chord (`Home` default; opposite End = line end; letter remaps use Shift for end).
+    /// When remapped, bare Home/End no longer move on the line. `Cmd+Home` / `Cmd+End` stay
+    /// hard-wired document start/end aliases.
+    #[serde(default = "default_shortcut_line_home")]
+    pub shortcut_line_home: String,
     /// Undo chord (`Cmd+Z` default; Shift flips to redo).
     #[serde(default = "default_shortcut_undo")]
     pub shortcut_undo: String,
@@ -820,6 +829,7 @@ impl Default for AppSettings {
             shortcut_paste: default_shortcut_paste(),
             shortcut_delete_forward: default_shortcut_delete_forward(),
             shortcut_delete_backward: default_shortcut_delete_backward(),
+            shortcut_line_home: default_shortcut_line_home(),
             shortcut_undo: default_shortcut_undo(),
             shortcut_redo: default_shortcut_redo(),
             shortcut_zoom_in: default_shortcut_zoom_in(),
@@ -1209,6 +1219,7 @@ mod tests {
             shortcut_paste: "Ctrl+Alt+V".into(),
             shortcut_delete_forward: "Ctrl+Alt+Delete".into(),
             shortcut_delete_backward: "Ctrl+Alt+Backspace".into(),
+            shortcut_line_home: "Ctrl+Alt+Home".into(),
             shortcut_undo: "Ctrl+Alt+Z".into(),
             shortcut_redo: "Ctrl+Alt+Y".into(),
             shortcut_zoom_in: "Ctrl+Alt+=".into(),
@@ -1299,6 +1310,7 @@ mod tests {
         assert_eq!(back.shortcut_paste, "Ctrl+Alt+V");
         assert_eq!(back.shortcut_delete_forward, "Ctrl+Alt+Delete");
         assert_eq!(back.shortcut_delete_backward, "Ctrl+Alt+Backspace");
+        assert_eq!(back.shortcut_line_home, "Ctrl+Alt+Home");
         assert_eq!(back.shortcut_undo, "Ctrl+Alt+Z");
         assert_eq!(back.shortcut_redo, "Ctrl+Alt+Y");
         assert_eq!(back.shortcut_zoom_in, "Ctrl+Alt+=");

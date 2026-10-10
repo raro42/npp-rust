@@ -89,6 +89,7 @@ New keys:
 | `shortcut_paste` | Paste chord (`Cmd+V` default; when remapped, platform Cmd+V no longer pastes; remapped chord pastes last copied text) |
 | `shortcut_delete_forward` | Forward-delete chord (`Delete` default; when remapped, bare Delete no longer deletes forward) |
 | `shortcut_delete_backward` | Backward-delete chord (`Backspace` default; when remapped, bare Backspace no longer deletes backward) |
+| `shortcut_line_home` | Line-start chord (`Home` default; opposite End = line end; letter remaps use Shift for end; when remapped, bare Home/End no longer move on the line; Cmd+Home/End stay hard-wired document start/end) |
 | `shortcut_undo` | Undo chord (`Cmd+Z` default; Shift flips to redo) |
 | `shortcut_redo` | Redo alternate chord (`Cmd+Y` default; Shift+undo also redo) |
 | `shortcut_zoom_in` | Zoom-in chord (`Cmd+=` default) |
