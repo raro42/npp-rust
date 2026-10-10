@@ -28,6 +28,7 @@ New keys:
 | `show_eol` | Show end-of-line marks; default off |
 | `show_npc` | Show non-printing / control characters; default off |
 | `show_indent_guide` | Vertical indent guides; default off |
+| `text_rtl` | Right-to-left editor line anchors + status cue (Edit → RTL / LTR + Preferences); default off |
 | `shortcut_word_wrap` | Word-wrap toggle chord (`Alt+Z` default; e.g. `Ctrl+W`) |
 | `shortcut_find_next` | Find-next chord (`F3` default; Shift flips to find previous) |
 | `shortcut_find_next_global` | Global find-next chord (`Cmd+G` default; Shift flips to find previous) |

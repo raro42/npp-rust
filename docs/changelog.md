@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.199] — 2026-10-11
+
+Edit / Settings:
+
+- **RTL / LTR text direction** persists in `npp-rs/settings.json` (`text_rtl`). Edit → RTL / LTR and Preferences → Right-to-left text restore on launch (line anchors + status cue). Full bidi / UI chrome mirror still open.
+
 ## [0.3.198] — 2026-10-10
 
 View / Compare:

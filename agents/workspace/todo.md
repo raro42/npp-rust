@@ -299,3 +299,7 @@
 009 keep: remappable Document Home / End aliases (shortcut_document_home, Cmd+Home default, v0.3.196)
 
 009 keep: Clear Compare restores pre-start sync H/V scroll (v0.3.197)
+
+009 keep: Preferences Compare ignore/hide toggles match View live park (v0.3.198)
+
+009 keep: RTL/LTR text_rtl persists (Edit + Preferences, v0.3.199)

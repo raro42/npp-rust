@@ -5,12 +5,17 @@ use crate::editor::EditorState;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// Session text-direction preference. Layout paint stays LTR until ui_paint reads this.
+/// Session text-direction flag. Seeded from `settings.text_rtl` on launch; Edit/Preferences update both.
 static TEXT_RTL: AtomicBool = AtomicBool::new(false);
 
 /// True when the session asks for right-to-left layout.
 pub fn text_is_rtl() -> bool {
     TEXT_RTL.load(Ordering::Relaxed)
+}
+
+/// Apply RTL/LTR for paint + status cue (does not touch settings).
+pub fn set_text_rtl(on: bool) {
+    TEXT_RTL.store(on, Ordering::Relaxed);
 }
 
 pub fn covers(cmd: &str) -> bool {
@@ -747,13 +752,17 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_RTL" => {
-            TEXT_RTL.store(true, Ordering::Relaxed);
-            state.status = "Text direction: RTL (layout + status cue)".into();
+            set_text_rtl(true);
+            state.settings.text_rtl = true;
+            state.settings.save();
+            state.status = "Text direction: RTL (layout + status cue; persisted)".into();
             CmdResult::Handled
         }
         "IDM_EDIT_LTR" => {
-            TEXT_RTL.store(false, Ordering::Relaxed);
-            state.status = "Text direction: LTR".into();
+            set_text_rtl(false);
+            state.settings.text_rtl = false;
+            state.settings.save();
+            state.status = "Text direction: LTR (persisted)".into();
             CmdResult::Handled
         }
         "IDM_EDIT_PASTE_AS_HTML" | "IDM_EDIT_PASTE_AS_RTF" | "IDM_EDIT_PASTE_BINARY" => {

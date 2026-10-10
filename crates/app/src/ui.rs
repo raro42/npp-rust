@@ -5940,6 +5940,16 @@ impl EditorApp {
                             self.state.show_indent_guide = self.state.settings.show_indent_guide;
                             changed = true;
                         }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.text_rtl,
+                                "Right-to-left text (RTL)",
+                            )
+                            .changed()
+                        {
+                            crate::commands::edit::set_text_rtl(self.state.settings.text_rtl);
+                            changed = true;
+                        }
                         ui.horizontal(|ui| {
                             ui.label("Word wrap shortcut");
                             let edit = ui.add(

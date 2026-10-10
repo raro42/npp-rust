@@ -128,7 +128,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | Run / external tools | Partial | Pick+spawn / shell; no saved Run list |
 | Updater | Partial | Opens GitHub Releases |
 | Doc map / function list | Partial | Density strip; Compare paints delete/insert + hunk-start ticks + hide-equal ···N gap bands on focused pane; cyan bookmark ticks + slate fold-header ticks + click toggle + amber/green change-history ticks + Find match ticks + click park; selection wash + white caret tick + orange multi-caret ticks + click park; click parks hunk / Equal / hidden-equal gap; drag syncs partner when sync scroll on |
-| RTL | Partial | Line anchors + status; chrome not mirrored |
+| RTL | Partial | Line anchors + status + `text_rtl` persist; chrome not mirrored |
 
 ---
 

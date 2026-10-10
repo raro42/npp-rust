@@ -435,6 +435,9 @@ pub struct AppSettings {
     /// Draw vertical indent guides.
     #[serde(default)]
     pub show_indent_guide: bool,
+    /// Editor text direction: right-to-left line anchors + status cue (Edit → RTL / LTR).
+    #[serde(default)]
+    pub text_rtl: bool,
     /// Status bar: show language id.
     #[serde(default = "default_true")]
     pub status_show_lang: bool,
@@ -779,6 +782,7 @@ impl Default for AppSettings {
             show_eol: false,
             show_npc: false,
             show_indent_guide: false,
+            text_rtl: false,
             status_show_lang: true,
             status_show_chars: true,
             theme_id: default_theme_id(),
@@ -1150,6 +1154,7 @@ mod tests {
             show_eol: true,
             show_npc: true,
             show_indent_guide: true,
+            text_rtl: true,
             ..Default::default()
         };
         let text = serde_json::to_string(&s).expect("serialize");
@@ -1158,12 +1163,14 @@ mod tests {
         assert!(back.show_eol);
         assert!(back.show_npc);
         assert!(back.show_indent_guide);
+        assert!(back.text_rtl);
 
         let defaults: AppSettings = serde_json::from_str("{}").expect("empty object");
         assert!(!defaults.show_whitespace);
         assert!(!defaults.show_eol);
         assert!(!defaults.show_npc);
         assert!(!defaults.show_indent_guide);
+        assert!(!defaults.text_rtl);
     }
 
     #[test]
@@ -1191,6 +1198,7 @@ mod tests {
             show_line_numbers: false,
             tab_width: 2,
             restore_session: true,
+            text_rtl: true,
             find_query: "needle".into(),
             replace_with: "hay".into(),
             compare_ignore_ws: true,
@@ -1285,6 +1293,7 @@ mod tests {
         assert!(!back.show_line_numbers);
         assert_eq!(back.tab_width, 2);
         assert!(back.restore_session);
+        assert!(back.text_rtl);
         assert_eq!(back.find_query, "needle");
         assert_eq!(back.replace_with, "hay");
         assert!(back.compare_ignore_ws);

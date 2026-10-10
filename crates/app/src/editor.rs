@@ -119,6 +119,7 @@ impl EditorState {
         let show_eol = settings.show_eol;
         let show_npc = settings.show_npc;
         let show_indent_guide = settings.show_indent_guide;
+        crate::commands::edit::set_text_rtl(settings.text_rtl);
         let find_query = settings.find_query.clone();
         let workspace_root = {
             let from_settings = settings.workspace_root.trim();
