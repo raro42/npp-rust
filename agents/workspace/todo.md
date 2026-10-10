@@ -307,3 +307,5 @@
 009 keep: remappable Enter / newline (shortcut_enter, Enter default, v0.3.200)
 
 009 keep: remappable Multi-select Next / Skip (shortcut_multi_select_next, Cmd+Alt+N default, v0.3.201)
+
+009 keep: remappable Fullscreen (shortcut_fullscreen, F11 default, v0.3.202)
