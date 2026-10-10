@@ -75,6 +75,7 @@ New keys:
 | `shortcut_toggle_comment` | Toggle line-comment chord (`Cmd+/` default; Shift flips to Block Comment) |
 | `shortcut_lowercase` | Lowercase chord (`Cmd+U` default; Shift flips to UPPERCASE) |
 | `shortcut_join_lines` | Join Lines chord (`Cmd+J` default; Shift flips to Split Lines) |
+| `shortcut_invert_case` | Invert Case chord (`Cmd+Alt+U` default; Shift flips to Proper Case) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
 | `shortcut_find_in_files` | Find in Files chord (`Cmd+Alt+F` default) |
 | `shortcut_close_find` | Close Find/Replace chord (`Escape` default) |

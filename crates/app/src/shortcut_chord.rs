@@ -215,6 +215,9 @@ pub const DEFAULT_LOWERCASE: &str = "Cmd+U";
 /// Default join-lines binding (Edit → Join Lines). Shift flips to Split Lines (N++ Ctrl+J family).
 pub const DEFAULT_JOIN_LINES: &str = "Cmd+J";
 
+/// Default invert-case binding (Edit → iNVERT cASE). Shift flips to Proper Case.
+pub const DEFAULT_INVERT_CASE: &str = "Cmd+Alt+U";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1136,6 +1139,17 @@ mod tests {
         assert_eq!(c.key, Key::J);
         assert_eq!(c.display(), "Cmd+J");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+J");
+    }
+
+    #[test]
+    fn parse_cmd_alt_u_default_invert_case() {
+        let c = parse_chord(DEFAULT_INVERT_CASE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::U);
+        assert_eq!(c.display(), "Cmd+Alt+U");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+U");
     }
 
     #[test]

@@ -2228,6 +2228,49 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_JOIN_LINES");
             }
         }
+        // Remappable invert case (default Cmd+Alt+U; settings.shortcut_invert_case).
+        // Shift flips to Proper Case.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_INVERT_CASE};
+            let invert_chord = resolve_chord(
+                &self.state.settings.shortcut_invert_case,
+                DEFAULT_INVERT_CASE,
+            );
+            let invert_key_pressed = match invert_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_proper =
+                invert_key_pressed && invert_chord.flipped_shift().matches(mods, invert_chord.key);
+            let remapped_invert =
+                invert_key_pressed && invert_chord.matches(mods, invert_chord.key);
+            if remapped_proper {
+                self.run_shortcut_cmd("IDM_EDIT_PROPERCASE_FORCE");
+            } else if remapped_invert {
+                self.run_shortcut_cmd("IDM_EDIT_INVERTCASE");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -4117,6 +4160,14 @@ impl EditorApp {
                 &s.shortcut_join_lines,
                 crate::shortcut_chord::DEFAULT_JOIN_LINES,
             ),
+            "IDM_EDIT_INVERTCASE" => primary(
+                &s.shortcut_invert_case,
+                crate::shortcut_chord::DEFAULT_INVERT_CASE,
+            ),
+            "IDM_EDIT_PROPERCASE_FORCE" => shifted(
+                &s.shortcut_invert_case,
+                crate::shortcut_chord::DEFAULT_INVERT_CASE,
+            ),
             "IDM_SEARCH_FIND" => primary(&s.shortcut_find, crate::shortcut_chord::DEFAULT_FIND),
             "IDM_SEARCH_FINDINFILES" => primary(
                 &s.shortcut_find_in_files,
@@ -4658,6 +4709,15 @@ impl EditorApp {
             join_chord.display(),
             join_chord.flipped_shift().display()
         );
+        let invert_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_invert_case,
+            crate::shortcut_chord::DEFAULT_INVERT_CASE,
+        );
+        let invert_keys = format!(
+            "{} / {}",
+            invert_chord.display(),
+            invert_chord.flipped_shift().display()
+        );
         let format_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_format_document,
             crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -4788,7 +4848,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 58] = [
+        let rows: [(&str, &str); 59] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -4861,6 +4921,7 @@ impl EditorApp {
             ),
             (case_keys.as_str(), "lowercase / UPPERCASE"),
             (join_keys.as_str(), "Join Lines / Split Lines"),
+            (invert_keys.as_str(), "Invert Case / Proper Case"),
             (indent_outdent_keys.as_str(), "Indent / Outdent"),
             (format_keys.as_str(), "Format document"),
             (fold_all_keys.as_str(), "Fold / Unfold all"),
@@ -6552,6 +6613,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+J, Ctrl+J. Shift + that chord is Split Lines.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Invert Case shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_invert_case,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+U"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_invert_case.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_invert_case =
+                                        crate::shortcut_chord::DEFAULT_INVERT_CASE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_INVERT_CASE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_invert_case = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+U, Ctrl+Alt+U. Shift + that chord is Proper Case.",
                             )
                             .small()
                             .weak(),

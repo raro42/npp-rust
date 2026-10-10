@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.183] — 2026-10-10
+
+Edit / Settings:
+
+- **Invert Case / Proper Case** is remappable (`shortcut_invert_case`, default Cmd+Alt+U). Shift + that chord runs Proper Case. Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.182] — 2026-10-10
 
 Edit / Settings:

@@ -270,3 +270,5 @@
 009 keep: remappable Next / Previous Change History (shortcut_next_changed, F8 default, v0.3.180)
 009 keep: remappable lowercase / UPPERCASE (shortcut_lowercase, Cmd+U default, v0.3.181)
 009 keep: remappable Join Lines / Split Lines (shortcut_join_lines, Cmd+J default, v0.3.182)
+
+009 keep: remappable Invert Case / Proper Case (shortcut_invert_case, Cmd+Alt+U default, v0.3.183)

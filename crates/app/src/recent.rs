@@ -116,6 +116,10 @@ fn default_shortcut_join_lines() -> String {
     crate::shortcut_chord::DEFAULT_JOIN_LINES.into()
 }
 
+fn default_shortcut_invert_case() -> String {
+    crate::shortcut_chord::DEFAULT_INVERT_CASE.into()
+}
+
 fn default_shortcut_next_diff() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_DIFF.into()
 }
@@ -648,6 +652,9 @@ pub struct AppSettings {
     /// Join Lines chord (`Cmd+J` default; Shift flips to Split Lines).
     #[serde(default = "default_shortcut_join_lines")]
     pub shortcut_join_lines: String,
+    /// Invert Case chord (`Cmd+Alt+U` default; Shift flips to Proper Case).
+    #[serde(default = "default_shortcut_invert_case")]
+    pub shortcut_invert_case: String,
     /// Find in Files chord (`Cmd+Alt+F` default).
     #[serde(default = "default_shortcut_find_in_files")]
     pub shortcut_find_in_files: String,
@@ -766,6 +773,7 @@ impl Default for AppSettings {
             shortcut_next_changed: default_shortcut_next_changed(),
             shortcut_lowercase: default_shortcut_lowercase(),
             shortcut_join_lines: default_shortcut_join_lines(),
+            shortcut_invert_case: default_shortcut_invert_case(),
             shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             ollama_host: default_ollama_host(),
@@ -1147,6 +1155,7 @@ mod tests {
             shortcut_next_changed: "Ctrl+F8".into(),
             shortcut_lowercase: "Ctrl+U".into(),
             shortcut_join_lines: "Ctrl+J".into(),
+            shortcut_invert_case: "Ctrl+Alt+Shift+U".into(),
             shortcut_find_in_files: "Alt+Shift+F".into(),
             ..Default::default()
         };
@@ -1229,6 +1238,7 @@ mod tests {
         assert_eq!(back.shortcut_next_changed, "Ctrl+F8");
         assert_eq!(back.shortcut_lowercase, "Ctrl+U");
         assert_eq!(back.shortcut_join_lines, "Ctrl+J");
+        assert_eq!(back.shortcut_invert_case, "Ctrl+Alt+Shift+U");
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
     }
 
