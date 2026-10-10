@@ -702,6 +702,10 @@ pub struct EditorApp {
     project_panel_entries: Vec<PathBuf>,
     show_theme_picker: bool,
     show_doc_map: bool,
+    /// Last painted visible row count (primary pane) for Document Map viewport band.
+    doc_map_page_rows: usize,
+    /// Last painted visible row count (secondary pane) for Document Map viewport band.
+    doc_map_page_rows_other: usize,
     show_func_list: bool,
     show_char_panel: bool,
     /// Last text copied via menu (`pending_clipboard`).
@@ -773,6 +777,8 @@ impl EditorApp {
             project_panel_entries: Vec::new(),
             show_theme_picker: false,
             show_doc_map: false,
+            doc_map_page_rows: 40,
+            doc_map_page_rows_other: 40,
             show_func_list: false,
             show_char_panel: false,
             last_app_clipboard: None,
@@ -7909,6 +7915,14 @@ impl EditorApp {
                 if multi_caret_ticks.len() >= 2 {
                     label.push_str(&format!(" · {} carets", multi_caret_ticks.len()));
                 }
+                let page_rows = if secondary {
+                    self.doc_map_page_rows_other
+                } else {
+                    self.doc_map_page_rows
+                };
+                if page_rows > 0 && page_rows < line_count {
+                    label.push_str(&format!(" · view {page_rows}"));
+                }
                 ui.label(label);
                 let (resp, painter) = ui.allocate_painter(
                     Vec2::new(
@@ -8083,15 +8097,25 @@ impl EditorApp {
                         tick,
                     );
                 }
-                if max_scroll > 0.0 {
-                    let frac = (scroll_now / max_scroll).clamp(0.0, 1.0);
-                    let mark_h = (rect.height() * 0.08).max(6.0);
-                    let mark_y = rect.top() + frac * (rect.height() - mark_h);
+                // Viewport band sized to the editor page (not a fixed ~8% mark).
+                if let Some((y_off, mark_h)) = crate::diff::doc_map_viewport_band(
+                    scroll_now,
+                    max_scroll,
+                    page_rows,
+                    line_count,
+                    rect.height(),
+                ) {
+                    let mark = Rect::from_min_size(
+                        Pos2::new(rect.left() + 1.0, rect.top() + y_off),
+                        Vec2::new(rect.width() - 2.0, mark_h),
+                    );
+                    painter.rect_filled(
+                        mark,
+                        0.0,
+                        Color32::from_rgba_unmultiplied(80, 180, 140, 40),
+                    );
                     painter.rect_stroke(
-                        Rect::from_min_size(
-                            Pos2::new(rect.left() + 1.0, mark_y),
-                            Vec2::new(rect.width() - 2.0, mark_h),
-                        ),
+                        mark,
                         0.0,
                         egui::Stroke::new(1.5_f32, Color32::from_rgb(80, 180, 140)),
                         egui::StrokeKind::Outside,
@@ -9030,6 +9054,7 @@ impl EditorApp {
                 let usable = (rect.height() - row_height).max(row_height);
                 ((usable / row_height).floor() as usize).max(1)
             };
+            self.doc_map_page_rows = visible_rows;
             let max_scroll = (display_count.saturating_sub(visible_rows) as f32).max(0.0);
 
             // Mouse-wheel scroll must not be overridden by caret-follow.
@@ -12493,6 +12518,7 @@ impl EditorApp {
             let usable = (rect.height() - row_height).max(row_height);
             ((usable / row_height).floor() as usize).max(1)
         };
+        self.doc_map_page_rows_other = visible_rows;
         let max_scroll = (display_count.saturating_sub(visible_rows) as f32).max(0.0);
 
         let sync = self.sync_scroll_v || self.sync_scroll_h;

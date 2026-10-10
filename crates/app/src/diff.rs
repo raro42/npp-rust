@@ -558,6 +558,31 @@ pub fn doc_map_merge_line_ranges(ranges: &mut Vec<(usize, usize)>) {
     *ranges = out;
 }
 
+/// Document Map viewport band: `(y_from_top, height)` inside `map_height`.
+///
+/// Sized to the editor page (`visible_rows` / `line_count`). Position follows
+/// `scroll_line` / `max_scroll` like the scrollbar thumb. When the whole file
+/// fits (`max_scroll <= 0`), the band covers the map.
+pub fn doc_map_viewport_band(
+    scroll_line: f32,
+    max_scroll: f32,
+    visible_rows: usize,
+    line_count: usize,
+    map_height: f32,
+) -> Option<(f32, f32)> {
+    if map_height <= 0.0 || line_count == 0 {
+        return None;
+    }
+    let page_frac = (visible_rows.max(1) as f32 / line_count as f32).clamp(0.02, 1.0);
+    let mark_h = (map_height * page_frac).max(6.0).min(map_height);
+    if max_scroll <= 0.0 {
+        return Some((0.0, map_height));
+    }
+    let travel = (map_height - mark_h).max(0.0);
+    let frac = (scroll_line / max_scroll).clamp(0.0, 1.0);
+    Some((frac * travel, mark_h))
+}
+
 /// Insert every line in an inclusive gap into `revealed`. Returns how many were new.
 pub fn reveal_compare_gap(revealed: &mut BTreeSet<usize>, gap: (usize, usize)) -> usize {
     let mut n = 0usize;
@@ -1938,6 +1963,17 @@ mod tests {
         assert_eq!(doc_map_nearest_mark(15, &marks, 2), None);
         assert_eq!(doc_map_nearest_mark(10, &marks, 0), Some(10));
         assert_eq!(doc_map_nearest_mark(9, &[], 5), None);
+        // Viewport band: half-page → half map height; scroll mid → mid travel.
+        let (y, h) = doc_map_viewport_band(50.0, 100.0, 50, 100, 200.0).unwrap();
+        assert!((h - 100.0).abs() < 0.01);
+        assert!((y - 50.0).abs() < 0.01);
+        // Whole file fits → full-height band.
+        assert_eq!(
+            doc_map_viewport_band(0.0, 0.0, 40, 20, 180.0),
+            Some((0.0, 180.0))
+        );
+        assert_eq!(doc_map_viewport_band(0.0, 10.0, 10, 0, 100.0), None);
+        assert_eq!(doc_map_viewport_band(0.0, 10.0, 10, 100, 0.0), None);
         // char→line: every 10 chars is a new line (0..9 → 0, 10..19 → 1, …).
         let ctl = |c: usize| c / 10;
         assert_eq!(doc_map_char_range_lines(0, 0, ctl), None);

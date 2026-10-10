@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.177] — 2026-10-10
+
+View:
+
+- **Document Map** viewport band is sized to the editor page (visible rows / file lines) with a soft green wash, not a fixed ~8% mark. Title appends `· view N` when the page is shorter than the file; the band fills the map when the whole file fits.
+
 ## [0.3.176] — 2026-10-10
 
 Search / Settings:

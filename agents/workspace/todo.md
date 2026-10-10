@@ -264,3 +264,4 @@
 009 keep: remappable Document Map toggle (shortcut_document_map, Cmd+Shift+D default, v0.3.175)
 
 009 keep: remappable Find in Files (shortcut_find_in_files, Cmd+Alt+F default, v0.3.176)
+009 keep: Document Map viewport band sized to editor page (v0.3.177)
