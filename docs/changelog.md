@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.200] — 2026-10-11
+
+Edit / Settings:
+
+- **Enter / newline** is remappable (`shortcut_enter`, default Enter). When remapped, bare Enter no longer inserts a newline; the chord inserts preferred EOL. Blank line (Cmd+Enter) stays separate. Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.199] — 2026-10-11
 
 Edit / Settings:

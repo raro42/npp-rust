@@ -1791,6 +1791,57 @@ impl EditorApp {
                 }
             }
         }
+        // Remappable Enter / newline (default Enter; settings.shortcut_enter).
+        // Default Enter stays in handle_editor_input. When remapped, chord inserts preferred EOL.
+        // shortcut_blank_line (Cmd+Enter) stays separate.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_ENTER};
+            let enter_chord = resolve_chord(&self.state.settings.shortcut_enter, DEFAULT_ENTER);
+            let default_chord = resolve_chord(DEFAULT_ENTER, DEFAULT_ENTER);
+            if enter_chord != default_chord {
+                let enter_key_pressed = match enter_chord.key {
+                    Key::Z => z,
+                    Key::N => n,
+                    Key::O => o,
+                    Key::S => s,
+                    Key::F => f,
+                    Key::Y => y,
+                    Key::W => w,
+                    Key::G => g,
+                    Key::A => a,
+                    Key::D => d,
+                    Key::L => l,
+                    Key::I => i_key,
+                    Key::T => t,
+                    Key::H => h,
+                    Key::F2 => f2,
+                    Key::F3 => f3,
+                    Key::F7 => f7,
+                    Key::Equals => equals,
+                    Key::Minus => minus,
+                    Key::Num0 => num0,
+                    Key::CloseBracket => close_br,
+                    Key::OpenBracket => open_br,
+                    other => ctx.input(|i| i.key_pressed(other)),
+                };
+                if enter_key_pressed && enter_chord.matches(mods, enter_chord.key) {
+                    let tab = self.focused_edit_tab();
+                    if self.state.tabs.get(tab).is_some_and(|d| d.read_only) {
+                        self.state.status = "Document is read-only".into();
+                    } else {
+                        self.state.prepare_edit_at(tab);
+                        let eol = self.state.settings.default_eol.as_str().to_string();
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            if !doc.insert_multi(&eol) {
+                                doc.buffer.insert(&eol);
+                            }
+                        }
+                        self.state.mark_text_changed_at(tab);
+                        self.follow_focused_caret();
+                    }
+                }
+            }
+        }
         // Remappable line Home/End (default Home; settings.shortcut_line_home).
         // Default Home/End stay in handle_editor_input. When remapped, chords move on the line.
         // Cmd+Home / Cmd+End document aliases use shortcut_document_home.
@@ -5397,6 +5448,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_DELETE_BACKWARD,
         )
         .display();
+        let enter_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_enter,
+            crate::shortcut_chord::DEFAULT_ENTER,
+        )
+        .display();
         let line_home_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_line_home,
             crate::shortcut_chord::DEFAULT_LINE_HOME,
@@ -5503,7 +5559,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 71] = [
+        let rows: [(&str, &str); 72] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -5572,6 +5628,7 @@ impl EditorApp {
             (paste_keys.as_str(), "Paste"),
             (delete_forward_keys.as_str(), "Delete"),
             (delete_backward_keys.as_str(), "Backspace"),
+            (enter_keys.as_str(), "Enter / newline"),
             (line_home_keys.as_str(), "Line start / end"),
             (
                 document_home_keys.as_str(),
@@ -7784,6 +7841,35 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Backspace, Ctrl+H. When remapped, bare Backspace no longer deletes backward.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Enter shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(&mut self.state.settings.shortcut_enter)
+                                    .desired_width(120.0)
+                                    .hint_text("Enter"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_enter.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_enter =
+                                        crate::shortcut_chord::DEFAULT_ENTER.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_ENTER
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_enter = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Enter, Alt+Enter. When remapped, bare Enter no longer inserts a newline. Blank line (Cmd+Enter) stays separate.",
                             )
                             .small()
                             .weak(),
@@ -15058,6 +15144,17 @@ impl EditorApp {
                     modifiers,
                     ..
                 } if !modifiers.command && !modifiers.ctrl => {
+                    // Remappable Enter (default Enter). When remapped away from default,
+                    // ignore bare Enter; remapped chord is handled in handle_shortcuts.
+                    {
+                        use crate::shortcut_chord::{resolve_chord, DEFAULT_ENTER};
+                        let enter_chord =
+                            resolve_chord(&self.state.settings.shortcut_enter, DEFAULT_ENTER);
+                        let default_chord = resolve_chord(DEFAULT_ENTER, DEFAULT_ENTER);
+                        if enter_chord != default_chord {
+                            continue;
+                        }
+                    }
                     if read_only {
                         self.state.status = "Document is read-only".into();
                     } else {

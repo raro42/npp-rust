@@ -206,7 +206,7 @@ fn show_shortcut_mapper(state: &mut EditorState) {
         DEFAULT_COMPARE_IGNORE_WS, DEFAULT_COMPARE_TO_SAVED, DEFAULT_COPY,
         DEFAULT_COPY_COMPARE_DIFF, DEFAULT_COPY_COMPARE_HUNK, DEFAULT_COPY_COMPARE_SUMMARY,
         DEFAULT_CUT, DEFAULT_DELETE_BACKWARD, DEFAULT_DELETE_FORWARD, DEFAULT_DELETE_LINE,
-        DEFAULT_DOCUMENT_HOME, DEFAULT_DOCUMENT_MAP, DEFAULT_DUPLICATE_LINE,
+        DEFAULT_DOCUMENT_HOME, DEFAULT_DOCUMENT_MAP, DEFAULT_DUPLICATE_LINE, DEFAULT_ENTER,
         DEFAULT_EXPAND_ALL_UNCHANGED, DEFAULT_EXPAND_UNCHANGED_AT_CARET, DEFAULT_FIND,
         DEFAULT_FIND_IN_FILES, DEFAULT_FIND_NEXT, DEFAULT_FIND_NEXT_GLOBAL, DEFAULT_FIRST_DIFF,
         DEFAULT_FIRST_HIDDEN_EQUAL, DEFAULT_FOCUS_OTHER_VIEW, DEFAULT_FOLD_ALL,
@@ -1003,6 +1003,15 @@ fn show_shortcut_mapper(state: &mut EditorState) {
             "{delete_backward} (from settings.shortcut_delete_backward = {delete_backward_raw:?})"
         )
     };
+    let enter = resolve_chord(&state.settings.shortcut_enter, DEFAULT_ENTER).display();
+    let enter_raw = state.settings.shortcut_enter.trim();
+    let enter_note = if enter_raw.is_empty() || enter_raw.eq_ignore_ascii_case(DEFAULT_ENTER) {
+        format!(
+            "{enter} (default; Preferences → Enter shortcut; blank line Cmd+Enter stays separate)"
+        )
+    } else {
+        format!("{enter} (from settings.shortcut_enter = {enter_raw:?}; blank line stays separate)")
+    };
     let line_home_chord = resolve_chord(&state.settings.shortcut_line_home, DEFAULT_LINE_HOME);
     let line_home = line_home_chord.display();
     let line_end = line_home_chord.line_end_chord().display();
@@ -1173,8 +1182,8 @@ fn show_shortcut_mapper(state: &mut EditorState) {
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, Find next (global), Next bookmark, Toggle bookmark, Clear all bookmarks, Next change history, Compare start/clear, Swap Compare sides, Compare to Saved, Copy / Open Compare Diff, Copy / Open Compare Summary, Copy / Open Compare Hunk, Word jump, Next difference, First difference, Next hidden equal, First hidden equal, Apply compare hunk, Hide unchanged lines, Ignore whitespace / Ignore case, Ignore blank lines, Expand / Collapse all unchanged, Expand / Collapse unchanged at caret, Bookmark / Clear compare difference bookmarks, Hide-equal context, Go to line, Duplicate line, Delete line, Move line, Go to document start/end, Document Home / End aliases, Toggle comment, lowercase / UPPERCASE, Join Lines / Split Lines, Invert Case / Proper Case, Blank line below / above, Indent, Outdent, Tab indent, Shift+Tab outdent, Fold / Unfold all, Fold / Unfold current, Matching brace, Format document, Close tab, Next / prev tab, New, Open, Reload, Save, Save As, Save All, Print, Find, Find in Files, Close Find/Replace, Replace, Replace (alternate), Select all, Copy, Cut, Paste, Delete, Backspace, Line start / end, Page up / down, Character left / right, Line up / down, Undo, Redo, Zoom in, Zoom out, Zoom restore, Toggle log tail, Document Map, and Focus other view are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_find_next_global, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_clear_bookmarks, shortcut_next_changed, shortcut_compare, shortcut_swap_compare, shortcut_compare_to_saved, shortcut_copy_compare_diff, shortcut_copy_compare_summary, shortcut_copy_compare_hunk, shortcut_word_jump, shortcut_next_diff, shortcut_first_diff, shortcut_next_hidden_equal, shortcut_first_hidden_equal, shortcut_apply_compare_hunk, shortcut_hide_equal, shortcut_compare_ignore_ws, shortcut_compare_ignore_blank, shortcut_expand_all_unchanged, shortcut_expand_unchanged_at_caret, shortcut_bookmark_compare_diffs, shortcut_hide_equal_context, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_move_line, shortcut_goto_document_start, shortcut_document_home, shortcut_toggle_comment, shortcut_lowercase, shortcut_join_lines, shortcut_invert_case, shortcut_blank_line, shortcut_indent, shortcut_outdent, shortcut_tab_indent, shortcut_shift_tab_outdent, shortcut_fold_all, shortcut_fold_current, shortcut_matching_brace, shortcut_format_document, shortcut_close_tab, shortcut_next_tab, shortcut_new, shortcut_open, shortcut_reload, shortcut_save, shortcut_save_as, shortcut_save_all, shortcut_print, shortcut_find, shortcut_find_in_files, shortcut_close_find, shortcut_replace, shortcut_replace_alt, shortcut_select_all, shortcut_copy, shortcut_cut, shortcut_paste, shortcut_delete_forward, shortcut_delete_backward, shortcut_line_home, shortcut_page_up, shortcut_char_left, shortcut_line_up, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore, shortcut_toggle_log_tail, shortcut_document_map, shortcut_focus_other_view). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Find next (global), Next bookmark, Toggle bookmark, Clear all bookmarks, Next change history, Compare start/clear, Swap Compare sides, Compare to Saved, Copy / Open Compare Diff, Copy / Open Compare Summary, Copy / Open Compare Hunk, Word jump, Next difference, First difference, Next hidden equal, First hidden equal, Apply compare hunk, Hide unchanged lines, Ignore whitespace / Ignore case, Ignore blank lines, Expand / Collapse all unchanged, Expand / Collapse unchanged at caret, Bookmark / Clear compare difference bookmarks, Hide-equal context, Go to line, Duplicate line, Delete line, Move line, Go to document start/end, Document Home / End aliases, Toggle comment, lowercase / UPPERCASE, Join Lines / Split Lines, Invert Case / Proper Case, Blank line below / above, Indent, Outdent, Tab indent, Shift+Tab outdent, Fold / Unfold all, Fold / Unfold current, Matching brace, Format document, Close tab, Next / prev tab, New, Open, Reload, Save, Save As, Save All, Print, Find, Find in Files, Close Find/Replace, Replace, Replace (alternate), Select all, Copy, Cut, Paste, Delete, Backspace, Enter / newline, Line start / end, Page up / down, Character left / right, Line up / down, Undo, Redo, Zoom in, Zoom out, Zoom restore, Toggle log tail, Document Map, and Focus other view are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_find_next_global, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_clear_bookmarks, shortcut_next_changed, shortcut_compare, shortcut_swap_compare, shortcut_compare_to_saved, shortcut_copy_compare_diff, shortcut_copy_compare_summary, shortcut_copy_compare_hunk, shortcut_word_jump, shortcut_next_diff, shortcut_first_diff, shortcut_next_hidden_equal, shortcut_first_hidden_equal, shortcut_apply_compare_hunk, shortcut_hide_equal, shortcut_compare_ignore_ws, shortcut_compare_ignore_blank, shortcut_expand_all_unchanged, shortcut_expand_unchanged_at_caret, shortcut_bookmark_compare_diffs, shortcut_hide_equal_context, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_move_line, shortcut_goto_document_start, shortcut_document_home, shortcut_toggle_comment, shortcut_lowercase, shortcut_join_lines, shortcut_invert_case, shortcut_blank_line, shortcut_indent, shortcut_outdent, shortcut_tab_indent, shortcut_shift_tab_outdent, shortcut_fold_all, shortcut_fold_current, shortcut_matching_brace, shortcut_format_document, shortcut_close_tab, shortcut_next_tab, shortcut_new, shortcut_open, shortcut_reload, shortcut_save, shortcut_save_as, shortcut_save_all, shortcut_print, shortcut_find, shortcut_find_in_files, shortcut_close_find, shortcut_replace, shortcut_replace_alt, shortcut_select_all, shortcut_copy, shortcut_cut, shortcut_paste, shortcut_delete_forward, shortcut_delete_backward, shortcut_enter, shortcut_line_home, shortcut_page_up, shortcut_char_left, shortcut_line_up, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore, shortcut_toggle_log_tail, shortcut_document_map, shortcut_focus_other_view). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -1201,6 +1210,7 @@ File / edit
 {paste_note}
 {delete_forward_note}
 {delete_backward_note}
+{enter_note}
 {line_home_note}
 {document_home_note}
 {page_up_note}

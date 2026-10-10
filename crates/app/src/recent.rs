@@ -332,6 +332,10 @@ fn default_shortcut_delete_backward() -> String {
     crate::shortcut_chord::DEFAULT_DELETE_BACKWARD.into()
 }
 
+fn default_shortcut_enter() -> String {
+    crate::shortcut_chord::DEFAULT_ENTER.into()
+}
+
 fn default_shortcut_line_home() -> String {
     crate::shortcut_chord::DEFAULT_LINE_HOME.into()
 }
@@ -691,6 +695,10 @@ pub struct AppSettings {
     /// remapped chord deletes backward (same as editor Backspace).
     #[serde(default = "default_shortcut_delete_backward")]
     pub shortcut_delete_backward: String,
+    /// Insert-newline chord (`Enter` default). When remapped, bare Enter is ignored;
+    /// remapped chord inserts preferred EOL. `shortcut_blank_line` (Cmd+Enter) stays separate.
+    #[serde(default = "default_shortcut_enter")]
+    pub shortcut_enter: String,
     /// Line-start chord (`Home` default; opposite End = line end; letter remaps use Shift for end).
     /// When remapped, bare Home/End no longer move on the line. `Cmd+Home` / `Cmd+End` aliases
     /// use `shortcut_document_home`.
@@ -866,6 +874,7 @@ impl Default for AppSettings {
             shortcut_paste: default_shortcut_paste(),
             shortcut_delete_forward: default_shortcut_delete_forward(),
             shortcut_delete_backward: default_shortcut_delete_backward(),
+            shortcut_enter: default_shortcut_enter(),
             shortcut_line_home: default_shortcut_line_home(),
             shortcut_document_home: default_shortcut_document_home(),
             shortcut_page_up: default_shortcut_page_up(),
@@ -1264,6 +1273,7 @@ mod tests {
             shortcut_paste: "Ctrl+Alt+V".into(),
             shortcut_delete_forward: "Ctrl+Alt+Delete".into(),
             shortcut_delete_backward: "Ctrl+Alt+Backspace".into(),
+            shortcut_enter: "Alt+Enter".into(),
             shortcut_line_home: "Ctrl+Alt+Home".into(),
             shortcut_document_home: "Ctrl+Alt+Shift+Home".into(),
             shortcut_page_up: "Ctrl+Alt+PageUp".into(),
@@ -1360,6 +1370,7 @@ mod tests {
         assert_eq!(back.shortcut_paste, "Ctrl+Alt+V");
         assert_eq!(back.shortcut_delete_forward, "Ctrl+Alt+Delete");
         assert_eq!(back.shortcut_delete_backward, "Ctrl+Alt+Backspace");
+        assert_eq!(back.shortcut_enter, "Alt+Enter");
         assert_eq!(back.shortcut_line_home, "Ctrl+Alt+Home");
         assert_eq!(back.shortcut_document_home, "Ctrl+Alt+Shift+Home");
         assert_eq!(back.shortcut_page_up, "Ctrl+Alt+PageUp");

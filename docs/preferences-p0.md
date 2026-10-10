@@ -90,6 +90,7 @@ New keys:
 | `shortcut_paste` | Paste chord (`Cmd+V` default; when remapped, platform Cmd+V no longer pastes; remapped chord pastes last copied text) |
 | `shortcut_delete_forward` | Forward-delete chord (`Delete` default; when remapped, bare Delete no longer deletes forward) |
 | `shortcut_delete_backward` | Backward-delete chord (`Backspace` default; when remapped, bare Backspace no longer deletes backward) |
+| `shortcut_enter` | Insert-newline chord (`Enter` default; when remapped, bare Enter no longer inserts a newline; `shortcut_blank_line` / Cmd+Enter stays separate) |
 | `shortcut_line_home` | Line-start chord (`Home` default; opposite End = line end; letter remaps use Shift for end; when remapped, bare Home/End no longer move on the line; Cmd+Home/End aliases use `shortcut_document_home`) |
 | `shortcut_document_home` | Document-start Home alias (`Cmd+Home` default; opposite End = document end; letter remaps use Shift for end; when remapped, bare Cmd+Home/End no longer jump; `shortcut_goto_document_start` / Cmd+Up stays separate) |
 | `shortcut_page_up` | Page-up chord (`PageUp` default; opposite PageDown = page down; letter remaps use Shift for page down; arrow defaults: Shift extends selection; when remapped, bare PageUp/PageDown no longer page) |

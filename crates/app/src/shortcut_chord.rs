@@ -168,6 +168,11 @@ pub const DEFAULT_DELETE_FORWARD: &str = "Delete";
 /// deletes backward (same as Backspace in the editor).
 pub const DEFAULT_DELETE_BACKWARD: &str = "Backspace";
 
+/// Default insert-newline binding (matches historical hard-wire).
+/// Default stays in `handle_editor_input`. When remapped, bare Enter is ignored and the chord
+/// inserts the preferred EOL (`settings.default_eol`). `shortcut_blank_line` (Cmd+Enter) stays separate.
+pub const DEFAULT_ENTER: &str = "Enter";
+
 /// Default line-start binding (matches historical hard-wire).
 /// Opposite Home/End jumps to line end; non-Home/End remaps use Shift for end.
 /// Default stays in `handle_editor_input`. When remapped, bare Home/End no longer move on the line;
@@ -1369,6 +1374,17 @@ mod tests {
         assert_eq!(c.key, Key::Backspace);
         assert_eq!(c.display(), "Backspace");
         assert_eq!(parse_chord("Bs").unwrap().key, Key::Backspace);
+    }
+
+    #[test]
+    fn parse_enter_default_enter() {
+        let c = parse_chord(DEFAULT_ENTER).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Enter);
+        assert_eq!(c.display(), "Enter");
+        assert_eq!(parse_chord("Return").unwrap().key, Key::Enter);
     }
 
     #[test]
