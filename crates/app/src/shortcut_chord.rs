@@ -153,6 +153,11 @@ pub const DEFAULT_COPY: &str = "Cmd+C";
 /// When remapped away from this default, platform `Event::Cut` is ignored so Cmd+X does not still cut.
 pub const DEFAULT_CUT: &str = "Cmd+X";
 
+/// Default paste binding (Edit → Paste; matches platform Cmd/Ctrl+V).
+/// Default stays on platform `Event::Paste` (system clipboard). When remapped, that event is
+/// ignored and the chord runs menu Paste (`last_copied`).
+pub const DEFAULT_PASTE: &str = "Cmd+V";
+
 /// Default undo binding (matches historical hard-wire). Shift flips to redo.
 pub const DEFAULT_UNDO: &str = "Cmd+Z";
 
@@ -985,6 +990,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::X);
         assert_eq!(c.display(), "Cmd+X");
+    }
+
+    #[test]
+    fn parse_cmd_v_default_paste() {
+        let c = parse_chord(DEFAULT_PASTE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::V);
+        assert_eq!(c.display(), "Cmd+V");
     }
 
     #[test]

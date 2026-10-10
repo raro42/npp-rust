@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.188] — 2026-10-10
+
+Edit / Settings:
+
+- **Paste** is remappable (`shortcut_paste`, default Cmd+V). When remapped, platform Cmd+V no longer pastes; the remapped chord pastes last copied text (same as Edit → Paste). Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.187] — 2026-10-10
 
 Edit / Settings:

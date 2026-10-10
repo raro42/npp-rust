@@ -1657,6 +1657,44 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_CUT");
             }
         }
+        // Remappable paste (default Cmd+V; settings.shortcut_paste).
+        // Default Cmd+V stays on platform Event::Paste (system clipboard) to avoid
+        // double-insert. When remapped, chord runs IDM_EDIT_PASTE (app last_copied).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_PASTE};
+            let paste_chord = resolve_chord(&self.state.settings.shortcut_paste, DEFAULT_PASTE);
+            let default_chord = resolve_chord(DEFAULT_PASTE, DEFAULT_PASTE);
+            if paste_chord != default_chord {
+                let paste_key_pressed = match paste_chord.key {
+                    Key::Z => z,
+                    Key::N => n,
+                    Key::O => o,
+                    Key::S => s,
+                    Key::F => f,
+                    Key::Y => y,
+                    Key::W => w,
+                    Key::G => g,
+                    Key::A => a,
+                    Key::D => d,
+                    Key::L => l,
+                    Key::I => i_key,
+                    Key::T => t,
+                    Key::H => h,
+                    Key::F2 => f2,
+                    Key::F3 => f3,
+                    Key::F7 => f7,
+                    Key::Equals => equals,
+                    Key::Minus => minus,
+                    Key::Num0 => num0,
+                    Key::CloseBracket => close_br,
+                    Key::OpenBracket => open_br,
+                    other => ctx.input(|i| i.key_pressed(other)),
+                };
+                if paste_key_pressed && paste_chord.matches(mods, paste_chord.key) {
+                    self.run_shortcut_cmd("IDM_EDIT_PASTE");
+                }
+            }
+        }
         // Remappable duplicate line (default Cmd+D; settings.shortcut_duplicate_line).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_DUPLICATE_LINE};
@@ -4229,6 +4267,7 @@ impl EditorApp {
             ),
             "IDM_EDIT_COPY" => primary(&s.shortcut_copy, crate::shortcut_chord::DEFAULT_COPY),
             "IDM_EDIT_CUT" => primary(&s.shortcut_cut, crate::shortcut_chord::DEFAULT_CUT),
+            "IDM_EDIT_PASTE" => primary(&s.shortcut_paste, crate::shortcut_chord::DEFAULT_PASTE),
             "IDM_EDIT_DUP_LINE" => primary(
                 &s.shortcut_duplicate_line,
                 crate::shortcut_chord::DEFAULT_DUPLICATE_LINE,
@@ -4941,6 +4980,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_CUT,
         )
         .display();
+        let paste_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_paste,
+            crate::shortcut_chord::DEFAULT_PASTE,
+        )
+        .display();
         let undo_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_undo,
             crate::shortcut_chord::DEFAULT_UNDO,
@@ -5002,7 +5046,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 63] = [
+        let rows: [(&str, &str); 64] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -5068,6 +5112,7 @@ impl EditorApp {
             (select_all_keys.as_str(), "Select all"),
             (copy_keys.as_str(), "Copy"),
             (cut_keys.as_str(), "Cut"),
+            (paste_keys.as_str(), "Paste"),
             (dup_keys.as_str(), "Duplicate line"),
             (del_keys.as_str(), "Delete line"),
             (move_line_keys.as_str(), "Move line up / down"),
@@ -7135,6 +7180,35 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+X, Ctrl+Alt+X. When remapped, platform Cmd+X no longer cuts.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Paste shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(&mut self.state.settings.shortcut_paste)
+                                    .desired_width(120.0)
+                                    .hint_text("Cmd+V"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_paste.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_paste =
+                                        crate::shortcut_chord::DEFAULT_PASTE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_PASTE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_paste = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+V, Ctrl+Alt+V. When remapped, platform Cmd+V no longer pastes; remapped chord pastes last copied text.",
                             )
                             .small()
                             .weak(),
@@ -14115,6 +14189,18 @@ impl EditorApp {
         for event in events {
             match event {
                 egui::Event::Paste(t) => {
+                    // When Paste is remapped away from default Cmd+V, ignore platform
+                    // Event::Paste so the old chord does not still paste; remapped chord
+                    // is handled in handle_shortcuts → IDM_EDIT_PASTE.
+                    {
+                        use crate::shortcut_chord::{resolve_chord, DEFAULT_PASTE};
+                        let paste_chord =
+                            resolve_chord(&self.state.settings.shortcut_paste, DEFAULT_PASTE);
+                        let default_chord = resolve_chord(DEFAULT_PASTE, DEFAULT_PASTE);
+                        if paste_chord != default_chord {
+                            continue;
+                        }
+                    }
                     if read_only {
                         self.state.status = "Document is read-only".into();
                         continue;

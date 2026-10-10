@@ -320,6 +320,10 @@ fn default_shortcut_cut() -> String {
     crate::shortcut_chord::DEFAULT_CUT.into()
 }
 
+fn default_shortcut_paste() -> String {
+    crate::shortcut_chord::DEFAULT_PASTE.into()
+}
+
 fn default_shortcut_undo() -> String {
     crate::shortcut_chord::DEFAULT_UNDO.into()
 }
@@ -644,6 +648,10 @@ pub struct AppSettings {
     /// Cut chord (`Cmd+X` default). When remapped, platform Cmd+X cut is ignored.
     #[serde(default = "default_shortcut_cut")]
     pub shortcut_cut: String,
+    /// Paste chord (`Cmd+V` default). When remapped, platform Cmd+V paste is ignored;
+    /// remapped chord pastes app `last_copied` (same as Edit → Paste).
+    #[serde(default = "default_shortcut_paste")]
+    pub shortcut_paste: String,
     /// Undo chord (`Cmd+Z` default; Shift flips to redo).
     #[serde(default = "default_shortcut_undo")]
     pub shortcut_undo: String,
@@ -793,6 +801,7 @@ impl Default for AppSettings {
             shortcut_select_all: default_shortcut_select_all(),
             shortcut_copy: default_shortcut_copy(),
             shortcut_cut: default_shortcut_cut(),
+            shortcut_paste: default_shortcut_paste(),
             shortcut_undo: default_shortcut_undo(),
             shortcut_redo: default_shortcut_redo(),
             shortcut_zoom_in: default_shortcut_zoom_in(),
@@ -1179,6 +1188,7 @@ mod tests {
             shortcut_select_all: "Ctrl+Alt+A".into(),
             shortcut_copy: "Ctrl+Alt+C".into(),
             shortcut_cut: "Ctrl+Alt+X".into(),
+            shortcut_paste: "Ctrl+Alt+V".into(),
             shortcut_undo: "Ctrl+Alt+Z".into(),
             shortcut_redo: "Ctrl+Alt+Y".into(),
             shortcut_zoom_in: "Ctrl+Alt+=".into(),
@@ -1266,6 +1276,7 @@ mod tests {
         assert_eq!(back.shortcut_select_all, "Ctrl+Alt+A");
         assert_eq!(back.shortcut_copy, "Ctrl+Alt+C");
         assert_eq!(back.shortcut_cut, "Ctrl+Alt+X");
+        assert_eq!(back.shortcut_paste, "Ctrl+Alt+V");
         assert_eq!(back.shortcut_undo, "Ctrl+Alt+Z");
         assert_eq!(back.shortcut_redo, "Ctrl+Alt+Y");
         assert_eq!(back.shortcut_zoom_in, "Ctrl+Alt+=");
