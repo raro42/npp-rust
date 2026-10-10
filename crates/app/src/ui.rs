@@ -32,8 +32,10 @@ enum EditorPane {
 }
 
 /// In-progress drag of selected text (move, or copy with Ctrl/Cmd).
+/// `tab` is the source; `drop_tab` may differ in dual view (cross-pane drop).
 struct SelTextDrag {
     tab: usize,
+    drop_tab: usize,
     drop_at: usize,
 }
 
@@ -1014,26 +1016,91 @@ impl EditorApp {
         let Some(drag) = self.sel_text_drag.take() else {
             return;
         };
-        let Some(doc) = self.state.tabs.get_mut(drag.tab) else {
-            return;
-        };
-        if doc.read_only {
-            self.state.status = "Read-only — cannot move or copy selection".into();
+        let src = drag.tab;
+        let dest = drag.drop_tab;
+        let drop_at = drag.drop_at;
+
+        if src == dest {
+            let Some(doc) = self.state.tabs.get_mut(src) else {
+                return;
+            };
+            if doc.read_only {
+                self.state.status = "Read-only — cannot move or copy selection".into();
+                return;
+            }
+            let ok = doc.buffer.drag_selection_to(drop_at, copy);
+            if ok {
+                self.state.mark_text_changed_at(src);
+                self.state.status = if copy {
+                    "Copied selection by drag".into()
+                } else {
+                    "Moved selection by drag".into()
+                };
+                if src == self.state.tabs.active_index() {
+                    self.follow_caret = true;
+                } else {
+                    self.follow_caret_other = true;
+                }
+            }
             return;
         }
-        let ok = doc.buffer.drag_selection_to(drag.drop_at, copy);
-        if ok {
-            self.state.mark_text_changed_at(drag.tab);
-            self.state.status = if copy {
-                "Copied selection by drag".into()
-            } else {
-                "Moved selection by drag".into()
+
+        // Cross-pane (dual view): copy/move selection into the other buffer.
+        let Some(src_doc) = self.state.tabs.get(src) else {
+            return;
+        };
+        if src_doc.read_only && !copy {
+            self.state.status = "Read-only — cannot move selection".into();
+            return;
+        }
+        let Some((start, end)) = src_doc.buffer.selection() else {
+            return;
+        };
+        let text = src_doc.buffer.slice(start, end);
+        let n = text.chars().count();
+        if n == 0 {
+            return;
+        }
+
+        let Some(dest_doc) = self.state.tabs.get(dest) else {
+            return;
+        };
+        if dest_doc.read_only {
+            self.state.status = "Read-only — cannot drop selection".into();
+            return;
+        }
+        let at = drop_at.min(dest_doc.buffer.len_chars());
+
+        {
+            let Some(dest_doc) = self.state.tabs.get_mut(dest) else {
+                return;
             };
-            if drag.tab == self.state.tabs.active_index() {
-                self.follow_caret = true;
-            } else {
-                self.follow_caret_other = true;
+            dest_doc.clear_multi_sels();
+            dest_doc.buffer.set_caret(at);
+            dest_doc.buffer.insert(&text);
+            let new_end = dest_doc.buffer.caret();
+            let new_start = new_end.saturating_sub(n);
+            dest_doc.buffer.set_selection(new_start, new_end);
+        }
+        self.state.mark_text_changed_at(dest);
+
+        if !copy {
+            if let Some(src_doc) = self.state.tabs.get_mut(src) {
+                src_doc.buffer.set_selection(start, end);
+                src_doc.buffer.insert("");
             }
+            self.state.mark_text_changed_at(src);
+        }
+
+        self.state.status = if copy {
+            "Copied selection by drag to other view".into()
+        } else {
+            "Moved selection by drag to other view".into()
+        };
+        if dest == self.state.tabs.active_index() {
+            self.follow_caret = true;
+        } else {
+            self.follow_caret_other = true;
         }
     }
 
@@ -11375,7 +11442,11 @@ impl EditorApp {
                         self.state.status = "Column select (Alt+drag)".into();
                     } else if !shift && inside_sel && !read_only {
                         self.state.tabs.active_mut().clear_multi_sels();
-                        self.sel_text_drag = Some(SelTextDrag { tab, drop_at: idx });
+                        self.sel_text_drag = Some(SelTextDrag {
+                            tab,
+                            drop_tab: tab,
+                            drop_at: idx,
+                        });
                         self.drag_anchor = None;
                         self.rect_drag = false;
                     } else if shift {
@@ -11407,7 +11478,8 @@ impl EditorApp {
                         &visible_lines,
                     );
                     if let Some(drag) = self.sel_text_drag.as_mut() {
-                        if drag.tab == self.state.tabs.active_index() {
+                        if rect.contains(pos) {
+                            drag.drop_tab = self.state.tabs.active_index();
                             drag.drop_at = idx;
                             let copy = ui.input(|i| i.modifiers.ctrl || i.modifiers.command);
                             ui.ctx().set_cursor_icon(if copy {
@@ -11465,6 +11537,32 @@ impl EditorApp {
                     self.rect_drag = false;
                     self.sel_text_drag = None;
                     self.follow_caret = false;
+                }
+            }
+            // Dual-view cross-pane: when drag started on the other pane, still
+            // claim the drop target while the pointer is over this rect.
+            if self.sel_text_drag.is_some() && ui.input(|i| i.pointer.primary_down()) {
+                if let Some(pos) = ui.input(|i| i.pointer.latest_pos()) {
+                    if rect.contains(pos) {
+                        let idx = hit_index(
+                            ui,
+                            pos,
+                            &self.state.tabs.active().buffer,
+                            self.scroll_line,
+                            &visible_lines,
+                        );
+                        let primary_tab = self.state.tabs.active_index();
+                        if let Some(drag) = self.sel_text_drag.as_mut() {
+                            drag.drop_tab = primary_tab;
+                            drag.drop_at = idx;
+                        }
+                        let copy = ui.input(|i| i.modifiers.ctrl || i.modifiers.command);
+                        ui.ctx().set_cursor_icon(if copy {
+                            CursorIcon::Copy
+                        } else {
+                            CursorIcon::Grabbing
+                        });
+                    }
                 }
             }
             if ui.input(|i| i.pointer.any_released()) {
@@ -11907,9 +12005,9 @@ impl EditorApp {
                     }
                 }
 
-                // Drop caret while dragging selected text.
+                // Drop caret while dragging selected text (source or other-view drop).
                 if let Some(drag) = self.sel_text_drag.as_ref() {
-                    if drag.tab == self.state.tabs.active_index()
+                    if drag.drop_tab == self.state.tabs.active_index()
                         && drag.drop_at >= line_start
                         && drag.drop_at <= line_end
                     {
@@ -14905,7 +15003,11 @@ impl EditorApp {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
                             doc.clear_multi_sels();
                         }
-                        self.sel_text_drag = Some(SelTextDrag { tab, drop_at: idx });
+                        self.sel_text_drag = Some(SelTextDrag {
+                            tab,
+                            drop_tab: tab,
+                            drop_at: idx,
+                        });
                         self.drag_anchor = None;
                         self.rect_drag = false;
                     } else if let Some(doc) = self.state.tabs.get_mut(tab) {
@@ -14928,7 +15030,8 @@ impl EditorApp {
                 if let Some(doc) = self.state.tabs.get(tab) {
                     let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                     if let Some(drag) = self.sel_text_drag.as_mut() {
-                        if drag.tab == tab {
+                        if rect.contains(pos) {
+                            drag.drop_tab = tab;
                             drag.drop_at = idx;
                             let copy = ui.input(|i| i.modifiers.ctrl || i.modifiers.command);
                             ui.ctx().set_cursor_icon(if copy {
@@ -14972,6 +15075,26 @@ impl EditorApp {
                 self.rect_drag = false;
                 self.sel_text_drag = None;
                 self.follow_caret_other = false;
+            }
+        }
+        // Dual-view cross-pane: claim drop target when drag started on primary.
+        if self.sel_text_drag.is_some() && ui.input(|i| i.pointer.primary_down()) {
+            if let Some(pos) = ui.input(|i| i.pointer.latest_pos()) {
+                if rect.contains(pos) {
+                    if let Some(doc) = self.state.tabs.get(tab) {
+                        let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
+                        if let Some(drag) = self.sel_text_drag.as_mut() {
+                            drag.drop_tab = tab;
+                            drag.drop_at = idx;
+                        }
+                        let copy = ui.input(|i| i.modifiers.ctrl || i.modifiers.command);
+                        ui.ctx().set_cursor_icon(if copy {
+                            CursorIcon::Copy
+                        } else {
+                            CursorIcon::Grabbing
+                        });
+                    }
+                }
             }
         }
         if ui.input(|i| i.pointer.any_released()) {
@@ -15309,7 +15432,7 @@ impl EditorApp {
             }
 
             if let Some(drag) = self.sel_text_drag.as_ref() {
-                if drag.tab == tab && drag.drop_at >= line_start && drag.drop_at <= line_end {
+                if drag.drop_tab == tab && drag.drop_at >= line_start && drag.drop_at <= line_end {
                     let col = drag.drop_at - line_start;
                     let prefix: String = line_text.chars().take(col).collect();
                     let cx = text_left + text_width(ui, &font_id, &prefix);

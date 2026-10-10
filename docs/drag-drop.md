@@ -12,12 +12,13 @@ Date: 2026-08-31
 
 - Drag inside an existing selection to **move** the text.
 - Hold **Ctrl** (Windows/Linux) or **Cmd** (macOS) while dragging to **copy**.
-- Drop inside the selection is a no-op for move.
-- One undo unit via `TextBuffer::drag_selection_to`.
+- Drop inside the selection is a no-op for move (same buffer).
+- One undo unit via `TextBuffer::drag_selection_to` (same buffer).
 - Orange drop caret shows the insert point.
-- Works in the primary pane and the dual-view secondary pane (same buffer only).
+- Works in the primary pane and the dual-view secondary pane.
+- **Cross-pane (dual view):** drag from one pane onto the other tab to move (or Ctrl/Cmd-copy) into that buffer. Each side gets its own undo unit. Drop-into-Find is still missing.
 
 ## Code
 
-- Buffer: `crates/buffer/src/lib.rs` — `drag_selection_to`
-- UI: `crates/app/src/ui.rs` — `handle_file_drops`, `SelTextDrag`, `finish_sel_text_drag`
+- Buffer: `crates/buffer/src/lib.rs` — `drag_selection_to` (same buffer)
+- UI: `crates/app/src/ui.rs` — `handle_file_drops`, `SelTextDrag` (`tab` + `drop_tab`), `finish_sel_text_drag`

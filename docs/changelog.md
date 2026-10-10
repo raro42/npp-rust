@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.204] — 2026-10-11
+
+Edit / View:
+
+- **Selection drag across dual view**: drag selected text from one pane into the other to move it (Ctrl/Cmd = copy). Orange drop caret follows the destination pane. Same-buffer drag is unchanged. Drop-into-Find still open.
+
 ## [0.3.203] — 2026-10-11
 
 View / Settings:

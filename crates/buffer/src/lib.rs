@@ -1635,6 +1635,28 @@ mod tests {
         assert_eq!(b.undo_len(), 0);
     }
 
+    /// Cross-buffer move uses public insert APIs (dual-view drop into other tab).
+    #[test]
+    fn drag_selection_cross_buffer_move() {
+        let mut src = TextBuffer::from_str("abcDEFghi");
+        let mut dest = TextBuffer::from_str("xyz");
+        src.set_selection(3, 6); // DEF
+        let (start, end) = src.selection().unwrap();
+        let text = src.slice(start, end);
+        let n = text.chars().count();
+        dest.set_caret(1);
+        dest.insert(&text);
+        let new_end = dest.caret();
+        dest.set_selection(new_end.saturating_sub(n), new_end);
+        src.set_selection(start, end);
+        src.insert("");
+        assert_eq!(src.to_string(), "abcghi");
+        assert_eq!(dest.to_string(), "xDEFyz");
+        assert_eq!(dest.selection(), Some((1, 4)));
+        assert_eq!(src.undo_len(), 1);
+        assert_eq!(dest.undo_len(), 1);
+    }
+
     #[test]
     fn rect_ranges_column_block() {
         let b = TextBuffer::from_str("abcd\nefgh\nijkl\n");

@@ -85,14 +85,14 @@ Hundreds of menu commands have **no** accelerator.
 
 ### Drag and drop of marked code?
 
-**Partial (v0.3.8).** Drag inside a selection moves text; Ctrl/Cmd+drag copies. Drop files on the window to open. Cross-document drag and drop-into-find are still missing.
+**Partial (v0.3.8; cross-pane v0.3.204).** Drag inside a selection moves text; Ctrl/Cmd+drag copies. Dual-view drag into the other pane moves/copies across tabs. Drop files on the window to open. Drop-into-Find is still missing.
 
 | Kind | Status |
 |------|--------|
 | Drag to select / double-click word / triple-click line | Done |
 | Tab drag-reorder | Done |
 | Document map click/drag scroll | Done | Compare colours + hunk-start ticks; Find match ticks; fold-header ticks + click toggle; selection wash + caret / multi-caret ticks; click parks hunk/match/caret; drag syncs partner when sync scroll on |
-| Drag selection to move or copy text | Done (same buffer; Ctrl/Cmd = copy) |
+| Drag selection to move or copy text | Done (same buffer + dual-view cross-pane; Ctrl/Cmd = copy) |
 | Drop files onto the window to open | Done |
 
 ---
@@ -202,5 +202,5 @@ See `docs/menu-todo.md`, `docs/whats-missing.md`. Refresh `docs/scope.md` when y
 npp-rs is a serious **early** editor with an N++ menu shell. It is **not** a 20-year feature clone.
 
 - **Hotkeys:** small hard-wired set — not all N++ keys.
-- **Drag marked code:** move/copy in same buffer (v0.3.8); no cross-doc drag yet.
+- **Drag marked code:** move/copy in same buffer (v0.3.8) + dual-view cross-pane (v0.3.204); drop-into-Find still open.
 - **Largest holes:** remappable keys, plugins ABI, UDL, hex, deeper fold/LSP.
