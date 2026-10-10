@@ -1160,6 +1160,48 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_DOC_MAP");
             }
         }
+        // Remappable Focus on Another View (default F6; settings.shortcut_focus_other_view).
+        // Shift + that chord swaps the active tab with the other view (header Switch).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FOCUS_OTHER_VIEW};
+            let focus_chord = resolve_chord(
+                &self.state.settings.shortcut_focus_other_view,
+                DEFAULT_FOCUS_OTHER_VIEW,
+            );
+            let focus_key_pressed = match focus_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if focus_key_pressed && focus_chord.matches_ignore_shift(mods, focus_chord.key) {
+                if mods.shift != focus_chord.shift {
+                    self.dual_view = true;
+                    self.switch_other_view_now();
+                } else {
+                    self.run_shortcut_cmd("IDM_VIEW_SWITCHTO_OTHER_VIEW");
+                }
+            }
+        }
         // Remappable new file (default Cmd+N; settings.shortcut_new).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_NEW};
@@ -3700,6 +3742,17 @@ impl EditorApp {
                             "Toggle the Document Map panel ({chord}; Preferences remappable)"
                         ))
                     }
+                    "IDM_VIEW_SWITCHTO_OTHER_VIEW" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_focus_other_view,
+                            crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW,
+                        );
+                        let focus = chord.display();
+                        let swap = chord.flipped_shift().display();
+                        response.on_hover_text(format!(
+                            "Toggle keyboard focus between dual-view panes ({focus}; Preferences remappable; {swap} swaps tabs)"
+                        ))
+                    }
                     "IDM_SEARCH_FINDINFILES" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_find_in_files,
@@ -4130,6 +4183,10 @@ impl EditorApp {
                 &s.shortcut_document_map,
                 crate::shortcut_chord::DEFAULT_DOCUMENT_MAP,
             ),
+            "IDM_VIEW_SWITCHTO_OTHER_VIEW" => primary(
+                &s.shortcut_focus_other_view,
+                crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW,
+            ),
             _ => return None,
         })
     }
@@ -4537,6 +4594,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_DOCUMENT_MAP,
         )
         .display();
+        let focus_other_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_focus_other_view,
+            crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW,
+        );
+        let focus_other_keys = format!(
+            "{} / {}",
+            focus_other_chord.display(),
+            focus_other_chord.flipped_shift().display()
+        );
         let find_in_files_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_find_in_files,
             crate::shortcut_chord::DEFAULT_FIND_IN_FILES,
@@ -4548,7 +4614,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 54] = [
+        let rows: [(&str, &str); 55] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -4625,6 +4691,7 @@ impl EditorApp {
             (matching_brace_keys.as_str(), "Matching brace / Select pair"),
             (log_tail_keys.as_str(), "Toggle log tail"),
             (document_map_keys.as_str(), "Toggle Document Map"),
+            (focus_other_keys.as_str(), "Focus other view / swap tabs"),
             (word_jump_keys.as_str(), "Word jump ← / →"),
             ("Double-click", "Select word"),
             (undo_keys.as_str(), "Undo / Redo"),
@@ -6636,6 +6703,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Shift+D, Ctrl+Alt+D. Toggles View → Document Map.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Focus other view shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_focus_other_view,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("F6"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_focus_other_view
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_focus_other_view =
+                                        crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_focus_other_view = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: F6, Ctrl+Alt+F6. Toggles View → Focus on Another View. Shift + that chord swaps tabs (header Switch).",
                             )
                             .small()
                             .weak(),
@@ -9110,10 +9213,32 @@ impl EditorApp {
                 .min_width(180.0)
                 .show(ctx, |ui| {
                     ui.horizontal(|ui| {
-                        ui.label(RichText::new(format!("Other view: {title}")).strong());
+                        let focus_bit = if self.focused_pane == EditorPane::Secondary {
+                            " · focused"
+                        } else {
+                            ""
+                        };
+                        ui.label(RichText::new(format!("Other view: {title}{focus_bit}")).strong());
+                        let focus_chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_focus_other_view,
+                            crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW,
+                        );
+                        if ui
+                            .small_button("Focus")
+                            .on_hover_text(format!(
+                                "Toggle keyboard focus ({}; Preferences remappable)",
+                                focus_chord.display()
+                            ))
+                            .clicked()
+                        {
+                            self.focus_other_view_now();
+                        }
                         if ui
                             .small_button("Switch")
-                            .on_hover_text("Swap with active tab")
+                            .on_hover_text(format!(
+                                "Swap with active tab ({})",
+                                focus_chord.flipped_shift().display()
+                            ))
                             .clicked()
                         {
                             self.switch_other_view_now();
@@ -10049,6 +10174,43 @@ impl EditorApp {
         }
     }
 
+    /// Toggle keyboard focus between primary and secondary panes (menu Focus on Another View).
+    fn focus_other_view_now(&mut self) {
+        self.dual_view = true;
+        self.ensure_other_view_tab();
+        let a = self.state.tabs.active_index();
+        let b = self.other_view_tab;
+        if a == b {
+            self.state.status = "Other view shows the same tab".into();
+            return;
+        }
+        self.focused_pane = match self.focused_pane {
+            EditorPane::Primary => EditorPane::Secondary,
+            EditorPane::Secondary => EditorPane::Primary,
+        };
+        let tab = self.focused_edit_tab();
+        let title = self
+            .state
+            .tabs
+            .get(tab)
+            .map(|d| d.title.clone())
+            .unwrap_or_else(|| "?".into());
+        let side = match self.focused_pane {
+            EditorPane::Primary => "primary",
+            EditorPane::Secondary => "other",
+        };
+        if self.compare_on {
+            let pane = match self.focused_pane {
+                EditorPane::Primary => "L",
+                EditorPane::Secondary => "R",
+            };
+            self.state.status = format!("Focused {side} view ({pane}): “{title}”");
+        } else {
+            self.state.status = format!("Focused {side} view: “{title}”");
+        }
+    }
+
+    /// Swap the active tab with the secondary pane (header Switch / Shift+focus chord).
     fn switch_other_view_now(&mut self) {
         self.dual_view = true;
         self.ensure_other_view_tab();
@@ -10060,6 +10222,7 @@ impl EditorApp {
         }
         self.state.tabs.set_active(b);
         self.other_view_tab = a;
+        self.focused_pane = EditorPane::Primary;
         self.state.highlight_dirty = true;
         std::mem::swap(&mut self.scroll_line, &mut self.scroll_line_other);
         if self.compare_on {
@@ -10074,7 +10237,8 @@ impl EditorApp {
                 &mut self.compare_hide_revealed_right,
             );
         }
-        self.state.status = "Switched to other view".into();
+        let title = self.state.tabs.active().title.clone();
+        self.state.status = format!("Swapped tabs — primary: “{title}”");
     }
 
     /// Remap dual-view / compare indices after tabs closed this frame.
@@ -10172,7 +10336,7 @@ impl EditorApp {
             }
         }
         if flags.switch_other_view {
-            self.switch_other_view_now();
+            self.focus_other_view_now();
         }
         if flags.clear_compare {
             self.clear_compare();

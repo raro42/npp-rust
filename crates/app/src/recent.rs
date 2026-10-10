@@ -316,6 +316,10 @@ fn default_shortcut_document_map() -> String {
     crate::shortcut_chord::DEFAULT_DOCUMENT_MAP.into()
 }
 
+fn default_shortcut_focus_other_view() -> String {
+    crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW.into()
+}
+
 fn default_shortcut_find_in_files() -> String {
     crate::shortcut_chord::DEFAULT_FIND_IN_FILES.into()
 }
@@ -620,6 +624,9 @@ pub struct AppSettings {
     /// Document Map toggle chord (`Cmd+Shift+D` default).
     #[serde(default = "default_shortcut_document_map")]
     pub shortcut_document_map: String,
+    /// Focus other dual-view pane chord (`F6` default; Shift swaps tabs).
+    #[serde(default = "default_shortcut_focus_other_view")]
+    pub shortcut_focus_other_view: String,
     /// Find in Files chord (`Cmd+Alt+F` default).
     #[serde(default = "default_shortcut_find_in_files")]
     pub shortcut_find_in_files: String,
@@ -734,6 +741,7 @@ impl Default for AppSettings {
             shortcut_zoom_restore: default_shortcut_zoom_restore(),
             shortcut_toggle_log_tail: default_shortcut_toggle_log_tail(),
             shortcut_document_map: default_shortcut_document_map(),
+            shortcut_focus_other_view: default_shortcut_focus_other_view(),
             shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             ollama_host: default_ollama_host(),
@@ -1111,6 +1119,7 @@ mod tests {
             shortcut_zoom_restore: "Ctrl+Alt+0".into(),
             shortcut_toggle_log_tail: "Ctrl+Alt+T".into(),
             shortcut_document_map: "Ctrl+Alt+Shift+D".into(),
+            shortcut_focus_other_view: "Ctrl+Alt+F6".into(),
             shortcut_find_in_files: "Alt+Shift+F".into(),
             ..Default::default()
         };
@@ -1189,6 +1198,7 @@ mod tests {
         assert_eq!(back.shortcut_zoom_restore, "Ctrl+Alt+0");
         assert_eq!(back.shortcut_toggle_log_tail, "Ctrl+Alt+T");
         assert_eq!(back.shortcut_document_map, "Ctrl+Alt+Shift+D");
+        assert_eq!(back.shortcut_focus_other_view, "Ctrl+Alt+F6");
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
     }
 

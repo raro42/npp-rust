@@ -160,6 +160,10 @@ pub const DEFAULT_TOGGLE_LOG_TAIL: &str = "Cmd+Shift+T";
 /// Default Document Map toggle binding (View → Document Map).
 pub const DEFAULT_DOCUMENT_MAP: &str = "Cmd+Shift+D";
 
+/// Default focus-other-view binding (View → Focus on Another View).
+/// Shift flips to swap the active tab with the other view (header Switch).
+pub const DEFAULT_FOCUS_OTHER_VIEW: &str = "F6";
+
 /// Default reload-from-disk binding (new remappable chord; File → Reload).
 pub const DEFAULT_RELOAD: &str = "Cmd+R";
 
@@ -369,6 +373,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "z" => Some(Key::Z),
         "f2" => Some(Key::F2),
         "f3" => Some(Key::F3),
+        "f6" => Some(Key::F6),
         "f7" => Some(Key::F7),
         "escape" | "esc" => Some(Key::Escape),
         "tab" => Some(Key::Tab),
@@ -416,6 +421,7 @@ fn key_token(key: Key) -> &'static str {
         Key::Z => "Z",
         Key::F2 => "F2",
         Key::F3 => "F3",
+        Key::F6 => "F6",
         Key::F7 => "F7",
         Key::Escape => "Escape",
         Key::Tab => "Tab",
@@ -1075,6 +1081,17 @@ mod tests {
         assert!(c.shift);
         assert_eq!(c.key, Key::D);
         assert_eq!(c.display(), "Cmd+Shift+D");
+    }
+
+    #[test]
+    fn parse_f6_default_focus_other_view() {
+        let c = parse_chord(DEFAULT_FOCUS_OTHER_VIEW).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F6);
+        assert_eq!(c.display(), "F6");
+        assert_eq!(c.flipped_shift().display(), "Shift+F6");
     }
 
     #[test]

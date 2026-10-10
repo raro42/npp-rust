@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.179] — 2026-10-10
+
+View / Compare:
+
+- **Focus on Another View** now toggles keyboard focus between dual-view panes (matches the menu label) instead of swapping tabs. Remappable (`shortcut_focus_other_view`, default F6). Shift + that chord swaps tabs (header Switch). Other-view header shows ` · focused` when that pane has focus, plus a Focus button. Status names the focused side (`primary` / `other`, or `L` / `R` while Compare is on).
+
 ## [0.3.178] — 2026-10-10
 
 View / Settings:

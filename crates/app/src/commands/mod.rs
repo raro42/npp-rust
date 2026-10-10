@@ -86,7 +86,7 @@ pub struct UiFlags {
     pub dual_view: Option<bool>,
     /// Put the active tab into the secondary pane.
     pub assign_other_view: bool,
-    /// Switch focus: swap active tab with the secondary pane tab.
+    /// Toggle keyboard focus between primary and secondary dual-view panes.
     pub switch_other_view: bool,
     /// Optional explicit secondary tab index (e.g. after clone).
     pub other_view_tab: Option<usize>,

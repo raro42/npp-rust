@@ -409,9 +409,10 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_VIEW_SWITCHTO_OTHER_VIEW" => {
+            // Menu is "Focus on Another View": toggle pane focus (not tab swap).
+            // Header Switch / Shift+chord still swap tabs via switch_other_view_now.
             ui.dual_view = Some(true);
             ui.switch_other_view = true;
-            state.status = "Switched to other view".into();
             CmdResult::Handled
         }
         "IDM_VIEW_CLONE_TO_ANOTHER_VIEW" => {
