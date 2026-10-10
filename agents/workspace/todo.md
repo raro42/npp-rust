@@ -309,3 +309,5 @@
 009 keep: remappable Multi-select Next / Skip (shortcut_multi_select_next, Cmd+Alt+N default, v0.3.201)
 
 009 keep: remappable Fullscreen (shortcut_fullscreen, F11 default, v0.3.202)
+
+009 keep: remappable Always on Top toggle (shortcut_always_on_top, Alt+T default, v0.3.203)
