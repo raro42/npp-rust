@@ -436,6 +436,10 @@ fn default_shortcut_show_line_numbers() -> String {
     crate::shortcut_chord::DEFAULT_SHOW_LINE_NUMBERS.into()
 }
 
+fn default_shortcut_show_fold_margin() -> String {
+    crate::shortcut_chord::DEFAULT_SHOW_FOLD_MARGIN.into()
+}
+
 fn default_shortcut_project_panel() -> String {
     crate::shortcut_chord::DEFAULT_PROJECT_PANEL.into()
 }
@@ -834,6 +838,9 @@ pub struct AppSettings {
     /// Show line numbers toggle chord (`Alt+L` default).
     #[serde(default = "default_shortcut_show_line_numbers")]
     pub shortcut_show_line_numbers: String,
+    /// Show fold margin toggle chord (`Alt+G` default).
+    #[serde(default = "default_shortcut_show_fold_margin")]
+    pub shortcut_show_fold_margin: String,
     /// Project panel toggle chord (`Alt+P` default).
     #[serde(default = "default_shortcut_project_panel")]
     pub shortcut_project_panel: String,
@@ -997,6 +1004,7 @@ impl Default for AppSettings {
             shortcut_sync_scroll: default_shortcut_sync_scroll(),
             shortcut_indent_guide: default_shortcut_indent_guide(),
             shortcut_show_line_numbers: default_shortcut_show_line_numbers(),
+            shortcut_show_fold_margin: default_shortcut_show_fold_margin(),
             shortcut_project_panel: default_shortcut_project_panel(),
             shortcut_pin_tab: default_shortcut_pin_tab(),
             shortcut_next_changed: default_shortcut_next_changed(),
@@ -1410,6 +1418,7 @@ mod tests {
             shortcut_sync_scroll: "Ctrl+Alt+Shift+Q".into(),
             shortcut_indent_guide: "Ctrl+Alt+Shift+I".into(),
             shortcut_show_line_numbers: "Ctrl+Alt+Shift+L".into(),
+            shortcut_show_fold_margin: "Ctrl+Alt+Shift+F".into(),
             shortcut_project_panel: "Ctrl+Alt+Shift+P".into(),
             shortcut_pin_tab: "Ctrl+Alt+Shift+G".into(),
             shortcut_next_changed: "Ctrl+F8".into(),
@@ -1521,6 +1530,7 @@ mod tests {
         assert_eq!(back.shortcut_sync_scroll, "Ctrl+Alt+Shift+Q");
         assert_eq!(back.shortcut_indent_guide, "Ctrl+Alt+Shift+I");
         assert_eq!(back.shortcut_show_line_numbers, "Ctrl+Alt+Shift+L");
+        assert_eq!(back.shortcut_show_fold_margin, "Ctrl+Alt+Shift+F");
         assert_eq!(back.shortcut_project_panel, "Ctrl+Alt+Shift+P");
         assert_eq!(back.shortcut_pin_tab, "Ctrl+Alt+Shift+G");
         assert_eq!(back.shortcut_next_changed, "Ctrl+F8");

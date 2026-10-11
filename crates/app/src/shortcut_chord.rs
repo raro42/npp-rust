@@ -264,6 +264,9 @@ pub const DEFAULT_INDENT_GUIDE: &str = "Alt+I";
 /// Default show-line-numbers toggle binding (View → Show Line Numbers).
 pub const DEFAULT_SHOW_LINE_NUMBERS: &str = "Alt+L";
 
+/// Default show-fold-margin toggle binding (View → Show Fold Margin).
+pub const DEFAULT_SHOW_FOLD_MARGIN: &str = "Alt+G";
+
 /// Default project-panel toggle binding (View → Project Panel).
 pub const DEFAULT_PROJECT_PANEL: &str = "Alt+P";
 
@@ -1452,6 +1455,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::L);
         assert_eq!(c.display(), "Alt+L");
+    }
+
+    #[test]
+    fn parse_alt_g_default_show_fold_margin() {
+        let c = parse_chord(DEFAULT_SHOW_FOLD_MARGIN).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::G);
+        assert_eq!(c.display(), "Alt+G");
     }
 
     #[test]

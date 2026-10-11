@@ -123,6 +123,19 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             );
             CmdResult::Handled
         }
+        "IDM_VIEW_FOLDMARGIN" => {
+            state.settings.show_fold_margin = !state.settings.show_fold_margin;
+            state.settings.save();
+            state.status = format!(
+                "Fold margin: {}",
+                if state.settings.show_fold_margin {
+                    "on"
+                } else {
+                    "off"
+                }
+            );
+            CmdResult::Handled
+        }
         "IDM_VIEW_WRAP_SYMBOL" => {
             // Used together with word wrap; toggle is recorded for UI.
             state.status = if state.word_wrap {

@@ -1646,6 +1646,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_LINENUMBER");
             }
         }
+        // Remappable show-fold-margin toggle (default Alt+G; settings.shortcut_show_fold_margin).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SHOW_FOLD_MARGIN};
+            let fm_chord = resolve_chord(
+                &self.state.settings.shortcut_show_fold_margin,
+                DEFAULT_SHOW_FOLD_MARGIN,
+            );
+            let fm_key_pressed = match fm_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if fm_key_pressed && fm_chord.matches(mods, fm_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_FOLDMARGIN");
+            }
+        }
         // Remappable project-panel toggle (default Alt+P; settings.shortcut_project_panel).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_PROJECT_PANEL};
@@ -5383,6 +5419,16 @@ impl EditorApp {
                             "Toggle line numbers ({chord}; Preferences remappable)"
                         ))
                     }
+                    "IDM_VIEW_FOLDMARGIN" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_show_fold_margin,
+                            crate::shortcut_chord::DEFAULT_SHOW_FOLD_MARGIN,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Toggle fold margin ({chord}; Preferences remappable)"
+                        ))
+                    }
                     "IDM_VIEW_PROJECT_PANEL_1"
                     | "IDM_VIEW_PROJECT_PANEL_2"
                     | "IDM_VIEW_PROJECT_PANEL_3" => {
@@ -5938,6 +5984,10 @@ impl EditorApp {
             "IDM_VIEW_LINENUMBER" => primary(
                 &s.shortcut_show_line_numbers,
                 crate::shortcut_chord::DEFAULT_SHOW_LINE_NUMBERS,
+            ),
+            "IDM_VIEW_FOLDMARGIN" => primary(
+                &s.shortcut_show_fold_margin,
+                crate::shortcut_chord::DEFAULT_SHOW_FOLD_MARGIN,
             ),
             "IDM_VIEW_PROJECT_PANEL_1"
             | "IDM_VIEW_PROJECT_PANEL_2"
@@ -6540,6 +6590,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_SHOW_LINE_NUMBERS,
         )
         .display();
+        let show_fold_margin_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_show_fold_margin,
+            crate::shortcut_chord::DEFAULT_SHOW_FOLD_MARGIN,
+        )
+        .display();
         let project_panel_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_project_panel,
             crate::shortcut_chord::DEFAULT_PROJECT_PANEL,
@@ -6588,7 +6643,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 86] = [
+        let rows: [(&str, &str); 87] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -6707,6 +6762,7 @@ impl EditorApp {
             ),
             (indent_guide_keys.as_str(), "Toggle indent guide"),
             (show_line_numbers_keys.as_str(), "Toggle line numbers"),
+            (show_fold_margin_keys.as_str(), "Toggle fold margin"),
             (project_panel_keys.as_str(), "Toggle project panel"),
             (pin_tab_keys.as_str(), "Pin / unpin tab"),
             (focus_other_keys.as_str(), "Focus other view / swap tabs"),
@@ -9764,6 +9820,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+L, Ctrl+Alt+L. Toggles View → Show Line Numbers (gutter).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Show fold margin shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_show_fold_margin,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+G"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_show_fold_margin
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_show_fold_margin =
+                                        crate::shortcut_chord::DEFAULT_SHOW_FOLD_MARGIN.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SHOW_FOLD_MARGIN
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_show_fold_margin = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+G, Ctrl+Alt+G. Toggles View → Show Fold Margin (−/+ gutter).",
                             )
                             .small()
                             .weak(),

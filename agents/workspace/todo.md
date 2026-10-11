@@ -341,3 +341,5 @@
 009 keep: remappable Show Line Numbers (shortcut_show_line_numbers, Alt+L default, v0.3.218)
 
 009 keep: session restore caret + active tab (@caret / @active, v0.3.219)
+
+009 keep: remappable Show Fold Margin (shortcut_show_fold_margin, Alt+G default, v0.3.220)

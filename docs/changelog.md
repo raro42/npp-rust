@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.220] — 2026-10-11
+
+View / Settings:
+
+- **Show Fold Margin** is remappable (`shortcut_show_fold_margin`, default Alt+G). View → Show Symbol → Show Fold Margin, Preferences, Shortcut Mapper, and About show the effective binding. Persists via `show_fold_margin` as before.
+
 ## [0.3.219] — 2026-10-11
 
 File / Session:

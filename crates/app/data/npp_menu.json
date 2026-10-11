@@ -1548,6 +1548,12 @@
           },
           {
             "kind": "item",
+            "label": "Show Fold Margin",
+            "raw_label": "Show Fold Margin",
+            "cmd": "IDM_VIEW_FOLDMARGIN"
+          },
+          {
+            "kind": "item",
             "label": "Show Wrap Symbol",
             "raw_label": "Show Wrap Symbol",
             "cmd": "IDM_VIEW_WRAP_SYMBOL"
