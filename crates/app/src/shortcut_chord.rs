@@ -242,6 +242,10 @@ pub const DEFAULT_INDENT_GUIDE: &str = "Alt+I";
 /// Default project-panel toggle binding (View → Project Panel).
 pub const DEFAULT_PROJECT_PANEL: &str = "Alt+P";
 
+/// Default pin-tab toggle binding (tab chrome / `IDM_PINTAB`).
+/// Uses Alt+Shift+P so it does not collide with Project Panel (Alt+P).
+pub const DEFAULT_PIN_TAB: &str = "Alt+Shift+P";
+
 /// Default reload-from-disk binding (new remappable chord; File → Reload).
 pub const DEFAULT_RELOAD: &str = "Cmd+R";
 
@@ -1357,6 +1361,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::P);
         assert_eq!(c.display(), "Alt+P");
+    }
+
+    #[test]
+    fn parse_alt_shift_p_default_pin_tab() {
+        let c = parse_chord(DEFAULT_PIN_TAB).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::P);
+        assert_eq!(c.display(), "Alt+Shift+P");
     }
 
     #[test]

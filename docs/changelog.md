@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.210] — 2026-10-11
+
+File / Settings:
+
+- **Pin tab** is remappable (`shortcut_pin_tab`, default Alt+Shift+P). Toggles the active tab pin (`IDM_PINTAB`). Tab chrome, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.209] — 2026-10-11
 
 View / Settings:

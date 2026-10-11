@@ -322,3 +322,5 @@
 009 keep: remappable Indent Guide (v0.3.208)
 
 009 keep: remappable Project Panel toggle (shortcut_project_panel, Alt+P default, v0.3.209)
+
+009 keep: remappable Pin Tab (shortcut_pin_tab, Alt+Shift+P default, v0.3.210)

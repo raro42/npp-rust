@@ -23,6 +23,8 @@ That ID is not in the export menu JSON.
 | `IDM_PINTAB` (any `*PIN*` that is not Close All but Pinned) | `toggle_active_pin` on the active tab |
 | `IDM_FILE_CLOSEALL_BUT_PINNED` | Close unpinned tabs; clear status if none pinned |
 
+Remappable chord: Preferences / `shortcut_pin_tab` (default Alt+Shift+P). Tab chrome pin button and context menu show the effective binding.
+
 Status examples:
 
 - `Pinned tab: …` / `Unpinned tab: …`
