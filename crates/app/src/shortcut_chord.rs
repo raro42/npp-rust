@@ -231,6 +231,10 @@ pub const DEFAULT_FOCUS_OTHER_VIEW: &str = "F6";
 /// Shift flips to Clone to Other View.
 pub const DEFAULT_MOVE_OTHER_VIEW: &str = "Alt+O";
 
+/// Default RTL text-direction binding (Edit → RTL).
+/// Shift flips to LTR.
+pub const DEFAULT_RTL: &str = "Alt+R";
+
 /// Default fullscreen toggle binding (View → Toggle Full Screen Mode).
 pub const DEFAULT_FULLSCREEN: &str = "F11";
 
@@ -1331,6 +1335,17 @@ mod tests {
         assert_eq!(c.key, Key::O);
         assert_eq!(c.display(), "Alt+O");
         assert_eq!(c.flipped_shift().display(), "Alt+Shift+O");
+    }
+
+    #[test]
+    fn parse_alt_r_default_rtl() {
+        let c = parse_chord(DEFAULT_RTL).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::R);
+        assert_eq!(c.display(), "Alt+R");
+        assert_eq!(c.flipped_shift().display(), "Alt+Shift+R");
     }
 
     #[test]

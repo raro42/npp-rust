@@ -396,6 +396,10 @@ fn default_shortcut_move_other_view() -> String {
     crate::shortcut_chord::DEFAULT_MOVE_OTHER_VIEW.into()
 }
 
+fn default_shortcut_rtl() -> String {
+    crate::shortcut_chord::DEFAULT_RTL.into()
+}
+
 fn default_shortcut_fullscreen() -> String {
     crate::shortcut_chord::DEFAULT_FULLSCREEN.into()
 }
@@ -796,6 +800,9 @@ pub struct AppSettings {
     /// Move current document to other view chord (`Alt+O` default; Shift clones).
     #[serde(default = "default_shortcut_move_other_view")]
     pub shortcut_move_other_view: String,
+    /// RTL text-direction chord (`Alt+R` default; Shift flips to LTR).
+    #[serde(default = "default_shortcut_rtl")]
+    pub shortcut_rtl: String,
     /// Fullscreen toggle chord (`F11` default).
     #[serde(default = "default_shortcut_fullscreen")]
     pub shortcut_fullscreen: String,
@@ -973,6 +980,7 @@ impl Default for AppSettings {
             shortcut_document_map: default_shortcut_document_map(),
             shortcut_focus_other_view: default_shortcut_focus_other_view(),
             shortcut_move_other_view: default_shortcut_move_other_view(),
+            shortcut_rtl: default_shortcut_rtl(),
             shortcut_fullscreen: default_shortcut_fullscreen(),
             shortcut_postit: default_shortcut_postit(),
             shortcut_always_on_top: default_shortcut_always_on_top(),
@@ -1384,6 +1392,7 @@ mod tests {
             shortcut_document_map: "Ctrl+Alt+Shift+D".into(),
             shortcut_focus_other_view: "Ctrl+Alt+F6".into(),
             shortcut_move_other_view: "Ctrl+Alt+Shift+O".into(),
+            shortcut_rtl: "Ctrl+Alt+R".into(),
             shortcut_fullscreen: "Ctrl+Alt+F11".into(),
             shortcut_postit: "Ctrl+Alt+F12".into(),
             shortcut_always_on_top: "Ctrl+Alt+Shift+T".into(),
@@ -1493,6 +1502,7 @@ mod tests {
         assert_eq!(back.shortcut_document_map, "Ctrl+Alt+Shift+D");
         assert_eq!(back.shortcut_focus_other_view, "Ctrl+Alt+F6");
         assert_eq!(back.shortcut_move_other_view, "Ctrl+Alt+Shift+O");
+        assert_eq!(back.shortcut_rtl, "Ctrl+Alt+R");
         assert_eq!(back.shortcut_fullscreen, "Ctrl+Alt+F11");
         assert_eq!(back.shortcut_postit, "Ctrl+Alt+F12");
         assert_eq!(back.shortcut_always_on_top, "Ctrl+Alt+Shift+T");

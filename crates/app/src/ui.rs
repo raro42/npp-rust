@@ -1744,6 +1744,44 @@ impl EditorApp {
                 }
             }
         }
+        // Remappable RTL / LTR (default Alt+R; settings.shortcut_rtl).
+        // Shift + that chord sets LTR.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_RTL};
+            let rtl_chord = resolve_chord(&self.state.settings.shortcut_rtl, DEFAULT_RTL);
+            let rtl_key_pressed = match rtl_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if rtl_key_pressed && rtl_chord.matches_ignore_shift(mods, rtl_chord.key) {
+                if mods.shift != rtl_chord.shift {
+                    self.run_shortcut_cmd("IDM_EDIT_LTR");
+                } else {
+                    self.run_shortcut_cmd("IDM_EDIT_RTL");
+                }
+            }
+        }
         // Remappable new file (default Cmd+N; settings.shortcut_new).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_NEW};
@@ -5155,6 +5193,28 @@ impl EditorApp {
                             "Clone document to other view ({clone}; Preferences remappable; {move_keys} moves)"
                         ))
                     }
+                    "IDM_EDIT_RTL" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_rtl,
+                            crate::shortcut_chord::DEFAULT_RTL,
+                        );
+                        let rtl = chord.display();
+                        let ltr = chord.flipped_shift().display();
+                        response.on_hover_text(format!(
+                            "Right-to-left text ({rtl}; Preferences remappable; {ltr} = LTR)"
+                        ))
+                    }
+                    "IDM_EDIT_LTR" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_rtl,
+                            crate::shortcut_chord::DEFAULT_RTL,
+                        );
+                        let ltr = chord.flipped_shift().display();
+                        let rtl = chord.display();
+                        response.on_hover_text(format!(
+                            "Left-to-right text ({ltr}; Preferences remappable; {rtl} = RTL)"
+                        ))
+                    }
                     "IDM_VIEW_FULLSCREENTOGGLE" | "IDM_VIEW_DISTRACTIONFREE" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_fullscreen,
@@ -5772,6 +5832,8 @@ impl EditorApp {
                 &s.shortcut_move_other_view,
                 crate::shortcut_chord::DEFAULT_MOVE_OTHER_VIEW,
             ),
+            "IDM_EDIT_RTL" => primary(&s.shortcut_rtl, crate::shortcut_chord::DEFAULT_RTL),
+            "IDM_EDIT_LTR" => shifted(&s.shortcut_rtl, crate::shortcut_chord::DEFAULT_RTL),
             "IDM_VIEW_FULLSCREENTOGGLE" | "IDM_VIEW_DISTRACTIONFREE" => primary(
                 &s.shortcut_fullscreen,
                 crate::shortcut_chord::DEFAULT_FULLSCREEN,
@@ -6433,6 +6495,15 @@ impl EditorApp {
             move_other_chord.display(),
             move_other_chord.flipped_shift().display()
         );
+        let rtl_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_rtl,
+            crate::shortcut_chord::DEFAULT_RTL,
+        );
+        let rtl_keys = format!(
+            "{} / {}",
+            rtl_chord.display(),
+            rtl_chord.flipped_shift().display()
+        );
         let find_in_files_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_find_in_files,
             crate::shortcut_chord::DEFAULT_FIND_IN_FILES,
@@ -6444,7 +6515,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 84] = [
+        let rows: [(&str, &str); 85] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -6566,6 +6637,7 @@ impl EditorApp {
             (pin_tab_keys.as_str(), "Pin / unpin tab"),
             (focus_other_keys.as_str(), "Focus other view / swap tabs"),
             (move_other_keys.as_str(), "Move / clone to other view"),
+            (rtl_keys.as_str(), "RTL / LTR text direction"),
             (word_jump_keys.as_str(), "Word jump ← / →"),
             ("Double-click", "Select word"),
             (undo_keys.as_str(), "Undo / Redo"),
@@ -9265,6 +9337,35 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+O, Ctrl+Alt+O. Moves View → Move Current Document to Other View. Shift + that chord clones to other view.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("RTL / LTR shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(&mut self.state.settings.shortcut_rtl)
+                                    .desired_width(140.0)
+                                    .hint_text("Alt+R"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_rtl.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_rtl =
+                                        crate::shortcut_chord::DEFAULT_RTL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_RTL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_rtl = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+R, Ctrl+Alt+R. Sets Edit → RTL. Shift + that chord sets LTR.",
                             )
                             .small()
                             .weak(),

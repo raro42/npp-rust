@@ -113,6 +113,7 @@ New keys:
 | `shortcut_sync_scroll` | Sync vertical scroll toggle chord (`Alt+Q` default; Shift flips to Sync H) |
 | `shortcut_focus_other_view` | Focus other dual-view pane chord (`F6` default; Shift swaps tabs) |
 | `shortcut_move_other_view` | Move / clone to other view chord (`Alt+O` default; Shift clones) |
+| `shortcut_rtl` | RTL text-direction chord (`Alt+R` default; Shift flips to LTR) |
 | `shortcut_reload` | Reload-from-disk chord (`Cmd+R` default) |
 | `ollama_host` | Local Ollama base URL (loopback only; default `http://127.0.0.1:11434`) |
 | `ollama_model` | Model for Plugins → Ask Ollama (default `llama3.2`) |

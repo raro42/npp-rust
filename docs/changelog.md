@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.217] — 2026-10-11
+
+Edit / Settings:
+
+- **RTL / LTR** is remappable (`shortcut_rtl`, default Alt+R). Shift + that chord sets LTR. Menu, Preferences, Shortcut Mapper, and About show the effective binding. Persists via `text_rtl` as before.
+
 ## [0.3.216] — 2026-10-11
 
 View / Settings:
