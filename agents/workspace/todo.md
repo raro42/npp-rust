@@ -318,3 +318,5 @@
 
 009 keep: drop selection into Replace field (v0.3.206)
 009 keep: remappable Show All Characters (v0.3.207)
+
+009 keep: remappable Indent Guide (v0.3.208)
