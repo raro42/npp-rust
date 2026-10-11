@@ -332,3 +332,5 @@
 009 keep: remappable Show NPC (shortcut_show_npc, Alt+N default, v0.3.213)
 
 009 keep: remappable Post-It (shortcut_postit, F12 default, v0.3.214)
+---
+009 keep: dual-view other pane syntax colours (v0.3.215)

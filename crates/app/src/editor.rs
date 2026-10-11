@@ -40,6 +40,14 @@ pub struct EditorState {
     pub highlight_dirty: bool,
     /// Line range covered by `highlight_cache` (start inclusive, end exclusive).
     pub highlight_cover: (usize, usize),
+    /// Cached highlight spans for the dual-view other pane tab.
+    pub highlight_cache_other: Vec<highlight::Span>,
+    pub highlight_lang_other: String,
+    pub highlight_dirty_other: bool,
+    /// Line range covered by `highlight_cache_other` (start inclusive, end exclusive).
+    pub highlight_cover_other: (usize, usize),
+    /// Tab index that `highlight_cache_other` was built for (`None` = empty).
+    pub highlight_tab_other: Option<usize>,
     pub recent: RecentFiles,
     pub settings: AppSettings,
     /// After opening `*.log`, UI may show the tail prompt.
@@ -150,6 +158,11 @@ impl EditorState {
             highlight_lang: String::new(),
             highlight_dirty: true,
             highlight_cover: (0, 0),
+            highlight_cache_other: Vec::new(),
+            highlight_lang_other: String::new(),
+            highlight_dirty_other: true,
+            highlight_cover_other: (0, 0),
+            highlight_tab_other: None,
             recent: RecentFiles::load_limited(settings.recent_limit()),
             settings,
             pending_log_tail_prompt: false,
@@ -262,6 +275,9 @@ impl EditorState {
         if tab == self.tabs.active_index() {
             self.highlight_dirty = true;
         }
+        if self.highlight_tab_other == Some(tab) {
+            self.highlight_dirty_other = true;
+        }
         self.compare_stale = true;
     }
 
@@ -288,30 +304,104 @@ impl EditorState {
     /// Small files: whole buffer. Large files: capped byte window near the viewport.
     /// Scroll outside the covered inner range triggers a new pass without an edit.
     pub fn refresh_highlight_if_needed(&mut self, view_first_line: usize) {
+        let tab = self.tabs.active_index();
+        if let Some((spans, lang, cover)) = self.build_highlight_window(
+            tab,
+            view_first_line,
+            self.highlight_dirty,
+            self.highlight_cover,
+        ) {
+            self.highlight_cache = spans;
+            self.highlight_lang = lang;
+            self.highlight_cover = cover;
+            self.highlight_dirty = false;
+        }
+    }
+
+    /// Recompute syntax spans for the dual-view other pane tab around its scroll line.
+    pub fn refresh_highlight_other_if_needed(&mut self, tab: usize, view_first_line: usize) {
+        if self.tabs.get(tab).is_none() {
+            self.highlight_cache_other.clear();
+            self.highlight_lang_other.clear();
+            self.highlight_cover_other = (0, 0);
+            self.highlight_tab_other = None;
+            self.highlight_dirty_other = true;
+            return;
+        }
+        let dirty = self.highlight_dirty_other || self.highlight_tab_other != Some(tab);
+        if let Some((spans, lang, cover)) =
+            self.build_highlight_window(tab, view_first_line, dirty, self.highlight_cover_other)
+        {
+            self.highlight_cache_other = spans;
+            self.highlight_lang_other = lang;
+            self.highlight_cover_other = cover;
+            self.highlight_tab_other = Some(tab);
+            self.highlight_dirty_other = false;
+        }
+    }
+
+    /// Remap the other-pane highlight tab after a tab drag-reorder.
+    pub fn remap_highlight_tab_other(&mut self, from: usize, to: usize) {
+        if let Some(t) = self.highlight_tab_other {
+            let new_t = doc::TabSet::remap_index(t, from, to);
+            if new_t != t {
+                self.highlight_tab_other = Some(new_t);
+                self.highlight_dirty_other = true;
+            }
+        }
+    }
+
+    /// Drop other-pane highlight when its tab is closed (`closed` = pre-close index).
+    pub fn on_tab_closed_highlight_other(&mut self, closed: usize) {
+        match self.highlight_tab_other {
+            Some(t) if t == closed => {
+                self.highlight_cache_other.clear();
+                self.highlight_lang_other.clear();
+                self.highlight_cover_other = (0, 0);
+                self.highlight_tab_other = None;
+                self.highlight_dirty_other = true;
+            }
+            Some(t) if t > closed => {
+                self.highlight_tab_other = Some(t - 1);
+                self.highlight_dirty_other = true;
+            }
+            _ => {}
+        }
+    }
+
+    /// Build a viewport highlight window for `tab`, or `None` when the existing cover is fine.
+    fn build_highlight_window(
+        &mut self,
+        tab: usize,
+        view_first_line: usize,
+        dirty: bool,
+        cover: (usize, usize),
+    ) -> Option<(Vec<highlight::Span>, String, (usize, usize))> {
         const WINDOW_BYTES: usize = 512 * 1024;
         const MARGIN_LINES: usize = 64;
         const AHEAD_LINES: usize = 96;
 
-        let line_count = self.tabs.active().buffer.line_count().max(1);
-        let view = view_first_line.min(line_count.saturating_sub(1));
+        let (lang, line_count, start_char, start_line, end_line, slice) = {
+            let doc = self.tabs.get(tab)?;
+            let line_count = doc.buffer.line_count().max(1);
+            let view = view_first_line.min(line_count.saturating_sub(1));
 
-        if !self.highlight_dirty {
-            let (lo, hi) = self.highlight_cover;
-            if lo == 0 && hi >= line_count {
-                return;
+            if !dirty {
+                let (lo, hi) = cover;
+                if lo == 0 && hi >= line_count {
+                    return None;
+                }
+                let inner_lo = lo.saturating_add(MARGIN_LINES / 2);
+                let inner_hi = hi.saturating_sub(MARGIN_LINES / 2).max(inner_lo);
+                if view >= inner_lo && view < inner_hi {
+                    return None;
+                }
             }
-            let inner_lo = lo.saturating_add(MARGIN_LINES / 2);
-            let inner_hi = hi.saturating_sub(MARGIN_LINES / 2).max(inner_lo);
-            if view >= inner_lo && view < inner_hi {
-                return;
-            }
-        }
 
-        let lang = self.tabs.active().language.clone();
-        let start_line = view.saturating_sub(MARGIN_LINES);
-        let min_end = (view + AHEAD_LINES).min(line_count);
-        let (start_char, end_line, slice) = {
-            let buf = &self.tabs.active().buffer;
+            let lang = doc.language.clone();
+            let start_line = view.saturating_sub(MARGIN_LINES);
+            let min_end = (view + AHEAD_LINES).min(line_count);
+            let buf = &doc.buffer;
             let start_char = buf.line_to_char(start_line);
             let mut end_line = start_line;
             let mut nbytes = 0usize;
@@ -331,7 +421,8 @@ impl EditorState {
             } else {
                 buf.line_to_char(end_line)
             };
-            (start_char, end_line, buf.slice(start_char, end_char))
+            let slice = buf.slice(start_char, end_char);
+            (lang, line_count, start_char, start_line, end_line, slice)
         };
 
         let mut spans = self
@@ -344,10 +435,7 @@ impl EditorState {
                 s.end += start_char;
             }
         }
-        self.highlight_cache = spans;
-        self.highlight_lang = lang;
-        self.highlight_cover = (start_line, end_line.min(line_count));
-        self.highlight_dirty = false;
+        Some((spans, lang, (start_line, end_line.min(line_count))))
     }
 
     pub fn new_file(&mut self) {
@@ -1536,6 +1624,9 @@ impl EditorState {
     pub fn set_language(&mut self, lang: &str) {
         self.tabs.active_mut().language = lang.to_string();
         self.highlight_dirty = true;
+        if self.highlight_tab_other == Some(self.tabs.active_index()) {
+            self.highlight_dirty_other = true;
+        }
         self.status = format!("Language: {lang}");
     }
 
@@ -2638,6 +2729,35 @@ mod tests {
         assert!(state.tabs.get(other).unwrap().dirty);
         assert!(!state.tabs.active().dirty);
         assert!(!state.highlight_dirty);
+    }
+
+    #[test]
+    fn other_pane_highlight_tracks_tab_and_edits() {
+        let mut state = EditorState::new();
+        state.tabs.open_untitled();
+        let other = state.tabs.len() - 1;
+        state.tabs.set_active(0);
+        {
+            let doc = state.tabs.get_mut(other).unwrap();
+            doc.buffer = buffer::TextBuffer::from_str("fn hello() {}\n");
+            doc.language = "rust".into();
+        }
+        state.highlight_dirty = false;
+        state.refresh_highlight_other_if_needed(other, 0);
+        assert_eq!(state.highlight_tab_other, Some(other));
+        assert!(!state.highlight_dirty_other);
+        assert!(
+            !state.highlight_cache_other.is_empty(),
+            "rust other-pane window should produce spans"
+        );
+        if let Some(doc) = state.tabs.get_mut(other) {
+            doc.buffer.insert(" ");
+        }
+        state.mark_text_changed_at(other);
+        assert!(state.highlight_dirty_other);
+        assert!(!state.highlight_dirty);
+        state.refresh_highlight_other_if_needed(other, 0);
+        assert!(!state.highlight_dirty_other);
     }
 
     #[test]

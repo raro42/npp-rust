@@ -31,7 +31,6 @@ UI passes `scroll_line` from `ui.rs`.
 
 ## Leftover limits
 
-- Window is line-based from primary scroll only (not dual-view other pane).
+- Dual-view other pane uses `refresh_highlight_other_if_needed` with its own cache / cover / dirty flag (scroll from the other pane, or primary scroll when sync H/V is on).
 - Hidden-fold display rows vs buffer lines: cover uses buffer line indices via `scroll_line` on the visible row list (same as paint).
 - Tree-sitter still parses the window string each dirty pass (no incremental parse).
-- Secondary dual-view pane does not keep its own highlight cache.

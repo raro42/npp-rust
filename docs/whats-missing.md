@@ -13,7 +13,7 @@ Handlers that work but stay shallower than upstream N++:
 
 | Area | Gap |
 |------|-----|
-| View | Dual view: both panes writable; focused-pane Edit; Focus on Another View (F6 remappable) toggles pane focus / Shift swaps tabs. Project panel = folder list + refresh/reveal (not N++ projects) |
+| View | Dual view: both panes writable + syntax colours; focused-pane Edit; Focus on Another View (F6 remappable) toggles pane focus / Shift swaps tabs. Project panel = folder list + refresh/reveal (not N++ projects) |
 | Edit | Shift+Up/Down and Shift+PageUp/PageDown extend selection (with Left/Right, word jump, Home/End). RTL/LTR: editor line anchors + status cue + `text_rtl` persistence; full bidi / UI chrome mirror still open |
 | Encoding | ANSI / UTF-8 / UTF-8-BOM / UTF-16 LE-BE per-tab save. Open detects UTF-16 without a BOM when most units have a zero high byte. Unmapped chars → `?` on ANSI save |
 | Search | Change History: amber/green gutter bars + wash; Document Map right-side ticks + click park; Document Map Find match ticks + click select; Document Map fold-header ticks + click toggle; Document Map selection wash + caret / multi-caret ticks + click park; Document Map viewport band sized to editor page; next/prev remappable (F8); undo remap; CHG status. Find has case/word + match count + in-selection (multi-line auto-arm) + wrap + linear-time regex + `$n` / `\n` replace. Find in Files uses the same **Re** toggle (linear-time) + remappable chord (`shortcut_find_in_files`); not full N++ FIF dialog |

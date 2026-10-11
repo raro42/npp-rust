@@ -11699,6 +11699,7 @@ impl EditorApp {
         if let Some(p) = self.compare_partner_tab {
             self.compare_partner_tab = Some(TabSet::remap_index(p, from, to));
         }
+        self.state.remap_highlight_tab_other(from, to);
     }
 
     fn seed_find_from_selection(&mut self) {
@@ -12022,6 +12023,17 @@ impl EditorApp {
         self.apply_closed_tab_indices();
         self.clamp_other_view_tab();
         self.sync_compare_panes();
+        if self.dual_view {
+            let other_scroll = if self.sync_scroll_v || self.sync_scroll_h {
+                self.scroll_line
+            } else {
+                self.scroll_line_other
+            };
+            self.state.refresh_highlight_other_if_needed(
+                self.other_view_tab,
+                other_scroll.floor() as usize,
+            );
+        }
 
         if self.dual_view {
             let title = self
@@ -13109,6 +13121,7 @@ impl EditorApp {
     }
 
     fn after_tab_closed(&mut self, closed: usize) {
+        self.state.on_tab_closed_highlight_other(closed);
         match self.compare_partner_tab {
             Some(p) if p == closed => self.compare_partner_tab = None,
             Some(p) => self.compare_partner_tab = index_after_tab_close(p, closed),
@@ -16085,7 +16098,8 @@ impl EditorApp {
 
         let first_row = scroll_line.floor() as usize;
         let last_row = (first_row + visible_rows + 2).min(display_count);
-        let plain = theme.plain_fg;
+        let hl_other = &self.state.highlight_cache_other;
+        let lang_other = self.state.highlight_lang_other.clone();
         let (changed_unsaved, changed_saved, fold_lang) = self
             .state
             .tabs
@@ -16214,12 +16228,23 @@ impl EditorApp {
                 }
             }
 
-            let Some(doc) = self.state.tabs.get(tab) else {
-                break;
+            let (line_start, line_text, primary_sel, multi, caret) = match self.state.tabs.get(tab)
+            {
+                Some(doc) => {
+                    let line_start = doc.buffer.line_to_char(line_idx);
+                    let raw = doc.buffer.line(line_idx);
+                    let line_text = raw.trim_end_matches(['\n', '\r']).to_string();
+                    (
+                        line_start,
+                        line_text,
+                        doc.buffer.selection(),
+                        doc.multi_sels.clone(),
+                        doc.buffer.caret(),
+                    )
+                }
+                None => break,
             };
-            let line_start = doc.buffer.line_to_char(line_idx);
-            let raw = doc.buffer.line(line_idx);
-            let line_text = raw.trim_end_matches(['\n', '\r']);
+            let line_text = line_text.as_str();
             if self.compare_on {
                 if let Some(kind) = self.compare_right_tags.get(line_idx) {
                     if let Some(bg) = crate::diff::line_kind_inline_bg(*kind) {
@@ -16240,8 +16265,6 @@ impl EditorApp {
                     }
                 }
             }
-            let primary_sel = doc.buffer.selection();
-            let multi = doc.multi_sels.clone();
 
             if let Some((sel_s, sel_e)) = primary_sel {
                 let line_end = line_start + line_text.chars().count();
@@ -16321,15 +16344,20 @@ impl EditorApp {
                 }
             }
 
-            painter.text(
-                Pos2::new(text_left, y),
-                egui::Align2::LEFT_TOP,
+            paint_line_text(
+                &painter,
+                ui,
+                &font_id,
+                text_left,
+                y,
                 line_text,
-                font_id.clone(),
-                plain,
+                line_start,
+                hl_other,
+                &lang_other,
+                &theme,
+                crate::commands::edit::text_is_rtl(),
             );
 
-            let caret = doc.buffer.caret();
             let line_end = line_start + line_text.chars().count();
             if caret >= line_start && caret <= line_end {
                 let blink_on = if self.state.settings.caret_blink {

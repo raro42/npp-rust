@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.215] — 2026-10-11
+
+View:
+
+- **Dual-view other pane** paints Tree-sitter syntax colours (same viewport window as the primary pane). Edits on that tab refresh its own highlight cache; tab close / reorder remaps the cache.
+
 ## [0.3.214] — 2026-10-11
 
 View / Settings:

@@ -14,7 +14,7 @@ Date: 2026-08-29
 
 ## Limits
 
-- The other pane paints plain text (no syntax colours yet).
+- The other pane keeps its own viewport highlight cache (same 512 KiB window rules as the primary pane).
 
 ## Code
 
