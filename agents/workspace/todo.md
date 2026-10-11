@@ -347,3 +347,5 @@
 009 keep: session restore bookmarks (@bookmarks, v0.3.221)
 
 009 keep: session restore pin (@pin, v0.3.222)
+
+009 keep: session restore language (@lang, v0.3.223)
