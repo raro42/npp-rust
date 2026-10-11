@@ -356,3 +356,5 @@
 
 009 keep: session restore scroll (@scroll active tab, v0.3.226)
 009 keep: per-tab session @scroll + tab-switch viewport (v0.3.227)
+
+009 keep: session restore tab colour (@colour / @color 1..=5, v0.3.228)

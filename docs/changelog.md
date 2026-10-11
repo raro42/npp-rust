@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.228] — 2026-10-12
+
+File / Session:
+
+- Opt-in session restore now keeps **tab colour** (`@colour N`, alias `@color N`, 1..=5) in `npp-rs/session.txt`, in addition to paths, `@folds`, `@bookmarks`, `@caret`, `@scroll`, `@lang`, `@encoding`, `@readonly`, `@pin`, and `@active`. View → Tab colour survives relaunch. Older session files still load.
+
 ## [0.3.227] — 2026-10-12
 
 File / Session:

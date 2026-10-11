@@ -1818,7 +1818,7 @@ impl EditorState {
         let _ = self.write_session_entries();
     }
 
-    /// Open paths from the config-dir session file (folds, bookmarks, caret, scroll, language, encoding, read-only, pin, active tab).
+    /// Open paths from the config-dir session file (folds, bookmarks, caret, scroll, language, encoding, read-only, pin, colour, active tab).
     pub fn restore_session_from_disk(&mut self) {
         let entries = crate::session::load_entries();
         if entries.is_empty() {
@@ -1838,6 +1838,7 @@ impl EditorState {
         let mut encodings = 0usize;
         let mut read_onlys = 0usize;
         let mut pins = 0usize;
+        let mut colours = 0usize;
         let mut active_path: Option<PathBuf> = None;
         let mut active_scroll: Option<usize> = None;
         for entry in entries {
@@ -1850,6 +1851,7 @@ impl EditorState {
             let encoding = entry.encoding;
             let want_readonly = entry.read_only;
             let want_pin = entry.pinned;
+            let want_colour = entry.tab_colour;
             let want_active = entry.active;
             self.open_path(path.clone());
             n += 1;
@@ -1919,6 +1921,14 @@ impl EditorState {
                     }
                 }
             }
+            if let Some(n) = want_colour {
+                if let Some(doc) = self.tabs.get_mut(idx) {
+                    if doc.tab_colour != Some(n) {
+                        doc.tab_colour = Some(n);
+                        colours += 1;
+                    }
+                }
+            }
             if want_active {
                 active_path = Some(path);
                 active_scroll = scroll;
@@ -1985,6 +1995,9 @@ impl EditorState {
         if pins > 0 {
             bits.push_str(&format!(", {pins} pin(s)"));
         }
+        if colours > 0 {
+            bits.push_str(&format!(", {colours} colour(s)"));
+        }
         self.status = bits;
     }
 
@@ -2022,6 +2035,7 @@ impl EditorState {
                 let encoding = Some(d.encoding);
                 let read_only = d.read_only;
                 let pinned = d.pinned;
+                let tab_colour = d.tab_colour.filter(|n| (1..=5).contains(n));
                 let active = active_path.as_ref() == Some(&path);
                 // Prefer live UI scroll for the focused tab; every tab keeps its last viewport.
                 let scroll = Some(if active {
@@ -2039,6 +2053,7 @@ impl EditorState {
                     encoding,
                     read_only,
                     pinned,
+                    tab_colour,
                     active,
                 })
             })
