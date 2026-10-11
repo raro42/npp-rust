@@ -3,6 +3,7 @@
 //! Format (backward compatible):
 //! - one absolute path per line
 //! - optional `@folds h1,h2,…` line after a path lists folded **header** line indices
+//! - optional `@bookmarks l1,l2,…` line after a path lists bookmarked line indices
 //! - optional `@caret LINE COL` line after a path (0-based line and column)
 //! - optional `@active` marker on the entry that should be focused on restore
 
@@ -15,11 +16,13 @@ const SESSION_FILE: &str = "session.txt";
 /// Portable label for status (never a home absolute path).
 pub const SESSION_REL: &str = "npp-rs/session.txt";
 
-/// One session tab: path plus optional fold headers, caret, and active flag.
+/// One session tab: path plus optional fold headers, bookmarks, caret, and active flag.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionEntry {
     pub path: PathBuf,
     pub fold_headers: Vec<usize>,
+    /// 0-based bookmarked line indices.
+    pub bookmarks: Vec<usize>,
     /// 0-based line and column when present.
     pub caret: Option<(usize, usize)>,
     pub active: bool,
@@ -30,7 +33,7 @@ fn session_store_path() -> Result<PathBuf, ()> {
     Ok(base.join("npp-rs").join(SESSION_FILE))
 }
 
-/// Write paths (and optional `@folds` / `@caret` / `@active` lines) for restore.
+/// Write paths (and optional `@folds` / `@bookmarks` / `@caret` / `@active` lines) for restore.
 pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
     let path = session_store_path().map_err(|_| "no config dir".to_string())?;
     if let Some(parent) = path.parent() {
@@ -47,6 +50,15 @@ pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
                 .collect::<Vec<_>>()
                 .join(",");
             writeln!(file, "@folds {joined}").map_err(|e| e.to_string())?;
+        }
+        if !entry.bookmarks.is_empty() {
+            let joined = entry
+                .bookmarks
+                .iter()
+                .map(|h| h.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            writeln!(file, "@bookmarks {joined}").map_err(|e| e.to_string())?;
         }
         if let Some((line, col)) = entry.caret {
             writeln!(file, "@caret {line} {col}").map_err(|e| e.to_string())?;
@@ -80,7 +92,15 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
         if let Some(rest) = trimmed.strip_prefix("@folds") {
             if meta_ok {
                 if let Some(last) = out.last_mut() {
-                    last.fold_headers = parse_fold_headers(rest.trim());
+                    last.fold_headers = parse_line_list(rest.trim());
+                }
+            }
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix("@bookmarks") {
+            if meta_ok {
+                if let Some(last) = out.last_mut() {
+                    last.bookmarks = parse_line_list(rest.trim());
                 }
             }
             continue;
@@ -110,6 +130,7 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
             out.push(SessionEntry {
                 path: p,
                 fold_headers: Vec::new(),
+                bookmarks: Vec::new(),
                 caret: None,
                 active: false,
             });
@@ -122,7 +143,7 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
     out
 }
 
-fn parse_fold_headers(s: &str) -> Vec<usize> {
+fn parse_line_list(s: &str) -> Vec<usize> {
     let mut out = Vec::new();
     for part in s.split(',') {
         let t = part.trim();
@@ -175,6 +196,7 @@ mod tests {
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].path, a);
         assert_eq!(entries[0].fold_headers, vec![0, 4]);
+        assert!(entries[0].bookmarks.is_empty());
         assert_eq!(entries[0].caret, None);
         assert!(!entries[0].active);
         assert_eq!(entries[1].path, b);
@@ -215,8 +237,34 @@ mod tests {
     }
 
     #[test]
+    fn parse_bookmarks() {
+        let dir = std::env::temp_dir().join(format!(
+            "npp-session-bookmarks-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::create_dir_all(&dir);
+        let a = dir.join("a.rs");
+        fs::write(&a, "line0\nline1\nline2\n").unwrap();
+
+        let text = format!(
+            "{}\n@bookmarks 2,0,2\n@folds 1\n@caret 0 0\n@active\n",
+            a.display()
+        );
+        let entries = parse_session_text(&text);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].bookmarks, vec![0, 2]);
+        assert_eq!(entries[0].fold_headers, vec![1]);
+        assert!(entries[0].active);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn parse_ignores_orphan_meta() {
-        let text = "@folds 1,2\n@caret 0 1\n@active\n";
+        let text = "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@active\n";
         assert!(parse_session_text(text).is_empty());
     }
 

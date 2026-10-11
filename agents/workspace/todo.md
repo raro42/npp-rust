@@ -343,3 +343,5 @@
 009 keep: session restore caret + active tab (@caret / @active, v0.3.219)
 
 009 keep: remappable Show Fold Margin (shortcut_show_fold_margin, Alt+G default, v0.3.220)
+
+009 keep: session restore bookmarks (@bookmarks, v0.3.221)

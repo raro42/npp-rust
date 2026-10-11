@@ -97,6 +97,8 @@ pub struct EditorState {
     autosave_last: Instant,
     /// Fold headers to apply after an async session restore open finishes.
     pending_session_folds: HashMap<PathBuf, Vec<usize>>,
+    /// Bookmark lines to apply after an async session restore open finishes.
+    pending_session_bookmarks: HashMap<PathBuf, Vec<usize>>,
     /// Caret (line, col) to apply after an async session restore open finishes.
     pending_session_carets: HashMap<PathBuf, (usize, usize)>,
     /// Path that should become active after its async session open finishes.
@@ -195,6 +197,7 @@ impl EditorState {
             pending_lossy_ansi: None,
             autosave_last: Instant::now(),
             pending_session_folds: HashMap::new(),
+            pending_session_bookmarks: HashMap::new(),
             pending_session_carets: HashMap::new(),
             pending_session_active: None,
             session_follow_caret: false,
@@ -667,6 +670,7 @@ impl EditorState {
             self.pending_encoding_notice = Some(format!("{name}: {note}"));
         }
         self.apply_pending_session_folds_for(&result.path);
+        self.apply_pending_session_bookmarks_for(&result.path);
         self.apply_pending_session_caret_for(&result.path);
         self.apply_pending_session_active_for(&result.path);
         self.after_open_log_policy(&result.path);
@@ -747,6 +751,7 @@ impl EditorState {
         });
         for p in cancelled {
             self.pending_session_folds.remove(&p);
+            self.pending_session_bookmarks.remove(&p);
             self.pending_session_carets.remove(&p);
             if self.pending_session_active.as_ref() == Some(&p) {
                 self.pending_session_active = None;
@@ -1783,7 +1788,7 @@ impl EditorState {
         let _ = self.write_session_entries();
     }
 
-    /// Open paths from the config-dir session file (folds, caret, active tab).
+    /// Open paths from the config-dir session file (folds, bookmarks, caret, active tab).
     pub fn restore_session_from_disk(&mut self) {
         let entries = crate::session::load_entries();
         if entries.is_empty() {
@@ -1793,11 +1798,13 @@ impl EditorState {
         self.pending_session_active = None;
         let mut n = 0usize;
         let mut folds = 0usize;
+        let mut bookmarks = 0usize;
         let mut carets = 0usize;
         let mut active_path: Option<PathBuf> = None;
         for entry in entries {
             let path = entry.path.clone();
             let headers = entry.fold_headers;
+            let marks = entry.bookmarks;
             let caret = entry.caret;
             let want_active = entry.active;
             self.open_path(path.clone());
@@ -1815,6 +1822,13 @@ impl EditorState {
                     self.pending_session_folds.insert(path.clone(), headers);
                 } else {
                     folds += self.apply_session_folds_at(idx, &headers);
+                }
+            }
+            if !marks.is_empty() {
+                if loading {
+                    self.pending_session_bookmarks.insert(path.clone(), marks);
+                } else {
+                    bookmarks += self.apply_session_bookmarks_at(idx, &marks);
                 }
             }
             if let Some((line, col)) = caret {
@@ -1856,6 +1870,9 @@ impl EditorState {
         if folds > 0 {
             bits.push_str(&format!(", {folds} fold(s)"));
         }
+        if bookmarks > 0 {
+            bits.push_str(&format!(", {bookmarks} bookmark(s)"));
+        }
         if carets > 0 {
             bits.push_str(&format!(", {carets} caret(s)"));
         }
@@ -1880,6 +1897,7 @@ impl EditorState {
                 let path = d.path.clone()?;
                 let regions = crate::fold::compute_fold_regions(d.language.as_str(), &d.buffer);
                 let fold_headers = crate::fold::folded_headers(&d.hidden_lines, &regions);
+                let bookmarks: Vec<usize> = d.bookmarks.iter().copied().collect();
                 let caret_idx = d.buffer.caret();
                 let line = d.buffer.char_to_line(caret_idx);
                 let col = caret_idx.saturating_sub(d.buffer.line_to_char(line));
@@ -1887,6 +1905,7 @@ impl EditorState {
                 Some(crate::session::SessionEntry {
                     path,
                     fold_headers,
+                    bookmarks,
                     caret: Some((line, col)),
                     active,
                 })
@@ -1906,6 +1925,20 @@ impl EditorState {
             return 0;
         };
         crate::fold::apply_fold_headers(&mut doc.hidden_lines, &regions, headers)
+    }
+
+    fn apply_session_bookmarks_at(&mut self, tab: usize, lines: &[usize]) -> usize {
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return 0;
+        };
+        let max = doc.buffer.line_count();
+        let before = doc.bookmarks.len();
+        for &line in lines {
+            if line < max {
+                doc.bookmarks.insert(line);
+            }
+        }
+        doc.bookmarks.len().saturating_sub(before)
     }
 
     fn apply_session_caret_at(&mut self, tab: usize, line: usize, col: usize) -> bool {
@@ -1938,6 +1971,22 @@ impl EditorState {
             let n = self.apply_session_folds_at(idx, &headers);
             if n > 0 {
                 self.status = format!("{} · restored {n} fold(s)", self.status);
+            }
+        }
+    }
+
+    fn apply_pending_session_bookmarks_for(&mut self, path: &Path) {
+        let Some(lines) = self.pending_session_bookmarks.remove(path) else {
+            return;
+        };
+        let idx = self
+            .tabs
+            .iter()
+            .position(|d| d.path.as_deref() == Some(path));
+        if let Some(idx) = idx {
+            let n = self.apply_session_bookmarks_at(idx, &lines);
+            if n > 0 {
+                self.status = format!("{} · restored {n} bookmark(s)", self.status);
             }
         }
     }

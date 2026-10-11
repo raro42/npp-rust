@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.221] — 2026-10-11
+
+File / Session:
+
+- Opt-in session restore now keeps **bookmarks** (`@bookmarks l1,l2,…`) in `npp-rs/session.txt`, in addition to paths, `@folds`, `@caret`, and `@active`. Lines past EOF are skipped. Older session files still load.
+
 ## [0.3.220] — 2026-10-11
 
 View / Settings:
