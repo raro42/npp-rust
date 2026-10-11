@@ -408,6 +408,10 @@ fn default_shortcut_show_whitespace() -> String {
     crate::shortcut_chord::DEFAULT_SHOW_WHITESPACE.into()
 }
 
+fn default_shortcut_show_npc() -> String {
+    crate::shortcut_chord::DEFAULT_SHOW_NPC.into()
+}
+
 fn default_shortcut_sync_scroll() -> String {
     crate::shortcut_chord::DEFAULT_SYNC_SCROLL.into()
 }
@@ -793,6 +797,9 @@ pub struct AppSettings {
     /// Show whitespace toggle chord (`Alt+V` default; Shift flips to Show EOL).
     #[serde(default = "default_shortcut_show_whitespace")]
     pub shortcut_show_whitespace: String,
+    /// Show non-printing characters toggle chord (`Alt+N` default).
+    #[serde(default = "default_shortcut_show_npc")]
+    pub shortcut_show_npc: String,
     /// Sync vertical scroll toggle chord (`Alt+Q` default; Shift flips to Sync H).
     #[serde(default = "default_shortcut_sync_scroll")]
     pub shortcut_sync_scroll: String,
@@ -955,6 +962,7 @@ impl Default for AppSettings {
             shortcut_always_on_top: default_shortcut_always_on_top(),
             shortcut_show_all_characters: default_shortcut_show_all_characters(),
             shortcut_show_whitespace: default_shortcut_show_whitespace(),
+            shortcut_show_npc: default_shortcut_show_npc(),
             shortcut_sync_scroll: default_shortcut_sync_scroll(),
             shortcut_indent_guide: default_shortcut_indent_guide(),
             shortcut_project_panel: default_shortcut_project_panel(),
@@ -1363,6 +1371,7 @@ mod tests {
             shortcut_always_on_top: "Ctrl+Alt+Shift+T".into(),
             shortcut_show_all_characters: "Ctrl+Alt+Shift+A".into(),
             shortcut_show_whitespace: "Ctrl+Alt+Shift+V".into(),
+            shortcut_show_npc: "Ctrl+Alt+Shift+N".into(),
             shortcut_sync_scroll: "Ctrl+Alt+Shift+Q".into(),
             shortcut_indent_guide: "Ctrl+Alt+Shift+I".into(),
             shortcut_project_panel: "Ctrl+Alt+Shift+P".into(),
@@ -1469,6 +1478,7 @@ mod tests {
         assert_eq!(back.shortcut_always_on_top, "Ctrl+Alt+Shift+T");
         assert_eq!(back.shortcut_show_all_characters, "Ctrl+Alt+Shift+A");
         assert_eq!(back.shortcut_show_whitespace, "Ctrl+Alt+Shift+V");
+        assert_eq!(back.shortcut_show_npc, "Ctrl+Alt+Shift+N");
         assert_eq!(back.shortcut_sync_scroll, "Ctrl+Alt+Shift+Q");
         assert_eq!(back.shortcut_indent_guide, "Ctrl+Alt+Shift+I");
         assert_eq!(back.shortcut_project_panel, "Ctrl+Alt+Shift+P");

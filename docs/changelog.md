@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.213] — 2026-10-11
+
+View / Settings:
+
+- **Show Non-Printing Characters** is remappable (`shortcut_show_npc`, default Alt+N). Menu, Preferences, Shortcut Mapper, and About show the effective binding. Show All Characters (Alt+A) still toggles whitespace + EOL + NPC together.
+
 ## [0.3.212] — 2026-10-11
 
 View / Settings:

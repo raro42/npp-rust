@@ -240,6 +240,9 @@ pub const DEFAULT_SHOW_ALL_CHARACTERS: &str = "Alt+A";
 /// Shift + same key is Show EOL.
 pub const DEFAULT_SHOW_WHITESPACE: &str = "Alt+V";
 
+/// Default show-NPC toggle binding (View → Show Non-Printing Characters).
+pub const DEFAULT_SHOW_NPC: &str = "Alt+N";
+
 /// Default sync-vertical-scroll toggle binding (View → Synchronize Vertical Scrolling).
 /// Shift + same key is Synchronize Horizontal Scrolling.
 pub const DEFAULT_SYNC_SCROLL: &str = "Alt+Q";
@@ -1360,6 +1363,16 @@ mod tests {
         assert_eq!(c.key, Key::V);
         assert_eq!(c.display(), "Alt+V");
         assert_eq!(c.flipped_shift().display(), "Alt+Shift+V");
+    }
+
+    #[test]
+    fn parse_alt_n_default_show_npc() {
+        let c = parse_chord(DEFAULT_SHOW_NPC).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::N);
+        assert_eq!(c.display(), "Alt+N");
     }
 
     #[test]

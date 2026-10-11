@@ -1448,6 +1448,39 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_TAB_SPACE");
             }
         }
+        // Remappable show-NPC toggle (default Alt+N; settings.shortcut_show_npc).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SHOW_NPC};
+            let npc_chord = resolve_chord(&self.state.settings.shortcut_show_npc, DEFAULT_SHOW_NPC);
+            let npc_key_pressed = match npc_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if npc_key_pressed && npc_chord.matches(mods, npc_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_NPC");
+            }
+        }
         // Remappable sync-scroll toggle (default Alt+Q; settings.shortcut_sync_scroll).
         // Shift flips to Synchronize Horizontal Scrolling.
         {
@@ -5078,6 +5111,16 @@ impl EditorApp {
                             "Toggle end-of-line marks ({eol}; Preferences remappable via Show whitespace shortcut + Shift; {ws} toggles space/tab)"
                         ))
                     }
+                    "IDM_VIEW_NPC" | "IDM_VIEW_NPC_CCUNIEOL" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_show_npc,
+                            crate::shortcut_chord::DEFAULT_SHOW_NPC,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Toggle non-printing characters ({chord}; Preferences remappable)"
+                        ))
+                    }
                     "IDM_VIEW_SYNSCROLLV" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_sync_scroll,
@@ -5634,6 +5677,10 @@ impl EditorApp {
             "IDM_VIEW_EOL" => shifted(
                 &s.shortcut_show_whitespace,
                 crate::shortcut_chord::DEFAULT_SHOW_WHITESPACE,
+            ),
+            "IDM_VIEW_NPC" | "IDM_VIEW_NPC_CCUNIEOL" => primary(
+                &s.shortcut_show_npc,
+                crate::shortcut_chord::DEFAULT_SHOW_NPC,
             ),
             "IDM_VIEW_SYNSCROLLV" => primary(
                 &s.shortcut_sync_scroll,
@@ -6219,6 +6266,11 @@ impl EditorApp {
             show_whitespace_chord.display(),
             show_whitespace_chord.flipped_shift().display()
         );
+        let show_npc_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_show_npc,
+            crate::shortcut_chord::DEFAULT_SHOW_NPC,
+        )
+        .display();
         let sync_scroll_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_sync_scroll,
             crate::shortcut_chord::DEFAULT_SYNC_SCROLL,
@@ -6263,7 +6315,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 81] = [
+        let rows: [(&str, &str); 82] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -6374,6 +6426,7 @@ impl EditorApp {
                 show_whitespace_keys.as_str(),
                 "Toggle show whitespace / Show EOL",
             ),
+            (show_npc_keys.as_str(), "Toggle show NPC"),
             (
                 sync_scroll_keys.as_str(),
                 "Toggle sync vertical / horizontal scroll",
@@ -9189,6 +9242,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+V, Ctrl+Alt+V. Toggles View → Show White Space and TAB. Shift + that chord toggles Show EOL.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Show NPC shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_show_npc,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+N"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_show_npc
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_show_npc =
+                                        crate::shortcut_chord::DEFAULT_SHOW_NPC.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SHOW_NPC
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_show_npc = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+N, Alt+Shift+N. Toggles View → Show Non-Printing Characters (avoid Cmd/Ctrl+Alt+N; that is Multi-select next).",
                             )
                             .small()
                             .weak(),
