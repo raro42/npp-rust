@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.212] — 2026-10-11
+
+View / Settings:
+
+- **Synchronize Vertical / Horizontal Scrolling** is remappable (`shortcut_sync_scroll`, default Alt+Q). Shift + that chord toggles **Synchronize Horizontal Scrolling**. Menu, Preferences, Shortcut Mapper, and About show the effective binding. Either toggle opens dual view.
+
 ## [0.3.211] — 2026-10-11
 
 View / Settings:

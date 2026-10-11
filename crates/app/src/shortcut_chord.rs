@@ -240,6 +240,10 @@ pub const DEFAULT_SHOW_ALL_CHARACTERS: &str = "Alt+A";
 /// Shift + same key is Show EOL.
 pub const DEFAULT_SHOW_WHITESPACE: &str = "Alt+V";
 
+/// Default sync-vertical-scroll toggle binding (View → Synchronize Vertical Scrolling).
+/// Shift + same key is Synchronize Horizontal Scrolling.
+pub const DEFAULT_SYNC_SCROLL: &str = "Alt+Q";
+
 /// Default indent-guide toggle binding (View → Show Indent Guide).
 pub const DEFAULT_INDENT_GUIDE: &str = "Alt+I";
 
@@ -1356,6 +1360,17 @@ mod tests {
         assert_eq!(c.key, Key::V);
         assert_eq!(c.display(), "Alt+V");
         assert_eq!(c.flipped_shift().display(), "Alt+Shift+V");
+    }
+
+    #[test]
+    fn parse_alt_q_default_sync_scroll() {
+        let c = parse_chord(DEFAULT_SYNC_SCROLL).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Q);
+        assert_eq!(c.display(), "Alt+Q");
+        assert_eq!(c.flipped_shift().display(), "Alt+Shift+Q");
     }
 
     #[test]

@@ -326,3 +326,5 @@
 009 keep: remappable Pin Tab (shortcut_pin_tab, Alt+Shift+P default, v0.3.210)
 
 009 keep: remappable Show White Space / Show EOL (shortcut_show_whitespace, Alt+V default, v0.3.211)
+
+009 keep: remappable Sync Vertical / Horizontal Scroll (shortcut_sync_scroll, Alt+Q default, v0.3.212)

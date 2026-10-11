@@ -1448,6 +1448,48 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_TAB_SPACE");
             }
         }
+        // Remappable sync-scroll toggle (default Alt+Q; settings.shortcut_sync_scroll).
+        // Shift flips to Synchronize Horizontal Scrolling.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SYNC_SCROLL};
+            let sync_chord = resolve_chord(
+                &self.state.settings.shortcut_sync_scroll,
+                DEFAULT_SYNC_SCROLL,
+            );
+            let sync_key_pressed = match sync_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_sync_h =
+                sync_key_pressed && sync_chord.flipped_shift().matches(mods, sync_chord.key);
+            let remapped_sync_v = sync_key_pressed && sync_chord.matches(mods, sync_chord.key);
+            if remapped_sync_h {
+                self.run_shortcut_cmd("IDM_VIEW_SYNSCROLLH");
+            } else if remapped_sync_v {
+                self.run_shortcut_cmd("IDM_VIEW_SYNSCROLLV");
+            }
+        }
         // Remappable indent-guide toggle (default Alt+I; settings.shortcut_indent_guide).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_INDENT_GUIDE};
@@ -5036,6 +5078,28 @@ impl EditorApp {
                             "Toggle end-of-line marks ({eol}; Preferences remappable via Show whitespace shortcut + Shift; {ws} toggles space/tab)"
                         ))
                     }
+                    "IDM_VIEW_SYNSCROLLV" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_sync_scroll,
+                            crate::shortcut_chord::DEFAULT_SYNC_SCROLL,
+                        );
+                        let sync_v = chord.display();
+                        let sync_h = chord.flipped_shift().display();
+                        response.on_hover_text(format!(
+                            "Toggle sync vertical scroll ({sync_v}; Preferences remappable; {sync_h} toggles sync horizontal)"
+                        ))
+                    }
+                    "IDM_VIEW_SYNSCROLLH" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_sync_scroll,
+                            crate::shortcut_chord::DEFAULT_SYNC_SCROLL,
+                        );
+                        let sync_h = chord.flipped_shift().display();
+                        let sync_v = chord.display();
+                        response.on_hover_text(format!(
+                            "Toggle sync horizontal scroll ({sync_h}; Preferences remappable via Sync scroll shortcut + Shift; {sync_v} toggles sync vertical)"
+                        ))
+                    }
                     "IDM_VIEW_INDENT_GUIDE" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_indent_guide,
@@ -5570,6 +5634,14 @@ impl EditorApp {
             "IDM_VIEW_EOL" => shifted(
                 &s.shortcut_show_whitespace,
                 crate::shortcut_chord::DEFAULT_SHOW_WHITESPACE,
+            ),
+            "IDM_VIEW_SYNSCROLLV" => primary(
+                &s.shortcut_sync_scroll,
+                crate::shortcut_chord::DEFAULT_SYNC_SCROLL,
+            ),
+            "IDM_VIEW_SYNSCROLLH" => shifted(
+                &s.shortcut_sync_scroll,
+                crate::shortcut_chord::DEFAULT_SYNC_SCROLL,
             ),
             "IDM_VIEW_INDENT_GUIDE" => primary(
                 &s.shortcut_indent_guide,
@@ -6147,6 +6219,15 @@ impl EditorApp {
             show_whitespace_chord.display(),
             show_whitespace_chord.flipped_shift().display()
         );
+        let sync_scroll_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_sync_scroll,
+            crate::shortcut_chord::DEFAULT_SYNC_SCROLL,
+        );
+        let sync_scroll_keys = format!(
+            "{} / {}",
+            sync_scroll_chord.display(),
+            sync_scroll_chord.flipped_shift().display()
+        );
         let indent_guide_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_indent_guide,
             crate::shortcut_chord::DEFAULT_INDENT_GUIDE,
@@ -6182,7 +6263,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 80] = [
+        let rows: [(&str, &str); 81] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -6292,6 +6373,10 @@ impl EditorApp {
             (
                 show_whitespace_keys.as_str(),
                 "Toggle show whitespace / Show EOL",
+            ),
+            (
+                sync_scroll_keys.as_str(),
+                "Toggle sync vertical / horizontal scroll",
             ),
             (indent_guide_keys.as_str(), "Toggle indent guide"),
             (project_panel_keys.as_str(), "Toggle project panel"),
@@ -9104,6 +9189,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+V, Ctrl+Alt+V. Toggles View → Show White Space and TAB. Shift + that chord toggles Show EOL.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Sync scroll shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_sync_scroll,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+Q"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_sync_scroll
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_sync_scroll =
+                                        crate::shortcut_chord::DEFAULT_SYNC_SCROLL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SYNC_SCROLL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_sync_scroll = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Q, Ctrl+Alt+Q. Toggles View → Synchronize Vertical Scrolling (opens dual view). Shift + that chord toggles Synchronize Horizontal Scrolling.",
                             )
                             .small()
                             .weak(),
