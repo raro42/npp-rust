@@ -1788,7 +1788,7 @@ impl EditorState {
         let _ = self.write_session_entries();
     }
 
-    /// Open paths from the config-dir session file (folds, bookmarks, caret, active tab).
+    /// Open paths from the config-dir session file (folds, bookmarks, caret, pin, active tab).
     pub fn restore_session_from_disk(&mut self) {
         let entries = crate::session::load_entries();
         if entries.is_empty() {
@@ -1800,12 +1800,14 @@ impl EditorState {
         let mut folds = 0usize;
         let mut bookmarks = 0usize;
         let mut carets = 0usize;
+        let mut pins = 0usize;
         let mut active_path: Option<PathBuf> = None;
         for entry in entries {
             let path = entry.path.clone();
             let headers = entry.fold_headers;
             let marks = entry.bookmarks;
             let caret = entry.caret;
+            let want_pin = entry.pinned;
             let want_active = entry.active;
             self.open_path(path.clone());
             n += 1;
@@ -1837,6 +1839,14 @@ impl EditorState {
                         .insert(path.clone(), (line, col));
                 } else if self.apply_session_caret_at(idx, line, col) {
                     carets += 1;
+                }
+            }
+            if want_pin {
+                if let Some(doc) = self.tabs.get_mut(idx) {
+                    if !doc.pinned {
+                        doc.pinned = true;
+                        pins += 1;
+                    }
                 }
             }
             if want_active {
@@ -1876,6 +1886,9 @@ impl EditorState {
         if carets > 0 {
             bits.push_str(&format!(", {carets} caret(s)"));
         }
+        if pins > 0 {
+            bits.push_str(&format!(", {pins} pin(s)"));
+        }
         self.status = bits;
     }
 
@@ -1901,12 +1914,14 @@ impl EditorState {
                 let caret_idx = d.buffer.caret();
                 let line = d.buffer.char_to_line(caret_idx);
                 let col = caret_idx.saturating_sub(d.buffer.line_to_char(line));
+                let pinned = d.pinned;
                 let active = active_path.as_ref() == Some(&path);
                 Some(crate::session::SessionEntry {
                     path,
                     fold_headers,
                     bookmarks,
                     caret: Some((line, col)),
+                    pinned,
                     active,
                 })
             })

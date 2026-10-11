@@ -345,3 +345,5 @@
 009 keep: remappable Show Fold Margin (shortcut_show_fold_margin, Alt+G default, v0.3.220)
 
 009 keep: session restore bookmarks (@bookmarks, v0.3.221)
+
+009 keep: session restore pin (@pin, v0.3.222)

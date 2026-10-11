@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.222] — 2026-10-11
+
+File / Session:
+
+- Opt-in session restore now keeps **pinned tabs** (`@pin`) in `npp-rs/session.txt`, in addition to paths, `@folds`, `@bookmarks`, `@caret`, and `@active`. Older session files still load.
+
 ## [0.3.221] — 2026-10-11
 
 File / Session:
