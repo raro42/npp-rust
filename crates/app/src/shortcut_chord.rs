@@ -233,6 +233,9 @@ pub const DEFAULT_FULLSCREEN: &str = "F11";
 /// Default always-on-top toggle binding (View → Always on Top).
 pub const DEFAULT_ALWAYS_ON_TOP: &str = "Alt+T";
 
+/// Default show-all-characters toggle binding (View → Show All Characters).
+pub const DEFAULT_SHOW_ALL_CHARACTERS: &str = "Alt+A";
+
 /// Default reload-from-disk binding (new remappable chord; File → Reload).
 pub const DEFAULT_RELOAD: &str = "Cmd+R";
 
@@ -1318,6 +1321,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::T);
         assert_eq!(c.display(), "Alt+T");
+    }
+
+    #[test]
+    fn parse_alt_a_default_show_all_characters() {
+        let c = parse_chord(DEFAULT_SHOW_ALL_CHARACTERS).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::A);
+        assert_eq!(c.display(), "Alt+A");
     }
 
     #[test]

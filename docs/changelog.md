@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.207] — 2026-10-11
+
+View / Settings:
+
+- **Show All Characters** is remappable (`shortcut_show_all_characters`, default Alt+A). Menu, Preferences, Shortcut Mapper, and About show the effective binding. Toggles whitespace + EOL + NPC together (same as the View menu command).
+
 ## [0.3.206] — 2026-10-11
 
 Search / Edit:
