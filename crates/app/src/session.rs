@@ -5,6 +5,7 @@
 //! - optional `@folds h1,h2,…` line after a path lists folded **header** line indices
 //! - optional `@bookmarks l1,l2,…` line after a path lists bookmarked line indices
 //! - optional `@caret LINE COL` line after a path (0-based line and column)
+//! - optional `@sel A_LINE A_COL C_LINE C_COL` line after a path (anchor + caret; non-empty selection)
 //! - optional `@scroll LINE` line after a path (0-based first visible editor line; every tab)
 //! - optional `@lang ID` line after a path restores Language-menu highlight id
 //! - optional `@encoding TOKEN` line after a path restores save encoding
@@ -25,7 +26,10 @@ const SESSION_FILE: &str = "session.txt";
 /// Portable label for status (never a home absolute path).
 pub const SESSION_REL: &str = "npp-rs/session.txt";
 
-/// One session tab: path plus optional fold headers, bookmarks, caret, scroll, language, encoding, read-only, pin, colour, log-tail, and active flag.
+/// Anchor `(line, col)` and caret `(line, col)` for a non-empty session selection.
+pub type SessionSelection = ((usize, usize), (usize, usize));
+
+/// One session tab: path plus optional fold headers, bookmarks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, and active flag.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionEntry {
     pub path: PathBuf,
@@ -34,6 +38,8 @@ pub struct SessionEntry {
     pub bookmarks: Vec<usize>,
     /// 0-based line and column when present.
     pub caret: Option<(usize, usize)>,
+    /// Anchor `(line, col)` and caret `(line, col)` when a non-empty selection was present.
+    pub selection: Option<SessionSelection>,
     /// 0-based first visible editor line when present.
     pub scroll: Option<usize>,
     /// Language id for highlight / fold / comments when present.
@@ -55,7 +61,7 @@ fn session_store_path() -> Result<PathBuf, ()> {
     Ok(base.join("npp-rs").join(SESSION_FILE))
 }
 
-/// Write paths (and optional `@folds` / `@bookmarks` / `@caret` / `@scroll` / `@lang` / `@encoding` / `@readonly` / `@pin` / `@colour` / `@tail` / `@active` lines) for restore.
+/// Write paths (and optional `@folds` / `@bookmarks` / `@caret` / `@sel` / `@scroll` / `@lang` / `@encoding` / `@readonly` / `@pin` / `@colour` / `@tail` / `@active` lines) for restore.
 pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
     let path = session_store_path().map_err(|_| "no config dir".to_string())?;
     if let Some(parent) = path.parent() {
@@ -84,6 +90,9 @@ pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
         }
         if let Some((line, col)) = entry.caret {
             writeln!(file, "@caret {line} {col}").map_err(|e| e.to_string())?;
+        }
+        if let Some(((al, ac), (cl, cc))) = entry.selection {
+            writeln!(file, "@sel {al} {ac} {cl} {cc}").map_err(|e| e.to_string())?;
         }
         if let Some(line) = entry.scroll {
             writeln!(file, "@scroll {line}").map_err(|e| e.to_string())?;
@@ -156,6 +165,14 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
             if meta_ok {
                 if let Some(last) = out.last_mut() {
                     last.caret = parse_caret(rest.trim());
+                }
+            }
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix("@sel") {
+            if meta_ok {
+                if let Some(last) = out.last_mut() {
+                    last.selection = parse_selection(rest.trim());
                 }
             }
             continue;
@@ -238,6 +255,7 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
                 fold_headers: Vec::new(),
                 bookmarks: Vec::new(),
                 caret: None,
+                selection: None,
                 scroll: None,
                 language: None,
                 encoding: None,
@@ -276,7 +294,26 @@ fn parse_caret(s: &str) -> Option<(usize, usize)> {
     let mut parts = s.split_whitespace();
     let line = parts.next()?.parse::<usize>().ok()?;
     let col = parts.next()?.parse::<usize>().ok()?;
+    if parts.next().is_some() {
+        return None;
+    }
     Some((line, col))
+}
+
+/// Parse `@sel A_LINE A_COL C_LINE C_COL` (anchor then caret). Zero-width → `None`.
+fn parse_selection(s: &str) -> Option<SessionSelection> {
+    let mut parts = s.split_whitespace();
+    let al = parts.next()?.parse::<usize>().ok()?;
+    let ac = parts.next()?.parse::<usize>().ok()?;
+    let cl = parts.next()?.parse::<usize>().ok()?;
+    let cc = parts.next()?.parse::<usize>().ok()?;
+    if parts.next().is_some() {
+        return None;
+    }
+    if al == cl && ac == cc {
+        return None;
+    }
+    Some(((al, ac), (cl, cc)))
 }
 
 fn parse_scroll(s: &str) -> Option<usize> {
@@ -382,6 +419,7 @@ mod tests {
         assert_eq!(entries[0].fold_headers, vec![0, 4]);
         assert!(entries[0].bookmarks.is_empty());
         assert_eq!(entries[0].caret, None);
+        assert_eq!(entries[0].selection, None);
         assert_eq!(entries[0].scroll, None);
         assert_eq!(entries[0].language, None);
         assert_eq!(entries[0].encoding, None);
@@ -417,10 +455,49 @@ mod tests {
         let entries = parse_session_text(&text);
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].caret, Some((1, 2)));
+        assert_eq!(entries[0].selection, None);
         assert!(!entries[0].active);
         assert_eq!(entries[1].fold_headers, vec![0]);
         assert_eq!(entries[1].caret, Some((0, 0)));
         assert!(entries[1].active);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parse_selection_meta() {
+        let dir = std::env::temp_dir().join(format!(
+            "npp-session-sel-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::create_dir_all(&dir);
+        let a = dir.join("a.rs");
+        let b = dir.join("b.rs");
+        fs::write(&a, "line0\nline1\n").unwrap();
+        fs::write(&b, "x\n").unwrap();
+
+        let text = format!(
+            "{}\n@caret 1 3\n@sel 0 0 1 3\n@active\n{}\n@sel 0 1 0 2\n",
+            a.display(),
+            b.display()
+        );
+        let entries = parse_session_text(&text);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].caret, Some((1, 3)));
+        assert_eq!(entries[0].selection, Some(((0, 0), (1, 3))));
+        assert!(entries[0].active);
+        assert_eq!(entries[1].selection, Some(((0, 1), (0, 2))));
+
+        let bad = format!(
+            "{}\n@sel\n@sel 0 0\n@sel 0 0 0 0\n@sel 1 2 3 4 5\n@sel nope\n",
+            a.display()
+        );
+        let entries = parse_session_text(&bad);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].selection, None);
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -699,7 +776,7 @@ mod tests {
     #[test]
     fn parse_ignores_orphan_meta() {
         let text =
-            "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@scroll 9\n@lang rust\n@encoding utf8\n@readonly\n@pin\n@colour 2\n@tail\n@active\n";
+            "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@sel 0 0 0 1\n@scroll 9\n@lang rust\n@encoding utf8\n@readonly\n@pin\n@colour 2\n@tail\n@active\n";
         assert!(parse_session_text(text).is_empty());
     }
 

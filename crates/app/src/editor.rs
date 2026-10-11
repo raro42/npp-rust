@@ -101,6 +101,8 @@ pub struct EditorState {
     pending_session_bookmarks: HashMap<PathBuf, Vec<usize>>,
     /// Caret (line, col) to apply after an async session restore open finishes.
     pending_session_carets: HashMap<PathBuf, (usize, usize)>,
+    /// Selection (anchor line/col, caret line/col) after an async session restore open finishes.
+    pending_session_sels: HashMap<PathBuf, crate::session::SessionSelection>,
     /// Language id to apply after an async session restore open finishes.
     pending_session_langs: HashMap<PathBuf, String>,
     /// Save encoding to apply after an async session restore open finishes.
@@ -215,6 +217,7 @@ impl EditorState {
             pending_session_folds: HashMap::new(),
             pending_session_bookmarks: HashMap::new(),
             pending_session_carets: HashMap::new(),
+            pending_session_sels: HashMap::new(),
             pending_session_langs: HashMap::new(),
             pending_session_encodings: HashMap::new(),
             pending_session_readonly: HashSet::new(),
@@ -696,6 +699,7 @@ impl EditorState {
         self.apply_pending_session_folds_for(&result.path);
         self.apply_pending_session_bookmarks_for(&result.path);
         self.apply_pending_session_caret_for(&result.path);
+        self.apply_pending_session_sel_for(&result.path);
         self.apply_pending_session_scroll_for(&result.path);
         self.apply_pending_session_lang_for(&result.path);
         self.apply_pending_session_encoding_for(&result.path);
@@ -786,6 +790,7 @@ impl EditorState {
             self.pending_session_folds.remove(&p);
             self.pending_session_bookmarks.remove(&p);
             self.pending_session_carets.remove(&p);
+            self.pending_session_sels.remove(&p);
             self.pending_session_langs.remove(&p);
             self.pending_session_encodings.remove(&p);
             self.pending_session_readonly.remove(&p);
@@ -1827,7 +1832,7 @@ impl EditorState {
         let _ = self.write_session_entries();
     }
 
-    /// Open paths from the config-dir session file (folds, bookmarks, caret, scroll, language, encoding, read-only, pin, colour, log-tail, active tab).
+    /// Open paths from the config-dir session file (folds, bookmarks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, active tab).
     pub fn restore_session_from_disk(&mut self) {
         let entries = crate::session::load_entries();
         if entries.is_empty() {
@@ -1837,12 +1842,14 @@ impl EditorState {
         self.pending_session_active = None;
         self.pending_session_scroll = None;
         self.pending_session_scrolls.clear();
+        self.pending_session_sels.clear();
         self.pending_session_tail.clear();
         self.session_scroll_line = None;
         let mut n = 0usize;
         let mut folds = 0usize;
         let mut bookmarks = 0usize;
         let mut carets = 0usize;
+        let mut selections = 0usize;
         let mut scrolls = 0usize;
         let mut langs = 0usize;
         let mut encodings = 0usize;
@@ -1857,6 +1864,7 @@ impl EditorState {
             let headers = entry.fold_headers;
             let marks = entry.bookmarks;
             let caret = entry.caret;
+            let selection = entry.selection;
             let scroll = entry.scroll;
             let language = entry.language;
             let encoding = entry.encoding;
@@ -1895,6 +1903,14 @@ impl EditorState {
                         .insert(path.clone(), (line, col));
                 } else if self.apply_session_caret_at(idx, line, col) {
                     carets += 1;
+                }
+            }
+            if let Some(((al, ac), (cl, cc))) = selection {
+                if loading {
+                    self.pending_session_sels
+                        .insert(path.clone(), ((al, ac), (cl, cc)));
+                } else if self.apply_session_sel_at(idx, (al, ac), (cl, cc)) {
+                    selections += 1;
                 }
             }
             if let Some(line) = scroll {
@@ -2002,6 +2018,9 @@ impl EditorState {
         if carets > 0 {
             bits.push_str(&format!(", {carets} caret(s)"));
         }
+        if selections > 0 {
+            bits.push_str(&format!(", {selections} selection(s)"));
+        }
         if scrolls > 0 {
             bits.push_str(&format!(", {scrolls} scroll"));
         }
@@ -2049,6 +2068,19 @@ impl EditorState {
                 let caret_idx = d.buffer.caret();
                 let line = d.buffer.char_to_line(caret_idx);
                 let col = caret_idx.saturating_sub(d.buffer.line_to_char(line));
+                let selection = d.buffer.selection().map(|(start, end)| {
+                    let caret_pos = d.buffer.caret();
+                    let (anchor_pos, caret_pos) = if caret_pos == end {
+                        (start, end)
+                    } else {
+                        (end, start)
+                    };
+                    let a_line = d.buffer.char_to_line(anchor_pos);
+                    let a_col = anchor_pos.saturating_sub(d.buffer.line_to_char(a_line));
+                    let c_line = d.buffer.char_to_line(caret_pos);
+                    let c_col = caret_pos.saturating_sub(d.buffer.line_to_char(c_line));
+                    ((a_line, a_col), (c_line, c_col))
+                });
                 let language = {
                     let lang = d.language.trim();
                     if lang.is_empty() {
@@ -2074,6 +2106,7 @@ impl EditorState {
                     fold_headers,
                     bookmarks,
                     caret: Some((line, col)),
+                    selection,
                     scroll,
                     language,
                     encoding,
@@ -2119,17 +2152,27 @@ impl EditorState {
         let Some(doc) = self.tabs.get_mut(tab) else {
             return false;
         };
-        let line_count = doc.buffer.line_count().max(1);
-        let line = line.min(line_count.saturating_sub(1));
-        let start = doc.buffer.line_to_char(line);
-        let end = if line + 1 < doc.buffer.line_count() {
-            doc.buffer.line_to_char(line + 1)
-        } else {
-            doc.buffer.len_chars()
-        };
-        let max_col = end.saturating_sub(start);
-        let pos = start + col.min(max_col);
+        let pos = session_line_col_to_pos(&doc.buffer, line, col);
         doc.buffer.set_caret(pos);
+        true
+    }
+
+    /// Restore a non-empty selection (anchor then caret). `@tail` applied later clears it.
+    fn apply_session_sel_at(
+        &mut self,
+        tab: usize,
+        anchor: (usize, usize),
+        caret: (usize, usize),
+    ) -> bool {
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return false;
+        };
+        let anchor_pos = session_line_col_to_pos(&doc.buffer, anchor.0, anchor.1);
+        let caret_pos = session_line_col_to_pos(&doc.buffer, caret.0, caret.1);
+        if anchor_pos == caret_pos {
+            return false;
+        }
+        doc.buffer.set_selection(anchor_pos, caret_pos);
         true
     }
 
@@ -2184,7 +2227,7 @@ impl EditorState {
         true
     }
 
-    /// Arm log-tail follow on a restored tab (jumps caret to end; wins over `@caret`).
+    /// Arm log-tail follow on a restored tab (jumps caret to end; wins over `@caret` / `@sel`).
     fn apply_session_tail_at(&mut self, tab: usize) -> bool {
         let Some(doc) = self.tabs.get(tab) else {
             return false;
@@ -2257,6 +2300,21 @@ impl EditorState {
                 if self.tabs.active_index() == idx && self.session_scroll_line.is_none() {
                     self.session_follow_caret = true;
                 }
+            }
+        }
+    }
+
+    fn apply_pending_session_sel_for(&mut self, path: &Path) {
+        let Some((anchor, caret)) = self.pending_session_sels.remove(path) else {
+            return;
+        };
+        let idx = self
+            .tabs
+            .iter()
+            .position(|d| d.path.as_deref() == Some(path));
+        if let Some(idx) = idx {
+            if self.apply_session_sel_at(idx, anchor, caret) {
+                self.status = format!("{} · restored selection", self.status);
             }
         }
     }
@@ -3010,6 +3068,20 @@ fn chrono_lite_custom() -> String {
         }
     }
     "YYYY-MM-DDTHH:MM:SS".into()
+}
+
+/// Clamp a 0-based `(line, col)` to a char index in `buf` (session restore).
+fn session_line_col_to_pos(buf: &buffer::TextBuffer, line: usize, col: usize) -> usize {
+    let line_count = buf.line_count().max(1);
+    let line = line.min(line_count.saturating_sub(1));
+    let start = buf.line_to_char(line);
+    let end = if line + 1 < buf.line_count() {
+        buf.line_to_char(line + 1)
+    } else {
+        buf.len_chars()
+    };
+    let max_col = end.saturating_sub(start);
+    start + col.min(max_col)
 }
 
 #[cfg(test)]

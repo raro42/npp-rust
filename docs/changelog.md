@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.230] — 2026-10-12
+
+File / Session:
+
+- Opt-in session restore now keeps **selection** (`@sel A_LINE A_COL C_LINE C_COL`, anchor then caret) in `npp-rs/session.txt`, in addition to paths, `@folds`, `@bookmarks`, `@caret`, `@scroll`, `@lang`, `@encoding`, `@readonly`, `@pin`, `@colour`, `@tail`, and `@active`. Highlighted ranges survive relaunch (including async opens; `@tail` still clears selection). Older session files still load.
+
 ## [0.3.229] — 2026-10-12
 
 File / Session:

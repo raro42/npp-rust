@@ -13,7 +13,7 @@ New keys:
 | `caret_blink` | Blink caret |
 | `default_eol` | `lf` / `crlf` for Enter |
 | `recent_max` | Recent file cap (5–40); load and save both use this cap |
-| `restore_session` | Reopen session on launch (paths, `@folds`, `@bookmarks`, `@caret`, per-tab `@scroll`, `@lang`, `@encoding`, `@readonly`, `@pin`, `@colour`, `@tail`, `@active`) |
+| `restore_session` | Reopen session on launch (paths, `@folds`, `@bookmarks`, `@caret`, `@sel`, per-tab `@scroll`, `@lang`, `@encoding`, `@readonly`, `@pin`, `@colour`, `@tail`, `@active`) |
 | `find_match_case` / `find_whole_word` / `find_in_selection` / `find_wrap` / `find_regex` | Find options |
 | `find_query` / `replace_with` | Last find/replace strings |
 | `compare_ignore_ws` | Compare ignores whitespace runs (View menu + Preferences; live re-diff + first-hunk park while Compare is on) |
@@ -126,7 +126,7 @@ See also: `docs/autosave-backup.md`, `docs/folding.md`, `docs/ollama-helper.md`.
 
 ## Session
 
-File: `npp-rs/session.txt` (config dir). One path per line; optional `@folds h1,h2,…` after a path restores folded fold-header lines; optional `@bookmarks l1,l2,…` restores bookmarked lines; optional `@caret LINE COL` (0-based) restores caret; optional `@scroll LINE` (0-based first visible line per tab) restores viewport scroll (wins over caret follow; tab switches keep each tab’s scroll); optional `@lang ID` restores Language-menu highlight id; optional `@encoding TOKEN` restores save encoding (`utf8`, `utf8-bom`, `utf16-le`, `utf16-be`, `windows-1252`); optional `@readonly` (alias `@ro`) restores Edit → Toggle Read-Only; optional `@pin` restores a pinned tab; optional `@colour N` (alias `@color N`, 1..=5) restores View → Tab colour; optional `@tail` (alias `@logtail`) restores View → Monitoring (log-tail follow; jumps caret to end); optional `@active` marks the focused tab.  
+File: `npp-rs/session.txt` (config dir). One path per line; optional `@folds h1,h2,…` after a path restores folded fold-header lines; optional `@bookmarks l1,l2,…` restores bookmarked lines; optional `@caret LINE COL` (0-based) restores caret; optional `@sel A_LINE A_COL C_LINE C_COL` restores a non-empty selection (anchor then caret; `@tail` clears it); optional `@scroll LINE` (0-based first visible line per tab) restores viewport scroll (wins over caret follow; tab switches keep each tab’s scroll); optional `@lang ID` restores Language-menu highlight id; optional `@encoding TOKEN` restores save encoding (`utf8`, `utf8-bom`, `utf16-le`, `utf16-be`, `windows-1252`); optional `@readonly` (alias `@ro`) restores Edit → Toggle Read-Only; optional `@pin` restores a pinned tab; optional `@colour N` (alias `@color N`, 1..=5) restores View → Tab colour; optional `@tail` (alias `@logtail`) restores View → Monitoring (log-tail follow; jumps caret to end); optional `@active` marks the focused tab.  
 Saved on quit when restore is on. Menu Save/Load Session uses the same file.
 
 ## Find
