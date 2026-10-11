@@ -236,6 +236,9 @@ pub const DEFAULT_ALWAYS_ON_TOP: &str = "Alt+T";
 /// Default show-all-characters toggle binding (View → Show All Characters).
 pub const DEFAULT_SHOW_ALL_CHARACTERS: &str = "Alt+A";
 
+/// Default indent-guide toggle binding (View → Show Indent Guide).
+pub const DEFAULT_INDENT_GUIDE: &str = "Alt+I";
+
 /// Default reload-from-disk binding (new remappable chord; File → Reload).
 pub const DEFAULT_RELOAD: &str = "Cmd+R";
 
@@ -1331,6 +1334,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::A);
         assert_eq!(c.display(), "Alt+A");
+    }
+
+    #[test]
+    fn parse_alt_i_default_indent_guide() {
+        let c = parse_chord(DEFAULT_INDENT_GUIDE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::I);
+        assert_eq!(c.display(), "Alt+I");
     }
 
     #[test]

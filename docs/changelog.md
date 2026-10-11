@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.208] — 2026-10-11
+
+View / Settings:
+
+- **Indent Guide** is remappable (`shortcut_indent_guide`, default Alt+I). Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.207] — 2026-10-11
 
 View / Settings:
