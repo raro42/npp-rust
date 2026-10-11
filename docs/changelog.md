@@ -2,11 +2,17 @@
 
 ## [Unreleased]
 
+## [0.3.205] — 2026-10-11
+
+Search / Edit:
+
+- **Drop selection into Find**: with the Find bar open, drag selected text onto the Find field to fill the query (first line, max 200 chars). Source text is not moved. Orange highlight on the Find field while hovering.
+
 ## [0.3.204] — 2026-10-11
 
 Edit / View:
 
-- **Selection drag across dual view**: drag selected text from one pane into the other to move it (Ctrl/Cmd = copy). Orange drop caret follows the destination pane. Same-buffer drag is unchanged. Drop-into-Find still open.
+- **Selection drag across dual view**: drag selected text from one pane into the other to move it (Ctrl/Cmd = copy). Orange drop caret follows the destination pane. Same-buffer drag is unchanged.
 
 ## [0.3.203] — 2026-10-11
 

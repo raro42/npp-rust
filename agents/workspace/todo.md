@@ -313,3 +313,5 @@
 009 keep: remappable Always on Top toggle (shortcut_always_on_top, Alt+T default, v0.3.203)
 
 009 keep: dual-view cross-pane selection drag move/copy (v0.3.204)
+
+009 keep: drop selection into Find field (v0.3.205)

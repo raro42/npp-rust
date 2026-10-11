@@ -33,10 +33,26 @@ enum EditorPane {
 
 /// In-progress drag of selected text (move, or copy with Ctrl/Cmd).
 /// `tab` is the source; `drop_tab` may differ in dual view (cross-pane drop).
+/// When `drop_find` is set, release fills the Find query instead of moving text.
 struct SelTextDrag {
     tab: usize,
     drop_tab: usize,
     drop_at: usize,
+    drop_find: bool,
+}
+
+/// First line of a dragged selection for the Find field (max 200 chars).
+fn find_query_from_drag_text(sel: &str) -> Option<String> {
+    let line = sel.lines().next()?.trim();
+    if line.is_empty() {
+        return None;
+    }
+    let q: String = line.chars().take(200).collect();
+    if q.is_empty() {
+        None
+    } else {
+        Some(q)
+    }
 }
 
 /// In-progress drag of the editor vertical scrollbar thumb.
@@ -1019,6 +1035,27 @@ impl EditorApp {
         let src = drag.tab;
         let dest = drag.drop_tab;
         let drop_at = drag.drop_at;
+
+        if drag.drop_find {
+            let Some(src_doc) = self.state.tabs.get(src) else {
+                return;
+            };
+            let Some((start, end)) = src_doc.buffer.selection() else {
+                return;
+            };
+            let text = src_doc.buffer.slice(start, end);
+            let Some(q) = find_query_from_drag_text(&text) else {
+                self.state.status = "Find: nothing to drop".into();
+                return;
+            };
+            self.state.find_query = q;
+            self.state.settings.find_query = self.state.find_query.clone();
+            self.state.settings.save();
+            self.state.find_open = true;
+            self.find_focus_once = true;
+            self.state.status = "Dropped selection into Find".into();
+            return;
+        }
 
         if src == dest {
             let Some(doc) = self.state.tabs.get_mut(src) else {
@@ -10862,6 +10899,28 @@ impl EditorApp {
                         .desired_width(180.0)
                         .hint_text("search text"),
                 );
+                // Selection drag → drop into Find field (fills query; does not move text).
+                if self.sel_text_drag.is_some() {
+                    let over_find = ui
+                        .input(|i| i.pointer.latest_pos())
+                        .is_some_and(|p| resp.rect.contains(p));
+                    if let Some(drag) = self.sel_text_drag.as_mut() {
+                        drag.drop_find = over_find;
+                    }
+                    if over_find {
+                        ui.ctx().set_cursor_icon(CursorIcon::Copy);
+                        let stroke = egui::Stroke::new(2.0_f32, Color32::from_rgb(220, 140, 40));
+                        ui.painter().rect_stroke(
+                            resp.rect.expand(2.0),
+                            2.0,
+                            stroke,
+                            egui::StrokeKind::Outside,
+                        );
+                        if self.state.status != "Drop selection into Find" {
+                            self.state.status = "Drop selection into Find".into();
+                        }
+                    }
+                }
                 if resp.changed() {
                     persist = true;
                 }
@@ -11446,6 +11505,7 @@ impl EditorApp {
                             tab,
                             drop_tab: tab,
                             drop_at: idx,
+                            drop_find: false,
                         });
                         self.drag_anchor = None;
                         self.rect_drag = false;
@@ -11479,6 +11539,7 @@ impl EditorApp {
                     );
                     if let Some(drag) = self.sel_text_drag.as_mut() {
                         if rect.contains(pos) {
+                            drag.drop_find = false;
                             drag.drop_tab = self.state.tabs.active_index();
                             drag.drop_at = idx;
                             let copy = ui.input(|i| i.modifiers.ctrl || i.modifiers.command);
@@ -11553,6 +11614,7 @@ impl EditorApp {
                         );
                         let primary_tab = self.state.tabs.active_index();
                         if let Some(drag) = self.sel_text_drag.as_mut() {
+                            drag.drop_find = false;
                             drag.drop_tab = primary_tab;
                             drag.drop_at = idx;
                         }
@@ -12007,7 +12069,8 @@ impl EditorApp {
 
                 // Drop caret while dragging selected text (source or other-view drop).
                 if let Some(drag) = self.sel_text_drag.as_ref() {
-                    if drag.drop_tab == self.state.tabs.active_index()
+                    if !drag.drop_find
+                        && drag.drop_tab == self.state.tabs.active_index()
                         && drag.drop_at >= line_start
                         && drag.drop_at <= line_end
                     {
@@ -15007,6 +15070,7 @@ impl EditorApp {
                             tab,
                             drop_tab: tab,
                             drop_at: idx,
+                            drop_find: false,
                         });
                         self.drag_anchor = None;
                         self.rect_drag = false;
@@ -15031,6 +15095,7 @@ impl EditorApp {
                     let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                     if let Some(drag) = self.sel_text_drag.as_mut() {
                         if rect.contains(pos) {
+                            drag.drop_find = false;
                             drag.drop_tab = tab;
                             drag.drop_at = idx;
                             let copy = ui.input(|i| i.modifiers.ctrl || i.modifiers.command);
@@ -15084,6 +15149,7 @@ impl EditorApp {
                     if let Some(doc) = self.state.tabs.get(tab) {
                         let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                         if let Some(drag) = self.sel_text_drag.as_mut() {
+                            drag.drop_find = false;
                             drag.drop_tab = tab;
                             drag.drop_at = idx;
                         }
@@ -15432,7 +15498,11 @@ impl EditorApp {
             }
 
             if let Some(drag) = self.sel_text_drag.as_ref() {
-                if drag.drop_tab == tab && drag.drop_at >= line_start && drag.drop_at <= line_end {
+                if !drag.drop_find
+                    && drag.drop_tab == tab
+                    && drag.drop_at >= line_start
+                    && drag.drop_at <= line_end
+                {
                     let col = drag.drop_at - line_start;
                     let prefix: String = line_text.chars().take(col).collect();
                     let cx = text_left + text_width(ui, &font_id, &prefix);
@@ -16805,5 +16875,31 @@ mod editor_scrollbar_tests {
         let y = rect.top() + grab;
         let scroll = scroll_line_from_scrollbar_pointer(y, grab, &layout, max_scroll);
         assert!(scroll.abs() < 0.01, "got {scroll}");
+    }
+}
+
+#[cfg(test)]
+mod find_drag_drop_tests {
+    use super::find_query_from_drag_text;
+
+    #[test]
+    fn takes_first_line_trimmed() {
+        assert_eq!(
+            find_query_from_drag_text("  needle  \nsecond"),
+            Some("needle".into())
+        );
+    }
+
+    #[test]
+    fn rejects_blank() {
+        assert_eq!(find_query_from_drag_text("   \nfoo"), None);
+        assert_eq!(find_query_from_drag_text(""), None);
+    }
+
+    #[test]
+    fn truncates_long_line() {
+        let long = "a".repeat(250);
+        let q = find_query_from_drag_text(&long).expect("query");
+        assert_eq!(q.chars().count(), 200);
     }
 }

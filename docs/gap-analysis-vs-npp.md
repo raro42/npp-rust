@@ -93,6 +93,7 @@ Hundreds of menu commands have **no** accelerator.
 | Tab drag-reorder | Done |
 | Document map click/drag scroll | Done | Compare colours + hunk-start ticks; Find match ticks; fold-header ticks + click toggle; selection wash + caret / multi-caret ticks; click parks hunk/match/caret; drag syncs partner when sync scroll on |
 | Drag selection to move or copy text | Done (same buffer + dual-view cross-pane; Ctrl/Cmd = copy) |
+| Drop selection onto Find field | Done (fills query; first line, max 200 chars) |
 | Drop files onto the window to open | Done |
 
 ---
@@ -202,5 +203,5 @@ See `docs/menu-todo.md`, `docs/whats-missing.md`. Refresh `docs/scope.md` when y
 npp-rs is a serious **early** editor with an N++ menu shell. It is **not** a 20-year feature clone.
 
 - **Hotkeys:** small hard-wired set — not all N++ keys.
-- **Drag marked code:** move/copy in same buffer (v0.3.8) + dual-view cross-pane (v0.3.204); drop-into-Find still open.
+- **Drag marked code:** move/copy in same buffer (v0.3.8) + dual-view cross-pane (v0.3.204) + drop into Find field (v0.3.205).
 - **Largest holes:** remappable keys, plugins ABI, UDL, hex, deeper fold/LSP.
