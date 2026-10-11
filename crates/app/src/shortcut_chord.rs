@@ -236,6 +236,10 @@ pub const DEFAULT_ALWAYS_ON_TOP: &str = "Alt+T";
 /// Default show-all-characters toggle binding (View → Show All Characters).
 pub const DEFAULT_SHOW_ALL_CHARACTERS: &str = "Alt+A";
 
+/// Default show-whitespace toggle binding (View → Show White Space and TAB).
+/// Shift + same key is Show EOL.
+pub const DEFAULT_SHOW_WHITESPACE: &str = "Alt+V";
+
 /// Default indent-guide toggle binding (View → Show Indent Guide).
 pub const DEFAULT_INDENT_GUIDE: &str = "Alt+I";
 
@@ -1341,6 +1345,17 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::A);
         assert_eq!(c.display(), "Alt+A");
+    }
+
+    #[test]
+    fn parse_alt_v_default_show_whitespace() {
+        let c = parse_chord(DEFAULT_SHOW_WHITESPACE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::V);
+        assert_eq!(c.display(), "Alt+V");
+        assert_eq!(c.flipped_shift().display(), "Alt+Shift+V");
     }
 
     #[test]

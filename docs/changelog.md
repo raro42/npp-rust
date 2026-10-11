@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.211] — 2026-10-11
+
+View / Settings:
+
+- **Show White Space and TAB** is remappable (`shortcut_show_whitespace`, default Alt+V). Shift + that chord toggles **Show EOL**. Menu, Preferences, Shortcut Mapper, and About show the effective binding. Show All Characters (Alt+A) still toggles whitespace + EOL + NPC together.
+
 ## [0.3.210] — 2026-10-11
 
 File / Settings:

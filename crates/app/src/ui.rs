@@ -1406,6 +1406,48 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_ALL_CHARACTERS");
             }
         }
+        // Remappable show-whitespace toggle (default Alt+V; settings.shortcut_show_whitespace).
+        // Shift flips to Show EOL.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SHOW_WHITESPACE};
+            let ws_chord = resolve_chord(
+                &self.state.settings.shortcut_show_whitespace,
+                DEFAULT_SHOW_WHITESPACE,
+            );
+            let ws_key_pressed = match ws_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_eol =
+                ws_key_pressed && ws_chord.flipped_shift().matches(mods, ws_chord.key);
+            let remapped_ws = ws_key_pressed && ws_chord.matches(mods, ws_chord.key);
+            if remapped_eol {
+                self.run_shortcut_cmd("IDM_VIEW_EOL");
+            } else if remapped_ws {
+                self.run_shortcut_cmd("IDM_VIEW_TAB_SPACE");
+            }
+        }
         // Remappable indent-guide toggle (default Alt+I; settings.shortcut_indent_guide).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_INDENT_GUIDE};
@@ -4972,6 +5014,28 @@ impl EditorApp {
                             "Toggle whitespace + EOL + NPC ({chord}; Preferences remappable)"
                         ))
                     }
+                    "IDM_VIEW_TAB_SPACE" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_show_whitespace,
+                            crate::shortcut_chord::DEFAULT_SHOW_WHITESPACE,
+                        );
+                        let ws = chord.display();
+                        let eol = chord.flipped_shift().display();
+                        response.on_hover_text(format!(
+                            "Toggle space/tab glyphs ({ws}; Preferences remappable; {eol} toggles Show EOL)"
+                        ))
+                    }
+                    "IDM_VIEW_EOL" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_show_whitespace,
+                            crate::shortcut_chord::DEFAULT_SHOW_WHITESPACE,
+                        );
+                        let eol = chord.flipped_shift().display();
+                        let ws = chord.display();
+                        response.on_hover_text(format!(
+                            "Toggle end-of-line marks ({eol}; Preferences remappable via Show whitespace shortcut + Shift; {ws} toggles space/tab)"
+                        ))
+                    }
                     "IDM_VIEW_INDENT_GUIDE" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_indent_guide,
@@ -5498,6 +5562,14 @@ impl EditorApp {
             "IDM_VIEW_ALL_CHARACTERS" => primary(
                 &s.shortcut_show_all_characters,
                 crate::shortcut_chord::DEFAULT_SHOW_ALL_CHARACTERS,
+            ),
+            "IDM_VIEW_TAB_SPACE" => primary(
+                &s.shortcut_show_whitespace,
+                crate::shortcut_chord::DEFAULT_SHOW_WHITESPACE,
+            ),
+            "IDM_VIEW_EOL" => shifted(
+                &s.shortcut_show_whitespace,
+                crate::shortcut_chord::DEFAULT_SHOW_WHITESPACE,
             ),
             "IDM_VIEW_INDENT_GUIDE" => primary(
                 &s.shortcut_indent_guide,
@@ -6066,6 +6138,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_SHOW_ALL_CHARACTERS,
         )
         .display();
+        let show_whitespace_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_show_whitespace,
+            crate::shortcut_chord::DEFAULT_SHOW_WHITESPACE,
+        );
+        let show_whitespace_keys = format!(
+            "{} / {}",
+            show_whitespace_chord.display(),
+            show_whitespace_chord.flipped_shift().display()
+        );
         let indent_guide_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_indent_guide,
             crate::shortcut_chord::DEFAULT_INDENT_GUIDE,
@@ -6101,7 +6182,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 79] = [
+        let rows: [(&str, &str); 80] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -6207,6 +6288,10 @@ impl EditorApp {
             (
                 show_all_characters_keys.as_str(),
                 "Toggle show all characters",
+            ),
+            (
+                show_whitespace_keys.as_str(),
+                "Toggle show whitespace / Show EOL",
             ),
             (indent_guide_keys.as_str(), "Toggle indent guide"),
             (project_panel_keys.as_str(), "Toggle project panel"),
@@ -8983,6 +9068,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+A, Ctrl+Alt+A. Toggles View → Show All Characters (whitespace + EOL + NPC).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Show whitespace shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_show_whitespace,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+V"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_show_whitespace
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_show_whitespace =
+                                        crate::shortcut_chord::DEFAULT_SHOW_WHITESPACE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SHOW_WHITESPACE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_show_whitespace = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+V, Ctrl+Alt+V. Toggles View → Show White Space and TAB. Shift + that chord toggles Show EOL.",
                             )
                             .small()
                             .weak(),
