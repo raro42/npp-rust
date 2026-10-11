@@ -315,3 +315,5 @@
 009 keep: dual-view cross-pane selection drag move/copy (v0.3.204)
 
 009 keep: drop selection into Find field (v0.3.205)
+
+009 keep: drop selection into Replace field (v0.3.206)

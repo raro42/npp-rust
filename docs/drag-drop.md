@@ -18,8 +18,9 @@ Date: 2026-08-31
 - Works in the primary pane and the dual-view secondary pane.
 - **Cross-pane (dual view):** drag from one pane onto the other tab to move (or Ctrl/Cmd-copy) into that buffer. Each side gets its own undo unit.
 - **Drop into Find:** with the Find bar open, drag a selection onto the Find field to set the query (first line, max 200 chars). Does not move or copy buffer text. Orange highlight on the Find field while hovering.
+- **Drop into Replace:** with Replace open, drag a selection onto the Replace field to set the replacement text (same first-line / 200-char rules). Does not move or copy buffer text. Orange highlight on the Replace field while hovering.
 
 ## Code
 
 - Buffer: `crates/buffer/src/lib.rs` — `drag_selection_to` (same buffer)
-- UI: `crates/app/src/ui.rs` — `handle_file_drops`, `SelTextDrag` (`tab` + `drop_tab` + `drop_find`), `finish_sel_text_drag`, `find_query_from_drag_text`
+- UI: `crates/app/src/ui.rs` — `handle_file_drops`, `SelTextDrag` (`tab` + `drop_tab` + `drop_bar`), `finish_sel_text_drag`, `find_query_from_drag_text`

@@ -31,17 +31,26 @@ enum EditorPane {
     Secondary,
 }
 
+/// Where a selection drag lands in the Find/Replace bar (not the buffer).
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+enum SelDropBar {
+    #[default]
+    None,
+    Find,
+    Replace,
+}
+
 /// In-progress drag of selected text (move, or copy with Ctrl/Cmd).
 /// `tab` is the source; `drop_tab` may differ in dual view (cross-pane drop).
-/// When `drop_find` is set, release fills the Find query instead of moving text.
+/// When `drop_bar` is Find/Replace, release fills that field instead of moving text.
 struct SelTextDrag {
     tab: usize,
     drop_tab: usize,
     drop_at: usize,
-    drop_find: bool,
+    drop_bar: SelDropBar,
 }
 
-/// First line of a dragged selection for the Find field (max 200 chars).
+/// First line of a dragged selection for Find/Replace fields (max 200 chars).
 fn find_query_from_drag_text(sel: &str) -> Option<String> {
     let line = sel.lines().next()?.trim();
     if line.is_empty() {
@@ -1036,7 +1045,7 @@ impl EditorApp {
         let dest = drag.drop_tab;
         let drop_at = drag.drop_at;
 
-        if drag.drop_find {
+        if matches!(drag.drop_bar, SelDropBar::Find | SelDropBar::Replace) {
             let Some(src_doc) = self.state.tabs.get(src) else {
                 return;
             };
@@ -1045,15 +1054,29 @@ impl EditorApp {
             };
             let text = src_doc.buffer.slice(start, end);
             let Some(q) = find_query_from_drag_text(&text) else {
-                self.state.status = "Find: nothing to drop".into();
+                self.state.status = match drag.drop_bar {
+                    SelDropBar::Replace => "Replace: nothing to drop".into(),
+                    _ => "Find: nothing to drop".into(),
+                };
                 return;
             };
-            self.state.find_query = q;
-            self.state.settings.find_query = self.state.find_query.clone();
-            self.state.settings.save();
             self.state.find_open = true;
-            self.find_focus_once = true;
-            self.state.status = "Dropped selection into Find".into();
+            match drag.drop_bar {
+                SelDropBar::Replace => {
+                    self.show_replace = true;
+                    self.replace_with = q;
+                    self.state.settings.replace_with = self.replace_with.clone();
+                    self.state.settings.save();
+                    self.state.status = "Dropped selection into Replace".into();
+                }
+                _ => {
+                    self.state.find_query = q;
+                    self.state.settings.find_query = self.state.find_query.clone();
+                    self.state.settings.save();
+                    self.find_focus_once = true;
+                    self.state.status = "Dropped selection into Find".into();
+                }
+            }
             return;
         }
 
@@ -10905,7 +10928,11 @@ impl EditorApp {
                         .input(|i| i.pointer.latest_pos())
                         .is_some_and(|p| resp.rect.contains(p));
                     if let Some(drag) = self.sel_text_drag.as_mut() {
-                        drag.drop_find = over_find;
+                        if over_find {
+                            drag.drop_bar = SelDropBar::Find;
+                        } else if drag.drop_bar == SelDropBar::Find {
+                            drag.drop_bar = SelDropBar::None;
+                        }
                     }
                     if over_find {
                         ui.ctx().set_cursor_icon(CursorIcon::Copy);
@@ -10993,6 +11020,33 @@ impl EditorApp {
                         .on_hover_text(
                             "With Re: $1 / \\1 insert a capture, $0 / $& the match, $$ a dollar",
                         );
+                    // Selection drag → drop into Replace field (fills replace text; does not move).
+                    if self.sel_text_drag.is_some() {
+                        let over_replace = ui
+                            .input(|i| i.pointer.latest_pos())
+                            .is_some_and(|p| rresp.rect.contains(p));
+                        if let Some(drag) = self.sel_text_drag.as_mut() {
+                            if over_replace {
+                                drag.drop_bar = SelDropBar::Replace;
+                            } else if drag.drop_bar == SelDropBar::Replace {
+                                drag.drop_bar = SelDropBar::None;
+                            }
+                        }
+                        if over_replace {
+                            ui.ctx().set_cursor_icon(CursorIcon::Copy);
+                            let stroke =
+                                egui::Stroke::new(2.0_f32, Color32::from_rgb(220, 140, 40));
+                            ui.painter().rect_stroke(
+                                rresp.rect.expand(2.0),
+                                2.0,
+                                stroke,
+                                egui::StrokeKind::Outside,
+                            );
+                            if self.state.status != "Drop selection into Replace" {
+                                self.state.status = "Drop selection into Replace".into();
+                            }
+                        }
+                    }
                     if rresp.changed() {
                         persist = true;
                     }
@@ -11505,7 +11559,7 @@ impl EditorApp {
                             tab,
                             drop_tab: tab,
                             drop_at: idx,
-                            drop_find: false,
+                            drop_bar: SelDropBar::None,
                         });
                         self.drag_anchor = None;
                         self.rect_drag = false;
@@ -11539,7 +11593,7 @@ impl EditorApp {
                     );
                     if let Some(drag) = self.sel_text_drag.as_mut() {
                         if rect.contains(pos) {
-                            drag.drop_find = false;
+                            drag.drop_bar = SelDropBar::None;
                             drag.drop_tab = self.state.tabs.active_index();
                             drag.drop_at = idx;
                             let copy = ui.input(|i| i.modifiers.ctrl || i.modifiers.command);
@@ -11614,7 +11668,7 @@ impl EditorApp {
                         );
                         let primary_tab = self.state.tabs.active_index();
                         if let Some(drag) = self.sel_text_drag.as_mut() {
-                            drag.drop_find = false;
+                            drag.drop_bar = SelDropBar::None;
                             drag.drop_tab = primary_tab;
                             drag.drop_at = idx;
                         }
@@ -12069,7 +12123,7 @@ impl EditorApp {
 
                 // Drop caret while dragging selected text (source or other-view drop).
                 if let Some(drag) = self.sel_text_drag.as_ref() {
-                    if !drag.drop_find
+                    if drag.drop_bar == SelDropBar::None
                         && drag.drop_tab == self.state.tabs.active_index()
                         && drag.drop_at >= line_start
                         && drag.drop_at <= line_end
@@ -15070,7 +15124,7 @@ impl EditorApp {
                             tab,
                             drop_tab: tab,
                             drop_at: idx,
-                            drop_find: false,
+                            drop_bar: SelDropBar::None,
                         });
                         self.drag_anchor = None;
                         self.rect_drag = false;
@@ -15095,7 +15149,7 @@ impl EditorApp {
                     let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                     if let Some(drag) = self.sel_text_drag.as_mut() {
                         if rect.contains(pos) {
-                            drag.drop_find = false;
+                            drag.drop_bar = SelDropBar::None;
                             drag.drop_tab = tab;
                             drag.drop_at = idx;
                             let copy = ui.input(|i| i.modifiers.ctrl || i.modifiers.command);
@@ -15149,7 +15203,7 @@ impl EditorApp {
                     if let Some(doc) = self.state.tabs.get(tab) {
                         let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                         if let Some(drag) = self.sel_text_drag.as_mut() {
-                            drag.drop_find = false;
+                            drag.drop_bar = SelDropBar::None;
                             drag.drop_tab = tab;
                             drag.drop_at = idx;
                         }
@@ -15498,7 +15552,7 @@ impl EditorApp {
             }
 
             if let Some(drag) = self.sel_text_drag.as_ref() {
-                if !drag.drop_find
+                if drag.drop_bar == SelDropBar::None
                     && drag.drop_tab == tab
                     && drag.drop_at >= line_start
                     && drag.drop_at <= line_end

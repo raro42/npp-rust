@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.206] — 2026-10-11
+
+Search / Edit:
+
+- **Drop selection into Replace**: with Replace open, drag selected text onto the Replace field to fill the replacement text (first line, max 200 chars). Source text is not moved. Orange highlight on the Replace field while hovering.
+
 ## [0.3.205] — 2026-10-11
 
 Search / Edit:
