@@ -353,3 +353,5 @@
 009 keep: session restore encoding (@encoding, v0.3.224)
 
 009 keep: session restore read-only (@readonly, v0.3.225)
+
+009 keep: session restore scroll (@scroll active tab, v0.3.226)

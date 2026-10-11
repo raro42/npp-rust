@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.226] — 2026-10-12
+
+File / Session:
+
+- Opt-in session restore now keeps the **first visible line** (`@scroll LINE`) for the active tab in `npp-rs/session.txt`, in addition to paths, `@folds`, `@bookmarks`, `@caret`, `@lang`, `@encoding`, `@readonly`, `@pin`, and `@active`. Viewport scroll survives relaunch (wins over caret follow when present; including async opens). Older session files still load (no `@scroll` → scroll follows restored caret as before).
+
 ## [0.3.225] — 2026-10-11
 
 File / Session:

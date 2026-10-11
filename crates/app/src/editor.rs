@@ -109,8 +109,14 @@ pub struct EditorState {
     pending_session_readonly: HashSet<PathBuf>,
     /// Path that should become active after its async session open finishes.
     pending_session_active: Option<PathBuf>,
+    /// First visible line for the pending active tab (applied with `pending_session_active`).
+    pending_session_scroll: Option<usize>,
     /// UI should scroll to the active caret after session restore (consumed once).
     pub session_follow_caret: bool,
+    /// UI should restore first visible line after session restore (consumed once; wins over follow-caret).
+    pub session_scroll_line: Option<usize>,
+    /// Focused-pane first visible line for the next session write (UI syncs each frame).
+    pub session_write_scroll: Option<usize>,
 }
 
 /// Bulk close mode after a dirty-tab confirm.
@@ -209,7 +215,10 @@ impl EditorState {
             pending_session_encodings: HashMap::new(),
             pending_session_readonly: HashSet::new(),
             pending_session_active: None,
+            pending_session_scroll: None,
             session_follow_caret: false,
+            session_scroll_line: None,
+            session_write_scroll: None,
         }
     }
 
@@ -770,6 +779,7 @@ impl EditorState {
             self.pending_session_readonly.remove(&p);
             if self.pending_session_active.as_ref() == Some(&p) {
                 self.pending_session_active = None;
+                self.pending_session_scroll = None;
             }
             self.cancelled_loads.insert(p);
         }
@@ -1803,7 +1813,7 @@ impl EditorState {
         let _ = self.write_session_entries();
     }
 
-    /// Open paths from the config-dir session file (folds, bookmarks, caret, language, encoding, read-only, pin, active tab).
+    /// Open paths from the config-dir session file (folds, bookmarks, caret, scroll, language, encoding, read-only, pin, active tab).
     pub fn restore_session_from_disk(&mut self) {
         let entries = crate::session::load_entries();
         if entries.is_empty() {
@@ -1811,20 +1821,25 @@ impl EditorState {
             return;
         }
         self.pending_session_active = None;
+        self.pending_session_scroll = None;
+        self.session_scroll_line = None;
         let mut n = 0usize;
         let mut folds = 0usize;
         let mut bookmarks = 0usize;
         let mut carets = 0usize;
+        let mut scrolls = 0usize;
         let mut langs = 0usize;
         let mut encodings = 0usize;
         let mut read_onlys = 0usize;
         let mut pins = 0usize;
         let mut active_path: Option<PathBuf> = None;
+        let mut active_scroll: Option<usize> = None;
         for entry in entries {
             let path = entry.path.clone();
             let headers = entry.fold_headers;
             let marks = entry.bookmarks;
             let caret = entry.caret;
+            let scroll = entry.scroll;
             let language = entry.language;
             let encoding = entry.encoding;
             let want_readonly = entry.read_only;
@@ -1893,6 +1908,7 @@ impl EditorState {
             }
             if want_active {
                 active_path = Some(path);
+                active_scroll = scroll;
             }
         }
         if n > 0 && self.tabs.len() > 1 {
@@ -1910,13 +1926,29 @@ impl EditorState {
             if let Some(idx) = idx {
                 if self.tabs.get(idx).is_some_and(|d| d.loading) {
                     self.pending_session_active = Some(path);
+                    self.pending_session_scroll = active_scroll;
+                    if active_scroll.is_some() {
+                        scrolls = 1;
+                    }
                 } else {
                     self.tabs.set_active(idx);
-                    self.session_follow_caret = true;
+                    if let Some(scroll) = active_scroll {
+                        self.session_scroll_line = Some(scroll);
+                        self.session_follow_caret = false;
+                        scrolls = 1;
+                    } else {
+                        self.session_follow_caret = true;
+                    }
                 }
             }
         } else if n > 0 {
-            self.session_follow_caret = true;
+            if let Some(scroll) = active_scroll {
+                self.session_scroll_line = Some(scroll);
+                self.session_follow_caret = false;
+                scrolls = 1;
+            } else {
+                self.session_follow_caret = true;
+            }
         }
         let mut bits = format!("Session restored: {n} file(s)");
         if folds > 0 {
@@ -1927,6 +1959,9 @@ impl EditorState {
         }
         if carets > 0 {
             bits.push_str(&format!(", {carets} caret(s)"));
+        }
+        if scrolls > 0 {
+            bits.push_str(", scroll");
         }
         if langs > 0 {
             bits.push_str(&format!(", {langs} language(s)"));
@@ -1954,6 +1989,7 @@ impl EditorState {
 
     fn write_session_entries(&self) -> Result<(), String> {
         let active_path = self.tabs.active().path.clone();
+        let active_scroll = self.session_write_scroll;
         let entries: Vec<crate::session::SessionEntry> = self
             .tabs
             .iter()
@@ -1977,11 +2013,13 @@ impl EditorState {
                 let read_only = d.read_only;
                 let pinned = d.pinned;
                 let active = active_path.as_ref() == Some(&path);
+                let scroll = if active { active_scroll } else { None };
                 Some(crate::session::SessionEntry {
                     path,
                     fold_headers,
                     bookmarks,
                     caret: Some((line, col)),
+                    scroll,
                     language,
                     encoding,
                     read_only,
@@ -2122,7 +2160,7 @@ impl EditorState {
         if let Some(idx) = idx {
             if self.apply_session_caret_at(idx, line, col) {
                 self.status = format!("{} · restored caret", self.status);
-                if self.tabs.active_index() == idx {
+                if self.tabs.active_index() == idx && self.session_scroll_line.is_none() {
                     self.session_follow_caret = true;
                 }
             }
@@ -2179,13 +2217,19 @@ impl EditorState {
             return;
         }
         self.pending_session_active = None;
+        let scroll = self.pending_session_scroll.take();
         let idx = self
             .tabs
             .iter()
             .position(|d| d.path.as_deref() == Some(path));
         if let Some(idx) = idx {
             self.tabs.set_active(idx);
-            self.session_follow_caret = true;
+            if let Some(line) = scroll {
+                self.session_scroll_line = Some(line);
+                self.session_follow_caret = false;
+            } else {
+                self.session_follow_caret = true;
+            }
         }
     }
 

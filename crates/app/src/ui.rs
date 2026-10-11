@@ -688,6 +688,29 @@ fn index_after_tab_close(idx: usize, closed: usize) -> Option<usize> {
     }
 }
 
+/// Apply one-shot session viewport restore (`@scroll` wins over caret follow).
+fn apply_session_viewport(app: &mut EditorApp) {
+    if let Some(line) = app.state.session_scroll_line.take() {
+        app.state.session_follow_caret = false;
+        let tab = app.state.tabs.active_index();
+        if let Some(doc) = app.state.tabs.get(tab) {
+            let max_line = doc.buffer.line_count().saturating_sub(1);
+            app.follow_caret = false;
+            app.scroll_line = line.min(max_line) as f32;
+        }
+        return;
+    }
+    if app.state.session_follow_caret {
+        app.state.session_follow_caret = false;
+        let tab = app.state.tabs.active_index();
+        if let Some(doc) = app.state.tabs.get(tab) {
+            let line = doc.buffer.char_to_line(doc.buffer.caret());
+            app.follow_caret = true;
+            app.scroll_line = line as f32;
+        }
+    }
+}
+
 pub struct EditorApp {
     state: EditorState,
     find_focus_once: bool,
@@ -846,15 +869,7 @@ impl EditorApp {
         app.open_argv_paths(cli);
         if !had_argv && app.state.settings.restore_session {
             app.state.restore_session_from_disk();
-            if app.state.session_follow_caret {
-                app.state.session_follow_caret = false;
-                let tab = app.state.tabs.active_index();
-                if let Some(doc) = app.state.tabs.get(tab) {
-                    let line = doc.buffer.char_to_line(doc.buffer.caret());
-                    app.follow_caret = true;
-                    app.scroll_line = line as f32;
-                }
-            }
+            apply_session_viewport(&mut app);
         }
         app
     }
@@ -929,6 +944,7 @@ impl EditorApp {
 
 impl eframe::App for EditorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.state.session_write_scroll = Some(self.scroll_line.max(0.0) as usize);
         if ctx.input(|i| i.viewport().close_requested()) {
             self.state.persist_session_if_enabled();
             let dirty = self.state.tabs.iter().any(|d| d.dirty);
@@ -946,15 +962,7 @@ impl eframe::App for EditorApp {
         }
 
         self.state.poll_loads();
-        if self.state.session_follow_caret {
-            self.state.session_follow_caret = false;
-            let tab = self.state.tabs.active_index();
-            if let Some(doc) = self.state.tabs.get(tab) {
-                let line = doc.buffer.char_to_line(doc.buffer.caret());
-                self.follow_caret = true;
-                self.scroll_line = line as f32;
-            }
-        }
+        apply_session_viewport(self);
         if self.state.poll_tail() {
             self.follow_caret = true;
         }
@@ -10203,7 +10211,7 @@ impl EditorApp {
                         }
                         ui.label(
                             RichText::new(format!(
-                                "Session file: {} (paths, folds, caret, active tab)",
+                                "Session file: {} (paths, folds, caret, scroll, active tab)",
                                 crate::session::SESSION_REL
                             ))
                             .small()
