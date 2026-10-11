@@ -110,6 +110,7 @@ New keys:
 | `shortcut_always_on_top` | Always-on-top toggle chord (`Alt+T` default) |
 | `shortcut_show_whitespace` | Show-whitespace toggle chord (`Alt+V` default; Shift flips to Show EOL) |
 | `shortcut_show_npc` | Show-NPC toggle chord (`Alt+N` default) |
+| `shortcut_show_line_numbers` | Show-line-numbers toggle chord (`Alt+L` default; View → Show Line Numbers) |
 | `shortcut_sync_scroll` | Sync vertical scroll toggle chord (`Alt+Q` default; Shift flips to Sync H) |
 | `shortcut_focus_other_view` | Focus other dual-view pane chord (`F6` default; Shift swaps tabs) |
 | `shortcut_move_other_view` | Move / clone to other view chord (`Alt+O` default; Shift clones) |

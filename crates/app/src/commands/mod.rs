@@ -302,6 +302,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_VIEW_NPC_CCUNIEOL"
             | "IDM_VIEW_ALL_CHARACTERS"
             | "IDM_VIEW_INDENT_GUIDE"
+            | "IDM_VIEW_LINENUMBER"
             | "IDM_VIEW_WRAP_SYMBOL"
             | "IDM_VIEW_WRAP"
             | "IDM_VIEW_TAB_MOVEFORWARD"

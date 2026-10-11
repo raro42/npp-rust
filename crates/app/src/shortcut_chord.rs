@@ -261,6 +261,9 @@ pub const DEFAULT_SYNC_SCROLL: &str = "Alt+Q";
 /// Default indent-guide toggle binding (View → Show Indent Guide).
 pub const DEFAULT_INDENT_GUIDE: &str = "Alt+I";
 
+/// Default show-line-numbers toggle binding (View → Show Line Numbers).
+pub const DEFAULT_SHOW_LINE_NUMBERS: &str = "Alt+L";
+
 /// Default project-panel toggle binding (View → Project Panel).
 pub const DEFAULT_PROJECT_PANEL: &str = "Alt+P";
 
@@ -1439,6 +1442,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::I);
         assert_eq!(c.display(), "Alt+I");
+    }
+
+    #[test]
+    fn parse_alt_l_default_show_line_numbers() {
+        let c = parse_chord(DEFAULT_SHOW_LINE_NUMBERS).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::L);
+        assert_eq!(c.display(), "Alt+L");
     }
 
     #[test]

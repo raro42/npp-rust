@@ -337,3 +337,5 @@
 009 keep: remappable Move / Clone to Other View (shortcut_move_other_view, Alt+O; Shift clones, v0.3.216)
 
 009 keep: remappable RTL / LTR (shortcut_rtl, Alt+R; Shift = LTR, v0.3.217)
+
+009 keep: remappable Show Line Numbers (shortcut_show_line_numbers, Alt+L default, v0.3.218)

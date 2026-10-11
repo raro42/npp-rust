@@ -1542,6 +1542,12 @@
           },
           {
             "kind": "item",
+            "label": "Show Line Numbers",
+            "raw_label": "Show Line Numbers",
+            "cmd": "IDM_VIEW_LINENUMBER"
+          },
+          {
+            "kind": "item",
             "label": "Show Wrap Symbol",
             "raw_label": "Show Wrap Symbol",
             "cmd": "IDM_VIEW_WRAP_SYMBOL"

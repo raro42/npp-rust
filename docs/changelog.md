@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.218] — 2026-10-11
+
+View / Settings:
+
+- **Show Line Numbers** is remappable (`shortcut_show_line_numbers`, default Alt+L). View → Show Symbol → Show Line Numbers, Preferences, Shortcut Mapper, and About show the effective binding. Persists via `show_line_numbers` as before.
+
 ## [0.3.217] — 2026-10-11
 
 Edit / Settings:

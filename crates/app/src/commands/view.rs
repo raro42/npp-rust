@@ -110,6 +110,19 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             );
             CmdResult::Handled
         }
+        "IDM_VIEW_LINENUMBER" => {
+            state.settings.show_line_numbers = !state.settings.show_line_numbers;
+            state.settings.save();
+            state.status = format!(
+                "Line numbers: {}",
+                if state.settings.show_line_numbers {
+                    "on"
+                } else {
+                    "off"
+                }
+            );
+            CmdResult::Handled
+        }
         "IDM_VIEW_WRAP_SYMBOL" => {
             // Used together with word wrap; toggle is recorded for UI.
             state.status = if state.word_wrap {
