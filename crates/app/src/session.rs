@@ -6,6 +6,7 @@
 //! - optional `@bookmarks l1,l2,…` line after a path lists bookmarked line indices
 //! - optional `@caret LINE COL` line after a path (0-based line and column)
 //! - optional `@lang ID` line after a path restores Language-menu highlight id
+//! - optional `@encoding TOKEN` line after a path restores save encoding
 //! - optional `@pin` marker when the tab was pinned
 //! - optional `@active` marker on the entry that should be focused on restore
 
@@ -13,12 +14,14 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 
+use doc::FileEncoding;
+
 const SESSION_FILE: &str = "session.txt";
 
 /// Portable label for status (never a home absolute path).
 pub const SESSION_REL: &str = "npp-rs/session.txt";
 
-/// One session tab: path plus optional fold headers, bookmarks, caret, language, pin, and active flag.
+/// One session tab: path plus optional fold headers, bookmarks, caret, language, encoding, pin, and active flag.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionEntry {
     pub path: PathBuf,
@@ -29,6 +32,8 @@ pub struct SessionEntry {
     pub caret: Option<(usize, usize)>,
     /// Language id for highlight / fold / comments when present.
     pub language: Option<String>,
+    /// Save encoding when present (overrides open detect).
+    pub encoding: Option<FileEncoding>,
     pub pinned: bool,
     pub active: bool,
 }
@@ -38,7 +43,7 @@ fn session_store_path() -> Result<PathBuf, ()> {
     Ok(base.join("npp-rs").join(SESSION_FILE))
 }
 
-/// Write paths (and optional `@folds` / `@bookmarks` / `@caret` / `@lang` / `@pin` / `@active` lines) for restore.
+/// Write paths (and optional `@folds` / `@bookmarks` / `@caret` / `@lang` / `@encoding` / `@pin` / `@active` lines) for restore.
 pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
     let path = session_store_path().map_err(|_| "no config dir".to_string())?;
     if let Some(parent) = path.parent() {
@@ -72,6 +77,9 @@ pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
             if let Some(safe) = sanitize_language_id(lang) {
                 writeln!(file, "@lang {safe}").map_err(|e| e.to_string())?;
             }
+        }
+        if let Some(enc) = entry.encoding {
+            writeln!(file, "@encoding {}", encoding_token(enc)).map_err(|e| e.to_string())?;
         }
         if entry.pinned {
             writeln!(file, "@pin").map_err(|e| e.to_string())?;
@@ -134,6 +142,14 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
             }
             continue;
         }
+        if let Some(rest) = trimmed.strip_prefix("@encoding") {
+            if meta_ok {
+                if let Some(last) = out.last_mut() {
+                    last.encoding = parse_encoding_token(rest.trim());
+                }
+            }
+            continue;
+        }
         if trimmed == "@pin" {
             if meta_ok {
                 if let Some(last) = out.last_mut() {
@@ -162,6 +178,7 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
                 bookmarks: Vec::new(),
                 caret: None,
                 language: None,
+                encoding: None,
                 pinned: false,
                 active: false,
             });
@@ -218,6 +235,33 @@ fn sanitize_language_id(s: &str) -> Option<String> {
     }
 }
 
+/// Stable session token for [`FileEncoding`].
+pub fn encoding_token(enc: FileEncoding) -> &'static str {
+    match enc {
+        FileEncoding::Utf8 => "utf8",
+        FileEncoding::Utf8Bom => "utf8-bom",
+        FileEncoding::Utf16Le => "utf16-le",
+        FileEncoding::Utf16Be => "utf16-be",
+        FileEncoding::Windows1252 => "windows-1252",
+    }
+}
+
+/// Parse `@encoding` tokens (aliases accepted; unknown → `None`).
+pub fn parse_encoding_token(s: &str) -> Option<FileEncoding> {
+    let t = s.trim().to_ascii_lowercase();
+    if t.is_empty() || t.len() > 32 {
+        return None;
+    }
+    match t.as_str() {
+        "utf8" | "utf-8" => Some(FileEncoding::Utf8),
+        "utf8-bom" | "utf-8-bom" | "utf8bom" => Some(FileEncoding::Utf8Bom),
+        "utf16-le" | "utf16le" | "utf-16-le" => Some(FileEncoding::Utf16Le),
+        "utf16-be" | "utf16be" | "utf-16-be" => Some(FileEncoding::Utf16Be),
+        "windows-1252" | "windows1252" | "ansi" => Some(FileEncoding::Windows1252),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,6 +295,7 @@ mod tests {
         assert!(entries[0].bookmarks.is_empty());
         assert_eq!(entries[0].caret, None);
         assert_eq!(entries[0].language, None);
+        assert_eq!(entries[0].encoding, None);
         assert!(!entries[0].pinned);
         assert!(!entries[0].active);
         assert_eq!(entries[1].path, b);
@@ -375,8 +420,56 @@ mod tests {
     }
 
     #[test]
+    fn parse_encoding() {
+        let dir = std::env::temp_dir().join(format!(
+            "npp-session-encoding-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::create_dir_all(&dir);
+        let a = dir.join("notes.txt");
+        fs::write(&a, "hello\n").unwrap();
+
+        let text = format!(
+            "{}\n@encoding UTF-8-BOM\n@lang plain\n@active\n",
+            a.display()
+        );
+        let entries = parse_session_text(&text);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].encoding, Some(FileEncoding::Utf8Bom));
+        assert_eq!(entries[0].language.as_deref(), Some("plain"));
+        assert!(entries[0].active);
+
+        let aliases = format!(
+            "{}\n@encoding ansi\n{}\n@encoding utf16le\n",
+            a.display(),
+            a.display()
+        );
+        let entries = parse_session_text(&aliases);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].encoding, Some(FileEncoding::Windows1252));
+        assert_eq!(entries[1].encoding, Some(FileEncoding::Utf16Le));
+
+        let bad = format!("{}\n@encoding not-a-real-enc\n@encoding\n", a.display());
+        let entries = parse_session_text(&bad);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].encoding, None);
+
+        assert_eq!(encoding_token(FileEncoding::Utf8), "utf8");
+        assert_eq!(
+            parse_encoding_token(encoding_token(FileEncoding::Utf16Be)),
+            Some(FileEncoding::Utf16Be)
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn parse_ignores_orphan_meta() {
-        let text = "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@lang rust\n@pin\n@active\n";
+        let text =
+            "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@lang rust\n@encoding utf8\n@pin\n@active\n";
         assert!(parse_session_text(text).is_empty());
     }
 

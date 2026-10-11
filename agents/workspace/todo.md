@@ -349,3 +349,5 @@
 009 keep: session restore pin (@pin, v0.3.222)
 
 009 keep: session restore language (@lang, v0.3.223)
+
+009 keep: session restore encoding (@encoding, v0.3.224)

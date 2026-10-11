@@ -103,6 +103,8 @@ pub struct EditorState {
     pending_session_carets: HashMap<PathBuf, (usize, usize)>,
     /// Language id to apply after an async session restore open finishes.
     pending_session_langs: HashMap<PathBuf, String>,
+    /// Save encoding to apply after an async session restore open finishes.
+    pending_session_encodings: HashMap<PathBuf, FileEncoding>,
     /// Path that should become active after its async session open finishes.
     pending_session_active: Option<PathBuf>,
     /// UI should scroll to the active caret after session restore (consumed once).
@@ -202,6 +204,7 @@ impl EditorState {
             pending_session_bookmarks: HashMap::new(),
             pending_session_carets: HashMap::new(),
             pending_session_langs: HashMap::new(),
+            pending_session_encodings: HashMap::new(),
             pending_session_active: None,
             session_follow_caret: false,
         }
@@ -676,6 +679,7 @@ impl EditorState {
         self.apply_pending_session_bookmarks_for(&result.path);
         self.apply_pending_session_caret_for(&result.path);
         self.apply_pending_session_lang_for(&result.path);
+        self.apply_pending_session_encoding_for(&result.path);
         self.apply_pending_session_active_for(&result.path);
         self.after_open_log_policy(&result.path);
     }
@@ -758,6 +762,7 @@ impl EditorState {
             self.pending_session_bookmarks.remove(&p);
             self.pending_session_carets.remove(&p);
             self.pending_session_langs.remove(&p);
+            self.pending_session_encodings.remove(&p);
             if self.pending_session_active.as_ref() == Some(&p) {
                 self.pending_session_active = None;
             }
@@ -1806,6 +1811,7 @@ impl EditorState {
         let mut bookmarks = 0usize;
         let mut carets = 0usize;
         let mut langs = 0usize;
+        let mut encodings = 0usize;
         let mut pins = 0usize;
         let mut active_path: Option<PathBuf> = None;
         for entry in entries {
@@ -1814,6 +1820,7 @@ impl EditorState {
             let marks = entry.bookmarks;
             let caret = entry.caret;
             let language = entry.language;
+            let encoding = entry.encoding;
             let want_pin = entry.pinned;
             let want_active = entry.active;
             self.open_path(path.clone());
@@ -1853,6 +1860,13 @@ impl EditorState {
                     self.pending_session_langs.insert(path.clone(), lang);
                 } else if self.apply_session_lang_at(idx, &lang) {
                     langs += 1;
+                }
+            }
+            if let Some(enc) = encoding {
+                if loading {
+                    self.pending_session_encodings.insert(path.clone(), enc);
+                } else if self.apply_session_encoding_at(idx, enc) {
+                    encodings += 1;
                 }
             }
             if want_pin {
@@ -1903,6 +1917,9 @@ impl EditorState {
         if langs > 0 {
             bits.push_str(&format!(", {langs} language(s)"));
         }
+        if encodings > 0 {
+            bits.push_str(&format!(", {encodings} encoding(s)"));
+        }
         if pins > 0 {
             bits.push_str(&format!(", {pins} pin(s)"));
         }
@@ -1939,6 +1956,7 @@ impl EditorState {
                         Some(lang.to_string())
                     }
                 };
+                let encoding = Some(d.encoding);
                 let pinned = d.pinned;
                 let active = active_path.as_ref() == Some(&path);
                 Some(crate::session::SessionEntry {
@@ -1947,6 +1965,7 @@ impl EditorState {
                     bookmarks,
                     caret: Some((line, col)),
                     language,
+                    encoding,
                     pinned,
                     active,
                 })
@@ -2019,6 +2038,17 @@ impl EditorState {
         true
     }
 
+    fn apply_session_encoding_at(&mut self, tab: usize, encoding: FileEncoding) -> bool {
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return false;
+        };
+        if doc.encoding == encoding {
+            return false;
+        }
+        doc.encoding = encoding;
+        true
+    }
+
     fn apply_pending_session_folds_for(&mut self, path: &Path) {
         let Some(headers) = self.pending_session_folds.remove(path) else {
             return;
@@ -2080,6 +2110,21 @@ impl EditorState {
         if let Some(idx) = idx {
             if self.apply_session_lang_at(idx, &lang) {
                 self.status = format!("{} · restored language {lang}", self.status);
+            }
+        }
+    }
+
+    fn apply_pending_session_encoding_for(&mut self, path: &Path) {
+        let Some(encoding) = self.pending_session_encodings.remove(path) else {
+            return;
+        };
+        let idx = self
+            .tabs
+            .iter()
+            .position(|d| d.path.as_deref() == Some(path));
+        if let Some(idx) = idx {
+            if self.apply_session_encoding_at(idx, encoding) {
+                self.status = format!("{} · restored encoding {}", self.status, encoding.label());
             }
         }
     }

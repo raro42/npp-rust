@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.224] — 2026-10-11
+
+File / Session:
+
+- Opt-in session restore now keeps **save encoding** (`@encoding TOKEN`) in `npp-rs/session.txt`, in addition to paths, `@folds`, `@bookmarks`, `@caret`, `@lang`, `@pin`, and `@active`. Overrides open detect after load (including async opens) so Format → Convert / ANSI vs UTF-8 choices survive relaunch. Tokens: `utf8`, `utf8-bom`, `utf16-le`, `utf16-be`, `windows-1252` (aliases accepted). Older session files still load.
+
 ## [0.3.223] — 2026-10-11
 
 File / Session:

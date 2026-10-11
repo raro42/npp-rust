@@ -23,6 +23,8 @@ UTF-16 unpaired surrogates may become U+FFFD. A trailing odd byte on UTF-16 is d
 
 The status bar reports the fallback. The tab stores the chosen encoding for the next save.
 
+Opt-in session restore writes `@encoding TOKEN` under each path in `npp-rs/session.txt` and re-applies it after open (including async loads), so Format → Convert / ANSI choices survive relaunch when byte detect would differ. Tokens: `utf8`, `utf8-bom`, `utf16-le`, `utf16-be`, `windows-1252`.
+
 ## Tail follow
 
 Appended chunks keep valid UTF-8. Invalid bytes map via Windows-1252. Status shows a note when that happens.
