@@ -101,6 +101,8 @@ pub struct EditorState {
     pending_session_bookmarks: HashMap<PathBuf, Vec<usize>>,
     /// Caret (line, col) to apply after an async session restore open finishes.
     pending_session_carets: HashMap<PathBuf, (usize, usize)>,
+    /// Language id to apply after an async session restore open finishes.
+    pending_session_langs: HashMap<PathBuf, String>,
     /// Path that should become active after its async session open finishes.
     pending_session_active: Option<PathBuf>,
     /// UI should scroll to the active caret after session restore (consumed once).
@@ -199,6 +201,7 @@ impl EditorState {
             pending_session_folds: HashMap::new(),
             pending_session_bookmarks: HashMap::new(),
             pending_session_carets: HashMap::new(),
+            pending_session_langs: HashMap::new(),
             pending_session_active: None,
             session_follow_caret: false,
         }
@@ -672,6 +675,7 @@ impl EditorState {
         self.apply_pending_session_folds_for(&result.path);
         self.apply_pending_session_bookmarks_for(&result.path);
         self.apply_pending_session_caret_for(&result.path);
+        self.apply_pending_session_lang_for(&result.path);
         self.apply_pending_session_active_for(&result.path);
         self.after_open_log_policy(&result.path);
     }
@@ -753,6 +757,7 @@ impl EditorState {
             self.pending_session_folds.remove(&p);
             self.pending_session_bookmarks.remove(&p);
             self.pending_session_carets.remove(&p);
+            self.pending_session_langs.remove(&p);
             if self.pending_session_active.as_ref() == Some(&p) {
                 self.pending_session_active = None;
             }
@@ -1788,7 +1793,7 @@ impl EditorState {
         let _ = self.write_session_entries();
     }
 
-    /// Open paths from the config-dir session file (folds, bookmarks, caret, pin, active tab).
+    /// Open paths from the config-dir session file (folds, bookmarks, caret, language, pin, active tab).
     pub fn restore_session_from_disk(&mut self) {
         let entries = crate::session::load_entries();
         if entries.is_empty() {
@@ -1800,6 +1805,7 @@ impl EditorState {
         let mut folds = 0usize;
         let mut bookmarks = 0usize;
         let mut carets = 0usize;
+        let mut langs = 0usize;
         let mut pins = 0usize;
         let mut active_path: Option<PathBuf> = None;
         for entry in entries {
@@ -1807,6 +1813,7 @@ impl EditorState {
             let headers = entry.fold_headers;
             let marks = entry.bookmarks;
             let caret = entry.caret;
+            let language = entry.language;
             let want_pin = entry.pinned;
             let want_active = entry.active;
             self.open_path(path.clone());
@@ -1839,6 +1846,13 @@ impl EditorState {
                         .insert(path.clone(), (line, col));
                 } else if self.apply_session_caret_at(idx, line, col) {
                     carets += 1;
+                }
+            }
+            if let Some(lang) = language {
+                if loading {
+                    self.pending_session_langs.insert(path.clone(), lang);
+                } else if self.apply_session_lang_at(idx, &lang) {
+                    langs += 1;
                 }
             }
             if want_pin {
@@ -1886,6 +1900,9 @@ impl EditorState {
         if carets > 0 {
             bits.push_str(&format!(", {carets} caret(s)"));
         }
+        if langs > 0 {
+            bits.push_str(&format!(", {langs} language(s)"));
+        }
         if pins > 0 {
             bits.push_str(&format!(", {pins} pin(s)"));
         }
@@ -1914,6 +1931,14 @@ impl EditorState {
                 let caret_idx = d.buffer.caret();
                 let line = d.buffer.char_to_line(caret_idx);
                 let col = caret_idx.saturating_sub(d.buffer.line_to_char(line));
+                let language = {
+                    let lang = d.language.trim();
+                    if lang.is_empty() {
+                        None
+                    } else {
+                        Some(lang.to_string())
+                    }
+                };
                 let pinned = d.pinned;
                 let active = active_path.as_ref() == Some(&path);
                 Some(crate::session::SessionEntry {
@@ -1921,6 +1946,7 @@ impl EditorState {
                     fold_headers,
                     bookmarks,
                     caret: Some((line, col)),
+                    language,
                     pinned,
                     active,
                 })
@@ -1974,6 +2000,25 @@ impl EditorState {
         true
     }
 
+    fn apply_session_lang_at(&mut self, tab: usize, lang: &str) -> bool {
+        let lang = lang.trim();
+        if lang.is_empty() {
+            return false;
+        }
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return false;
+        };
+        if doc.language == lang {
+            return false;
+        }
+        doc.language = lang.to_string();
+        self.highlight_dirty = true;
+        if self.highlight_tab_other == Some(tab) {
+            self.highlight_dirty_other = true;
+        }
+        true
+    }
+
     fn apply_pending_session_folds_for(&mut self, path: &Path) {
         let Some(headers) = self.pending_session_folds.remove(path) else {
             return;
@@ -2020,6 +2065,21 @@ impl EditorState {
                 if self.tabs.active_index() == idx {
                     self.session_follow_caret = true;
                 }
+            }
+        }
+    }
+
+    fn apply_pending_session_lang_for(&mut self, path: &Path) {
+        let Some(lang) = self.pending_session_langs.remove(path) else {
+            return;
+        };
+        let idx = self
+            .tabs
+            .iter()
+            .position(|d| d.path.as_deref() == Some(path));
+        if let Some(idx) = idx {
+            if self.apply_session_lang_at(idx, &lang) {
+                self.status = format!("{} · restored language {lang}", self.status);
             }
         }
     }

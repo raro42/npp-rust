@@ -5,6 +5,7 @@
 //! - optional `@folds h1,h2,…` line after a path lists folded **header** line indices
 //! - optional `@bookmarks l1,l2,…` line after a path lists bookmarked line indices
 //! - optional `@caret LINE COL` line after a path (0-based line and column)
+//! - optional `@lang ID` line after a path restores Language-menu highlight id
 //! - optional `@pin` marker when the tab was pinned
 //! - optional `@active` marker on the entry that should be focused on restore
 
@@ -17,7 +18,7 @@ const SESSION_FILE: &str = "session.txt";
 /// Portable label for status (never a home absolute path).
 pub const SESSION_REL: &str = "npp-rs/session.txt";
 
-/// One session tab: path plus optional fold headers, bookmarks, caret, pin, and active flag.
+/// One session tab: path plus optional fold headers, bookmarks, caret, language, pin, and active flag.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionEntry {
     pub path: PathBuf,
@@ -26,6 +27,8 @@ pub struct SessionEntry {
     pub bookmarks: Vec<usize>,
     /// 0-based line and column when present.
     pub caret: Option<(usize, usize)>,
+    /// Language id for highlight / fold / comments when present.
+    pub language: Option<String>,
     pub pinned: bool,
     pub active: bool,
 }
@@ -35,7 +38,7 @@ fn session_store_path() -> Result<PathBuf, ()> {
     Ok(base.join("npp-rs").join(SESSION_FILE))
 }
 
-/// Write paths (and optional `@folds` / `@bookmarks` / `@caret` / `@pin` / `@active` lines) for restore.
+/// Write paths (and optional `@folds` / `@bookmarks` / `@caret` / `@lang` / `@pin` / `@active` lines) for restore.
 pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
     let path = session_store_path().map_err(|_| "no config dir".to_string())?;
     if let Some(parent) = path.parent() {
@@ -64,6 +67,11 @@ pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
         }
         if let Some((line, col)) = entry.caret {
             writeln!(file, "@caret {line} {col}").map_err(|e| e.to_string())?;
+        }
+        if let Some(lang) = entry.language.as_deref() {
+            if let Some(safe) = sanitize_language_id(lang) {
+                writeln!(file, "@lang {safe}").map_err(|e| e.to_string())?;
+            }
         }
         if entry.pinned {
             writeln!(file, "@pin").map_err(|e| e.to_string())?;
@@ -118,6 +126,14 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
             }
             continue;
         }
+        if let Some(rest) = trimmed.strip_prefix("@lang") {
+            if meta_ok {
+                if let Some(last) = out.last_mut() {
+                    last.language = sanitize_language_id(rest.trim());
+                }
+            }
+            continue;
+        }
         if trimmed == "@pin" {
             if meta_ok {
                 if let Some(last) = out.last_mut() {
@@ -145,6 +161,7 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
                 fold_headers: Vec::new(),
                 bookmarks: Vec::new(),
                 caret: None,
+                language: None,
                 pinned: false,
                 active: false,
             });
@@ -180,6 +197,27 @@ fn parse_caret(s: &str) -> Option<(usize, usize)> {
     Some((line, col))
 }
 
+/// Accept a short lowercase language id (`rust`, `python`, `plain`).
+fn sanitize_language_id(s: &str) -> Option<String> {
+    let t = s.trim();
+    if t.is_empty() || t.len() > 32 {
+        return None;
+    }
+    let mut out = String::with_capacity(t.len());
+    for ch in t.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' || ch == '+' {
+            out.push(ch.to_ascii_lowercase());
+        } else {
+            return None;
+        }
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,6 +250,7 @@ mod tests {
         assert_eq!(entries[0].fold_headers, vec![0, 4]);
         assert!(entries[0].bookmarks.is_empty());
         assert_eq!(entries[0].caret, None);
+        assert_eq!(entries[0].language, None);
         assert!(!entries[0].pinned);
         assert!(!entries[0].active);
         assert_eq!(entries[1].path, b);
@@ -309,8 +348,35 @@ mod tests {
     }
 
     #[test]
+    fn parse_lang() {
+        let dir = std::env::temp_dir().join(format!(
+            "npp-session-lang-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::create_dir_all(&dir);
+        let a = dir.join("notes.txt");
+        fs::write(&a, "print(1)\n").unwrap();
+
+        let text = format!("{}\n@lang Python\n@caret 0 0\n@active\n", a.display());
+        let entries = parse_session_text(&text);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].language.as_deref(), Some("python"));
+        assert!(entries[0].active);
+
+        let bad = format!("{}\n@lang weird lang!\n@lang\n", a.display());
+        let entries = parse_session_text(&bad);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].language, None);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn parse_ignores_orphan_meta() {
-        let text = "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@pin\n@active\n";
+        let text = "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@lang rust\n@pin\n@active\n";
         assert!(parse_session_text(text).is_empty());
     }
 

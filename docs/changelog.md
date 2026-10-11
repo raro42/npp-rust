@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.223] — 2026-10-11
+
+File / Session:
+
+- Opt-in session restore now keeps **Language menu** highlight id (`@lang ID`) in `npp-rs/session.txt`, in addition to paths, `@folds`, `@bookmarks`, `@caret`, `@pin`, and `@active`. Overrides path-based detect after open (including async loads). Older session files still load.
+
 ## [0.3.222] — 2026-10-11
 
 File / Session:
