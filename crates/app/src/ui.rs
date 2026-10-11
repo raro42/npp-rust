@@ -1442,6 +1442,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_INDENT_GUIDE");
             }
         }
+        // Remappable project-panel toggle (default Alt+P; settings.shortcut_project_panel).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_PROJECT_PANEL};
+            let pp_chord = resolve_chord(
+                &self.state.settings.shortcut_project_panel,
+                DEFAULT_PROJECT_PANEL,
+            );
+            let pp_key_pressed = match pp_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if pp_key_pressed && pp_chord.matches(mods, pp_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_PROJECT_PANEL_1");
+            }
+        }
         // Remappable Focus on Another View (default F6; settings.shortcut_focus_other_view).
         // Shift + that chord swaps the active tab with the other view (header Switch).
         {
@@ -4431,6 +4467,14 @@ impl EditorApp {
             if flags.show_doc_list {
                 self.show_doc_list = true;
             }
+            if flags.toggle_project_panel {
+                self.show_project_panel = !self.show_project_panel;
+                self.state.status = if self.show_project_panel {
+                    "Project panel".into()
+                } else {
+                    "Project panel closed".into()
+                };
+            }
             if flags.show_project_panel {
                 self.show_project_panel = true;
             }
@@ -4903,6 +4947,18 @@ impl EditorApp {
                         .display();
                         response.on_hover_text(format!(
                             "Toggle indent guide ({chord}; Preferences remappable)"
+                        ))
+                    }
+                    "IDM_VIEW_PROJECT_PANEL_1"
+                    | "IDM_VIEW_PROJECT_PANEL_2"
+                    | "IDM_VIEW_PROJECT_PANEL_3" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_project_panel,
+                            crate::shortcut_chord::DEFAULT_PROJECT_PANEL,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Toggle project panel ({chord}; Preferences remappable)"
                         ))
                     }
                     "IDM_SEARCH_FINDINFILES" => {
@@ -5413,6 +5469,12 @@ impl EditorApp {
             "IDM_VIEW_INDENT_GUIDE" => primary(
                 &s.shortcut_indent_guide,
                 crate::shortcut_chord::DEFAULT_INDENT_GUIDE,
+            ),
+            "IDM_VIEW_PROJECT_PANEL_1"
+            | "IDM_VIEW_PROJECT_PANEL_2"
+            | "IDM_VIEW_PROJECT_PANEL_3" => primary(
+                &s.shortcut_project_panel,
+                crate::shortcut_chord::DEFAULT_PROJECT_PANEL,
             ),
             _ => return None,
         })
@@ -5975,6 +6037,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_INDENT_GUIDE,
         )
         .display();
+        let project_panel_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_project_panel,
+            crate::shortcut_chord::DEFAULT_PROJECT_PANEL,
+        )
+        .display();
         let focus_other_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_focus_other_view,
             crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW,
@@ -5995,7 +6062,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 77] = [
+        let rows: [(&str, &str); 78] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -6103,6 +6170,7 @@ impl EditorApp {
                 "Toggle show all characters",
             ),
             (indent_guide_keys.as_str(), "Toggle indent guide"),
+            (project_panel_keys.as_str(), "Toggle project panel"),
             (focus_other_keys.as_str(), "Focus other view / swap tabs"),
             (word_jump_keys.as_str(), "Word jump ← / →"),
             ("Double-click", "Select word"),
@@ -8875,6 +8943,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+I, Ctrl+Alt+I. Toggles View → Show Indent Guide.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Project panel shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_project_panel,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+P"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_project_panel
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_project_panel =
+                                        crate::shortcut_chord::DEFAULT_PROJECT_PANEL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_PROJECT_PANEL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_project_panel = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+P, Ctrl+Alt+P. Toggles View → Project Panel.",
                             )
                             .small()
                             .weak(),

@@ -239,6 +239,9 @@ pub const DEFAULT_SHOW_ALL_CHARACTERS: &str = "Alt+A";
 /// Default indent-guide toggle binding (View → Show Indent Guide).
 pub const DEFAULT_INDENT_GUIDE: &str = "Alt+I";
 
+/// Default project-panel toggle binding (View → Project Panel).
+pub const DEFAULT_PROJECT_PANEL: &str = "Alt+P";
+
 /// Default reload-from-disk binding (new remappable chord; File → Reload).
 pub const DEFAULT_RELOAD: &str = "Cmd+R";
 
@@ -1344,6 +1347,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::I);
         assert_eq!(c.display(), "Alt+I");
+    }
+
+    #[test]
+    fn parse_alt_p_default_project_panel() {
+        let c = parse_chord(DEFAULT_PROJECT_PANEL).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::P);
+        assert_eq!(c.display(), "Alt+P");
     }
 
     #[test]

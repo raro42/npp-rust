@@ -320,3 +320,5 @@
 009 keep: remappable Show All Characters (v0.3.207)
 
 009 keep: remappable Indent Guide (v0.3.208)
+
+009 keep: remappable Project Panel toggle (shortcut_project_panel, Alt+P default, v0.3.209)

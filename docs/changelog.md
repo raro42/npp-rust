@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.209] — 2026-10-11
+
+View / Settings:
+
+- **Project Panel** toggles open/closed (was open-only) and is remappable (`shortcut_project_panel`, default Alt+P). Menu, Preferences, Shortcut Mapper, and About show the effective binding. File → Open Folder as Workspace still force-opens the panel.
+
 ## [0.3.208] — 2026-10-11
 
 View / Settings:

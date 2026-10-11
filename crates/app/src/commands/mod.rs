@@ -71,8 +71,10 @@ pub struct UiFlags {
     pub show_summary: bool,
     /// Show document list dialog.
     pub show_doc_list: bool,
-    /// Show project / workspace file panel.
+    /// Show project / workspace file panel (force open; e.g. Open Folder as Workspace).
     pub show_project_panel: bool,
+    /// Toggle project / workspace file panel (View → Project Panel / remappable chord).
+    pub toggle_project_panel: bool,
     /// Show theme picker window.
     pub show_theme_picker: bool,
     /// Show Preferences dialog.

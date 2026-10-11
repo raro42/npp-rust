@@ -473,8 +473,8 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_VIEW_PROJECT_PANEL_1" | "IDM_VIEW_PROJECT_PANEL_2" | "IDM_VIEW_PROJECT_PANEL_3" => {
-            ui.show_project_panel = true;
-            state.status = format!("Project panel: {}", state.workspace_root.display());
+            // Flag means "toggle Project panel"; NppApp applies the flip.
+            ui.toggle_project_panel = true;
             CmdResult::Handled
         }
         "IDM_VIEW_DOC_MAP" => {
