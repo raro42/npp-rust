@@ -334,3 +334,4 @@
 009 keep: remappable Post-It (shortcut_postit, F12 default, v0.3.214)
 ---
 009 keep: dual-view other pane syntax colours (v0.3.215)
+009 keep: remappable Move / Clone to Other View (shortcut_move_other_view, Alt+O; Shift clones, v0.3.216)

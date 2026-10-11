@@ -40,7 +40,7 @@ Or right-click the other tab → **Compare with this tab** / **Mark for compare*
 ### Dual-view path (still works)
 
 1. Open both files.
-2. **View → Move to Other View** on the right-hand file.
+2. **View → Move to Other View** (remappable Alt+O; Preferences `shortcut_move_other_view`; Shift clones) on the right-hand file.
 3. Activate the left file.
 4. **View → Compare with Other View**.
 

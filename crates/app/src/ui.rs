@@ -1703,6 +1703,47 @@ impl EditorApp {
                 }
             }
         }
+        // Remappable Move to Other View (default Alt+O; settings.shortcut_move_other_view).
+        // Shift + that chord clones the document to the other view.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_MOVE_OTHER_VIEW};
+            let move_chord = resolve_chord(
+                &self.state.settings.shortcut_move_other_view,
+                DEFAULT_MOVE_OTHER_VIEW,
+            );
+            let move_key_pressed = match move_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if move_key_pressed && move_chord.matches_ignore_shift(mods, move_chord.key) {
+                if mods.shift != move_chord.shift {
+                    self.run_shortcut_cmd("IDM_VIEW_CLONE_TO_ANOTHER_VIEW");
+                } else {
+                    self.run_shortcut_cmd("IDM_VIEW_GOTO_ANOTHER_VIEW");
+                }
+            }
+        }
         // Remappable new file (default Cmd+N; settings.shortcut_new).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_NEW};
@@ -5092,6 +5133,28 @@ impl EditorApp {
                             "Toggle keyboard focus between dual-view panes ({focus}; Preferences remappable; {swap} swaps tabs)"
                         ))
                     }
+                    "IDM_VIEW_GOTO_ANOTHER_VIEW" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_move_other_view,
+                            crate::shortcut_chord::DEFAULT_MOVE_OTHER_VIEW,
+                        );
+                        let move_keys = chord.display();
+                        let clone = chord.flipped_shift().display();
+                        response.on_hover_text(format!(
+                            "Move current document to other view ({move_keys}; Preferences remappable; {clone} clones)"
+                        ))
+                    }
+                    "IDM_VIEW_CLONE_TO_ANOTHER_VIEW" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_move_other_view,
+                            crate::shortcut_chord::DEFAULT_MOVE_OTHER_VIEW,
+                        );
+                        let clone = chord.flipped_shift().display();
+                        let move_keys = chord.display();
+                        response.on_hover_text(format!(
+                            "Clone document to other view ({clone}; Preferences remappable; {move_keys} moves)"
+                        ))
+                    }
                     "IDM_VIEW_FULLSCREENTOGGLE" | "IDM_VIEW_DISTRACTIONFREE" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_fullscreen,
@@ -5700,6 +5763,14 @@ impl EditorApp {
             "IDM_VIEW_SWITCHTO_OTHER_VIEW" => primary(
                 &s.shortcut_focus_other_view,
                 crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW,
+            ),
+            "IDM_VIEW_GOTO_ANOTHER_VIEW" => primary(
+                &s.shortcut_move_other_view,
+                crate::shortcut_chord::DEFAULT_MOVE_OTHER_VIEW,
+            ),
+            "IDM_VIEW_CLONE_TO_ANOTHER_VIEW" => shifted(
+                &s.shortcut_move_other_view,
+                crate::shortcut_chord::DEFAULT_MOVE_OTHER_VIEW,
             ),
             "IDM_VIEW_FULLSCREENTOGGLE" | "IDM_VIEW_DISTRACTIONFREE" => primary(
                 &s.shortcut_fullscreen,
@@ -6353,6 +6424,15 @@ impl EditorApp {
             focus_other_chord.display(),
             focus_other_chord.flipped_shift().display()
         );
+        let move_other_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_move_other_view,
+            crate::shortcut_chord::DEFAULT_MOVE_OTHER_VIEW,
+        );
+        let move_other_keys = format!(
+            "{} / {}",
+            move_other_chord.display(),
+            move_other_chord.flipped_shift().display()
+        );
         let find_in_files_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_find_in_files,
             crate::shortcut_chord::DEFAULT_FIND_IN_FILES,
@@ -6364,7 +6444,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 83] = [
+        let rows: [(&str, &str); 84] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -6485,6 +6565,7 @@ impl EditorApp {
             (project_panel_keys.as_str(), "Toggle project panel"),
             (pin_tab_keys.as_str(), "Pin / unpin tab"),
             (focus_other_keys.as_str(), "Focus other view / swap tabs"),
+            (move_other_keys.as_str(), "Move / clone to other view"),
             (word_jump_keys.as_str(), "Word jump ← / →"),
             ("Double-click", "Select word"),
             (undo_keys.as_str(), "Undo / Redo"),
@@ -9148,6 +9229,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: F6, Ctrl+Alt+F6. Toggles View → Focus on Another View. Shift + that chord swaps tabs (header Switch).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Move / clone other view shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_move_other_view,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+O"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_move_other_view
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_move_other_view =
+                                        crate::shortcut_chord::DEFAULT_MOVE_OTHER_VIEW.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MOVE_OTHER_VIEW
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_move_other_view = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+O, Ctrl+Alt+O. Moves View → Move Current Document to Other View. Shift + that chord clones to other view.",
                             )
                             .small()
                             .weak(),

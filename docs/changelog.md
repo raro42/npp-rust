@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.216] — 2026-10-11
+
+View / Settings:
+
+- **Move / Clone to Other View** is remappable (`shortcut_move_other_view`, default Alt+O). Shift + that chord clones the document to the other view. Menu, Preferences, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.215] — 2026-10-11
 
 View:
