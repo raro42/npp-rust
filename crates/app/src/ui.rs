@@ -846,6 +846,15 @@ impl EditorApp {
         app.open_argv_paths(cli);
         if !had_argv && app.state.settings.restore_session {
             app.state.restore_session_from_disk();
+            if app.state.session_follow_caret {
+                app.state.session_follow_caret = false;
+                let tab = app.state.tabs.active_index();
+                if let Some(doc) = app.state.tabs.get(tab) {
+                    let line = doc.buffer.char_to_line(doc.buffer.caret());
+                    app.follow_caret = true;
+                    app.scroll_line = line as f32;
+                }
+            }
         }
         app
     }
@@ -937,6 +946,15 @@ impl eframe::App for EditorApp {
         }
 
         self.state.poll_loads();
+        if self.state.session_follow_caret {
+            self.state.session_follow_caret = false;
+            let tab = self.state.tabs.active_index();
+            if let Some(doc) = self.state.tabs.get(tab) {
+                let line = doc.buffer.char_to_line(doc.buffer.caret());
+                self.follow_caret = true;
+                self.scroll_line = line as f32;
+            }
+        }
         if self.state.poll_tail() {
             self.follow_caret = true;
         }
@@ -10092,9 +10110,12 @@ impl EditorApp {
                             }
                         }
                         ui.label(
-                            RichText::new(format!("Session file: {}", crate::session::SESSION_REL))
-                                .small()
-                                .weak(),
+                            RichText::new(format!(
+                                "Session file: {} (paths, folds, caret, active tab)",
+                                crate::session::SESSION_REL
+                            ))
+                            .small()
+                            .weak(),
                         );
                         if ui
                             .checkbox(

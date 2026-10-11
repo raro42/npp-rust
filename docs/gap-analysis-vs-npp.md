@@ -115,7 +115,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | 2-way compare | Partial | Line LCS + word-aware wash + hide unchanged (···N gaps, click expand, Expand at Caret / Next·Prev·First·Last Hidden Equal / Expand/Collapse All) + bookmark / clear hunk-start bookmarks + apply hunk from/to other / apply all + open unified diff tab; Clear restores pre-start sync H/V; no 3-way |
 | Themes / styles | Partial | JSON + N++ XML subset (v0.3.4) |
 | Encoding | Partial | UTF-8 / BOM / ANSI / UTF-16 LE·BE (BOM or no-BOM detect, v0.3.17) |
-| Session restore | Partial | Path list + folded fold-header lines (`@folds`); not full N++ session XML |
+| Session restore | Partial | Path list + folded fold-header lines (`@folds`) + caret (`@caret`) + active tab (`@active`); not full N++ session XML |
 | Project panel | Partial | Folder list + refresh/reveal; not N++ projects |
 | Indent fold / hide lines | Partial | Fold margin + brace/indent heuristics; session restores folded headers; not full Scintilla |
 | Column / multi-edit | Partial | Alt+rect + multi-caret typing (v0.3.9); no virtual space |

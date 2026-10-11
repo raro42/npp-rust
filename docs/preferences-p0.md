@@ -13,7 +13,7 @@ New keys:
 | `caret_blink` | Blink caret |
 | `default_eol` | `lf` / `crlf` for Enter |
 | `recent_max` | Recent file cap (5–40); load and save both use this cap |
-| `restore_session` | Reopen session on launch |
+| `restore_session` | Reopen session on launch (paths, `@folds`, `@caret`, `@active`) |
 | `find_match_case` / `find_whole_word` / `find_in_selection` / `find_wrap` / `find_regex` | Find options |
 | `find_query` / `replace_with` | Last find/replace strings |
 | `compare_ignore_ws` | Compare ignores whitespace runs (View menu + Preferences; live re-diff + first-hunk park while Compare is on) |
@@ -125,7 +125,7 @@ See also: `docs/autosave-backup.md`, `docs/folding.md`, `docs/ollama-helper.md`.
 
 ## Session
 
-File: `npp-rs/session.txt` (config dir). One path per line; optional `@folds h1,h2,…` after a path restores folded fold-header lines.  
+File: `npp-rs/session.txt` (config dir). One path per line; optional `@folds h1,h2,…` after a path restores folded fold-header lines; optional `@caret LINE COL` (0-based) restores caret; optional `@active` marks the focused tab.  
 Saved on quit when restore is on. Menu Save/Load Session uses the same file.
 
 ## Find

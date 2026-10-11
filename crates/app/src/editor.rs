@@ -97,6 +97,12 @@ pub struct EditorState {
     autosave_last: Instant,
     /// Fold headers to apply after an async session restore open finishes.
     pending_session_folds: HashMap<PathBuf, Vec<usize>>,
+    /// Caret (line, col) to apply after an async session restore open finishes.
+    pending_session_carets: HashMap<PathBuf, (usize, usize)>,
+    /// Path that should become active after its async session open finishes.
+    pending_session_active: Option<PathBuf>,
+    /// UI should scroll to the active caret after session restore (consumed once).
+    pub session_follow_caret: bool,
 }
 
 /// Bulk close mode after a dirty-tab confirm.
@@ -189,6 +195,9 @@ impl EditorState {
             pending_lossy_ansi: None,
             autosave_last: Instant::now(),
             pending_session_folds: HashMap::new(),
+            pending_session_carets: HashMap::new(),
+            pending_session_active: None,
+            session_follow_caret: false,
         }
     }
 
@@ -658,6 +667,8 @@ impl EditorState {
             self.pending_encoding_notice = Some(format!("{name}: {note}"));
         }
         self.apply_pending_session_folds_for(&result.path);
+        self.apply_pending_session_caret_for(&result.path);
+        self.apply_pending_session_active_for(&result.path);
         self.after_open_log_policy(&result.path);
     }
 
@@ -736,6 +747,10 @@ impl EditorState {
         });
         for p in cancelled {
             self.pending_session_folds.remove(&p);
+            self.pending_session_carets.remove(&p);
+            if self.pending_session_active.as_ref() == Some(&p) {
+                self.pending_session_active = None;
+            }
             self.cancelled_loads.insert(p);
         }
     }
@@ -1768,33 +1783,50 @@ impl EditorState {
         let _ = self.write_session_entries();
     }
 
-    /// Open paths from the config-dir session file (and restore fold headers).
+    /// Open paths from the config-dir session file (folds, caret, active tab).
     pub fn restore_session_from_disk(&mut self) {
         let entries = crate::session::load_entries();
         if entries.is_empty() {
             self.status = format!("No session in {}", crate::session::SESSION_REL);
             return;
         }
+        self.pending_session_active = None;
         let mut n = 0usize;
         let mut folds = 0usize;
+        let mut carets = 0usize;
+        let mut active_path: Option<PathBuf> = None;
         for entry in entries {
             let path = entry.path.clone();
             let headers = entry.fold_headers;
+            let caret = entry.caret;
+            let want_active = entry.active;
             self.open_path(path.clone());
             n += 1;
-            if headers.is_empty() {
-                continue;
-            }
             let idx = self
                 .tabs
                 .iter()
                 .position(|d| d.path.as_ref() == Some(&path));
-            if let Some(idx) = idx {
-                if self.tabs.get(idx).is_some_and(|d| d.loading) {
-                    self.pending_session_folds.insert(path, headers);
+            let Some(idx) = idx else {
+                continue;
+            };
+            let loading = self.tabs.get(idx).is_some_and(|d| d.loading);
+            if !headers.is_empty() {
+                if loading {
+                    self.pending_session_folds.insert(path.clone(), headers);
                 } else {
                     folds += self.apply_session_folds_at(idx, &headers);
                 }
+            }
+            if let Some((line, col)) = caret {
+                if loading {
+                    self.pending_session_carets
+                        .insert(path.clone(), (line, col));
+                } else if self.apply_session_caret_at(idx, line, col) {
+                    carets += 1;
+                }
+            }
+            if want_active {
+                active_path = Some(path);
             }
         }
         if n > 0 && self.tabs.len() > 1 {
@@ -1804,11 +1836,30 @@ impl EditorState {
                 }
             }
         }
-        self.status = if folds > 0 {
-            format!("Session restored: {n} file(s), {folds} fold(s)")
-        } else {
-            format!("Session restored: {n} file(s)")
-        };
+        if let Some(path) = active_path {
+            let idx = self
+                .tabs
+                .iter()
+                .position(|d| d.path.as_ref() == Some(&path));
+            if let Some(idx) = idx {
+                if self.tabs.get(idx).is_some_and(|d| d.loading) {
+                    self.pending_session_active = Some(path);
+                } else {
+                    self.tabs.set_active(idx);
+                    self.session_follow_caret = true;
+                }
+            }
+        } else if n > 0 {
+            self.session_follow_caret = true;
+        }
+        let mut bits = format!("Session restored: {n} file(s)");
+        if folds > 0 {
+            bits.push_str(&format!(", {folds} fold(s)"));
+        }
+        if carets > 0 {
+            bits.push_str(&format!(", {carets} caret(s)"));
+        }
+        self.status = bits;
     }
 
     pub fn save_session_now(&mut self) {
@@ -1821,6 +1872,7 @@ impl EditorState {
     }
 
     fn write_session_entries(&self) -> Result<(), String> {
+        let active_path = self.tabs.active().path.clone();
         let entries: Vec<crate::session::SessionEntry> = self
             .tabs
             .iter()
@@ -1828,7 +1880,16 @@ impl EditorState {
                 let path = d.path.clone()?;
                 let regions = crate::fold::compute_fold_regions(d.language.as_str(), &d.buffer);
                 let fold_headers = crate::fold::folded_headers(&d.hidden_lines, &regions);
-                Some(crate::session::SessionEntry { path, fold_headers })
+                let caret_idx = d.buffer.caret();
+                let line = d.buffer.char_to_line(caret_idx);
+                let col = caret_idx.saturating_sub(d.buffer.line_to_char(line));
+                let active = active_path.as_ref() == Some(&path);
+                Some(crate::session::SessionEntry {
+                    path,
+                    fold_headers,
+                    caret: Some((line, col)),
+                    active,
+                })
             })
             .collect();
         crate::session::save_entries(&entries)
@@ -1847,6 +1908,24 @@ impl EditorState {
         crate::fold::apply_fold_headers(&mut doc.hidden_lines, &regions, headers)
     }
 
+    fn apply_session_caret_at(&mut self, tab: usize, line: usize, col: usize) -> bool {
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return false;
+        };
+        let line_count = doc.buffer.line_count().max(1);
+        let line = line.min(line_count.saturating_sub(1));
+        let start = doc.buffer.line_to_char(line);
+        let end = if line + 1 < doc.buffer.line_count() {
+            doc.buffer.line_to_char(line + 1)
+        } else {
+            doc.buffer.len_chars()
+        };
+        let max_col = end.saturating_sub(start);
+        let pos = start + col.min(max_col);
+        doc.buffer.set_caret(pos);
+        true
+    }
+
     fn apply_pending_session_folds_for(&mut self, path: &Path) {
         let Some(headers) = self.pending_session_folds.remove(path) else {
             return;
@@ -1860,6 +1939,39 @@ impl EditorState {
             if n > 0 {
                 self.status = format!("{} · restored {n} fold(s)", self.status);
             }
+        }
+    }
+
+    fn apply_pending_session_caret_for(&mut self, path: &Path) {
+        let Some((line, col)) = self.pending_session_carets.remove(path) else {
+            return;
+        };
+        let idx = self
+            .tabs
+            .iter()
+            .position(|d| d.path.as_deref() == Some(path));
+        if let Some(idx) = idx {
+            if self.apply_session_caret_at(idx, line, col) {
+                self.status = format!("{} · restored caret", self.status);
+                if self.tabs.active_index() == idx {
+                    self.session_follow_caret = true;
+                }
+            }
+        }
+    }
+
+    fn apply_pending_session_active_for(&mut self, path: &Path) {
+        if self.pending_session_active.as_deref() != Some(path) {
+            return;
+        }
+        self.pending_session_active = None;
+        let idx = self
+            .tabs
+            .iter()
+            .position(|d| d.path.as_deref() == Some(path));
+        if let Some(idx) = idx {
+            self.tabs.set_active(idx);
+            self.session_follow_caret = true;
         }
     }
 

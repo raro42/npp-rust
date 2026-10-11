@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.219] — 2026-10-11
+
+File / Session:
+
+- Opt-in session restore now keeps **caret line/column** (`@caret LINE COL`) and the **active tab** (`@active`) in `npp-rs/session.txt`, in addition to paths and `@folds`. Scroll follows the restored caret on launch. Older path-only / folds-only session files still load.
+
 ## [0.3.218] — 2026-10-11
 
 View / Settings:

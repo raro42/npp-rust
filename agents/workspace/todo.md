@@ -339,3 +339,5 @@
 009 keep: remappable RTL / LTR (shortcut_rtl, Alt+R; Shift = LTR, v0.3.217)
 
 009 keep: remappable Show Line Numbers (shortcut_show_line_numbers, Alt+L default, v0.3.218)
+
+009 keep: session restore caret + active tab (@caret / @active, v0.3.219)
