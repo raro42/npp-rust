@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.225] — 2026-10-11
+
+File / Session:
+
+- Opt-in session restore now keeps **read-only** (`@readonly`, alias `@ro`) in `npp-rs/session.txt`, in addition to paths, `@folds`, `@bookmarks`, `@caret`, `@lang`, `@encoding`, `@pin`, and `@active`. Edit → Toggle Read-Only survives relaunch (including async opens). Older session files still load.
+
 ## [0.3.224] — 2026-10-11
 
 File / Session:

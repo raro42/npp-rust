@@ -7,6 +7,7 @@
 //! - optional `@caret LINE COL` line after a path (0-based line and column)
 //! - optional `@lang ID` line after a path restores Language-menu highlight id
 //! - optional `@encoding TOKEN` line after a path restores save encoding
+//! - optional `@readonly` marker when Edit → Toggle Read-Only was on
 //! - optional `@pin` marker when the tab was pinned
 //! - optional `@active` marker on the entry that should be focused on restore
 
@@ -21,7 +22,7 @@ const SESSION_FILE: &str = "session.txt";
 /// Portable label for status (never a home absolute path).
 pub const SESSION_REL: &str = "npp-rs/session.txt";
 
-/// One session tab: path plus optional fold headers, bookmarks, caret, language, encoding, pin, and active flag.
+/// One session tab: path plus optional fold headers, bookmarks, caret, language, encoding, read-only, pin, and active flag.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionEntry {
     pub path: PathBuf,
@@ -34,6 +35,8 @@ pub struct SessionEntry {
     pub language: Option<String>,
     /// Save encoding when present (overrides open detect).
     pub encoding: Option<FileEncoding>,
+    /// Edit → Toggle Read-Only was on for this tab.
+    pub read_only: bool,
     pub pinned: bool,
     pub active: bool,
 }
@@ -43,7 +46,7 @@ fn session_store_path() -> Result<PathBuf, ()> {
     Ok(base.join("npp-rs").join(SESSION_FILE))
 }
 
-/// Write paths (and optional `@folds` / `@bookmarks` / `@caret` / `@lang` / `@encoding` / `@pin` / `@active` lines) for restore.
+/// Write paths (and optional `@folds` / `@bookmarks` / `@caret` / `@lang` / `@encoding` / `@readonly` / `@pin` / `@active` lines) for restore.
 pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
     let path = session_store_path().map_err(|_| "no config dir".to_string())?;
     if let Some(parent) = path.parent() {
@@ -80,6 +83,9 @@ pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
         }
         if let Some(enc) = entry.encoding {
             writeln!(file, "@encoding {}", encoding_token(enc)).map_err(|e| e.to_string())?;
+        }
+        if entry.read_only {
+            writeln!(file, "@readonly").map_err(|e| e.to_string())?;
         }
         if entry.pinned {
             writeln!(file, "@pin").map_err(|e| e.to_string())?;
@@ -150,6 +156,14 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
             }
             continue;
         }
+        if trimmed == "@readonly" || trimmed == "@ro" {
+            if meta_ok {
+                if let Some(last) = out.last_mut() {
+                    last.read_only = true;
+                }
+            }
+            continue;
+        }
         if trimmed == "@pin" {
             if meta_ok {
                 if let Some(last) = out.last_mut() {
@@ -179,6 +193,7 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
                 caret: None,
                 language: None,
                 encoding: None,
+                read_only: false,
                 pinned: false,
                 active: false,
             });
@@ -296,6 +311,7 @@ mod tests {
         assert_eq!(entries[0].caret, None);
         assert_eq!(entries[0].language, None);
         assert_eq!(entries[0].encoding, None);
+        assert!(!entries[0].read_only);
         assert!(!entries[0].pinned);
         assert!(!entries[0].active);
         assert_eq!(entries[1].path, b);
@@ -467,9 +483,40 @@ mod tests {
     }
 
     #[test]
+    fn parse_readonly() {
+        let dir = std::env::temp_dir().join(format!(
+            "npp-session-readonly-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::create_dir_all(&dir);
+        let a = dir.join("notes.txt");
+        let b = dir.join("other.txt");
+        fs::write(&a, "hello\n").unwrap();
+        fs::write(&b, "x\n").unwrap();
+
+        let text = format!(
+            "{}\n@readonly\n@encoding utf8\n@active\n{}\n@ro\n",
+            a.display(),
+            b.display()
+        );
+        let entries = parse_session_text(&text);
+        assert_eq!(entries.len(), 2);
+        assert!(entries[0].read_only);
+        assert_eq!(entries[0].encoding, Some(FileEncoding::Utf8));
+        assert!(entries[0].active);
+        assert!(entries[1].read_only);
+        assert!(!entries[1].active);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn parse_ignores_orphan_meta() {
         let text =
-            "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@lang rust\n@encoding utf8\n@pin\n@active\n";
+            "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@lang rust\n@encoding utf8\n@readonly\n@pin\n@active\n";
         assert!(parse_session_text(text).is_empty());
     }
 

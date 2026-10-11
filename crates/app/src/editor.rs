@@ -105,6 +105,8 @@ pub struct EditorState {
     pending_session_langs: HashMap<PathBuf, String>,
     /// Save encoding to apply after an async session restore open finishes.
     pending_session_encodings: HashMap<PathBuf, FileEncoding>,
+    /// Read-only flag to apply after an async session restore open finishes.
+    pending_session_readonly: HashSet<PathBuf>,
     /// Path that should become active after its async session open finishes.
     pending_session_active: Option<PathBuf>,
     /// UI should scroll to the active caret after session restore (consumed once).
@@ -205,6 +207,7 @@ impl EditorState {
             pending_session_carets: HashMap::new(),
             pending_session_langs: HashMap::new(),
             pending_session_encodings: HashMap::new(),
+            pending_session_readonly: HashSet::new(),
             pending_session_active: None,
             session_follow_caret: false,
         }
@@ -680,6 +683,7 @@ impl EditorState {
         self.apply_pending_session_caret_for(&result.path);
         self.apply_pending_session_lang_for(&result.path);
         self.apply_pending_session_encoding_for(&result.path);
+        self.apply_pending_session_readonly_for(&result.path);
         self.apply_pending_session_active_for(&result.path);
         self.after_open_log_policy(&result.path);
     }
@@ -763,6 +767,7 @@ impl EditorState {
             self.pending_session_carets.remove(&p);
             self.pending_session_langs.remove(&p);
             self.pending_session_encodings.remove(&p);
+            self.pending_session_readonly.remove(&p);
             if self.pending_session_active.as_ref() == Some(&p) {
                 self.pending_session_active = None;
             }
@@ -1798,7 +1803,7 @@ impl EditorState {
         let _ = self.write_session_entries();
     }
 
-    /// Open paths from the config-dir session file (folds, bookmarks, caret, language, pin, active tab).
+    /// Open paths from the config-dir session file (folds, bookmarks, caret, language, encoding, read-only, pin, active tab).
     pub fn restore_session_from_disk(&mut self) {
         let entries = crate::session::load_entries();
         if entries.is_empty() {
@@ -1812,6 +1817,7 @@ impl EditorState {
         let mut carets = 0usize;
         let mut langs = 0usize;
         let mut encodings = 0usize;
+        let mut read_onlys = 0usize;
         let mut pins = 0usize;
         let mut active_path: Option<PathBuf> = None;
         for entry in entries {
@@ -1821,6 +1827,7 @@ impl EditorState {
             let caret = entry.caret;
             let language = entry.language;
             let encoding = entry.encoding;
+            let want_readonly = entry.read_only;
             let want_pin = entry.pinned;
             let want_active = entry.active;
             self.open_path(path.clone());
@@ -1867,6 +1874,13 @@ impl EditorState {
                     self.pending_session_encodings.insert(path.clone(), enc);
                 } else if self.apply_session_encoding_at(idx, enc) {
                     encodings += 1;
+                }
+            }
+            if want_readonly {
+                if loading {
+                    self.pending_session_readonly.insert(path.clone());
+                } else if self.apply_session_readonly_at(idx) {
+                    read_onlys += 1;
                 }
             }
             if want_pin {
@@ -1920,6 +1934,9 @@ impl EditorState {
         if encodings > 0 {
             bits.push_str(&format!(", {encodings} encoding(s)"));
         }
+        if read_onlys > 0 {
+            bits.push_str(&format!(", {read_onlys} read-only"));
+        }
         if pins > 0 {
             bits.push_str(&format!(", {pins} pin(s)"));
         }
@@ -1957,6 +1974,7 @@ impl EditorState {
                     }
                 };
                 let encoding = Some(d.encoding);
+                let read_only = d.read_only;
                 let pinned = d.pinned;
                 let active = active_path.as_ref() == Some(&path);
                 Some(crate::session::SessionEntry {
@@ -1966,6 +1984,7 @@ impl EditorState {
                     caret: Some((line, col)),
                     language,
                     encoding,
+                    read_only,
                     pinned,
                     active,
                 })
@@ -2049,6 +2068,17 @@ impl EditorState {
         true
     }
 
+    fn apply_session_readonly_at(&mut self, tab: usize) -> bool {
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return false;
+        };
+        if doc.read_only {
+            return false;
+        }
+        doc.read_only = true;
+        true
+    }
+
     fn apply_pending_session_folds_for(&mut self, path: &Path) {
         let Some(headers) = self.pending_session_folds.remove(path) else {
             return;
@@ -2125,6 +2155,21 @@ impl EditorState {
         if let Some(idx) = idx {
             if self.apply_session_encoding_at(idx, encoding) {
                 self.status = format!("{} · restored encoding {}", self.status, encoding.label());
+            }
+        }
+    }
+
+    fn apply_pending_session_readonly_for(&mut self, path: &Path) {
+        if !self.pending_session_readonly.remove(path) {
+            return;
+        }
+        let idx = self
+            .tabs
+            .iter()
+            .position(|d| d.path.as_deref() == Some(path));
+        if let Some(idx) = idx {
+            if self.apply_session_readonly_at(idx) {
+                self.status = format!("{} · restored read-only", self.status);
             }
         }
     }
