@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.229] — 2026-10-12
+
+File / Session:
+
+- Opt-in session restore now keeps **log-tail follow** (`@tail`, alias `@logtail`) in `npp-rs/session.txt`, in addition to paths, `@folds`, `@bookmarks`, `@caret`, `@scroll`, `@lang`, `@encoding`, `@readonly`, `@pin`, `@colour`, and `@active`. View → Monitoring (tail) survives relaunch (including async opens; skips the Ask prompt when `@tail` is present). Older session files still load.
+
 ## [0.3.228] — 2026-10-12
 
 File / Session:

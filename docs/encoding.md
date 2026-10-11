@@ -23,7 +23,7 @@ UTF-16 unpaired surrogates may become U+FFFD. A trailing odd byte on UTF-16 is d
 
 The status bar reports the fallback. The tab stores the chosen encoding for the next save.
 
-Opt-in session restore writes `@encoding TOKEN` under each path in `npp-rs/session.txt` and re-applies it after open (including async loads), so Format → Convert / ANSI choices survive relaunch when byte detect would differ. Tokens: `utf8`, `utf8-bom`, `utf16-le`, `utf16-be`, `windows-1252`. The same session file also stores `@readonly` when Edit → Toggle Read-Only was on, `@scroll` for each tab’s first visible line, and `@colour N` (1..=5) for View → Tab colour.
+Opt-in session restore writes `@encoding TOKEN` under each path in `npp-rs/session.txt` and re-applies it after open (including async loads), so Format → Convert / ANSI choices survive relaunch when byte detect would differ. Tokens: `utf8`, `utf8-bom`, `utf16-le`, `utf16-be`, `windows-1252`. The same session file also stores `@readonly` when Edit → Toggle Read-Only was on, `@scroll` for each tab’s first visible line, `@colour N` (1..=5) for View → Tab colour, and `@tail` when log-tail follow was on.
 
 ## Tail follow
 

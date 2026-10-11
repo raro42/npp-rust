@@ -107,6 +107,8 @@ pub struct EditorState {
     pending_session_encodings: HashMap<PathBuf, FileEncoding>,
     /// Read-only flag to apply after an async session restore open finishes.
     pending_session_readonly: HashSet<PathBuf>,
+    /// Log-tail follow to apply after an async session restore open finishes.
+    pending_session_tail: HashSet<PathBuf>,
     /// Path that should become active after its async session open finishes.
     pending_session_active: Option<PathBuf>,
     /// First visible line for the pending active tab (applied with `pending_session_active`).
@@ -216,6 +218,7 @@ impl EditorState {
             pending_session_langs: HashMap::new(),
             pending_session_encodings: HashMap::new(),
             pending_session_readonly: HashSet::new(),
+            pending_session_tail: HashSet::new(),
             pending_session_active: None,
             pending_session_scroll: None,
             pending_session_scrolls: HashMap::new(),
@@ -697,6 +700,7 @@ impl EditorState {
         self.apply_pending_session_lang_for(&result.path);
         self.apply_pending_session_encoding_for(&result.path);
         self.apply_pending_session_readonly_for(&result.path);
+        self.apply_pending_session_tail_for(&result.path);
         self.apply_pending_session_active_for(&result.path);
         self.after_open_log_policy(&result.path);
     }
@@ -705,6 +709,10 @@ impl EditorState {
     fn after_open_log_policy(&mut self, path: &std::path::Path) {
         self.pending_log_tail_prompt = false;
         if !is_log_path(path) {
+            return;
+        }
+        // Session `@tail` (or an earlier Always policy) already armed follow.
+        if self.tabs.active().path.as_deref() == Some(path) && self.tabs.active().tail_follow {
             return;
         }
         match self.settings.log_tail_on_open {
@@ -781,6 +789,7 @@ impl EditorState {
             self.pending_session_langs.remove(&p);
             self.pending_session_encodings.remove(&p);
             self.pending_session_readonly.remove(&p);
+            self.pending_session_tail.remove(&p);
             self.pending_session_scrolls.remove(&p);
             if self.pending_session_active.as_ref() == Some(&p) {
                 self.pending_session_active = None;
@@ -1818,7 +1827,7 @@ impl EditorState {
         let _ = self.write_session_entries();
     }
 
-    /// Open paths from the config-dir session file (folds, bookmarks, caret, scroll, language, encoding, read-only, pin, colour, active tab).
+    /// Open paths from the config-dir session file (folds, bookmarks, caret, scroll, language, encoding, read-only, pin, colour, log-tail, active tab).
     pub fn restore_session_from_disk(&mut self) {
         let entries = crate::session::load_entries();
         if entries.is_empty() {
@@ -1828,6 +1837,7 @@ impl EditorState {
         self.pending_session_active = None;
         self.pending_session_scroll = None;
         self.pending_session_scrolls.clear();
+        self.pending_session_tail.clear();
         self.session_scroll_line = None;
         let mut n = 0usize;
         let mut folds = 0usize;
@@ -1839,6 +1849,7 @@ impl EditorState {
         let mut read_onlys = 0usize;
         let mut pins = 0usize;
         let mut colours = 0usize;
+        let mut tails = 0usize;
         let mut active_path: Option<PathBuf> = None;
         let mut active_scroll: Option<usize> = None;
         for entry in entries {
@@ -1852,6 +1863,7 @@ impl EditorState {
             let want_readonly = entry.read_only;
             let want_pin = entry.pinned;
             let want_colour = entry.tab_colour;
+            let want_tail = entry.tail_follow;
             let want_active = entry.active;
             self.open_path(path.clone());
             n += 1;
@@ -1929,6 +1941,16 @@ impl EditorState {
                     }
                 }
             }
+            if want_tail {
+                if loading {
+                    self.pending_session_tail.insert(path.clone());
+                } else if self.apply_session_tail_at(idx) {
+                    tails += 1;
+                    if self.tabs.active_index() == idx {
+                        self.pending_log_tail_prompt = false;
+                    }
+                }
+            }
             if want_active {
                 active_path = Some(path);
                 active_scroll = scroll;
@@ -1998,6 +2020,9 @@ impl EditorState {
         if colours > 0 {
             bits.push_str(&format!(", {colours} colour(s)"));
         }
+        if tails > 0 {
+            bits.push_str(&format!(", {tails} log-tail"));
+        }
         self.status = bits;
     }
 
@@ -2036,6 +2061,7 @@ impl EditorState {
                 let read_only = d.read_only;
                 let pinned = d.pinned;
                 let tab_colour = d.tab_colour.filter(|n| (1..=5).contains(n));
+                let tail_follow = d.tail_follow;
                 let active = active_path.as_ref() == Some(&path);
                 // Prefer live UI scroll for the focused tab; every tab keeps its last viewport.
                 let scroll = Some(if active {
@@ -2054,6 +2080,7 @@ impl EditorState {
                     read_only,
                     pinned,
                     tab_colour,
+                    tail_follow,
                     active,
                 })
             })
@@ -2154,6 +2181,33 @@ impl EditorState {
             return false;
         }
         doc.read_only = true;
+        true
+    }
+
+    /// Arm log-tail follow on a restored tab (jumps caret to end; wins over `@caret`).
+    fn apply_session_tail_at(&mut self, tab: usize) -> bool {
+        let Some(doc) = self.tabs.get(tab) else {
+            return false;
+        };
+        if doc.tail_follow {
+            return true;
+        }
+        if doc.dirty {
+            return false;
+        }
+        let Some(path) = doc.path.clone() else {
+            return false;
+        };
+        let Ok(size) = fs::file_size(&path) else {
+            return false;
+        };
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return false;
+        };
+        doc.tail_bytes = size;
+        doc.tail_follow = true;
+        let end = doc.buffer.len_chars();
+        doc.buffer.set_caret(end);
         true
     }
 
@@ -2263,6 +2317,24 @@ impl EditorState {
         if let Some(idx) = idx {
             if self.apply_session_readonly_at(idx) {
                 self.status = format!("{} · restored read-only", self.status);
+            }
+        }
+    }
+
+    fn apply_pending_session_tail_for(&mut self, path: &Path) {
+        if !self.pending_session_tail.remove(path) {
+            return;
+        }
+        let idx = self
+            .tabs
+            .iter()
+            .position(|d| d.path.as_deref() == Some(path));
+        if let Some(idx) = idx {
+            if self.apply_session_tail_at(idx) {
+                self.status = format!("{} · restored log-tail", self.status);
+                if self.tabs.active_index() == idx {
+                    self.pending_log_tail_prompt = false;
+                }
             }
         }
     }

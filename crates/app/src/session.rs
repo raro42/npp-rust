@@ -11,6 +11,7 @@
 //! - optional `@readonly` marker when Edit → Toggle Read-Only was on
 //! - optional `@pin` marker when the tab was pinned
 //! - optional `@colour N` / `@color N` (1..=5) when a tab colour was set
+//! - optional `@tail` / `@logtail` marker when View → Monitoring (log-tail) was on
 //! - optional `@active` marker on the entry that should be focused on restore
 
 use std::fs;
@@ -24,7 +25,7 @@ const SESSION_FILE: &str = "session.txt";
 /// Portable label for status (never a home absolute path).
 pub const SESSION_REL: &str = "npp-rs/session.txt";
 
-/// One session tab: path plus optional fold headers, bookmarks, caret, scroll, language, encoding, read-only, pin, colour, and active flag.
+/// One session tab: path plus optional fold headers, bookmarks, caret, scroll, language, encoding, read-only, pin, colour, log-tail, and active flag.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionEntry {
     pub path: PathBuf,
@@ -44,6 +45,8 @@ pub struct SessionEntry {
     pub pinned: bool,
     /// View → Tab colour id 1..=5 when set.
     pub tab_colour: Option<u8>,
+    /// View → Monitoring (log-tail follow) was on for this tab.
+    pub tail_follow: bool,
     pub active: bool,
 }
 
@@ -52,7 +55,7 @@ fn session_store_path() -> Result<PathBuf, ()> {
     Ok(base.join("npp-rs").join(SESSION_FILE))
 }
 
-/// Write paths (and optional `@folds` / `@bookmarks` / `@caret` / `@scroll` / `@lang` / `@encoding` / `@readonly` / `@pin` / `@colour` / `@active` lines) for restore.
+/// Write paths (and optional `@folds` / `@bookmarks` / `@caret` / `@scroll` / `@lang` / `@encoding` / `@readonly` / `@pin` / `@colour` / `@tail` / `@active` lines) for restore.
 pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
     let path = session_store_path().map_err(|_| "no config dir".to_string())?;
     if let Some(parent) = path.parent() {
@@ -103,6 +106,9 @@ pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
             if (1..=5).contains(&n) {
                 writeln!(file, "@colour {n}").map_err(|e| e.to_string())?;
             }
+        }
+        if entry.tail_follow {
+            writeln!(file, "@tail").map_err(|e| e.to_string())?;
         }
         if entry.active {
             writeln!(file, "@active").map_err(|e| e.to_string())?;
@@ -205,6 +211,14 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
             }
             continue;
         }
+        if trimmed == "@tail" || trimmed == "@logtail" {
+            if meta_ok {
+                if let Some(last) = out.last_mut() {
+                    last.tail_follow = true;
+                }
+            }
+            continue;
+        }
         if trimmed == "@active" {
             if meta_ok {
                 if let Some(last) = out.last_mut() {
@@ -230,6 +244,7 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
                 read_only: false,
                 pinned: false,
                 tab_colour: None,
+                tail_follow: false,
                 active: false,
             });
             meta_ok = true;
@@ -647,9 +662,44 @@ mod tests {
     }
 
     #[test]
+    fn parse_tail_meta() {
+        let dir = std::env::temp_dir().join(format!(
+            "npp-session-tail-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::create_dir_all(&dir);
+        let a = dir.join("app.log");
+        let b = dir.join("other.txt");
+        fs::write(&a, "line0\n").unwrap();
+        fs::write(&b, "x\n").unwrap();
+
+        let text = format!(
+            "{}\n@tail\n@pin\n{}\n@logtail\n@active\n",
+            a.display(),
+            b.display()
+        );
+        let entries = parse_session_text(&text);
+        assert_eq!(entries.len(), 2);
+        assert!(entries[0].tail_follow);
+        assert!(entries[0].pinned);
+        assert!(entries[1].tail_follow);
+        assert!(entries[1].active);
+
+        let none = format!("{}\n@caret 0 0\n", a.display());
+        let entries = parse_session_text(&none);
+        assert_eq!(entries.len(), 1);
+        assert!(!entries[0].tail_follow);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn parse_ignores_orphan_meta() {
         let text =
-            "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@scroll 9\n@lang rust\n@encoding utf8\n@readonly\n@pin\n@colour 2\n@active\n";
+            "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@scroll 9\n@lang rust\n@encoding utf8\n@readonly\n@pin\n@colour 2\n@tail\n@active\n";
         assert!(parse_session_text(text).is_empty());
     }
 

@@ -358,3 +358,5 @@
 009 keep: per-tab session @scroll + tab-switch viewport (v0.3.227)
 
 009 keep: session restore tab colour (@colour / @color 1..=5, v0.3.228)
+
+009 keep: session restore log-tail (@tail / @logtail, v0.3.229)
