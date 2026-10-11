@@ -5,7 +5,7 @@
 //! - optional `@folds h1,h2,…` line after a path lists folded **header** line indices
 //! - optional `@bookmarks l1,l2,…` line after a path lists bookmarked line indices
 //! - optional `@caret LINE COL` line after a path (0-based line and column)
-//! - optional `@scroll LINE` line after a path (0-based first visible editor line)
+//! - optional `@scroll LINE` line after a path (0-based first visible editor line; every tab)
 //! - optional `@lang ID` line after a path restores Language-menu highlight id
 //! - optional `@encoding TOKEN` line after a path restores save encoding
 //! - optional `@readonly` marker when Edit → Toggle Read-Only was on

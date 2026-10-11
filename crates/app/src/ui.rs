@@ -692,22 +692,62 @@ fn index_after_tab_close(idx: usize, closed: usize) -> Option<usize> {
 fn apply_session_viewport(app: &mut EditorApp) {
     if let Some(line) = app.state.session_scroll_line.take() {
         app.state.session_follow_caret = false;
+        app.state.reset_view = false;
         let tab = app.state.tabs.active_index();
-        if let Some(doc) = app.state.tabs.get(tab) {
+        if let Some(doc) = app.state.tabs.get_mut(tab) {
             let max_line = doc.buffer.line_count().saturating_sub(1);
+            let line = line.min(max_line);
+            doc.view_scroll_line = line;
             app.follow_caret = false;
-            app.scroll_line = line.min(max_line) as f32;
+            app.scroll_line = line as f32;
         }
+        app.last_primary_tab = Some(tab);
         return;
     }
     if app.state.session_follow_caret {
         app.state.session_follow_caret = false;
+        app.state.reset_view = false;
         let tab = app.state.tabs.active_index();
         if let Some(doc) = app.state.tabs.get(tab) {
             let line = doc.buffer.char_to_line(doc.buffer.caret());
             app.follow_caret = true;
             app.scroll_line = line as f32;
         }
+        app.last_primary_tab = Some(tab);
+    }
+}
+
+impl EditorApp {
+    /// Write the live primary-pane scroll into the tab we last painted.
+    fn persist_primary_tab_scroll(&mut self) {
+        let idx = self
+            .last_primary_tab
+            .unwrap_or_else(|| self.state.tabs.active_index());
+        if let Some(doc) = self.state.tabs.get_mut(idx) {
+            doc.view_scroll_line = self.scroll_line.max(0.0) as usize;
+        }
+        if self.last_primary_tab.is_none() {
+            self.last_primary_tab = Some(idx);
+        }
+    }
+
+    /// After the active tab changes, restore that tab's stored first visible line.
+    fn restore_primary_tab_scroll_if_switched(&mut self) {
+        let active = self.state.tabs.active_index();
+        if self.last_primary_tab == Some(active) {
+            if let Some(doc) = self.state.tabs.get_mut(active) {
+                doc.view_scroll_line = self.scroll_line.max(0.0) as usize;
+            }
+            return;
+        }
+        if let Some(doc) = self.state.tabs.get(active) {
+            let max_line = doc.buffer.line_count().saturating_sub(1);
+            self.scroll_line = doc.view_scroll_line.min(max_line) as f32;
+        } else {
+            self.scroll_line = 0.0;
+        }
+        self.follow_caret = false;
+        self.last_primary_tab = Some(active);
     }
 }
 
@@ -716,6 +756,8 @@ pub struct EditorApp {
     find_focus_once: bool,
     /// Vertical scroll in lines.
     scroll_line: f32,
+    /// Last primary-pane tab index whose `view_scroll_line` matches `scroll_line`.
+    last_primary_tab: Option<usize>,
     /// When true, next paint scrolls so the caret stays in view.
     follow_caret: bool,
     /// Caret-follow for the secondary pane.
@@ -811,6 +853,7 @@ impl EditorApp {
             state,
             find_focus_once: false,
             scroll_line: 0.0,
+            last_primary_tab: None,
             follow_caret: false,
             follow_caret_other: false,
             show_about: false,
@@ -944,6 +987,7 @@ impl EditorApp {
 
 impl eframe::App for EditorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.persist_primary_tab_scroll();
         self.state.session_write_scroll = Some(self.scroll_line.max(0.0) as usize);
         if ctx.input(|i| i.viewport().close_requested()) {
             self.state.persist_session_if_enabled();
@@ -963,6 +1007,7 @@ impl eframe::App for EditorApp {
 
         self.state.poll_loads();
         apply_session_viewport(self);
+        self.restore_primary_tab_scroll_if_switched();
         if self.state.poll_tail() {
             self.follow_caret = true;
         }
@@ -994,6 +1039,7 @@ impl eframe::App for EditorApp {
             );
         }
         self.tab_bar(ctx);
+        self.restore_primary_tab_scroll_if_switched();
         if self.state.find_open || self.show_replace {
             self.find_replace_bar(ctx);
         }
@@ -3736,8 +3782,9 @@ impl EditorApp {
             };
             if close_key_pressed && close_chord.matches(mods, close_chord.key) {
                 let idx = self.state.tabs.active_index();
+                self.persist_primary_tab_scroll();
                 self.state.request_close_tab(idx);
-                self.scroll_line = 0.0;
+                self.apply_closed_tab_indices();
             }
         }
 
@@ -10211,7 +10258,7 @@ impl EditorApp {
                         }
                         ui.label(
                             RichText::new(format!(
-                                "Session file: {} (paths, folds, caret, scroll, active tab)",
+                                "Session file: {} (paths, folds, caret, per-tab scroll, active tab)",
                                 crate::session::SESSION_REL
                             ))
                             .small()
@@ -10607,7 +10654,7 @@ impl EditorApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
         self.apply_closed_tab_indices();
-        self.scroll_line = 0.0;
+        self.restore_primary_tab_scroll_if_switched();
     }
 
     fn unsaved_reload_window(&mut self, ctx: &egui::Context) {
@@ -12107,13 +12154,14 @@ impl EditorApp {
                     }
                 }
                 if let Some(i) = switch_to {
+                    self.persist_primary_tab_scroll();
                     self.state.tabs.set_active(i);
                     self.state.highlight_dirty = true;
-                    self.scroll_line = 0.0;
                 }
                 if let Some(i) = close_idx {
+                    self.persist_primary_tab_scroll();
                     self.state.request_close_tab(i);
-                    self.scroll_line = 0.0;
+                    self.apply_closed_tab_indices();
                 }
                 if start_compare_now {
                     self.start_compare();
@@ -12555,6 +12603,11 @@ impl EditorApp {
                 self.scroll_line = 0.0;
                 self.follow_caret = false;
                 self.state.reset_view = false;
+                let tab = self.state.tabs.active_index();
+                if let Some(doc) = self.state.tabs.get_mut(tab) {
+                    doc.view_scroll_line = 0;
+                }
+                self.last_primary_tab = Some(tab);
             }
             let visible_rows = {
                 // One extra row of air above the status bar — last line must stay fully visible.
@@ -13563,6 +13616,9 @@ impl EditorApp {
         } else {
             self.other_view_tab = 0;
         }
+        self.last_primary_tab = self
+            .last_primary_tab
+            .and_then(|i| index_after_tab_close(i, closed));
         if !self.compare_on {
             return;
         }

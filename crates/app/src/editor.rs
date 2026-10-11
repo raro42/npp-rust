@@ -111,6 +111,8 @@ pub struct EditorState {
     pending_session_active: Option<PathBuf>,
     /// First visible line for the pending active tab (applied with `pending_session_active`).
     pending_session_scroll: Option<usize>,
+    /// Per-path first visible line to apply after async session open (inactive tabs too).
+    pending_session_scrolls: HashMap<PathBuf, usize>,
     /// UI should scroll to the active caret after session restore (consumed once).
     pub session_follow_caret: bool,
     /// UI should restore first visible line after session restore (consumed once; wins over follow-caret).
@@ -216,6 +218,7 @@ impl EditorState {
             pending_session_readonly: HashSet::new(),
             pending_session_active: None,
             pending_session_scroll: None,
+            pending_session_scrolls: HashMap::new(),
             session_follow_caret: false,
             session_scroll_line: None,
             session_write_scroll: None,
@@ -690,6 +693,7 @@ impl EditorState {
         self.apply_pending_session_folds_for(&result.path);
         self.apply_pending_session_bookmarks_for(&result.path);
         self.apply_pending_session_caret_for(&result.path);
+        self.apply_pending_session_scroll_for(&result.path);
         self.apply_pending_session_lang_for(&result.path);
         self.apply_pending_session_encoding_for(&result.path);
         self.apply_pending_session_readonly_for(&result.path);
@@ -777,6 +781,7 @@ impl EditorState {
             self.pending_session_langs.remove(&p);
             self.pending_session_encodings.remove(&p);
             self.pending_session_readonly.remove(&p);
+            self.pending_session_scrolls.remove(&p);
             if self.pending_session_active.as_ref() == Some(&p) {
                 self.pending_session_active = None;
                 self.pending_session_scroll = None;
@@ -1822,6 +1827,7 @@ impl EditorState {
         }
         self.pending_session_active = None;
         self.pending_session_scroll = None;
+        self.pending_session_scrolls.clear();
         self.session_scroll_line = None;
         let mut n = 0usize;
         let mut folds = 0usize;
@@ -1877,6 +1883,13 @@ impl EditorState {
                     carets += 1;
                 }
             }
+            if let Some(line) = scroll {
+                if loading {
+                    self.pending_session_scrolls.insert(path.clone(), line);
+                } else if self.apply_session_scroll_at(idx, line) {
+                    scrolls += 1;
+                }
+            }
             if let Some(lang) = language {
                 if loading {
                     self.pending_session_langs.insert(path.clone(), lang);
@@ -1927,25 +1940,22 @@ impl EditorState {
                 if self.tabs.get(idx).is_some_and(|d| d.loading) {
                     self.pending_session_active = Some(path);
                     self.pending_session_scroll = active_scroll;
-                    if active_scroll.is_some() {
-                        scrolls = 1;
-                    }
                 } else {
                     self.tabs.set_active(idx);
+                    self.reset_view = false;
                     if let Some(scroll) = active_scroll {
                         self.session_scroll_line = Some(scroll);
                         self.session_follow_caret = false;
-                        scrolls = 1;
                     } else {
                         self.session_follow_caret = true;
                     }
                 }
             }
         } else if n > 0 {
+            self.reset_view = false;
             if let Some(scroll) = active_scroll {
                 self.session_scroll_line = Some(scroll);
                 self.session_follow_caret = false;
-                scrolls = 1;
             } else {
                 self.session_follow_caret = true;
             }
@@ -1961,7 +1971,7 @@ impl EditorState {
             bits.push_str(&format!(", {carets} caret(s)"));
         }
         if scrolls > 0 {
-            bits.push_str(", scroll");
+            bits.push_str(&format!(", {scrolls} scroll"));
         }
         if langs > 0 {
             bits.push_str(&format!(", {langs} language(s)"));
@@ -2013,7 +2023,12 @@ impl EditorState {
                 let read_only = d.read_only;
                 let pinned = d.pinned;
                 let active = active_path.as_ref() == Some(&path);
-                let scroll = if active { active_scroll } else { None };
+                // Prefer live UI scroll for the focused tab; every tab keeps its last viewport.
+                let scroll = Some(if active {
+                    active_scroll.unwrap_or(d.view_scroll_line)
+                } else {
+                    d.view_scroll_line
+                });
                 Some(crate::session::SessionEntry {
                     path,
                     fold_headers,
@@ -2073,6 +2088,16 @@ impl EditorState {
         let max_col = end.saturating_sub(start);
         let pos = start + col.min(max_col);
         doc.buffer.set_caret(pos);
+        true
+    }
+
+    /// Store first visible line on the tab (clamped). Used for session restore and tab switches.
+    fn apply_session_scroll_at(&mut self, tab: usize, line: usize) -> bool {
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return false;
+        };
+        let max_line = doc.buffer.line_count().saturating_sub(1);
+        doc.view_scroll_line = line.min(max_line);
         true
     }
 
@@ -2167,6 +2192,21 @@ impl EditorState {
         }
     }
 
+    fn apply_pending_session_scroll_for(&mut self, path: &Path) {
+        let Some(line) = self.pending_session_scrolls.remove(path) else {
+            return;
+        };
+        let idx = self
+            .tabs
+            .iter()
+            .position(|d| d.path.as_deref() == Some(path));
+        if let Some(idx) = idx {
+            if self.apply_session_scroll_at(idx, line) {
+                self.status = format!("{} · restored scroll", self.status);
+            }
+        }
+    }
+
     fn apply_pending_session_lang_for(&mut self, path: &Path) {
         let Some(lang) = self.pending_session_langs.remove(path) else {
             return;
@@ -2224,9 +2264,18 @@ impl EditorState {
             .position(|d| d.path.as_deref() == Some(path));
         if let Some(idx) = idx {
             self.tabs.set_active(idx);
+            self.reset_view = false;
             if let Some(line) = scroll {
+                let _ = self.apply_session_scroll_at(idx, line);
                 self.session_scroll_line = Some(line);
                 self.session_follow_caret = false;
+            } else if let Some(doc) = self.tabs.get(idx) {
+                if doc.view_scroll_line > 0 {
+                    self.session_scroll_line = Some(doc.view_scroll_line);
+                    self.session_follow_caret = false;
+                } else {
+                    self.session_follow_caret = true;
+                }
             } else {
                 self.session_follow_caret = true;
             }

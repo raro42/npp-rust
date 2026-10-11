@@ -123,6 +123,8 @@ pub struct Document {
     pub tab_colour: Option<u8>,
     /// Pinned tab: kept by Close All but Pinned. Default false. Pin UI may be missing.
     pub pinned: bool,
+    /// First visible editor line (0-based) when this tab was last focused in the primary pane.
+    pub view_scroll_line: usize,
     /// Style marks 1..=5: line indices (Search → Style).
     pub style_marks: [BTreeSet<usize>; 5],
     /// Extra multi-select ranges (char indices), newest last. Primary selection is separate.
@@ -153,6 +155,7 @@ impl Document {
             hidden_lines: BTreeSet::new(),
             tab_colour: None,
             pinned: false,
+            view_scroll_line: 0,
             style_marks: Default::default(),
             multi_sels: Vec::new(),
         }
@@ -198,6 +201,7 @@ impl Document {
             hidden_lines: BTreeSet::new(),
             tab_colour: None,
             pinned: false,
+            view_scroll_line: 0,
             style_marks: Default::default(),
             multi_sels: Vec::new(),
         }

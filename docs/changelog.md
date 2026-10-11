@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.227] — 2026-10-12
+
+File / Session:
+
+- Opt-in session restore now keeps **per-tab** first visible line (`@scroll LINE`) for every open path in `npp-rs/session.txt` (not only `@active`). Tab clicks and next/prev tab restore each tab’s viewport instead of jumping to line 0. `@scroll` also survives sync open without being wiped by the post-open view reset.
+
 ## [0.3.226] — 2026-10-12
 
 File / Session:
