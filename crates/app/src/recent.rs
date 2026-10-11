@@ -396,6 +396,10 @@ fn default_shortcut_fullscreen() -> String {
     crate::shortcut_chord::DEFAULT_FULLSCREEN.into()
 }
 
+fn default_shortcut_postit() -> String {
+    crate::shortcut_chord::DEFAULT_POSTIT.into()
+}
+
 fn default_shortcut_always_on_top() -> String {
     crate::shortcut_chord::DEFAULT_ALWAYS_ON_TOP.into()
 }
@@ -788,6 +792,9 @@ pub struct AppSettings {
     /// Fullscreen toggle chord (`F11` default).
     #[serde(default = "default_shortcut_fullscreen")]
     pub shortcut_fullscreen: String,
+    /// Post-It / distraction-free toggle chord (`F12` default).
+    #[serde(default = "default_shortcut_postit")]
+    pub shortcut_postit: String,
     /// Always-on-top toggle chord (`Alt+T` default).
     #[serde(default = "default_shortcut_always_on_top")]
     pub shortcut_always_on_top: String,
@@ -959,6 +966,7 @@ impl Default for AppSettings {
             shortcut_document_map: default_shortcut_document_map(),
             shortcut_focus_other_view: default_shortcut_focus_other_view(),
             shortcut_fullscreen: default_shortcut_fullscreen(),
+            shortcut_postit: default_shortcut_postit(),
             shortcut_always_on_top: default_shortcut_always_on_top(),
             shortcut_show_all_characters: default_shortcut_show_all_characters(),
             shortcut_show_whitespace: default_shortcut_show_whitespace(),
@@ -1368,6 +1376,7 @@ mod tests {
             shortcut_document_map: "Ctrl+Alt+Shift+D".into(),
             shortcut_focus_other_view: "Ctrl+Alt+F6".into(),
             shortcut_fullscreen: "Ctrl+Alt+F11".into(),
+            shortcut_postit: "Ctrl+Alt+F12".into(),
             shortcut_always_on_top: "Ctrl+Alt+Shift+T".into(),
             shortcut_show_all_characters: "Ctrl+Alt+Shift+A".into(),
             shortcut_show_whitespace: "Ctrl+Alt+Shift+V".into(),
@@ -1475,6 +1484,7 @@ mod tests {
         assert_eq!(back.shortcut_document_map, "Ctrl+Alt+Shift+D");
         assert_eq!(back.shortcut_focus_other_view, "Ctrl+Alt+F6");
         assert_eq!(back.shortcut_fullscreen, "Ctrl+Alt+F11");
+        assert_eq!(back.shortcut_postit, "Ctrl+Alt+F12");
         assert_eq!(back.shortcut_always_on_top, "Ctrl+Alt+Shift+T");
         assert_eq!(back.shortcut_show_all_characters, "Ctrl+Alt+Shift+A");
         assert_eq!(back.shortcut_show_whitespace, "Ctrl+Alt+Shift+V");

@@ -230,6 +230,9 @@ pub const DEFAULT_FOCUS_OTHER_VIEW: &str = "F6";
 /// Default fullscreen toggle binding (View → Toggle Full Screen Mode).
 pub const DEFAULT_FULLSCREEN: &str = "F11";
 
+/// Default Post-It / distraction-free toggle binding (View → Post-It).
+pub const DEFAULT_POSTIT: &str = "F12";
+
 /// Default always-on-top toggle binding (View → Always on Top).
 pub const DEFAULT_ALWAYS_ON_TOP: &str = "Alt+T";
 
@@ -538,6 +541,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "f7" => Some(Key::F7),
         "f8" => Some(Key::F8),
         "f11" => Some(Key::F11),
+        "f12" => Some(Key::F12),
         "escape" | "esc" => Some(Key::Escape),
         "tab" => Some(Key::Tab),
         "delete" | "del" => Some(Key::Delete),
@@ -595,6 +599,7 @@ fn key_token(key: Key) -> &'static str {
         Key::F7 => "F7",
         Key::F8 => "F8",
         Key::F11 => "F11",
+        Key::F12 => "F12",
         Key::Escape => "Escape",
         Key::Tab => "Tab",
         Key::Delete => "Delete",
@@ -1332,6 +1337,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::F11);
         assert_eq!(c.display(), "F11");
+    }
+
+    #[test]
+    fn parse_f12_default_postit() {
+        let c = parse_chord(DEFAULT_POSTIT).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F12);
+        assert_eq!(c.display(), "F12");
     }
 
     #[test]

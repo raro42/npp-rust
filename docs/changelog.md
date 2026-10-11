@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.214] — 2026-10-11
+
+View / Settings:
+
+- **Post-It** is remappable (`shortcut_postit`, default F12). Menu, Preferences, Shortcut Mapper, and About show the effective binding. Same distraction-free toggle as the View → Post-It command (viewport fullscreen).
+
 ## [0.3.213] — 2026-10-11
 
 View / Settings:

@@ -106,6 +106,7 @@ New keys:
 | `shortcut_toggle_log_tail` | Toggle log-tail follow chord (`Cmd+Shift+T` default) |
 | `shortcut_document_map` | Document Map toggle chord (`Cmd+Shift+D` default) |
 | `shortcut_fullscreen` | Fullscreen toggle chord (`F11` default) |
+| `shortcut_postit` | Post-It / distraction-free toggle chord (`F12` default) |
 | `shortcut_always_on_top` | Always-on-top toggle chord (`Alt+T` default) |
 | `shortcut_show_whitespace` | Show-whitespace toggle chord (`Alt+V` default; Shift flips to Show EOL) |
 | `shortcut_show_npc` | Show-NPC toggle chord (`Alt+N` default) |

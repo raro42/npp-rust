@@ -330,3 +330,5 @@
 009 keep: remappable Sync Vertical / Horizontal Scroll (shortcut_sync_scroll, Alt+Q default, v0.3.212)
 
 009 keep: remappable Show NPC (shortcut_show_npc, Alt+N default, v0.3.213)
+
+009 keep: remappable Post-It (shortcut_postit, F12 default, v0.3.214)

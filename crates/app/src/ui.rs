@@ -1334,6 +1334,39 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_FULLSCREENTOGGLE");
             }
         }
+        // Remappable Post-It toggle (default F12; settings.shortcut_postit).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_POSTIT};
+            let postit_chord = resolve_chord(&self.state.settings.shortcut_postit, DEFAULT_POSTIT);
+            let postit_key_pressed = match postit_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if postit_key_pressed && postit_chord.matches(mods, postit_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_POSTIT");
+            }
+        }
         // Remappable always-on-top toggle (default Alt+T; settings.shortcut_always_on_top).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_ALWAYS_ON_TOP};
@@ -5069,6 +5102,16 @@ impl EditorApp {
                             "Toggle fullscreen ({chord}; Preferences remappable)"
                         ))
                     }
+                    "IDM_VIEW_POSTIT" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_postit,
+                            crate::shortcut_chord::DEFAULT_POSTIT,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Toggle Post-It / distraction-free ({chord}; Preferences remappable)"
+                        ))
+                    }
                     "IDM_VIEW_ALWAYSONTOP" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_always_on_top,
@@ -5662,6 +5705,7 @@ impl EditorApp {
                 &s.shortcut_fullscreen,
                 crate::shortcut_chord::DEFAULT_FULLSCREEN,
             ),
+            "IDM_VIEW_POSTIT" => primary(&s.shortcut_postit, crate::shortcut_chord::DEFAULT_POSTIT),
             "IDM_VIEW_ALWAYSONTOP" => primary(
                 &s.shortcut_always_on_top,
                 crate::shortcut_chord::DEFAULT_ALWAYS_ON_TOP,
@@ -6247,6 +6291,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_FULLSCREEN,
         )
         .display();
+        let postit_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_postit,
+            crate::shortcut_chord::DEFAULT_POSTIT,
+        )
+        .display();
         let always_on_top_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_always_on_top,
             crate::shortcut_chord::DEFAULT_ALWAYS_ON_TOP,
@@ -6315,7 +6364,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 82] = [
+        let rows: [(&str, &str); 83] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -6417,6 +6466,7 @@ impl EditorApp {
             (log_tail_keys.as_str(), "Toggle log tail"),
             (document_map_keys.as_str(), "Toggle Document Map"),
             (fullscreen_keys.as_str(), "Toggle fullscreen"),
+            (postit_keys.as_str(), "Toggle Post-It"),
             (always_on_top_keys.as_str(), "Toggle always on top"),
             (
                 show_all_characters_keys.as_str(),
@@ -9134,6 +9184,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: F11, Ctrl+Alt+F11. Toggles View → Toggle Full Screen Mode.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Post-It shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_postit,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("F12"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_postit
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_postit =
+                                        crate::shortcut_chord::DEFAULT_POSTIT.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_POSTIT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_postit = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: F12, Ctrl+Alt+F12. Toggles View → Post-It (distraction-free).",
                             )
                             .small()
                             .weak(),
