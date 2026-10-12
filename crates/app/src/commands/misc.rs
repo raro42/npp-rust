@@ -223,9 +223,9 @@ fn show_shortcut_mapper(state: &mut EditorState) {
         DEFAULT_SELECT_ALL, DEFAULT_SHIFT_TAB_OUTDENT, DEFAULT_SHOW_ALL_CHARACTERS,
         DEFAULT_SHOW_FOLD_MARGIN, DEFAULT_SHOW_LINE_NUMBERS, DEFAULT_SHOW_NPC,
         DEFAULT_SHOW_WHITESPACE, DEFAULT_SWAP_COMPARE, DEFAULT_SYNC_SCROLL, DEFAULT_TAB_INDENT,
-        DEFAULT_TOGGLE_BOOKMARK, DEFAULT_TOGGLE_COMMENT, DEFAULT_TOGGLE_LOG_TAIL, DEFAULT_UNDO,
-        DEFAULT_WORD_JUMP, DEFAULT_WORD_WRAP, DEFAULT_ZOOM_IN, DEFAULT_ZOOM_OUT,
-        DEFAULT_ZOOM_RESTORE,
+        DEFAULT_TOGGLE_BOOKMARK, DEFAULT_TOGGLE_COMMENT, DEFAULT_TOGGLE_LOG_TAIL,
+        DEFAULT_TRIM_TRAILING, DEFAULT_UNDO, DEFAULT_WORD_JUMP, DEFAULT_WORD_WRAP, DEFAULT_ZOOM_IN,
+        DEFAULT_ZOOM_OUT, DEFAULT_ZOOM_RESTORE,
     };
     let wrap = resolve_chord(&state.settings.shortcut_word_wrap, DEFAULT_WORD_WRAP).display();
     let wrap_raw = state.settings.shortcut_word_wrap.trim();
@@ -870,6 +870,24 @@ fn show_shortcut_mapper(state: &mut EditorState) {
             "{close_all} / {close_all_but} (from settings.shortcut_close_all = {close_all_raw:?}; Shift flips)"
         )
     };
+    let trim_trailing_chord = resolve_chord(
+        &state.settings.shortcut_trim_trailing,
+        DEFAULT_TRIM_TRAILING,
+    );
+    let trim_trailing = trim_trailing_chord.display();
+    let trim_both = trim_trailing_chord.flipped_shift().display();
+    let trim_trailing_raw = state.settings.shortcut_trim_trailing.trim();
+    let trim_trailing_note = if trim_trailing_raw.is_empty()
+        || trim_trailing_raw.eq_ignore_ascii_case(DEFAULT_TRIM_TRAILING)
+    {
+        format!(
+            "{trim_trailing} / {trim_both} (default; Preferences → Trim Trailing shortcut; Shift flips to Trim Leading and Trailing)"
+        )
+    } else {
+        format!(
+            "{trim_trailing} / {trim_both} (from settings.shortcut_trim_trailing = {trim_trailing_raw:?}; Shift flips)"
+        )
+    };
     let pin_tab = resolve_chord(&state.settings.shortcut_pin_tab, DEFAULT_PIN_TAB).display();
     let pin_tab_raw = state.settings.shortcut_pin_tab.trim();
     let pin_tab_note =
@@ -1393,8 +1411,8 @@ fn show_shortcut_mapper(state: &mut EditorState) {
 npp-rs keyboard shortcuts
 =========================
 Source: ui.rs handle_shortcuts. Most keys are hard-wired.
-Word wrap, Find next, Find next (global), Next bookmark, Toggle bookmark, Clear all bookmarks, Next change history, Compare start/clear, Swap Compare sides, Compare to Saved, Copy / Open Compare Diff, Copy / Open Compare Summary, Copy / Open Compare Hunk, Word jump, Next difference, First difference, Next hidden equal, First hidden equal, Apply compare hunk, Hide unchanged lines, Ignore whitespace / Ignore case, Ignore blank lines, Expand / Collapse all unchanged, Expand / Collapse unchanged at caret, Bookmark / Clear compare difference bookmarks, Hide-equal context, Go to line, Duplicate line, Delete line, Move line, Go to document start/end, Document Home / End aliases, Toggle comment, lowercase / UPPERCASE, Join Lines / Split Lines, Invert Case / Proper Case, Blank line below / above, Multi-select next / skip current, Indent, Outdent, Tab indent, Shift+Tab outdent, Fold / Unfold all, Fold / Unfold current, Matching brace, Format document, Close tab, Close All / Close All but Current, Pin tab, Next / prev tab, New, Open, Reload, Save, Save As, Save All, Print, Find, Find in Files, Close Find/Replace, Replace, Replace (alternate), Select all, Copy, Cut, Paste, Delete, Backspace, Enter / newline, Line start / end, Page up / down, Character left / right, Line up / down, Undo, Redo, Zoom in, Zoom out, Zoom restore, Toggle log tail, Document Map, Fullscreen, Always on Top, Show All Characters, Show White Space / Show EOL, Show NPC, Sync Vertical / Horizontal Scroll, Indent Guide, Show Line Numbers, Show Fold Margin, Project Panel, Post-It, Focus other view, Move / clone to other view, and RTL / LTR are remappable via Preferences or npp-rs/settings.json
-(keys shortcut_word_wrap, shortcut_find_next, shortcut_find_next_global, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_clear_bookmarks, shortcut_next_changed, shortcut_compare, shortcut_swap_compare, shortcut_compare_to_saved, shortcut_copy_compare_diff, shortcut_copy_compare_summary, shortcut_copy_compare_hunk, shortcut_word_jump, shortcut_next_diff, shortcut_first_diff, shortcut_next_hidden_equal, shortcut_first_hidden_equal, shortcut_apply_compare_hunk, shortcut_hide_equal, shortcut_compare_ignore_ws, shortcut_compare_ignore_blank, shortcut_expand_all_unchanged, shortcut_expand_unchanged_at_caret, shortcut_bookmark_compare_diffs, shortcut_hide_equal_context, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_move_line, shortcut_goto_document_start, shortcut_document_home, shortcut_toggle_comment, shortcut_lowercase, shortcut_join_lines, shortcut_invert_case, shortcut_blank_line, shortcut_multi_select_next, shortcut_indent, shortcut_outdent, shortcut_tab_indent, shortcut_shift_tab_outdent, shortcut_fold_all, shortcut_fold_current, shortcut_matching_brace, shortcut_format_document, shortcut_close_tab, shortcut_close_all, shortcut_pin_tab, shortcut_next_tab, shortcut_new, shortcut_open, shortcut_reload, shortcut_save, shortcut_save_as, shortcut_save_all, shortcut_print, shortcut_find, shortcut_find_in_files, shortcut_close_find, shortcut_replace, shortcut_replace_alt, shortcut_select_all, shortcut_copy, shortcut_cut, shortcut_paste, shortcut_delete_forward, shortcut_delete_backward, shortcut_enter, shortcut_line_home, shortcut_page_up, shortcut_char_left, shortcut_line_up, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore, shortcut_toggle_log_tail, shortcut_document_map, shortcut_fullscreen, shortcut_postit, shortcut_always_on_top, shortcut_show_all_characters, shortcut_show_whitespace, shortcut_show_npc, shortcut_sync_scroll, shortcut_indent_guide, shortcut_show_line_numbers, shortcut_show_fold_margin, shortcut_project_panel, shortcut_focus_other_view, shortcut_move_other_view, shortcut_rtl). Full shortcuts.xml remap is not wired yet.
+Word wrap, Find next, Find next (global), Next bookmark, Toggle bookmark, Clear all bookmarks, Next change history, Compare start/clear, Swap Compare sides, Compare to Saved, Copy / Open Compare Diff, Copy / Open Compare Summary, Copy / Open Compare Hunk, Word jump, Next difference, First difference, Next hidden equal, First hidden equal, Apply compare hunk, Hide unchanged lines, Ignore whitespace / Ignore case, Ignore blank lines, Expand / Collapse all unchanged, Expand / Collapse unchanged at caret, Bookmark / Clear compare difference bookmarks, Hide-equal context, Go to line, Duplicate line, Delete line, Move line, Go to document start/end, Document Home / End aliases, Toggle comment, lowercase / UPPERCASE, Join Lines / Split Lines, Invert Case / Proper Case, Blank line below / above, Multi-select next / skip current, Indent, Outdent, Tab indent, Shift+Tab outdent, Fold / Unfold all, Fold / Unfold current, Matching brace, Format document, Close tab, Close All / Close All but Current, Trim Trailing / Trim Both, Pin tab, Next / prev tab, New, Open, Reload, Save, Save As, Save All, Print, Find, Find in Files, Close Find/Replace, Replace, Replace (alternate), Select all, Copy, Cut, Paste, Delete, Backspace, Enter / newline, Line start / end, Page up / down, Character left / right, Line up / down, Undo, Redo, Zoom in, Zoom out, Zoom restore, Toggle log tail, Document Map, Fullscreen, Always on Top, Show All Characters, Show White Space / Show EOL, Show NPC, Sync Vertical / Horizontal Scroll, Indent Guide, Show Line Numbers, Show Fold Margin, Project Panel, Post-It, Focus other view, Move / clone to other view, and RTL / LTR are remappable via Preferences or npp-rs/settings.json
+(keys shortcut_word_wrap, shortcut_find_next, shortcut_find_next_global, shortcut_next_bookmark, shortcut_toggle_bookmark, shortcut_clear_bookmarks, shortcut_next_changed, shortcut_compare, shortcut_swap_compare, shortcut_compare_to_saved, shortcut_copy_compare_diff, shortcut_copy_compare_summary, shortcut_copy_compare_hunk, shortcut_word_jump, shortcut_next_diff, shortcut_first_diff, shortcut_next_hidden_equal, shortcut_first_hidden_equal, shortcut_apply_compare_hunk, shortcut_hide_equal, shortcut_compare_ignore_ws, shortcut_compare_ignore_blank, shortcut_expand_all_unchanged, shortcut_expand_unchanged_at_caret, shortcut_bookmark_compare_diffs, shortcut_hide_equal_context, shortcut_goto_line, shortcut_duplicate_line, shortcut_delete_line, shortcut_move_line, shortcut_goto_document_start, shortcut_document_home, shortcut_toggle_comment, shortcut_lowercase, shortcut_join_lines, shortcut_invert_case, shortcut_blank_line, shortcut_multi_select_next, shortcut_indent, shortcut_outdent, shortcut_tab_indent, shortcut_shift_tab_outdent, shortcut_fold_all, shortcut_fold_current, shortcut_matching_brace, shortcut_format_document, shortcut_close_tab, shortcut_close_all, shortcut_trim_trailing, shortcut_pin_tab, shortcut_next_tab, shortcut_new, shortcut_open, shortcut_reload, shortcut_save, shortcut_save_as, shortcut_save_all, shortcut_print, shortcut_find, shortcut_find_in_files, shortcut_close_find, shortcut_replace, shortcut_replace_alt, shortcut_select_all, shortcut_copy, shortcut_cut, shortcut_paste, shortcut_delete_forward, shortcut_delete_backward, shortcut_enter, shortcut_line_home, shortcut_page_up, shortcut_char_left, shortcut_line_up, shortcut_undo, shortcut_redo, shortcut_zoom_in, shortcut_zoom_out, shortcut_zoom_restore, shortcut_toggle_log_tail, shortcut_document_map, shortcut_fullscreen, shortcut_postit, shortcut_always_on_top, shortcut_show_all_characters, shortcut_show_whitespace, shortcut_show_npc, shortcut_sync_scroll, shortcut_indent_guide, shortcut_show_line_numbers, shortcut_show_fold_margin, shortcut_project_panel, shortcut_focus_other_view, shortcut_move_other_view, shortcut_rtl). Full shortcuts.xml remap is not wired yet.
 Settings → Validate shortcuts.xml reports presence only.
 
 modifier notes
@@ -1413,6 +1431,7 @@ File / edit
 {print_note}
 {close_note}
 {close_all_note}
+{trim_trailing_note}
 {pin_tab_note}
 {next_tab_note}
 {undo_note}

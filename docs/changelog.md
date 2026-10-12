@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.257] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Trim Trailing Space** is remappable: Preferences → Trim Trailing shortcut, or `shortcut_trim_trailing` in `npp-rs/settings.json` (default `Cmd+Alt+T`). Shift flips to **Trim Leading and Trailing Space**. Menu, Shortcut Mapper, and About show both bindings.
+
 ## [0.3.256] — 2026-10-13
 
 Settings / shortcuts:

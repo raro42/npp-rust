@@ -118,6 +118,11 @@ pub const DEFAULT_CLOSE_TAB: &str = "Cmd+W";
 /// Uses Cmd+Alt+W so it does not collide with Close tab (Cmd+W).
 pub const DEFAULT_CLOSE_ALL: &str = "Cmd+Alt+W";
 
+/// Default trim-trailing binding (Edit → Blank Operations → Trim Trailing Space).
+/// Shift flips to Trim Leading and Trailing Space. Uses Cmd+Alt+T so it does not
+/// collide with Always on Top (Alt+T) or Toggle log tail (Cmd+Shift+T).
+pub const DEFAULT_TRIM_TRAILING: &str = "Cmd+Alt+T";
+
 /// Default new-file binding (matches historical hard-wire).
 pub const DEFAULT_NEW: &str = "Cmd+N";
 
@@ -1077,6 +1082,17 @@ mod tests {
         assert_eq!(c.key, Key::W);
         assert_eq!(c.display(), "Cmd+Alt+W");
         assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+W");
+    }
+
+    #[test]
+    fn parse_cmd_alt_t_default_trim_trailing() {
+        let c = parse_chord(DEFAULT_TRIM_TRAILING).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::T);
+        assert_eq!(c.display(), "Cmd+Alt+T");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+T");
     }
 
     #[test]

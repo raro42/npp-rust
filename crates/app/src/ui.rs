@@ -4052,6 +4052,45 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_FILE_CLOSEALL");
             }
         }
+        // Remappable trim trailing (default Cmd+Alt+T; settings.shortcut_trim_trailing).
+        // Shift flips to Trim Leading and Trailing Space.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_TRIM_TRAILING};
+            let trim_chord = resolve_chord(
+                &self.state.settings.shortcut_trim_trailing,
+                DEFAULT_TRIM_TRAILING,
+            );
+            let trim_key_pressed = match trim_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if trim_key_pressed && trim_chord.flipped_shift().matches(mods, trim_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_TRIM_BOTH");
+            } else if trim_key_pressed && trim_chord.matches(mods, trim_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_TRIMTRAILING");
+            }
+        }
 
         // Remappable next tab (default Cmd+Tab; settings.shortcut_next_tab). Shift flips to prev.
         {
@@ -5975,6 +6014,14 @@ impl EditorApp {
                 &s.shortcut_close_all,
                 crate::shortcut_chord::DEFAULT_CLOSE_ALL,
             ),
+            "IDM_EDIT_TRIMTRAILING" => primary(
+                &s.shortcut_trim_trailing,
+                crate::shortcut_chord::DEFAULT_TRIM_TRAILING,
+            ),
+            "IDM_EDIT_TRIM_BOTH" => shifted(
+                &s.shortcut_trim_trailing,
+                crate::shortcut_chord::DEFAULT_TRIM_TRAILING,
+            ),
             "IDM_VIEW_TAB_NEXT" => primary(
                 &s.shortcut_next_tab,
                 crate::shortcut_chord::DEFAULT_NEXT_TAB,
@@ -6729,6 +6776,15 @@ impl EditorApp {
             close_all_chord.display(),
             close_all_chord.flipped_shift().display()
         );
+        let trim_trailing_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_trim_trailing,
+            crate::shortcut_chord::DEFAULT_TRIM_TRAILING,
+        );
+        let trim_trailing_keys = format!(
+            "{} / {}",
+            trim_trailing_chord.display(),
+            trim_trailing_chord.flipped_shift().display()
+        );
         let next_tab_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_next_tab,
             crate::shortcut_chord::DEFAULT_NEXT_TAB,
@@ -7010,7 +7066,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 88] = [
+        let rows: [(&str, &str); 89] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -7140,6 +7196,10 @@ impl EditorApp {
             (undo_keys.as_str(), "Undo / Redo"),
             (close_keys.as_str(), "Close tab"),
             (close_all_keys.as_str(), "Close all / Close all but current"),
+            (
+                trim_trailing_keys.as_str(),
+                "Trim trailing / Trim leading and trailing",
+            ),
             (next_tab_keys.as_str(), "Next / prev tab"),
         ];
         rows.into_iter()
@@ -9148,6 +9208,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+W, Ctrl+Alt+W. Shift flips to Close All but Current.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Trim Trailing shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_trim_trailing,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+T"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_trim_trailing.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_trim_trailing =
+                                        crate::shortcut_chord::DEFAULT_TRIM_TRAILING.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_TRIM_TRAILING
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_trim_trailing = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+T, Ctrl+Alt+T. Shift flips to Trim Leading and Trailing.",
                             )
                             .small()
                             .weak(),
