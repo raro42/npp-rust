@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.248] — 2026-10-12
+
+Edit / column mode:
+
+- **Multi-caret arrow move**: plain Left/Right/Up/Down move every multi-caret / rect caret together (ranges collapse to an edge first; rect keeps virtual columns). Shift / word-jump / document jumps still clear extras (`docs/column-mode.md`).
+
 ## [0.3.247] — 2026-10-12
 
 Edit / column mode:
