@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.252] — 2026-10-12
+
+Edit / column mode:
+
+- **Multi-caret word-jump**: remappable word-jump (default Alt+Left/Right) moves every multi-caret together; Shift extends stream multi-carets. Rect selections become stream multi after a plain word-jump (`docs/column-mode.md`).
+
 ## [0.3.251] — 2026-10-12
 
 Edit / column mode:

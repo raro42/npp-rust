@@ -17712,18 +17712,32 @@ impl EditorApp {
                     let jump_fwd = jump.flipped_horizontal();
                     if jump.matches_ignore_shift(modifiers, Key::ArrowLeft) {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.clear_multi_sels();
-                            doc.clear_virtual_caret();
-                            doc.buffer.move_word(false, modifiers.shift);
+                            let multi_ok = if modifiers.shift {
+                                doc.extend_multi_word(false)
+                            } else {
+                                doc.move_multi_word(false)
+                            };
+                            if !multi_ok {
+                                doc.clear_multi_sels();
+                                doc.clear_virtual_caret();
+                                doc.buffer.move_word(false, modifiers.shift);
+                            }
                         }
                         caret_moved = true;
                     } else if jump_fwd.key != jump.key
                         && jump_fwd.matches_ignore_shift(modifiers, Key::ArrowLeft)
                     {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.clear_multi_sels();
-                            doc.clear_virtual_caret();
-                            doc.buffer.move_word(true, modifiers.shift);
+                            let multi_ok = if modifiers.shift {
+                                doc.extend_multi_word(true)
+                            } else {
+                                doc.move_multi_word(true)
+                            };
+                            if !multi_ok {
+                                doc.clear_multi_sels();
+                                doc.clear_virtual_caret();
+                                doc.buffer.move_word(true, modifiers.shift);
+                            }
                         }
                         caret_moved = true;
                     } else {
@@ -17799,18 +17813,32 @@ impl EditorApp {
                     let jump_fwd = jump.flipped_horizontal();
                     if jump.matches_ignore_shift(modifiers, Key::ArrowRight) {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.clear_multi_sels();
-                            doc.clear_virtual_caret();
-                            doc.buffer.move_word(false, modifiers.shift);
+                            let multi_ok = if modifiers.shift {
+                                doc.extend_multi_word(false)
+                            } else {
+                                doc.move_multi_word(false)
+                            };
+                            if !multi_ok {
+                                doc.clear_multi_sels();
+                                doc.clear_virtual_caret();
+                                doc.buffer.move_word(false, modifiers.shift);
+                            }
                         }
                         caret_moved = true;
                     } else if jump_fwd.key != jump.key
                         && jump_fwd.matches_ignore_shift(modifiers, Key::ArrowRight)
                     {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.clear_multi_sels();
-                            doc.clear_virtual_caret();
-                            doc.buffer.move_word(true, modifiers.shift);
+                            let multi_ok = if modifiers.shift {
+                                doc.extend_multi_word(true)
+                            } else {
+                                doc.move_multi_word(true)
+                            };
+                            if !multi_ok {
+                                doc.clear_multi_sels();
+                                doc.clear_virtual_caret();
+                                doc.buffer.move_word(true, modifiers.shift);
+                            }
                         }
                         caret_moved = true;
                     } else {

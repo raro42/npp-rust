@@ -853,6 +853,84 @@ impl Document {
         Some((cl, cc))
     }
 
+    /// Word-jump every multi-caret (plain Alt+Left/Right by default). Keeps multi-carets.
+    ///
+    /// Non-empty ranges collapse to the left (backward) or right (forward) edge first.
+    /// Rect selections become stream multi-carets after the jump.
+    /// Returns false when multi-carets are inactive.
+    pub fn move_multi_word(&mut self, forward: bool) -> bool {
+        if !self.has_multi_carets() {
+            return false;
+        }
+        let len = self.buffer.len_chars();
+        let mut new_sels = Vec::with_capacity(self.multi_sels.len());
+        for &(s, e) in &self.multi_sels {
+            let lo = s.min(e).min(len);
+            let hi = s.max(e).min(len);
+            let from = if lo != hi {
+                if forward {
+                    hi
+                } else {
+                    lo
+                }
+            } else {
+                lo
+            };
+            let c = self.buffer.word_jump_from(from, forward);
+            new_sels.push((c, c));
+        }
+        new_sels.sort_by_key(|(c, _)| *c);
+        new_sels.dedup();
+        if new_sels.len() < 2 {
+            if let Some(&(c, _)) = new_sels.first() {
+                self.multi_sels.clear();
+                self.rect_cols = None;
+                self.rect_anchor = None;
+                self.virtual_caret_col = None;
+                self.buffer.set_caret(c);
+            }
+            return true;
+        }
+        self.finish_multi_sels(new_sels);
+        true
+    }
+
+    /// Shift+word-jump: extend every stream multi-caret by one word.
+    ///
+    /// Keeps each range's anchor and moves its caret. Rect selections return false
+    /// (caller should clear). Returns false when stream multi-carets are inactive.
+    pub fn extend_multi_word(&mut self, forward: bool) -> bool {
+        if self.rect_cols.is_some() || !self.has_multi_carets() {
+            return false;
+        }
+        let len = self.buffer.len_chars();
+        let mut new_sels = Vec::with_capacity(self.multi_sels.len());
+        for &(anchor, caret) in &self.multi_sels {
+            let anchor = anchor.min(len);
+            let caret = caret.min(len);
+            let new_caret = self.buffer.word_jump_from(caret, forward);
+            new_sels.push((anchor, new_caret));
+        }
+        new_sels.sort_by_key(|&(a, c)| (c, a));
+        new_sels.dedup();
+        if new_sels.len() < 2 {
+            if let Some(&(anchor, caret)) = new_sels.first() {
+                self.multi_sels.clear();
+                self.rect_cols = None;
+                self.rect_anchor = None;
+                self.virtual_caret_col = None;
+                if anchor == caret {
+                    self.buffer.set_caret(caret);
+                } else {
+                    self.buffer.set_selection(anchor, caret);
+                }
+            }
+            return true;
+        }
+        self.finish_multi_sels(new_sels);
+        true
+    }
+
     /// Shift+Left/Right: extend every stream multi-caret selection by `delta` chars.
     ///
     /// Keeps each range's anchor and moves its caret. Rect selections keep
@@ -1769,6 +1847,43 @@ mod tests {
         assert_eq!(doc.multi_sels, vec![(1, 1), (6, 6)]);
         assert!(doc.move_multi_char(1));
         assert_eq!(doc.multi_sels, vec![(2, 2), (7, 7)]);
+    }
+
+    #[test]
+    fn move_and_extend_multi_word_keep_carets() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("foo bar\nfoo bar\n");
+        // Carets on the space after "foo" on each line.
+        doc.multi_sels = vec![(3, 3), (11, 11)];
+        assert!(doc.move_multi_word(true));
+        // Forward lands at the start of "bar".
+        assert_eq!(doc.multi_sels, vec![(4, 4), (12, 12)]);
+        assert!(doc.has_multi_carets());
+        assert!(doc.move_multi_word(false));
+        // Backward from "bar" lands at the start of "foo".
+        assert_eq!(doc.multi_sels, vec![(0, 0), (8, 8)]);
+        doc.multi_sels = vec![(3, 3), (11, 11)];
+        assert!(doc.extend_multi_word(true));
+        assert_eq!(doc.multi_sels, vec![(3, 4), (11, 12)]);
+        assert!(doc.has_multi_carets());
+        assert!(doc.insert_multi("Z"));
+        assert_eq!(doc.buffer.to_string(), "fooZbar\nfooZbar\n");
+    }
+
+    #[test]
+    fn move_multi_word_rect_becomes_stream() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("foo bar\nfoo bar\n");
+        doc.set_rect_selection_cols(0, 0, 1, 0);
+        assert!(doc.rect_cols.is_some());
+        assert!(doc.move_multi_word(true));
+        assert_eq!(doc.rect_cols, None);
+        assert_eq!(doc.multi_sels, vec![(4, 4), (12, 12)]);
+        assert!(doc.has_multi_carets());
+        // Shift+word leaves rect alone (caller clears).
+        doc.set_rect_selection_cols(0, 0, 1, 0);
+        assert!(!doc.extend_multi_word(true));
+        assert!(doc.rect_cols.is_some());
     }
 
     #[test]

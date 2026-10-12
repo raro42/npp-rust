@@ -453,14 +453,15 @@ impl TextBuffer {
         self.set_selection(start, end);
     }
 
-    pub fn move_word(&mut self, forward: bool, select: bool) {
+    /// Word-jump destination from `from` (same rules as `move_word`).
+    pub fn word_jump_from(&self, from: usize, forward: bool) -> usize {
         let len = self.len_chars();
         let text = self.to_string();
         let chars: Vec<char> = text.chars().collect();
-        let mut i = self.caret;
+        let mut i = from.min(len);
         if forward {
             if i >= len {
-                return;
+                return len;
             }
             if i < chars.len() && is_word_char(chars[i]) {
                 while i < chars.len() && is_word_char(chars[i]) {
@@ -472,7 +473,7 @@ impl TextBuffer {
             }
         } else {
             if i == 0 {
-                return;
+                return 0;
             }
             i = i.saturating_sub(1);
             while i > 0 && chars[i].is_whitespace() {
@@ -484,6 +485,11 @@ impl TextBuffer {
                 }
             }
         }
+        i
+    }
+
+    pub fn move_word(&mut self, forward: bool, select: bool) {
+        let i = self.word_jump_from(self.caret, forward);
         if select {
             let anchor = self.sel_anchor.unwrap_or(self.caret);
             self.set_selection(anchor, i);

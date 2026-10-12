@@ -402,3 +402,5 @@
 009 keep: Shift+extend stream multi-carets (v0.3.250)
 
 009 keep: Rect Shift+extend Left/Right/Up/Down (v0.3.251)
+
+009 keep: multi-caret word-jump move + Shift-extend (v0.3.252)
