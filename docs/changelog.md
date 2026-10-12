@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.259] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Multi-select All** is remappable: Preferences → Multi-select all shortcut, or `shortcut_multi_select_all` in `npp-rs/settings.json` (default `Cmd+Alt+A`). Shift flips to **Multi-select All (Whole Word)**. Menu, Shortcut Mapper, and About show both bindings.
+
 ## [0.3.258] — 2026-10-13
 
 Edit / column mode:

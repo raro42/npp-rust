@@ -3851,6 +3851,51 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_MULTISELECTNEXT");
             }
         }
+        // Remappable multi-select all (default Cmd+Alt+A; settings.shortcut_multi_select_all).
+        // Shift flips to Multi-select All (Whole Word).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_MULTI_SELECT_ALL};
+            let multi_all_chord = resolve_chord(
+                &self.state.settings.shortcut_multi_select_all,
+                DEFAULT_MULTI_SELECT_ALL,
+            );
+            let multi_all_key_pressed = match multi_all_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_whole = multi_all_key_pressed
+                && multi_all_chord
+                    .flipped_shift()
+                    .matches(mods, multi_all_chord.key);
+            let remapped_all =
+                multi_all_key_pressed && multi_all_chord.matches(mods, multi_all_chord.key);
+            if remapped_whole {
+                self.run_shortcut_cmd("IDM_EDIT_MULTISELECTALLWHOLEWORD");
+            } else if remapped_all {
+                self.run_shortcut_cmd("IDM_EDIT_MULTISELECTALL");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -6116,6 +6161,14 @@ impl EditorApp {
                 &s.shortcut_multi_select_next,
                 crate::shortcut_chord::DEFAULT_MULTI_SELECT_NEXT,
             ),
+            "IDM_EDIT_MULTISELECTALL" => primary(
+                &s.shortcut_multi_select_all,
+                crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL,
+            ),
+            "IDM_EDIT_MULTISELECTALLWHOLEWORD" => shifted(
+                &s.shortcut_multi_select_all,
+                crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL,
+            ),
             "IDM_SEARCH_FIND" => primary(&s.shortcut_find, crate::shortcut_chord::DEFAULT_FIND),
             "IDM_SEARCH_FINDINFILES" => primary(
                 &s.shortcut_find_in_files,
@@ -6757,6 +6810,15 @@ impl EditorApp {
             multi_select_chord.display(),
             multi_select_chord.flipped_shift().display()
         );
+        let multi_select_all_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_multi_select_all,
+            crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL,
+        );
+        let multi_select_all_keys = format!(
+            "{} / {}",
+            multi_select_all_chord.display(),
+            multi_select_all_chord.flipped_shift().display()
+        );
         let format_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_format_document,
             crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -7066,7 +7128,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 89] = [
+        let rows: [(&str, &str); 90] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -7159,6 +7221,10 @@ impl EditorApp {
             (
                 multi_select_keys.as_str(),
                 "Multi-select next / skip current",
+            ),
+            (
+                multi_select_all_keys.as_str(),
+                "Multi-select all / all whole word",
             ),
             (indent_outdent_keys.as_str(), "Indent / Outdent"),
             (format_keys.as_str(), "Format document"),
@@ -9119,6 +9185,42 @@ impl EditorApp {
                             .weak(),
                         );
                         ui.horizontal(|ui| {
+                            ui.label("Multi-select all shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_multi_select_all,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+A"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_multi_select_all
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_multi_select_all =
+                                        crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_multi_select_all = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+A, Ctrl+Alt+A. Selects every match of the current word/selection as multi-carets. Shift + that chord uses whole-word matching.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
                             ui.label("Format document shortcut");
                             let edit = ui.add(
                                 egui::TextEdit::singleline(
@@ -9419,9 +9521,11 @@ impl EditorApp {
                             }
                         });
                         ui.label(
-                            RichText::new("Example: Cmd+A, Ctrl+Alt+A.")
-                                .small()
-                                .weak(),
+                            RichText::new(
+                                "Example: Cmd+A, Ctrl+A. Selects the whole document (avoid Cmd/Ctrl+Alt+A; that is Multi-select all).",
+                            )
+                            .small()
+                            .weak(),
                         );
                         ui.horizontal(|ui| {
                             ui.label("Copy shortcut");
@@ -10185,7 +10289,7 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: Alt+A, Ctrl+Alt+A. Toggles View → Show All Characters (whitespace + EOL + NPC).",
+                                "Example: Alt+A, Alt+Shift+A. Toggles View → Show All Characters (whitespace + EOL + NPC; avoid Cmd/Ctrl+Alt+A; that is Multi-select all).",
                             )
                             .small()
                             .weak(),

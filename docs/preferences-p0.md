@@ -87,6 +87,7 @@ New keys:
 | `shortcut_join_lines` | Join Lines chord (`Cmd+J` default; Shift flips to Split Lines) |
 | `shortcut_invert_case` | Invert Case chord (`Cmd+Alt+U` default; Shift flips to Proper Case) |
 | `shortcut_blank_line` | Blank line below chord (`Cmd+Enter` default; Shift flips to blank line above) |
+| `shortcut_multi_select_all` | Multi-select all chord (`Cmd+Alt+A` default; Shift flips to whole-word) |
 | `shortcut_multi_select_next` | Multi-select next chord (`Cmd+Alt+N` default; Shift flips to skip current / go to next) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
 | `shortcut_find_in_files` | Find in Files chord (`Cmd+Alt+F` default) |

@@ -28,6 +28,8 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.253 | Multi-caret line Home/End move + Shift-extend |
 | v0.3.254 | Multi-caret Page Up/Down move + Shift-extend |
 | v0.3.255 | Escape clears multi-carets / rect when Find closed |
+| v0.3.256–v0.3.258 | Remappable Close All / Trim Trailing; multi-caret paste line-split |
+| v0.3.259 | Remappable Multi-select All (`shortcut_multi_select_all`) |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 

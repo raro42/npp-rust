@@ -342,6 +342,10 @@ pub const DEFAULT_BLANK_LINE: &str = "Cmd+Enter";
 /// Shift flips to Skip Current / Go to Next Multi-select.
 pub const DEFAULT_MULTI_SELECT_NEXT: &str = "Cmd+Alt+N";
 
+/// Default multi-select-all binding (Edit → Multi-select All).
+/// Shift flips to Multi-select All (Whole Word).
+pub const DEFAULT_MULTI_SELECT_ALL: &str = "Cmd+Alt+A";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1572,6 +1576,17 @@ mod tests {
         assert_eq!(c.key, Key::N);
         assert_eq!(c.display(), "Cmd+Alt+N");
         assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+N");
+    }
+
+    #[test]
+    fn parse_cmd_alt_a_default_multi_select_all() {
+        let c = parse_chord(DEFAULT_MULTI_SELECT_ALL).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::A);
+        assert_eq!(c.display(), "Cmd+Alt+A");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+A");
     }
 
     #[test]

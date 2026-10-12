@@ -128,6 +128,10 @@ fn default_shortcut_multi_select_next() -> String {
     crate::shortcut_chord::DEFAULT_MULTI_SELECT_NEXT.into()
 }
 
+fn default_shortcut_multi_select_all() -> String {
+    crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL.into()
+}
+
 fn default_shortcut_blank_line() -> String {
     crate::shortcut_chord::DEFAULT_BLANK_LINE.into()
 }
@@ -894,6 +898,9 @@ pub struct AppSettings {
     /// Multi-select next chord (`Cmd+Alt+N` default; Shift flips to skip current / go to next).
     #[serde(default = "default_shortcut_multi_select_next")]
     pub shortcut_multi_select_next: String,
+    /// Multi-select all chord (`Cmd+Alt+A` default; Shift flips to whole-word).
+    #[serde(default = "default_shortcut_multi_select_all")]
+    pub shortcut_multi_select_all: String,
     /// Find in Files chord (`Cmd+Alt+F` default).
     #[serde(default = "default_shortcut_find_in_files")]
     pub shortcut_find_in_files: String,
@@ -1049,6 +1056,7 @@ impl Default for AppSettings {
             shortcut_invert_case: default_shortcut_invert_case(),
             shortcut_blank_line: default_shortcut_blank_line(),
             shortcut_multi_select_next: default_shortcut_multi_select_next(),
+            shortcut_multi_select_all: default_shortcut_multi_select_all(),
             shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             ollama_host: default_ollama_host(),
@@ -1485,6 +1493,7 @@ mod tests {
             shortcut_invert_case: "Ctrl+Alt+Shift+U".into(),
             shortcut_blank_line: "Ctrl+Alt+Enter".into(),
             shortcut_multi_select_next: "Ctrl+Alt+Shift+N".into(),
+            shortcut_multi_select_all: "Ctrl+Alt+Shift+A".into(),
             shortcut_find_in_files: "Alt+Shift+F".into(),
             ..Default::default()
         };
@@ -1604,6 +1613,7 @@ mod tests {
         assert_eq!(back.shortcut_invert_case, "Ctrl+Alt+Shift+U");
         assert_eq!(back.shortcut_blank_line, "Ctrl+Alt+Enter");
         assert_eq!(back.shortcut_multi_select_next, "Ctrl+Alt+Shift+N");
+        assert_eq!(back.shortcut_multi_select_all, "Ctrl+Alt+Shift+A");
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
     }
 
