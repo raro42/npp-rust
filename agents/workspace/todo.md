@@ -374,3 +374,5 @@
 009 keep: Always on Top persists (`always_on_top`, v0.3.235)
 
 009 keep: Document Map open persists (`show_document_map`, v0.3.236)
+
+009 keep: session restore Compare on (@compare / @cmp, v0.3.237)

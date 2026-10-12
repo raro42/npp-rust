@@ -722,6 +722,7 @@ fn apply_session_viewport(app: &mut EditorApp) {
 /// Re-open dual view when session restore recorded `@other` on a different tab.
 /// `@focus` / `@otherfocus` restores keyboard focus on the other pane.
 /// `@syncv` / `@synch` restore Synchronize Vertical / Horizontal Scrolling.
+/// `@compare` / `@cmp` restarts Compare against the other pane (parks first hunk).
 fn apply_session_dual_view(app: &mut EditorApp) {
     let Some(path) = app.state.session_other_view.clone() else {
         return;
@@ -743,6 +744,7 @@ fn apply_session_dual_view(app: &mut EditorApp) {
         app.state.session_focus_other = false;
         app.state.session_sync_scroll_v = false;
         app.state.session_sync_scroll_h = false;
+        app.state.session_compare_on = false;
         return;
     }
     app.dual_view = true;
@@ -756,10 +758,15 @@ fn apply_session_dual_view(app: &mut EditorApp) {
     if app.state.session_sync_scroll_h {
         app.sync_scroll_h = true;
     }
+    let want_compare = app.state.session_compare_on;
     app.state.session_other_view = None;
     app.state.session_focus_other = false;
     app.state.session_sync_scroll_v = false;
     app.state.session_sync_scroll_h = false;
+    app.state.session_compare_on = false;
+    if want_compare {
+        app.start_compare();
+    }
 }
 
 impl EditorApp {
@@ -1055,6 +1062,7 @@ impl eframe::App for EditorApp {
             self.dual_view && self.focused_pane == EditorPane::Secondary;
         self.state.session_write_sync_v = self.dual_view && self.sync_scroll_v;
         self.state.session_write_sync_h = self.dual_view && self.sync_scroll_h;
+        self.state.session_write_compare = self.compare_on;
         if ctx.input(|i| i.viewport().close_requested()) {
             self.state.persist_session_if_enabled();
             let dirty = self.state.tabs.iter().any(|d| d.dirty);

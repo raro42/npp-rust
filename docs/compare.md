@@ -92,6 +92,7 @@ Closing a tab that is **not** in the pair remaps both sides so Compare stays on.
 - No gap rows for inserts (line numbers stay per-file; sync is by scroll line).
 - Intra-line wash is word-aware LCS on paired replace lines (char refine on 1:1 tokens). Not 3-way.
 - Start Compare turns on sync H + V scroll. Clear Compare restores the sync H/V flags from before that Start (re-Start while Compare is already on keeps the first capture).
+- Opt-in session restore writes `@compare` (alias `@cmp`) on the active tab when Compare is on (with `@other`). Relaunch restarts Compare against the other pane and parks the first hunk.
 - Preferences: **Ignore whitespace differences** collapses whitespace runs before LCS.
 - Preferences: **Ignore case differences** folds letter case before LCS (combines with ignore-whitespace).
 - Preferences: **Ignore blank lines** skips blank / whitespace-only lines in the LCS (combines with the other ignore toggles).

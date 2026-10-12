@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.237] — 2026-10-12
+
+File / Session / Compare:
+
+- Opt-in session restore now keeps **Compare on** (`@compare`, alias `@cmp`) in `npp-rs/session.txt` with dual-view `@other`. Relaunch re-opens the split and restarts Compare (parks the first hunk). Older session files still load (Compare off by default).
+
 ## [0.3.236] — 2026-10-12
 
 View / Preferences:
