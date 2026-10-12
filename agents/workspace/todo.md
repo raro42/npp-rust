@@ -412,3 +412,5 @@
 009 keep: Escape clears multi-carets / rect when Find closed (v0.3.255)
 
 009 keep: remappable Close All / Close All but Current (v0.3.256)
+
+009 keep: remappable Trim Trailing / Trim Both (v0.3.257)
