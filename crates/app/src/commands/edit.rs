@@ -981,6 +981,7 @@ fn multi_select_all(state: &mut EditorState, ui: &mut UiFlags, match_case: bool,
     {
         let doc = state.tabs.active_mut();
         doc.rect_cols = None;
+        doc.rect_anchor = None;
         doc.multi_sels = matches;
         doc.buffer.set_selection(first.0, first.1);
     }
@@ -1027,6 +1028,7 @@ fn multi_select_next(
     {
         let doc = state.tabs.active_mut();
         doc.rect_cols = None;
+        doc.rect_anchor = None;
         if !doc.multi_sels.contains(&(s, e)) {
             doc.multi_sels.push((s, e));
         }

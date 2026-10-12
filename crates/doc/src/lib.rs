@@ -133,6 +133,9 @@ pub struct Document {
     /// Desired column span for the last Alt+drag rect (`col_lo`, `col_hi`), including
     /// virtual space past EOL. Cleared on multi-caret edits and non-rect multi-select.
     pub rect_cols: Option<(usize, usize)>,
+    /// Fixed corner `(line, col)` from the last Alt+drag / rect set. Shift+arrows move
+    /// the opposite caret corner while this stays put. Cleared with `rect_cols`.
+    pub rect_anchor: Option<(usize, usize)>,
     /// Desired column when the plain caret sits at EOL past the line body (click / Right).
     /// Char caret stays clamped at EOL; paint and pad-on-type use this column.
     pub virtual_caret_col: Option<usize>,
@@ -166,6 +169,7 @@ impl Document {
             style_marks: Default::default(),
             multi_sels: Vec::new(),
             rect_cols: None,
+            rect_anchor: None,
             virtual_caret_col: None,
         }
     }
@@ -214,6 +218,7 @@ impl Document {
             style_marks: Default::default(),
             multi_sels: Vec::new(),
             rect_cols: None,
+            rect_anchor: None,
             virtual_caret_col: None,
         }
     }
@@ -440,6 +445,7 @@ impl Document {
     pub fn clear_multi_sels(&mut self) {
         self.multi_sels.clear();
         self.rect_cols = None;
+        self.rect_anchor = None;
     }
 
     /// Drop plain virtual-space caret column.
@@ -451,6 +457,7 @@ impl Document {
     pub fn set_caret_at_line_col(&mut self, line: usize, col: usize) {
         self.multi_sels.clear();
         self.rect_cols = None;
+        self.rect_anchor = None;
         let line = line.min(self.buffer.line_count().saturating_sub(1));
         let line_start = self.buffer.line_to_char(line);
         let body_len = self.buffer.line_body_len(line);
@@ -466,6 +473,7 @@ impl Document {
     /// the line body (per-caret virtual space stays rect-only for now).
     pub fn add_caret_at_line_col(&mut self, line: usize, col: usize) {
         self.rect_cols = None;
+        self.rect_anchor = None;
         self.virtual_caret_col = None;
         let line = line.min(self.buffer.line_count().saturating_sub(1));
         let line_start = self.buffer.line_to_char(line);
@@ -512,6 +520,7 @@ impl Document {
     pub fn set_stream_selection_to_line_col(&mut self, anchor: usize, line: usize, col: usize) {
         self.multi_sels.clear();
         self.rect_cols = None;
+        self.rect_anchor = None;
         let line = line.min(self.buffer.line_count().saturating_sub(1));
         let line_start = self.buffer.line_to_char(line);
         let body_len = self.buffer.line_body_len(line);
@@ -719,6 +728,7 @@ impl Document {
             if let Some(&(c, _)) = new_sels.first() {
                 self.multi_sels.clear();
                 self.rect_cols = None;
+                self.rect_anchor = None;
                 self.virtual_caret_col = None;
                 self.buffer.set_caret(c);
             }
@@ -763,6 +773,7 @@ impl Document {
                 let c = self.buffer.line_to_char(line_a) + col;
                 self.multi_sels.clear();
                 self.rect_cols = None;
+                self.rect_anchor = None;
                 self.virtual_caret_col = if col_lo > body_len {
                     Some(col_lo)
                 } else {
@@ -792,6 +803,7 @@ impl Document {
             if let Some(&(c, _)) = new_sels.first() {
                 self.multi_sels.clear();
                 self.rect_cols = None;
+                self.rect_anchor = None;
                 self.virtual_caret_col = None;
                 self.buffer.set_caret(c);
             }
@@ -801,12 +813,72 @@ impl Document {
         true
     }
 
+    /// Line span of the current rectangular selection (`line_lo`, `line_hi`).
+    fn rect_line_span(&self) -> Option<(usize, usize)> {
+        if self.rect_cols.is_none() || self.multi_sels.is_empty() {
+            return None;
+        }
+        let len = self.buffer.len_chars();
+        let mut lines: Vec<usize> = self
+            .multi_sels
+            .iter()
+            .map(|&(s, _)| self.buffer.char_to_line(s.min(len)))
+            .collect();
+        lines.sort_unstable();
+        lines.dedup();
+        let first = *lines.first()?;
+        let last = *lines.last()?;
+        Some((first, last))
+    }
+
+    /// Caret corner opposite `rect_anchor` within the current rect bounds.
+    fn rect_caret_corner(&self) -> Option<(usize, usize)> {
+        let (col_lo, col_hi) = self.rect_cols?;
+        let (al, ac) = self.rect_anchor?;
+        let (line_lo, line_hi) = self.rect_line_span()?;
+        let cl = if line_lo == line_hi {
+            line_lo
+        } else if al == line_lo {
+            line_hi
+        } else {
+            line_lo
+        };
+        let cc = if col_lo == col_hi {
+            col_lo
+        } else if ac == col_lo {
+            col_hi
+        } else {
+            col_lo
+        };
+        Some((cl, cc))
+    }
+
     /// Shift+Left/Right: extend every stream multi-caret selection by `delta` chars.
     ///
-    /// Keeps each range's anchor and moves its caret. Rect selections return false
-    /// (caller may clear). Returns false when multi-carets are inactive.
+    /// Keeps each range's anchor and moves its caret. Rect selections keep
+    /// `rect_anchor` and move the opposite column corner (including virtual space).
+    /// Returns false when multi-carets / rect are inactive.
     pub fn extend_multi_char(&mut self, delta: isize) -> bool {
-        if delta == 0 || !self.has_multi_carets() || self.rect_cols.is_some() {
+        if delta == 0 {
+            return false;
+        }
+        if self.rect_cols.is_some() {
+            let Some((al, ac)) = self.rect_anchor else {
+                return false;
+            };
+            let Some((cl, cc)) = self.rect_caret_corner() else {
+                return false;
+            };
+            let new_cc = if delta < 0 {
+                cc.saturating_sub((-delta) as usize)
+            } else {
+                cc.saturating_add(delta as usize)
+            };
+            self.set_rect_selection_cols(al, ac, cl, new_cc);
+            self.collapse_single_line_rect_to_stream();
+            return true;
+        }
+        if !self.has_multi_carets() {
             return false;
         }
         let len = self.buffer.len_chars();
@@ -827,6 +899,7 @@ impl Document {
             if let Some(&(anchor, caret)) = new_sels.first() {
                 self.multi_sels.clear();
                 self.rect_cols = None;
+                self.rect_anchor = None;
                 self.virtual_caret_col = None;
                 if anchor == caret {
                     self.buffer.set_caret(caret);
@@ -843,13 +916,30 @@ impl Document {
     /// Shift+Up/Down: extend every stream multi-caret selection by `delta` lines.
     ///
     /// Keeps each range's anchor; moves the caret end with column preference.
-    /// Rect selections return false. Returns false when multi-carets are inactive.
+    /// Rect selections keep `rect_anchor` and move the opposite line corner.
+    /// Returns false when multi-carets / rect are inactive.
     pub fn extend_multi_line(&mut self, delta: isize) -> bool {
-        if delta == 0 || !self.has_multi_carets() || self.rect_cols.is_some() {
+        if delta == 0 {
             return false;
         }
         let line_count = self.buffer.line_count();
         if line_count == 0 {
+            return false;
+        }
+        if self.rect_cols.is_some() {
+            let Some((al, ac)) = self.rect_anchor else {
+                return false;
+            };
+            let Some((cl, cc)) = self.rect_caret_corner() else {
+                return false;
+            };
+            let max_line = (line_count - 1) as isize;
+            let new_cl = (cl as isize + delta).clamp(0, max_line) as usize;
+            self.set_rect_selection_cols(al, ac, new_cl, cc);
+            self.collapse_single_line_rect_to_stream();
+            return true;
+        }
+        if !self.has_multi_carets() {
             return false;
         }
         let len = self.buffer.len_chars();
@@ -871,6 +961,7 @@ impl Document {
             if let Some(&(anchor, caret)) = new_sels.first() {
                 self.multi_sels.clear();
                 self.rect_cols = None;
+                self.rect_anchor = None;
                 self.virtual_caret_col = None;
                 if anchor == caret {
                     self.buffer.set_caret(caret);
@@ -884,12 +975,45 @@ impl Document {
         true
     }
 
+    /// When a rect collapses to one line, keep the column span as a stream selection.
+    fn collapse_single_line_rect_to_stream(&mut self) {
+        if self.has_multi_carets() || self.rect_cols.is_none() {
+            return;
+        }
+        let Some((col_lo, col_hi)) = self.rect_cols else {
+            return;
+        };
+        let Some((line, _)) = self.rect_anchor else {
+            return;
+        };
+        let line = line.min(self.buffer.line_count().saturating_sub(1));
+        let body_len = self.buffer.line_body_len(line);
+        let start = self.buffer.line_to_char(line) + col_lo.min(body_len);
+        let end = self.buffer.line_to_char(line) + col_hi.min(body_len);
+        self.multi_sels.clear();
+        self.rect_cols = None;
+        self.rect_anchor = None;
+        self.virtual_caret_col = if col_hi > body_len {
+            Some(col_hi)
+        } else {
+            None
+        };
+        if start == end {
+            self.buffer.set_caret(start);
+        } else {
+            self.buffer.set_selection(start, end);
+        }
+    }
+
     /// Set rectangular selection from two char corners (Alt+drag).
     pub fn set_rect_selection(&mut self, anchor: usize, caret: usize) {
-        self.virtual_caret_col = None;
-        let ranges = self.buffer.rect_ranges(anchor, caret);
-        self.rect_cols = Some(self.buffer.rect_corner_cols(anchor, caret));
-        self.apply_rect_ranges(ranges, caret);
+        let a = anchor.min(self.buffer.len_chars());
+        let b = caret.min(self.buffer.len_chars());
+        let line_a = self.buffer.char_to_line(a);
+        let line_b = self.buffer.char_to_line(b);
+        let col_a = a.saturating_sub(self.buffer.line_to_char(line_a));
+        let col_b = b.saturating_sub(self.buffer.line_to_char(line_b));
+        self.set_rect_selection_cols(line_a, col_a, line_b, col_b);
     }
 
     /// Set rectangular selection from line/column corners (columns may be past EOL).
@@ -905,6 +1029,7 @@ impl Document {
             .buffer
             .rect_ranges_from_cols(line_a, col_a, line_b, col_b);
         self.rect_cols = Some((col_a.min(col_b), col_a.max(col_b)));
+        self.rect_anchor = Some((line_a, col_a));
         let fallback = self
             .buffer
             .line_to_char(line_b.min(self.buffer.line_count().saturating_sub(1)));
@@ -1139,6 +1264,7 @@ impl Document {
     fn finish_multi_sels(&mut self, new_sels: Vec<(usize, usize)>) {
         self.multi_sels = new_sels;
         self.rect_cols = None;
+        self.rect_anchor = None;
         self.virtual_caret_col = None;
         if let Some(&(s, e)) = self.multi_sels.last() {
             // Quiet sync keeps typing coalesce for successive multi-caret inserts.
@@ -1674,13 +1800,34 @@ mod tests {
     }
 
     #[test]
-    fn extend_multi_char_rect_returns_false() {
+    fn extend_multi_char_rect_grows_columns() {
         let mut doc = Document::untitled(1, 1);
-        doc.buffer = TextBuffer::from_str("aa\nbb\ncc\n");
-        doc.set_rect_selection(1, 7);
-        assert!(!doc.extend_multi_char(1));
-        assert!(!doc.extend_multi_line(1));
+        doc.buffer = TextBuffer::from_str("abcd\nefgh\nijkl\n");
+        // Zero-width col 1 on lines 0..2; Shift+Right grows to cols 1..2.
+        doc.set_rect_selection_cols(0, 1, 2, 1);
+        assert_eq!(doc.rect_cols, Some((1, 1)));
+        assert_eq!(doc.rect_anchor, Some((0, 1)));
+        assert!(doc.extend_multi_char(1));
+        assert_eq!(doc.rect_cols, Some((1, 2)));
+        assert_eq!(doc.rect_anchor, Some((0, 1)));
         assert!(doc.has_multi_carets());
+        assert_eq!(doc.multi_sels, vec![(1, 2), (6, 7), (11, 12)]);
+        assert!(doc.extend_multi_char(-1));
+        assert_eq!(doc.rect_cols, Some((1, 1)));
+        assert!(doc.extend_multi_line(1));
+        // lines 0..2 + caret down → still 0..2 (clamped); then extend down from 2 stays.
+        assert!(doc.has_multi_carets());
+        // Shrink lines: move caret corner up toward anchor.
+        doc.set_rect_selection_cols(0, 1, 2, 2);
+        assert!(doc.extend_multi_line(-1));
+        assert_eq!(doc.rect_cols, Some((1, 2)));
+        // lines 0..1
+        assert_eq!(doc.multi_sels.len(), 2);
+        assert!(doc.extend_multi_line(-1));
+        // Collapsed to one line → stream selection of cols 1..2 on line 0 ("bc").
+        assert!(!doc.has_multi_carets());
+        assert_eq!(doc.rect_cols, None);
+        assert_eq!(doc.buffer.selection(), Some((1, 2)));
     }
 
     #[test]

@@ -400,3 +400,5 @@
 009 keep: Ctrl/Cmd+click add/toggle multi-carets (v0.3.249)
 
 009 keep: Shift+extend stream multi-carets (v0.3.250)
+
+009 keep: Rect Shift+extend Left/Right/Up/Down (v0.3.251)

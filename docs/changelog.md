@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.251] — 2026-10-12
+
+Edit / column mode:
+
+- **Rect Shift+extend**: Shift+Left/Right/Up/Down grow or shrink an Alt+drag rectangular selection (anchor corner kept, caret corner moves, including past EOL). Collapsing to one line becomes a stream selection (`docs/column-mode.md`).
+
 ## [0.3.250] — 2026-10-12
 
 Edit / column mode:
