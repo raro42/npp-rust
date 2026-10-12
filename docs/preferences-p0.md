@@ -31,6 +31,7 @@ New keys:
 | `text_rtl` | Right-to-left editor line anchors + status cue (Edit → RTL / LTR + Preferences); default off |
 | `always_on_top` | Keep the window above others (View → Always on Top + Preferences); default off |
 | `show_document_map` | Document Map panel open (View → Document Map + Preferences); default off |
+| `show_project_panel` | Project panel open (View → Project Panel + Preferences); default off |
 | `shortcut_word_wrap` | Word-wrap toggle chord (`Alt+Z` default; e.g. `Ctrl+W`) |
 | `shortcut_find_next` | Find-next chord (`F3` default; Shift flips to find previous) |
 | `shortcut_find_next_global` | Global find-next chord (`Cmd+G` default; Shift flips to find previous) |

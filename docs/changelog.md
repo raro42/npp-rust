@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.238] — 2026-10-12
+
+View / Preferences:
+
+- **Project panel** open/closed persists in `npp-rs/settings.json` (`show_project_panel`). Menu / remappable toggle, window close, and Preferences checkbox restore the panel on launch.
+
 ## [0.3.237] — 2026-10-12
 
 File / Session / Compare:

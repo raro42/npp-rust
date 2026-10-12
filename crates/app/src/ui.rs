@@ -968,6 +968,10 @@ impl EditorApp {
         if app.state.settings.show_document_map {
             app.show_doc_map = true;
         }
+        // Restore Project panel open/closed from settings.
+        if app.state.settings.show_project_panel {
+            app.show_project_panel = true;
+        }
         let had_argv = !cli.paths.is_empty();
         app.replace_with = app.state.settings.replace_with.clone();
         app.open_argv_paths(cli);
@@ -4952,14 +4956,20 @@ impl EditorApp {
             }
             if flags.toggle_project_panel {
                 self.show_project_panel = !self.show_project_panel;
+                self.state.settings.show_project_panel = self.show_project_panel;
+                self.state.settings.save();
                 self.state.status = if self.show_project_panel {
-                    "Project panel".into()
+                    "Project panel (persisted)".into()
                 } else {
-                    "Project panel closed".into()
+                    "Project panel closed (persisted)".into()
                 };
             }
             if flags.show_project_panel {
                 self.show_project_panel = true;
+                if !self.state.settings.show_project_panel {
+                    self.state.settings.show_project_panel = true;
+                    self.state.settings.save();
+                }
             }
             if flags.show_theme_picker {
                 self.show_theme_picker = true;
@@ -7270,6 +7280,16 @@ impl EditorApp {
                             .changed()
                         {
                             self.show_doc_map = self.state.settings.show_document_map;
+                            changed = true;
+                        }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.show_project_panel,
+                                "Project panel",
+                            )
+                            .changed()
+                        {
+                            self.show_project_panel = self.state.settings.show_project_panel;
                             changed = true;
                         }
                         ui.horizontal(|ui| {
@@ -11111,7 +11131,12 @@ impl EditorApp {
             self.state.open_path(p);
             self.scroll_line = 0.0;
         }
-        self.show_project_panel = open && !close;
+        let next_open = open && !close;
+        if self.show_project_panel != next_open {
+            self.state.settings.show_project_panel = next_open;
+            self.state.settings.save();
+        }
+        self.show_project_panel = next_open;
     }
 
     fn lossy_ansi_confirm_window(&mut self, ctx: &egui::Context) {

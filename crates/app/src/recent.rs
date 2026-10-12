@@ -508,6 +508,9 @@ pub struct AppSettings {
     /// Document Map panel open (View → Document Map).
     #[serde(default)]
     pub show_document_map: bool,
+    /// Project panel open (View → Project Panel).
+    #[serde(default)]
+    pub show_project_panel: bool,
     /// Status bar: show language id.
     #[serde(default = "default_true")]
     pub status_show_lang: bool,
@@ -904,6 +907,7 @@ impl Default for AppSettings {
             text_rtl: false,
             always_on_top: false,
             show_document_map: false,
+            show_project_panel: false,
             status_show_lang: true,
             status_show_chars: true,
             theme_id: default_theme_id(),
@@ -1294,6 +1298,7 @@ mod tests {
             text_rtl: true,
             always_on_top: true,
             show_document_map: true,
+            show_project_panel: true,
             ..Default::default()
         };
         let text = serde_json::to_string(&s).expect("serialize");
@@ -1305,6 +1310,7 @@ mod tests {
         assert!(back.text_rtl);
         assert!(back.always_on_top);
         assert!(back.show_document_map);
+        assert!(back.show_project_panel);
 
         let defaults: AppSettings = serde_json::from_str("{}").expect("empty object");
         assert!(!defaults.show_whitespace);
@@ -1314,6 +1320,7 @@ mod tests {
         assert!(!defaults.text_rtl);
         assert!(!defaults.always_on_top);
         assert!(!defaults.show_document_map);
+        assert!(!defaults.show_project_panel);
     }
 
     #[test]
@@ -1344,6 +1351,7 @@ mod tests {
             text_rtl: true,
             always_on_top: true,
             show_document_map: true,
+            show_project_panel: true,
             find_query: "needle".into(),
             replace_with: "hay".into(),
             compare_ignore_ws: true,
@@ -1457,6 +1465,7 @@ mod tests {
         assert!(back.text_rtl);
         assert!(back.always_on_top);
         assert!(back.show_document_map);
+        assert!(back.show_project_panel);
         assert_eq!(back.find_query, "needle");
         assert_eq!(back.replace_with, "hay");
         assert!(back.compare_ignore_ws);
