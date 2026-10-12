@@ -132,6 +132,9 @@ pub struct Document {
     /// Desired column span for the last Alt+drag rect (`col_lo`, `col_hi`), including
     /// virtual space past EOL. Cleared on multi-caret edits and non-rect multi-select.
     pub rect_cols: Option<(usize, usize)>,
+    /// Desired column when the plain caret sits at EOL past the line body (click / Right).
+    /// Char caret stays clamped at EOL; paint and pad-on-type use this column.
+    pub virtual_caret_col: Option<usize>,
 }
 
 impl Document {
@@ -162,6 +165,7 @@ impl Document {
             style_marks: Default::default(),
             multi_sels: Vec::new(),
             rect_cols: None,
+            virtual_caret_col: None,
         }
     }
 
@@ -209,6 +213,7 @@ impl Document {
             style_marks: Default::default(),
             multi_sels: Vec::new(),
             rect_cols: None,
+            virtual_caret_col: None,
         }
     }
 }
@@ -430,14 +435,171 @@ impl Document {
         self.multi_sels.len() >= 2
     }
 
-    /// Clear extra carets / rect ranges.
+    /// Clear extra carets / rect ranges (leaves plain `virtual_caret_col` alone).
     pub fn clear_multi_sels(&mut self) {
         self.multi_sels.clear();
         self.rect_cols = None;
     }
 
+    /// Drop plain virtual-space caret column.
+    pub fn clear_virtual_caret(&mut self) {
+        self.virtual_caret_col = None;
+    }
+
+    /// Place the plain caret at `(line, col)`, allowing `col` past EOL (virtual space).
+    pub fn set_caret_at_line_col(&mut self, line: usize, col: usize) {
+        self.multi_sels.clear();
+        self.rect_cols = None;
+        let line = line.min(self.buffer.line_count().saturating_sub(1));
+        let line_start = self.buffer.line_to_char(line);
+        let body_len = self.buffer.line_body_len(line);
+        let clamped = col.min(body_len);
+        self.buffer.set_caret(line_start + clamped);
+        self.virtual_caret_col = if col > body_len { Some(col) } else { None };
+    }
+
+    /// Insert `text` at multi-carets, or pad plain virtual space then insert.
+    pub fn insert_plain(&mut self, text: &str) -> bool {
+        if self.insert_multi(text) {
+            self.virtual_caret_col = None;
+            return true;
+        }
+        if let Some(col) = self.virtual_caret_col.take() {
+            if self.buffer.selection().is_none() {
+                let caret = self.buffer.caret();
+                let line = self.buffer.char_to_line(caret);
+                let line_start = self.buffer.line_to_char(line);
+                let body_len = self.buffer.line_body_len(line);
+                if caret == line_start + body_len && col > body_len {
+                    let pad = " ".repeat(col - body_len);
+                    self.buffer.with_coalescable_insert_transaction(|b| {
+                        b.insert(&pad);
+                        b.insert(text);
+                    });
+                    return true;
+                }
+            }
+        }
+        self.buffer.insert(text);
+        true
+    }
+
+    /// Delete forward: drop virtual space at EOL (no newline eat), else buffer / multi.
+    pub fn delete_forward_plain(&mut self) -> bool {
+        if self.delete_forward_multi() {
+            self.virtual_caret_col = None;
+            return true;
+        }
+        if self.virtual_caret_col.take().is_some() {
+            return true;
+        }
+        self.buffer.delete_forward();
+        true
+    }
+
+    /// Backspace: shrink virtual column past EOL, else delete in the buffer / multi-carets.
+    pub fn delete_backward_plain(&mut self) -> bool {
+        if self.delete_backward_multi() {
+            self.virtual_caret_col = None;
+            return true;
+        }
+        if let Some(col) = self.virtual_caret_col {
+            if self.buffer.selection().is_none() {
+                let caret = self.buffer.caret();
+                let line = self.buffer.char_to_line(caret);
+                let line_start = self.buffer.line_to_char(line);
+                let body_len = self.buffer.line_body_len(line);
+                if caret == line_start + body_len && col > body_len {
+                    let new_col = col - 1;
+                    self.virtual_caret_col = if new_col > body_len {
+                        Some(new_col)
+                    } else {
+                        None
+                    };
+                    return true;
+                }
+            }
+            self.virtual_caret_col = None;
+        }
+        self.buffer.delete_backward();
+        true
+    }
+
+    /// Move caret ±1 character, extending or shrinking virtual space at EOL.
+    /// Returns true when the caret or virtual column changed.
+    pub fn move_char(&mut self, delta: isize) -> bool {
+        if delta == 0 {
+            return false;
+        }
+        if self.buffer.selection().is_some() {
+            self.virtual_caret_col = None;
+            let c = self.buffer.caret();
+            let len = self.buffer.len_chars();
+            let next = if delta < 0 {
+                c.saturating_sub((-delta) as usize)
+            } else {
+                (c + delta as usize).min(len)
+            };
+            if next == c {
+                return false;
+            }
+            self.buffer.set_caret(next);
+            return true;
+        }
+        let caret = self.buffer.caret();
+        let line = self.buffer.char_to_line(caret);
+        let line_start = self.buffer.line_to_char(line);
+        let body_len = self.buffer.line_body_len(line);
+        let at_eol = caret == line_start + body_len;
+        if delta > 0 {
+            if at_eol {
+                let col = self.virtual_caret_col.unwrap_or(body_len);
+                let new_col = col.saturating_add(delta as usize);
+                self.virtual_caret_col = if new_col > body_len {
+                    Some(new_col)
+                } else {
+                    None
+                };
+                return true;
+            }
+            self.virtual_caret_col = None;
+            let len = self.buffer.len_chars();
+            let next = (caret + delta as usize).min(len);
+            if next == caret {
+                return false;
+            }
+            self.buffer.set_caret(next);
+            return true;
+        }
+        // Left
+        if let Some(col) = self.virtual_caret_col {
+            if at_eol && col > body_len {
+                let step = (-delta) as usize;
+                let new_col = col.saturating_sub(step);
+                if new_col > body_len {
+                    self.virtual_caret_col = Some(new_col);
+                } else {
+                    self.virtual_caret_col = None;
+                    self.buffer.set_caret(line_start + new_col);
+                }
+                return true;
+            }
+            self.virtual_caret_col = None;
+        }
+        if caret == 0 {
+            return false;
+        }
+        let next = caret.saturating_sub((-delta) as usize);
+        if next == caret {
+            return false;
+        }
+        self.buffer.set_caret(next);
+        true
+    }
+
     /// Set rectangular selection from two char corners (Alt+drag).
     pub fn set_rect_selection(&mut self, anchor: usize, caret: usize) {
+        self.virtual_caret_col = None;
         let ranges = self.buffer.rect_ranges(anchor, caret);
         self.rect_cols = Some(self.buffer.rect_corner_cols(anchor, caret));
         self.apply_rect_ranges(ranges, caret);
@@ -451,6 +613,7 @@ impl Document {
         line_b: usize,
         col_b: usize,
     ) {
+        self.virtual_caret_col = None;
         let ranges = self
             .buffer
             .rect_ranges_from_cols(line_a, col_a, line_b, col_b);
@@ -687,6 +850,7 @@ impl Document {
     fn finish_multi_sels(&mut self, new_sels: Vec<(usize, usize)>) {
         self.multi_sels = new_sels;
         self.rect_cols = None;
+        self.virtual_caret_col = None;
         if let Some(&(s, e)) = self.multi_sels.last() {
             // Quiet sync keeps typing coalesce for successive multi-caret inserts.
             if s == e {
@@ -1101,6 +1265,33 @@ mod tests {
         assert!(doc.insert_multi("Z"));
         // "bc"/"jk" replaced; short line has no real cols 1..3 so insert at EOL.
         assert_eq!(doc.buffer.to_string(), "aZd\nxZ\niZl\n");
+    }
+
+    #[test]
+    fn plain_virtual_caret_click_type_and_backspace() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("ab\n");
+        doc.set_caret_at_line_col(0, 5);
+        assert_eq!(doc.buffer.caret(), 2); // clamped to EOL
+        assert_eq!(doc.virtual_caret_col, Some(5));
+        assert!(doc.insert_plain("Z"));
+        assert_eq!(doc.buffer.to_string(), "ab   Z\n");
+        assert_eq!(doc.virtual_caret_col, None);
+
+        doc.set_caret_at_line_col(0, 8);
+        assert_eq!(doc.virtual_caret_col, Some(8));
+        assert!(doc.delete_backward_plain());
+        assert_eq!(doc.virtual_caret_col, Some(7));
+        assert_eq!(doc.buffer.to_string(), "ab   Z\n"); // no buffer delete
+        assert!(doc.move_char(1));
+        assert_eq!(doc.virtual_caret_col, Some(8));
+        assert!(doc.move_char(-3));
+        // 8 - 3 = 5 lands inside the line body ("ab   Z" len 6).
+        assert_eq!(doc.virtual_caret_col, None);
+        assert_eq!(doc.buffer.caret(), 5);
+        doc.set_caret_at_line_col(0, 8);
+        assert!(doc.move_char(-1));
+        assert_eq!(doc.virtual_caret_col, Some(7));
     }
 
     #[test]

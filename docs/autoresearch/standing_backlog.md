@@ -11,7 +11,7 @@ When the issue queue is idle, overnight 009 **must** pull from this list (top fi
 
 ## P0 — editor correctness (follow-ups)
 
-4b. **Column virtual space** — ~~Alt+drag pad-on-type + pad-on-copy~~. ~~Alt+drag click/drag past EOL (virtual carets)~~. Plain (non-Alt) free caret past EOL later (`docs/column-mode.md`).
+4b. **Column virtual space** — ~~Alt+drag pad-on-type + pad-on-copy~~. ~~Alt+drag click/drag past EOL (virtual carets)~~. ~~Plain (non-Alt) free caret past EOL (click/Right + pad-on-type)~~. Shift+drag stream select into virtual space later (`docs/column-mode.md`).
 
 ## P1 — depth vs Notepad++ (small batches)
 

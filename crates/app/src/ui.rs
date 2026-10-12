@@ -2631,9 +2631,7 @@ impl EditorApp {
                     } else {
                         self.state.prepare_edit_at(tab);
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            if !doc.delete_backward_multi() {
-                                doc.buffer.delete_backward();
-                            }
+                            let _ = doc.delete_backward_plain();
                         }
                         self.state.mark_text_changed_at(tab);
                         self.follow_focused_caret();
@@ -2682,9 +2680,7 @@ impl EditorApp {
                         self.state.prepare_edit_at(tab);
                         let eol = self.state.settings.default_eol.as_str().to_string();
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            if !doc.insert_multi(&eol) {
-                                doc.buffer.insert(&eol);
-                            }
+                            let _ = doc.insert_plain(&eol);
                         }
                         self.state.mark_text_changed_at(tab);
                         self.follow_focused_caret();
@@ -2909,20 +2905,21 @@ impl EditorApp {
                 let move_by = |state: &mut EditorState, tab: usize, delta: isize, extend: bool| {
                     if let Some(doc) = state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
-                        let c = doc.buffer.caret();
-                        let len = doc.buffer.len_chars();
-                        let next = if delta < 0 {
-                            c.saturating_sub((-delta) as usize)
-                        } else {
-                            (c + delta as usize).min(len)
-                        };
-                        if next != c {
-                            if extend {
+                        if extend {
+                            doc.clear_virtual_caret();
+                            let c = doc.buffer.caret();
+                            let len = doc.buffer.len_chars();
+                            let next = if delta < 0 {
+                                c.saturating_sub((-delta) as usize)
+                            } else {
+                                (c + delta as usize).min(len)
+                            };
+                            if next != c {
                                 let anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
                                 doc.buffer.set_selection(anchor, next);
-                            } else {
-                                doc.buffer.set_caret(next);
                             }
+                        } else {
+                            let _ = doc.move_char(delta);
                         }
                     }
                 };
@@ -3233,9 +3230,7 @@ impl EditorApp {
                     let n = self.state.settings.tab_width.max(1) as usize;
                     let pad = " ".repeat(n);
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        if !doc.insert_multi(&pad) {
-                            doc.buffer.insert(&pad);
-                        }
+                        let _ = doc.insert_plain(&pad);
                     }
                     self.state.mark_text_changed_at(tab);
                     self.follow_focused_caret();
@@ -13048,6 +13043,7 @@ impl EditorApp {
                         &visible_lines,
                     );
                     self.state.tabs.active_mut().clear_multi_sels();
+                    self.state.tabs.active_mut().clear_virtual_caret();
                     self.state.tabs.active_mut().buffer.select_line_at(idx);
                     self.drag_anchor = None;
                     self.rect_drag = false;
@@ -13065,6 +13061,7 @@ impl EditorApp {
                         &visible_lines,
                     );
                     self.state.tabs.active_mut().clear_multi_sels();
+                    self.state.tabs.active_mut().clear_virtual_caret();
                     self.state.tabs.active_mut().buffer.select_word_at(idx);
                     self.drag_anchor = None;
                     self.rect_drag = false;
@@ -13124,6 +13121,7 @@ impl EditorApp {
                         self.rect_drag_anchor = None;
                     } else if shift {
                         self.state.tabs.active_mut().clear_multi_sels();
+                        self.state.tabs.active_mut().clear_virtual_caret();
                         self.sel_text_drag = None;
                         self.rect_drag = false;
                         self.rect_drag_anchor = None;
@@ -13134,12 +13132,22 @@ impl EditorApp {
                             .buffer
                             .set_selection(sel_anchor, idx);
                     } else {
-                        self.state.tabs.active_mut().clear_multi_sels();
+                        let (line, col) = hit_line_col_virtual(
+                            ui,
+                            pos,
+                            &self.state.tabs.active().buffer,
+                            self.scroll_line,
+                            &visible_lines,
+                        );
                         self.sel_text_drag = None;
                         self.rect_drag = false;
                         self.rect_drag_anchor = None;
-                        self.drag_anchor = Some(idx);
-                        self.state.tabs.active_mut().buffer.set_caret(idx);
+                        self.state
+                            .tabs
+                            .active_mut()
+                            .set_caret_at_line_col(line, col);
+                        let caret_idx = self.state.tabs.active().buffer.caret();
+                        self.drag_anchor = Some(caret_idx);
                     }
                     self.follow_caret = false;
                 }
@@ -13180,6 +13188,7 @@ impl EditorApp {
                             self.follow_caret = false;
                         }
                     } else if let Some(anchor) = self.drag_anchor {
+                        self.state.tabs.active_mut().clear_virtual_caret();
                         self.state
                             .tabs
                             .active_mut()
@@ -13190,16 +13199,17 @@ impl EditorApp {
                 }
             } else if response.clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
-                    let idx = hit_index(
-                        ui,
-                        pos,
-                        &self.state.tabs.active().buffer,
-                        self.scroll_line,
-                        &visible_lines,
-                    );
                     let shift = ui.input(|i| i.modifiers.shift);
                     if shift {
+                        let idx = hit_index(
+                            ui,
+                            pos,
+                            &self.state.tabs.active().buffer,
+                            self.scroll_line,
+                            &visible_lines,
+                        );
                         self.state.tabs.active_mut().clear_multi_sels();
+                        self.state.tabs.active_mut().clear_virtual_caret();
                         let anchor = self
                             .state
                             .tabs
@@ -13214,8 +13224,17 @@ impl EditorApp {
                             .buffer
                             .set_selection(anchor, idx);
                     } else {
-                        self.state.tabs.active_mut().clear_multi_sels();
-                        self.state.tabs.active_mut().buffer.set_caret(idx);
+                        let (line, col) = hit_line_col_virtual(
+                            ui,
+                            pos,
+                            &self.state.tabs.active().buffer,
+                            self.scroll_line,
+                            &visible_lines,
+                        );
+                        self.state
+                            .tabs
+                            .active_mut()
+                            .set_caret_at_line_col(line, col);
                         if self.compare_on {
                             self.sync_compare_other_to_caret_hunk(true);
                         }
@@ -13703,6 +13722,7 @@ impl EditorApp {
 
                 // Caret (rect zero-width already painted above; wide rect uses virtual col_hi)
                 let caret = self.state.tabs.active().buffer.caret();
+                let virtual_caret_col = self.state.tabs.active().virtual_caret_col;
                 let blink_on = if self.state.settings.caret_blink {
                     ctx.request_repaint_after(std::time::Duration::from_millis(500));
                     ((ctx.input(|i| i.time) * 2.0_f64) as i64).rem_euclid(2) == 0
@@ -13719,9 +13739,10 @@ impl EditorApp {
                             );
                         }
                     } else if caret >= line_start && caret <= line_end {
-                        let col = caret - line_start;
-                        let prefix: String = line_text.chars().take(col).collect();
-                        let cx = text_left + text_width(ui, &font_id, &prefix);
+                        let col = virtual_caret_col
+                            .filter(|&vc| vc > line_text.chars().count() && caret == line_end)
+                            .unwrap_or(caret - line_start);
+                        let cx = text_left + x_for_col(ui, &font_id, line_text, col);
                         painter.line_segment(
                             [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
                             egui::Stroke::new(1.0_f32, theme.caret_fg),
@@ -16719,6 +16740,7 @@ impl EditorApp {
                     let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
+                        doc.clear_virtual_caret();
                         doc.buffer.select_line_at(idx);
                     }
                 }
@@ -16734,6 +16756,7 @@ impl EditorApp {
                     let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
+                        doc.clear_virtual_caret();
                         doc.buffer.select_word_at(idx);
                     }
                 }
@@ -16779,18 +16802,27 @@ impl EditorApp {
                         self.drag_anchor = None;
                         self.rect_drag = false;
                         self.rect_drag_anchor = None;
-                    } else if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
+                    } else if shift {
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.clear_multi_sels();
+                            doc.clear_virtual_caret();
+                            doc.buffer.set_selection(sel_anchor, idx);
+                        }
                         self.sel_text_drag = None;
                         self.rect_drag = false;
                         self.rect_drag_anchor = None;
-                        if shift {
-                            self.drag_anchor = Some(sel_anchor);
-                            doc.buffer.set_selection(sel_anchor, idx);
-                        } else {
-                            self.drag_anchor = Some(idx);
-                            doc.buffer.set_caret(idx);
+                        self.drag_anchor = Some(sel_anchor);
+                    } else {
+                        let (line, col) =
+                            hit_line_col_virtual(ui, pos, &doc.buffer, scroll_line, &visible_lines);
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.set_caret_at_line_col(line, col);
+                            let caret_idx = doc.buffer.caret();
+                            self.drag_anchor = Some(caret_idx);
                         }
+                        self.sel_text_drag = None;
+                        self.rect_drag = false;
+                        self.rect_drag_anchor = None;
                     }
                 }
                 self.follow_caret_other = false;
@@ -16831,6 +16863,7 @@ impl EditorApp {
                         });
                     if let Some(idx) = idx {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.clear_virtual_caret();
                             doc.buffer.set_selection(anchor, idx);
                         }
                         self.follow_caret_other = false;
@@ -16840,16 +16873,21 @@ impl EditorApp {
         } else if response.clicked() {
             if let Some(pos) = response.interact_pointer_pos() {
                 if let Some(doc) = self.state.tabs.get(tab) {
-                    let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                     let shift = ui.input(|i| i.modifiers.shift);
                     let caret = doc.buffer.caret();
                     let sel_anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(caret);
-                    if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
-                        if shift {
+                    if shift {
+                        let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.clear_multi_sels();
+                            doc.clear_virtual_caret();
                             doc.buffer.set_selection(sel_anchor, idx);
-                        } else {
-                            doc.buffer.set_caret(idx);
+                        }
+                    } else {
+                        let (line, col) =
+                            hit_line_col_virtual(ui, pos, &doc.buffer, scroll_line, &visible_lines);
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.set_caret_at_line_col(line, col);
                         }
                     }
                     if !shift && self.compare_on {
@@ -17084,7 +17122,7 @@ impl EditorApp {
                 }
             }
 
-            let (line_start, line_text, primary_sel, multi, caret, rect_cols) =
+            let (line_start, line_text, primary_sel, multi, caret, rect_cols, virtual_caret_col) =
                 match self.state.tabs.get(tab) {
                     Some(doc) => {
                         let line_start = doc.buffer.line_to_char(line_idx);
@@ -17097,6 +17135,7 @@ impl EditorApp {
                             doc.multi_sels.clone(),
                             doc.buffer.caret(),
                             doc.rect_cols,
+                            doc.virtual_caret_col,
                         )
                     }
                     None => break,
@@ -17258,9 +17297,10 @@ impl EditorApp {
                         );
                     }
                 } else if caret >= line_start && caret <= line_end {
-                    let col = caret - line_start;
-                    let prefix: String = line_text.chars().take(col).collect();
-                    let cx = text_left + text_width(ui, &font_id, &prefix);
+                    let col = virtual_caret_col
+                        .filter(|&vc| vc > line_text.chars().count() && caret == line_end)
+                        .unwrap_or(caret - line_start);
+                    let cx = text_left + x_for_col(ui, &font_id, line_text, col);
                     painter.line_segment(
                         [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
                         egui::Stroke::new(1.0_f32, theme.caret_fg),
@@ -17333,9 +17373,7 @@ impl EditorApp {
                     } else {
                         self.state.prepare_edit_at(tab);
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            if !doc.insert_multi(&t) {
-                                doc.buffer.insert(&t);
-                            }
+                            let _ = doc.insert_plain(&t);
                             changed = true;
                         }
                     }
@@ -17409,9 +17447,7 @@ impl EditorApp {
                     }
                     self.state.prepare_edit_at(tab);
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        if !doc.insert_multi(&t) {
-                            doc.buffer.insert(&t);
-                        }
+                        let _ = doc.insert_plain(&t);
                         changed = true;
                     }
                 }
@@ -17438,9 +17474,7 @@ impl EditorApp {
                         self.state.prepare_edit_at(tab);
                         let eol = self.state.settings.default_eol.as_str().to_string();
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            if !doc.insert_multi(&eol) {
-                                doc.buffer.insert(&eol);
-                            }
+                            let _ = doc.insert_plain(&eol);
                             changed = true;
                         }
                     }
@@ -17480,9 +17514,7 @@ impl EditorApp {
                             let n = self.state.settings.tab_width.max(1) as usize;
                             let pad = " ".repeat(n);
                             if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                if !doc.insert_multi(&pad) {
-                                    doc.buffer.insert(&pad);
-                                }
+                                let _ = doc.insert_plain(&pad);
                                 changed = true;
                             }
                         }
@@ -17512,9 +17544,7 @@ impl EditorApp {
                     } else {
                         self.state.prepare_edit_at(tab);
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            if !doc.delete_backward_multi() {
-                                doc.buffer.delete_backward();
-                            }
+                            let _ = doc.delete_backward_plain();
                             changed = true;
                         }
                     }
@@ -17543,9 +17573,7 @@ impl EditorApp {
                     } else {
                         self.state.prepare_edit_at(tab);
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            if !doc.delete_forward_multi() {
-                                doc.buffer.delete_forward();
-                            }
+                            let _ = doc.delete_forward_plain();
                             changed = true;
                         }
                     }
@@ -17568,6 +17596,7 @@ impl EditorApp {
                     let jump_fwd = jump.flipped_horizontal();
                     if jump.matches_ignore_shift(modifiers, Key::ArrowLeft) {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.clear_virtual_caret();
                             doc.buffer.move_word(false, modifiers.shift);
                         }
                         caret_moved = true;
@@ -17575,6 +17604,7 @@ impl EditorApp {
                         && jump_fwd.matches_ignore_shift(modifiers, Key::ArrowLeft)
                     {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.clear_virtual_caret();
                             doc.buffer.move_word(true, modifiers.shift);
                         }
                         caret_moved = true;
@@ -17599,15 +17629,16 @@ impl EditorApp {
                         }
                         if !modifiers.alt {
                             if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                let c = doc.buffer.caret();
-                                if c > 0 {
-                                    if modifiers.shift {
+                                if modifiers.shift {
+                                    doc.clear_virtual_caret();
+                                    let c = doc.buffer.caret();
+                                    if c > 0 {
                                         let anchor =
                                             doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
                                         doc.buffer.set_selection(anchor, c - 1);
-                                    } else {
-                                        doc.buffer.set_caret(c - 1);
+                                        caret_moved = true;
                                     }
+                                } else if doc.move_char(-1) {
                                     caret_moved = true;
                                 }
                             }
@@ -17631,6 +17662,7 @@ impl EditorApp {
                     let jump_fwd = jump.flipped_horizontal();
                     if jump.matches_ignore_shift(modifiers, Key::ArrowRight) {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.clear_virtual_caret();
                             doc.buffer.move_word(false, modifiers.shift);
                         }
                         caret_moved = true;
@@ -17638,6 +17670,7 @@ impl EditorApp {
                         && jump_fwd.matches_ignore_shift(modifiers, Key::ArrowRight)
                     {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.clear_virtual_caret();
                             doc.buffer.move_word(true, modifiers.shift);
                         }
                         caret_moved = true;
@@ -17662,16 +17695,17 @@ impl EditorApp {
                         }
                         if !modifiers.alt {
                             if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                let c = doc.buffer.caret();
-                                let len = doc.buffer.len_chars();
-                                if c < len {
-                                    if modifiers.shift {
+                                if modifiers.shift {
+                                    doc.clear_virtual_caret();
+                                    let c = doc.buffer.caret();
+                                    let len = doc.buffer.len_chars();
+                                    if c < len {
                                         let anchor =
                                             doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
                                         doc.buffer.set_selection(anchor, c + 1);
-                                    } else {
-                                        doc.buffer.set_caret(c + 1);
+                                        caret_moved = true;
                                     }
+                                } else if doc.move_char(1) {
                                     caret_moved = true;
                                 }
                             }
@@ -18023,25 +18057,36 @@ fn move_caret_vert(state: &mut EditorState, tab: usize, delta: i32, select: bool
     let Some(b) = state.tabs.get_mut(tab) else {
         return;
     };
+    // Prefer virtual column across lines when present (plain free caret past EOL).
     let caret = b.buffer.caret();
-    let line = b.buffer.char_to_line(caret) as i32 + delta;
-    let next = if line < 0 {
-        0
+    let from_line = b.buffer.char_to_line(caret);
+    let prefer_col = b
+        .virtual_caret_col
+        .unwrap_or_else(|| caret - b.buffer.line_to_char(from_line));
+    let line = from_line as i32 + delta;
+    let (next, new_virtual) = if line < 0 {
+        (0, None)
     } else {
         let line = line as usize;
         if line >= b.buffer.line_count() {
-            b.buffer.len_chars()
+            (b.buffer.len_chars(), None)
         } else {
-            let col = caret - b.buffer.line_to_char(b.buffer.char_to_line(caret));
-            let raw = b.buffer.line(line);
-            let n = raw.trim_end_matches(['\n', '\r']).chars().count();
-            b.buffer.line_to_char(line) + col.min(n)
+            let body_len = b.buffer.line_body_len(line);
+            let clamped = prefer_col.min(body_len);
+            let virt = if prefer_col > body_len {
+                Some(prefer_col)
+            } else {
+                None
+            };
+            (b.buffer.line_to_char(line) + clamped, virt)
         }
     };
     if select {
+        b.virtual_caret_col = None;
         let anchor = b.buffer.selection().map(|(s, _)| s).unwrap_or(caret);
         b.buffer.set_selection(anchor, next);
     } else {
+        b.virtual_caret_col = new_virtual;
         b.buffer.set_caret(next);
     }
 }
@@ -18050,6 +18095,7 @@ fn go_doc_start(state: &mut EditorState, tab: usize, select: bool) {
     let Some(b) = state.tabs.get_mut(tab) else {
         return;
     };
+    b.virtual_caret_col = None;
     if select {
         let anchor = b
             .buffer
@@ -18066,6 +18112,7 @@ fn go_doc_end(state: &mut EditorState, tab: usize, select: bool) {
     let Some(b) = state.tabs.get_mut(tab) else {
         return;
     };
+    b.virtual_caret_col = None;
     let end = b.buffer.len_chars();
     if select {
         let anchor = b
@@ -18083,6 +18130,7 @@ fn go_line_start(state: &mut EditorState, tab: usize, select: bool) {
     let Some(b) = state.tabs.get_mut(tab) else {
         return;
     };
+    b.virtual_caret_col = None;
     let c = b.buffer.caret();
     let line = b.buffer.char_to_line(c);
     let line_start = b.buffer.line_to_char(line);
@@ -18098,6 +18146,7 @@ fn go_line_end(state: &mut EditorState, tab: usize, select: bool) {
     let Some(b) = state.tabs.get_mut(tab) else {
         return;
     };
+    b.virtual_caret_col = None;
     let c = b.buffer.caret();
     let line = b.buffer.char_to_line(c);
     let raw = b.buffer.line(line);

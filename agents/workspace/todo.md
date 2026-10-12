@@ -390,3 +390,5 @@
 009 keep: Alt+drag rect virtual space pad-on-type/copy (v0.3.244)
 
 009 keep: Alt+drag rect click/drag past EOL virtual carets (v0.3.245)
+
+009 keep: plain free caret past EOL click/Right + pad-on-type (v0.3.246)

@@ -95,15 +95,16 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             } else if let Some(t) = ui.last_copied.clone() {
                 if t.is_empty() {
                     state.status = "Paste: clipboard empty".into();
-                } else if state.tabs.active_mut().insert_multi(&t) {
-                    state.mark_text_changed();
-                    ui.follow_caret = true;
-                    state.status = "Pasted (multi-caret)".into();
                 } else {
-                    state.tabs.active_mut().buffer.insert(&t);
+                    let multi = state.tabs.active().has_multi_carets();
+                    let _ = state.tabs.active_mut().insert_plain(&t);
                     state.mark_text_changed();
                     ui.follow_caret = true;
-                    state.status = "Pasted".into();
+                    state.status = if multi {
+                        "Pasted (multi-caret)".into()
+                    } else {
+                        "Pasted".into()
+                    };
                 }
             } else {
                 state.status = "Paste: copy text first, or use ⌘/Ctrl+V".into();
@@ -111,9 +112,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_DELETE" => {
-            if !state.tabs.active_mut().delete_forward_multi() {
-                state.tabs.active_mut().buffer.delete_forward();
-            }
+            let _ = state.tabs.active_mut().delete_forward_plain();
             state.mark_text_changed();
             CmdResult::Handled
         }
@@ -846,8 +845,8 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         }
         "IDM_EDIT_COLUMNMODETIP" => {
             state.status =
-                "Column tip: Alt+drag for rect select (columns past EOL ok); type/Backspace/Paste hits all carets. \
-Short lines pad with spaces on type/copy past EOL. Column Editor inserts clipboard (or 0,1,2…) at caret column."
+                "Column tip: Alt+drag for rect select (columns past EOL ok); plain click/Right also past EOL. \
+Type/Backspace/Paste hit all carets; short lines pad with spaces. Column Editor inserts clipboard (or 0,1,2…) at caret column."
                     .into();
             CmdResult::Handled
         }
@@ -911,9 +910,7 @@ fn paste_plain_fallback(state: &mut EditorState, ui: &mut UiFlags, cmd: &str) {
         state.status = "Paste special: copy text first (plain-text fallback)".into();
         return;
     };
-    if !state.tabs.active_mut().insert_multi(&text) {
-        state.tabs.active_mut().buffer.insert(&text);
-    }
+    let _ = state.tabs.active_mut().insert_plain(&text);
     state.mark_text_changed();
     let kind = if cmd.contains("HTML") {
         "HTML"

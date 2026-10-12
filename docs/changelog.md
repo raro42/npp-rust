@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.246] — 2026-10-12
+
+Edit / column mode:
+
+- **Plain free caret past EOL**: click or Right past the line end places a virtual caret; paint follows; typing / paste / Tab pad with spaces; Backspace / Left shrink virtual space; Up/Down keep the preferred column (`docs/column-mode.md`).
+
 ## [0.3.245] — 2026-10-12
 
 Edit / column mode:
