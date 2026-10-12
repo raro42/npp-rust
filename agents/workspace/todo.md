@@ -410,3 +410,5 @@
 009 keep: multi-caret Page Up/Down move + Shift-extend (v0.3.254)
 
 009 keep: Escape clears multi-carets / rect when Find closed (v0.3.255)
+
+009 keep: remappable Close All / Close All but Current (v0.3.256)
