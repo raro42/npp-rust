@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.236] — 2026-10-12
+
+View / Preferences:
+
+- **Document Map** open/closed persists in `npp-rs/settings.json` (`show_document_map`). Menu / remappable toggle, window close, and Preferences checkbox restore the panel on launch.
+
 ## [0.3.235] — 2026-10-12
 
 View / Preferences:

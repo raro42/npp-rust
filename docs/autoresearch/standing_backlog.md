@@ -19,7 +19,7 @@ When the issue queue is idle, overnight 009 **must** pull from this list (top fi
 ## P2 — reliability
 
 9. **Panic log** — first new signature in `logs/panic.log` that is product-owned.
-10. **Preferences persistence** — ~~`recent_max` honored on `recent.txt` load~~. ~~View show-whitespace / EOL / NPC / indent-guide~~. ~~Settings keys round-trip; no silent drop on restart~~. ~~RTL/LTR (`text_rtl`) persists~~. ~~Always on Top (`always_on_top`) persists~~.
+10. **Preferences persistence** — ~~`recent_max` honored on `recent.txt` load~~. ~~View show-whitespace / EOL / NPC / indent-guide~~. ~~Settings keys round-trip; no silent drop on restart~~. ~~RTL/LTR (`text_rtl`) persists~~. ~~Always on Top (`always_on_top`) persists~~. ~~Document Map open (`show_document_map`) persists~~.
 
 ## P3 — later (do not pick before P0–P2)
 

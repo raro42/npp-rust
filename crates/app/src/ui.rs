@@ -957,6 +957,10 @@ impl EditorApp {
             app.always_on_top = true;
             app.pending_always_on_top = Some(true);
         }
+        // Restore Document Map open/closed from settings.
+        if app.state.settings.show_document_map {
+            app.show_doc_map = true;
+        }
         let had_argv = !cli.paths.is_empty();
         app.replace_with = app.state.settings.replace_with.clone();
         app.open_argv_paths(cli);
@@ -4954,10 +4958,12 @@ impl EditorApp {
             }
             if flags.show_doc_map {
                 self.show_doc_map = !self.show_doc_map;
+                self.state.settings.show_document_map = self.show_doc_map;
+                self.state.settings.save();
                 self.state.status = if self.show_doc_map {
-                    "Document Map".into()
+                    "Document Map (persisted)".into()
                 } else {
-                    "Document Map closed".into()
+                    "Document Map closed (persisted)".into()
                 };
             }
             if flags.show_func_list {
@@ -7246,6 +7252,16 @@ impl EditorApp {
                         {
                             self.always_on_top = self.state.settings.always_on_top;
                             self.pending_always_on_top = Some(self.always_on_top);
+                            changed = true;
+                        }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.show_document_map,
+                                "Document Map",
+                            )
+                            .changed()
+                        {
+                            self.show_doc_map = self.state.settings.show_document_map;
                             changed = true;
                         }
                         ui.horizontal(|ui| {
@@ -11941,6 +11957,10 @@ impl EditorApp {
                 }
             }
             self.state.status = format!("Document Map → line {}", line as usize + 1);
+        }
+        if self.show_doc_map != open {
+            self.state.settings.show_document_map = open;
+            self.state.settings.save();
         }
         self.show_doc_map = open;
     }
