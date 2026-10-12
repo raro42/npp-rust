@@ -129,6 +129,9 @@ pub struct Document {
     pub style_marks: [BTreeSet<usize>; 5],
     /// Extra multi-select ranges (char indices), newest last. Primary selection is separate.
     pub multi_sels: Vec<(usize, usize)>,
+    /// Desired column span for the last Alt+drag rect (`col_lo`, `col_hi`), including
+    /// virtual space past EOL. Cleared on multi-caret edits and non-rect multi-select.
+    pub rect_cols: Option<(usize, usize)>,
 }
 
 impl Document {
@@ -158,6 +161,7 @@ impl Document {
             view_scroll_line: 0,
             style_marks: Default::default(),
             multi_sels: Vec::new(),
+            rect_cols: None,
         }
     }
 
@@ -204,6 +208,7 @@ impl Document {
             view_scroll_line: 0,
             style_marks: Default::default(),
             multi_sels: Vec::new(),
+            rect_cols: None,
         }
     }
 }
@@ -428,11 +433,13 @@ impl Document {
     /// Clear extra carets / rect ranges.
     pub fn clear_multi_sels(&mut self) {
         self.multi_sels.clear();
+        self.rect_cols = None;
     }
 
     /// Set rectangular selection from two char corners (Alt+drag).
     pub fn set_rect_selection(&mut self, anchor: usize, caret: usize) {
         let ranges = self.buffer.rect_ranges(anchor, caret);
+        self.rect_cols = Some(self.buffer.rect_corner_cols(anchor, caret));
         self.multi_sels = ranges.clone();
         if let Some(&(s, e)) = ranges.last() {
             if s == e {
@@ -449,6 +456,36 @@ impl Document {
     pub fn multi_sels_clipboard_text(&self) -> Option<String> {
         if self.multi_sels.len() < 2 {
             return None;
+        }
+        if let Some((col_lo, col_hi)) = self.rect_cols {
+            let mut lines: Vec<usize> = self
+                .multi_sels
+                .iter()
+                .map(|&(s, _)| self.buffer.char_to_line(s.min(self.buffer.len_chars())))
+                .collect();
+            lines.sort_unstable();
+            lines.dedup();
+            let mut parts = Vec::with_capacity(lines.len());
+            for line in lines {
+                let body: String = self
+                    .buffer
+                    .line(line)
+                    .trim_end_matches(['\n', '\r'])
+                    .chars()
+                    .collect();
+                let body_chars: Vec<char> = body.chars().collect();
+                let width = col_hi.saturating_sub(col_lo);
+                let mut part = String::with_capacity(width);
+                for col in col_lo..col_hi {
+                    if col < body_chars.len() {
+                        part.push(body_chars[col]);
+                    } else {
+                        part.push(' ');
+                    }
+                }
+                parts.push(part);
+            }
+            return Some(parts.join("\n"));
         }
         let mut parts = Vec::with_capacity(self.multi_sels.len());
         let mut sorted = self.multi_sels.clone();
@@ -467,6 +504,9 @@ impl Document {
     pub fn insert_multi(&mut self, text: &str) -> bool {
         if !self.has_multi_carets() {
             return false;
+        }
+        if let Some((col_lo, col_hi)) = self.rect_cols {
+            return self.insert_multi_rect(text, col_lo, col_hi);
         }
         let mut sorted = self.multi_sels.clone();
         sorted.sort_by_key(|(s, _)| *s);
@@ -494,6 +534,46 @@ impl Document {
                         *ne = (*ne as isize + net).max(0) as usize;
                     }
                 }
+                new_sels.push((c, c));
+            }
+        });
+        new_sels.reverse();
+        self.finish_multi_sels(new_sels);
+        true
+    }
+
+    /// Rect insert with virtual space: pad short lines to `col_lo`, then replace `col_lo..col_hi`.
+    fn insert_multi_rect(&mut self, text: &str, col_lo: usize, col_hi: usize) -> bool {
+        let mut lines: Vec<usize> = self
+            .multi_sels
+            .iter()
+            .map(|&(s, _)| self.buffer.char_to_line(s.min(self.buffer.len_chars())))
+            .collect();
+        lines.sort_unstable();
+        lines.dedup();
+        if lines.len() < 2 {
+            return false;
+        }
+        let mut new_sels = Vec::with_capacity(lines.len());
+        self.buffer.with_coalescable_insert_transaction(|b| {
+            for &line in lines.iter().rev() {
+                let line_start = b.line_to_char(line);
+                let body_len = b.line_body_len(line);
+                if body_len < col_lo {
+                    let pad = " ".repeat(col_lo - body_len);
+                    b.set_caret_quiet(line_start + body_len);
+                    b.insert(&pad);
+                }
+                let body_len = b.line_body_len(line);
+                let s = line_start + col_lo.min(body_len);
+                let e = line_start + col_hi.min(body_len);
+                if s < e {
+                    b.set_selection_quiet(s, e);
+                } else {
+                    b.set_caret_quiet(s);
+                }
+                b.insert(text);
+                let c = b.caret();
                 new_sels.push((c, c));
             }
         });
@@ -584,6 +664,7 @@ impl Document {
 
     fn finish_multi_sels(&mut self, new_sels: Vec<(usize, usize)>) {
         self.multi_sels = new_sels;
+        self.rect_cols = None;
         if let Some(&(s, e)) = self.multi_sels.last() {
             // Quiet sync keeps typing coalesce for successive multi-caret inserts.
             if s == e {
@@ -948,6 +1029,43 @@ mod tests {
         doc.buffer = TextBuffer::from_str("aa\nbb\ncc\n");
         doc.set_rect_selection(1, 7);
         assert_eq!(doc.multi_sels, vec![(1, 1), (4, 4), (7, 7)]);
+        assert_eq!(doc.rect_cols, Some((1, 1)));
+    }
+
+    #[test]
+    fn insert_multi_virtual_space_pads_short_lines() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("abcd\nx\nijkl\n");
+        // Col 3 zero-width carets; short line "x" clamps in multi_sels but rect_cols keeps 3.
+        doc.set_rect_selection(3, 10);
+        assert_eq!(doc.rect_cols, Some((3, 3)));
+        assert_eq!(doc.multi_sels, vec![(3, 3), (6, 6), (10, 10)]);
+        assert!(doc.insert_multi("Z"));
+        assert_eq!(doc.buffer.to_string(), "abcZd\nx  Z\nijkZl\n");
+        assert_eq!(doc.rect_cols, None);
+        assert!(doc.has_multi_carets());
+    }
+
+    #[test]
+    fn rect_clipboard_pads_virtual_space() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("abcd\nx\nijkl\n");
+        doc.set_rect_selection(1, 10); // cols 1..3
+        assert_eq!(doc.rect_cols, Some((1, 3)));
+        assert_eq!(
+            doc.multi_sels_clipboard_text().as_deref(),
+            Some("bc\n  \njk")
+        );
+    }
+
+    #[test]
+    fn insert_multi_rect_replaces_with_virtual_pad() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("abcd\nx\nijkl\n");
+        doc.set_rect_selection(1, 10); // cols 1..3
+        assert!(doc.insert_multi("Z"));
+        // "bc"/"jk" replaced; short line has no real cols 1..3 so insert at EOL.
+        assert_eq!(doc.buffer.to_string(), "aZd\nxZ\niZl\n");
     }
 
     #[test]

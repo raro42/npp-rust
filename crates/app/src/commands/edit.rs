@@ -847,7 +847,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         "IDM_EDIT_COLUMNMODETIP" => {
             state.status =
                 "Column tip: Alt+drag for rect select; type/Backspace/Paste hits all carets. \
-Column Editor inserts clipboard (or 0,1,2…) at caret column. No virtual space past EOL."
+Short lines pad with spaces on type/copy past EOL. Column Editor inserts clipboard (or 0,1,2…) at caret column."
                     .into();
             CmdResult::Handled
         }
@@ -983,6 +983,7 @@ fn multi_select_all(state: &mut EditorState, ui: &mut UiFlags, match_case: bool,
     let first = matches[0];
     {
         let doc = state.tabs.active_mut();
+        doc.rect_cols = None;
         doc.multi_sels = matches;
         doc.buffer.set_selection(first.0, first.1);
     }
@@ -1028,6 +1029,7 @@ fn multi_select_next(
     };
     {
         let doc = state.tabs.active_mut();
+        doc.rect_cols = None;
         if !doc.multi_sels.contains(&(s, e)) {
             doc.multi_sels.push((s, e));
         }

@@ -386,3 +386,5 @@
 009 keep: Zoom Sync persists + sync toggles flip live app state (v0.3.240)
 
 009 keep: Post-It distraction-free hide menu+status + persist (post_it, v0.3.241)
+
+009 keep: Alt+drag rect virtual space pad-on-type/copy (v0.3.244)

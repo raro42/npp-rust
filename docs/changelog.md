@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.244] — 2026-10-12
+
+Edit / column mode:
+
+- **Virtual space** for Alt+drag rectangular selections: typing on short lines pads with spaces to the target column; copy includes space padding for columns past EOL. Carets still clamp visually until padded (`docs/column-mode.md`).
+
 ## [0.3.243] — 2026-10-12
 
 Docs (issue #20):
