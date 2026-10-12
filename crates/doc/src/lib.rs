@@ -1269,6 +1269,10 @@ impl Document {
     }
 
     /// Insert `text` at every multi-caret (one undo). Returns false when inactive.
+    ///
+    /// When the paste text has the same number of lines as carets (typical after a
+    /// multi-caret / rect copy), each caret gets its matching line. Otherwise the
+    /// full string is inserted at every caret (typing / single-line paste).
     pub fn insert_multi(&mut self, text: &str) -> bool {
         if !self.has_multi_carets() {
             return false;
@@ -1279,10 +1283,13 @@ impl Document {
         let mut sorted = self.multi_sels.clone();
         sorted.sort_by_key(|&(s, e)| s.min(e));
         sorted.dedup();
-        let n_ins = text.chars().count();
+        let pieces = split_paste_lines(text);
+        let distribute = pieces.len() == sorted.len();
         let mut new_sels: Vec<(usize, usize)> = Vec::with_capacity(sorted.len());
         self.buffer.with_coalescable_insert_transaction(|b| {
-            for &(s, e) in sorted.iter().rev() {
+            for (idx, &(s, e)) in sorted.iter().enumerate().rev() {
+                let piece = if distribute { pieces[idx] } else { text };
+                let n_ins = piece.chars().count();
                 let len = b.len_chars();
                 let lo = s.min(e).min(len);
                 let hi = s.max(e).min(len);
@@ -1293,7 +1300,7 @@ impl Document {
                 } else {
                     b.set_caret_quiet(lo);
                 }
-                b.insert(text);
+                b.insert(piece);
                 let c = b.caret();
                 let net = n_ins as isize - del as isize;
                 for (ns, ne) in &mut new_sels {
@@ -1311,6 +1318,7 @@ impl Document {
     }
 
     /// Rect insert with virtual space: pad short lines to `col_lo`, then replace `col_lo..col_hi`.
+    /// Line-count match distributes clipboard lines top-to-bottom (column paste round-trip).
     fn insert_multi_rect(&mut self, text: &str, col_lo: usize, col_hi: usize) -> bool {
         let mut lines: Vec<usize> = self
             .multi_sels
@@ -1322,9 +1330,12 @@ impl Document {
         if lines.len() < 2 {
             return false;
         }
+        let pieces = split_paste_lines(text);
+        let distribute = pieces.len() == lines.len();
         let mut new_sels = Vec::with_capacity(lines.len());
         self.buffer.with_coalescable_insert_transaction(|b| {
-            for &line in lines.iter().rev() {
+            for (idx, &line) in lines.iter().enumerate().rev() {
+                let piece = if distribute { pieces[idx] } else { text };
                 let line_start = b.line_to_char(line);
                 let body_len = b.line_body_len(line);
                 if body_len < col_lo {
@@ -1340,7 +1351,7 @@ impl Document {
                 } else {
                     b.set_caret_quiet(s);
                 }
-                b.insert(text);
+                b.insert(piece);
                 let c = b.caret();
                 new_sels.push((c, c));
             }
@@ -1444,6 +1455,14 @@ impl Document {
             }
         }
     }
+}
+
+/// Split paste text on newlines for multi-caret / rect line distribution.
+/// Keeps empty lines; strips a trailing `\r` from each segment (CRLF).
+fn split_paste_lines(text: &str) -> Vec<&str> {
+    text.split('\n')
+        .map(|line| line.strip_suffix('\r').unwrap_or(line))
+        .collect()
 }
 
 /// Tab strip and active document index.
@@ -1754,6 +1773,35 @@ mod tests {
         assert_eq!(doc.multi_sels, vec![(2, 2), (6, 6), (10, 10)]);
         assert!(doc.buffer.undo());
         assert_eq!(doc.buffer.to_string(), "aa\nbb\ncc\n");
+    }
+
+    #[test]
+    fn insert_multi_distributes_matching_clipboard_lines() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("aa\nbb\ncc\n");
+        doc.multi_sels = vec![(1, 1), (4, 4), (7, 7)];
+        assert!(doc.insert_multi("1\n2\n3"));
+        assert_eq!(doc.buffer.to_string(), "a1a\nb2b\nc3c\n");
+        assert_eq!(doc.multi_sels, vec![(2, 2), (6, 6), (10, 10)]);
+    }
+
+    #[test]
+    fn insert_multi_keeps_full_text_when_line_count_mismatches() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("aa\nbb\ncc\n");
+        doc.multi_sels = vec![(1, 1), (4, 4), (7, 7)];
+        assert!(doc.insert_multi("1\n2"));
+        assert_eq!(doc.buffer.to_string(), "a1\n2a\nb1\n2b\nc1\n2c\n");
+    }
+
+    #[test]
+    fn insert_multi_rect_distributes_matching_clipboard_lines() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("abcd\nefgh\nijkl\n");
+        doc.set_rect_selection_cols(0, 1, 2, 3); // cols 1..3 on three lines
+        assert_eq!(doc.rect_cols, Some((1, 3)));
+        assert!(doc.insert_multi("XY\nUV\nWZ"));
+        assert_eq!(doc.buffer.to_string(), "aXYd\neUVh\niWZl\n");
     }
 
     #[test]

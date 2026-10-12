@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.258] — 2026-10-13
+
+Edit / column mode:
+
+- **Multi-caret / rect paste line-split**: when the clipboard has the same number of lines as carets (typical after a multi-caret or column copy), each caret gets its matching line. Mismatched line counts still paste the full string at every caret (`docs/column-mode.md`).
+
 ## [0.3.257] — 2026-10-13
 
 Settings / shortcuts:

@@ -1,10 +1,11 @@
 # Column / rectangular select
 
 Date: 2026-10-13  
-Version: 0.3.255
+Version: 0.3.258
 
 ## What works
 
+- **Multi-caret / rect paste line-split**: when pasted text has the same number of lines as carets (or rect rows), each caret gets its matching line (round-trip after multi-caret / column copy). Otherwise the full string is inserted at every caret.
 - **Escape clears multi-carets**: remappable close-Find chord (default Escape; `shortcut_close_find`) closes Find/Replace when open; when those bars are already closed, the same chord clears multi-carets / rect column select (primary caret stays).
 - **Alt+drag** (Option+drag on macOS) builds a rectangular selection.
 - Each line in the block gets a range at the same columns (char indices clamp to line length).
@@ -27,7 +28,7 @@ Version: 0.3.255
 
 - Stream virtual select is caret-end only (no separate virtual anchor column); empty EOL→virtual-only selections stay caret paint without a wash.
 - Rect Shift+extend tracks one anchor corner; after a plain arrow move the anchor resets to the top/start corner of the new block.
-- Paste always inserts the same clipboard string at each caret (no per-line column paste split beyond what you copied).
+- Paste line-split only when line count equals caret / rect-row count; otherwise the full clipboard string is still repeated at each caret.
 
 ## Code
 
