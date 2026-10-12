@@ -1,13 +1,13 @@
 # Next gaps (post v0.3.242)
 
 Date: 2026-10-12  
-Status: Issues **#1**–**#19** closed or handed off. Open: **#20** (this doc refresh). Overnight idle work: `docs/autoresearch/standing_backlog.md`.
+Status: Issues **#1**–**#20** closed or handed off (this refresh). Overnight idle work: `docs/autoresearch/standing_backlog.md`.
 
 Teal / `is_implemented` still means “no Coming Soon dialog”, not full Notepad++ depth. See `docs/whats-missing.md` and `docs/gap-analysis-vs-npp.md`.
 
-## Done since next-gaps last claimed “open” (#8–#19 + keeps)
+## Done since next-gaps last claimed “open” (#8–#20 + keeps)
 
-Wave that closed the old table (#8–#14) and later product depth through **v0.3.242**:
+Wave that closed the old table (#8–#14) and later product depth through **v0.3.242**, plus this doc refresh (**v0.3.243**):
 
 | Wave | What shipped (short) |
 |------|----------------------|
@@ -18,16 +18,13 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.164–v0.3.214 | Scrollable menus; Document Map ticks (compare / find / fold / bookmarks / CH / selection); more remaps (map, FIF, focus other view, case, join, …) |
 | v0.3.215–v0.3.241 | Dual-view other-pane syntax; rich **session restore** (`@folds`…`@partner`); persist Always on Top / Document Map / Project panel / Zoom Sync / Post-It; Post-It hides menu+status |
 | v0.3.242 | Ask Ollama / Status on background thread so the window does not stall (#19) |
+| v0.3.243 | Refresh this file: ranked remaining gaps; drop stale open-#14 table (#20) |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 
 ## Open GitHub issues (loop)
 
-| # | Priority | Title |
-|---|----------|--------|
-| [20](https://github.com/raro42/npp-rust/issues/20) | docs | Refresh `docs/next-gaps.md` (this file) |
-
-When the issue queue is empty, 009 picks the first non-struck item in `docs/autoresearch/standing_backlog.md`.
+None. When the issue queue is empty, 009 picks the first non-struck item in `docs/autoresearch/standing_backlog.md`.
 
 ## Still missing (ranked — real gaps)
 

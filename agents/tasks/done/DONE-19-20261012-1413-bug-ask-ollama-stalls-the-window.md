@@ -29,3 +29,5 @@
 - User-facing notes already in `docs/changelog.md` under **[0.3.242]**.
 - Task goal met: Ask Ollama / Ollama Status on a background worker (UI stays responsive; one in-flight); editor right-click → Ask Ollama. Commit `2756bb2`.
 - Close issue #19 with `agent:done`.
+Handoff: complete
+GitHub: closed
