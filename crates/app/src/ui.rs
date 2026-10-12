@@ -919,6 +919,8 @@ pub struct EditorApp {
     always_on_top: bool,
     /// Apply always-on-top WindowLevel on the next frame that has a context.
     pending_always_on_top: Option<bool>,
+    /// Post-It / distraction-free: hide menu and status bar.
+    post_it: bool,
     /// Apply fullscreen toggle on the next frame that has a context.
     pending_fullscreen_toggle: bool,
 }
@@ -983,12 +985,17 @@ impl EditorApp {
             compare_hide_revealed_right: BTreeSet::new(),
             always_on_top: false,
             pending_always_on_top: None,
+            post_it: false,
             pending_fullscreen_toggle: false,
         };
         // Restore Always on Top from settings before the first frame paints.
         if app.state.settings.always_on_top {
             app.always_on_top = true;
             app.pending_always_on_top = Some(true);
+        }
+        // Restore Post-It / distraction-free from settings.
+        if app.state.settings.post_it {
+            app.post_it = true;
         }
         // Restore Document Map open/closed from settings.
         if app.state.settings.show_document_map {
@@ -1136,7 +1143,10 @@ impl eframe::App for EditorApp {
         self.handle_file_drops(ctx);
         self.handle_shortcuts(ctx);
         self.flush_pending_viewport_cmds(ctx);
-        self.menu_bar(ctx);
+        // Post-It / distraction-free: hide menu + status; tabs and editor stay.
+        if !self.post_it {
+            self.menu_bar(ctx);
+        }
         self.refresh_compare_if_stale(ctx);
         if self.compare_on && self.state.settings.compare_hide_equal {
             crate::diff::prune_compare_hide_revealed(
@@ -1156,7 +1166,9 @@ impl eframe::App for EditorApp {
             self.find_replace_bar(ctx);
         }
         // Bottom panel before CentralPanel so the editor height excludes the status bar.
-        self.status_bar(ctx);
+        if !self.post_it {
+            self.status_bar(ctx);
+        }
         self.editor_pane(ctx);
         self.about_window(ctx);
         self.shortcuts_help_window(ctx);
@@ -4914,6 +4926,15 @@ impl EditorApp {
                 if self.always_on_top { "on" } else { "off" }
             );
         }
+        if flags.post_it_toggle {
+            self.post_it = !self.post_it;
+            self.state.settings.post_it = self.post_it;
+            self.state.settings.save();
+            self.state.status = format!(
+                "Post-It: {} (persisted)",
+                if self.post_it { "on" } else { "off" }
+            );
+        }
         if flags.fullscreen_toggle {
             self.pending_fullscreen_toggle = true;
         }
@@ -5078,6 +5099,7 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_IGNORE_CASE" => self.state.settings.compare_ignore_case,
                     "IDM_VIEW_COMPARE_IGNORE_BLANK" => self.state.settings.compare_ignore_blank,
                     "IDM_VIEW_COMPARE_HIDE_EQUAL" => self.state.settings.compare_hide_equal,
+                    "IDM_VIEW_POSTIT" | "IDM_VIEW_DISTRACTIONFREE" => self.post_it,
                     _ => false,
                 };
                 let shown = if checked {
@@ -5482,7 +5504,7 @@ impl EditorApp {
                             "Left-to-right text ({ltr}; Preferences remappable; {rtl} = RTL)"
                         ))
                     }
-                    "IDM_VIEW_FULLSCREENTOGGLE" | "IDM_VIEW_DISTRACTIONFREE" => {
+                    "IDM_VIEW_FULLSCREENTOGGLE" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_fullscreen,
                             crate::shortcut_chord::DEFAULT_FULLSCREEN,
@@ -5492,14 +5514,14 @@ impl EditorApp {
                             "Toggle fullscreen ({chord}; Preferences remappable)"
                         ))
                     }
-                    "IDM_VIEW_POSTIT" => {
+                    "IDM_VIEW_POSTIT" | "IDM_VIEW_DISTRACTIONFREE" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_postit,
                             crate::shortcut_chord::DEFAULT_POSTIT,
                         )
                         .display();
                         response.on_hover_text(format!(
-                            "Toggle Post-It / distraction-free ({chord}; Preferences remappable)"
+                            "Toggle Post-It / distraction-free (hide menu + status; {chord}; Preferences remappable; persists)"
                         ))
                     }
                     "IDM_VIEW_ALWAYSONTOP" => {
@@ -6121,11 +6143,13 @@ impl EditorApp {
             ),
             "IDM_EDIT_RTL" => primary(&s.shortcut_rtl, crate::shortcut_chord::DEFAULT_RTL),
             "IDM_EDIT_LTR" => shifted(&s.shortcut_rtl, crate::shortcut_chord::DEFAULT_RTL),
-            "IDM_VIEW_FULLSCREENTOGGLE" | "IDM_VIEW_DISTRACTIONFREE" => primary(
+            "IDM_VIEW_FULLSCREENTOGGLE" => primary(
                 &s.shortcut_fullscreen,
                 crate::shortcut_chord::DEFAULT_FULLSCREEN,
             ),
-            "IDM_VIEW_POSTIT" => primary(&s.shortcut_postit, crate::shortcut_chord::DEFAULT_POSTIT),
+            "IDM_VIEW_POSTIT" | "IDM_VIEW_DISTRACTIONFREE" => {
+                primary(&s.shortcut_postit, crate::shortcut_chord::DEFAULT_POSTIT)
+            }
             "IDM_VIEW_ALWAYSONTOP" => primary(
                 &s.shortcut_always_on_top,
                 crate::shortcut_chord::DEFAULT_ALWAYS_ON_TOP,
@@ -7304,6 +7328,16 @@ impl EditorApp {
                         {
                             self.always_on_top = self.state.settings.always_on_top;
                             self.pending_always_on_top = Some(self.always_on_top);
+                            changed = true;
+                        }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.post_it,
+                                "Post-It (hide menu + status)",
+                            )
+                            .changed()
+                        {
+                            self.post_it = self.state.settings.post_it;
                             changed = true;
                         }
                         if ui
@@ -9789,7 +9823,7 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: F12, Ctrl+Alt+F12. Toggles View → Post-It (distraction-free).",
+                                "Example: F12, Ctrl+Alt+F12. Toggles Post-It / distraction-free (hides menu + status; persists).",
                             )
                             .small()
                             .weak(),

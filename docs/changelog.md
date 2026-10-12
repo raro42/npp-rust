@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.241] — 2026-10-12
+
+View / Preferences:
+
+- **Post-It / Distraction Free** hides the menu and status bar (tabs and editor stay). No longer an alias for OS fullscreen (F11 stays fullscreen). State persists in `npp-rs/settings.json` (`post_it`). Menu ✓, remappable F12 (`shortcut_postit`), and Preferences checkbox restore on launch. Exit with the same chord when chrome is hidden.
+
 ## [0.3.240] — 2026-10-12
 
 View / Preferences / Dual view:

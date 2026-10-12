@@ -30,6 +30,7 @@ New keys:
 | `show_indent_guide` | Vertical indent guides; default off |
 | `text_rtl` | Right-to-left editor line anchors + status cue (Edit → RTL / LTR + Preferences); default off |
 | `always_on_top` | Keep the window above others (View → Always on Top + Preferences); default off |
+| `post_it` | Post-It / distraction-free: hide menu + status bar (View → Post-It / Distraction Free + Preferences); default off |
 | `show_document_map` | Document Map panel open (View → Document Map + Preferences); default off |
 | `show_project_panel` | Project panel open (View → Project Panel + Preferences); default off |
 | `zoom_sync` | Dual-view Zoom Sync (both panes share font size; View menu + Preferences); default off |
@@ -110,7 +111,7 @@ New keys:
 | `shortcut_toggle_log_tail` | Toggle log-tail follow chord (`Cmd+Shift+T` default) |
 | `shortcut_document_map` | Document Map toggle chord (`Cmd+Shift+D` default) |
 | `shortcut_fullscreen` | Fullscreen toggle chord (`F11` default) |
-| `shortcut_postit` | Post-It / distraction-free toggle chord (`F12` default) |
+| `shortcut_postit` | Post-It / distraction-free toggle chord (`F12` default; hides menu + status; same as View → Distraction Free) |
 | `shortcut_always_on_top` | Always-on-top toggle chord (`Alt+T` default) |
 | `shortcut_show_whitespace` | Show-whitespace toggle chord (`Alt+V` default; Shift flips to Show EOL) |
 | `shortcut_show_npc` | Show-NPC toggle chord (`Alt+N` default) |

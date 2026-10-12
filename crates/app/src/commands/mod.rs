@@ -65,6 +65,8 @@ pub struct UiFlags {
     pub show_goto_line: bool,
     /// Toggle always-on-top window level.
     pub always_on_top_toggle: bool,
+    /// Toggle Post-It / distraction-free (hide menu + status).
+    pub post_it_toggle: bool,
     /// Toggle OS fullscreen.
     pub fullscreen_toggle: bool,
     /// Show document summary dialog.

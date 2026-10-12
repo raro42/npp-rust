@@ -47,9 +47,13 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             }
             CmdResult::Handled
         }
-        "IDM_VIEW_FULLSCREENTOGGLE" | "IDM_VIEW_DISTRACTIONFREE" => {
+        "IDM_VIEW_FULLSCREENTOGGLE" => {
             ui.fullscreen_toggle = true;
             state.status = "Fullscreen toggled".into();
+            CmdResult::Handled
+        }
+        "IDM_VIEW_DISTRACTIONFREE" | "IDM_VIEW_POSTIT" => {
+            ui.post_it_toggle = true;
             CmdResult::Handled
         }
         "IDM_VIEW_TAB_SPACE" => {
@@ -394,11 +398,6 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         "IDM_VIEW_TAB_END" => {
             let last = state.tabs.len().saturating_sub(1);
             state.switch_tab(last);
-            CmdResult::Handled
-        }
-        "IDM_VIEW_POSTIT" => {
-            ui.fullscreen_toggle = true;
-            state.status = "Post-It (distraction-free) toggled".into();
             CmdResult::Handled
         }
         "IDM_VIEW_GOTO_ANOTHER_VIEW" => {

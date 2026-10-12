@@ -505,6 +505,9 @@ pub struct AppSettings {
     /// Keep the window above others (View → Always on Top).
     #[serde(default)]
     pub always_on_top: bool,
+    /// Post-It / distraction-free: hide menu and status bar (View → Post-It).
+    #[serde(default)]
+    pub post_it: bool,
     /// Document Map panel open (View → Document Map).
     #[serde(default)]
     pub show_document_map: bool,
@@ -909,6 +912,7 @@ impl Default for AppSettings {
             show_indent_guide: false,
             text_rtl: false,
             always_on_top: false,
+            post_it: false,
             show_document_map: false,
             show_project_panel: false,
             zoom_sync: false,
@@ -1301,6 +1305,7 @@ mod tests {
             show_indent_guide: true,
             text_rtl: true,
             always_on_top: true,
+            post_it: true,
             show_document_map: true,
             show_project_panel: true,
             zoom_sync: true,
@@ -1314,6 +1319,7 @@ mod tests {
         assert!(back.show_indent_guide);
         assert!(back.text_rtl);
         assert!(back.always_on_top);
+        assert!(back.post_it);
         assert!(back.show_document_map);
         assert!(back.show_project_panel);
         assert!(back.zoom_sync);
@@ -1325,6 +1331,7 @@ mod tests {
         assert!(!defaults.show_indent_guide);
         assert!(!defaults.text_rtl);
         assert!(!defaults.always_on_top);
+        assert!(!defaults.post_it);
         assert!(!defaults.show_document_map);
         assert!(!defaults.show_project_panel);
         assert!(!defaults.zoom_sync);
@@ -1357,6 +1364,7 @@ mod tests {
             restore_session: true,
             text_rtl: true,
             always_on_top: true,
+            post_it: true,
             show_document_map: true,
             show_project_panel: true,
             zoom_sync: true,
@@ -1472,6 +1480,7 @@ mod tests {
         assert!(back.restore_session);
         assert!(back.text_rtl);
         assert!(back.always_on_top);
+        assert!(back.post_it);
         assert!(back.show_document_map);
         assert!(back.show_project_panel);
         assert!(back.zoom_sync);
