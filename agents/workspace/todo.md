@@ -398,3 +398,5 @@
 009 keep: multi-caret plain arrow move (v0.3.248)
 
 009 keep: Ctrl/Cmd+click add/toggle multi-carets (v0.3.249)
+
+009 keep: Shift+extend stream multi-carets (v0.3.250)
