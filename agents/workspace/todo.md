@@ -378,3 +378,5 @@
 009 keep: session restore Compare on (@compare / @cmp, v0.3.237)
 
 009 keep: Project panel open persists (`show_project_panel`, v0.3.238)
+
+009 keep: session restore marked Compare partner (@partner / @cmppartner, v0.3.239)
