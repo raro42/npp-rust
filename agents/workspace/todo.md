@@ -392,3 +392,5 @@
 009 keep: Alt+drag rect click/drag past EOL virtual carets (v0.3.245)
 
 009 keep: plain free caret past EOL click/Right + pad-on-type (v0.3.246)
+
+009 keep: stream select into virtual space Shift+drag/Right (v0.3.247)
