@@ -720,6 +720,7 @@ fn apply_session_viewport(app: &mut EditorApp) {
 }
 
 /// Re-open dual view when session restore recorded `@other` on a different tab.
+/// `@focus` / `@otherfocus` restores keyboard focus on the other pane.
 fn apply_session_dual_view(app: &mut EditorApp) {
     let Some(path) = app.state.session_other_view.clone() else {
         return;
@@ -738,11 +739,16 @@ fn apply_session_dual_view(app: &mut EditorApp) {
     }
     if idx == active {
         app.state.session_other_view = None;
+        app.state.session_focus_other = false;
         return;
     }
     app.dual_view = true;
     app.other_view_tab = idx;
+    if app.state.session_focus_other {
+        app.focused_pane = EditorPane::Secondary;
+    }
     app.state.session_other_view = None;
+    app.state.session_focus_other = false;
 }
 
 impl EditorApp {
@@ -1025,6 +1031,8 @@ impl eframe::App for EditorApp {
         } else {
             None
         };
+        self.state.session_write_focus_other =
+            self.dual_view && self.focused_pane == EditorPane::Secondary;
         if ctx.input(|i| i.viewport().close_requested()) {
             self.state.persist_session_if_enabled();
             let dirty = self.state.tabs.iter().any(|d| d.dirty);

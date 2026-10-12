@@ -15,11 +15,12 @@ Date: 2026-08-29
 ## Session
 
 - With **Preferences → Restore session** on, the other-pane tab is saved as `@other` (alias `@otherview`) under its path in `npp-rs/session.txt`. Relaunch re-opens dual view with that tab on the right (primary stays `@active`). Untitled other panes are not persisted.
+- When the other pane had keyboard focus, session also writes `@focus` (alias `@otherfocus`) on that entry. Relaunch focuses the other pane after the split opens (primary focus stays the default when `@focus` is absent).
 
 ## Limits
 
 - The other pane keeps its own viewport highlight cache (same 512 KiB window rules as the primary pane).
-- Session restore does not yet keep secondary-pane focus or sync-scroll flags.
+- Session restore does not yet keep sync-scroll flags.
 
 ## Code
 

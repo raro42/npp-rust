@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.233] — 2026-10-12
+
+File / Session:
+
+- Opt-in session restore now keeps **dual-view other-pane focus** (`@focus`, alias `@otherfocus`) in `npp-rs/session.txt` with `@other`. Relaunch re-opens the split and puts keyboard focus on the other pane when that is how you left it. Older session files still load (primary focus remains the default).
+
 ## [0.3.232] — 2026-10-12
 
 File / Session:

@@ -366,3 +366,5 @@
 009 keep: session restore style marks (@style1..@style5, v0.3.231)
 
 009 keep: session restore dual-view other pane (@other / @otherview, v0.3.232)
+
+009 keep: session restore dual-view other-pane focus (@focus, v0.3.233)
