@@ -948,18 +948,37 @@ impl TextBuffer {
     ///
     /// One `(start, end)` per line from the top corner to the bottom corner.
     /// Char indices clamp to each line body; callers that need past-EOL columns
-    /// should keep [`rect_corner_cols`] and pad on edit/copy.
+    /// should keep [`rect_corner_cols`] / [`rect_ranges_from_cols`] and pad on edit/copy.
     pub fn rect_ranges(&self, a: usize, b: usize) -> Vec<(usize, usize)> {
         let a = a.min(self.len_chars());
         let b = b.min(self.len_chars());
         let line_a = self.char_to_line(a);
         let line_b = self.char_to_line(b);
+        let (col_lo, col_hi) = self.rect_corner_cols(a, b);
+        self.rect_ranges_from_cols(line_a, col_lo, line_b, col_hi)
+    }
+
+    /// Rectangular ranges from explicit line/column corners (columns may be past EOL).
+    ///
+    /// Char indices on each line still clamp to the line body; keep the raw columns
+    /// separately (e.g. `Document::rect_cols`) for virtual-space paint / pad-on-type.
+    pub fn rect_ranges_from_cols(
+        &self,
+        line_a: usize,
+        col_a: usize,
+        line_b: usize,
+        col_b: usize,
+    ) -> Vec<(usize, usize)> {
+        let last = self.line_count().saturating_sub(1);
+        let line_a = line_a.min(last);
+        let line_b = line_b.min(last);
         let (line_lo, line_hi) = if line_a <= line_b {
             (line_a, line_b)
         } else {
             (line_b, line_a)
         };
-        let (col_lo, col_hi) = self.rect_corner_cols(a, b);
+        let col_lo = col_a.min(col_b);
+        let col_hi = col_a.max(col_b);
         let mut out = Vec::with_capacity(line_hi - line_lo + 1);
         for line in line_lo..=line_hi {
             let start = self.line_to_char(line);
@@ -1699,5 +1718,15 @@ mod tests {
         let c = b.line_to_char(2) + 1;
         let ranges = b.rect_ranges(a, c);
         assert_eq!(ranges, vec![(1, 1), (4, 4), (7, 7)]);
+    }
+
+    #[test]
+    fn rect_ranges_from_cols_past_eol() {
+        let b = TextBuffer::from_str("ab\nx\ncd\n");
+        let ranges = b.rect_ranges_from_cols(0, 5, 2, 5);
+        // Bodies len 2/1/2 → all clamp to EOL zero-width carets.
+        assert_eq!(ranges, vec![(2, 2), (4, 4), (7, 7)]);
+        let wide = b.rect_ranges_from_cols(0, 1, 2, 4);
+        assert_eq!(wide, vec![(1, 2), (4, 4), (6, 7)]);
     }
 }

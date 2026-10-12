@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.245] — 2026-10-12
+
+Edit / column mode:
+
+- **Alt+drag past EOL**: mouse hit-test can place rectangular carets / selection past every line’s end; carets and the wash draw in that virtual space; typing still pads with spaces (`docs/column-mode.md`).
+
 ## [0.3.244] — 2026-10-12
 
 Edit / column mode:

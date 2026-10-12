@@ -388,3 +388,5 @@
 009 keep: Post-It distraction-free hide menu+status + persist (post_it, v0.3.241)
 
 009 keep: Alt+drag rect virtual space pad-on-type/copy (v0.3.244)
+
+009 keep: Alt+drag rect click/drag past EOL virtual carets (v0.3.245)

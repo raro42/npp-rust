@@ -230,6 +230,49 @@ pub(crate) fn col_from_x(ui: &egui::Ui, font_id: &FontId, line: &str, x: f32) ->
     best
 }
 
+/// Like [`col_from_x`], but columns may extend past EOL using the space glyph width.
+///
+/// Used for Alt+drag rectangular select into virtual space.
+pub(crate) fn col_from_x_virtual(ui: &egui::Ui, font_id: &FontId, line: &str, x: f32) -> usize {
+    if x <= 0.0 {
+        return 0;
+    }
+    let chars: Vec<char> = line.chars().collect();
+    let mut best = 0usize;
+    let mut best_dist = f32::MAX;
+    for i in 0..=chars.len() {
+        let prefix: String = chars.iter().take(i).collect();
+        let w = text_width(ui, font_id, &prefix);
+        let d = (w - x).abs();
+        if d < best_dist {
+            best_dist = d;
+            best = i;
+        }
+        if w > x + 2.0 {
+            return best;
+        }
+    }
+    let base = text_width(ui, font_id, line);
+    if x <= base + 2.0 {
+        return best;
+    }
+    let space_w = text_width(ui, font_id, " ").max(1.0);
+    let extra = ((x - base) / space_w).round().max(0.0) as usize;
+    chars.len() + extra
+}
+
+/// Horizontal offset for a column, including virtual space past EOL (space width).
+pub(crate) fn x_for_col(ui: &egui::Ui, font_id: &FontId, line: &str, col: usize) -> f32 {
+    let chars: Vec<char> = line.chars().collect();
+    if col <= chars.len() {
+        text_width(ui, font_id, &chars.iter().take(col).collect::<String>())
+    } else {
+        let base = text_width(ui, font_id, line);
+        let space_w = text_width(ui, font_id, " ");
+        base + space_w * (col - chars.len()) as f32
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn paint_line_text(
     painter: &egui::Painter,

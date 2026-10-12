@@ -3,9 +3,9 @@
 use crate::editor::EditorState;
 use crate::ui_paint::{
     change_history_joins, change_history_saved_color, change_history_unsaved_color,
-    change_history_wash, col_from_x, display_row_for, paint_change_history_bar,
+    change_history_wash, col_from_x, col_from_x_virtual, display_row_for, paint_change_history_bar,
     paint_compare_hide_gap, paint_fold_marker, paint_inline_compare_spans, paint_line_text,
-    style_mark_bg, text_width, visible_line_indices, FOLD_MARGIN_W,
+    style_mark_bg, text_width, visible_line_indices, x_for_col, FOLD_MARGIN_W,
 };
 use eframe::egui::{self, Color32, CursorIcon, FontId, Key, Pos2, Rect, RichText, Sense, Vec2};
 use std::collections::BTreeSet;
@@ -850,6 +850,8 @@ pub struct EditorApp {
     drag_anchor: Option<usize>,
     /// Alt+drag rectangular / column selection in progress.
     rect_drag: bool,
+    /// Alt+drag anchor as (line, column); column may be past EOL (virtual space).
+    rect_drag_anchor: Option<(usize, usize)>,
     /// Drag selected text to move (or Ctrl/Cmd+drag to copy).
     sel_text_drag: Option<SelTextDrag>,
     /// Drag the editor vertical scrollbar thumb (primary or secondary pane).
@@ -942,6 +944,7 @@ impl EditorApp {
             log_tail_remember: true,
             drag_anchor: None,
             rect_drag: false,
+            rect_drag_anchor: None,
             sel_text_drag: None,
             scrollbar_drag: None,
             tab_drag_from: None,
@@ -12917,6 +12920,7 @@ impl EditorApp {
                         self.follow_caret = false;
                         self.drag_anchor = None;
                         self.rect_drag = false;
+                        self.rect_drag_anchor = None;
                         self.sel_text_drag = None;
                         self.scrollbar_drag = Some(ScrollbarDrag {
                             pane: EditorPane::Primary,
@@ -12960,6 +12964,22 @@ impl EditorApp {
                 line_start + col
             };
 
+            let hit_line_col_virtual = |ui: &egui::Ui,
+                                        pos: Pos2,
+                                        buf: &buffer::TextBuffer,
+                                        scroll: f32,
+                                        visible: &[usize]|
+             -> (usize, usize) {
+                let first = scroll.floor() as usize;
+                let row = first + ((pos.y - rect.top()) / row_height).floor().max(0.0) as usize;
+                let row = row.min(visible.len().saturating_sub(1));
+                let line = visible.get(row).copied().unwrap_or(0);
+                let line_text = buf.line(line);
+                let line_body = line_text.trim_end_matches(['\n', '\r']);
+                let col = col_from_x_virtual(ui, &font_id, line_body, pos.x - text_left);
+                (line, col)
+            };
+
             let scroll_for_hit = self.scroll_line;
             let fold_line_at = |pos: Pos2| -> Option<usize> {
                 if !show_fold || fold_w <= 0.0 || pos.x < fold_left || pos.x >= gutter_right {
@@ -12986,6 +13006,7 @@ impl EditorApp {
                         hide_gap_click = true;
                         self.drag_anchor = None;
                         self.rect_drag = false;
+                        self.rect_drag_anchor = None;
                         self.sel_text_drag = None;
                     } else if let Some(line) = fold_line_at(pos) {
                         let lang = self.state.tabs.active().language.clone();
@@ -13005,6 +13026,7 @@ impl EditorApp {
                             fold_click = true;
                             self.drag_anchor = None;
                             self.rect_drag = false;
+                            self.rect_drag_anchor = None;
                             self.sel_text_drag = None;
                         }
                     }
@@ -13029,6 +13051,7 @@ impl EditorApp {
                     self.state.tabs.active_mut().buffer.select_line_at(idx);
                     self.drag_anchor = None;
                     self.rect_drag = false;
+                    self.rect_drag_anchor = None;
                     self.sel_text_drag = None;
                     self.follow_caret = false;
                 }
@@ -13045,6 +13068,7 @@ impl EditorApp {
                     self.state.tabs.active_mut().buffer.select_word_at(idx);
                     self.drag_anchor = None;
                     self.rect_drag = false;
+                    self.rect_drag_anchor = None;
                     self.sel_text_drag = None;
                     self.follow_caret = false;
                 }
@@ -13071,10 +13095,21 @@ impl EditorApp {
                         .map(|(s, _)| s)
                         .unwrap_or_else(|| doc.buffer.caret());
                     if alt {
+                        let (line, col) = hit_line_col_virtual(
+                            ui,
+                            pos,
+                            &self.state.tabs.active().buffer,
+                            self.scroll_line,
+                            &visible_lines,
+                        );
                         self.sel_text_drag = None;
                         self.rect_drag = true;
-                        self.drag_anchor = Some(idx);
-                        self.state.tabs.active_mut().set_rect_selection(idx, idx);
+                        self.rect_drag_anchor = Some((line, col));
+                        self.drag_anchor = None;
+                        self.state
+                            .tabs
+                            .active_mut()
+                            .set_rect_selection_cols(line, col, line, col);
                         self.state.status = "Column select (Alt+drag)".into();
                     } else if !shift && inside_sel && !read_only {
                         self.state.tabs.active_mut().clear_multi_sels();
@@ -13086,10 +13121,12 @@ impl EditorApp {
                         });
                         self.drag_anchor = None;
                         self.rect_drag = false;
+                        self.rect_drag_anchor = None;
                     } else if shift {
                         self.state.tabs.active_mut().clear_multi_sels();
                         self.sel_text_drag = None;
                         self.rect_drag = false;
+                        self.rect_drag_anchor = None;
                         self.drag_anchor = Some(sel_anchor);
                         self.state
                             .tabs
@@ -13100,6 +13137,7 @@ impl EditorApp {
                         self.state.tabs.active_mut().clear_multi_sels();
                         self.sel_text_drag = None;
                         self.rect_drag = false;
+                        self.rect_drag_anchor = None;
                         self.drag_anchor = Some(idx);
                         self.state.tabs.active_mut().buffer.set_caret(idx);
                     }
@@ -13126,16 +13164,27 @@ impl EditorApp {
                                 CursorIcon::Grabbing
                             });
                         }
-                    } else if let Some(anchor) = self.drag_anchor {
-                        if self.rect_drag {
-                            self.state.tabs.active_mut().set_rect_selection(anchor, idx);
-                        } else {
+                    } else if self.rect_drag {
+                        if let Some((al, ac)) = self.rect_drag_anchor {
+                            let (line, col) = hit_line_col_virtual(
+                                ui,
+                                pos,
+                                &self.state.tabs.active().buffer,
+                                self.scroll_line,
+                                &visible_lines,
+                            );
                             self.state
                                 .tabs
                                 .active_mut()
-                                .buffer
-                                .set_selection(anchor, idx);
+                                .set_rect_selection_cols(al, ac, line, col);
+                            self.follow_caret = false;
                         }
+                    } else if let Some(anchor) = self.drag_anchor {
+                        self.state
+                            .tabs
+                            .active_mut()
+                            .buffer
+                            .set_selection(anchor, idx);
                         self.follow_caret = false;
                     }
                 }
@@ -13173,6 +13222,7 @@ impl EditorApp {
                     }
                     self.drag_anchor = None;
                     self.rect_drag = false;
+                    self.rect_drag_anchor = None;
                     self.sel_text_drag = None;
                     self.follow_caret = false;
                 }
@@ -13211,6 +13261,7 @@ impl EditorApp {
                 }
                 self.drag_anchor = None;
                 self.rect_drag = false;
+                self.rect_drag_anchor = None;
                 if self
                     .scrollbar_drag
                     .as_ref()
@@ -13458,9 +13509,29 @@ impl EditorApp {
                     }
                 }
 
-                // Selection highlight on line
-                if let Some((sel_s, sel_e)) = self.state.tabs.active().buffer.selection() {
-                    let line_end = line_start + line_text.chars().count();
+                // Selection highlight on line (rect virtual cols may extend past EOL)
+                let primary_sel = self.state.tabs.active().buffer.selection();
+                let multi = self.state.tabs.active().multi_sels.clone();
+                let rect_cols = self.state.tabs.active().rect_cols;
+                let line_end = line_start + line_text.chars().count();
+                let line_in_rect = multi.iter().any(|&(s, e)| {
+                    let c = s.min(e);
+                    c >= line_start && c <= line_end
+                });
+                if let Some((col_lo, col_hi)) = rect_cols.filter(|_| line_in_rect) {
+                    if col_lo < col_hi {
+                        let x0 = text_left + x_for_col(ui, &font_id, line_text, col_lo);
+                        let x1 = text_left + x_for_col(ui, &font_id, line_text, col_hi);
+                        painter.rect_filled(
+                            Rect::from_min_max(
+                                Pos2::new(x0, y),
+                                Pos2::new(x1.max(x0 + 2.0), y + row_height),
+                            ),
+                            0.0,
+                            theme.selection_bg,
+                        );
+                    }
+                } else if let Some((sel_s, sel_e)) = primary_sel {
                     if sel_s < line_end && sel_e > line_start {
                         let local_s = sel_s
                             .saturating_sub(line_start)
@@ -13491,53 +13562,60 @@ impl EditorApp {
                     }
                 }
                 // Extra multi-caret / rect ranges (skip primary to avoid double paint)
-                let primary_sel = self.state.tabs.active().buffer.selection();
-                let multi = self.state.tabs.active().multi_sels.clone();
-                for &(sel_s, sel_e) in &multi {
-                    if primary_sel == Some((sel_s, sel_e)) {
-                        continue;
+                if let Some((col_lo, col_hi)) = rect_cols.filter(|_| line_in_rect) {
+                    if col_lo == col_hi {
+                        let cx = text_left + x_for_col(ui, &font_id, line_text, col_lo);
+                        painter.line_segment(
+                            [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
+                            egui::Stroke::new(1.0_f32, theme.caret_fg),
+                        );
                     }
-                    let line_end = line_start + line_text.chars().count();
-                    if sel_s == sel_e {
-                        // Zero-width caret mark
-                        if sel_s >= line_start && sel_s <= line_end {
-                            let col = sel_s - line_start;
-                            let prefix: String = line_text.chars().take(col).collect();
-                            let cx = text_left + text_width(ui, &font_id, &prefix);
-                            painter.line_segment(
-                                [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
-                                egui::Stroke::new(1.0_f32, theme.caret_fg),
+                } else {
+                    for &(sel_s, sel_e) in &multi {
+                        if primary_sel == Some((sel_s, sel_e)) {
+                            continue;
+                        }
+                        if sel_s == sel_e {
+                            // Zero-width caret mark
+                            if sel_s >= line_start && sel_s <= line_end {
+                                let col = sel_s - line_start;
+                                let prefix: String = line_text.chars().take(col).collect();
+                                let cx = text_left + text_width(ui, &font_id, &prefix);
+                                painter.line_segment(
+                                    [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
+                                    egui::Stroke::new(1.0_f32, theme.caret_fg),
+                                );
+                            }
+                            continue;
+                        }
+                        if sel_s < line_end && sel_e > line_start {
+                            let local_s = sel_s
+                                .saturating_sub(line_start)
+                                .min(line_text.chars().count());
+                            let local_e = sel_e
+                                .saturating_sub(line_start)
+                                .min(line_text.chars().count());
+                            let x0 = text_left
+                                + text_width(
+                                    ui,
+                                    &font_id,
+                                    &line_text.chars().take(local_s).collect::<String>(),
+                                );
+                            let x1 = text_left
+                                + text_width(
+                                    ui,
+                                    &font_id,
+                                    &line_text.chars().take(local_e).collect::<String>(),
+                                );
+                            painter.rect_filled(
+                                Rect::from_min_max(
+                                    Pos2::new(x0, y),
+                                    Pos2::new(x1.max(x0 + 2.0), y + row_height),
+                                ),
+                                0.0,
+                                theme.selection_bg,
                             );
                         }
-                        continue;
-                    }
-                    if sel_s < line_end && sel_e > line_start {
-                        let local_s = sel_s
-                            .saturating_sub(line_start)
-                            .min(line_text.chars().count());
-                        let local_e = sel_e
-                            .saturating_sub(line_start)
-                            .min(line_text.chars().count());
-                        let x0 = text_left
-                            + text_width(
-                                ui,
-                                &font_id,
-                                &line_text.chars().take(local_s).collect::<String>(),
-                            );
-                        let x1 = text_left
-                            + text_width(
-                                ui,
-                                &font_id,
-                                &line_text.chars().take(local_e).collect::<String>(),
-                            );
-                        painter.rect_filled(
-                            Rect::from_min_max(
-                                Pos2::new(x0, y),
-                                Pos2::new(x1.max(x0 + 2.0), y + row_height),
-                            ),
-                            0.0,
-                            theme.selection_bg,
-                        );
                     }
                 }
 
@@ -13623,17 +13701,24 @@ impl EditorApp {
                     }
                 }
 
-                // Caret
+                // Caret (rect zero-width already painted above; wide rect uses virtual col_hi)
                 let caret = self.state.tabs.active().buffer.caret();
-                let line_end = line_start + line_text.chars().count();
-                if caret >= line_start && caret <= line_end {
-                    let blink_on = if self.state.settings.caret_blink {
-                        ctx.request_repaint_after(std::time::Duration::from_millis(500));
-                        ((ctx.input(|i| i.time) * 2.0_f64) as i64).rem_euclid(2) == 0
-                    } else {
-                        true
-                    };
-                    if blink_on {
+                let blink_on = if self.state.settings.caret_blink {
+                    ctx.request_repaint_after(std::time::Duration::from_millis(500));
+                    ((ctx.input(|i| i.time) * 2.0_f64) as i64).rem_euclid(2) == 0
+                } else {
+                    true
+                };
+                if blink_on {
+                    if let Some((col_lo, col_hi)) = rect_cols.filter(|_| line_in_rect) {
+                        if col_lo < col_hi && caret >= line_start && caret <= line_end {
+                            let cx = text_left + x_for_col(ui, &font_id, line_text, col_hi);
+                            painter.line_segment(
+                                [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
+                                egui::Stroke::new(1.0_f32, theme.caret_fg),
+                            );
+                        }
+                    } else if caret >= line_start && caret <= line_end {
                         let col = caret - line_start;
                         let prefix: String = line_text.chars().take(col).collect();
                         let cx = text_left + text_width(ui, &font_id, &prefix);
@@ -16514,6 +16599,7 @@ impl EditorApp {
                     self.follow_caret_other = false;
                     self.drag_anchor = None;
                     self.rect_drag = false;
+                    self.rect_drag_anchor = None;
                     self.sel_text_drag = None;
                     self.scroll_line_other = scroll_line;
                     if sync {
@@ -16557,6 +16643,22 @@ impl EditorApp {
             line_start + col
         };
 
+        let hit_line_col_virtual = |ui: &egui::Ui,
+                                    pos: Pos2,
+                                    buf: &buffer::TextBuffer,
+                                    scroll: f32,
+                                    visible: &[usize]|
+         -> (usize, usize) {
+            let first = scroll.floor() as usize;
+            let row = first + ((pos.y - rect.top()) / row_height).floor().max(0.0) as usize;
+            let row = row.min(visible.len().saturating_sub(1));
+            let line = visible.get(row).copied().unwrap_or(0);
+            let line_text = buf.line(line);
+            let line_body = line_text.trim_end_matches(['\n', '\r']);
+            let col = col_from_x_virtual(ui, &font_id, line_body, pos.x - text_left);
+            (line, col)
+        };
+
         let fold_line_at = |pos: Pos2| -> Option<usize> {
             if !show_fold || fold_w <= 0.0 || pos.x < fold_left || pos.x >= gutter_right {
                 return None;
@@ -16582,6 +16684,7 @@ impl EditorApp {
                     hide_gap_click = true;
                     self.drag_anchor = None;
                     self.rect_drag = false;
+                    self.rect_drag_anchor = None;
                     self.sel_text_drag = None;
                 } else if let Some(line) = fold_line_at(pos) {
                     if let Some(doc) = self.state.tabs.get(tab) {
@@ -16600,6 +16703,7 @@ impl EditorApp {
                             fold_click = true;
                             self.drag_anchor = None;
                             self.rect_drag = false;
+                            self.rect_drag_anchor = None;
                             self.sel_text_drag = None;
                         }
                     }
@@ -16620,6 +16724,7 @@ impl EditorApp {
                 }
                 self.drag_anchor = None;
                 self.rect_drag = false;
+                self.rect_drag_anchor = None;
                 self.sel_text_drag = None;
                 self.follow_caret_other = false;
             }
@@ -16634,6 +16739,7 @@ impl EditorApp {
                 }
                 self.drag_anchor = None;
                 self.rect_drag = false;
+                self.rect_drag_anchor = None;
                 self.sel_text_drag = None;
                 self.follow_caret_other = false;
             }
@@ -16650,11 +16756,14 @@ impl EditorApp {
                         .is_some_and(|(s, e)| idx >= s && idx < e);
                     let read_only = doc.read_only;
                     if alt {
+                        let (line, col) =
+                            hit_line_col_virtual(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                         self.sel_text_drag = None;
                         self.rect_drag = true;
-                        self.drag_anchor = Some(idx);
+                        self.rect_drag_anchor = Some((line, col));
+                        self.drag_anchor = None;
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.set_rect_selection(idx, idx);
+                            doc.set_rect_selection_cols(line, col, line, col);
                         }
                         self.state.status = "Column select (Alt+drag)".into();
                     } else if !shift && inside_sel && !read_only {
@@ -16669,10 +16778,12 @@ impl EditorApp {
                         });
                         self.drag_anchor = None;
                         self.rect_drag = false;
+                        self.rect_drag_anchor = None;
                     } else if let Some(doc) = self.state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
                         self.sel_text_drag = None;
                         self.rect_drag = false;
+                        self.rect_drag_anchor = None;
                         if shift {
                             self.drag_anchor = Some(sel_anchor);
                             doc.buffer.set_selection(sel_anchor, idx);
@@ -16686,9 +16797,9 @@ impl EditorApp {
             }
         } else if response.dragged() {
             if let Some(pos) = response.interact_pointer_pos() {
-                if let Some(doc) = self.state.tabs.get(tab) {
-                    let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
-                    if let Some(drag) = self.sel_text_drag.as_mut() {
+                if let Some(drag) = self.sel_text_drag.as_mut() {
+                    if let Some(doc) = self.state.tabs.get(tab) {
+                        let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                         if rect.contains(pos) {
                             drag.drop_bar = SelDropBar::None;
                             drag.drop_tab = tab;
@@ -16700,13 +16811,27 @@ impl EditorApp {
                                 CursorIcon::Grabbing
                             });
                         }
-                    } else if let Some(anchor) = self.drag_anchor {
-                        if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            if self.rect_drag {
-                                doc.set_rect_selection(anchor, idx);
-                            } else {
-                                doc.buffer.set_selection(anchor, idx);
+                    }
+                } else if self.rect_drag {
+                    if let Some((al, ac)) = self.rect_drag_anchor {
+                        let hit = self.state.tabs.get(tab).map(|doc| {
+                            hit_line_col_virtual(ui, pos, &doc.buffer, scroll_line, &visible_lines)
+                        });
+                        if let Some((line, col)) = hit {
+                            if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                doc.set_rect_selection_cols(al, ac, line, col);
                             }
+                            self.follow_caret_other = false;
+                        }
+                    }
+                } else if let Some(anchor) = self.drag_anchor {
+                    let idx =
+                        self.state.tabs.get(tab).map(|doc| {
+                            hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines)
+                        });
+                    if let Some(idx) = idx {
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.buffer.set_selection(anchor, idx);
                         }
                         self.follow_caret_other = false;
                     }
@@ -16733,6 +16858,7 @@ impl EditorApp {
                 }
                 self.drag_anchor = None;
                 self.rect_drag = false;
+                self.rect_drag_anchor = None;
                 self.sel_text_drag = None;
                 self.follow_caret_other = false;
             }
@@ -16765,6 +16891,7 @@ impl EditorApp {
             }
             self.drag_anchor = None;
             self.rect_drag = false;
+            self.rect_drag_anchor = None;
             if self
                 .scrollbar_drag
                 .as_ref()
@@ -16957,22 +17084,23 @@ impl EditorApp {
                 }
             }
 
-            let (line_start, line_text, primary_sel, multi, caret) = match self.state.tabs.get(tab)
-            {
-                Some(doc) => {
-                    let line_start = doc.buffer.line_to_char(line_idx);
-                    let raw = doc.buffer.line(line_idx);
-                    let line_text = raw.trim_end_matches(['\n', '\r']).to_string();
-                    (
-                        line_start,
-                        line_text,
-                        doc.buffer.selection(),
-                        doc.multi_sels.clone(),
-                        doc.buffer.caret(),
-                    )
-                }
-                None => break,
-            };
+            let (line_start, line_text, primary_sel, multi, caret, rect_cols) =
+                match self.state.tabs.get(tab) {
+                    Some(doc) => {
+                        let line_start = doc.buffer.line_to_char(line_idx);
+                        let raw = doc.buffer.line(line_idx);
+                        let line_text = raw.trim_end_matches(['\n', '\r']).to_string();
+                        (
+                            line_start,
+                            line_text,
+                            doc.buffer.selection(),
+                            doc.multi_sels.clone(),
+                            doc.buffer.caret(),
+                            doc.rect_cols,
+                        )
+                    }
+                    None => break,
+                };
             let line_text = line_text.as_str();
             if self.compare_on {
                 if let Some(kind) = self.compare_right_tags.get(line_idx) {
@@ -16995,8 +17123,25 @@ impl EditorApp {
                 }
             }
 
-            if let Some((sel_s, sel_e)) = primary_sel {
-                let line_end = line_start + line_text.chars().count();
+            let line_end = line_start + line_text.chars().count();
+            let line_in_rect = multi.iter().any(|&(s, e)| {
+                let c = s.min(e);
+                c >= line_start && c <= line_end
+            });
+            if let Some((col_lo, col_hi)) = rect_cols.filter(|_| line_in_rect) {
+                if col_lo < col_hi {
+                    let x0 = text_left + x_for_col(ui, &font_id, line_text, col_lo);
+                    let x1 = text_left + x_for_col(ui, &font_id, line_text, col_hi);
+                    painter.rect_filled(
+                        Rect::from_min_max(
+                            Pos2::new(x0, y),
+                            Pos2::new(x1.max(x0 + 2.0), y + row_height),
+                        ),
+                        0.0,
+                        theme.selection_bg,
+                    );
+                }
+            } else if let Some((sel_s, sel_e)) = primary_sel {
                 if sel_s < line_end && sel_e > line_start {
                     let local_s = sel_s
                         .saturating_sub(line_start)
@@ -17026,50 +17171,59 @@ impl EditorApp {
                     );
                 }
             }
-            for &(sel_s, sel_e) in &multi {
-                if primary_sel == Some((sel_s, sel_e)) {
-                    continue;
+            if let Some((col_lo, col_hi)) = rect_cols.filter(|_| line_in_rect) {
+                if col_lo == col_hi {
+                    let cx = text_left + x_for_col(ui, &font_id, line_text, col_lo);
+                    painter.line_segment(
+                        [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
+                        egui::Stroke::new(1.0_f32, theme.caret_fg),
+                    );
                 }
-                let line_end = line_start + line_text.chars().count();
-                if sel_s == sel_e {
-                    if sel_s >= line_start && sel_s <= line_end {
-                        let col = sel_s - line_start;
-                        let prefix: String = line_text.chars().take(col).collect();
-                        let cx = text_left + text_width(ui, &font_id, &prefix);
-                        painter.line_segment(
-                            [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
-                            egui::Stroke::new(1.0_f32, theme.caret_fg),
+            } else {
+                for &(sel_s, sel_e) in &multi {
+                    if primary_sel == Some((sel_s, sel_e)) {
+                        continue;
+                    }
+                    if sel_s == sel_e {
+                        if sel_s >= line_start && sel_s <= line_end {
+                            let col = sel_s - line_start;
+                            let prefix: String = line_text.chars().take(col).collect();
+                            let cx = text_left + text_width(ui, &font_id, &prefix);
+                            painter.line_segment(
+                                [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
+                                egui::Stroke::new(1.0_f32, theme.caret_fg),
+                            );
+                        }
+                        continue;
+                    }
+                    if sel_s < line_end && sel_e > line_start {
+                        let local_s = sel_s
+                            .saturating_sub(line_start)
+                            .min(line_text.chars().count());
+                        let local_e = sel_e
+                            .saturating_sub(line_start)
+                            .min(line_text.chars().count());
+                        let x0 = text_left
+                            + text_width(
+                                ui,
+                                &font_id,
+                                &line_text.chars().take(local_s).collect::<String>(),
+                            );
+                        let x1 = text_left
+                            + text_width(
+                                ui,
+                                &font_id,
+                                &line_text.chars().take(local_e).collect::<String>(),
+                            );
+                        painter.rect_filled(
+                            Rect::from_min_max(
+                                Pos2::new(x0, y),
+                                Pos2::new(x1.max(x0 + 2.0), y + row_height),
+                            ),
+                            0.0,
+                            theme.selection_bg,
                         );
                     }
-                    continue;
-                }
-                if sel_s < line_end && sel_e > line_start {
-                    let local_s = sel_s
-                        .saturating_sub(line_start)
-                        .min(line_text.chars().count());
-                    let local_e = sel_e
-                        .saturating_sub(line_start)
-                        .min(line_text.chars().count());
-                    let x0 = text_left
-                        + text_width(
-                            ui,
-                            &font_id,
-                            &line_text.chars().take(local_s).collect::<String>(),
-                        );
-                    let x1 = text_left
-                        + text_width(
-                            ui,
-                            &font_id,
-                            &line_text.chars().take(local_e).collect::<String>(),
-                        );
-                    painter.rect_filled(
-                        Rect::from_min_max(
-                            Pos2::new(x0, y),
-                            Pos2::new(x1.max(x0 + 2.0), y + row_height),
-                        ),
-                        0.0,
-                        theme.selection_bg,
-                    );
                 }
             }
 
@@ -17087,16 +17241,23 @@ impl EditorApp {
                 crate::commands::edit::text_is_rtl(),
             );
 
-            let line_end = line_start + line_text.chars().count();
-            if caret >= line_start && caret <= line_end {
-                let blink_on = if self.state.settings.caret_blink {
-                    ui.ctx()
-                        .request_repaint_after(std::time::Duration::from_millis(500));
-                    ((ui.input(|i| i.time) * 2.0_f64) as i64).rem_euclid(2) == 0
-                } else {
-                    true
-                };
-                if blink_on {
+            let blink_on = if self.state.settings.caret_blink {
+                ui.ctx()
+                    .request_repaint_after(std::time::Duration::from_millis(500));
+                ((ui.input(|i| i.time) * 2.0_f64) as i64).rem_euclid(2) == 0
+            } else {
+                true
+            };
+            if blink_on {
+                if let Some((col_lo, col_hi)) = rect_cols.filter(|_| line_in_rect) {
+                    if col_lo < col_hi && caret >= line_start && caret <= line_end {
+                        let cx = text_left + x_for_col(ui, &font_id, line_text, col_hi);
+                        painter.line_segment(
+                            [Pos2::new(cx, y), Pos2::new(cx, y + row_height - 1.0)],
+                            egui::Stroke::new(1.0_f32, theme.caret_fg),
+                        );
+                    }
+                } else if caret >= line_start && caret <= line_end {
                     let col = caret - line_start;
                     let prefix: String = line_text.chars().take(col).collect();
                     let cx = text_left + text_width(ui, &font_id, &prefix);

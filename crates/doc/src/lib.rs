@@ -440,6 +440,28 @@ impl Document {
     pub fn set_rect_selection(&mut self, anchor: usize, caret: usize) {
         let ranges = self.buffer.rect_ranges(anchor, caret);
         self.rect_cols = Some(self.buffer.rect_corner_cols(anchor, caret));
+        self.apply_rect_ranges(ranges, caret);
+    }
+
+    /// Set rectangular selection from line/column corners (columns may be past EOL).
+    pub fn set_rect_selection_cols(
+        &mut self,
+        line_a: usize,
+        col_a: usize,
+        line_b: usize,
+        col_b: usize,
+    ) {
+        let ranges = self
+            .buffer
+            .rect_ranges_from_cols(line_a, col_a, line_b, col_b);
+        self.rect_cols = Some((col_a.min(col_b), col_a.max(col_b)));
+        let fallback = self
+            .buffer
+            .line_to_char(line_b.min(self.buffer.line_count().saturating_sub(1)));
+        self.apply_rect_ranges(ranges, fallback);
+    }
+
+    fn apply_rect_ranges(&mut self, ranges: Vec<(usize, usize)>, fallback_caret: usize) {
         self.multi_sels = ranges.clone();
         if let Some(&(s, e)) = ranges.last() {
             if s == e {
@@ -448,7 +470,7 @@ impl Document {
                 self.buffer.set_selection(s, e);
             }
         } else {
-            self.buffer.set_caret(caret);
+            self.buffer.set_caret(fallback_caret);
         }
     }
 
@@ -1044,6 +1066,19 @@ mod tests {
         assert_eq!(doc.buffer.to_string(), "abcZd\nx  Z\nijkZl\n");
         assert_eq!(doc.rect_cols, None);
         assert!(doc.has_multi_carets());
+    }
+
+    #[test]
+    fn set_rect_selection_cols_past_all_eols() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("ab\nx\ncd\n");
+        // Columns 5..5 past every line's EOL.
+        doc.set_rect_selection_cols(0, 5, 2, 5);
+        assert_eq!(doc.rect_cols, Some((5, 5)));
+        // Char carets clamp to each EOL; virtual col kept in rect_cols.
+        assert_eq!(doc.multi_sels, vec![(2, 2), (4, 4), (7, 7)]);
+        assert!(doc.insert_multi("Z"));
+        assert_eq!(doc.buffer.to_string(), "ab   Z\nx    Z\ncd   Z\n");
     }
 
     #[test]

@@ -31,7 +31,7 @@ None. When the issue queue is empty, 009 picks the first non-struck item in `doc
 ### P0 — daily editor feel
 
 1. **Full shortcut mapper / `shortcuts.xml`** — most common chords remappable via `shortcut_*` settings keys; dump in Shortcut Mapper / About. Still no N++-style full remap file, and many menu commands still have no accelerator.
-2. **Column / multi-edit depth** — Alt+rect + multi-caret typing + **pad-on-type / pad-on-copy virtual space** past EOL; free caret motion / click past EOL still open (`docs/column-mode.md`).
+2. **Column / multi-edit depth** — Alt+rect + multi-caret typing + **pad-on-type / pad-on-copy** + **Alt+drag click/drag past EOL** (virtual carets); plain (non-Alt) free caret motion / click past EOL still open (`docs/column-mode.md`).
 3. **Find / Replace UI depth** — case/word/count/wrap/sel + linear-time Re + `$n` replace work; not the full N++ Find/Replace dialog (filters, mark-all panel, etc.).
 4. **Find in Files UI** — recursive workspace + globs + Re; not full N++ FIF dialog.
 
