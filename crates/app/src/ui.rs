@@ -4011,6 +4011,47 @@ impl EditorApp {
                 self.apply_closed_tab_indices();
             }
         }
+        // Remappable close all (default Cmd+Alt+W; settings.shortcut_close_all).
+        // Shift flips to Close All but Current.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_CLOSE_ALL};
+            let close_all_chord =
+                resolve_chord(&self.state.settings.shortcut_close_all, DEFAULT_CLOSE_ALL);
+            let close_all_key_pressed = match close_all_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if close_all_key_pressed
+                && close_all_chord
+                    .flipped_shift()
+                    .matches(mods, close_all_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_FILE_CLOSEALL_BUT_CURRENT");
+            } else if close_all_key_pressed && close_all_chord.matches(mods, close_all_chord.key) {
+                self.run_shortcut_cmd("IDM_FILE_CLOSEALL");
+            }
+        }
 
         // Remappable next tab (default Cmd+Tab; settings.shortcut_next_tab). Shift flips to prev.
         {
@@ -5926,6 +5967,14 @@ impl EditorApp {
                 &s.shortcut_close_tab,
                 crate::shortcut_chord::DEFAULT_CLOSE_TAB,
             ),
+            "IDM_FILE_CLOSEALL" => primary(
+                &s.shortcut_close_all,
+                crate::shortcut_chord::DEFAULT_CLOSE_ALL,
+            ),
+            "IDM_FILE_CLOSEALL_BUT_CURRENT" => shifted(
+                &s.shortcut_close_all,
+                crate::shortcut_chord::DEFAULT_CLOSE_ALL,
+            ),
             "IDM_VIEW_TAB_NEXT" => primary(
                 &s.shortcut_next_tab,
                 crate::shortcut_chord::DEFAULT_NEXT_TAB,
@@ -6671,6 +6720,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_CLOSE_TAB,
         )
         .display();
+        let close_all_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_close_all,
+            crate::shortcut_chord::DEFAULT_CLOSE_ALL,
+        );
+        let close_all_keys = format!(
+            "{} / {}",
+            close_all_chord.display(),
+            close_all_chord.flipped_shift().display()
+        );
         let next_tab_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_next_tab,
             crate::shortcut_chord::DEFAULT_NEXT_TAB,
@@ -6952,7 +7010,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 87] = [
+        let rows: [(&str, &str); 88] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -7081,6 +7139,7 @@ impl EditorApp {
             ("Double-click", "Select word"),
             (undo_keys.as_str(), "Undo / Redo"),
             (close_keys.as_str(), "Close tab"),
+            (close_all_keys.as_str(), "Close all / Close all but current"),
             (next_tab_keys.as_str(), "Next / prev tab"),
         ];
         rows.into_iter()
@@ -9061,6 +9120,37 @@ impl EditorApp {
                             RichText::new("Example: Cmd+W, Ctrl+Shift+W.")
                                 .small()
                                 .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Close All shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_close_all,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+W"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_close_all.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_close_all =
+                                        crate::shortcut_chord::DEFAULT_CLOSE_ALL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CLOSE_ALL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_close_all = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+W, Ctrl+Alt+W. Shift flips to Close All but Current.",
+                            )
+                            .small()
+                            .weak(),
                         );
                         ui.horizontal(|ui| {
                             ui.label("Pin tab shortcut");

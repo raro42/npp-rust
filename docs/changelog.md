@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.256] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Close All** is remappable: Preferences → Close All shortcut, or `shortcut_close_all` in `npp-rs/settings.json` (default `Cmd+Alt+W`). Shift flips to **Close All but Current**. Menu, Shortcut Mapper, and About show both bindings.
+
 ## [0.3.255] — 2026-10-13
 
 Edit / column mode:

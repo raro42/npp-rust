@@ -114,6 +114,10 @@ pub const DEFAULT_FORMAT_DOCUMENT: &str = "Cmd+Shift+I";
 /// Default close-tab binding (matches historical hard-wire).
 pub const DEFAULT_CLOSE_TAB: &str = "Cmd+W";
 
+/// Default close-all binding (File → Close All). Shift flips to Close All but Current.
+/// Uses Cmd+Alt+W so it does not collide with Close tab (Cmd+W).
+pub const DEFAULT_CLOSE_ALL: &str = "Cmd+Alt+W";
+
 /// Default new-file binding (matches historical hard-wire).
 pub const DEFAULT_NEW: &str = "Cmd+N";
 
@@ -1062,6 +1066,17 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::W);
         assert_eq!(c.display(), "Cmd+W");
+    }
+
+    #[test]
+    fn parse_cmd_alt_w_default_close_all() {
+        let c = parse_chord(DEFAULT_CLOSE_ALL).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::W);
+        assert_eq!(c.display(), "Cmd+Alt+W");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+W");
     }
 
     #[test]

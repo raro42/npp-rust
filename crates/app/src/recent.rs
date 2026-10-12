@@ -236,6 +236,10 @@ fn default_shortcut_close_tab() -> String {
     crate::shortcut_chord::DEFAULT_CLOSE_TAB.into()
 }
 
+fn default_shortcut_close_all() -> String {
+    crate::shortcut_chord::DEFAULT_CLOSE_ALL.into()
+}
+
 fn default_shortcut_next_tab() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_TAB.into()
 }
@@ -691,6 +695,9 @@ pub struct AppSettings {
     /// Close-tab chord (`Cmd+W` default).
     #[serde(default = "default_shortcut_close_tab")]
     pub shortcut_close_tab: String,
+    /// Close-all chord (`Cmd+Alt+W` default; Shift flips to Close All but Current).
+    #[serde(default = "default_shortcut_close_all")]
+    pub shortcut_close_all: String,
     /// Next-tab chord (`Cmd+Tab` default; Shift flips to previous).
     #[serde(default = "default_shortcut_next_tab")]
     pub shortcut_next_tab: String,
@@ -974,6 +981,7 @@ impl Default for AppSettings {
             shortcut_outdent: default_shortcut_outdent(),
             shortcut_format_document: default_shortcut_format_document(),
             shortcut_close_tab: default_shortcut_close_tab(),
+            shortcut_close_all: default_shortcut_close_all(),
             shortcut_next_tab: default_shortcut_next_tab(),
             shortcut_new: default_shortcut_new(),
             shortcut_open: default_shortcut_open(),
@@ -1408,6 +1416,7 @@ mod tests {
             shortcut_outdent: "Ctrl+Shift+[".into(),
             shortcut_format_document: "Ctrl+Alt+I".into(),
             shortcut_close_tab: "Ctrl+Shift+W".into(),
+            shortcut_close_all: "Ctrl+Alt+Shift+W".into(),
             shortcut_next_tab: "Ctrl+Alt+Tab".into(),
             shortcut_new: "Ctrl+Alt+N".into(),
             shortcut_open: "Ctrl+Alt+O".into(),
@@ -1525,6 +1534,7 @@ mod tests {
         assert_eq!(back.shortcut_outdent, "Ctrl+Shift+[");
         assert_eq!(back.shortcut_format_document, "Ctrl+Alt+I");
         assert_eq!(back.shortcut_close_tab, "Ctrl+Shift+W");
+        assert_eq!(back.shortcut_close_all, "Ctrl+Alt+Shift+W");
         assert_eq!(back.shortcut_next_tab, "Ctrl+Alt+Tab");
         assert_eq!(back.shortcut_new, "Ctrl+Alt+N");
         assert_eq!(back.shortcut_open, "Ctrl+Alt+O");

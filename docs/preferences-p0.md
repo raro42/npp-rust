@@ -66,6 +66,7 @@ New keys:
 | `shortcut_outdent` | Outdent-lines chord (`Cmd+[` default) |
 | `shortcut_format_document` | Format-document chord (`Cmd+Shift+I` default) |
 | `shortcut_close_tab` | Close-tab chord (`Cmd+W` default) |
+| `shortcut_close_all` | Close All chord (`Cmd+Alt+W` default; Shift flips to Close All but Current) |
 | `shortcut_pin_tab` | Pin / unpin active tab chord (`Alt+Shift+P` default; `IDM_PINTAB`) |
 | `shortcut_next_tab` | Next-tab chord (`Cmd+Tab` default; Shift flips to previous) |
 | `shortcut_new` | New-file chord (`Cmd+N` default) |
