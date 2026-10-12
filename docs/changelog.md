@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.247] — 2026-10-12
+
+Edit / column mode:
+
+- **Stream select into virtual space**: Shift+click / drag (and plain drag) past EOL extends the selection wash and caret; Shift+Right / Shift+Left grow or shrink virtual space at EOL. Buffer selection still clamps to real characters (`docs/column-mode.md`).
+
 ## [0.3.246] — 2026-10-12
 
 Edit / column mode:

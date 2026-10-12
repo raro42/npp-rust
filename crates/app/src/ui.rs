@@ -2906,17 +2906,38 @@ impl EditorApp {
                     if let Some(doc) = state.tabs.get_mut(tab) {
                         doc.clear_multi_sels();
                         if extend {
-                            doc.clear_virtual_caret();
                             let c = doc.buffer.caret();
-                            let len = doc.buffer.len_chars();
-                            let next = if delta < 0 {
-                                c.saturating_sub((-delta) as usize)
+                            let line = doc.buffer.char_to_line(c);
+                            let line_start = doc.buffer.line_to_char(line);
+                            let body_len = doc.buffer.line_body_len(line);
+                            let at_eol = c == line_start + body_len;
+                            let anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
+                            if delta > 0 && at_eol {
+                                let col = doc
+                                    .virtual_caret_col
+                                    .unwrap_or(body_len)
+                                    .saturating_add(delta as usize);
+                                doc.set_stream_selection_to_line_col(anchor, line, col);
+                            } else if delta < 0 {
+                                if let Some(vc) = doc.virtual_caret_col.filter(|&vc| vc > body_len)
+                                {
+                                    let step = (-delta) as usize;
+                                    let new_col = vc.saturating_sub(step);
+                                    doc.set_stream_selection_to_line_col(anchor, line, new_col);
+                                } else {
+                                    doc.clear_virtual_caret();
+                                    let next = c.saturating_sub((-delta) as usize);
+                                    if next != c {
+                                        doc.buffer.set_selection(anchor, next);
+                                    }
+                                }
                             } else {
-                                (c + delta as usize).min(len)
-                            };
-                            if next != c {
-                                let anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
-                                doc.buffer.set_selection(anchor, next);
+                                doc.clear_virtual_caret();
+                                let len = doc.buffer.len_chars();
+                                let next = (c + delta as usize).min(len);
+                                if next != c {
+                                    doc.buffer.set_selection(anchor, next);
+                                }
                             }
                         } else {
                             let _ = doc.move_char(delta);
@@ -13120,8 +13141,13 @@ impl EditorApp {
                         self.rect_drag = false;
                         self.rect_drag_anchor = None;
                     } else if shift {
-                        self.state.tabs.active_mut().clear_multi_sels();
-                        self.state.tabs.active_mut().clear_virtual_caret();
+                        let (line, col) = hit_line_col_virtual(
+                            ui,
+                            pos,
+                            &self.state.tabs.active().buffer,
+                            self.scroll_line,
+                            &visible_lines,
+                        );
                         self.sel_text_drag = None;
                         self.rect_drag = false;
                         self.rect_drag_anchor = None;
@@ -13129,8 +13155,7 @@ impl EditorApp {
                         self.state
                             .tabs
                             .active_mut()
-                            .buffer
-                            .set_selection(sel_anchor, idx);
+                            .set_stream_selection_to_line_col(sel_anchor, line, col);
                     } else {
                         let (line, col) = hit_line_col_virtual(
                             ui,
@@ -13188,12 +13213,17 @@ impl EditorApp {
                             self.follow_caret = false;
                         }
                     } else if let Some(anchor) = self.drag_anchor {
-                        self.state.tabs.active_mut().clear_virtual_caret();
+                        let (line, col) = hit_line_col_virtual(
+                            ui,
+                            pos,
+                            &self.state.tabs.active().buffer,
+                            self.scroll_line,
+                            &visible_lines,
+                        );
                         self.state
                             .tabs
                             .active_mut()
-                            .buffer
-                            .set_selection(anchor, idx);
+                            .set_stream_selection_to_line_col(anchor, line, col);
                         self.follow_caret = false;
                     }
                 }
@@ -13201,15 +13231,13 @@ impl EditorApp {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let shift = ui.input(|i| i.modifiers.shift);
                     if shift {
-                        let idx = hit_index(
+                        let (line, col) = hit_line_col_virtual(
                             ui,
                             pos,
                             &self.state.tabs.active().buffer,
                             self.scroll_line,
                             &visible_lines,
                         );
-                        self.state.tabs.active_mut().clear_multi_sels();
-                        self.state.tabs.active_mut().clear_virtual_caret();
                         let anchor = self
                             .state
                             .tabs
@@ -13221,8 +13249,7 @@ impl EditorApp {
                         self.state
                             .tabs
                             .active_mut()
-                            .buffer
-                            .set_selection(anchor, idx);
+                            .set_stream_selection_to_line_col(anchor, line, col);
                     } else {
                         let (line, col) = hit_line_col_virtual(
                             ui,
@@ -13528,10 +13555,12 @@ impl EditorApp {
                     }
                 }
 
-                // Selection highlight on line (rect virtual cols may extend past EOL)
+                // Selection highlight on line (rect / stream virtual cols may extend past EOL)
                 let primary_sel = self.state.tabs.active().buffer.selection();
                 let multi = self.state.tabs.active().multi_sels.clone();
                 let rect_cols = self.state.tabs.active().rect_cols;
+                let caret_for_sel = self.state.tabs.active().buffer.caret();
+                let virtual_caret_for_sel = self.state.tabs.active().virtual_caret_col;
                 let line_end = line_start + line_text.chars().count();
                 let line_in_rect = multi.iter().any(|&(s, e)| {
                     let c = s.min(e);
@@ -13555,21 +13584,19 @@ impl EditorApp {
                         let local_s = sel_s
                             .saturating_sub(line_start)
                             .min(line_text.chars().count());
-                        let local_e = sel_e
+                        let mut local_e = sel_e
                             .saturating_sub(line_start)
                             .min(line_text.chars().count());
-                        let x0 = text_left
-                            + text_width(
-                                ui,
-                                &font_id,
-                                &line_text.chars().take(local_s).collect::<String>(),
-                            );
-                        let x1 = text_left
-                            + text_width(
-                                ui,
-                                &font_id,
-                                &line_text.chars().take(local_e).collect::<String>(),
-                            );
+                        // Stream select: extend wash past EOL when caret end is virtual.
+                        if sel_e == caret_for_sel && caret_for_sel == line_end {
+                            if let Some(vc) =
+                                virtual_caret_for_sel.filter(|&vc| vc > line_text.chars().count())
+                            {
+                                local_e = vc;
+                            }
+                        }
+                        let x0 = text_left + x_for_col(ui, &font_id, line_text, local_s);
+                        let x1 = text_left + x_for_col(ui, &font_id, line_text, local_e);
                         painter.rect_filled(
                             Rect::from_min_max(
                                 Pos2::new(x0, y),
@@ -16803,10 +16830,10 @@ impl EditorApp {
                         self.rect_drag = false;
                         self.rect_drag_anchor = None;
                     } else if shift {
+                        let (line, col) =
+                            hit_line_col_virtual(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.clear_multi_sels();
-                            doc.clear_virtual_caret();
-                            doc.buffer.set_selection(sel_anchor, idx);
+                            doc.set_stream_selection_to_line_col(sel_anchor, line, col);
                         }
                         self.sel_text_drag = None;
                         self.rect_drag = false;
@@ -16857,14 +16884,12 @@ impl EditorApp {
                         }
                     }
                 } else if let Some(anchor) = self.drag_anchor {
-                    let idx =
-                        self.state.tabs.get(tab).map(|doc| {
-                            hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines)
-                        });
-                    if let Some(idx) = idx {
+                    let hit = self.state.tabs.get(tab).map(|doc| {
+                        hit_line_col_virtual(ui, pos, &doc.buffer, scroll_line, &visible_lines)
+                    });
+                    if let Some((line, col)) = hit {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.clear_virtual_caret();
-                            doc.buffer.set_selection(anchor, idx);
+                            doc.set_stream_selection_to_line_col(anchor, line, col);
                         }
                         self.follow_caret_other = false;
                     }
@@ -16877,11 +16902,10 @@ impl EditorApp {
                     let caret = doc.buffer.caret();
                     let sel_anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(caret);
                     if shift {
-                        let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
+                        let (line, col) =
+                            hit_line_col_virtual(ui, pos, &doc.buffer, scroll_line, &visible_lines);
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.clear_multi_sels();
-                            doc.clear_virtual_caret();
-                            doc.buffer.set_selection(sel_anchor, idx);
+                            doc.set_stream_selection_to_line_col(sel_anchor, line, col);
                         }
                     } else {
                         let (line, col) =
@@ -17185,21 +17209,18 @@ impl EditorApp {
                     let local_s = sel_s
                         .saturating_sub(line_start)
                         .min(line_text.chars().count());
-                    let local_e = sel_e
+                    let mut local_e = sel_e
                         .saturating_sub(line_start)
                         .min(line_text.chars().count());
-                    let x0 = text_left
-                        + text_width(
-                            ui,
-                            &font_id,
-                            &line_text.chars().take(local_s).collect::<String>(),
-                        );
-                    let x1 = text_left
-                        + text_width(
-                            ui,
-                            &font_id,
-                            &line_text.chars().take(local_e).collect::<String>(),
-                        );
+                    if sel_e == caret && caret == line_end {
+                        if let Some(vc) =
+                            virtual_caret_col.filter(|&vc| vc > line_text.chars().count())
+                        {
+                            local_e = vc;
+                        }
+                    }
+                    let x0 = text_left + x_for_col(ui, &font_id, line_text, local_s);
+                    let x1 = text_left + x_for_col(ui, &font_id, line_text, local_e);
                     painter.rect_filled(
                         Rect::from_min_max(
                             Pos2::new(x0, y),
@@ -17630,11 +17651,19 @@ impl EditorApp {
                         if !modifiers.alt {
                             if let Some(doc) = self.state.tabs.get_mut(tab) {
                                 if modifiers.shift {
-                                    doc.clear_virtual_caret();
                                     let c = doc.buffer.caret();
-                                    if c > 0 {
-                                        let anchor =
-                                            doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
+                                    let line = doc.buffer.char_to_line(c);
+                                    let body_len = doc.buffer.line_body_len(line);
+                                    let anchor =
+                                        doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
+                                    if let Some(vc) =
+                                        doc.virtual_caret_col.filter(|&vc| vc > body_len)
+                                    {
+                                        let new_col = vc.saturating_sub(1);
+                                        doc.set_stream_selection_to_line_col(anchor, line, new_col);
+                                        caret_moved = true;
+                                    } else if c > 0 {
+                                        doc.clear_virtual_caret();
                                         doc.buffer.set_selection(anchor, c - 1);
                                         caret_moved = true;
                                     }
@@ -17696,14 +17725,27 @@ impl EditorApp {
                         if !modifiers.alt {
                             if let Some(doc) = self.state.tabs.get_mut(tab) {
                                 if modifiers.shift {
-                                    doc.clear_virtual_caret();
                                     let c = doc.buffer.caret();
-                                    let len = doc.buffer.len_chars();
-                                    if c < len {
-                                        let anchor =
-                                            doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
-                                        doc.buffer.set_selection(anchor, c + 1);
+                                    let line = doc.buffer.char_to_line(c);
+                                    let line_start = doc.buffer.line_to_char(line);
+                                    let body_len = doc.buffer.line_body_len(line);
+                                    let at_eol = c == line_start + body_len;
+                                    let anchor =
+                                        doc.buffer.selection().map(|(s, _)| s).unwrap_or(c);
+                                    if at_eol {
+                                        let col = doc
+                                            .virtual_caret_col
+                                            .unwrap_or(body_len)
+                                            .saturating_add(1);
+                                        doc.set_stream_selection_to_line_col(anchor, line, col);
                                         caret_moved = true;
+                                    } else {
+                                        doc.clear_virtual_caret();
+                                        let len = doc.buffer.len_chars();
+                                        if c < len {
+                                            doc.buffer.set_selection(anchor, c + 1);
+                                            caret_moved = true;
+                                        }
                                     }
                                 } else if doc.move_char(1) {
                                     caret_moved = true;

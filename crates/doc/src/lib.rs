@@ -458,6 +458,22 @@ impl Document {
         self.virtual_caret_col = if col > body_len { Some(col) } else { None };
     }
 
+    /// Stream (non-rect) selection from `anchor` to `(line, col)`.
+    ///
+    /// The caret end may sit past EOL (`virtual_caret_col`); the buffer selection
+    /// still clamps to the line body. Used by Shift+click / drag into virtual space.
+    pub fn set_stream_selection_to_line_col(&mut self, anchor: usize, line: usize, col: usize) {
+        self.multi_sels.clear();
+        self.rect_cols = None;
+        let line = line.min(self.buffer.line_count().saturating_sub(1));
+        let line_start = self.buffer.line_to_char(line);
+        let body_len = self.buffer.line_body_len(line);
+        let clamped = col.min(body_len);
+        let caret = line_start + clamped;
+        self.buffer.set_selection(anchor, caret);
+        self.virtual_caret_col = if col > body_len { Some(col) } else { None };
+    }
+
     /// Insert `text` at multi-carets, or pad plain virtual space then insert.
     pub fn insert_plain(&mut self, text: &str) -> bool {
         if self.insert_multi(text) {
@@ -1292,6 +1308,21 @@ mod tests {
         doc.set_caret_at_line_col(0, 8);
         assert!(doc.move_char(-1));
         assert_eq!(doc.virtual_caret_col, Some(7));
+    }
+
+    #[test]
+    fn stream_selection_into_virtual_space() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("ab\n");
+        // Select from col 1 through past EOL (virtual col 5).
+        doc.set_stream_selection_to_line_col(1, 0, 5);
+        assert_eq!(doc.buffer.selection(), Some((1, 2)));
+        assert_eq!(doc.buffer.caret(), 2);
+        assert_eq!(doc.virtual_caret_col, Some(5));
+        // Same-line clamp back into the body clears virtual.
+        doc.set_stream_selection_to_line_col(1, 0, 2);
+        assert_eq!(doc.buffer.selection(), Some((1, 2)));
+        assert_eq!(doc.virtual_caret_col, None);
     }
 
     #[test]
