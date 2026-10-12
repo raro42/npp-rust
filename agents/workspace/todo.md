@@ -396,3 +396,5 @@
 009 keep: stream select into virtual space Shift+drag/Right (v0.3.247)
 
 009 keep: multi-caret plain arrow move (v0.3.248)
+
+009 keep: Ctrl/Cmd+click add/toggle multi-carets (v0.3.249)
