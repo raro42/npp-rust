@@ -127,7 +127,8 @@ pub struct Document {
     pub view_scroll_line: usize,
     /// Style marks 1..=5: line indices (Search → Style).
     pub style_marks: [BTreeSet<usize>; 5],
-    /// Extra multi-select ranges (char indices), newest last. Primary selection is separate.
+    /// Extra multi-select ranges as `(anchor, caret)` char indices, newest last.
+    /// Primary buffer selection mirrors the last entry. Ordered `(lo, hi)` is not required.
     pub multi_sels: Vec<(usize, usize)>,
     /// Desired column span for the last Alt+drag rect (`col_lo`, `col_hi`), including
     /// virtual space past EOL. Cleared on multi-caret edits and non-rect multi-select.
@@ -471,10 +472,7 @@ impl Document {
         let body_len = self.buffer.line_body_len(line);
         let pos = line_start + col.min(body_len);
 
-        let primary = self.buffer.selection().unwrap_or_else(|| {
-            let c = self.buffer.caret();
-            (c, c)
-        });
+        let primary = self.buffer.anchor_and_caret();
         if self.multi_sels.is_empty() || !self.multi_sels.contains(&primary) {
             self.multi_sels.push(primary);
         }
@@ -803,6 +801,89 @@ impl Document {
         true
     }
 
+    /// Shift+Left/Right: extend every stream multi-caret selection by `delta` chars.
+    ///
+    /// Keeps each range's anchor and moves its caret. Rect selections return false
+    /// (caller may clear). Returns false when multi-carets are inactive.
+    pub fn extend_multi_char(&mut self, delta: isize) -> bool {
+        if delta == 0 || !self.has_multi_carets() || self.rect_cols.is_some() {
+            return false;
+        }
+        let len = self.buffer.len_chars();
+        let mut new_sels = Vec::with_capacity(self.multi_sels.len());
+        for &(anchor, caret) in &self.multi_sels {
+            let anchor = anchor.min(len);
+            let caret = caret.min(len);
+            let new_caret = if delta < 0 {
+                caret.saturating_sub((-delta) as usize)
+            } else {
+                (caret + delta as usize).min(len)
+            };
+            new_sels.push((anchor, new_caret));
+        }
+        new_sels.sort_by_key(|&(a, c)| (c, a));
+        new_sels.dedup();
+        if new_sels.len() < 2 {
+            if let Some(&(anchor, caret)) = new_sels.first() {
+                self.multi_sels.clear();
+                self.rect_cols = None;
+                self.virtual_caret_col = None;
+                if anchor == caret {
+                    self.buffer.set_caret(caret);
+                } else {
+                    self.buffer.set_selection(anchor, caret);
+                }
+            }
+            return true;
+        }
+        self.finish_multi_sels(new_sels);
+        true
+    }
+
+    /// Shift+Up/Down: extend every stream multi-caret selection by `delta` lines.
+    ///
+    /// Keeps each range's anchor; moves the caret end with column preference.
+    /// Rect selections return false. Returns false when multi-carets are inactive.
+    pub fn extend_multi_line(&mut self, delta: isize) -> bool {
+        if delta == 0 || !self.has_multi_carets() || self.rect_cols.is_some() {
+            return false;
+        }
+        let line_count = self.buffer.line_count();
+        if line_count == 0 {
+            return false;
+        }
+        let len = self.buffer.len_chars();
+        let max_line = (line_count - 1) as isize;
+        let mut new_sels = Vec::with_capacity(self.multi_sels.len());
+        for &(anchor, caret) in &self.multi_sels {
+            let anchor = anchor.min(len);
+            let caret = caret.min(len);
+            let from_line = self.buffer.char_to_line(caret);
+            let prefer_col = caret - self.buffer.line_to_char(from_line);
+            let line = (from_line as isize + delta).clamp(0, max_line) as usize;
+            let body_len = self.buffer.line_body_len(line);
+            let new_caret = self.buffer.line_to_char(line) + prefer_col.min(body_len);
+            new_sels.push((anchor, new_caret));
+        }
+        new_sels.sort_by_key(|&(a, c)| (c, a));
+        new_sels.dedup();
+        if new_sels.len() < 2 {
+            if let Some(&(anchor, caret)) = new_sels.first() {
+                self.multi_sels.clear();
+                self.rect_cols = None;
+                self.virtual_caret_col = None;
+                if anchor == caret {
+                    self.buffer.set_caret(caret);
+                } else {
+                    self.buffer.set_selection(anchor, caret);
+                }
+            }
+            return true;
+        }
+        self.finish_multi_sels(new_sels);
+        true
+    }
+
     /// Set rectangular selection from two char corners (Alt+drag).
     pub fn set_rect_selection(&mut self, anchor: usize, caret: usize) {
         self.virtual_caret_col = None;
@@ -880,10 +961,12 @@ impl Document {
         }
         let mut parts = Vec::with_capacity(self.multi_sels.len());
         let mut sorted = self.multi_sels.clone();
-        sorted.sort_by_key(|(s, _)| *s);
+        sorted.sort_by_key(|&(s, e)| s.min(e));
         for &(s, e) in &sorted {
-            if s < e {
-                parts.push(self.buffer.slice(s, e));
+            let lo = s.min(e);
+            let hi = s.max(e);
+            if lo < hi {
+                parts.push(self.buffer.slice(lo, hi));
             } else {
                 parts.push(String::new());
             }
@@ -900,27 +983,27 @@ impl Document {
             return self.insert_multi_rect(text, col_lo, col_hi);
         }
         let mut sorted = self.multi_sels.clone();
-        sorted.sort_by_key(|(s, _)| *s);
+        sorted.sort_by_key(|&(s, e)| s.min(e));
         sorted.dedup();
         let n_ins = text.chars().count();
-        let mut new_sels = Vec::with_capacity(sorted.len());
+        let mut new_sels: Vec<(usize, usize)> = Vec::with_capacity(sorted.len());
         self.buffer.with_coalescable_insert_transaction(|b| {
             for &(s, e) in sorted.iter().rev() {
                 let len = b.len_chars();
-                let s = s.min(len);
-                let e = e.min(len).max(s);
-                let del = e - s;
-                if s < e {
+                let lo = s.min(e).min(len);
+                let hi = s.max(e).min(len);
+                let del = hi - lo;
+                if lo < hi {
                     // Quiet: do not break multi-caret typing coalesce mid-transaction.
-                    b.set_selection_quiet(s, e);
+                    b.set_selection_quiet(lo, hi);
                 } else {
-                    b.set_caret_quiet(s);
+                    b.set_caret_quiet(lo);
                 }
                 b.insert(text);
                 let c = b.caret();
                 let net = n_ins as isize - del as isize;
                 for (ns, ne) in &mut new_sels {
-                    if *ns >= s {
+                    if (*ns).min(*ne) >= lo {
                         *ns = (*ns as isize + net).max(0) as usize;
                         *ne = (*ne as isize + net).max(0) as usize;
                     }
@@ -979,20 +1062,20 @@ impl Document {
             return false;
         }
         let mut sorted = self.multi_sels.clone();
-        sorted.sort_by_key(|(s, _)| *s);
+        sorted.sort_by_key(|&(s, e)| s.min(e));
         sorted.dedup();
-        let mut new_sels = Vec::with_capacity(sorted.len());
+        let mut new_sels: Vec<(usize, usize)> = Vec::with_capacity(sorted.len());
         self.buffer.with_transaction(|b| {
             for &(s, e) in sorted.iter().rev() {
                 let len = b.len_chars();
-                let s = s.min(len);
-                let e = e.min(len).max(s);
+                let lo = s.min(e).min(len);
+                let hi = s.max(e).min(len);
                 let before = b.len_chars();
-                if s < e {
-                    b.set_selection(s, e);
+                if lo < hi {
+                    b.set_selection(lo, hi);
                     b.delete_backward();
-                } else if s > 0 {
-                    b.set_caret(s);
+                } else if lo > 0 {
+                    b.set_caret(lo);
                     b.delete_backward();
                 } else {
                     b.set_caret(0);
@@ -1000,7 +1083,7 @@ impl Document {
                 let c = b.caret();
                 let net = b.len_chars() as isize - before as isize;
                 for (ns, ne) in &mut new_sels {
-                    if *ns >= s {
+                    if (*ns).min(*ne) >= lo {
                         *ns = (*ns as isize + net).max(0) as usize;
                         *ne = (*ne as isize + net).max(0) as usize;
                     }
@@ -1019,28 +1102,28 @@ impl Document {
             return false;
         }
         let mut sorted = self.multi_sels.clone();
-        sorted.sort_by_key(|(s, _)| *s);
+        sorted.sort_by_key(|&(s, e)| s.min(e));
         sorted.dedup();
-        let mut new_sels = Vec::with_capacity(sorted.len());
+        let mut new_sels: Vec<(usize, usize)> = Vec::with_capacity(sorted.len());
         self.buffer.with_transaction(|b| {
             for &(s, e) in sorted.iter().rev() {
                 let len = b.len_chars();
-                let s = s.min(len);
-                let e = e.min(len).max(s);
+                let lo = s.min(e).min(len);
+                let hi = s.max(e).min(len);
                 let before = b.len_chars();
-                if s < e {
-                    b.set_selection(s, e);
+                if lo < hi {
+                    b.set_selection(lo, hi);
                     b.delete_forward();
-                } else if s < b.len_chars() {
-                    b.set_caret(s);
+                } else if lo < b.len_chars() {
+                    b.set_caret(lo);
                     b.delete_forward();
                 } else {
-                    b.set_caret(s);
+                    b.set_caret(lo);
                 }
                 let c = b.caret();
                 let net = b.len_chars() as isize - before as isize;
                 for (ns, ne) in &mut new_sels {
-                    if *ns > s {
+                    if (*ns).min(*ne) > lo {
                         *ns = (*ns as isize + net).max(0) as usize;
                         *ne = (*ne as isize + net).max(0) as usize;
                     }
@@ -1560,6 +1643,44 @@ mod tests {
         assert_eq!(doc.multi_sels, vec![(1, 1), (6, 6)]);
         assert!(doc.move_multi_char(1));
         assert_eq!(doc.multi_sels, vec![(2, 2), (7, 7)]);
+    }
+
+    #[test]
+    fn extend_multi_char_and_line_keep_anchors() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("aa\nbb\ncc\n");
+        doc.multi_sels = vec![(1, 1), (4, 4), (7, 7)];
+        assert!(doc.extend_multi_char(1));
+        assert_eq!(doc.multi_sels, vec![(1, 2), (4, 5), (7, 8)]);
+        assert!(doc.has_multi_carets());
+        assert!(doc.extend_multi_char(-1));
+        assert_eq!(doc.multi_sels, vec![(1, 1), (4, 4), (7, 7)]);
+        assert!(doc.extend_multi_char(-1));
+        // Caret moves left; anchors stay (reversed ranges ok).
+        assert_eq!(doc.multi_sels, vec![(1, 0), (4, 3), (7, 6)]);
+        assert!(doc.extend_multi_char(1));
+        assert_eq!(doc.multi_sels, vec![(1, 1), (4, 4), (7, 7)]);
+        assert!(doc.extend_multi_line(1));
+        assert_eq!(doc.multi_sels, vec![(1, 4), (4, 7), (7, 9)]);
+        assert!(doc.has_multi_carets());
+        assert!(doc.extend_multi_line(-1));
+        // Trailing empty-line caret returns at col 0 (same as move_multi_line).
+        assert_eq!(doc.multi_sels, vec![(1, 1), (4, 4), (7, 6)]);
+        doc.multi_sels = vec![(1, 1), (4, 4), (7, 7)];
+        assert!(doc.extend_multi_char(1));
+        // Extended ranges replace on type (same as a normal selection).
+        assert!(doc.insert_multi("Z"));
+        assert_eq!(doc.buffer.to_string(), "aZ\nbZ\ncZ\n");
+    }
+
+    #[test]
+    fn extend_multi_char_rect_returns_false() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("aa\nbb\ncc\n");
+        doc.set_rect_selection(1, 7);
+        assert!(!doc.extend_multi_char(1));
+        assert!(!doc.extend_multi_line(1));
+        assert!(doc.has_multi_carets());
     }
 
     #[test]

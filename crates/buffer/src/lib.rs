@@ -193,6 +193,11 @@ impl TextBuffer {
         }
     }
 
+    /// Selection as `(anchor, caret)`, or `(caret, caret)` when there is no selection.
+    pub fn anchor_and_caret(&self) -> (usize, usize) {
+        (self.sel_anchor.unwrap_or(self.caret), self.caret)
+    }
+
     pub fn set_selection(&mut self, anchor: usize, caret: usize) {
         self.set_selection_quiet(anchor, caret);
         self.break_typing_coalesce();

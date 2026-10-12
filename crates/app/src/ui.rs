@@ -2907,6 +2907,9 @@ impl EditorApp {
                         if !extend && doc.has_multi_carets() && doc.move_multi_char(delta) {
                             return;
                         }
+                        if extend && doc.has_multi_carets() && doc.extend_multi_char(delta) {
+                            return;
+                        }
                         doc.clear_multi_sels();
                         if extend {
                             let c = doc.buffer.caret();
@@ -3001,16 +3004,18 @@ impl EditorApp {
                 {
                     let extend = mods.shift != down_chord.shift;
                     let mut moved_multi = false;
-                    if !extend {
-                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        if !extend {
                             if doc.has_multi_carets() && doc.move_multi_line(1) {
                                 moved_multi = true;
                             } else {
                                 doc.clear_multi_sels();
                             }
+                        } else if doc.has_multi_carets() && doc.extend_multi_line(1) {
+                            moved_multi = true;
+                        } else {
+                            doc.clear_multi_sels();
                         }
-                    } else if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
                     }
                     if !moved_multi {
                         move_caret_vert(&mut self.state, tab, 1, extend);
@@ -3021,16 +3026,18 @@ impl EditorApp {
                 {
                     let extend = mods.shift != up_chord.shift;
                     let mut moved_multi = false;
-                    if !extend {
-                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        if !extend {
                             if doc.has_multi_carets() && doc.move_multi_line(-1) {
                                 moved_multi = true;
                             } else {
                                 doc.clear_multi_sels();
                             }
+                        } else if doc.has_multi_carets() && doc.extend_multi_line(-1) {
+                            moved_multi = true;
+                        } else {
+                            doc.clear_multi_sels();
                         }
-                    } else if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
                     }
                     if !moved_multi {
                         move_caret_vert(&mut self.state, tab, -1, extend);
@@ -11438,11 +11445,13 @@ impl EditorApp {
             let mut multi_caret_ticks: Vec<usize> = Vec::new();
             if doc.multi_sels.len() >= 2 {
                 for &(s, e) in &doc.multi_sels {
-                    if s == e {
-                        multi_caret_ticks.push(doc.buffer.char_to_line(s));
-                    } else if let Some(span) =
-                        crate::diff::doc_map_char_range_lines(s, e, |c| doc.buffer.char_to_line(c))
-                    {
+                    let lo = s.min(e);
+                    let hi = s.max(e);
+                    if lo == hi {
+                        multi_caret_ticks.push(doc.buffer.char_to_line(lo));
+                    } else if let Some(span) = crate::diff::doc_map_char_range_lines(lo, hi, |c| {
+                        doc.buffer.char_to_line(c)
+                    }) {
                         sel_ranges.push(span);
                     }
                 }
@@ -13676,7 +13685,9 @@ impl EditorApp {
                         );
                     }
                 } else {
-                    for &(sel_s, sel_e) in &multi {
+                    for &(anchor, caret_end) in &multi {
+                        let sel_s = anchor.min(caret_end);
+                        let sel_e = anchor.max(caret_end);
                         if primary_sel == Some((sel_s, sel_e)) {
                             continue;
                         }
@@ -17325,7 +17336,9 @@ impl EditorApp {
                     );
                 }
             } else {
-                for &(sel_s, sel_e) in &multi {
+                for &(anchor, caret_end) in &multi {
+                    let sel_s = anchor.min(caret_end);
+                    let sel_e = anchor.max(caret_end);
                     if primary_sel == Some((sel_s, sel_e)) {
                         continue;
                     }
@@ -17734,12 +17747,15 @@ impl EditorApp {
                         }
                         if !modifiers.alt {
                             if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                if !modifiers.shift
-                                    && !modifiers.command
+                                let multi_ok = !modifiers.command
                                     && !modifiers.ctrl
                                     && doc.has_multi_carets()
-                                    && doc.move_multi_char(-1)
-                                {
+                                    && if modifiers.shift {
+                                        doc.extend_multi_char(-1)
+                                    } else {
+                                        doc.move_multi_char(-1)
+                                    };
+                                if multi_ok {
                                     caret_moved = true;
                                 } else if modifiers.shift {
                                     doc.clear_multi_sels();
@@ -17818,12 +17834,15 @@ impl EditorApp {
                         }
                         if !modifiers.alt {
                             if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                if !modifiers.shift
-                                    && !modifiers.command
+                                let multi_ok = !modifiers.command
                                     && !modifiers.ctrl
                                     && doc.has_multi_carets()
-                                    && doc.move_multi_char(1)
-                                {
+                                    && if modifiers.shift {
+                                        doc.extend_multi_char(1)
+                                    } else {
+                                        doc.move_multi_char(1)
+                                    };
+                                if multi_ok {
                                     caret_moved = true;
                                 } else if modifiers.shift {
                                     doc.clear_multi_sels();
@@ -17928,6 +17947,15 @@ impl EditorApp {
                                 move_caret_vert(&mut self.state, tab, -1, false);
                                 caret_moved = true;
                             }
+                        } else if modifiers.shift
+                            && !modifiers.command
+                            && !modifiers.ctrl
+                            && !modifiers.alt
+                            && self.state.tabs.get_mut(tab).is_some_and(|doc| {
+                                doc.has_multi_carets() && doc.extend_multi_line(-1)
+                            })
+                        {
+                            caret_moved = true;
                         } else {
                             if let Some(doc) = self.state.tabs.get_mut(tab) {
                                 doc.clear_multi_sels();
@@ -18003,6 +18031,15 @@ impl EditorApp {
                                 move_caret_vert(&mut self.state, tab, 1, false);
                                 caret_moved = true;
                             }
+                        } else if modifiers.shift
+                            && !modifiers.command
+                            && !modifiers.ctrl
+                            && !modifiers.alt
+                            && self.state.tabs.get_mut(tab).is_some_and(|doc| {
+                                doc.has_multi_carets() && doc.extend_multi_line(1)
+                            })
+                        {
+                            caret_moved = true;
                         } else {
                             if let Some(doc) = self.state.tabs.get_mut(tab) {
                                 doc.clear_multi_sels();
