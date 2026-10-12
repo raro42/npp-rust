@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.232] — 2026-10-12
+
+File / Session:
+
+- Opt-in session restore now keeps **dual-view other pane** (`@other`, alias `@otherview`) in `npp-rs/session.txt`, in addition to paths, `@folds`, `@bookmarks`, `@style1`…`@style5`, `@caret`, `@sel`, `@scroll`, `@lang`, `@encoding`, `@readonly`, `@pin`, `@colour`, `@tail`, and `@active`. Move / Clone to Other View layout survives relaunch (including async opens). Older session files still load.
+
 ## [0.3.231] — 2026-10-12
 
 File / Session:

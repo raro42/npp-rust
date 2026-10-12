@@ -14,6 +14,7 @@
 //! - optional `@pin` marker when the tab was pinned
 //! - optional `@colour N` / `@color N` (1..=5) when a tab colour was set
 //! - optional `@tail` / `@logtail` marker when View → Monitoring (log-tail) was on
+//! - optional `@other` / `@otherview` marker when that tab was in the dual-view other pane
 //! - optional `@active` marker on the entry that should be focused on restore
 
 use std::fs;
@@ -30,7 +31,7 @@ pub const SESSION_REL: &str = "npp-rs/session.txt";
 /// Anchor `(line, col)` and caret `(line, col)` for a non-empty session selection.
 pub type SessionSelection = ((usize, usize), (usize, usize));
 
-/// One session tab: path plus optional fold headers, bookmarks, style marks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, and active flag.
+/// One session tab: path plus optional fold headers, bookmarks, style marks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, other-view, and active flag.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionEntry {
     pub path: PathBuf,
@@ -56,6 +57,8 @@ pub struct SessionEntry {
     pub tab_colour: Option<u8>,
     /// View → Monitoring (log-tail follow) was on for this tab.
     pub tail_follow: bool,
+    /// This tab was shown in the dual-view other pane.
+    pub other_view: bool,
     pub active: bool,
 }
 
@@ -64,7 +67,7 @@ fn session_store_path() -> Result<PathBuf, ()> {
     Ok(base.join("npp-rs").join(SESSION_FILE))
 }
 
-/// Write paths (and optional `@folds` / `@bookmarks` / `@styleN` / `@caret` / `@sel` / `@scroll` / `@lang` / `@encoding` / `@readonly` / `@pin` / `@colour` / `@tail` / `@active` lines) for restore.
+/// Write paths (and optional `@folds` / `@bookmarks` / `@styleN` / `@caret` / `@sel` / `@scroll` / `@lang` / `@encoding` / `@readonly` / `@pin` / `@colour` / `@tail` / `@other` / `@active` lines) for restore.
 pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
     let path = session_store_path().map_err(|_| "no config dir".to_string())?;
     if let Some(parent) = path.parent() {
@@ -132,6 +135,9 @@ pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
         }
         if entry.tail_follow {
             writeln!(file, "@tail").map_err(|e| e.to_string())?;
+        }
+        if entry.other_view {
+            writeln!(file, "@other").map_err(|e| e.to_string())?;
         }
         if entry.active {
             writeln!(file, "@active").map_err(|e| e.to_string())?;
@@ -261,6 +267,14 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
             }
             continue;
         }
+        if trimmed == "@other" || trimmed == "@otherview" {
+            if meta_ok {
+                if let Some(last) = out.last_mut() {
+                    last.other_view = true;
+                }
+            }
+            continue;
+        }
         if trimmed == "@active" {
             if meta_ok {
                 if let Some(last) = out.last_mut() {
@@ -289,6 +303,7 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
                 pinned: false,
                 tab_colour: None,
                 tail_follow: false,
+                other_view: false,
                 active: false,
             });
             meta_ok = true;
@@ -854,9 +869,46 @@ mod tests {
     }
 
     #[test]
+    fn parse_other_view_meta() {
+        let dir = std::env::temp_dir().join(format!(
+            "npp-session-other-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::create_dir_all(&dir);
+        let a = dir.join("left.rs");
+        let b = dir.join("right.rs");
+        fs::write(&a, "line0\n").unwrap();
+        fs::write(&b, "x\n").unwrap();
+
+        let text = format!("{}\n@active\n{}\n@other\n@pin\n", a.display(), b.display());
+        let entries = parse_session_text(&text);
+        assert_eq!(entries.len(), 2);
+        assert!(entries[0].active);
+        assert!(!entries[0].other_view);
+        assert!(entries[1].other_view);
+        assert!(entries[1].pinned);
+
+        let alias = format!("{}\n@otherview\n{}\n@active\n", a.display(), b.display());
+        let entries = parse_session_text(&alias);
+        assert_eq!(entries.len(), 2);
+        assert!(entries[0].other_view);
+        assert!(entries[1].active);
+
+        let none = format!("{}\n@caret 0 0\n", a.display());
+        let entries = parse_session_text(&none);
+        assert_eq!(entries.len(), 1);
+        assert!(!entries[0].other_view);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn parse_ignores_orphan_meta() {
         let text =
-            "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@sel 0 0 0 1\n@scroll 9\n@lang rust\n@encoding utf8\n@readonly\n@pin\n@colour 2\n@tail\n@active\n";
+            "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@sel 0 0 0 1\n@scroll 9\n@lang rust\n@encoding utf8\n@readonly\n@pin\n@colour 2\n@tail\n@other\n@active\n";
         assert!(parse_session_text(text).is_empty());
     }
 

@@ -125,6 +125,10 @@ pub struct EditorState {
     pub session_scroll_line: Option<usize>,
     /// Focused-pane first visible line for the next session write (UI syncs each frame).
     pub session_write_scroll: Option<usize>,
+    /// Dual-view other-pane path for the next session write (UI syncs each frame).
+    pub session_write_other_view: Option<PathBuf>,
+    /// Dual-view other-pane path to apply after session restore (UI consumes when both tabs exist).
+    pub session_other_view: Option<PathBuf>,
 }
 
 /// Bulk close mode after a dirty-tab confirm.
@@ -231,6 +235,8 @@ impl EditorState {
             session_follow_caret: false,
             session_scroll_line: None,
             session_write_scroll: None,
+            session_write_other_view: None,
+            session_other_view: None,
         }
     }
 
@@ -1837,7 +1843,7 @@ impl EditorState {
         let _ = self.write_session_entries();
     }
 
-    /// Open paths from the config-dir session file (folds, bookmarks, style marks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, active tab).
+    /// Open paths from the config-dir session file (folds, bookmarks, style marks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, other-view, active tab).
     pub fn restore_session_from_disk(&mut self) {
         let entries = crate::session::load_entries();
         if entries.is_empty() {
@@ -1851,6 +1857,7 @@ impl EditorState {
         self.pending_session_styles.clear();
         self.pending_session_tail.clear();
         self.session_scroll_line = None;
+        self.session_other_view = None;
         let mut n = 0usize;
         let mut folds = 0usize;
         let mut bookmarks = 0usize;
@@ -1866,6 +1873,7 @@ impl EditorState {
         let mut tails = 0usize;
         let mut active_path: Option<PathBuf> = None;
         let mut active_scroll: Option<usize> = None;
+        let mut other_path: Option<PathBuf> = None;
         for entry in entries {
             let path = entry.path.clone();
             let headers = entry.fold_headers;
@@ -1880,6 +1888,7 @@ impl EditorState {
             let want_pin = entry.pinned;
             let want_colour = entry.tab_colour;
             let want_tail = entry.tail_follow;
+            let want_other = entry.other_view;
             let want_active = entry.active;
             self.open_path(path.clone());
             n += 1;
@@ -1983,6 +1992,9 @@ impl EditorState {
                     }
                 }
             }
+            if want_other {
+                other_path = Some(path.clone());
+            }
             if want_active {
                 active_path = Some(path);
                 active_scroll = scroll;
@@ -1995,14 +2007,11 @@ impl EditorState {
                 }
             }
         }
-        if let Some(path) = active_path {
-            let idx = self
-                .tabs
-                .iter()
-                .position(|d| d.path.as_ref() == Some(&path));
+        if let Some(ref path) = active_path {
+            let idx = self.tabs.iter().position(|d| d.path.as_ref() == Some(path));
             if let Some(idx) = idx {
                 if self.tabs.get(idx).is_some_and(|d| d.loading) {
-                    self.pending_session_active = Some(path);
+                    self.pending_session_active = Some(path.clone());
                     self.pending_session_scroll = active_scroll;
                 } else {
                     self.tabs.set_active(idx);
@@ -2061,6 +2070,12 @@ impl EditorState {
         if tails > 0 {
             bits.push_str(&format!(", {tails} log-tail"));
         }
+        if let Some(path) = other_path {
+            if active_path.as_ref() != Some(&path) {
+                self.session_other_view = Some(path);
+                bits.push_str(", dual view");
+            }
+        }
         self.status = bits;
     }
 
@@ -2076,6 +2091,7 @@ impl EditorState {
     fn write_session_entries(&self) -> Result<(), String> {
         let active_path = self.tabs.active().path.clone();
         let active_scroll = self.session_write_scroll;
+        let other_path = self.session_write_other_view.clone();
         let entries: Vec<crate::session::SessionEntry> = self
             .tabs
             .iter()
@@ -2118,6 +2134,7 @@ impl EditorState {
                 let tab_colour = d.tab_colour.filter(|n| (1..=5).contains(n));
                 let tail_follow = d.tail_follow;
                 let active = active_path.as_ref() == Some(&path);
+                let other_view = !active && other_path.as_ref() == Some(&path);
                 // Prefer live UI scroll for the focused tab; every tab keeps its last viewport.
                 let scroll = Some(if active {
                     active_scroll.unwrap_or(d.view_scroll_line)
@@ -2138,6 +2155,7 @@ impl EditorState {
                     pinned,
                     tab_colour,
                     tail_follow,
+                    other_view,
                     active,
                 })
             })

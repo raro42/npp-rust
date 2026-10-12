@@ -702,6 +702,7 @@ fn apply_session_viewport(app: &mut EditorApp) {
             app.scroll_line = line as f32;
         }
         app.last_primary_tab = Some(tab);
+        apply_session_dual_view(app);
         return;
     }
     if app.state.session_follow_caret {
@@ -715,6 +716,33 @@ fn apply_session_viewport(app: &mut EditorApp) {
         }
         app.last_primary_tab = Some(tab);
     }
+    apply_session_dual_view(app);
+}
+
+/// Re-open dual view when session restore recorded `@other` on a different tab.
+fn apply_session_dual_view(app: &mut EditorApp) {
+    let Some(path) = app.state.session_other_view.clone() else {
+        return;
+    };
+    let active = app.state.tabs.active_index();
+    let Some(idx) = app
+        .state
+        .tabs
+        .iter()
+        .position(|d| d.path.as_ref() == Some(&path))
+    else {
+        return;
+    };
+    if app.state.tabs.get(idx).is_some_and(|d| d.loading) {
+        return;
+    }
+    if idx == active {
+        app.state.session_other_view = None;
+        return;
+    }
+    app.dual_view = true;
+    app.other_view_tab = idx;
+    app.state.session_other_view = None;
 }
 
 impl EditorApp {
@@ -989,6 +1017,14 @@ impl eframe::App for EditorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.persist_primary_tab_scroll();
         self.state.session_write_scroll = Some(self.scroll_line.max(0.0) as usize);
+        self.state.session_write_other_view = if self.dual_view {
+            self.state
+                .tabs
+                .get(self.other_view_tab)
+                .and_then(|d| d.path.clone())
+        } else {
+            None
+        };
         if ctx.input(|i| i.viewport().close_requested()) {
             self.state.persist_session_if_enabled();
             let dirty = self.state.tabs.iter().any(|d| d.dirty);

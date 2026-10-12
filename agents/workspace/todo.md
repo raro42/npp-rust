@@ -364,3 +364,5 @@
 009 keep: session restore selection (@sel, v0.3.230)
 
 009 keep: session restore style marks (@style1..@style5, v0.3.231)
+
+009 keep: session restore dual-view other pane (@other / @otherview, v0.3.232)
