@@ -13126,7 +13126,13 @@ impl EditorApp {
                         self.scroll_line,
                         &visible_lines,
                     );
-                    let (shift, alt) = ui.input(|i| (i.modifiers.shift, i.modifiers.alt));
+                    let (shift, alt, ctrl_cmd) = ui.input(|i| {
+                        (
+                            i.modifiers.shift,
+                            i.modifiers.alt,
+                            i.modifiers.ctrl || i.modifiers.command,
+                        )
+                    });
                     let tab = self.state.tabs.active_index();
                     let doc = self.state.tabs.active();
                     let inside_sel = doc
@@ -13156,6 +13162,28 @@ impl EditorApp {
                             .active_mut()
                             .set_rect_selection_cols(line, col, line, col);
                         self.state.status = "Column select (Alt+drag)".into();
+                    } else if ctrl_cmd && !shift {
+                        let (line, col) = hit_line_col_virtual(
+                            ui,
+                            pos,
+                            &self.state.tabs.active().buffer,
+                            self.scroll_line,
+                            &visible_lines,
+                        );
+                        self.sel_text_drag = None;
+                        self.rect_drag = false;
+                        self.rect_drag_anchor = None;
+                        self.drag_anchor = None;
+                        self.state
+                            .tabs
+                            .active_mut()
+                            .add_caret_at_line_col(line, col);
+                        let n = self.state.tabs.active().multi_sels.len();
+                        self.state.status = if n >= 2 {
+                            format!("Multi-caret: {n} carets (Ctrl/Cmd+click)")
+                        } else {
+                            "Multi-caret: click cleared extras".into()
+                        };
                     } else if !shift && inside_sel && !read_only {
                         self.state.tabs.active_mut().clear_multi_sels();
                         self.sel_text_drag = Some(SelTextDrag {
@@ -13256,7 +13284,8 @@ impl EditorApp {
                 }
             } else if response.clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
-                    let shift = ui.input(|i| i.modifiers.shift);
+                    let (shift, ctrl_cmd) =
+                        ui.input(|i| (i.modifiers.shift, i.modifiers.ctrl || i.modifiers.command));
                     if shift {
                         let (line, col) = hit_line_col_virtual(
                             ui,
@@ -13277,6 +13306,9 @@ impl EditorApp {
                             .tabs
                             .active_mut()
                             .set_stream_selection_to_line_col(anchor, line, col);
+                    } else if ctrl_cmd {
+                        // drag_started already added on mouse-down; ignore mouse-up
+                        // so we do not toggle the same caret twice.
                     } else {
                         let (line, col) = hit_line_col_virtual(
                             ui,
@@ -16824,7 +16856,13 @@ impl EditorApp {
             if let Some(pos) = response.interact_pointer_pos() {
                 if let Some(doc) = self.state.tabs.get(tab) {
                     let idx = hit_index(ui, pos, &doc.buffer, scroll_line, &visible_lines);
-                    let (shift, alt) = ui.input(|i| (i.modifiers.shift, i.modifiers.alt));
+                    let (shift, alt, ctrl_cmd) = ui.input(|i| {
+                        (
+                            i.modifiers.shift,
+                            i.modifiers.alt,
+                            i.modifiers.ctrl || i.modifiers.command,
+                        )
+                    });
                     let caret = doc.buffer.caret();
                     let sel_anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(caret);
                     let inside_sel = doc
@@ -16843,6 +16881,22 @@ impl EditorApp {
                             doc.set_rect_selection_cols(line, col, line, col);
                         }
                         self.state.status = "Column select (Alt+drag)".into();
+                    } else if ctrl_cmd && !shift {
+                        let (line, col) =
+                            hit_line_col_virtual(ui, pos, &doc.buffer, scroll_line, &visible_lines);
+                        self.sel_text_drag = None;
+                        self.rect_drag = false;
+                        self.rect_drag_anchor = None;
+                        self.drag_anchor = None;
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.add_caret_at_line_col(line, col);
+                            let n = doc.multi_sels.len();
+                            self.state.status = if n >= 2 {
+                                format!("Multi-caret: {n} carets (Ctrl/Cmd+click)")
+                            } else {
+                                "Multi-caret: click cleared extras".into()
+                            };
+                        }
                     } else if !shift && inside_sel && !read_only {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
                             doc.clear_multi_sels();
@@ -16925,7 +16979,8 @@ impl EditorApp {
         } else if response.clicked() {
             if let Some(pos) = response.interact_pointer_pos() {
                 if let Some(doc) = self.state.tabs.get(tab) {
-                    let shift = ui.input(|i| i.modifiers.shift);
+                    let (shift, ctrl_cmd) =
+                        ui.input(|i| (i.modifiers.shift, i.modifiers.ctrl || i.modifiers.command));
                     let caret = doc.buffer.caret();
                     let sel_anchor = doc.buffer.selection().map(|(s, _)| s).unwrap_or(caret);
                     if shift {
@@ -16934,6 +16989,9 @@ impl EditorApp {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
                             doc.set_stream_selection_to_line_col(sel_anchor, line, col);
                         }
+                    } else if ctrl_cmd {
+                        // drag_started already added on mouse-down; ignore mouse-up
+                        // so we do not toggle the same caret twice.
                     } else {
                         let (line, col) =
                             hit_line_col_virtual(ui, pos, &doc.buffer, scroll_line, &visible_lines);
@@ -16941,7 +16999,7 @@ impl EditorApp {
                             doc.set_caret_at_line_col(line, col);
                         }
                     }
-                    if !shift && self.compare_on {
+                    if !shift && !ctrl_cmd && self.compare_on {
                         self.sync_compare_other_to_caret_hunk(false);
                     }
                 }

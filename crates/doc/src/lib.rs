@@ -458,6 +458,55 @@ impl Document {
         self.virtual_caret_col = if col > body_len { Some(col) } else { None };
     }
 
+    /// Add a zero-width caret at `(line, col)` (Ctrl/Cmd+click).
+    ///
+    /// Seeds the previous primary caret/selection into `multi_sels` when needed.
+    /// Clicking an existing zero-width caret removes it. Columns past EOL clamp to
+    /// the line body (per-caret virtual space stays rect-only for now).
+    pub fn add_caret_at_line_col(&mut self, line: usize, col: usize) {
+        self.rect_cols = None;
+        self.virtual_caret_col = None;
+        let line = line.min(self.buffer.line_count().saturating_sub(1));
+        let line_start = self.buffer.line_to_char(line);
+        let body_len = self.buffer.line_body_len(line);
+        let pos = line_start + col.min(body_len);
+
+        let primary = self.buffer.selection().unwrap_or_else(|| {
+            let c = self.buffer.caret();
+            (c, c)
+        });
+        if self.multi_sels.is_empty() || !self.multi_sels.contains(&primary) {
+            self.multi_sels.push(primary);
+        }
+
+        if let Some(i) = self
+            .multi_sels
+            .iter()
+            .position(|&(s, e)| s == e && s == pos)
+        {
+            self.multi_sels.remove(i);
+            if self.multi_sels.len() <= 1 {
+                match self.multi_sels.pop() {
+                    Some((s, e)) if s != e => self.buffer.set_selection(s, e),
+                    Some((s, _)) => self.buffer.set_caret(s),
+                    None => self.buffer.set_caret(pos),
+                }
+                return;
+            }
+            if let Some(&(s, e)) = self.multi_sels.last() {
+                if s == e {
+                    self.buffer.set_caret(s);
+                } else {
+                    self.buffer.set_selection(s, e);
+                }
+            }
+            return;
+        }
+
+        self.multi_sels.push((pos, pos));
+        self.buffer.set_caret(pos);
+    }
+
     /// Stream (non-rect) selection from `anchor` to `(line, col)`.
     ///
     /// The caret end may sit past EOL (`virtual_caret_col`); the buffer selection
@@ -1449,6 +1498,39 @@ mod tests {
         doc.set_caret_at_line_col(0, 8);
         assert!(doc.move_char(-1));
         assert_eq!(doc.virtual_caret_col, Some(7));
+    }
+
+    #[test]
+    fn add_caret_at_line_col_seeds_and_toggles() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("aa\nbb\ncc\n");
+        doc.buffer.set_caret(1); // line 0 col 1
+        doc.add_caret_at_line_col(1, 1); // line 1 col 1 → char 4
+        assert_eq!(doc.multi_sels, vec![(1, 1), (4, 4)]);
+        assert!(doc.has_multi_carets());
+        assert_eq!(doc.buffer.caret(), 4);
+        doc.add_caret_at_line_col(2, 1); // line 2 col 1 → char 7
+        assert_eq!(doc.multi_sels, vec![(1, 1), (4, 4), (7, 7)]);
+        // Toggle off the middle caret.
+        doc.add_caret_at_line_col(1, 1);
+        assert_eq!(doc.multi_sels, vec![(1, 1), (7, 7)]);
+        assert_eq!(doc.buffer.caret(), 7);
+        // Toggle down to one clears multi_sels.
+        doc.add_caret_at_line_col(2, 1);
+        assert!(doc.multi_sels.is_empty());
+        assert!(!doc.has_multi_carets());
+        assert_eq!(doc.buffer.caret(), 1);
+    }
+
+    #[test]
+    fn add_caret_at_line_col_seeds_selection() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("abcd\nefgh\n");
+        doc.buffer.set_selection(1, 3);
+        doc.add_caret_at_line_col(1, 2);
+        assert_eq!(doc.multi_sels, vec![(1, 3), (7, 7)]);
+        assert!(doc.has_multi_carets());
+        assert_eq!(doc.buffer.caret(), 7);
     }
 
     #[test]

@@ -845,7 +845,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         }
         "IDM_EDIT_COLUMNMODETIP" => {
             state.status =
-                "Column tip: Alt+drag for rect select (columns past EOL ok); plain click/Right also past EOL. \
+                "Column tip: Alt+drag for rect select (columns past EOL ok); Ctrl/Cmd+click adds carets; plain click/Right also past EOL. \
 Type/Backspace/Paste hit all carets; short lines pad with spaces. Column Editor inserts clipboard (or 0,1,2…) at caret column."
                     .into();
             CmdResult::Handled

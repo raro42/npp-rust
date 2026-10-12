@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.249] — 2026-10-12
+
+Edit / column mode:
+
+- **Ctrl/Cmd+click add carets**: click with Ctrl (Cmd on macOS) adds a zero-width caret; click an existing caret again to remove it. Seeds the previous caret/selection into the multi-caret set. Shift+extend multi still later (`docs/column-mode.md`).
+
 ## [0.3.248] — 2026-10-12
 
 Edit / column mode:

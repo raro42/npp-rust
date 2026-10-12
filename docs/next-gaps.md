@@ -1,4 +1,4 @@
-# Next gaps (post v0.3.248)
+# Next gaps (post v0.3.249)
 
 Date: 2026-10-12  
 Status: Issues **#1**–**#20** closed or handed off (this refresh). Overnight idle work: `docs/autoresearch/standing_backlog.md`.
@@ -21,6 +21,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.243 | Refresh this file: ranked remaining gaps; drop stale open-#14 table (#20) |
 | v0.3.244–v0.3.247 | Column virtual space: Alt+drag pad/copy + past EOL; plain free caret; stream Shift-select |
 | v0.3.248 | Plain arrows move all multi-carets / rect carets together |
+| v0.3.249 | Ctrl/Cmd+click add / toggle multi-carets |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 
@@ -33,7 +34,7 @@ None. When the issue queue is empty, 009 picks the first non-struck item in `doc
 ### P0 — daily editor feel
 
 1. **Full shortcut mapper / `shortcuts.xml`** — most common chords remappable via `shortcut_*` settings keys; dump in Shortcut Mapper / About. Still no N++-style full remap file, and many menu commands still have no accelerator.
-2. **Column / multi-edit depth** — Alt+rect + multi-caret typing + **pad-on-type / pad-on-copy** + **Alt+drag click/drag past EOL** + **plain free caret past EOL** (click/Right + pad-on-type) + **stream select into virtual space** (Shift+click/drag + Shift+Right/Left at EOL) + **plain arrows move all multi-carets**. Click-to-add carets / Shift+extend multi still open (`docs/column-mode.md`).
+2. **Column / multi-edit depth** — Alt+rect + multi-caret typing + **pad-on-type / pad-on-copy** + **Alt+drag click/drag past EOL** + **plain free caret past EOL** (click/Right + pad-on-type) + **stream select into virtual space** (Shift+click/drag + Shift+Right/Left at EOL) + **plain arrows move all multi-carets** + **Ctrl/Cmd+click add carets**. Shift+extend multi still open (`docs/column-mode.md`).
 3. **Find / Replace UI depth** — case/word/count/wrap/sel + linear-time Re + `$n` replace work; not the full N++ Find/Replace dialog (filters, mark-all panel, etc.).
 4. **Find in Files UI** — recursive workspace + globs + Re; not full N++ FIF dialog.
 
