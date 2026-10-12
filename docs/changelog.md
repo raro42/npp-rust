@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.231] — 2026-10-12
+
+File / Session:
+
+- Opt-in session restore now keeps **Search → Style marks** (`@style1`…`@style5` line lists) in `npp-rs/session.txt`, in addition to paths, `@folds`, `@bookmarks`, `@caret`, `@sel`, `@scroll`, `@lang`, `@encoding`, `@readonly`, `@pin`, `@colour`, `@tail`, and `@active`. Colored style marks survive relaunch (including async opens). Older session files still load.
+
 ## [0.3.230] — 2026-10-12
 
 File / Session:

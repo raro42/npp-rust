@@ -4,6 +4,7 @@
 //! - one absolute path per line
 //! - optional `@folds h1,h2,…` line after a path lists folded **header** line indices
 //! - optional `@bookmarks l1,l2,…` line after a path lists bookmarked line indices
+//! - optional `@style1`…`@style5` lines list Search → Style mark line indices (per slot)
 //! - optional `@caret LINE COL` line after a path (0-based line and column)
 //! - optional `@sel A_LINE A_COL C_LINE C_COL` line after a path (anchor + caret; non-empty selection)
 //! - optional `@scroll LINE` line after a path (0-based first visible editor line; every tab)
@@ -29,13 +30,15 @@ pub const SESSION_REL: &str = "npp-rs/session.txt";
 /// Anchor `(line, col)` and caret `(line, col)` for a non-empty session selection.
 pub type SessionSelection = ((usize, usize), (usize, usize));
 
-/// One session tab: path plus optional fold headers, bookmarks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, and active flag.
+/// One session tab: path plus optional fold headers, bookmarks, style marks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, and active flag.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionEntry {
     pub path: PathBuf,
     pub fold_headers: Vec<usize>,
     /// 0-based bookmarked line indices.
     pub bookmarks: Vec<usize>,
+    /// Search → Style 1..=5 mark lines (index 0 = Style 1).
+    pub style_marks: [Vec<usize>; 5],
     /// 0-based line and column when present.
     pub caret: Option<(usize, usize)>,
     /// Anchor `(line, col)` and caret `(line, col)` when a non-empty selection was present.
@@ -61,7 +64,7 @@ fn session_store_path() -> Result<PathBuf, ()> {
     Ok(base.join("npp-rs").join(SESSION_FILE))
 }
 
-/// Write paths (and optional `@folds` / `@bookmarks` / `@caret` / `@sel` / `@scroll` / `@lang` / `@encoding` / `@readonly` / `@pin` / `@colour` / `@tail` / `@active` lines) for restore.
+/// Write paths (and optional `@folds` / `@bookmarks` / `@styleN` / `@caret` / `@sel` / `@scroll` / `@lang` / `@encoding` / `@readonly` / `@pin` / `@colour` / `@tail` / `@active` lines) for restore.
 pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
     let path = session_store_path().map_err(|_| "no config dir".to_string())?;
     if let Some(parent) = path.parent() {
@@ -87,6 +90,17 @@ pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
                 .collect::<Vec<_>>()
                 .join(",");
             writeln!(file, "@bookmarks {joined}").map_err(|e| e.to_string())?;
+        }
+        for (i, marks) in entry.style_marks.iter().enumerate() {
+            if marks.is_empty() {
+                continue;
+            }
+            let joined = marks
+                .iter()
+                .map(|h| h.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            writeln!(file, "@style{} {joined}", i + 1).map_err(|e| e.to_string())?;
         }
         if let Some((line, col)) = entry.caret {
             writeln!(file, "@caret {line} {col}").map_err(|e| e.to_string())?;
@@ -157,6 +171,17 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
             if meta_ok {
                 if let Some(last) = out.last_mut() {
                     last.bookmarks = parse_line_list(rest.trim());
+                }
+            }
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix("@style") {
+            // Consume `@style…` even when the slot is invalid so later meta stays attached.
+            if meta_ok {
+                if let Some((slot, lines)) = parse_style_slot(rest) {
+                    if let Some(last) = out.last_mut() {
+                        last.style_marks[slot] = lines;
+                    }
                 }
             }
             continue;
@@ -254,6 +279,7 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
                 path: p,
                 fold_headers: Vec::new(),
                 bookmarks: Vec::new(),
+                style_marks: Default::default(),
                 caret: None,
                 selection: None,
                 scroll: None,
@@ -288,6 +314,25 @@ fn parse_line_list(s: &str) -> Vec<usize> {
     out.sort_unstable();
     out.dedup();
     out
+}
+
+/// Parse `N` / `N l1,l2,…` after `@style` where N is 1..=5. Returns zero-based slot index.
+fn parse_style_slot(rest: &str) -> Option<(usize, Vec<usize>)> {
+    let mut chars = rest.chars();
+    let digit = chars.next()?;
+    if !digit.is_ascii_digit() {
+        return None;
+    }
+    let n = digit.to_digit(10)? as usize;
+    if !(1..=5).contains(&n) {
+        return None;
+    }
+    let after = chars.as_str();
+    if !after.is_empty() && !after.starts_with(|c: char| c.is_whitespace()) {
+        // Reject `@style10` / `@style1x`.
+        return None;
+    }
+    Some((n - 1, parse_line_list(after.trim())))
 }
 
 fn parse_caret(s: &str) -> Option<(usize, usize)> {
@@ -525,6 +570,41 @@ mod tests {
         assert_eq!(entries[0].fold_headers, vec![1]);
         assert!(!entries[0].pinned);
         assert!(entries[0].active);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parse_style_marks() {
+        let dir = std::env::temp_dir().join(format!(
+            "npp-session-styles-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::create_dir_all(&dir);
+        let a = dir.join("a.rs");
+        fs::write(&a, "line0\nline1\nline2\nline3\n").unwrap();
+
+        let text = format!(
+            "{}\n@style1 2,0,2\n@style3 1\n@style5 3,1\n@style0 9\n@style10 1\n@style6 1\n@bookmarks 0\n@active\n",
+            a.display()
+        );
+        let entries = parse_session_text(&text);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].style_marks[0], vec![0, 2]);
+        assert!(entries[0].style_marks[1].is_empty());
+        assert_eq!(entries[0].style_marks[2], vec![1]);
+        assert!(entries[0].style_marks[3].is_empty());
+        assert_eq!(entries[0].style_marks[4], vec![1, 3]);
+        assert_eq!(entries[0].bookmarks, vec![0]);
+        assert!(entries[0].active);
+
+        let empty = format!("{}\n@style2\n@active\n", a.display());
+        let entries = parse_session_text(&empty);
+        assert_eq!(entries.len(), 1);
+        assert!(entries[0].style_marks[1].is_empty());
 
         let _ = fs::remove_dir_all(&dir);
     }

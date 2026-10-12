@@ -99,6 +99,8 @@ pub struct EditorState {
     pending_session_folds: HashMap<PathBuf, Vec<usize>>,
     /// Bookmark lines to apply after an async session restore open finishes.
     pending_session_bookmarks: HashMap<PathBuf, Vec<usize>>,
+    /// Search → Style 1..=5 mark lines after an async session restore open finishes.
+    pending_session_styles: HashMap<PathBuf, [Vec<usize>; 5]>,
     /// Caret (line, col) to apply after an async session restore open finishes.
     pending_session_carets: HashMap<PathBuf, (usize, usize)>,
     /// Selection (anchor line/col, caret line/col) after an async session restore open finishes.
@@ -216,6 +218,7 @@ impl EditorState {
             autosave_last: Instant::now(),
             pending_session_folds: HashMap::new(),
             pending_session_bookmarks: HashMap::new(),
+            pending_session_styles: HashMap::new(),
             pending_session_carets: HashMap::new(),
             pending_session_sels: HashMap::new(),
             pending_session_langs: HashMap::new(),
@@ -698,6 +701,7 @@ impl EditorState {
         }
         self.apply_pending_session_folds_for(&result.path);
         self.apply_pending_session_bookmarks_for(&result.path);
+        self.apply_pending_session_styles_for(&result.path);
         self.apply_pending_session_caret_for(&result.path);
         self.apply_pending_session_sel_for(&result.path);
         self.apply_pending_session_scroll_for(&result.path);
@@ -789,6 +793,7 @@ impl EditorState {
         for p in cancelled {
             self.pending_session_folds.remove(&p);
             self.pending_session_bookmarks.remove(&p);
+            self.pending_session_styles.remove(&p);
             self.pending_session_carets.remove(&p);
             self.pending_session_sels.remove(&p);
             self.pending_session_langs.remove(&p);
@@ -1832,7 +1837,7 @@ impl EditorState {
         let _ = self.write_session_entries();
     }
 
-    /// Open paths from the config-dir session file (folds, bookmarks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, active tab).
+    /// Open paths from the config-dir session file (folds, bookmarks, style marks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, active tab).
     pub fn restore_session_from_disk(&mut self) {
         let entries = crate::session::load_entries();
         if entries.is_empty() {
@@ -1843,11 +1848,13 @@ impl EditorState {
         self.pending_session_scroll = None;
         self.pending_session_scrolls.clear();
         self.pending_session_sels.clear();
+        self.pending_session_styles.clear();
         self.pending_session_tail.clear();
         self.session_scroll_line = None;
         let mut n = 0usize;
         let mut folds = 0usize;
         let mut bookmarks = 0usize;
+        let mut styles = 0usize;
         let mut carets = 0usize;
         let mut selections = 0usize;
         let mut scrolls = 0usize;
@@ -1863,6 +1870,7 @@ impl EditorState {
             let path = entry.path.clone();
             let headers = entry.fold_headers;
             let marks = entry.bookmarks;
+            let style_marks = entry.style_marks;
             let caret = entry.caret;
             let selection = entry.selection;
             let scroll = entry.scroll;
@@ -1895,6 +1903,14 @@ impl EditorState {
                     self.pending_session_bookmarks.insert(path.clone(), marks);
                 } else {
                     bookmarks += self.apply_session_bookmarks_at(idx, &marks);
+                }
+            }
+            if style_marks.iter().any(|m| !m.is_empty()) {
+                if loading {
+                    self.pending_session_styles
+                        .insert(path.clone(), style_marks);
+                } else {
+                    styles += self.apply_session_styles_at(idx, &style_marks);
                 }
             }
             if let Some((line, col)) = caret {
@@ -2015,6 +2031,9 @@ impl EditorState {
         if bookmarks > 0 {
             bits.push_str(&format!(", {bookmarks} bookmark(s)"));
         }
+        if styles > 0 {
+            bits.push_str(&format!(", {styles} style mark(s)"));
+        }
         if carets > 0 {
             bits.push_str(&format!(", {carets} caret(s)"));
         }
@@ -2065,6 +2084,10 @@ impl EditorState {
                 let regions = crate::fold::compute_fold_regions(d.language.as_str(), &d.buffer);
                 let fold_headers = crate::fold::folded_headers(&d.hidden_lines, &regions);
                 let bookmarks: Vec<usize> = d.bookmarks.iter().copied().collect();
+                let mut style_marks: [Vec<usize>; 5] = Default::default();
+                for (i, set) in d.style_marks.iter().enumerate() {
+                    style_marks[i] = set.iter().copied().collect();
+                }
                 let caret_idx = d.buffer.caret();
                 let line = d.buffer.char_to_line(caret_idx);
                 let col = caret_idx.saturating_sub(d.buffer.line_to_char(line));
@@ -2105,6 +2128,7 @@ impl EditorState {
                     path,
                     fold_headers,
                     bookmarks,
+                    style_marks,
                     caret: Some((line, col)),
                     selection,
                     scroll,
@@ -2146,6 +2170,24 @@ impl EditorState {
             }
         }
         doc.bookmarks.len().saturating_sub(before)
+    }
+
+    fn apply_session_styles_at(&mut self, tab: usize, slots: &[Vec<usize>; 5]) -> usize {
+        let Some(doc) = self.tabs.get_mut(tab) else {
+            return 0;
+        };
+        let max = doc.buffer.line_count();
+        let mut added = 0usize;
+        for (i, lines) in slots.iter().enumerate() {
+            let before = doc.style_marks[i].len();
+            for &line in lines {
+                if line < max {
+                    doc.style_marks[i].insert(line);
+                }
+            }
+            added += doc.style_marks[i].len().saturating_sub(before);
+        }
+        added
     }
 
     fn apply_session_caret_at(&mut self, tab: usize, line: usize, col: usize) -> bool {
@@ -2282,6 +2324,22 @@ impl EditorState {
             let n = self.apply_session_bookmarks_at(idx, &lines);
             if n > 0 {
                 self.status = format!("{} · restored {n} bookmark(s)", self.status);
+            }
+        }
+    }
+
+    fn apply_pending_session_styles_for(&mut self, path: &Path) {
+        let Some(slots) = self.pending_session_styles.remove(path) else {
+            return;
+        };
+        let idx = self
+            .tabs
+            .iter()
+            .position(|d| d.path.as_deref() == Some(path));
+        if let Some(idx) = idx {
+            let n = self.apply_session_styles_at(idx, &slots);
+            if n > 0 {
+                self.status = format!("{} · restored {n} style mark(s)", self.status);
             }
         }
     }
