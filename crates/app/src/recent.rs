@@ -511,6 +511,9 @@ pub struct AppSettings {
     /// Project panel open (View → Project Panel).
     #[serde(default)]
     pub show_project_panel: bool,
+    /// Dual-view Zoom Sync (both panes share font size).
+    #[serde(default)]
+    pub zoom_sync: bool,
     /// Status bar: show language id.
     #[serde(default = "default_true")]
     pub status_show_lang: bool,
@@ -908,6 +911,7 @@ impl Default for AppSettings {
             always_on_top: false,
             show_document_map: false,
             show_project_panel: false,
+            zoom_sync: false,
             status_show_lang: true,
             status_show_chars: true,
             theme_id: default_theme_id(),
@@ -1299,6 +1303,7 @@ mod tests {
             always_on_top: true,
             show_document_map: true,
             show_project_panel: true,
+            zoom_sync: true,
             ..Default::default()
         };
         let text = serde_json::to_string(&s).expect("serialize");
@@ -1311,6 +1316,7 @@ mod tests {
         assert!(back.always_on_top);
         assert!(back.show_document_map);
         assert!(back.show_project_panel);
+        assert!(back.zoom_sync);
 
         let defaults: AppSettings = serde_json::from_str("{}").expect("empty object");
         assert!(!defaults.show_whitespace);
@@ -1321,6 +1327,7 @@ mod tests {
         assert!(!defaults.always_on_top);
         assert!(!defaults.show_document_map);
         assert!(!defaults.show_project_panel);
+        assert!(!defaults.zoom_sync);
     }
 
     #[test]
@@ -1352,6 +1359,7 @@ mod tests {
             always_on_top: true,
             show_document_map: true,
             show_project_panel: true,
+            zoom_sync: true,
             find_query: "needle".into(),
             replace_with: "hay".into(),
             compare_ignore_ws: true,
@@ -1466,6 +1474,7 @@ mod tests {
         assert!(back.always_on_top);
         assert!(back.show_document_map);
         assert!(back.show_project_panel);
+        assert!(back.zoom_sync);
         assert_eq!(back.find_query, "needle");
         assert_eq!(back.replace_with, "hay");
         assert!(back.compare_ignore_ws);

@@ -2,18 +2,6 @@
 use super::common::*;
 use super::{CmdResult, UiFlags};
 use crate::editor::EditorState;
-use std::sync::atomic::{AtomicBool, Ordering};
-
-/// Session preference for dual-view sync.
-static SYNC_SCROLL_H: AtomicBool = AtomicBool::new(false);
-static SYNC_SCROLL_V: AtomicBool = AtomicBool::new(false);
-static ZOOM_SYNC: AtomicBool = AtomicBool::new(false);
-
-fn toggle_flag(flag: &AtomicBool) -> bool {
-    let next = !flag.load(Ordering::Relaxed);
-    flag.store(next, Ordering::Relaxed);
-    next
-}
 
 pub fn covers(cmd: &str) -> bool {
     cmd.starts_with("IDM_VIEW_")
@@ -199,23 +187,15 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_VIEW_SYNSCROLLH" => {
-            let on = toggle_flag(&SYNC_SCROLL_H);
-            ui.sync_scroll_h = Some(on);
+            // Flip against EditorApp.sync_scroll_h (not a process AtomicBool) so
+            // session restore / Clear Compare leave the next menu click correct.
+            ui.sync_scroll_h_toggle = true;
             ui.dual_view = Some(true);
-            state.status = format!(
-                "Sync H scroll: {} (dual view — shared line scroll)",
-                if on { "on" } else { "off" }
-            );
             CmdResult::Handled
         }
         "IDM_VIEW_SYNSCROLLV" => {
-            let on = toggle_flag(&SYNC_SCROLL_V);
-            ui.sync_scroll_v = Some(on);
+            ui.sync_scroll_v_toggle = true;
             ui.dual_view = Some(true);
-            state.status = format!(
-                "Sync V scroll: {} (dual view)",
-                if on { "on" } else { "off" }
-            );
             CmdResult::Handled
         }
         "IDM_VIEW_COMPARE" => {
@@ -355,13 +335,8 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_VIEW_ZOOM_SYNC" => {
-            let on = toggle_flag(&ZOOM_SYNC);
-            ui.zoom_sync = Some(on);
+            ui.zoom_sync_toggle = true;
             ui.dual_view = Some(true);
-            state.status = format!(
-                "Zoom sync: {} (both panes share font size)",
-                if on { "on" } else { "off" }
-            );
             CmdResult::Handled
         }
         "IDM_VIEW_IN_FIREFOX" | "IDM_VIEW_IN_CHROME" | "IDM_VIEW_IN_EDGE" | "IDM_VIEW_IN_IE" => {

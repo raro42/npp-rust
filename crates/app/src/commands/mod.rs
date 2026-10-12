@@ -93,12 +93,12 @@ pub struct UiFlags {
     pub switch_other_view: bool,
     /// Optional explicit secondary tab index (e.g. after clone).
     pub other_view_tab: Option<usize>,
-    /// Sync horizontal scroll with the other pane (session flag).
-    pub sync_scroll_h: Option<bool>,
-    /// Sync vertical scroll with the other pane (session flag).
-    pub sync_scroll_v: Option<bool>,
-    /// Keep both panes on the same zoom (session flag).
-    pub zoom_sync: Option<bool>,
+    /// Toggle sync horizontal scroll against live dual-view state.
+    pub sync_scroll_h_toggle: bool,
+    /// Toggle sync vertical scroll against live dual-view state.
+    pub sync_scroll_v_toggle: bool,
+    /// Toggle zoom sync against live dual-view state (persisted).
+    pub zoom_sync_toggle: bool,
     /// Start 2-way compare (active vs other view).
     pub start_compare: bool,
     /// Compare the active tab to its last-saved disk contents.
@@ -680,5 +680,32 @@ mod tests {
         assert!(is_implemented("IDM_VIEW_COMPARE_BOOKMARK_DIFFS"));
         assert!(is_implemented("IDM_VIEW_COMPARE_CLEAR_DIFF_BOOKMARKS"));
         assert!(is_implemented("IDM_VIEW_COMPARE_TO_SAVED"));
+    }
+
+    #[test]
+    fn dual_view_sync_commands_request_live_toggles() {
+        let mut state = EditorState::new();
+        let mut ui = UiFlags::default();
+        assert_eq!(
+            dispatch("IDM_VIEW_SYNSCROLLV", &mut state, &mut ui),
+            CmdResult::Handled
+        );
+        assert!(ui.sync_scroll_v_toggle);
+        assert_eq!(ui.dual_view, Some(true));
+
+        ui = UiFlags::default();
+        assert_eq!(
+            dispatch("IDM_VIEW_SYNSCROLLH", &mut state, &mut ui),
+            CmdResult::Handled
+        );
+        assert!(ui.sync_scroll_h_toggle);
+
+        ui = UiFlags::default();
+        assert_eq!(
+            dispatch("IDM_VIEW_ZOOM_SYNC", &mut state, &mut ui),
+            CmdResult::Handled
+        );
+        assert!(ui.zoom_sync_toggle);
+        assert_eq!(ui.dual_view, Some(true));
     }
 }

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.240] — 2026-10-12
+
+View / Preferences / Dual view:
+
+- **Zoom Sync** persists in `npp-rs/settings.json` (`zoom_sync`). Menu toggle, Preferences checkbox, and relaunch restore shared font size across panes.
+- **Sync Vertical / Horizontal / Zoom Sync** menu and remappable toggles now flip the live dual-view flags (no process-wide atomics). After session restore of `@syncv` / `@synch`, or Clear Compare restoring pre-start sync, the next click turns sync off correctly.
+
 ## [0.3.239] — 2026-10-12
 
 File / Session / Compare:

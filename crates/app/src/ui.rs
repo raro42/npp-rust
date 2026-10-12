@@ -998,6 +998,10 @@ impl EditorApp {
         if app.state.settings.show_project_panel {
             app.show_project_panel = true;
         }
+        // Restore Zoom Sync from settings (dual-view shared font size).
+        if app.state.settings.zoom_sync {
+            app.zoom_sync = true;
+        }
         let had_argv = !cli.paths.is_empty();
         app.replace_with = app.state.settings.replace_with.clone();
         app.open_argv_paths(cli);
@@ -7320,6 +7324,20 @@ impl EditorApp {
                             .changed()
                         {
                             self.show_project_panel = self.state.settings.show_project_panel;
+                            changed = true;
+                        }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.zoom_sync,
+                                "Zoom sync (dual view)",
+                            )
+                            .changed()
+                        {
+                            self.zoom_sync = self.state.settings.zoom_sync;
+                            if self.zoom_sync {
+                                self.dual_view = true;
+                                self.ensure_other_view_tab();
+                            }
                             changed = true;
                         }
                         ui.horizontal(|ui| {
@@ -13819,14 +13837,28 @@ impl EditorApp {
     }
 
     fn apply_dual_view_flags(&mut self, flags: &mut crate::commands::UiFlags) {
-        if let Some(on) = flags.sync_scroll_h {
-            self.sync_scroll_h = on;
+        if flags.sync_scroll_h_toggle {
+            self.sync_scroll_h = !self.sync_scroll_h;
+            self.state.status = format!(
+                "Sync H scroll: {} (dual view — shared line scroll)",
+                if self.sync_scroll_h { "on" } else { "off" }
+            );
         }
-        if let Some(on) = flags.sync_scroll_v {
-            self.sync_scroll_v = on;
+        if flags.sync_scroll_v_toggle {
+            self.sync_scroll_v = !self.sync_scroll_v;
+            self.state.status = format!(
+                "Sync V scroll: {} (dual view)",
+                if self.sync_scroll_v { "on" } else { "off" }
+            );
         }
-        if let Some(on) = flags.zoom_sync {
-            self.zoom_sync = on;
+        if flags.zoom_sync_toggle {
+            self.zoom_sync = !self.zoom_sync;
+            self.state.settings.zoom_sync = self.zoom_sync;
+            self.state.settings.save();
+            self.state.status = format!(
+                "Zoom sync: {} (both panes share font size)",
+                if self.zoom_sync { "on" } else { "off" }
+            );
         }
         if let Some(on) = flags.dual_view {
             self.dual_view = on;

@@ -380,3 +380,5 @@
 009 keep: Project panel open persists (`show_project_panel`, v0.3.238)
 
 009 keep: session restore marked Compare partner (@partner / @cmppartner, v0.3.239)
+
+009 keep: Zoom Sync persists + sync toggles flip live app state (v0.3.240)

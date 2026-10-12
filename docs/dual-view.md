@@ -9,7 +9,7 @@ Date: 2026-08-29
 - Click a pane to focus it for keyboard input.
 - The focused pane owns Cmd/Ctrl+Z / Y undo-redo and select-all shortcuts.
 - Menu **Edit** commands that change text also use the focused pane tab (`focused_edit_tab`), not only the tab-bar active document.
-- Sync H/V scroll and zoom sync still share line scroll / font size.
+- Sync H/V scroll and zoom sync still share line scroll / font size. Menu / shortcut toggles flip the live pane flags (so session-restored sync turns off on the first click). Zoom Sync also persists in `npp-rs/settings.json` (`zoom_sync`).
 - Compare mode colours both panes and re-diffs after edits (~200 ms debounce).
 
 ## Session

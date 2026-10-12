@@ -13,7 +13,7 @@ New keys:
 | `caret_blink` | Blink caret |
 | `default_eol` | `lf` / `crlf` for Enter |
 | `recent_max` | Recent file cap (5–40); load and save both use this cap |
-| `restore_session` | Reopen session on launch (paths, `@folds`, `@bookmarks`, `@style1`…`@style5`, `@caret`, `@sel`, per-tab `@scroll`, `@lang`, `@encoding`, `@readonly`, `@pin`, `@colour`, `@tail`, `@other`, `@focus`, `@syncv` / `@synch`, `@compare`, `@partner`, `@active`) |
+| `restore_session` | Reopen session on launch (paths, `@folds`, `@bookmarks`, `@style1`…`@style5`, `@caret`, `@sel`, per-tab `@scroll`, `@lang`, `@encoding`, `@readonly`, `@pin`, `@colour`, `@tail`, `@other`, `@focus`, `@syncv` / `@synch`, `@compare`, `@partner`, `@active`). Zoom Sync itself is a settings key (`zoom_sync`), not session meta. |
 | `find_match_case` / `find_whole_word` / `find_in_selection` / `find_wrap` / `find_regex` | Find options |
 | `find_query` / `replace_with` | Last find/replace strings |
 | `compare_ignore_ws` | Compare ignores whitespace runs (View menu + Preferences; live re-diff + first-hunk park while Compare is on) |
@@ -32,6 +32,7 @@ New keys:
 | `always_on_top` | Keep the window above others (View → Always on Top + Preferences); default off |
 | `show_document_map` | Document Map panel open (View → Document Map + Preferences); default off |
 | `show_project_panel` | Project panel open (View → Project Panel + Preferences); default off |
+| `zoom_sync` | Dual-view Zoom Sync (both panes share font size; View menu + Preferences); default off |
 | `shortcut_word_wrap` | Word-wrap toggle chord (`Alt+Z` default; e.g. `Ctrl+W`) |
 | `shortcut_find_next` | Find-next chord (`F3` default; Shift flips to find previous) |
 | `shortcut_find_next_global` | Global find-next chord (`Cmd+G` default; Shift flips to find previous) |
