@@ -1978,6 +1978,31 @@ mod tests {
     }
 
     #[test]
+    fn move_and_extend_multi_page_keep_carets() {
+        // PageUp/PageDown use ±30 line deltas via move_multi_line / extend_multi_line.
+        let mut text = String::new();
+        for i in 0..40 {
+            text.push_str(&format!("L{i:02}\n"));
+        }
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str(&text);
+        // Carets on lines 0 and 1 at col 1 ("L").
+        doc.multi_sels = vec![(1, 1), (5, 5)];
+        assert!(doc.move_multi_line(30));
+        // Lines 30 and 31, same column preference.
+        let c0 = doc.buffer.line_to_char(30) + 1;
+        let c1 = doc.buffer.line_to_char(31) + 1;
+        assert_eq!(doc.multi_sels, vec![(c0, c0), (c1, c1)]);
+        assert!(doc.has_multi_carets());
+        assert!(doc.move_multi_line(-30));
+        assert_eq!(doc.multi_sels, vec![(1, 1), (5, 5)]);
+        doc.multi_sels = vec![(1, 1), (5, 5)];
+        assert!(doc.extend_multi_line(30));
+        assert_eq!(doc.multi_sels, vec![(1, c0), (5, c1)]);
+        assert!(doc.has_multi_carets());
+    }
+
+    #[test]
     fn move_and_extend_multi_line_edge_keep_carets() {
         let mut doc = Document::untitled(1, 1);
         doc.buffer = TextBuffer::from_str("foo bar\nfoo bar\n");

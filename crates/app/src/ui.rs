@@ -2866,23 +2866,46 @@ impl EditorApp {
                 if chord_key_pressed(page_down_chord.key)
                     && page_down_chord.matches_ignore_shift(mods, page_down_chord.key)
                 {
+                    let extend = mods.shift != page_down_chord.shift;
+                    let mut moved_multi = false;
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
+                        if !extend {
+                            if doc.has_multi_carets() && doc.move_multi_line(30) {
+                                moved_multi = true;
+                            } else {
+                                doc.clear_multi_sels();
+                            }
+                        } else if doc.has_multi_carets() && doc.extend_multi_line(30) {
+                            moved_multi = true;
+                        } else {
+                            doc.clear_multi_sels();
+                        }
                     }
-                    move_caret_vert(
-                        &mut self.state,
-                        tab,
-                        30,
-                        mods.shift != page_down_chord.shift,
-                    );
+                    if !moved_multi {
+                        move_caret_vert(&mut self.state, tab, 30, extend);
+                    }
                     self.follow_focused_caret();
                 } else if chord_key_pressed(page_up_chord.key)
                     && page_up_chord.matches_ignore_shift(mods, page_up_chord.key)
                 {
+                    let extend = mods.shift != page_up_chord.shift;
+                    let mut moved_multi = false;
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
+                        if !extend {
+                            if doc.has_multi_carets() && doc.move_multi_line(-30) {
+                                moved_multi = true;
+                            } else {
+                                doc.clear_multi_sels();
+                            }
+                        } else if doc.has_multi_carets() && doc.extend_multi_line(-30) {
+                            moved_multi = true;
+                        } else {
+                            doc.clear_multi_sels();
+                        }
                     }
-                    move_caret_vert(&mut self.state, tab, -30, mods.shift != page_up_chord.shift);
+                    if !moved_multi {
+                        move_caret_vert(&mut self.state, tab, -30, extend);
+                    }
                     self.follow_focused_caret();
                 }
             }
@@ -18254,10 +18277,24 @@ impl EditorApp {
                         // Remapped away from bare PageUp; ignore.
                         continue;
                     }
+                    let extend = modifiers.shift;
+                    let mut moved_multi = false;
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
+                        if !extend {
+                            if doc.has_multi_carets() && doc.move_multi_line(-30) {
+                                moved_multi = true;
+                            } else {
+                                doc.clear_multi_sels();
+                            }
+                        } else if doc.has_multi_carets() && doc.extend_multi_line(-30) {
+                            moved_multi = true;
+                        } else {
+                            doc.clear_multi_sels();
+                        }
                     }
-                    move_caret_vert(&mut self.state, tab, -30, modifiers.shift);
+                    if !moved_multi {
+                        move_caret_vert(&mut self.state, tab, -30, extend);
+                    }
                     caret_moved = true;
                 }
                 egui::Event::Key {
@@ -18282,10 +18319,24 @@ impl EditorApp {
                         // Remapped away from bare PageDown; ignore.
                         continue;
                     }
+                    let extend = modifiers.shift;
+                    let mut moved_multi = false;
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
+                        if !extend {
+                            if doc.has_multi_carets() && doc.move_multi_line(30) {
+                                moved_multi = true;
+                            } else {
+                                doc.clear_multi_sels();
+                            }
+                        } else if doc.has_multi_carets() && doc.extend_multi_line(30) {
+                            moved_multi = true;
+                        } else {
+                            doc.clear_multi_sels();
+                        }
                     }
-                    move_caret_vert(&mut self.state, tab, 30, modifiers.shift);
+                    if !moved_multi {
+                        move_caret_vert(&mut self.state, tab, 30, extend);
+                    }
                     caret_moved = true;
                 }
                 _ => {}

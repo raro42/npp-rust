@@ -406,3 +406,5 @@
 009 keep: multi-caret word-jump move + Shift-extend (v0.3.252)
 
 009 keep: multi-caret line Home/End move + Shift-extend (v0.3.253)
+
+009 keep: multi-caret Page Up/Down move + Shift-extend (v0.3.254)

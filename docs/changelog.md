@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.254] — 2026-10-12
+
+Edit / column mode:
+
+- **Multi-caret Page Up/Down**: remappable Page Up/Down (default PageUp/PageDown) moves every multi-caret / rect block by a page (±30 lines); Shift extends stream multi-carets (and rect Shift+extend). Same path as plain Up/Down, larger delta (`docs/column-mode.md`).
+
 ## [0.3.253] — 2026-10-12
 
 Edit / column mode:
