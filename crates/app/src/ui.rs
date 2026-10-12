@@ -4938,7 +4938,8 @@ impl EditorApp {
         }
 
         // Remappable close Find/Replace (default Escape; settings.shortcut_close_find).
-        if self.state.find_open || self.show_replace {
+        // When Find/Replace is already closed: same chord clears multi-carets / rect.
+        {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_CLOSE_FIND};
             let close_chord =
                 resolve_chord(&self.state.settings.shortcut_close_find, DEFAULT_CLOSE_FIND);
@@ -4968,8 +4969,15 @@ impl EditorApp {
                 other => ctx.input(|i| i.key_pressed(other)),
             };
             if close_key_pressed && close_chord.matches(mods, close_chord.key) {
-                self.state.find_open = false;
-                self.show_replace = false;
+                if self.state.find_open || self.show_replace {
+                    self.state.find_open = false;
+                    self.show_replace = false;
+                } else if let Some(doc) = self.state.tabs.get_mut(self.state.tabs.active_index()) {
+                    if doc.has_multi_carets() || doc.rect_cols.is_some() {
+                        doc.clear_multi_sels();
+                        self.state.status = "Cleared multi-carets".into();
+                    }
+                }
             }
         }
     }
@@ -10456,7 +10464,7 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: Escape, Esc, Ctrl+Alt+Escape. Closes the Find and Replace bars when open.",
+                                "Example: Escape, Esc, Ctrl+Alt+Escape. Closes Find/Replace when open; when closed, clears multi-carets / column select.",
                             )
                             .small()
                             .weak(),

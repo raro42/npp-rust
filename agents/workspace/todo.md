@@ -408,3 +408,5 @@
 009 keep: multi-caret line Home/End move + Shift-extend (v0.3.253)
 
 009 keep: multi-caret Page Up/Down move + Shift-extend (v0.3.254)
+
+009 keep: Escape clears multi-carets / rect when Find closed (v0.3.255)

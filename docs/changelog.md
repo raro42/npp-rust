@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.255] — 2026-10-13
+
+Edit / column mode:
+
+- **Escape clears multi-carets**: remappable close-Find chord (default Escape) closes Find/Replace when open; when closed, clears multi-carets / column select (`docs/column-mode.md`).
+
 ## [0.3.254] — 2026-10-12
 
 Edit / column mode:

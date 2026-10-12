@@ -1,10 +1,11 @@
 # Column / rectangular select
 
-Date: 2026-10-12  
-Version: 0.3.254
+Date: 2026-10-13  
+Version: 0.3.255
 
 ## What works
 
+- **Escape clears multi-carets**: remappable close-Find chord (default Escape; `shortcut_close_find`) closes Find/Replace when open; when those bars are already closed, the same chord clears multi-carets / rect column select (primary caret stays).
 - **Alt+drag** (Option+drag on macOS) builds a rectangular selection.
 - Each line in the block gets a range at the same columns (char indices clamp to line length).
 - **Virtual space past EOL** for Alt+drag: mouse hit-test can target columns past every line’s EOL (space width); carets and the selection wash draw at those columns; typing pads short lines with spaces to the target column; copy pads missing columns with spaces in the clipboard.
