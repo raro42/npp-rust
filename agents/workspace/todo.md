@@ -404,3 +404,5 @@
 009 keep: Rect Shift+extend Left/Right/Up/Down (v0.3.251)
 
 009 keep: multi-caret word-jump move + Shift-extend (v0.3.252)
+
+009 keep: multi-caret line Home/End move + Shift-extend (v0.3.253)
