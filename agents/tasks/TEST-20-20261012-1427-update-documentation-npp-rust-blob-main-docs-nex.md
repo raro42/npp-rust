@@ -20,4 +20,4 @@ We are way ahead of next-gaps.md ... need to update the file and really show wha
 ## Progress
 - Rewrote `docs/next-gaps.md` for post-v0.3.242: dropped stale open-#14 table; ranked remaining gaps; pointed idle work at `docs/autoresearch/standing_backlog.md`.
 - Synced `docs/whats-missing.md` checkpoint + docs index blurb; changelog + version **0.3.243**.
-- `./scripts/ci-local.sh` OK. Commit hash filled after push.
+- `./scripts/ci-local.sh` OK. Commit `a1e8c6a`. Issue left open for tester.
