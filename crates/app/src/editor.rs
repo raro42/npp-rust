@@ -30,6 +30,10 @@ pub struct EditorState {
     pub pending: Vec<PendingLoad>,
     /// Paths whose async load was cancelled (tab closed); late results drop.
     cancelled_loads: HashSet<PathBuf>,
+    /// Background Ollama Ask / Status (GUI only applies [`crate::ollama::OllamaMsg`]).
+    pub ollama_channel: crate::ollama::OllamaChannel,
+    /// True while an Ollama worker is in flight (one at a time).
+    pub ollama_busy: bool,
     /// Background tail polls (GUI only applies [`TailMsg`]).
     pub tail_channel: TailChannel,
     /// Paths with an in-flight tail worker (one poll per path).
@@ -204,6 +208,8 @@ impl EditorState {
             load_channel: LoadChannel::new(),
             pending: Vec::new(),
             cancelled_loads: HashSet::new(),
+            ollama_channel: crate::ollama::OllamaChannel::new(),
+            ollama_busy: false,
             tail_channel: TailChannel::new(),
             tail_inflight: HashSet::new(),
             highlight_cache: Vec::new(),
@@ -1432,8 +1438,13 @@ impl EditorState {
         self.run_plugin("format.document");
     }
 
-    /// Ask local Ollama about the selection (or whole buffer). Opens a reply tab.
+    /// Ask local Ollama about the selection (or whole buffer). Runs in the background;
+    /// reply opens in a tab when ready (UI stays responsive).
     pub fn ask_ollama(&mut self) {
+        if self.ollama_busy {
+            self.status = "Ask Ollama: already running in background…".into();
+            return;
+        }
         let lang = self.tabs.active().language.clone();
         let (body, used_selection) = if let Some((s, e)) = self.tabs.active().buffer.selection() {
             let slice = self.tabs.active().buffer.slice(s, e);
@@ -1449,87 +1460,130 @@ impl EditorState {
             self.status = "Ask Ollama: buffer is empty".into();
             return;
         }
+        // Validate host/model on the UI thread so bad prefs fail instantly.
+        if let Err(e) = crate::ollama::parse_loopback_host(&self.settings.ollama_host) {
+            self.status = format!("Ask Ollama: {e}");
+            return;
+        }
+        if let Err(e) = crate::ollama::effective_model(&self.settings.ollama_model) {
+            self.status = format!("Ask Ollama: {e}");
+            return;
+        }
         let (truncated, cut) =
             crate::ollama::truncate_prompt(&body, crate::ollama::MAX_PROMPT_CHARS);
         let prompt = crate::ollama::build_ask_prompt(&lang, &truncated, cut);
+        let scope = match (used_selection, cut) {
+            (true, true) => "selection (truncated)",
+            (true, false) => "selection",
+            (false, true) => "whole buffer (truncated)",
+            (false, false) => "whole buffer",
+        }
+        .to_string();
         self.status = format!(
-            "Ask Ollama: calling {} ({})…",
+            "Ask Ollama: calling {} ({}) in background…",
             self.settings.ollama_model, self.settings.ollama_host
         );
-        match crate::ollama::generate(
-            &self.settings.ollama_host,
-            &self.settings.ollama_model,
-            &prompt,
-        ) {
-            Ok(reply) => {
-                let model = self.settings.ollama_model.trim().to_string();
-                let host = self.settings.ollama_host.trim().to_string();
-                let scope = match (used_selection, cut) {
-                    (true, true) => "selection (truncated)",
-                    (true, false) => "selection",
-                    (false, true) => "whole buffer (truncated)",
-                    (false, false) => "whole buffer",
-                };
-                let mut text = format!(
-                    "Ollama reply ({model})\n\
-                     =====================\n\
-                     Host: {host}\n\
-                     Scope: {scope}\n\
-                     \n\
-                     {reply}\n"
-                );
-                if cut {
-                    text.push_str("\n(Note: input was truncated before send.)\n");
-                }
-                self.open_ollama_tab("Ollama reply", &text);
-                self.status = format!("Ask Ollama: reply from {model}");
-            }
-            Err(e) => {
-                self.status = format!("Ask Ollama: {e}");
-            }
-        }
+        self.ollama_busy = true;
+        crate::ollama::generate_async(
+            self.settings.ollama_host.clone(),
+            self.settings.ollama_model.clone(),
+            prompt,
+            scope,
+            cut,
+            self.ollama_channel.tx.clone(),
+        );
     }
 
-    /// Ping loopback Ollama and list installed models in a tab.
+    /// Ping loopback Ollama and list installed models in a tab (background).
     pub fn ollama_status(&mut self) {
+        if self.ollama_busy {
+            self.status = "Ollama: already running in background…".into();
+            return;
+        }
+        if let Err(e) = crate::ollama::parse_loopback_host(&self.settings.ollama_host) {
+            self.status = format!("Ollama status: {e}");
+            return;
+        }
         let host = self.settings.ollama_host.clone();
-        match crate::ollama::list_models(&host) {
-            Ok(models) => {
-                let mut text = format!(
-                    "Ollama status\n\
-                     =============\n\
-                     Host: {host}\n\
-                     Preferred model: {model}\n\
-                     \n\
-                     Installed models ({n})\n\
-                     --------------------\n",
-                    model = self.settings.ollama_model.trim(),
-                    n = models.len(),
-                );
-                if models.is_empty() {
-                    text.push_str("(none — run `ollama pull llama3.2` in a terminal)\n");
-                } else {
-                    for m in &models {
-                        text.push_str("- ");
-                        text.push_str(m);
-                        text.push('\n');
+        let preferred = self.settings.ollama_model.trim().to_string();
+        self.status = format!("Ollama status: pinging {} in background…", host.trim());
+        self.ollama_busy = true;
+        crate::ollama::list_models_async(host, preferred, self.ollama_channel.tx.clone());
+    }
+
+    /// Apply finished background Ollama results. Returns true if anything arrived.
+    pub fn poll_ollama(&mut self) -> bool {
+        let mut got = false;
+        while let Ok(msg) = self.ollama_channel.rx.try_recv() {
+            got = true;
+            self.ollama_busy = false;
+            match msg {
+                crate::ollama::OllamaMsg::AskDone {
+                    model,
+                    host,
+                    scope,
+                    cut,
+                    reply,
+                } => {
+                    let mut text = format!(
+                        "Ollama reply ({model})\n\
+                         =====================\n\
+                         Host: {host}\n\
+                         Scope: {scope}\n\
+                         \n\
+                         {reply}\n"
+                    );
+                    if cut {
+                        text.push_str("\n(Note: input was truncated before send.)\n");
                     }
+                    self.open_ollama_tab("Ollama reply", &text);
+                    self.status = format!("Ask Ollama: reply from {model}");
                 }
-                text.push_str(
-                    "\n\
-                     Notes\n\
-                     -----\n\
-                     - npp-rs talks to loopback only (127.0.0.1 / localhost / ::1).\n\
-                     - Plugins → Ask Ollama sends the selection (or whole buffer) locally.\n\
-                     - See docs/ollama-helper.md.\n",
-                );
-                self.open_ollama_tab("Ollama status", &text);
-                self.status = format!("Ollama: {} model(s) on {}", models.len(), host.trim());
-            }
-            Err(e) => {
-                self.status = format!("Ollama status: {e}");
+                crate::ollama::OllamaMsg::AskFailed { error } => {
+                    self.status = format!("Ask Ollama: {error}");
+                }
+                crate::ollama::OllamaMsg::StatusDone {
+                    host,
+                    preferred_model,
+                    models,
+                } => {
+                    let mut text = format!(
+                        "Ollama status\n\
+                         =============\n\
+                         Host: {host}\n\
+                         Preferred model: {preferred_model}\n\
+                         \n\
+                         Installed models ({n})\n\
+                         --------------------\n",
+                        n = models.len(),
+                    );
+                    if models.is_empty() {
+                        text.push_str("(none — run `ollama pull llama3.2` in a terminal)\n");
+                    } else {
+                        for m in &models {
+                            text.push_str("- ");
+                            text.push_str(m);
+                            text.push('\n');
+                        }
+                    }
+                    text.push_str(
+                        "\n\
+                         Notes\n\
+                         -----\n\
+                         - npp-rs talks to loopback only (127.0.0.1 / localhost / ::1).\n\
+                         - Plugins → Ask Ollama (or editor right-click) sends locally.\n\
+                         - Requests run in the background so the window stays responsive.\n\
+                         - See docs/ollama-helper.md.\n",
+                    );
+                    self.open_ollama_tab("Ollama status", &text);
+                    self.status = format!("Ollama: {} model(s) on {}", models.len(), host.trim());
+                }
+                crate::ollama::OllamaMsg::StatusFailed { error } => {
+                    self.status = format!("Ollama status: {error}");
+                }
             }
         }
+        got
     }
 
     fn open_ollama_tab(&mut self, title: &str, text: &str) {
@@ -3824,5 +3878,37 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ask_ollama_empty_buffer_does_not_start_worker() {
+        let mut state = EditorState::new();
+        state.ask_ollama();
+        assert!(!state.ollama_busy);
+        assert!(state.status.contains("empty"));
+    }
+
+    #[test]
+    fn poll_ollama_applies_ask_done() {
+        let mut state = EditorState::new();
+        state.ollama_busy = true;
+        state
+            .ollama_channel
+            .tx
+            .send(crate::ollama::OllamaMsg::AskDone {
+                model: "test-model".into(),
+                host: "http://127.0.0.1:11434".into(),
+                scope: "selection".into(),
+                cut: false,
+                reply: "hello from worker".into(),
+            })
+            .expect("send");
+        assert!(state.poll_ollama());
+        assert!(!state.ollama_busy);
+        assert!(state.status.contains("test-model"));
+        let active = state.tabs.active();
+        assert_eq!(active.title, "Ollama reply");
+        assert!(active.buffer.to_string().contains("hello from worker"));
+        assert!(active.read_only);
     }
 }

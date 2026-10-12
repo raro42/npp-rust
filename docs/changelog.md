@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.242] — 2026-10-12
+
+Plugins / Ollama (issue #19):
+
+- **Ask Ollama** and **Ollama Status** run on a background thread so long generations no longer freeze the window. Status bar shows progress; reply / status still open in a tab when ready. One request at a time.
+- Editor **right-click → Ask Ollama** (same as Plugins → Ask Ollama).
+
 ## [0.3.241] — 2026-10-12
 
 View / Preferences:

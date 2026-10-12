@@ -6,6 +6,8 @@
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::thread;
 use std::time::Duration;
 
 /// Default Ollama base URL (loopback).
@@ -326,6 +328,92 @@ pub fn list_models(host_raw: &str) -> Result<Vec<String>, OllamaError> {
         .collect();
     names.sort();
     Ok(names)
+}
+
+/// Result delivered from a background Ollama worker (UI thread applies it).
+#[derive(Debug)]
+pub enum OllamaMsg {
+    AskDone {
+        model: String,
+        host: String,
+        /// Human-readable scope label (selection / whole buffer, maybe truncated).
+        scope: String,
+        cut: bool,
+        reply: String,
+    },
+    AskFailed {
+        error: String,
+    },
+    StatusDone {
+        host: String,
+        preferred_model: String,
+        models: Vec<String>,
+    },
+    StatusFailed {
+        error: String,
+    },
+}
+
+/// Channel pair for background Ask / Status calls.
+pub struct OllamaChannel {
+    pub tx: Sender<OllamaMsg>,
+    pub rx: Receiver<OllamaMsg>,
+}
+
+impl OllamaChannel {
+    pub fn new() -> Self {
+        let (tx, rx) = mpsc::channel();
+        Self { tx, rx }
+    }
+}
+
+impl Default for OllamaChannel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Run [`generate`] on a worker thread; send [`OllamaMsg`] when done.
+pub fn generate_async(
+    host: String,
+    model: String,
+    prompt: String,
+    scope: String,
+    cut: bool,
+    tx: Sender<OllamaMsg>,
+) {
+    thread::spawn(move || {
+        let msg = match generate(&host, &model, &prompt) {
+            Ok(reply) => OllamaMsg::AskDone {
+                model: model.trim().to_string(),
+                host: host.trim().to_string(),
+                scope,
+                cut,
+                reply,
+            },
+            Err(e) => OllamaMsg::AskFailed {
+                error: e.to_string(),
+            },
+        };
+        let _ = tx.send(msg);
+    });
+}
+
+/// Run [`list_models`] on a worker thread; send [`OllamaMsg`] when done.
+pub fn list_models_async(host: String, preferred_model: String, tx: Sender<OllamaMsg>) {
+    thread::spawn(move || {
+        let msg = match list_models(&host) {
+            Ok(models) => OllamaMsg::StatusDone {
+                host,
+                preferred_model,
+                models,
+            },
+            Err(e) => OllamaMsg::StatusFailed {
+                error: e.to_string(),
+            },
+        };
+        let _ = tx.send(msg);
+    });
 }
 
 fn trunc_err(s: &str) -> String {

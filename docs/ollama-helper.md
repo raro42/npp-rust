@@ -15,12 +15,14 @@ What *does* fit:
 
 Cursor’s value is agent + codebase context + apply-patch loops. Porting that whole stack is a large product. A thin Ollama bridge is a useful first step and matches npp-rs privacy goals.
 
-## What shipped (v0.3.165)
+## What shipped (v0.3.165 + v0.3.242)
 
 | Piece | Behavior |
 |-------|----------|
 | **Plugins → Ask Ollama** | Sends selection, or whole buffer if nothing selected, to local Ollama. Reply opens in a read-only tab. |
+| **Editor right-click → Ask Ollama** | Same as the Plugins item (v0.3.242). |
 | **Plugins → Ollama Status** | Pings `/api/tags` and lists installed models. |
+| **Background HTTP** | Ask / Status run on a worker thread so the window stays responsive (v0.3.242). One request at a time. |
 | **Preferences** | `ollama_host`, `ollama_model` (also `npp-rs/settings.json`). |
 | **Host rule** | **Loopback only** (`127.0.0.1`, `localhost`, `::1`). Remote URLs are rejected. |
 
@@ -31,9 +33,9 @@ Defaults: host `http://127.0.0.1:11434`, model `llama3.2`. Prompt body soft-capp
 1. Install and run Ollama on the same machine.
 2. `ollama pull llama3.2` (or set Preferences → Model to a model you have).
 3. Open a file, select a snippet (optional).
-4. **Plugins → Ask Ollama**.
+4. **Plugins → Ask Ollama**, or right-click the editor → **Ask Ollama**.
 
-If Ollama is down, the status bar shows a connect error. Use **Ollama Status** to confirm models.
+If Ollama is down, the status bar shows a connect error. Use **Ollama Status** to confirm models. While a call is in flight, the status bar says it is running in the background and you can keep editing.
 
 ## Why not a Cursor plugin?
 
@@ -41,7 +43,7 @@ If Ollama is down, the status bar shows a connect error. Use **Ollama Status** t
 |----------|------|-----------------|
 | VS Code / Cursor extension | Reuse Cursor UX | Wrong host app; splits the product |
 | Cloud LLM API in-core | Easy setup | Keys, privacy, network dependency |
-| **Local Ollama in-core** | Offline, no keys, fits FOSS | Needs a local model; sync call can stall UI briefly |
+| **Local Ollama in-core** | Offline, no keys, fits FOSS | Needs a local model |
 
 ## Non-goals (for now)
 
@@ -52,7 +54,7 @@ If Ollama is down, the status bar shows a connect error. Use **Ollama Status** t
 
 ## Later (optional)
 
-- Background / cancellable requests (avoid UI stall on long generations)
+- Cancellable in-flight requests
 - Insert-at-caret / replace-selection apply modes
 - Remappable Ask Ollama shortcut
 - Optional OpenAI-compatible local servers still bound to loopback

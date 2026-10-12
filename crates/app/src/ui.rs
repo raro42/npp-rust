@@ -1125,6 +1125,7 @@ impl eframe::App for EditorApp {
         }
 
         self.state.poll_loads();
+        let _ = self.state.poll_ollama();
         apply_session_viewport(self);
         self.restore_primary_tab_scroll_if_switched();
         if self.state.poll_tail() {
@@ -1132,10 +1133,11 @@ impl eframe::App for EditorApp {
         }
         let _ = self.state.tick_autosave();
         if !self.state.pending.is_empty()
+            || self.state.ollama_busy
             || self.state.tabs.iter().any(|d| d.tail_follow)
             || self.state.settings.autosave_secs() > 0
         {
-            // Steady poll while tailing or autosave is armed; avoid hammering every frame.
+            // Steady poll while tailing, Ollama, or autosave is armed; avoid hammering every frame.
             ctx.request_repaint_after(std::time::Duration::from_millis(300));
         }
 
@@ -12797,6 +12799,22 @@ impl EditorApp {
             let display_count = visible_lines.len().max(1);
             let avail = ui.available_size();
             let (rect, response) = ui.allocate_exact_size(avail, Sense::click_and_drag());
+            let mut ctx_ask_ollama = false;
+            response.context_menu(|ui| {
+                if ui
+                    .button("Ask Ollama")
+                    .on_hover_text(
+                        "Send selection (or whole buffer) to local Ollama; reply opens in a tab",
+                    )
+                    .clicked()
+                {
+                    ctx_ask_ollama = true;
+                    ui.close_menu();
+                }
+            });
+            if ctx_ask_ollama {
+                self.state.ask_ollama();
+            }
             // Do not steal focus every frame — that breaks Find (Ctrl/Cmd+F).
             if !self.state.find_open && !self.show_replace {
                 if response.clicked() || response.drag_started() {
