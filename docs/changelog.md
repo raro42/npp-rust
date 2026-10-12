@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.239] — 2026-10-12
+
+File / Session / Compare:
+
+- Opt-in session restore now keeps a **marked Compare partner** (`@partner`, alias `@cmppartner`) in `npp-rs/session.txt` when a tab was ⌘/Ctrl-clicked (or marked via the tab context menu) for Compare. Relaunch re-marks that tab so Compare with Other View still prefers it. Older session files still load (no partner mark by default).
+
 ## [0.3.238] — 2026-10-12
 
 View / Preferences:

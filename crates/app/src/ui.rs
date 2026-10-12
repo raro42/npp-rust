@@ -723,7 +723,9 @@ fn apply_session_viewport(app: &mut EditorApp) {
 /// `@focus` / `@otherfocus` restores keyboard focus on the other pane.
 /// `@syncv` / `@synch` restore Synchronize Vertical / Horizontal Scrolling.
 /// `@compare` / `@cmp` restarts Compare against the other pane (parks first hunk).
+/// `@partner` / `@cmppartner` re-marks the Compare partner tab (even without dual view).
 fn apply_session_dual_view(app: &mut EditorApp) {
+    apply_session_compare_partner(app);
     let Some(path) = app.state.session_other_view.clone() else {
         return;
     };
@@ -767,6 +769,30 @@ fn apply_session_dual_view(app: &mut EditorApp) {
     if want_compare {
         app.start_compare();
     }
+}
+
+/// Re-mark the ⌘/Ctrl-click Compare partner when session restore recorded `@partner`.
+fn apply_session_compare_partner(app: &mut EditorApp) {
+    let Some(path) = app.state.session_compare_partner.clone() else {
+        return;
+    };
+    let active = app.state.tabs.active_index();
+    let Some(idx) = app
+        .state
+        .tabs
+        .iter()
+        .position(|d| d.path.as_ref() == Some(&path))
+    else {
+        return;
+    };
+    if app.state.tabs.get(idx).is_some_and(|d| d.loading) {
+        return;
+    }
+    app.state.session_compare_partner = None;
+    if idx == active {
+        return;
+    }
+    app.compare_partner_tab = Some(idx);
 }
 
 impl EditorApp {
@@ -1067,6 +1093,10 @@ impl eframe::App for EditorApp {
         self.state.session_write_sync_v = self.dual_view && self.sync_scroll_v;
         self.state.session_write_sync_h = self.dual_view && self.sync_scroll_h;
         self.state.session_write_compare = self.compare_on;
+        self.state.session_write_compare_partner = self
+            .compare_partner_tab
+            .and_then(|i| self.state.tabs.get(i))
+            .and_then(|d| d.path.clone());
         if ctx.input(|i| i.viewport().close_requested()) {
             self.state.persist_session_if_enabled();
             let dirty = self.state.tabs.iter().any(|d| d.dirty);

@@ -18,6 +18,7 @@ Date: 2026-08-29
 - When the other pane had keyboard focus, session also writes `@focus` (alias `@otherfocus`) on that entry. Relaunch focuses the other pane after the split opens (primary focus stays the default when `@focus` is absent).
 - Synchronize Vertical / Horizontal Scrolling flags are saved as `@syncv` / `@synch` (aliases `@syncvert` / `@synchoriz`) on the active entry. Relaunch restores those flags when the split opens.
 - When Compare was on, session also writes `@compare` (alias `@cmp`) on the active entry. Relaunch restarts Compare against the `@other` pane after the split opens.
+- A ⌘/Ctrl-click marked Compare partner (tab `⇄`) is saved as `@partner` (alias `@cmppartner`) under that tab’s path. Relaunch re-marks it even when dual view / Compare were off.
 
 ## Limits
 

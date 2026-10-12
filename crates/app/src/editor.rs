@@ -135,6 +135,8 @@ pub struct EditorState {
     pub session_write_sync_h: bool,
     /// Compare-on for the next session write (UI syncs each frame).
     pub session_write_compare: bool,
+    /// Marked Compare partner path for the next session write (UI syncs each frame).
+    pub session_write_compare_partner: Option<PathBuf>,
     /// Dual-view other-pane path to apply after session restore (UI consumes when both tabs exist).
     pub session_other_view: Option<PathBuf>,
     /// Focus the dual-view other pane after session restore (UI consumes with `session_other_view`).
@@ -145,6 +147,8 @@ pub struct EditorState {
     pub session_sync_scroll_h: bool,
     /// Restart Compare after dual-view session restore (UI consumes with `session_other_view`).
     pub session_compare_on: bool,
+    /// Re-mark Compare partner tab after session restore (UI consumes when the tab exists).
+    pub session_compare_partner: Option<PathBuf>,
 }
 
 /// Bulk close mode after a dirty-tab confirm.
@@ -256,11 +260,13 @@ impl EditorState {
             session_write_sync_v: false,
             session_write_sync_h: false,
             session_write_compare: false,
+            session_write_compare_partner: None,
             session_other_view: None,
             session_focus_other: false,
             session_sync_scroll_v: false,
             session_sync_scroll_h: false,
             session_compare_on: false,
+            session_compare_partner: None,
         }
     }
 
@@ -1867,7 +1873,7 @@ impl EditorState {
         let _ = self.write_session_entries();
     }
 
-    /// Open paths from the config-dir session file (folds, bookmarks, style marks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, other-view, other-pane focus, sync-scroll, compare, active tab).
+    /// Open paths from the config-dir session file (folds, bookmarks, style marks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, other-view, other-pane focus, sync-scroll, compare, marked partner, active tab).
     pub fn restore_session_from_disk(&mut self) {
         let entries = crate::session::load_entries();
         if entries.is_empty() {
@@ -1886,6 +1892,7 @@ impl EditorState {
         self.session_sync_scroll_v = false;
         self.session_sync_scroll_h = false;
         self.session_compare_on = false;
+        self.session_compare_partner = None;
         let mut n = 0usize;
         let mut folds = 0usize;
         let mut bookmarks = 0usize;
@@ -1902,6 +1909,7 @@ impl EditorState {
         let mut active_path: Option<PathBuf> = None;
         let mut active_scroll: Option<usize> = None;
         let mut other_path: Option<PathBuf> = None;
+        let mut partner_path: Option<PathBuf> = None;
         let mut focus_other = false;
         let mut sync_v = false;
         let mut sync_h = false;
@@ -1925,6 +1933,7 @@ impl EditorState {
             let want_sync_v = entry.sync_scroll_v;
             let want_sync_h = entry.sync_scroll_h;
             let want_compare = entry.compare_on;
+            let want_partner = entry.compare_partner;
             let want_active = entry.active;
             self.open_path(path.clone());
             n += 1;
@@ -2043,6 +2052,9 @@ impl EditorState {
             if want_compare {
                 compare_on = true;
             }
+            if want_partner {
+                partner_path = Some(path.clone());
+            }
             if want_active {
                 active_path = Some(path);
                 active_scroll = scroll;
@@ -2141,6 +2153,12 @@ impl EditorState {
                 }
             }
         }
+        if let Some(path) = partner_path {
+            if active_path.as_ref() != Some(&path) {
+                self.session_compare_partner = Some(path);
+                bits.push_str(", compare partner");
+            }
+        }
         self.status = bits;
     }
 
@@ -2157,6 +2175,7 @@ impl EditorState {
         let active_path = self.tabs.active().path.clone();
         let active_scroll = self.session_write_scroll;
         let other_path = self.session_write_other_view.clone();
+        let partner_path = self.session_write_compare_partner.clone();
         let write_focus_other = self.session_write_focus_other;
         let write_sync_v = self.session_write_sync_v;
         let write_sync_h = self.session_write_sync_h;
@@ -2204,6 +2223,7 @@ impl EditorState {
                 let tail_follow = d.tail_follow;
                 let active = active_path.as_ref() == Some(&path);
                 let other_view = !active && other_path.as_ref() == Some(&path);
+                let compare_partner = !active && partner_path.as_ref() == Some(&path);
                 let focus_other = other_view && write_focus_other;
                 // Sync / compare flags are UI-level; persist once on the active tab.
                 let sync_scroll_v = active && write_sync_v;
@@ -2234,6 +2254,7 @@ impl EditorState {
                     sync_scroll_v,
                     sync_scroll_h,
                     compare_on,
+                    compare_partner,
                     active,
                 })
             })
