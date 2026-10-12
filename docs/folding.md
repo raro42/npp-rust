@@ -24,5 +24,5 @@ View → Fold / Unfold / Fold level still uses the same regions.
 ## Limits
 
 - Not full Scintilla fold-level chrome.
-- Fold state is saved with the opt-in session file (`@folds` header lines under each path in `npp-rs/session.txt`). The same file also stores `@bookmarks` / `@style1`…`@style5` / `@caret` / `@sel` / `@scroll` (per tab) / `@lang` / `@encoding` / `@readonly` / `@pin` / `@colour` / `@tail` / `@other` / `@focus` / `@active` for restore.
+- Fold state is saved with the opt-in session file (`@folds` header lines under each path in `npp-rs/session.txt`). The same file also stores `@bookmarks` / `@style1`…`@style5` / `@caret` / `@sel` / `@scroll` (per tab) / `@lang` / `@encoding` / `@readonly` / `@pin` / `@colour` / `@tail` / `@other` / `@focus` / `@syncv` / `@synch` / `@active` for restore.
 - String / comment skipping is heuristic (not a full lexer).

@@ -16,6 +16,8 @@
 //! - optional `@tail` / `@logtail` marker when View → Monitoring (log-tail) was on
 //! - optional `@other` / `@otherview` marker when that tab was in the dual-view other pane
 //! - optional `@focus` / `@otherfocus` marker when the dual-view other pane had keyboard focus
+//! - optional `@syncv` / `@syncvert` marker when Synchronize Vertical Scrolling was on
+//! - optional `@synch` / `@synchoriz` marker when Synchronize Horizontal Scrolling was on
 //! - optional `@active` marker on the entry that should be focused on restore
 
 use std::fs;
@@ -32,7 +34,7 @@ pub const SESSION_REL: &str = "npp-rs/session.txt";
 /// Anchor `(line, col)` and caret `(line, col)` for a non-empty session selection.
 pub type SessionSelection = ((usize, usize), (usize, usize));
 
-/// One session tab: path plus optional fold headers, bookmarks, style marks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, other-view, other-pane focus, and active flag.
+/// One session tab: path plus optional fold headers, bookmarks, style marks, caret, selection, scroll, language, encoding, read-only, pin, colour, log-tail, other-view, other-pane focus, sync-scroll, and active flag.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionEntry {
     pub path: PathBuf,
@@ -62,6 +64,10 @@ pub struct SessionEntry {
     pub other_view: bool,
     /// Dual-view other pane had keyboard focus (meaningful with `other_view`).
     pub focus_other: bool,
+    /// View → Synchronize Vertical Scrolling was on (UI-level; usually on `@active`).
+    pub sync_scroll_v: bool,
+    /// View → Synchronize Horizontal Scrolling was on (UI-level; usually on `@active`).
+    pub sync_scroll_h: bool,
     pub active: bool,
 }
 
@@ -70,7 +76,7 @@ fn session_store_path() -> Result<PathBuf, ()> {
     Ok(base.join("npp-rs").join(SESSION_FILE))
 }
 
-/// Write paths (and optional `@folds` / `@bookmarks` / `@styleN` / `@caret` / `@sel` / `@scroll` / `@lang` / `@encoding` / `@readonly` / `@pin` / `@colour` / `@tail` / `@other` / `@focus` / `@active` lines) for restore.
+/// Write paths (and optional `@folds` / `@bookmarks` / `@styleN` / `@caret` / `@sel` / `@scroll` / `@lang` / `@encoding` / `@readonly` / `@pin` / `@colour` / `@tail` / `@other` / `@focus` / `@syncv` / `@synch` / `@active` lines) for restore.
 pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
     let path = session_store_path().map_err(|_| "no config dir".to_string())?;
     if let Some(parent) = path.parent() {
@@ -144,6 +150,12 @@ pub fn save_entries(entries: &[SessionEntry]) -> Result<(), String> {
         }
         if entry.focus_other {
             writeln!(file, "@focus").map_err(|e| e.to_string())?;
+        }
+        if entry.sync_scroll_v {
+            writeln!(file, "@syncv").map_err(|e| e.to_string())?;
+        }
+        if entry.sync_scroll_h {
+            writeln!(file, "@synch").map_err(|e| e.to_string())?;
         }
         if entry.active {
             writeln!(file, "@active").map_err(|e| e.to_string())?;
@@ -289,6 +301,22 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
             }
             continue;
         }
+        if trimmed == "@syncv" || trimmed == "@syncvert" {
+            if meta_ok {
+                if let Some(last) = out.last_mut() {
+                    last.sync_scroll_v = true;
+                }
+            }
+            continue;
+        }
+        if trimmed == "@synch" || trimmed == "@synchoriz" {
+            if meta_ok {
+                if let Some(last) = out.last_mut() {
+                    last.sync_scroll_h = true;
+                }
+            }
+            continue;
+        }
         if trimmed == "@active" {
             if meta_ok {
                 if let Some(last) = out.last_mut() {
@@ -319,6 +347,8 @@ fn parse_session_text(text: &str) -> Vec<SessionEntry> {
                 tail_follow: false,
                 other_view: false,
                 focus_other: false,
+                sync_scroll_v: false,
+                sync_scroll_h: false,
                 active: false,
             });
             meta_ok = true;
@@ -967,9 +997,59 @@ mod tests {
     }
 
     #[test]
+    fn parse_sync_scroll_meta() {
+        let dir = std::env::temp_dir().join(format!(
+            "npp-session-sync-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::create_dir_all(&dir);
+        let a = dir.join("left.rs");
+        let b = dir.join("right.rs");
+        fs::write(&a, "line0\n").unwrap();
+        fs::write(&b, "x\n").unwrap();
+
+        let text = format!(
+            "{}\n@active\n@syncv\n@synch\n{}\n@other\n",
+            a.display(),
+            b.display()
+        );
+        let entries = parse_session_text(&text);
+        assert_eq!(entries.len(), 2);
+        assert!(entries[0].active);
+        assert!(entries[0].sync_scroll_v);
+        assert!(entries[0].sync_scroll_h);
+        assert!(!entries[1].sync_scroll_v);
+        assert!(!entries[1].sync_scroll_h);
+        assert!(entries[1].other_view);
+
+        let alias = format!(
+            "{}\n@syncvert\n{}\n@synchoriz\n@active\n",
+            a.display(),
+            b.display()
+        );
+        let entries = parse_session_text(&alias);
+        assert_eq!(entries.len(), 2);
+        assert!(entries[0].sync_scroll_v);
+        assert!(!entries[0].sync_scroll_h);
+        assert!(!entries[1].sync_scroll_v);
+        assert!(entries[1].sync_scroll_h);
+
+        let none = format!("{}\n@other\n", b.display());
+        let entries = parse_session_text(&none);
+        assert_eq!(entries.len(), 1);
+        assert!(!entries[0].sync_scroll_v);
+        assert!(!entries[0].sync_scroll_h);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn parse_ignores_orphan_meta() {
         let text =
-            "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@sel 0 0 0 1\n@scroll 9\n@lang rust\n@encoding utf8\n@readonly\n@pin\n@colour 2\n@tail\n@other\n@focus\n@active\n";
+            "@folds 1,2\n@bookmarks 3\n@caret 0 1\n@sel 0 0 0 1\n@scroll 9\n@lang rust\n@encoding utf8\n@readonly\n@pin\n@colour 2\n@tail\n@other\n@focus\n@syncv\n@synch\n@active\n";
         assert!(parse_session_text(text).is_empty());
     }
 

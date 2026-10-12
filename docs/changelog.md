@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.234] — 2026-10-12
+
+File / Session:
+
+- Opt-in session restore now keeps **Synchronize Vertical / Horizontal Scrolling** (`@syncv` / `@synch`, aliases `@syncvert` / `@synchoriz`) in `npp-rs/session.txt` with dual-view `@other`. Relaunch re-opens the split with the same sync flags. Older session files still load (sync off by default).
+
 ## [0.3.233] — 2026-10-12
 
 File / Session:

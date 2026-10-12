@@ -129,10 +129,18 @@ pub struct EditorState {
     pub session_write_other_view: Option<PathBuf>,
     /// Dual-view other pane had keyboard focus for the next session write (UI syncs each frame).
     pub session_write_focus_other: bool,
+    /// Sync vertical scroll for the next session write (UI syncs each frame).
+    pub session_write_sync_v: bool,
+    /// Sync horizontal scroll for the next session write (UI syncs each frame).
+    pub session_write_sync_h: bool,
     /// Dual-view other-pane path to apply after session restore (UI consumes when both tabs exist).
     pub session_other_view: Option<PathBuf>,
     /// Focus the dual-view other pane after session restore (UI consumes with `session_other_view`).
     pub session_focus_other: bool,
+    /// Restore Synchronize Vertical Scrolling with dual view (UI consumes with `session_other_view`).
+    pub session_sync_scroll_v: bool,
+    /// Restore Synchronize Horizontal Scrolling with dual view (UI consumes with `session_other_view`).
+    pub session_sync_scroll_h: bool,
 }
 
 /// Bulk close mode after a dirty-tab confirm.
@@ -241,8 +249,12 @@ impl EditorState {
             session_write_scroll: None,
             session_write_other_view: None,
             session_write_focus_other: false,
+            session_write_sync_v: false,
+            session_write_sync_h: false,
             session_other_view: None,
             session_focus_other: false,
+            session_sync_scroll_v: false,
+            session_sync_scroll_h: false,
         }
     }
 
@@ -1865,6 +1877,8 @@ impl EditorState {
         self.session_scroll_line = None;
         self.session_other_view = None;
         self.session_focus_other = false;
+        self.session_sync_scroll_v = false;
+        self.session_sync_scroll_h = false;
         let mut n = 0usize;
         let mut folds = 0usize;
         let mut bookmarks = 0usize;
@@ -1882,6 +1896,8 @@ impl EditorState {
         let mut active_scroll: Option<usize> = None;
         let mut other_path: Option<PathBuf> = None;
         let mut focus_other = false;
+        let mut sync_v = false;
+        let mut sync_h = false;
         for entry in entries {
             let path = entry.path.clone();
             let headers = entry.fold_headers;
@@ -1898,6 +1914,8 @@ impl EditorState {
             let want_tail = entry.tail_follow;
             let want_other = entry.other_view;
             let want_focus_other = entry.focus_other;
+            let want_sync_v = entry.sync_scroll_v;
+            let want_sync_h = entry.sync_scroll_h;
             let want_active = entry.active;
             self.open_path(path.clone());
             n += 1;
@@ -2007,6 +2025,12 @@ impl EditorState {
             if want_focus_other {
                 focus_other = true;
             }
+            if want_sync_v {
+                sync_v = true;
+            }
+            if want_sync_h {
+                sync_h = true;
+            }
             if want_active {
                 active_path = Some(path);
                 active_scroll = scroll;
@@ -2086,10 +2110,18 @@ impl EditorState {
             if active_path.as_ref() != Some(&path) {
                 self.session_other_view = Some(path);
                 self.session_focus_other = focus_other;
+                self.session_sync_scroll_v = sync_v;
+                self.session_sync_scroll_h = sync_h;
                 if focus_other {
                     bits.push_str(", dual view · other focused");
                 } else {
                     bits.push_str(", dual view");
+                }
+                match (sync_v, sync_h) {
+                    (true, true) => bits.push_str(" · sync V+H"),
+                    (true, false) => bits.push_str(" · sync V"),
+                    (false, true) => bits.push_str(" · sync H"),
+                    (false, false) => {}
                 }
             }
         }
@@ -2110,6 +2142,8 @@ impl EditorState {
         let active_scroll = self.session_write_scroll;
         let other_path = self.session_write_other_view.clone();
         let write_focus_other = self.session_write_focus_other;
+        let write_sync_v = self.session_write_sync_v;
+        let write_sync_h = self.session_write_sync_h;
         let entries: Vec<crate::session::SessionEntry> = self
             .tabs
             .iter()
@@ -2154,6 +2188,9 @@ impl EditorState {
                 let active = active_path.as_ref() == Some(&path);
                 let other_view = !active && other_path.as_ref() == Some(&path);
                 let focus_other = other_view && write_focus_other;
+                // Sync flags are UI-level; persist once on the active tab.
+                let sync_scroll_v = active && write_sync_v;
+                let sync_scroll_h = active && write_sync_h;
                 // Prefer live UI scroll for the focused tab; every tab keeps its last viewport.
                 let scroll = Some(if active {
                     active_scroll.unwrap_or(d.view_scroll_line)
@@ -2176,6 +2213,8 @@ impl EditorState {
                     tail_follow,
                     other_view,
                     focus_other,
+                    sync_scroll_v,
+                    sync_scroll_h,
                     active,
                 })
             })

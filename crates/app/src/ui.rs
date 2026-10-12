@@ -721,6 +721,7 @@ fn apply_session_viewport(app: &mut EditorApp) {
 
 /// Re-open dual view when session restore recorded `@other` on a different tab.
 /// `@focus` / `@otherfocus` restores keyboard focus on the other pane.
+/// `@syncv` / `@synch` restore Synchronize Vertical / Horizontal Scrolling.
 fn apply_session_dual_view(app: &mut EditorApp) {
     let Some(path) = app.state.session_other_view.clone() else {
         return;
@@ -740,6 +741,8 @@ fn apply_session_dual_view(app: &mut EditorApp) {
     if idx == active {
         app.state.session_other_view = None;
         app.state.session_focus_other = false;
+        app.state.session_sync_scroll_v = false;
+        app.state.session_sync_scroll_h = false;
         return;
     }
     app.dual_view = true;
@@ -747,8 +750,16 @@ fn apply_session_dual_view(app: &mut EditorApp) {
     if app.state.session_focus_other {
         app.focused_pane = EditorPane::Secondary;
     }
+    if app.state.session_sync_scroll_v {
+        app.sync_scroll_v = true;
+    }
+    if app.state.session_sync_scroll_h {
+        app.sync_scroll_h = true;
+    }
     app.state.session_other_view = None;
     app.state.session_focus_other = false;
+    app.state.session_sync_scroll_v = false;
+    app.state.session_sync_scroll_h = false;
 }
 
 impl EditorApp {
@@ -1033,6 +1044,8 @@ impl eframe::App for EditorApp {
         };
         self.state.session_write_focus_other =
             self.dual_view && self.focused_pane == EditorPane::Secondary;
+        self.state.session_write_sync_v = self.dual_view && self.sync_scroll_v;
+        self.state.session_write_sync_h = self.dual_view && self.sync_scroll_h;
         if ctx.input(|i| i.viewport().close_requested()) {
             self.state.persist_session_if_enabled();
             let dirty = self.state.tabs.iter().any(|d| d.dirty);

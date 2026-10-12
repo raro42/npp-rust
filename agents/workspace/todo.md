@@ -368,3 +368,5 @@
 009 keep: session restore dual-view other pane (@other / @otherview, v0.3.232)
 
 009 keep: session restore dual-view other-pane focus (@focus, v0.3.233)
+
+009 keep: session restore sync-scroll (@syncv / @synch, v0.3.234)
