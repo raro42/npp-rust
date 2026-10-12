@@ -12,6 +12,7 @@
 - [x] Loop: #17 submenu size TEST → DONE (closed)
 - [x] Loop: #18 Ollama helper TEST → DONE (closed)
 - [x] Loop: #19 Ask Ollama background TEST → DONE (open for close)
+- [ ] Loop: #20 next-gaps.md refresh coder → TEST
 - [ ] Run `./scripts/ci-local.sh` before every push
 - [ ] Skim `logs/panic.log` if the app crashed
 - 009 keep: Find wrap toggle (v0.3.14); regex still open

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.243] — 2026-10-12
+
+Docs (issue #20):
+
+- Refresh **`docs/next-gaps.md`**: drop the stale post-v0.3.12 / open-#14 table; document what shipped through v0.3.242 and rank real remaining gaps (shortcuts.xml, column virtual space, Find/FIF UI depth, LSP, macros, plugins ABI, UDL, hex, 3-way, …). Point overnight idle work at `docs/autoresearch/standing_backlog.md`.
+- Bump `docs/whats-missing.md` / docs index checkpoint dates to match.
+
 ## [0.3.242] — 2026-10-12
 
 Plugins / Ollama (issue #19):

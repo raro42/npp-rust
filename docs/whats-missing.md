@@ -1,7 +1,7 @@
 # What’s missing (after stub sweep)
 
-Date: 2026-08-29  
-**Checkpoint:** Issues #1–#6 closed. **v0.3.1** shipped issue #7 P0. Next: `docs/next-gaps.md` (P1).
+Date: 2026-10-12  
+**Checkpoint:** Issues #1–#19 closed or handed off. App at **v0.3.242+**. Ranked open gaps: `docs/next-gaps.md`.
 
 ## Stubs (Coming Soon dialog)
 
