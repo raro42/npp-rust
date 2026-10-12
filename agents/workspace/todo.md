@@ -370,3 +370,5 @@
 009 keep: session restore dual-view other-pane focus (@focus, v0.3.233)
 
 009 keep: session restore sync-scroll (@syncv / @synch, v0.3.234)
+
+009 keep: Always on Top persists (`always_on_top`, v0.3.235)

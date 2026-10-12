@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.235] — 2026-10-12
+
+View / Preferences:
+
+- **Always on Top** persists in `npp-rs/settings.json` (`always_on_top`). Menu / Alt+T toggle and Preferences checkbox restore the window level on launch (same pattern as `text_rtl`).
+
 ## [0.3.234] — 2026-10-12
 
 File / Session:

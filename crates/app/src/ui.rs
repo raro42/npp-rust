@@ -952,6 +952,11 @@ impl EditorApp {
             pending_always_on_top: None,
             pending_fullscreen_toggle: false,
         };
+        // Restore Always on Top from settings before the first frame paints.
+        if app.state.settings.always_on_top {
+            app.always_on_top = true;
+            app.pending_always_on_top = Some(true);
+        }
         let had_argv = !cli.paths.is_empty();
         app.replace_with = app.state.settings.replace_with.clone();
         app.open_argv_paths(cli);
@@ -4852,8 +4857,10 @@ impl EditorApp {
         if flags.always_on_top_toggle {
             self.always_on_top = !self.always_on_top;
             self.pending_always_on_top = Some(self.always_on_top);
+            self.state.settings.always_on_top = self.always_on_top;
+            self.state.settings.save();
             self.state.status = format!(
-                "Always on top: {}",
+                "Always on top: {} (persisted)",
                 if self.always_on_top { "on" } else { "off" }
             );
         }
@@ -7228,6 +7235,17 @@ impl EditorApp {
                             .changed()
                         {
                             crate::commands::edit::set_text_rtl(self.state.settings.text_rtl);
+                            changed = true;
+                        }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.always_on_top,
+                                "Always on top",
+                            )
+                            .changed()
+                        {
+                            self.always_on_top = self.state.settings.always_on_top;
+                            self.pending_always_on_top = Some(self.always_on_top);
                             changed = true;
                         }
                         ui.horizontal(|ui| {
