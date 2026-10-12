@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.253] — 2026-10-12
+
+Edit / column mode:
+
+- **Multi-caret line Home/End**: remappable line Home/End (default Home/End) moves every multi-caret to that line’s start or body end; Shift extends stream multi-carets. Rect selections become stream multi after a plain Home/End (`docs/column-mode.md`).
+
 ## [0.3.252] — 2026-10-12
 
 Edit / column mode:

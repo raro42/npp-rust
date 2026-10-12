@@ -2729,18 +2729,40 @@ impl EditorApp {
                 if chord_key_pressed(end_chord.key)
                     && end_chord.matches_ignore_shift(mods, end_chord.key)
                 {
+                    let extend = mods.shift != end_chord.shift;
+                    let mut multi_ok = false;
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
+                        multi_ok = if extend {
+                            doc.extend_multi_line_edge(true)
+                        } else {
+                            doc.move_multi_line_edge(true)
+                        };
+                        if !multi_ok {
+                            doc.clear_multi_sels();
+                        }
                     }
-                    go_line_end(&mut self.state, tab, mods.shift != end_chord.shift);
+                    if !multi_ok {
+                        go_line_end(&mut self.state, tab, extend);
+                    }
                     self.follow_focused_caret();
                 } else if chord_key_pressed(home_chord.key)
                     && home_chord.matches_ignore_shift(mods, home_chord.key)
                 {
+                    let extend = mods.shift != home_chord.shift;
+                    let mut multi_ok = false;
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
+                        multi_ok = if extend {
+                            doc.extend_multi_line_edge(false)
+                        } else {
+                            doc.move_multi_line_edge(false)
+                        };
+                        if !multi_ok {
+                            doc.clear_multi_sels();
+                        }
                     }
-                    go_line_start(&mut self.state, tab, mods.shift != home_chord.shift);
+                    if !multi_ok {
+                        go_line_start(&mut self.state, tab, extend);
+                    }
                     self.follow_focused_caret();
                 }
             }
@@ -18112,10 +18134,10 @@ impl EditorApp {
                         // Remapped document-home chord handled in handle_shortcuts.
                         continue;
                     }
-                    if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
-                    }
                     if modifiers.command || modifiers.ctrl {
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.clear_multi_sels();
+                        }
                         if doc_home != default_doc_home {
                             // Remapped away from Cmd+Home; ignore bare Cmd+Home.
                             continue;
@@ -18127,7 +18149,20 @@ impl EditorApp {
                         // Remapped away from bare Home; ignore for line start.
                         continue;
                     } else {
-                        go_line_start(&mut self.state, tab, modifiers.shift);
+                        let mut multi_ok = false;
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            multi_ok = if modifiers.shift {
+                                doc.extend_multi_line_edge(false)
+                            } else {
+                                doc.move_multi_line_edge(false)
+                            };
+                            if !multi_ok {
+                                doc.clear_multi_sels();
+                            }
+                        }
+                        if !multi_ok {
+                            go_line_start(&mut self.state, tab, modifiers.shift);
+                        }
                         caret_moved = true;
                     }
                 }
@@ -18165,10 +18200,10 @@ impl EditorApp {
                         // Remapped document-home chord handled in handle_shortcuts.
                         continue;
                     }
-                    if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
-                    }
                     if modifiers.command || modifiers.ctrl {
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            doc.clear_multi_sels();
+                        }
                         if doc_home != default_doc_home {
                             // Remapped away from Cmd+End; ignore bare Cmd+End.
                             continue;
@@ -18180,7 +18215,20 @@ impl EditorApp {
                         // Remapped away from bare Home/End; ignore for line end.
                         continue;
                     } else {
-                        go_line_end(&mut self.state, tab, modifiers.shift);
+                        let mut multi_ok = false;
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            multi_ok = if modifiers.shift {
+                                doc.extend_multi_line_edge(true)
+                            } else {
+                                doc.move_multi_line_edge(true)
+                            };
+                            if !multi_ok {
+                                doc.clear_multi_sels();
+                            }
+                        }
+                        if !multi_ok {
+                            go_line_end(&mut self.state, tab, modifiers.shift);
+                        }
                         caret_moved = true;
                     }
                 }

@@ -931,6 +931,97 @@ impl Document {
         true
     }
 
+    /// Char index of line start (`to_end == false`) or body end (`to_end == true`).
+    fn line_edge_char(&self, from: usize, to_end: bool) -> usize {
+        let len = self.buffer.len_chars();
+        let from = from.min(len);
+        let line = self.buffer.char_to_line(from);
+        let line_start = self.buffer.line_to_char(line);
+        if to_end {
+            line_start + self.buffer.line_body_len(line)
+        } else {
+            line_start
+        }
+    }
+
+    /// Home/End every multi-caret (plain remappable line Home/End). Keeps multi-carets.
+    ///
+    /// Non-empty ranges collapse to the left (Home) or right (End) edge first.
+    /// Rect selections become stream multi-carets after the jump.
+    /// Returns false when multi-carets are inactive.
+    pub fn move_multi_line_edge(&mut self, to_end: bool) -> bool {
+        if !self.has_multi_carets() {
+            return false;
+        }
+        let len = self.buffer.len_chars();
+        let mut new_sels = Vec::with_capacity(self.multi_sels.len());
+        for &(s, e) in &self.multi_sels {
+            let lo = s.min(e).min(len);
+            let hi = s.max(e).min(len);
+            let from = if lo != hi {
+                if to_end {
+                    hi
+                } else {
+                    lo
+                }
+            } else {
+                lo
+            };
+            let c = self.line_edge_char(from, to_end);
+            new_sels.push((c, c));
+        }
+        new_sels.sort_by_key(|(c, _)| *c);
+        new_sels.dedup();
+        if new_sels.len() < 2 {
+            if let Some(&(c, _)) = new_sels.first() {
+                self.multi_sels.clear();
+                self.rect_cols = None;
+                self.rect_anchor = None;
+                self.virtual_caret_col = None;
+                self.buffer.set_caret(c);
+            }
+            return true;
+        }
+        self.finish_multi_sels(new_sels);
+        true
+    }
+
+    /// Shift+Home/End: extend every stream multi-caret to line start/end.
+    ///
+    /// Keeps each range's anchor and moves its caret. Rect selections return false
+    /// (caller should clear). Returns false when stream multi-carets are inactive.
+    pub fn extend_multi_line_edge(&mut self, to_end: bool) -> bool {
+        if self.rect_cols.is_some() || !self.has_multi_carets() {
+            return false;
+        }
+        let len = self.buffer.len_chars();
+        let mut new_sels = Vec::with_capacity(self.multi_sels.len());
+        for &(anchor, caret) in &self.multi_sels {
+            let anchor = anchor.min(len);
+            let caret = caret.min(len);
+            let new_caret = self.line_edge_char(caret, to_end);
+            new_sels.push((anchor, new_caret));
+        }
+        new_sels.sort_by_key(|&(a, c)| (c, a));
+        new_sels.dedup();
+        if new_sels.len() < 2 {
+            if let Some(&(anchor, caret)) = new_sels.first() {
+                self.multi_sels.clear();
+                self.rect_cols = None;
+                self.rect_anchor = None;
+                self.virtual_caret_col = None;
+                if anchor == caret {
+                    self.buffer.set_caret(caret);
+                } else {
+                    self.buffer.set_selection(anchor, caret);
+                }
+            }
+            return true;
+        }
+        self.finish_multi_sels(new_sels);
+        true
+    }
+
     /// Shift+Left/Right: extend every stream multi-caret selection by `delta` chars.
     ///
     /// Keeps each range's anchor and moves its caret. Rect selections keep
@@ -1883,6 +1974,40 @@ mod tests {
         // Shift+word leaves rect alone (caller clears).
         doc.set_rect_selection_cols(0, 0, 1, 0);
         assert!(!doc.extend_multi_word(true));
+        assert!(doc.rect_cols.is_some());
+    }
+
+    #[test]
+    fn move_and_extend_multi_line_edge_keep_carets() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("foo bar\nfoo bar\n");
+        // Carets mid-line on each row.
+        doc.multi_sels = vec![(3, 3), (11, 11)];
+        assert!(doc.move_multi_line_edge(true));
+        assert_eq!(doc.multi_sels, vec![(7, 7), (15, 15)]);
+        assert!(doc.has_multi_carets());
+        assert!(doc.move_multi_line_edge(false));
+        assert_eq!(doc.multi_sels, vec![(0, 0), (8, 8)]);
+        doc.multi_sels = vec![(3, 3), (11, 11)];
+        assert!(doc.extend_multi_line_edge(true));
+        assert_eq!(doc.multi_sels, vec![(3, 7), (11, 15)]);
+        assert!(doc.has_multi_carets());
+        assert!(doc.insert_multi("Z"));
+        assert_eq!(doc.buffer.to_string(), "fooZ\nfooZ\n");
+    }
+
+    #[test]
+    fn move_multi_line_edge_rect_becomes_stream() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("foo bar\nfoo bar\n");
+        doc.set_rect_selection_cols(0, 3, 1, 3);
+        assert!(doc.rect_cols.is_some());
+        assert!(doc.move_multi_line_edge(true));
+        assert_eq!(doc.rect_cols, None);
+        assert_eq!(doc.multi_sels, vec![(7, 7), (15, 15)]);
+        assert!(doc.has_multi_carets());
+        doc.set_rect_selection_cols(0, 3, 1, 3);
+        assert!(!doc.extend_multi_line_edge(true));
         assert!(doc.rect_cols.is_some());
     }
 
