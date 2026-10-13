@@ -1,3 +1,4 @@
+009 keep: remappable Mark Style 3 / Clear Style 3 (shortcut_mark_style_3, Cmd+3 default, Shift=clear, v0.3.285)
 009 keep: remappable Mark Style 2 / Clear Style 2 (shortcut_mark_style_2, Cmd+2 default, Shift=clear, v0.3.284)
 009 keep: remappable Mark Style 1 / Clear Style 1 (shortcut_mark_style, Cmd+1 default, Shift=clear, v0.3.283)
 009 keep: remappable Move Tab Forward/Backward (shortcut_move_tab, Cmd+Shift+PageDown default, opposite PageUp=back, v0.3.281)
