@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.279] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Save a Copy As** is remappable: Preferences → Save a Copy As shortcut, or `shortcut_save_copy` in `npp-rs/settings.json` (default `Cmd+Alt+Y`). **Shift** flips to Rename. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.278] — 2026-10-13
 
 Settings / shortcuts:

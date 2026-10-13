@@ -328,6 +328,10 @@ fn default_shortcut_save_as() -> String {
     crate::shortcut_chord::DEFAULT_SAVE_AS.into()
 }
 
+fn default_shortcut_save_copy() -> String {
+    crate::shortcut_chord::DEFAULT_SAVE_COPY.into()
+}
+
 fn default_shortcut_save_all() -> String {
     crate::shortcut_chord::DEFAULT_SAVE_ALL.into()
 }
@@ -790,6 +794,9 @@ pub struct AppSettings {
     /// Save-as chord (`Cmd+Shift+S` default).
     #[serde(default = "default_shortcut_save_as")]
     pub shortcut_save_as: String,
+    /// Save a Copy As chord (`Cmd+Alt+Y` default; Shift flips to Rename).
+    #[serde(default = "default_shortcut_save_copy")]
+    pub shortcut_save_copy: String,
     /// Save-all chord (`Cmd+Alt+S` default).
     #[serde(default = "default_shortcut_save_all")]
     pub shortcut_save_all: String,
@@ -1109,6 +1116,7 @@ impl Default for AppSettings {
             shortcut_open: default_shortcut_open(),
             shortcut_save: default_shortcut_save(),
             shortcut_save_as: default_shortcut_save_as(),
+            shortcut_save_copy: default_shortcut_save_copy(),
             shortcut_save_all: default_shortcut_save_all(),
             shortcut_print: default_shortcut_print(),
             shortcut_tab_indent: default_shortcut_tab_indent(),
@@ -1561,6 +1569,7 @@ mod tests {
             shortcut_open: "Ctrl+Alt+O".into(),
             shortcut_save: "Ctrl+Alt+S".into(),
             shortcut_save_as: "Ctrl+Alt+Shift+S".into(),
+            shortcut_save_copy: "Ctrl+Alt+Shift+Y".into(),
             shortcut_save_all: "Ctrl+Shift+A".into(),
             shortcut_print: "Ctrl+Alt+P".into(),
             shortcut_tab_indent: "Ctrl+I".into(),
@@ -1696,6 +1705,7 @@ mod tests {
         assert_eq!(back.shortcut_open, "Ctrl+Alt+O");
         assert_eq!(back.shortcut_save, "Ctrl+Alt+S");
         assert_eq!(back.shortcut_save_as, "Ctrl+Alt+Shift+S");
+        assert_eq!(back.shortcut_save_copy, "Ctrl+Alt+Shift+Y");
         assert_eq!(back.shortcut_save_all, "Ctrl+Shift+A");
         assert_eq!(back.shortcut_print, "Ctrl+Alt+P");
         assert_eq!(back.shortcut_tab_indent, "Ctrl+I");

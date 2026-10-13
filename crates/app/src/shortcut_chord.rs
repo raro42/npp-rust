@@ -128,6 +128,11 @@ pub const DEFAULT_CLOSE_BUT_PINNED: &str = "Cmd+Alt+H";
 /// Indent Guide (Alt+I), Format Document (Cmd+Shift+I), or Close All (Cmd+Alt+W).
 pub const DEFAULT_CLOSE_TO_SIDE: &str = "Cmd+Alt+I";
 
+/// Default Save a Copy As binding (File → Save a Copy As).
+/// Shift flips to Rename. Uses Cmd+Alt+Y so it does not collide with Save As
+/// (Cmd+Shift+S), Save All (Cmd+Alt+S), or Copy Compare Summary (Alt+Y).
+pub const DEFAULT_SAVE_COPY: &str = "Cmd+Alt+Y";
+
 /// Default trim-trailing binding (Edit → Blank Operations → Trim Trailing Space).
 /// Shift flips to Trim Leading and Trailing Space. Uses Cmd+Alt+T so it does not
 /// collide with Always on Top (Alt+T) or Toggle log tail (Cmd+Shift+T).
@@ -1187,6 +1192,19 @@ mod tests {
         let to_right = c.flipped_shift();
         assert!(to_right.shift);
         assert_eq!(to_right.display(), "Cmd+Alt+Shift+I");
+    }
+
+    #[test]
+    fn parse_cmd_alt_y_default_save_copy() {
+        let c = parse_chord(DEFAULT_SAVE_COPY).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Y);
+        assert_eq!(c.display(), "Cmd+Alt+Y");
+        let rename = c.flipped_shift();
+        assert!(rename.shift);
+        assert_eq!(rename.display(), "Cmd+Alt+Shift+Y");
     }
 
     #[test]

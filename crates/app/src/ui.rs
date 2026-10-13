@@ -2221,6 +2221,47 @@ impl EditorApp {
                 self.state.save_as_dialog();
             }
         }
+        // Remappable Save a Copy As (default Cmd+Alt+Y; settings.shortcut_save_copy).
+        // Shift flips to Rename.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SAVE_COPY};
+            let save_copy_chord =
+                resolve_chord(&self.state.settings.shortcut_save_copy, DEFAULT_SAVE_COPY);
+            let save_copy_key_pressed = match save_copy_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if save_copy_key_pressed
+                && save_copy_chord
+                    .flipped_shift()
+                    .matches(mods, save_copy_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_FILE_RENAME");
+            } else if save_copy_key_pressed && save_copy_chord.matches(mods, save_copy_chord.key) {
+                self.run_shortcut_cmd("IDM_FILE_SAVECOPYAS");
+            }
+        }
         // Remappable save all (default Cmd+Alt+S; settings.shortcut_save_all).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_SAVE_ALL};
@@ -6717,6 +6758,14 @@ impl EditorApp {
             "IDM_FILE_SAVEAS" => {
                 primary(&s.shortcut_save_as, crate::shortcut_chord::DEFAULT_SAVE_AS)
             }
+            "IDM_FILE_SAVECOPYAS" => primary(
+                &s.shortcut_save_copy,
+                crate::shortcut_chord::DEFAULT_SAVE_COPY,
+            ),
+            "IDM_FILE_RENAME" => shifted(
+                &s.shortcut_save_copy,
+                crate::shortcut_chord::DEFAULT_SAVE_COPY,
+            ),
             "IDM_FILE_SAVEALL" => primary(
                 &s.shortcut_save_all,
                 crate::shortcut_chord::DEFAULT_SAVE_ALL,
@@ -7766,6 +7815,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_SAVE_AS,
         )
         .display();
+        let save_copy_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_save_copy,
+            crate::shortcut_chord::DEFAULT_SAVE_COPY,
+        );
+        let save_copy_keys = format!(
+            "{} / {}",
+            save_copy_chord.display(),
+            save_copy_chord.flipped_shift().display()
+        );
         let save_all_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_save_all,
             crate::shortcut_chord::DEFAULT_SAVE_ALL,
@@ -8018,12 +8076,13 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 105] = [
+        let rows: [(&str, &str); 106] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
             (save_keys.as_str(), "Save"),
             (save_as_keys.as_str(), "Save As"),
+            (save_copy_keys.as_str(), "Save a Copy As / Rename"),
             (save_all_keys.as_str(), "Save All"),
             (print_keys.as_str(), "Print"),
             (find_open_keys.as_str(), "Find"),
@@ -12073,6 +12132,42 @@ impl EditorApp {
                             RichText::new("Example: Cmd+Shift+S, Ctrl+Alt+Shift+S.")
                                 .small()
                                 .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Save a Copy As shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_save_copy,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+Y"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_save_copy
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_save_copy =
+                                        crate::shortcut_chord::DEFAULT_SAVE_COPY.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SAVE_COPY
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_save_copy = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+Y, Ctrl+Alt+Y. Saves a copy under a new name without switching the active path (File → Save a Copy As). Shift + that chord renames the active file. Does not collide with Save As (Cmd+Shift+S), Save All (Cmd+Alt+S), or Copy Compare Summary (Alt+Y).",
+                            )
+                            .small()
+                            .weak(),
                         );
                         ui.horizontal(|ui| {
                             ui.label("Save All shortcut");

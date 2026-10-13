@@ -76,6 +76,7 @@ New keys:
 | `shortcut_open` | Open-file chord (`Cmd+O` default) |
 | `shortcut_save` | Save chord (`Cmd+S` default) |
 | `shortcut_save_as` | Save-as chord (`Cmd+Shift+S` default) |
+| `shortcut_save_copy` | Save a Copy As chord (`Cmd+Alt+Y` default; Shift flips to Rename) |
 | `shortcut_save_all` | Save-all chord (`Cmd+Alt+S` default) |
 | `shortcut_print` | Print chord (`Cmd+P` default) |
 | `shortcut_tab_indent` | Tab indent chord (`Tab` default; inserts spaces at caret / multi-carets) |
