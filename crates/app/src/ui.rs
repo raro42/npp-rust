@@ -4913,6 +4913,48 @@ impl EditorApp {
             }
         }
 
+        // Remappable move tab forward (default Cmd+Shift+PageDown; settings.shortcut_move_tab).
+        // Opposite PageUp/PageDown moves backward; letter remaps use Shift for backward.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_MOVE_TAB};
+            let forward_chord =
+                resolve_chord(&self.state.settings.shortcut_move_tab, DEFAULT_MOVE_TAB);
+            let backward_chord = forward_chord.page_down_chord();
+            let chord_key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let hit = |chord: crate::shortcut_chord::KeyChord| {
+                chord_key_pressed(chord.key) && chord.matches(mods, chord.key)
+            };
+            if hit(backward_chord) && backward_chord != forward_chord {
+                self.run_shortcut_cmd("IDM_VIEW_TAB_MOVEBACKWARD");
+            } else if hit(forward_chord) {
+                self.run_shortcut_cmd("IDM_VIEW_TAB_MOVEFORWARD");
+            }
+        }
+
         // Find next/prev: remappable F3 (Shift flips) + remappable global Cmd+G (Shift flips).
         {
             use crate::shortcut_chord::{
@@ -6548,6 +6590,28 @@ impl EditorApp {
                             "Toggle whitespace + EOL + NPC ({chord}; Preferences remappable)"
                         ))
                     }
+                    "IDM_VIEW_TAB_MOVEFORWARD" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_move_tab,
+                            crate::shortcut_chord::DEFAULT_MOVE_TAB,
+                        );
+                        let forward = chord.display();
+                        let backward = chord.page_down_chord().display();
+                        response.on_hover_text(format!(
+                            "Move the active tab one slot toward the end ({forward}; Preferences remappable; {backward} moves backward)"
+                        ))
+                    }
+                    "IDM_VIEW_TAB_MOVEBACKWARD" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_move_tab,
+                            crate::shortcut_chord::DEFAULT_MOVE_TAB,
+                        );
+                        let backward = chord.page_down_chord().display();
+                        let forward = chord.display();
+                        response.on_hover_text(format!(
+                            "Move the active tab one slot toward the start ({backward}; Preferences remappable via Move tab shortcut; {forward} moves forward)"
+                        ))
+                    }
                     "IDM_VIEW_TAB_SPACE" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_show_whitespace,
@@ -6886,6 +6950,17 @@ impl EditorApp {
                 &s.shortcut_next_tab,
                 crate::shortcut_chord::DEFAULT_NEXT_TAB,
             ),
+            "IDM_VIEW_TAB_MOVEFORWARD" => primary(
+                &s.shortcut_move_tab,
+                crate::shortcut_chord::DEFAULT_MOVE_TAB,
+            ),
+            "IDM_VIEW_TAB_MOVEBACKWARD" => {
+                let c = crate::shortcut_chord::resolve_chord(
+                    &s.shortcut_move_tab,
+                    crate::shortcut_chord::DEFAULT_MOVE_TAB,
+                );
+                c.page_down_chord().display()
+            }
             "IDM_EDIT_UNDO" => primary(&s.shortcut_undo, crate::shortcut_chord::DEFAULT_UNDO),
             "IDM_EDIT_REDO" => primary(&s.shortcut_redo, crate::shortcut_chord::DEFAULT_REDO),
             "IDM_EDIT_SELECTALL" => primary(
@@ -7874,6 +7949,15 @@ impl EditorApp {
             next_tab_chord.display(),
             next_tab_chord.flipped_shift().display()
         );
+        let move_tab_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_move_tab,
+            crate::shortcut_chord::DEFAULT_MOVE_TAB,
+        );
+        let move_tab_keys = format!(
+            "{} / {}",
+            move_tab_chord.display(),
+            move_tab_chord.page_down_chord().display()
+        );
         let new_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_new,
             crate::shortcut_chord::DEFAULT_NEW,
@@ -8164,7 +8248,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 107] = [
+        let rows: [(&str, &str); 108] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -8350,6 +8434,10 @@ impl EditorApp {
                 "Trim trailing / Trim leading and trailing",
             ),
             (next_tab_keys.as_str(), "Next / prev tab"),
+            (
+                move_tab_keys.as_str(),
+                "Move tab forward / Move tab backward",
+            ),
         ];
         rows.into_iter()
             .map(|(keys, action)| (keys.to_string(), action.to_string()))
@@ -11032,6 +11120,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Tab, Ctrl+Alt+Tab. Shift flips to previous tab.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Move tab shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_move_tab,
+                                )
+                                .desired_width(160.0)
+                                .hint_text("Cmd+Shift+PageDown"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_move_tab.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_move_tab =
+                                        crate::shortcut_chord::DEFAULT_MOVE_TAB.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MOVE_TAB
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_move_tab = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+PageDown, Ctrl+Shift+PageDown. Moves View → Move Current Tab Forward. Opposite PageUp moves backward; letter remaps use Shift for backward. Does not collide with Next tab (Cmd+Tab), bare PageUp/PageDown, or Move line (Cmd+Shift+Up).",
                             )
                             .small()
                             .weak(),

@@ -310,6 +310,12 @@ pub const DEFAULT_RELOAD: &str = "Cmd+R";
 /// Default next-tab binding (new remappable chord). Shift flips to previous tab.
 pub const DEFAULT_NEXT_TAB: &str = "Cmd+Tab";
 
+/// Default move-tab-forward binding (View → Move Current Tab Forward).
+/// Opposite PageUp/PageDown moves backward; letter remaps use Shift for backward.
+/// Uses Cmd+Shift+PageDown so it does not collide with Next tab (Cmd+Tab), bare
+/// PageUp/PageDown, or Move line (Cmd+Shift+Up).
+pub const DEFAULT_MOVE_TAB: &str = "Cmd+Shift+PageDown";
+
 /// Default save-all binding (new remappable chord; File → Save All).
 /// Uses Cmd+Alt+S so it does not collide with Save As (Cmd+Shift+S).
 pub const DEFAULT_SAVE_ALL: &str = "Cmd+Alt+S";
@@ -1004,6 +1010,19 @@ mod tests {
         assert_eq!(c.key, Key::Tab);
         assert_eq!(c.display(), "Cmd+Tab");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+Tab");
+    }
+
+    #[test]
+    fn parse_cmd_shift_pagedown_default_move_tab() {
+        let c = parse_chord(DEFAULT_MOVE_TAB).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::PageDown);
+        assert_eq!(c.display(), "Cmd+Shift+PageDown");
+        assert_eq!(c.page_down_chord().display(), "Cmd+Shift+PageUp");
+        let letter = parse_chord("Ctrl+Alt+T").unwrap();
+        assert_eq!(letter.page_down_chord().display(), "Cmd+Alt+Shift+T");
     }
 
     #[test]

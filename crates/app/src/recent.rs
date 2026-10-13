@@ -312,6 +312,10 @@ fn default_shortcut_next_tab() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_TAB.into()
 }
 
+fn default_shortcut_move_tab() -> String {
+    crate::shortcut_chord::DEFAULT_MOVE_TAB.into()
+}
+
 fn default_shortcut_new() -> String {
     crate::shortcut_chord::DEFAULT_NEW.into()
 }
@@ -786,6 +790,9 @@ pub struct AppSettings {
     /// Next-tab chord (`Cmd+Tab` default; Shift flips to previous).
     #[serde(default = "default_shortcut_next_tab")]
     pub shortcut_next_tab: String,
+    /// Move current tab forward chord (`Cmd+Shift+PageDown` default; opposite PageUp moves back).
+    #[serde(default = "default_shortcut_move_tab")]
+    pub shortcut_move_tab: String,
     /// New-file chord (`Cmd+N` default).
     #[serde(default = "default_shortcut_new")]
     pub shortcut_new: String,
@@ -1119,6 +1126,7 @@ impl Default for AppSettings {
             shortcut_close_to_side: default_shortcut_close_to_side(),
             shortcut_trim_trailing: default_shortcut_trim_trailing(),
             shortcut_next_tab: default_shortcut_next_tab(),
+            shortcut_move_tab: default_shortcut_move_tab(),
             shortcut_new: default_shortcut_new(),
             shortcut_open: default_shortcut_open(),
             shortcut_save: default_shortcut_save(),
@@ -1573,6 +1581,7 @@ mod tests {
             shortcut_close_to_side: "Ctrl+Alt+Shift+I".into(),
             shortcut_trim_trailing: "Ctrl+Alt+Shift+T".into(),
             shortcut_next_tab: "Ctrl+Alt+Tab".into(),
+            shortcut_move_tab: "Ctrl+Alt+PageDown".into(),
             shortcut_new: "Ctrl+Alt+N".into(),
             shortcut_open: "Ctrl+Alt+O".into(),
             shortcut_save: "Ctrl+Alt+S".into(),
@@ -1710,6 +1719,7 @@ mod tests {
         assert_eq!(back.shortcut_close_to_side, "Ctrl+Alt+Shift+I");
         assert_eq!(back.shortcut_trim_trailing, "Ctrl+Alt+Shift+T");
         assert_eq!(back.shortcut_next_tab, "Ctrl+Alt+Tab");
+        assert_eq!(back.shortcut_move_tab, "Ctrl+Alt+PageDown");
         assert_eq!(back.shortcut_new, "Ctrl+Alt+N");
         assert_eq!(back.shortcut_open, "Ctrl+Alt+O");
         assert_eq!(back.shortcut_save, "Ctrl+Alt+S");

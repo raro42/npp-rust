@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.281] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Move Current Tab Forward** is remappable: Preferences → Move tab shortcut, or `shortcut_move_tab` in `npp-rs/settings.json` (default `Cmd+Shift+PageDown`). Opposite PageUp moves the tab backward; letter remaps use Shift for backward. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.280] — 2026-10-13
 
 Settings / shortcuts:

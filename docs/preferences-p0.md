@@ -72,6 +72,7 @@ New keys:
 | `shortcut_trim_trailing` | Trim Trailing chord (`Cmd+Alt+T` default; Shift flips to Trim Leading and Trailing) |
 | `shortcut_pin_tab` | Pin / unpin active tab chord (`Alt+Shift+P` default; `IDM_PINTAB`) |
 | `shortcut_next_tab` | Next-tab chord (`Cmd+Tab` default; Shift flips to previous) |
+| `shortcut_move_tab` | Move-tab-forward chord (`Cmd+Shift+PageDown` default; opposite PageUp moves back; letter remaps use Shift) |
 | `shortcut_new` | New-file chord (`Cmd+N` default) |
 | `shortcut_open` | Open-file chord (`Cmd+O` default) |
 | `shortcut_save` | Save chord (`Cmd+S` default) |

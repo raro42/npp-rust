@@ -1,4 +1,4 @@
-# Next gaps (post v0.3.280)
+# Next gaps (post v0.3.281)
 
 Date: 2026-10-13  
 Status: Issues **#1**–**#20** closed or handed off (this refresh). Overnight idle work: `docs/autoresearch/standing_backlog.md`.
@@ -51,6 +51,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.278 | Remappable Close All to the Left / Right (`shortcut_close_to_side`) |
 | v0.3.279 | Remappable Save a Copy As / Rename (`shortcut_save_copy`) |
 | v0.3.280 | Remappable Function List / Character Panel (`shortcut_function_list`) |
+| v0.3.281 | Remappable Move Tab Forward / Backward (`shortcut_move_tab`) |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 
