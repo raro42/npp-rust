@@ -1,3 +1,4 @@
+009 keep: remappable Close All but Pinned / Close All Unchanged (shortcut_close_but_pinned, Cmd+Alt+H default, Shift=unchanged, v0.3.277)
 009 keep: remappable Open Folder as Workspace / Containing Folder (shortcut_open_workspace, Cmd+Alt+G default, Shift=containing, v0.3.276)
 009 keep: remappable Open Containing Folder / Shell (shortcut_open_folder, Cmd+Alt+L default, Shift=shell, v0.3.275)
 009 keep: remappable Open Selected Filename / Containing Folder (shortcut_open_selected, Cmd+Alt+J default, Shift=folder, v0.3.274)
