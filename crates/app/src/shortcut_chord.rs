@@ -398,6 +398,11 @@ pub const DEFAULT_COPY_ALL_PATHS: &str = "Cmd+Alt+M";
 /// or Sort Lines (Cmd+Alt+O). Shift flips to Open Containing Folder in Explorer.
 pub const DEFAULT_OPEN_SELECTED: &str = "Cmd+Alt+J";
 
+/// Default Open Containing Folder (Explorer) binding (File → Open Containing Folder).
+/// Uses Cmd+Alt+L so it does not collide with Show Line Numbers (Alt+L), Go to Line
+/// (Cmd+L), or Open Selected Filename (Cmd+Alt+J). Shift flips to open a shell here.
+pub const DEFAULT_OPEN_FOLDER: &str = "Cmd+Alt+L";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1773,6 +1778,19 @@ mod tests {
         let folder = c.flipped_shift();
         assert!(folder.shift);
         assert_eq!(folder.display(), "Cmd+Alt+Shift+J");
+    }
+
+    #[test]
+    fn parse_cmd_alt_l_default_open_folder() {
+        let c = parse_chord(DEFAULT_OPEN_FOLDER).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::L);
+        assert_eq!(c.display(), "Cmd+Alt+L");
+        let shell = c.flipped_shift();
+        assert!(shell.shift);
+        assert_eq!(shell.display(), "Cmd+Alt+Shift+L");
     }
 
     #[test]

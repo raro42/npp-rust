@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.275] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Open Containing Folder** is remappable: Preferences → Open folder shortcut, or `shortcut_open_folder` in `npp-rs/settings.json` (default `Cmd+Alt+L`). **Shift** flips to open a shell in the active file's directory. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.274] — 2026-10-13
 
 Settings / shortcuts:

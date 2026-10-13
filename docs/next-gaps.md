@@ -1,4 +1,4 @@
-# Next gaps (post v0.3.274)
+# Next gaps (post v0.3.275)
 
 Date: 2026-10-13  
 Status: Issues **#1**–**#20** closed or handed off (this refresh). Overnight idle work: `docs/autoresearch/standing_backlog.md`.
@@ -45,6 +45,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.272 | Remappable Copy Current Directory Path (`shortcut_copy_dir`) |
 | v0.3.273 | Remappable Copy All Paths / All Filenames (`shortcut_copy_all_paths`) |
 | v0.3.274 | Remappable Open Selected Filename / Containing Folder (`shortcut_open_selected`) |
+| v0.3.275 | Remappable Open Containing Folder / Shell (`shortcut_open_folder`) |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 

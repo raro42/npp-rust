@@ -176,6 +176,10 @@ fn default_shortcut_open_selected() -> String {
     crate::shortcut_chord::DEFAULT_OPEN_SELECTED.into()
 }
 
+fn default_shortcut_open_folder() -> String {
+    crate::shortcut_chord::DEFAULT_OPEN_FOLDER.into()
+}
+
 fn default_shortcut_blank_line() -> String {
     crate::shortcut_chord::DEFAULT_BLANK_LINE.into()
 }
@@ -978,6 +982,9 @@ pub struct AppSettings {
     /// Open Selected Filename chord (`Cmd+Alt+J` default; Shift flips to Open Containing Folder).
     #[serde(default = "default_shortcut_open_selected")]
     pub shortcut_open_selected: String,
+    /// Open Containing Folder (Explorer) chord (`Cmd+Alt+L` default; Shift flips to shell here).
+    #[serde(default = "default_shortcut_open_folder")]
+    pub shortcut_open_folder: String,
     /// Find in Files chord (`Cmd+Alt+F` default).
     #[serde(default = "default_shortcut_find_in_files")]
     pub shortcut_find_in_files: String,
@@ -1145,6 +1152,7 @@ impl Default for AppSettings {
             shortcut_copy_dir: default_shortcut_copy_dir(),
             shortcut_copy_all_paths: default_shortcut_copy_all_paths(),
             shortcut_open_selected: default_shortcut_open_selected(),
+            shortcut_open_folder: default_shortcut_open_folder(),
             shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             ollama_host: default_ollama_host(),
@@ -1593,6 +1601,7 @@ mod tests {
             shortcut_copy_dir: "Ctrl+Alt+Shift+K".into(),
             shortcut_copy_all_paths: "Ctrl+Alt+Shift+M".into(),
             shortcut_open_selected: "Ctrl+Alt+Shift+J".into(),
+            shortcut_open_folder: "Ctrl+Alt+Shift+L".into(),
             shortcut_find_in_files: "Alt+Shift+F".into(),
             ..Default::default()
         };
@@ -1724,6 +1733,7 @@ mod tests {
         assert_eq!(back.shortcut_copy_dir, "Ctrl+Alt+Shift+K");
         assert_eq!(back.shortcut_copy_all_paths, "Ctrl+Alt+Shift+M");
         assert_eq!(back.shortcut_open_selected, "Ctrl+Alt+Shift+J");
+        assert_eq!(back.shortcut_open_folder, "Ctrl+Alt+Shift+L");
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
     }
 
