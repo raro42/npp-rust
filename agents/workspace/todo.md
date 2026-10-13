@@ -1,3 +1,4 @@
+009 keep: remappable Copy All Paths / All Filenames (shortcut_copy_all_paths, Cmd+Alt+M default, Shift=names, v0.3.273)
 009 keep: remappable Copy Current Directory Path (shortcut_copy_dir, Cmd+Alt+K default, v0.3.272)
 009 keep: remappable Copy Full Path / File Name (shortcut_copy_path, Cmd+Alt+P default, Shift=name, v0.3.271)
 009 keep: remappable Date Time short/long (shortcut_insert_datetime, F5 default, Shift=long, v0.3.270)
