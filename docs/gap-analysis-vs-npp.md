@@ -75,11 +75,11 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+Alt+N (remappable) | Multi-select next (`shortcut_multi_select_next`; Shift = skip current) |
 | Cmd/Ctrl+Alt+A (remappable) | Multi-select all (`shortcut_multi_select_all`; Shift = whole-word) |
 | Cmd/Ctrl+Alt+B (remappable) | Begin/End Select (`shortcut_begin_end_select`; Shift = column mode rect) |
+| Alt+Shift+arrows | Start / extend rectangular column select (virtual cols ok) |
 
 Missing vs typical Notepad++ (examples, not exhaustive):
 
 - Macro record/play keys
-- Multi-select / column mode keys
 - Remappable Scintilla keys (`shortcuts.xml`)
 - Fold level keys (Fold All / Fold Current remappable via `shortcut_fold_all` / `shortcut_fold_current`)
 
@@ -120,7 +120,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | Session restore | Partial | Path list + folded fold-header lines (`@folds`) + bookmarks (`@bookmarks`) + style marks (`@style1`…`@style5`) + caret (`@caret`) + selection (`@sel`) + per-tab scroll (`@scroll`) + language (`@lang`) + encoding (`@encoding`) + read-only (`@readonly`) + pin (`@pin`) + tab colour (`@colour`) + log-tail (`@tail`) + dual-view other pane (`@other`) + other-pane focus (`@focus`) + sync H/V scroll (`@syncv` / `@synch`) + Compare on (`@compare`) + marked Compare partner (`@partner`) + active tab (`@active`); not full N++ session XML |
 | Project panel | Partial | Folder list + refresh/reveal; open state persists (`show_project_panel`); not N++ projects |
 | Indent fold / hide lines | Partial | Fold margin + brace/indent heuristics; session restores folded headers; not full Scintilla |
-| Column / multi-edit | Partial | Alt+rect + multi-caret typing (v0.3.9); no virtual space |
+| Column / multi-edit | Partial | Alt+rect + Alt+Shift+arrows + multi-caret + virtual space (`docs/column-mode.md`) |
 | Autocomplete / call tips | Partial | In-file words/paths; no LSP popup |
 | Macros | Partial | Records menu IDs only; “multi” = 3 plays |
 | Plugins | Partial / Missing ABI | Builtins only |

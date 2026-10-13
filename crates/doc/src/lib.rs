@@ -1237,6 +1237,51 @@ impl Document {
         self.apply_rect_ranges(ranges, fallback);
     }
 
+    /// Seed a zero-width rect at the plain caret (honours `virtual_caret_col`).
+    fn seed_rect_from_caret(&mut self) {
+        let c = self.buffer.caret().min(self.buffer.len_chars());
+        let line = self.buffer.char_to_line(c);
+        let line_start = self.buffer.line_to_char(line);
+        let body_len = self.buffer.line_body_len(line);
+        let col = self
+            .virtual_caret_col
+            .filter(|&vc| vc > body_len)
+            .unwrap_or_else(|| c.saturating_sub(line_start));
+        self.set_rect_selection_cols(line, col, line, col);
+    }
+
+    /// Alt+Shift+Left/Right: start or extend a rectangular column selection.
+    ///
+    /// When not already in rect mode, seeds a zero-width column at the caret
+    /// (including virtual space past EOL), then extends by `delta` columns.
+    /// Single-line column spans still collapse to a stream selection (same as
+    /// other rect Shift+extend). Prefer Alt+Shift+Up/Down first for a multi-line
+    /// block. Returns false when `delta == 0`.
+    pub fn start_or_extend_rect_char(&mut self, delta: isize) -> bool {
+        if delta == 0 {
+            return false;
+        }
+        if self.rect_cols.is_none() {
+            self.seed_rect_from_caret();
+        }
+        self.extend_multi_char(delta)
+    }
+
+    /// Alt+Shift+Up/Down: start or extend a rectangular column selection by lines.
+    ///
+    /// When not already in rect mode, seeds a zero-width column at the caret
+    /// (including virtual space past EOL), then extends by `delta` lines.
+    /// Returns false when `delta == 0`.
+    pub fn start_or_extend_rect_line(&mut self, delta: isize) -> bool {
+        if delta == 0 {
+            return false;
+        }
+        if self.rect_cols.is_none() {
+            self.seed_rect_from_caret();
+        }
+        self.extend_multi_line(delta)
+    }
+
     fn apply_rect_ranges(&mut self, ranges: Vec<(usize, usize)>, fallback_caret: usize) {
         self.multi_sels = ranges.clone();
         if let Some(&(s, e)) = ranges.last() {
@@ -2185,6 +2230,35 @@ mod tests {
         // Extended ranges replace on type (same as a normal selection).
         assert!(doc.insert_multi("Z"));
         assert_eq!(doc.buffer.to_string(), "aZ\nbZ\ncZ\n");
+    }
+
+    #[test]
+    fn start_or_extend_rect_line_from_caret() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("abcd\nefgh\nijkl\n");
+        doc.buffer.set_caret(1); // line 0 col 1
+        assert!(doc.start_or_extend_rect_line(1));
+        assert_eq!(doc.rect_cols, Some((1, 1)));
+        assert_eq!(doc.rect_anchor, Some((0, 1)));
+        assert!(doc.has_multi_carets());
+        assert_eq!(doc.multi_sels, vec![(1, 1), (6, 6)]);
+        assert!(doc.start_or_extend_rect_char(1));
+        assert_eq!(doc.rect_cols, Some((1, 2)));
+        assert!(doc.start_or_extend_rect_line(1));
+        assert_eq!(doc.rect_cols, Some((1, 2)));
+        assert_eq!(doc.multi_sels.len(), 3);
+    }
+
+    #[test]
+    fn start_or_extend_rect_honours_virtual_caret() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("ab\nx\ncd\n");
+        doc.set_caret_at_line_col(0, 5);
+        assert_eq!(doc.virtual_caret_col, Some(5));
+        assert!(doc.start_or_extend_rect_line(1));
+        assert_eq!(doc.rect_cols, Some((5, 5)));
+        assert_eq!(doc.rect_anchor, Some((0, 5)));
+        assert!(doc.has_multi_carets());
     }
 
     #[test]

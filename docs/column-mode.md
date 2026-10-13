@@ -1,13 +1,14 @@
 # Column / rectangular select
 
 Date: 2026-10-13  
-Version: 0.3.262
+Version: 0.3.263
 
 ## What works
 
 - **Begin/End Select in Column Mode**: mark a start caret, move, then complete with Edit → Begin/End Select in Column Mode (or remappable `shortcut_begin_end_select` with Shift; default `Cmd+Alt+Shift+B`) to build a rectangular selection between those corners (same path as Alt+drag, including **virtual columns past EOL** when either mark used free-caret space). Stream Begin/End Select stays a normal selection and can end in virtual space (`shortcut_begin_end_select`, default `Cmd+Alt+B`).
 - **Multi-caret / rect paste line-split**: when pasted text has the same number of lines as carets (or rect rows), each caret gets its matching line (round-trip after multi-caret / column copy). Otherwise the full string is inserted at every caret.
 - **Escape clears multi-carets**: remappable close-Find chord (default Escape; `shortcut_close_find`) closes Find/Replace when open; when those bars are already closed, the same chord clears multi-carets / rect column select (primary caret stays).
+- **Alt+Shift+arrows** start or extend a rectangular column selection from the caret (N++-style), including virtual columns past EOL. Prefer Up/Down first for a multi-line block; Left/Right then grow columns. On the default Alt+Left/Right word-jump chord, Alt+Shift+Left/Right prefers rect over word-jump extend.
 - **Alt+drag** (Option+drag on macOS) builds a rectangular selection.
 - Each line in the block gets a range at the same columns (char indices clamp to line length).
 - **Virtual space past EOL** for Alt+drag: mouse hit-test can target columns past every line’s EOL (space width); carets and the selection wash draw at those columns; typing pads short lines with spaces to the target column; copy pads missing columns with spaces in the clipboard.
@@ -30,11 +31,12 @@ Version: 0.3.262
 
 - Stream virtual select is caret-end only (no separate virtual anchor column); empty EOL→virtual-only selections stay caret paint without a wash.
 - Rect Shift+extend tracks one anchor corner; after a plain arrow move the anchor resets to the top/start corner of the new block.
+- Alt+Shift+Left/Right on a single line still collapses a one-line column span to a stream selection (same as other rect Shift+extend); use Up/Down first for a lasting multi-line rect.
 - Paste line-split only when line count equals caret / rect-row count; otherwise the full clipboard string is still repeated at each caret.
 
 ## Code
 
 - Buffer: `TextBuffer::rect_ranges` / `rect_ranges_from_cols`, `anchor_and_caret` — `crates/buffer/src/lib.rs`
-- Document: `set_rect_selection` / `set_rect_selection_from_marks` / `set_rect_selection_cols`, `rect_anchor`, `set_caret_at_line_col`, `add_caret_at_line_col`, `set_stream_selection_to_line_col`, `insert_plain`, `move_char`, `move_multi_char`, `move_multi_line`, `move_multi_word`, `extend_multi_word`, `move_multi_line_edge`, `extend_multi_line_edge` (stream + rect Shift+Home/End), `extend_multi_char`, `extend_multi_line`, `insert_multi`, `delete_*_multi` — `crates/doc/src/lib.rs`
+- Document: `set_rect_selection` / `set_rect_selection_from_marks` / `set_rect_selection_cols`, `start_or_extend_rect_char` / `start_or_extend_rect_line` (Alt+Shift+arrows), `rect_anchor`, `set_caret_at_line_col`, `add_caret_at_line_col`, `set_stream_selection_to_line_col`, `insert_plain`, `move_char`, `move_multi_char`, `move_multi_line`, `move_multi_word`, `extend_multi_word`, `move_multi_line_edge`, `extend_multi_line_edge` (stream + rect Shift+Home/End), `extend_multi_char`, `extend_multi_line`, `insert_multi`, `delete_*_multi` — `crates/doc/src/lib.rs`
 - Buffer: `word_jump_from` — `crates/buffer/src/lib.rs`
 - Hit-test / paint: `col_from_x_virtual`, `x_for_col` — `crates/app/src/ui_paint.rs`; Alt+drag + Ctrl/Cmd+click add caret + plain click / stream select path — `crates/app/src/ui.rs`

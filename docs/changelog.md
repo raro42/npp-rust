@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.263] — 2026-10-13
+
+Edit / column mode:
+
+- **Alt+Shift+arrows** start or extend a rectangular column selection from the caret (N++-style keyboard column select), including virtual columns past EOL. Prefer Up/Down first for a multi-line block; Left/Right then grow columns. On the default Alt+Left/Right word-jump chord, Alt+Shift+Left/Right prefers rect over word-jump extend.
+
 ## [0.3.262] — 2026-10-13
 
 Edit / column mode:
