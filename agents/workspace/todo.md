@@ -429,3 +429,5 @@
 009 keep: Document Home/End move / Shift-extend multi-carets / rect (v0.3.264)
 
 009 keep: remappable Toggle Read-Only (v0.3.265)
+
+009 keep: remappable Column Editor (v0.3.266)
