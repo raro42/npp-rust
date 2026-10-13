@@ -387,6 +387,12 @@ pub const DEFAULT_COPY_PATH: &str = "Cmd+Alt+P";
 /// Copy Full Path (Cmd+Alt+P).
 pub const DEFAULT_COPY_DIR: &str = "Cmd+Alt+K";
 
+/// Default Copy All File Paths to Clipboard binding (Edit → Copy to Clipboard).
+/// Uses Cmd+Alt+M so it does not collide with Bookmark Compare Diffs (Alt+M),
+/// Copy Full Path (Cmd+Alt+P), or Copy Current Directory (Cmd+Alt+K).
+/// Shift flips to Copy All Filenames.
+pub const DEFAULT_COPY_ALL_PATHS: &str = "Cmd+Alt+M";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1736,6 +1742,19 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::K);
         assert_eq!(c.display(), "Cmd+Alt+K");
+    }
+
+    #[test]
+    fn parse_cmd_alt_m_default_copy_all_paths() {
+        let c = parse_chord(DEFAULT_COPY_ALL_PATHS).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::M);
+        assert_eq!(c.display(), "Cmd+Alt+M");
+        let names = c.flipped_shift();
+        assert!(names.shift);
+        assert_eq!(names.display(), "Cmd+Alt+Shift+M");
     }
 
     #[test]

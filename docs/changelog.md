@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.273] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Copy All Paths** is remappable: Preferences → Copy all paths shortcut, or `shortcut_copy_all_paths` in `npp-rs/settings.json` (default `Cmd+Alt+M`). **Shift** flips to Copy All Filenames. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.272] — 2026-10-13
 
 Settings / shortcuts:

@@ -4286,6 +4286,51 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_CURRENTDIRTOCLIP");
             }
         }
+        // Remappable Copy All Paths (default Cmd+Alt+M; settings.shortcut_copy_all_paths).
+        // Shift flips to Copy All Filenames.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_COPY_ALL_PATHS};
+            let all_paths_chord = resolve_chord(
+                &self.state.settings.shortcut_copy_all_paths,
+                DEFAULT_COPY_ALL_PATHS,
+            );
+            let all_paths_key_pressed = match all_paths_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_names = all_paths_key_pressed
+                && all_paths_chord
+                    .flipped_shift()
+                    .matches(mods, all_paths_chord.key);
+            let remapped_paths =
+                all_paths_key_pressed && all_paths_chord.matches(mods, all_paths_chord.key);
+            if remapped_names {
+                self.run_shortcut_cmd("IDM_EDIT_COPY_ALL_NAMES");
+            } else if remapped_paths {
+                self.run_shortcut_cmd("IDM_EDIT_COPY_ALL_PATHS");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -6619,6 +6664,14 @@ impl EditorApp {
                 &s.shortcut_copy_dir,
                 crate::shortcut_chord::DEFAULT_COPY_DIR,
             ),
+            "IDM_EDIT_COPY_ALL_PATHS" => primary(
+                &s.shortcut_copy_all_paths,
+                crate::shortcut_chord::DEFAULT_COPY_ALL_PATHS,
+            ),
+            "IDM_EDIT_COPY_ALL_NAMES" => shifted(
+                &s.shortcut_copy_all_paths,
+                crate::shortcut_chord::DEFAULT_COPY_ALL_PATHS,
+            ),
             "IDM_SEARCH_FIND" => primary(&s.shortcut_find, crate::shortcut_chord::DEFAULT_FIND),
             "IDM_SEARCH_FINDINFILES" => primary(
                 &s.shortcut_find_in_files,
@@ -7338,6 +7391,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_COPY_DIR,
         )
         .display();
+        let copy_all_paths_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_copy_all_paths,
+            crate::shortcut_chord::DEFAULT_COPY_ALL_PATHS,
+        );
+        let copy_all_paths_keys = format!(
+            "{} / {}",
+            copy_all_paths_chord.display(),
+            copy_all_paths_chord.flipped_shift().display()
+        );
         let format_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_format_document,
             crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -7647,7 +7709,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 99] = [
+        let rows: [(&str, &str); 100] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -7766,6 +7828,10 @@ impl EditorApp {
             (insert_datetime_keys.as_str(), "Date Time short / long"),
             (copy_path_keys.as_str(), "Copy Full Path / File Name"),
             (copy_dir_keys.as_str(), "Copy Current Directory Path"),
+            (
+                copy_all_paths_keys.as_str(),
+                "Copy All Paths / All Filenames",
+            ),
             (indent_outdent_keys.as_str(), "Indent / Outdent"),
             (format_keys.as_str(), "Format document"),
             (fold_all_keys.as_str(), "Fold / Unfold all"),
@@ -10080,6 +10146,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+K, Ctrl+Alt+K. Copies the parent directory of the active file (Edit → Copy to Clipboard). Does not collide with Copy Compare Hunk (Alt+K) or Copy Full Path (Cmd+Alt+P).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Copy all paths shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_copy_all_paths,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+M"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_copy_all_paths
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_copy_all_paths =
+                                        crate::shortcut_chord::DEFAULT_COPY_ALL_PATHS.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_COPY_ALL_PATHS
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_copy_all_paths = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+M, Ctrl+Alt+M. Copies all open tab paths (Edit → Copy to Clipboard). Shift + that chord copies all tab filenames. Does not collide with Bookmark Compare Diffs (Alt+M), Copy Full Path (Cmd+Alt+P), or Copy Current Directory (Cmd+Alt+K).",
                             )
                             .small()
                             .weak(),
