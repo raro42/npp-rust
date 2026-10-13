@@ -5041,6 +5041,50 @@ impl EditorApp {
             }
         }
 
+        // Remappable Mark All Style 2 (default Cmd+2; settings.shortcut_mark_style_2).
+        // Shift flips to Clear Style 2.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_MARK_STYLE_2};
+            let style_chord = resolve_chord(
+                &self.state.settings.shortcut_mark_style_2,
+                DEFAULT_MARK_STYLE_2,
+            );
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let style_key_pressed = key_pressed(style_chord.key);
+            let remapped_clear =
+                style_key_pressed && style_chord.flipped_shift().matches(mods, style_chord.key);
+            let remapped_mark = style_key_pressed && style_chord.matches(mods, style_chord.key);
+            if remapped_clear {
+                self.run_shortcut_cmd("IDM_SEARCH_UNMARKALLEXT2");
+            } else if remapped_mark {
+                self.run_shortcut_cmd("IDM_SEARCH_MARKALLEXT2");
+            }
+        }
+
         // Find next/prev: remappable F3 (Shift flips) + remappable global Cmd+G (Shift flips).
         {
             use crate::shortcut_chord::{
@@ -7249,6 +7293,14 @@ impl EditorApp {
                 &s.shortcut_mark_style,
                 crate::shortcut_chord::DEFAULT_MARK_STYLE,
             ),
+            "IDM_SEARCH_MARKALLEXT2" => primary(
+                &s.shortcut_mark_style_2,
+                crate::shortcut_chord::DEFAULT_MARK_STYLE_2,
+            ),
+            "IDM_SEARCH_UNMARKALLEXT2" => shifted(
+                &s.shortcut_mark_style_2,
+                crate::shortcut_chord::DEFAULT_MARK_STYLE_2,
+            ),
             "IDM_SEARCH_GOTOLINE" => primary(
                 &s.shortcut_goto_line,
                 crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -7571,6 +7623,15 @@ impl EditorApp {
             "{} / {}",
             mark_style_chord.display(),
             mark_style_chord.flipped_shift().display()
+        );
+        let mark_style_2_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_mark_style_2,
+            crate::shortcut_chord::DEFAULT_MARK_STYLE_2,
+        );
+        let mark_style_2_keys = format!(
+            "{} / {}",
+            mark_style_2_chord.display(),
+            mark_style_2_chord.flipped_shift().display()
         );
         let bm_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_next_bookmark,
@@ -8368,7 +8429,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 110] = [
+        let rows: [(&str, &str); 111] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -8384,6 +8445,7 @@ impl EditorApp {
             (find_global_keys.as_str(), "Find next / prev (global)"),
             (set_and_find_keys.as_str(), "Select and Find next / prev"),
             (mark_style_keys.as_str(), "Mark Style 1 / Clear Style 1"),
+            (mark_style_2_keys.as_str(), "Mark Style 2 / Clear Style 2"),
             (goto_keys.as_str(), "Go to line"),
             (bm_keys.as_str(), "Next / prev bookmark"),
             (toggle_bm_keys.as_str(), "Toggle bookmark"),
@@ -9111,7 +9173,39 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: Cmd+1, Ctrl+1. Marks all Find/selection matches with Style 1. Shift + that key clears Style 1. Styles 2–5 stay menu-only.",
+                                "Example: Cmd+1, Ctrl+1. Marks all Find/selection matches with Style 1. Shift + that key clears Style 1.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Mark Style 2 shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_mark_style_2,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+2"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_mark_style_2.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_mark_style_2 =
+                                        crate::shortcut_chord::DEFAULT_MARK_STYLE_2.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MARK_STYLE_2
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_mark_style_2 = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+2, Ctrl+2. Marks all Find/selection matches with Style 2. Shift + that key clears Style 2. Styles 3–5 stay menu-only.",
                             )
                             .small()
                             .weak(),

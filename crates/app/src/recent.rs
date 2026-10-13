@@ -104,6 +104,10 @@ fn default_shortcut_mark_style() -> String {
     crate::shortcut_chord::DEFAULT_MARK_STYLE.into()
 }
 
+fn default_shortcut_mark_style_2() -> String {
+    crate::shortcut_chord::DEFAULT_MARK_STYLE_2.into()
+}
+
 fn default_shortcut_next_bookmark() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK.into()
 }
@@ -702,6 +706,9 @@ pub struct AppSettings {
     /// Mark-all Style 1 chord (`Cmd+1` default). Shift flips to Clear Style 1.
     #[serde(default = "default_shortcut_mark_style")]
     pub shortcut_mark_style: String,
+    /// Mark-all Style 2 chord (`Cmd+2` default). Shift flips to Clear Style 2.
+    #[serde(default = "default_shortcut_mark_style_2")]
+    pub shortcut_mark_style_2: String,
     /// Next-bookmark chord (`F2` default). Shift + same key is previous bookmark.
     #[serde(default = "default_shortcut_next_bookmark")]
     pub shortcut_next_bookmark: String,
@@ -1108,6 +1115,7 @@ impl Default for AppSettings {
             shortcut_find_next_global: default_shortcut_find_next_global(),
             shortcut_set_and_find: default_shortcut_set_and_find(),
             shortcut_mark_style: default_shortcut_mark_style(),
+            shortcut_mark_style_2: default_shortcut_mark_style_2(),
             shortcut_next_bookmark: default_shortcut_next_bookmark(),
             shortcut_toggle_bookmark: default_shortcut_toggle_bookmark(),
             shortcut_clear_bookmarks: default_shortcut_clear_bookmarks(),
@@ -1565,6 +1573,7 @@ mod tests {
             shortcut_find_next_global: "Ctrl+Alt+G".into(),
             shortcut_set_and_find: "Ctrl+Alt+F3".into(),
             shortcut_mark_style: "Ctrl+1".into(),
+            shortcut_mark_style_2: "Ctrl+2".into(),
             shortcut_next_bookmark: "Ctrl+F2".into(),
             shortcut_toggle_bookmark: "Alt+F2".into(),
             shortcut_clear_bookmarks: "Ctrl+Shift+F2".into(),
@@ -1705,6 +1714,7 @@ mod tests {
         assert_eq!(back.shortcut_find_next_global, "Ctrl+Alt+G");
         assert_eq!(back.shortcut_set_and_find, "Ctrl+Alt+F3");
         assert_eq!(back.shortcut_mark_style, "Ctrl+1");
+        assert_eq!(back.shortcut_mark_style_2, "Ctrl+2");
         assert_eq!(back.shortcut_next_bookmark, "Ctrl+F2");
         assert_eq!(back.shortcut_toggle_bookmark, "Alt+F2");
         assert_eq!(back.shortcut_clear_bookmarks, "Ctrl+Shift+F2");
