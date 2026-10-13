@@ -4955,6 +4955,50 @@ impl EditorApp {
             }
         }
 
+        // Remappable Select and Find Next (default Cmd+F3; settings.shortcut_set_and_find).
+        // Shift flips to Select and Find Previous.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SET_AND_FIND};
+            let set_chord = resolve_chord(
+                &self.state.settings.shortcut_set_and_find,
+                DEFAULT_SET_AND_FIND,
+            );
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let set_key_pressed = key_pressed(set_chord.key);
+            let remapped_prev =
+                set_key_pressed && set_chord.flipped_shift().matches(mods, set_chord.key);
+            let remapped_next = set_key_pressed && set_chord.matches(mods, set_chord.key);
+            if remapped_prev {
+                self.run_shortcut_cmd("IDM_SEARCH_SETANDFINDPREV");
+            } else if remapped_next {
+                self.run_shortcut_cmd("IDM_SEARCH_SETANDFINDNEXT");
+            }
+        }
+
         // Find next/prev: remappable F3 (Shift flips) + remappable global Cmd+G (Shift flips).
         {
             use crate::shortcut_chord::{
@@ -7147,6 +7191,14 @@ impl EditorApp {
                 &s.shortcut_find_next,
                 crate::shortcut_chord::DEFAULT_FIND_NEXT,
             ),
+            "IDM_SEARCH_SETANDFINDNEXT" => primary(
+                &s.shortcut_set_and_find,
+                crate::shortcut_chord::DEFAULT_SET_AND_FIND,
+            ),
+            "IDM_SEARCH_SETANDFINDPREV" => shifted(
+                &s.shortcut_set_and_find,
+                crate::shortcut_chord::DEFAULT_SET_AND_FIND,
+            ),
             "IDM_SEARCH_GOTOLINE" => primary(
                 &s.shortcut_goto_line,
                 crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -7451,6 +7503,15 @@ impl EditorApp {
             "{} / {}",
             find_global_chord.display(),
             find_global_chord.flipped_shift().display()
+        );
+        let set_and_find_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_set_and_find,
+            crate::shortcut_chord::DEFAULT_SET_AND_FIND,
+        );
+        let set_and_find_keys = format!(
+            "{} / {}",
+            set_and_find_chord.display(),
+            set_and_find_chord.flipped_shift().display()
         );
         let bm_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_next_bookmark,
@@ -8248,7 +8309,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 108] = [
+        let rows: [(&str, &str); 109] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -8262,6 +8323,7 @@ impl EditorApp {
             (replace_row.as_str(), "Replace"),
             (find_keys.as_str(), "Find next / prev"),
             (find_global_keys.as_str(), "Find next / prev (global)"),
+            (set_and_find_keys.as_str(), "Select and Find next / prev"),
             (goto_keys.as_str(), "Go to line"),
             (bm_keys.as_str(), "Next / prev bookmark"),
             (toggle_bm_keys.as_str(), "Toggle bookmark"),
@@ -8926,6 +8988,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+G, Ctrl+Alt+G. Shift + that key is Find previous.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Select and Find shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_set_and_find,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+F3"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_set_and_find.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_set_and_find =
+                                        crate::shortcut_chord::DEFAULT_SET_AND_FIND.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SET_AND_FIND
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_set_and_find = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+F3, Ctrl+F3. Copies the selection into the find query then finds next. Shift + that key is Select and Find Previous. Does not collide with Find next (F3).",
                             )
                             .small()
                             .weak(),

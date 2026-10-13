@@ -14,6 +14,10 @@ pub const DEFAULT_FIND_NEXT: &str = "F3";
 /// Default global find-next binding (matches historical hard-wire). Find prev uses Shift toggled.
 pub const DEFAULT_FIND_NEXT_GLOBAL: &str = "Cmd+G";
 
+/// Default select-and-find-next binding (Search → Select and Find Next; N++ Ctrl+F3 family).
+/// Shift flips to Select and Find Previous. Uses Cmd+F3 so it does not collide with Find next (F3).
+pub const DEFAULT_SET_AND_FIND: &str = "Cmd+F3";
+
 /// Default next-bookmark binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_BOOKMARK: &str = "F2";
 
@@ -796,6 +800,17 @@ mod tests {
         assert_eq!(c.key, Key::F3);
         assert_eq!(c.display(), "F3");
         assert_eq!(c.flipped_shift().display(), "Shift+F3");
+    }
+
+    #[test]
+    fn parse_cmd_f3_default_set_and_find() {
+        let c = parse_chord(DEFAULT_SET_AND_FIND).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F3);
+        assert_eq!(c.display(), "Cmd+F3");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+F3");
     }
 
     #[test]

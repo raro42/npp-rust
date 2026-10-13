@@ -37,6 +37,7 @@ New keys:
 | `shortcut_word_wrap` | Word-wrap toggle chord (`Alt+Z` default; e.g. `Ctrl+W`) |
 | `shortcut_find_next` | Find-next chord (`F3` default; Shift flips to find previous) |
 | `shortcut_find_next_global` | Global find-next chord (`Cmd+G` default; Shift flips to find previous) |
+| `shortcut_set_and_find` | Select-and-find-next chord (`Cmd+F3` default; Shift flips to Select and Find Previous) |
 | `shortcut_next_bookmark` | Next-bookmark chord (`F2` default; Shift flips to previous) |
 | `shortcut_toggle_bookmark` | Toggle-bookmark chord (`Cmd+F2` default) |
 | `shortcut_clear_bookmarks` | Clear-all-bookmarks chord (`Cmd+Shift+F2` default) |

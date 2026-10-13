@@ -96,6 +96,10 @@ fn default_shortcut_find_next_global() -> String {
     crate::shortcut_chord::DEFAULT_FIND_NEXT_GLOBAL.into()
 }
 
+fn default_shortcut_set_and_find() -> String {
+    crate::shortcut_chord::DEFAULT_SET_AND_FIND.into()
+}
+
 fn default_shortcut_next_bookmark() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK.into()
 }
@@ -688,6 +692,9 @@ pub struct AppSettings {
     /// Global find-next chord (`Cmd+G` default). Shift + same key is find previous.
     #[serde(default = "default_shortcut_find_next_global")]
     pub shortcut_find_next_global: String,
+    /// Select-and-find-next chord (`Cmd+F3` default). Shift flips to Select and Find Previous.
+    #[serde(default = "default_shortcut_set_and_find")]
+    pub shortcut_set_and_find: String,
     /// Next-bookmark chord (`F2` default). Shift + same key is previous bookmark.
     #[serde(default = "default_shortcut_next_bookmark")]
     pub shortcut_next_bookmark: String,
@@ -1092,6 +1099,7 @@ impl Default for AppSettings {
             shortcut_word_wrap: default_shortcut_word_wrap(),
             shortcut_find_next: default_shortcut_find_next(),
             shortcut_find_next_global: default_shortcut_find_next_global(),
+            shortcut_set_and_find: default_shortcut_set_and_find(),
             shortcut_next_bookmark: default_shortcut_next_bookmark(),
             shortcut_toggle_bookmark: default_shortcut_toggle_bookmark(),
             shortcut_clear_bookmarks: default_shortcut_clear_bookmarks(),
@@ -1547,6 +1555,7 @@ mod tests {
             autosave_interval_secs: 60,
             shortcut_find_next: "Ctrl+F3".into(),
             shortcut_find_next_global: "Ctrl+Alt+G".into(),
+            shortcut_set_and_find: "Ctrl+Alt+F3".into(),
             shortcut_next_bookmark: "Ctrl+F2".into(),
             shortcut_toggle_bookmark: "Alt+F2".into(),
             shortcut_clear_bookmarks: "Ctrl+Shift+F2".into(),
@@ -1685,6 +1694,7 @@ mod tests {
         assert_eq!(back.autosave_interval_secs, 60);
         assert_eq!(back.shortcut_find_next, "Ctrl+F3");
         assert_eq!(back.shortcut_find_next_global, "Ctrl+Alt+G");
+        assert_eq!(back.shortcut_set_and_find, "Ctrl+Alt+F3");
         assert_eq!(back.shortcut_next_bookmark, "Ctrl+F2");
         assert_eq!(back.shortcut_toggle_bookmark, "Alt+F2");
         assert_eq!(back.shortcut_clear_bookmarks, "Ctrl+Shift+F2");

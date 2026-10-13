@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.282] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Select and Find Next** is remappable: Preferences → Select and Find shortcut, or `shortcut_set_and_find` in `npp-rs/settings.json` (default `Cmd+F3`). Copies the selection into the find query then finds next. **Shift** flips to Select and Find Previous. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.281] — 2026-10-14
 
 Settings / shortcuts:
