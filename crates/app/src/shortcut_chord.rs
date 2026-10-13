@@ -18,6 +18,10 @@ pub const DEFAULT_FIND_NEXT_GLOBAL: &str = "Cmd+G";
 /// Shift flips to Select and Find Previous. Uses Cmd+F3 so it does not collide with Find next (F3).
 pub const DEFAULT_SET_AND_FIND: &str = "Cmd+F3";
 
+/// Default mark-all Style 1 binding (Search → Using Style 1; N++ Ctrl+1 family).
+/// Shift flips to Clear Style 1. Styles 2–5 stay menu-only for now.
+pub const DEFAULT_MARK_STYLE: &str = "Cmd+1";
+
 /// Default next-bookmark binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_BOOKMARK: &str = "F2";
 
@@ -676,6 +680,11 @@ fn parse_key(lower: &str) -> Option<Key> {
         "equals" | "=" | "plus" => Some(Key::Equals),
         "minus" | "-" => Some(Key::Minus),
         "0" | "num0" | "digit0" => Some(Key::Num0),
+        "1" | "num1" | "digit1" => Some(Key::Num1),
+        "2" | "num2" | "digit2" => Some(Key::Num2),
+        "3" | "num3" | "digit3" => Some(Key::Num3),
+        "4" | "num4" | "digit4" => Some(Key::Num4),
+        "5" | "num5" | "digit5" => Some(Key::Num5),
         "]" | "closebracket" | "bracketright" => Some(Key::CloseBracket),
         "[" | "openbracket" | "bracketleft" => Some(Key::OpenBracket),
         "/" | "slash" => Some(Key::Slash),
@@ -735,6 +744,11 @@ fn key_token(key: Key) -> &'static str {
         Key::Equals => "=",
         Key::Minus => "-",
         Key::Num0 => "0",
+        Key::Num1 => "1",
+        Key::Num2 => "2",
+        Key::Num3 => "3",
+        Key::Num4 => "4",
+        Key::Num5 => "5",
         Key::CloseBracket => "]",
         Key::OpenBracket => "[",
         Key::Slash => "/",
@@ -811,6 +825,17 @@ mod tests {
         assert_eq!(c.key, Key::F3);
         assert_eq!(c.display(), "Cmd+F3");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+F3");
+    }
+
+    #[test]
+    fn parse_cmd_1_default_mark_style() {
+        let c = parse_chord(DEFAULT_MARK_STYLE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Num1);
+        assert_eq!(c.display(), "Cmd+1");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+1");
     }
 
     #[test]

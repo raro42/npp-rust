@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.283] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Mark Style 1** is remappable: Preferences → Mark Style 1 shortcut, or `shortcut_mark_style` in `npp-rs/settings.json` (default `Cmd+1`). Marks all Find/selection matches with Style 1. **Shift** flips to Clear Style 1. Styles 2–5 stay menu-only. Menu, Shortcut Mapper, and About show the effective bindings. Chord parser now accepts digit keys `1`–`5`.
+
 ## [0.3.282] — 2026-10-14
 
 Settings / shortcuts:
