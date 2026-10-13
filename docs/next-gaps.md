@@ -30,6 +30,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.255 | Escape clears multi-carets / rect when Find closed |
 | v0.3.256–v0.3.258 | Remappable Close All / Trim Trailing; multi-caret paste line-split |
 | v0.3.259 | Remappable Multi-select All (`shortcut_multi_select_all`) |
+| v0.3.260 | Begin/End Select column mode = real rect; remappable (`shortcut_begin_end_select`) |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 

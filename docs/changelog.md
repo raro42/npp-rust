@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.260] — 2026-10-13
+
+Edit / column mode / shortcuts:
+
+- **Begin/End Select in Column Mode** builds a real rectangular selection between the marked start caret and the current caret (same corners as Alt+drag). Stream Begin/End Select is unchanged.
+- **Begin/End Select** is remappable: Preferences → Begin/End Select shortcut, or `shortcut_begin_end_select` in `npp-rs/settings.json` (default `Cmd+Alt+B`). Shift flips to **Begin/End Select in Column Mode**. Menu, Shortcut Mapper, and About show both bindings.
+
 ## [0.3.259] — 2026-10-13
 
 Settings / shortcuts:

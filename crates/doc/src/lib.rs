@@ -1865,6 +1865,19 @@ mod tests {
     }
 
     #[test]
+    fn begin_end_select_column_mode_uses_rect() {
+        // Char corners → rect (Edit → Begin/End Select in Column Mode).
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("abcd\nx\nijkl\n");
+        let start = 1; // line 0 col 1
+        let end = 10; // line 2 col 2
+        doc.set_rect_selection(start, end);
+        assert_eq!(doc.rect_cols, Some((1, 3)));
+        assert!(doc.has_multi_carets());
+        assert_eq!(doc.multi_sels.len(), 3);
+    }
+
+    #[test]
     fn set_rect_selection_cols_past_all_eols() {
         let mut doc = Document::untitled(1, 1);
         doc.buffer = TextBuffer::from_str("ab\nx\ncd\n");

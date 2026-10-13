@@ -1,10 +1,11 @@
 # Column / rectangular select
 
 Date: 2026-10-13  
-Version: 0.3.259
+Version: 0.3.260
 
 ## What works
 
+- **Begin/End Select in Column Mode**: mark a start caret, move, then complete with Edit → Begin/End Select in Column Mode (or remappable `shortcut_begin_end_select` with Shift; default `Cmd+Alt+Shift+B`) to build a rectangular selection between those char corners (same path as Alt+drag). Stream Begin/End Select stays a normal selection (`shortcut_begin_end_select`, default `Cmd+Alt+B`).
 - **Multi-caret / rect paste line-split**: when pasted text has the same number of lines as carets (or rect rows), each caret gets its matching line (round-trip after multi-caret / column copy). Otherwise the full string is inserted at every caret.
 - **Escape clears multi-carets**: remappable close-Find chord (default Escape; `shortcut_close_find`) closes Find/Replace when open; when those bars are already closed, the same chord clears multi-carets / rect column select (primary caret stays).
 - **Alt+drag** (Option+drag on macOS) builds a rectangular selection.
@@ -23,6 +24,7 @@ Version: 0.3.259
 - **Copy** / **Cut** with two or more ranges joins line slices with newlines (rect copy includes virtual-space spaces).
 - **Multi-select next/all** carets also receive typing (same path). Multi-select Next is remappable (`shortcut_multi_select_next`, default Cmd+Alt+N; Shift skips current). Multi-select All is remappable (`shortcut_multi_select_all`, default Cmd+Alt+A; Shift = whole-word).
 - **Column Editor** (`IDM_EDIT_COLUMNMODE`) still inserts clipboard text or `0,1,2…` at the caret column.
+- Begin/End Select column mode uses char-index corners (not virtual columns past EOL); Alt+drag still covers past-EOL rects.
 
 ## Differs from Notepad++ / Scintilla
 

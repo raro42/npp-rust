@@ -346,6 +346,10 @@ pub const DEFAULT_MULTI_SELECT_NEXT: &str = "Cmd+Alt+N";
 /// Shift flips to Multi-select All (Whole Word).
 pub const DEFAULT_MULTI_SELECT_ALL: &str = "Cmd+Alt+A";
 
+/// Default Begin/End Select binding (Edit → Begin/End Select).
+/// Shift flips to Begin/End Select in Column Mode.
+pub const DEFAULT_BEGIN_END_SELECT: &str = "Cmd+Alt+B";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1587,6 +1591,17 @@ mod tests {
         assert_eq!(c.key, Key::A);
         assert_eq!(c.display(), "Cmd+Alt+A");
         assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+A");
+    }
+
+    #[test]
+    fn parse_cmd_alt_b_default_begin_end_select() {
+        let c = parse_chord(DEFAULT_BEGIN_END_SELECT).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::B);
+        assert_eq!(c.display(), "Cmd+Alt+B");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+B");
     }
 
     #[test]

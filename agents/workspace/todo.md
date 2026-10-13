@@ -418,3 +418,4 @@
 009 keep: multi-caret / rect paste line-split (v0.3.258)
 
 009 keep: remappable Multi-select All / whole-word (v0.3.259)
+009 keep: Begin/End Select column mode rect + remappable shortcut (v0.3.260)

@@ -571,7 +571,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             state.status = "All paths copied".into();
             CmdResult::Handled
         }
-        "IDM_EDIT_BEGINENDSELECT" | "IDM_EDIT_BEGINENDSELECT_COLUMNMODE" => {
+        "IDM_EDIT_BEGINENDSELECT" => {
             let caret = state.tabs.active().buffer.caret();
             match state.begin_end_select {
                 None => {
@@ -579,10 +579,29 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
                     state.status = "Begin/End Select: start set".into();
                 }
                 Some(anchor) => {
-                    state.tabs.active_mut().buffer.set_selection(anchor, caret);
+                    let doc = state.tabs.active_mut();
+                    doc.clear_multi_sels();
+                    doc.clear_virtual_caret();
+                    doc.buffer.set_selection(anchor, caret);
                     state.begin_end_select = None;
                     ui.follow_caret = true;
                     state.status = "Begin/End Select: selection set".into();
+                }
+            }
+            CmdResult::Handled
+        }
+        "IDM_EDIT_BEGINENDSELECT_COLUMNMODE" => {
+            let caret = state.tabs.active().buffer.caret();
+            match state.begin_end_select {
+                None => {
+                    state.begin_end_select = Some(caret);
+                    state.status = "Begin/End Select (column): start set".into();
+                }
+                Some(anchor) => {
+                    state.tabs.active_mut().set_rect_selection(anchor, caret);
+                    state.begin_end_select = None;
+                    ui.follow_caret = true;
+                    state.status = "Begin/End Select (column): rect selection set".into();
                 }
             }
             CmdResult::Handled
