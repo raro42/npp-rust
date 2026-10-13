@@ -68,6 +68,7 @@ New keys:
 | `shortcut_close_tab` | Close-tab chord (`Cmd+W` default) |
 | `shortcut_close_all` | Close All chord (`Cmd+Alt+W` default; Shift flips to Close All but Current) |
 | `shortcut_close_but_pinned` | Close All but Pinned chord (`Cmd+Alt+H` default; Shift flips to Close All Unchanged) |
+| `shortcut_close_to_side` | Close All to the Left chord (`Cmd+Alt+I` default; Shift flips to Close All to the Right) |
 | `shortcut_trim_trailing` | Trim Trailing chord (`Cmd+Alt+T` default; Shift flips to Trim Leading and Trailing) |
 | `shortcut_pin_tab` | Pin / unpin active tab chord (`Alt+Shift+P` default; `IDM_PINTAB`) |
 | `shortcut_next_tab` | Next-tab chord (`Cmd+Tab` default; Shift flips to previous) |

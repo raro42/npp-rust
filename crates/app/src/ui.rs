@@ -4712,6 +4712,50 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_FILE_CLOSEALL_BUT_PINNED");
             }
         }
+        // Remappable Close All to the Left (default Cmd+Alt+I; settings.shortcut_close_to_side).
+        // Shift flips to Close All to the Right.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_CLOSE_TO_SIDE};
+            let close_side_chord = resolve_chord(
+                &self.state.settings.shortcut_close_to_side,
+                DEFAULT_CLOSE_TO_SIDE,
+            );
+            let close_side_key_pressed = match close_side_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if close_side_key_pressed
+                && close_side_chord
+                    .flipped_shift()
+                    .matches(mods, close_side_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_FILE_CLOSEALL_TORIGHT");
+            } else if close_side_key_pressed && close_side_chord.matches(mods, close_side_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_FILE_CLOSEALL_TOLEFT");
+            }
+        }
         // Remappable trim trailing (default Cmd+Alt+T; settings.shortcut_trim_trailing).
         // Shift flips to Trim Leading and Trailing Space.
         {
@@ -6698,6 +6742,14 @@ impl EditorApp {
                 &s.shortcut_close_but_pinned,
                 crate::shortcut_chord::DEFAULT_CLOSE_BUT_PINNED,
             ),
+            "IDM_FILE_CLOSEALL_TOLEFT" => primary(
+                &s.shortcut_close_to_side,
+                crate::shortcut_chord::DEFAULT_CLOSE_TO_SIDE,
+            ),
+            "IDM_FILE_CLOSEALL_TORIGHT" => shifted(
+                &s.shortcut_close_to_side,
+                crate::shortcut_chord::DEFAULT_CLOSE_TO_SIDE,
+            ),
             "IDM_EDIT_TRIMTRAILING" => primary(
                 &s.shortcut_trim_trailing,
                 crate::shortcut_chord::DEFAULT_TRIM_TRAILING,
@@ -7667,6 +7719,15 @@ impl EditorApp {
             close_but_pinned_chord.display(),
             close_but_pinned_chord.flipped_shift().display()
         );
+        let close_to_side_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_close_to_side,
+            crate::shortcut_chord::DEFAULT_CLOSE_TO_SIDE,
+        );
+        let close_to_side_keys = format!(
+            "{} / {}",
+            close_to_side_chord.display(),
+            close_to_side_chord.flipped_shift().display()
+        );
         let trim_trailing_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_trim_trailing,
             crate::shortcut_chord::DEFAULT_TRIM_TRAILING,
@@ -7957,7 +8018,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 104] = [
+        let rows: [(&str, &str); 105] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -8128,6 +8189,10 @@ impl EditorApp {
             (
                 close_but_pinned_keys.as_str(),
                 "Close all but pinned / Close all unchanged",
+            ),
+            (
+                close_to_side_keys.as_str(),
+                "Close all to the left / Close all to the right",
             ),
             (
                 trim_trailing_keys.as_str(),
@@ -10681,6 +10746,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+H, Ctrl+Alt+H. Closes every unpinned tab (File → Close All but Pinned Documents). Shift + that chord closes unchanged tabs. Does not collide with Close All (Cmd+Alt+W), Hide unchanged (Alt+H), or Replace (Cmd+H).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Close All to Left shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_close_to_side,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+I"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_close_to_side
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_close_to_side =
+                                        crate::shortcut_chord::DEFAULT_CLOSE_TO_SIDE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CLOSE_TO_SIDE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_close_to_side = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+I, Ctrl+Alt+I. Closes tabs to the left of the active tab (File → Close All to the Left). Shift + that chord closes tabs to the right. Does not collide with Indent Guide (Alt+I), Format Document (Cmd+Shift+I), or Close All (Cmd+Alt+W).",
                             )
                             .small()
                             .weak(),

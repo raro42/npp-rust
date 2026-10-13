@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.278] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Close All to the Left** is remappable: Preferences → Close All to Left shortcut, or `shortcut_close_to_side` in `npp-rs/settings.json` (default `Cmd+Alt+I`). **Shift** flips to Close All to the Right. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.277] — 2026-10-13
 
 Settings / shortcuts:

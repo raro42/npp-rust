@@ -123,6 +123,11 @@ pub const DEFAULT_CLOSE_ALL: &str = "Cmd+Alt+W";
 /// Close All (Cmd+Alt+W), Hide unchanged (Alt+H), or Replace (Cmd+H).
 pub const DEFAULT_CLOSE_BUT_PINNED: &str = "Cmd+Alt+H";
 
+/// Default Close All to the Left binding (File → Close All to the Left).
+/// Shift flips to Close All to the Right. Uses Cmd+Alt+I so it does not collide with
+/// Indent Guide (Alt+I), Format Document (Cmd+Shift+I), or Close All (Cmd+Alt+W).
+pub const DEFAULT_CLOSE_TO_SIDE: &str = "Cmd+Alt+I";
+
 /// Default trim-trailing binding (Edit → Blank Operations → Trim Trailing Space).
 /// Shift flips to Trim Leading and Trailing Space. Uses Cmd+Alt+T so it does not
 /// collide with Always on Top (Alt+T) or Toggle log tail (Cmd+Shift+T).
@@ -1169,6 +1174,19 @@ mod tests {
         let unchanged = c.flipped_shift();
         assert!(unchanged.shift);
         assert_eq!(unchanged.display(), "Cmd+Alt+Shift+H");
+    }
+
+    #[test]
+    fn parse_cmd_alt_i_default_close_to_side() {
+        let c = parse_chord(DEFAULT_CLOSE_TO_SIDE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::I);
+        assert_eq!(c.display(), "Cmd+Alt+I");
+        let to_right = c.flipped_shift();
+        assert!(to_right.shift);
+        assert_eq!(to_right.display(), "Cmd+Alt+Shift+I");
     }
 
     #[test]

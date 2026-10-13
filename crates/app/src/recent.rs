@@ -300,6 +300,10 @@ fn default_shortcut_close_but_pinned() -> String {
     crate::shortcut_chord::DEFAULT_CLOSE_BUT_PINNED.into()
 }
 
+fn default_shortcut_close_to_side() -> String {
+    crate::shortcut_chord::DEFAULT_CLOSE_TO_SIDE.into()
+}
+
 fn default_shortcut_trim_trailing() -> String {
     crate::shortcut_chord::DEFAULT_TRIM_TRAILING.into()
 }
@@ -765,6 +769,9 @@ pub struct AppSettings {
     /// Close All but Pinned chord (`Cmd+Alt+H` default; Shift flips to Close All Unchanged).
     #[serde(default = "default_shortcut_close_but_pinned")]
     pub shortcut_close_but_pinned: String,
+    /// Close All to the Left chord (`Cmd+Alt+I` default; Shift flips to Close All to the Right).
+    #[serde(default = "default_shortcut_close_to_side")]
+    pub shortcut_close_to_side: String,
     /// Trim-trailing chord (`Cmd+Alt+T` default; Shift flips to Trim Both).
     #[serde(default = "default_shortcut_trim_trailing")]
     pub shortcut_trim_trailing: String,
@@ -1095,6 +1102,7 @@ impl Default for AppSettings {
             shortcut_close_tab: default_shortcut_close_tab(),
             shortcut_close_all: default_shortcut_close_all(),
             shortcut_close_but_pinned: default_shortcut_close_but_pinned(),
+            shortcut_close_to_side: default_shortcut_close_to_side(),
             shortcut_trim_trailing: default_shortcut_trim_trailing(),
             shortcut_next_tab: default_shortcut_next_tab(),
             shortcut_new: default_shortcut_new(),
@@ -1546,6 +1554,7 @@ mod tests {
             shortcut_close_tab: "Ctrl+Shift+W".into(),
             shortcut_close_all: "Ctrl+Alt+Shift+W".into(),
             shortcut_close_but_pinned: "Ctrl+Alt+Shift+H".into(),
+            shortcut_close_to_side: "Ctrl+Alt+Shift+I".into(),
             shortcut_trim_trailing: "Ctrl+Alt+Shift+T".into(),
             shortcut_next_tab: "Ctrl+Alt+Tab".into(),
             shortcut_new: "Ctrl+Alt+N".into(),
@@ -1680,6 +1689,7 @@ mod tests {
         assert_eq!(back.shortcut_close_tab, "Ctrl+Shift+W");
         assert_eq!(back.shortcut_close_all, "Ctrl+Alt+Shift+W");
         assert_eq!(back.shortcut_close_but_pinned, "Ctrl+Alt+Shift+H");
+        assert_eq!(back.shortcut_close_to_side, "Ctrl+Alt+Shift+I");
         assert_eq!(back.shortcut_trim_trailing, "Ctrl+Alt+Shift+T");
         assert_eq!(back.shortcut_next_tab, "Ctrl+Alt+Tab");
         assert_eq!(back.shortcut_new, "Ctrl+Alt+N");
