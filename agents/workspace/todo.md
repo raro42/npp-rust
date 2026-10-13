@@ -1,3 +1,4 @@
+009 keep: remappable Open Containing Folder / Shell (shortcut_open_folder, Cmd+Alt+L default, Shift=shell, v0.3.275)
 009 keep: remappable Open Selected Filename / Containing Folder (shortcut_open_selected, Cmd+Alt+J default, Shift=folder, v0.3.274)
 009 keep: remappable Copy All Paths / All Filenames (shortcut_copy_all_paths, Cmd+Alt+M default, Shift=names, v0.3.273)
 009 keep: remappable Copy Current Directory Path (shortcut_copy_dir, Cmd+Alt+K default, v0.3.272)
