@@ -1,3 +1,4 @@
+009 keep: remappable Function List / Character Panel (shortcut_function_list, Cmd+E default, Shift=char panel, toggle both, v0.3.280)
 009 keep: remappable Save a Copy As / Rename (shortcut_save_copy, Cmd+Alt+Y default, Shift=rename, v0.3.279)
 009 keep: remappable Close All to the Left / Right (shortcut_close_to_side, Cmd+Alt+I default, Shift=right, v0.3.278)
 009 keep: remappable Close All but Pinned / Close All Unchanged (shortcut_close_but_pinned, Cmd+Alt+H default, Shift=unchanged, v0.3.277)
