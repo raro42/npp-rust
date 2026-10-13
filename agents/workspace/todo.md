@@ -1,3 +1,4 @@
+009 keep: remappable Remove Duplicate Lines (shortcut_remove_dup_lines, Cmd+Alt+D default, Shift=any, v0.3.269)
 # Session todo
 
 - [x] Close #8 (themes / history / UTF-16)
