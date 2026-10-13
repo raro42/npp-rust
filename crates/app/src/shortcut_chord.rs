@@ -373,6 +373,10 @@ pub const DEFAULT_REMOVE_EMPTY_LINES: &str = "Cmd+Alt+E";
 /// Shift flips to Remove Duplicate Lines (any occurrence).
 pub const DEFAULT_REMOVE_DUP_LINES: &str = "Cmd+Alt+D";
 
+/// Default Date Time (short) binding (Edit → Insert; N++ F5 family).
+/// Shift flips to Date Time (long). Customized stays menu-only.
+pub const DEFAULT_INSERT_DATETIME: &str = "F5";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -591,6 +595,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "z" => Some(Key::Z),
         "f2" => Some(Key::F2),
         "f3" => Some(Key::F3),
+        "f5" => Some(Key::F5),
         "f6" => Some(Key::F6),
         "f7" => Some(Key::F7),
         "f8" => Some(Key::F8),
@@ -649,6 +654,7 @@ fn key_token(key: Key) -> &'static str {
         Key::Z => "Z",
         Key::F2 => "F2",
         Key::F3 => "F3",
+        Key::F5 => "F5",
         Key::F6 => "F6",
         Key::F7 => "F7",
         Key::F8 => "F8",
@@ -1684,6 +1690,19 @@ mod tests {
         let any = c.flipped_shift();
         assert!(any.shift);
         assert_eq!(any.display(), "Cmd+Alt+Shift+D");
+    }
+
+    #[test]
+    fn parse_f5_default_insert_datetime() {
+        let c = parse_chord(DEFAULT_INSERT_DATETIME).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F5);
+        assert_eq!(c.display(), "F5");
+        let long = c.flipped_shift();
+        assert!(long.shift);
+        assert_eq!(long.display(), "Shift+F5");
     }
 
     #[test]

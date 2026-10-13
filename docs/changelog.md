@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.270] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Date Time (short)** is remappable: Preferences → Date Time shortcut, or `shortcut_insert_datetime` in `npp-rs/settings.json` (default `F5`). **Shift** flips to Date Time (long). Customized format stays menu-only. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.269] — 2026-10-13
 
 Settings / shortcuts:

@@ -156,6 +156,10 @@ fn default_shortcut_remove_dup_lines() -> String {
     crate::shortcut_chord::DEFAULT_REMOVE_DUP_LINES.into()
 }
 
+fn default_shortcut_insert_datetime() -> String {
+    crate::shortcut_chord::DEFAULT_INSERT_DATETIME.into()
+}
+
 fn default_shortcut_blank_line() -> String {
     crate::shortcut_chord::DEFAULT_BLANK_LINE.into()
 }
@@ -943,6 +947,9 @@ pub struct AppSettings {
     /// Remove Consecutive Duplicate Lines chord (`Cmd+Alt+D` default; Shift flips to any duplicates).
     #[serde(default = "default_shortcut_remove_dup_lines")]
     pub shortcut_remove_dup_lines: String,
+    /// Date Time (short) chord (`F5` default; Shift flips to long).
+    #[serde(default = "default_shortcut_insert_datetime")]
+    pub shortcut_insert_datetime: String,
     /// Find in Files chord (`Cmd+Alt+F` default).
     #[serde(default = "default_shortcut_find_in_files")]
     pub shortcut_find_in_files: String,
@@ -1105,6 +1112,7 @@ impl Default for AppSettings {
             shortcut_sort_lines: default_shortcut_sort_lines(),
             shortcut_remove_empty_lines: default_shortcut_remove_empty_lines(),
             shortcut_remove_dup_lines: default_shortcut_remove_dup_lines(),
+            shortcut_insert_datetime: default_shortcut_insert_datetime(),
             shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             ollama_host: default_ollama_host(),
@@ -1548,6 +1556,7 @@ mod tests {
             shortcut_sort_lines: "Ctrl+Alt+Shift+O".into(),
             shortcut_remove_empty_lines: "Ctrl+Alt+Shift+E".into(),
             shortcut_remove_dup_lines: "Ctrl+Alt+Shift+D".into(),
+            shortcut_insert_datetime: "Ctrl+F5".into(),
             shortcut_find_in_files: "Alt+Shift+F".into(),
             ..Default::default()
         };
@@ -1674,6 +1683,7 @@ mod tests {
         assert_eq!(back.shortcut_sort_lines, "Ctrl+Alt+Shift+O");
         assert_eq!(back.shortcut_remove_empty_lines, "Ctrl+Alt+Shift+E");
         assert_eq!(back.shortcut_remove_dup_lines, "Ctrl+Alt+Shift+D");
+        assert_eq!(back.shortcut_insert_datetime, "Ctrl+F5");
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
     }
 

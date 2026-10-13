@@ -4171,6 +4171,48 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_REMOVE_CONSECUTIVE_DUP_LINES");
             }
         }
+        // Remappable Date Time short (default F5; settings.shortcut_insert_datetime).
+        // Shift flips to Date Time (long). Customized stays menu-only.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_INSERT_DATETIME};
+            let dt_chord = resolve_chord(
+                &self.state.settings.shortcut_insert_datetime,
+                DEFAULT_INSERT_DATETIME,
+            );
+            let dt_key_pressed = match dt_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_long =
+                dt_key_pressed && dt_chord.flipped_shift().matches(mods, dt_chord.key);
+            let remapped_short = dt_key_pressed && dt_chord.matches(mods, dt_chord.key);
+            if remapped_long {
+                self.run_shortcut_cmd("IDM_EDIT_INSERT_DATETIME_LONG");
+            } else if remapped_short {
+                self.run_shortcut_cmd("IDM_EDIT_INSERT_DATETIME_SHORT");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -6484,6 +6526,14 @@ impl EditorApp {
                 &s.shortcut_remove_dup_lines,
                 crate::shortcut_chord::DEFAULT_REMOVE_DUP_LINES,
             ),
+            "IDM_EDIT_INSERT_DATETIME_SHORT" => primary(
+                &s.shortcut_insert_datetime,
+                crate::shortcut_chord::DEFAULT_INSERT_DATETIME,
+            ),
+            "IDM_EDIT_INSERT_DATETIME_LONG" => shifted(
+                &s.shortcut_insert_datetime,
+                crate::shortcut_chord::DEFAULT_INSERT_DATETIME,
+            ),
             "IDM_SEARCH_FIND" => primary(&s.shortcut_find, crate::shortcut_chord::DEFAULT_FIND),
             "IDM_SEARCH_FINDINFILES" => primary(
                 &s.shortcut_find_in_files,
@@ -7180,6 +7230,15 @@ impl EditorApp {
             remove_dup_chord.display(),
             remove_dup_chord.flipped_shift().display()
         );
+        let insert_datetime_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_insert_datetime,
+            crate::shortcut_chord::DEFAULT_INSERT_DATETIME,
+        );
+        let insert_datetime_keys = format!(
+            "{} / {}",
+            insert_datetime_chord.display(),
+            insert_datetime_chord.flipped_shift().display()
+        );
         let format_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_format_document,
             crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -7489,7 +7548,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 96] = [
+        let rows: [(&str, &str); 97] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -7605,6 +7664,7 @@ impl EditorApp {
                 remove_dup_keys.as_str(),
                 "Remove Consecutive / Any Duplicate Lines",
             ),
+            (insert_datetime_keys.as_str(), "Date Time short / long"),
             (indent_outdent_keys.as_str(), "Indent / Outdent"),
             (format_keys.as_str(), "Format document"),
             (fold_all_keys.as_str(), "Fold / Unfold all"),
@@ -9811,6 +9871,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+D, Ctrl+Alt+D. Removes consecutive duplicate lines (Edit → Line Operations). Shift + that chord removes any duplicate lines. Does not collide with Duplicate Line (Cmd+D).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Date Time shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_insert_datetime,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("F5"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_insert_datetime
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_insert_datetime =
+                                        crate::shortcut_chord::DEFAULT_INSERT_DATETIME.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_INSERT_DATETIME
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_insert_datetime = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: F5, Ctrl+F5. Inserts Date Time (short) (Edit → Insert). Shift + that chord inserts Date Time (long). Customized format stays menu-only.",
                             )
                             .small()
                             .weak(),
