@@ -1,3 +1,4 @@
+009 keep: remappable Move Tab Forward/Backward (shortcut_move_tab, Cmd+Shift+PageDown default, opposite PageUp=back, v0.3.281)
 009 keep: remappable Function List / Character Panel (shortcut_function_list, Cmd+E default, Shift=char panel, toggle both, v0.3.280)
 009 keep: remappable Save a Copy As / Rename (shortcut_save_copy, Cmd+Alt+Y default, Shift=rename, v0.3.279)
 009 keep: remappable Close All to the Left / Right (shortcut_close_to_side, Cmd+Alt+I default, Shift=right, v0.3.278)
