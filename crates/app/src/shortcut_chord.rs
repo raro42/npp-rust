@@ -350,6 +350,10 @@ pub const DEFAULT_MULTI_SELECT_ALL: &str = "Cmd+Alt+A";
 /// Shift flips to Begin/End Select in Column Mode.
 pub const DEFAULT_BEGIN_END_SELECT: &str = "Cmd+Alt+B";
 
+/// Default toggle read-only binding (Edit → Read-Only).
+/// Uses Cmd+Alt+R so it does not collide with Reload (Cmd+R) or RTL (Alt+R).
+pub const DEFAULT_TOGGLE_READONLY: &str = "Cmd+Alt+R";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1602,6 +1606,16 @@ mod tests {
         assert_eq!(c.key, Key::B);
         assert_eq!(c.display(), "Cmd+Alt+B");
         assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+B");
+    }
+
+    #[test]
+    fn parse_cmd_alt_r_default_toggle_readonly() {
+        let c = parse_chord(DEFAULT_TOGGLE_READONLY).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::R);
+        assert_eq!(c.display(), "Cmd+Alt+R");
     }
 
     #[test]

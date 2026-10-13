@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.265] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Toggle Read-Only** is remappable: Preferences → Toggle read-only shortcut, or `shortcut_toggle_readonly` in `npp-rs/settings.json` (default `Cmd+Alt+R`). Menu, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.264] — 2026-10-13
 
 Edit / column mode:

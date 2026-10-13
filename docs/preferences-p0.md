@@ -89,6 +89,7 @@ New keys:
 | `shortcut_blank_line` | Blank line below chord (`Cmd+Enter` default; Shift flips to blank line above) |
 | `shortcut_multi_select_all` | Multi-select all chord (`Cmd+Alt+A` default; Shift flips to whole-word) |
 | `shortcut_begin_end_select` | Begin/End Select chord (`Cmd+Alt+B` default; Shift flips to column mode rect) |
+| `shortcut_toggle_readonly` | Toggle read-only chord (`Cmd+Alt+R` default; `IDM_EDIT_TOGGLEREADONLY`) |
 | `shortcut_multi_select_next` | Multi-select next chord (`Cmd+Alt+N` default; Shift flips to skip current / go to next) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
 | `shortcut_find_in_files` | Find in Files chord (`Cmd+Alt+F` default) |

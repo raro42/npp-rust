@@ -3975,6 +3975,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_BEGINENDSELECT");
             }
         }
+        // Remappable toggle read-only (default Cmd+Alt+R; settings.shortcut_toggle_readonly).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_TOGGLE_READONLY};
+            let ro_chord = resolve_chord(
+                &self.state.settings.shortcut_toggle_readonly,
+                DEFAULT_TOGGLE_READONLY,
+            );
+            let ro_key_pressed = match ro_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if ro_key_pressed && ro_chord.matches(mods, ro_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_TOGGLEREADONLY");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -6256,6 +6292,10 @@ impl EditorApp {
                 &s.shortcut_begin_end_select,
                 crate::shortcut_chord::DEFAULT_BEGIN_END_SELECT,
             ),
+            "IDM_EDIT_TOGGLEREADONLY" => primary(
+                &s.shortcut_toggle_readonly,
+                crate::shortcut_chord::DEFAULT_TOGGLE_READONLY,
+            ),
             "IDM_SEARCH_FIND" => primary(&s.shortcut_find, crate::shortcut_chord::DEFAULT_FIND),
             "IDM_SEARCH_FINDINFILES" => primary(
                 &s.shortcut_find_in_files,
@@ -6915,6 +6955,11 @@ impl EditorApp {
             begin_end_select_chord.display(),
             begin_end_select_chord.flipped_shift().display()
         );
+        let toggle_readonly_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_toggle_readonly,
+            crate::shortcut_chord::DEFAULT_TOGGLE_READONLY,
+        )
+        .display();
         let format_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_format_document,
             crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -7224,7 +7269,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 91] = [
+        let rows: [(&str, &str); 92] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -7326,6 +7371,7 @@ impl EditorApp {
                 begin_end_select_keys.as_str(),
                 "Begin/End Select / column mode",
             ),
+            (toggle_readonly_keys.as_str(), "Toggle read-only"),
             (indent_outdent_keys.as_str(), "Indent / Outdent"),
             (format_keys.as_str(), "Format document"),
             (fold_all_keys.as_str(), "Fold / Unfold all"),
@@ -9352,6 +9398,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+B, Ctrl+Alt+B. Press once to mark the start caret, again to select through the current caret. Shift + that chord uses Begin/End Select in Column Mode (rectangular).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Toggle read-only shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_toggle_readonly,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+R"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_toggle_readonly
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_toggle_readonly =
+                                        crate::shortcut_chord::DEFAULT_TOGGLE_READONLY.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_TOGGLE_READONLY
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_toggle_readonly = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+R, Ctrl+Alt+R. Toggles read-only on the active tab (Edit → Read-Only). Does not collide with Reload (Cmd+R) or RTL (Alt+R).",
                             )
                             .small()
                             .weak(),

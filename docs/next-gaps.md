@@ -1,4 +1,4 @@
-# Next gaps (post v0.3.255)
+# Next gaps (post v0.3.265)
 
 Date: 2026-10-13  
 Status: Issues **#1**–**#20** closed or handed off (this refresh). Overnight idle work: `docs/autoresearch/standing_backlog.md`.
@@ -35,6 +35,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.262 | Rect Shift+Home/End extend (anchor corner + col 0 / line body end) |
 | v0.3.263 | Alt+Shift+arrows start / extend rectangular column select |
 | v0.3.264 | Document Home/End move / Shift-extend multi-carets / rect |
+| v0.3.265 | Remappable Toggle Read-Only (`shortcut_toggle_readonly`) |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 
