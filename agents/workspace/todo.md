@@ -431,3 +431,5 @@
 009 keep: remappable Toggle Read-Only (v0.3.265)
 
 009 keep: remappable Column Editor (v0.3.266)
+
+009 keep: remappable Sort Lines Lexicographic Asc/Desc (v0.3.267)
