@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.262] — 2026-10-13
+
+Edit / column mode:
+
+- **Shift+Home / Shift+End** extend rectangular selections (keep Alt+drag anchor corner; Home → column 0, End → that line’s body end), same idea as Shift+Left/Right on a rect.
+
 ## [0.3.261] — 2026-10-13
 
 Edit / column mode:

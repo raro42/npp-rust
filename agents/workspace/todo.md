@@ -421,3 +421,5 @@
 009 keep: Begin/End Select column mode rect + remappable shortcut (v0.3.260)
 
 009 keep: Begin/End Select column mode virtual cols past EOL (v0.3.261)
+
+009 keep: Rect Shift+Home/End extend (v0.3.262)

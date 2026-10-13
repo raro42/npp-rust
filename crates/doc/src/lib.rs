@@ -988,10 +988,29 @@ impl Document {
 
     /// Shift+Home/End: extend every stream multi-caret to line start/end.
     ///
-    /// Keeps each range's anchor and moves its caret. Rect selections return false
-    /// (caller should clear). Returns false when stream multi-carets are inactive.
+    /// Keeps each range's anchor and moves its caret. Rect selections keep
+    /// `rect_anchor` and move the opposite column corner to col 0 (Home) or that
+    /// line's body end (End), matching Shift+Left/Right rect extend.
+    /// Returns false when stream multi-carets / rect are inactive.
     pub fn extend_multi_line_edge(&mut self, to_end: bool) -> bool {
-        if self.rect_cols.is_some() || !self.has_multi_carets() {
+        if self.rect_cols.is_some() {
+            let Some((al, ac)) = self.rect_anchor else {
+                return false;
+            };
+            let Some((cl, _cc)) = self.rect_caret_corner() else {
+                return false;
+            };
+            let line = cl.min(self.buffer.line_count().saturating_sub(1));
+            let new_cc = if to_end {
+                self.buffer.line_body_len(line)
+            } else {
+                0
+            };
+            self.set_rect_selection_cols(al, ac, cl, new_cc);
+            self.collapse_single_line_rect_to_stream();
+            return true;
+        }
+        if !self.has_multi_carets() {
             return false;
         }
         let len = self.buffer.len_chars();
@@ -2118,9 +2137,26 @@ mod tests {
         assert_eq!(doc.rect_cols, None);
         assert_eq!(doc.multi_sels, vec![(7, 7), (15, 15)]);
         assert!(doc.has_multi_carets());
+    }
+
+    #[test]
+    fn extend_multi_line_edge_rect_grows_columns() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("foo bar\nfoo bar\n");
+        // Zero-width col 3 on lines 0..1; Shift+End grows to cols 3..7 (" bar").
         doc.set_rect_selection_cols(0, 3, 1, 3);
-        assert!(!doc.extend_multi_line_edge(true));
-        assert!(doc.rect_cols.is_some());
+        assert_eq!(doc.rect_cols, Some((3, 3)));
+        assert_eq!(doc.rect_anchor, Some((0, 3)));
+        assert!(doc.extend_multi_line_edge(true));
+        assert_eq!(doc.rect_cols, Some((3, 7)));
+        assert_eq!(doc.rect_anchor, Some((0, 3)));
+        assert!(doc.has_multi_carets());
+        assert_eq!(doc.multi_sels, vec![(3, 7), (11, 15)]);
+        // Shift+Home moves caret corner to col 0 → cols 0..3 ("foo").
+        assert!(doc.extend_multi_line_edge(false));
+        assert_eq!(doc.rect_cols, Some((0, 3)));
+        assert_eq!(doc.rect_anchor, Some((0, 3)));
+        assert_eq!(doc.multi_sels, vec![(0, 3), (8, 11)]);
     }
 
     #[test]

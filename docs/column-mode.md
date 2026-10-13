@@ -1,7 +1,7 @@
 # Column / rectangular select
 
 Date: 2026-10-13  
-Version: 0.3.261
+Version: 0.3.262
 
 ## What works
 
@@ -16,10 +16,10 @@ Version: 0.3.261
 - **Ctrl/Cmd+click add carets**: adds a zero-width caret at the click (seeds the previous caret/selection); click the same caret again to remove it. Columns past EOL clamp to the line body for click-added carets.
 - **Arrow keys move all multi-carets** (plain Left/Right/Up/Down, no modifiers). Non-empty ranges collapse to an edge first; rect selections keep `rect_cols` (including virtual space).
 - **Word-jump moves all multi-carets** (remappable `shortcut_word_jump`, default Alt+Left/Right). Non-empty ranges collapse to an edge first; rect becomes stream multi after the jump. Shift+word-jump extends stream multi-carets (rect still clears). Document Home/End jumps still clear multi-carets.
-- **Line Home/End moves all multi-carets** (remappable `shortcut_line_home`, default Home/End). Non-empty ranges collapse to an edge first; rect becomes stream multi after the jump. Shift+Home/End extends stream multi-carets (rect still clears).
+- **Line Home/End moves all multi-carets** (remappable `shortcut_line_home`, default Home/End). Non-empty ranges collapse to an edge first; rect becomes stream multi after the jump. Shift+Home/End extends stream multi-carets and **rect selections** (Home → column 0, End → caret-line body end; keeps `rect_anchor`).
 - **Page Up/Down moves all multi-carets** (remappable `shortcut_page_up`, default PageUp/PageDown). Same as plain Up/Down with a ±30 line delta; rect blocks keep `rect_cols`. Shift+PageUp/PageDown extends stream multi-carets (and rect Shift+extend).
 - **Shift+arrows extend stream multi-carets** (Shift+Left/Right/Up/Down). Each range keeps its anchor and moves the caret end; typing replaces the extended ranges.
-- **Shift+arrows extend rect selections** (Shift+Left/Right/Up/Down). Keeps the Alt+drag anchor corner (`rect_anchor`) and moves the opposite caret corner (columns may be past EOL). Collapsing to one line becomes a stream selection of that column span.
+- **Shift+arrows / Shift+Home/End extend rect selections**. Keeps the Alt+drag anchor corner (`rect_anchor`) and moves the opposite caret corner (columns may be past EOL; Home/End snap to col 0 / line body end). Collapsing to one line becomes a stream selection of that column span.
 - **Typing**, **Backspace**, **Delete**, **Paste**, **Enter**, and **Tab** apply to every multi-caret / rect range (one undo). Successive typing at the same carets coalesces into one undo unit (1s window), like plain typing.
 - **Copy** / **Cut** with two or more ranges joins line slices with newlines (rect copy includes virtual-space spaces).
 - **Multi-select next/all** carets also receive typing (same path). Multi-select Next is remappable (`shortcut_multi_select_next`, default Cmd+Alt+N; Shift skips current). Multi-select All is remappable (`shortcut_multi_select_all`, default Cmd+Alt+A; Shift = whole-word).
@@ -35,6 +35,6 @@ Version: 0.3.261
 ## Code
 
 - Buffer: `TextBuffer::rect_ranges` / `rect_ranges_from_cols`, `anchor_and_caret` — `crates/buffer/src/lib.rs`
-- Document: `set_rect_selection` / `set_rect_selection_from_marks` / `set_rect_selection_cols`, `rect_anchor`, `set_caret_at_line_col`, `add_caret_at_line_col`, `set_stream_selection_to_line_col`, `insert_plain`, `move_char`, `move_multi_char`, `move_multi_line`, `move_multi_word`, `extend_multi_word`, `move_multi_line_edge`, `extend_multi_line_edge`, `extend_multi_char`, `extend_multi_line`, `insert_multi`, `delete_*_multi` — `crates/doc/src/lib.rs`
+- Document: `set_rect_selection` / `set_rect_selection_from_marks` / `set_rect_selection_cols`, `rect_anchor`, `set_caret_at_line_col`, `add_caret_at_line_col`, `set_stream_selection_to_line_col`, `insert_plain`, `move_char`, `move_multi_char`, `move_multi_line`, `move_multi_word`, `extend_multi_word`, `move_multi_line_edge`, `extend_multi_line_edge` (stream + rect Shift+Home/End), `extend_multi_char`, `extend_multi_line`, `insert_multi`, `delete_*_multi` — `crates/doc/src/lib.rs`
 - Buffer: `word_jump_from` — `crates/buffer/src/lib.rs`
 - Hit-test / paint: `col_from_x_virtual`, `x_for_col` — `crates/app/src/ui_paint.rs`; Alt+drag + Ctrl/Cmd+click add caret + plain click / stream select path — `crates/app/src/ui.rs`
