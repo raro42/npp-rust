@@ -393,6 +393,11 @@ pub const DEFAULT_COPY_DIR: &str = "Cmd+Alt+K";
 /// Shift flips to Copy All Filenames.
 pub const DEFAULT_COPY_ALL_PATHS: &str = "Cmd+Alt+M";
 
+/// Default Open Selected Filename binding (Edit → Open File).
+/// Uses Cmd+Alt+J so it does not collide with Join Lines (Cmd+J), Open (Cmd+O),
+/// or Sort Lines (Cmd+Alt+O). Shift flips to Open Containing Folder in Explorer.
+pub const DEFAULT_OPEN_SELECTED: &str = "Cmd+Alt+J";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1755,6 +1760,19 @@ mod tests {
         let names = c.flipped_shift();
         assert!(names.shift);
         assert_eq!(names.display(), "Cmd+Alt+Shift+M");
+    }
+
+    #[test]
+    fn parse_cmd_alt_j_default_open_selected() {
+        let c = parse_chord(DEFAULT_OPEN_SELECTED).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::J);
+        assert_eq!(c.display(), "Cmd+Alt+J");
+        let folder = c.flipped_shift();
+        assert!(folder.shift);
+        assert_eq!(folder.display(), "Cmd+Alt+Shift+J");
     }
 
     #[test]

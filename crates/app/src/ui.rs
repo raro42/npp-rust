@@ -4331,6 +4331,51 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_COPY_ALL_PATHS");
             }
         }
+        // Remappable Open Selected Filename (default Cmd+Alt+J; settings.shortcut_open_selected).
+        // Shift flips to Open Containing Folder in Explorer.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_OPEN_SELECTED};
+            let open_sel_chord = resolve_chord(
+                &self.state.settings.shortcut_open_selected,
+                DEFAULT_OPEN_SELECTED,
+            );
+            let open_sel_key_pressed = match open_sel_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_folder = open_sel_key_pressed
+                && open_sel_chord
+                    .flipped_shift()
+                    .matches(mods, open_sel_chord.key);
+            let remapped_file =
+                open_sel_key_pressed && open_sel_chord.matches(mods, open_sel_chord.key);
+            if remapped_folder {
+                self.run_shortcut_cmd("IDM_EDIT_OPENSELECTEDFILEFOLDERINEXPLORER");
+            } else if remapped_file {
+                self.run_shortcut_cmd("IDM_EDIT_OPENSELECTEDFILETOEDIT");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -6672,6 +6717,14 @@ impl EditorApp {
                 &s.shortcut_copy_all_paths,
                 crate::shortcut_chord::DEFAULT_COPY_ALL_PATHS,
             ),
+            "IDM_EDIT_OPENSELECTEDFILETOEDIT" => primary(
+                &s.shortcut_open_selected,
+                crate::shortcut_chord::DEFAULT_OPEN_SELECTED,
+            ),
+            "IDM_EDIT_OPENSELECTEDFILEFOLDERINEXPLORER" => shifted(
+                &s.shortcut_open_selected,
+                crate::shortcut_chord::DEFAULT_OPEN_SELECTED,
+            ),
             "IDM_SEARCH_FIND" => primary(&s.shortcut_find, crate::shortcut_chord::DEFAULT_FIND),
             "IDM_SEARCH_FINDINFILES" => primary(
                 &s.shortcut_find_in_files,
@@ -7400,6 +7453,15 @@ impl EditorApp {
             copy_all_paths_chord.display(),
             copy_all_paths_chord.flipped_shift().display()
         );
+        let open_selected_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_open_selected,
+            crate::shortcut_chord::DEFAULT_OPEN_SELECTED,
+        );
+        let open_selected_keys = format!(
+            "{} / {}",
+            open_selected_chord.display(),
+            open_selected_chord.flipped_shift().display()
+        );
         let format_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_format_document,
             crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -7709,7 +7771,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 100] = [
+        let rows: [(&str, &str); 101] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -7831,6 +7893,10 @@ impl EditorApp {
             (
                 copy_all_paths_keys.as_str(),
                 "Copy All Paths / All Filenames",
+            ),
+            (
+                open_selected_keys.as_str(),
+                "Open Selected Filename / Containing Folder",
             ),
             (indent_outdent_keys.as_str(), "Indent / Outdent"),
             (format_keys.as_str(), "Format document"),
@@ -10182,6 +10248,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+M, Ctrl+Alt+M. Copies all open tab paths (Edit → Copy to Clipboard). Shift + that chord copies all tab filenames. Does not collide with Bookmark Compare Diffs (Alt+M), Copy Full Path (Cmd+Alt+P), or Copy Current Directory (Cmd+Alt+K).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Open selected shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_open_selected,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+J"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_open_selected
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_open_selected =
+                                        crate::shortcut_chord::DEFAULT_OPEN_SELECTED.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_OPEN_SELECTED
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_open_selected = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+J, Ctrl+Alt+J. Opens the path under the selection (Edit → Open File). Shift + that chord opens the containing folder in the file manager. Does not collide with Join Lines (Cmd+J), Open (Cmd+O), or Sort Lines (Cmd+Alt+O).",
                             )
                             .small()
                             .weak(),

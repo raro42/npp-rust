@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.274] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Open Selected Filename** is remappable: Preferences → Open selected shortcut, or `shortcut_open_selected` in `npp-rs/settings.json` (default `Cmd+Alt+J`). **Shift** flips to Open Containing Folder in the file manager. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.273] — 2026-10-13
 
 Settings / shortcuts:
