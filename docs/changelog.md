@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.268] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Remove Empty Lines** is remappable: Preferences → Remove Empty Lines shortcut, or `shortcut_remove_empty_lines` in `npp-rs/settings.json` (default `Cmd+Alt+E`). **Shift** flips to Remove Empty Lines (Containing Blank Characters). Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.267] — 2026-10-13
 
 Settings / shortcuts:

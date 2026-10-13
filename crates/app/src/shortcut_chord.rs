@@ -363,6 +363,11 @@ pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
 /// Shift flips to Lexicographic Descending.
 pub const DEFAULT_SORT_LINES: &str = "Cmd+Alt+O";
 
+/// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
+/// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
+/// Shift flips to Remove Empty Lines (Containing Blank Characters).
+pub const DEFAULT_REMOVE_EMPTY_LINES: &str = "Cmd+Alt+E";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1648,6 +1653,19 @@ mod tests {
         let desc = c.flipped_shift();
         assert!(desc.shift);
         assert_eq!(desc.display(), "Cmd+Alt+Shift+O");
+    }
+
+    #[test]
+    fn parse_cmd_alt_e_default_remove_empty_lines() {
+        let c = parse_chord(DEFAULT_REMOVE_EMPTY_LINES).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::E);
+        assert_eq!(c.display(), "Cmd+Alt+E");
+        let with_blank = c.flipped_shift();
+        assert!(with_blank.shift);
+        assert_eq!(with_blank.display(), "Cmd+Alt+Shift+E");
     }
 
     #[test]
