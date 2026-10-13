@@ -427,3 +427,5 @@
 009 keep: Alt+Shift+arrows start/extend rect column select (v0.3.263)
 
 009 keep: Document Home/End move / Shift-extend multi-carets / rect (v0.3.264)
+
+009 keep: remappable Toggle Read-Only (v0.3.265)
