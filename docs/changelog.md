@@ -2,11 +2,17 @@
 
 ## [Unreleased]
 
+## [0.3.272] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Copy Current Directory Path** is remappable: Preferences → Copy directory shortcut, or `shortcut_copy_dir` in `npp-rs/settings.json` (default `Cmd+Alt+K`). Menu, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.271] — 2026-10-13
 
 Settings / shortcuts:
 
-- **Copy Full Path** is remappable: Preferences → Copy path shortcut, or `shortcut_copy_path` in `npp-rs/settings.json` (default `Cmd+Alt+P`). **Shift** flips to Copy File Name. Current directory stays menu-only. Menu, Shortcut Mapper, and About show the effective bindings.
+- **Copy Full Path** is remappable: Preferences → Copy path shortcut, or `shortcut_copy_path` in `npp-rs/settings.json` (default `Cmd+Alt+P`). **Shift** flips to Copy File Name. Current directory stayed menu-only until v0.3.272. Menu, Shortcut Mapper, and About show the effective bindings.
 
 ## [0.3.270] — 2026-10-13
 

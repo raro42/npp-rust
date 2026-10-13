@@ -164,6 +164,10 @@ fn default_shortcut_copy_path() -> String {
     crate::shortcut_chord::DEFAULT_COPY_PATH.into()
 }
 
+fn default_shortcut_copy_dir() -> String {
+    crate::shortcut_chord::DEFAULT_COPY_DIR.into()
+}
+
 fn default_shortcut_blank_line() -> String {
     crate::shortcut_chord::DEFAULT_BLANK_LINE.into()
 }
@@ -957,6 +961,9 @@ pub struct AppSettings {
     /// Copy Full Path chord (`Cmd+Alt+P` default; Shift flips to File Name).
     #[serde(default = "default_shortcut_copy_path")]
     pub shortcut_copy_path: String,
+    /// Copy Current Directory Path chord (`Cmd+Alt+K` default).
+    #[serde(default = "default_shortcut_copy_dir")]
+    pub shortcut_copy_dir: String,
     /// Find in Files chord (`Cmd+Alt+F` default).
     #[serde(default = "default_shortcut_find_in_files")]
     pub shortcut_find_in_files: String,
@@ -1121,6 +1128,7 @@ impl Default for AppSettings {
             shortcut_remove_dup_lines: default_shortcut_remove_dup_lines(),
             shortcut_insert_datetime: default_shortcut_insert_datetime(),
             shortcut_copy_path: default_shortcut_copy_path(),
+            shortcut_copy_dir: default_shortcut_copy_dir(),
             shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             ollama_host: default_ollama_host(),
@@ -1566,6 +1574,7 @@ mod tests {
             shortcut_remove_dup_lines: "Ctrl+Alt+Shift+D".into(),
             shortcut_insert_datetime: "Ctrl+F5".into(),
             shortcut_copy_path: "Ctrl+Alt+Shift+P".into(),
+            shortcut_copy_dir: "Ctrl+Alt+Shift+K".into(),
             shortcut_find_in_files: "Alt+Shift+F".into(),
             ..Default::default()
         };
@@ -1694,6 +1703,7 @@ mod tests {
         assert_eq!(back.shortcut_remove_dup_lines, "Ctrl+Alt+Shift+D");
         assert_eq!(back.shortcut_insert_datetime, "Ctrl+F5");
         assert_eq!(back.shortcut_copy_path, "Ctrl+Alt+Shift+P");
+        assert_eq!(back.shortcut_copy_dir, "Ctrl+Alt+Shift+K");
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
     }
 

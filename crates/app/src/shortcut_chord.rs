@@ -382,6 +382,11 @@ pub const DEFAULT_INSERT_DATETIME: &str = "F5";
 /// or Pin tab (Alt+Shift+P). Shift flips to Copy File Name.
 pub const DEFAULT_COPY_PATH: &str = "Cmd+Alt+P";
 
+/// Default Copy Current Directory Path binding (Edit → Copy to Clipboard).
+/// Uses Cmd+Alt+K so it does not collide with Copy Compare Hunk (Alt+K) or
+/// Copy Full Path (Cmd+Alt+P).
+pub const DEFAULT_COPY_DIR: &str = "Cmd+Alt+K";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1721,6 +1726,16 @@ mod tests {
         let name = c.flipped_shift();
         assert!(name.shift);
         assert_eq!(name.display(), "Cmd+Alt+Shift+P");
+    }
+
+    #[test]
+    fn parse_cmd_alt_k_default_copy_dir() {
+        let c = parse_chord(DEFAULT_COPY_DIR).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::K);
+        assert_eq!(c.display(), "Cmd+Alt+K");
     }
 
     #[test]
