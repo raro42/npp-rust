@@ -1,3 +1,4 @@
+009 keep: remappable Copy Full Path / File Name (shortcut_copy_path, Cmd+Alt+P default, Shift=name, v0.3.271)
 009 keep: remappable Date Time short/long (shortcut_insert_datetime, F5 default, Shift=long, v0.3.270)
 009 keep: remappable Remove Duplicate Lines (shortcut_remove_dup_lines, Cmd+Alt+D default, Shift=any, v0.3.269)
 # Session todo
