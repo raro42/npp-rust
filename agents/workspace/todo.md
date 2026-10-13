@@ -1,3 +1,4 @@
+009 keep: remappable Close All to the Left / Right (shortcut_close_to_side, Cmd+Alt+I default, Shift=right, v0.3.278)
 009 keep: remappable Close All but Pinned / Close All Unchanged (shortcut_close_but_pinned, Cmd+Alt+H default, Shift=unchanged, v0.3.277)
 009 keep: remappable Open Folder as Workspace / Containing Folder (shortcut_open_workspace, Cmd+Alt+G default, Shift=containing, v0.3.276)
 009 keep: remappable Open Containing Folder / Shell (shortcut_open_folder, Cmd+Alt+L default, Shift=shell, v0.3.275)
