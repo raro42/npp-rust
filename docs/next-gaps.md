@@ -1,4 +1,4 @@
-# Next gaps (post v0.3.284)
+# Next gaps (post v0.3.285)
 
 Date: 2026-10-14  
 Status: Issues **#1**–**#20** closed or handed off (this refresh). Overnight idle work: `docs/autoresearch/standing_backlog.md`.
@@ -55,6 +55,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.282 | Remappable Select and Find Next / Previous (`shortcut_set_and_find`) |
 | v0.3.283 | Remappable Mark Style 1 / Clear Style 1 (`shortcut_mark_style`) |
 | v0.3.284 | Remappable Mark Style 2 / Clear Style 2 (`shortcut_mark_style_2`) |
+| v0.3.285 | Remappable Mark Style 3 / Clear Style 3 (`shortcut_mark_style_3`) |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 

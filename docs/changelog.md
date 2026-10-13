@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.285] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Mark Style 3** is remappable: Preferences → Mark Style 3 shortcut, or `shortcut_mark_style_3` in `npp-rs/settings.json` (default `Cmd+3`). Marks all Find/selection matches with Style 3. **Shift** flips to Clear Style 3. Styles 4–5 stay menu-only. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.284] — 2026-10-14
 
 Settings / shortcuts:
