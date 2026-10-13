@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.269] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Remove Consecutive Duplicate Lines** is remappable: Preferences → Remove Duplicate Lines shortcut, or `shortcut_remove_dup_lines` in `npp-rs/settings.json` (default `Cmd+Alt+D`). **Shift** flips to Remove Duplicate Lines (any occurrence). Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.268] — 2026-10-13
 
 Settings / shortcuts:

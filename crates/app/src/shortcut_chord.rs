@@ -368,6 +368,11 @@ pub const DEFAULT_SORT_LINES: &str = "Cmd+Alt+O";
 /// Shift flips to Remove Empty Lines (Containing Blank Characters).
 pub const DEFAULT_REMOVE_EMPTY_LINES: &str = "Cmd+Alt+E";
 
+/// Default Remove Consecutive Duplicate Lines binding (Edit → Line Operations).
+/// Uses Cmd+Alt+D so it does not collide with Duplicate Line (Cmd+D).
+/// Shift flips to Remove Duplicate Lines (any occurrence).
+pub const DEFAULT_REMOVE_DUP_LINES: &str = "Cmd+Alt+D";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1666,6 +1671,19 @@ mod tests {
         let with_blank = c.flipped_shift();
         assert!(with_blank.shift);
         assert_eq!(with_blank.display(), "Cmd+Alt+Shift+E");
+    }
+
+    #[test]
+    fn parse_cmd_alt_d_default_remove_dup_lines() {
+        let c = parse_chord(DEFAULT_REMOVE_DUP_LINES).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::D);
+        assert_eq!(c.display(), "Cmd+Alt+D");
+        let any = c.flipped_shift();
+        assert!(any.shift);
+        assert_eq!(any.display(), "Cmd+Alt+Shift+D");
     }
 
     #[test]
