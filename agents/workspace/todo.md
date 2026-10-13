@@ -433,3 +433,5 @@
 009 keep: remappable Column Editor (v0.3.266)
 
 009 keep: remappable Sort Lines Lexicographic Asc/Desc (v0.3.267)
+
+009 keep: remappable Remove Empty Lines / Containing Blank (v0.3.268)
