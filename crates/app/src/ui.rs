@@ -4421,6 +4421,51 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_FILE_OPEN_FOLDER");
             }
         }
+        // Remappable Open Folder as Workspace (default Cmd+Alt+G; settings.shortcut_open_workspace).
+        // Shift flips to Open Containing Folder as Workspace.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_OPEN_WORKSPACE};
+            let open_ws_chord = resolve_chord(
+                &self.state.settings.shortcut_open_workspace,
+                DEFAULT_OPEN_WORKSPACE,
+            );
+            let open_ws_key_pressed = match open_ws_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_containing = open_ws_key_pressed
+                && open_ws_chord
+                    .flipped_shift()
+                    .matches(mods, open_ws_chord.key);
+            let remapped_pick =
+                open_ws_key_pressed && open_ws_chord.matches(mods, open_ws_chord.key);
+            if remapped_containing {
+                self.run_shortcut_cmd("IDM_FILE_CONTAININGFOLDERASWORKSPACE");
+            } else if remapped_pick {
+                self.run_shortcut_cmd("IDM_FILE_OPENFOLDERASWORKSPACE");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -6570,6 +6615,14 @@ impl EditorApp {
                 &s.shortcut_open_folder,
                 crate::shortcut_chord::DEFAULT_OPEN_FOLDER,
             ),
+            "IDM_FILE_OPENFOLDERASWORKSPACE" => primary(
+                &s.shortcut_open_workspace,
+                crate::shortcut_chord::DEFAULT_OPEN_WORKSPACE,
+            ),
+            "IDM_FILE_CONTAININGFOLDERASWORKSPACE" => shifted(
+                &s.shortcut_open_workspace,
+                crate::shortcut_chord::DEFAULT_OPEN_WORKSPACE,
+            ),
             "IDM_FILE_RELOAD" => primary(&s.shortcut_reload, crate::shortcut_chord::DEFAULT_RELOAD),
             "IDM_FILE_SAVE" => primary(&s.shortcut_save, crate::shortcut_chord::DEFAULT_SAVE),
             "IDM_FILE_SAVEAS" => {
@@ -7524,6 +7577,15 @@ impl EditorApp {
             open_folder_chord.display(),
             open_folder_chord.flipped_shift().display()
         );
+        let open_workspace_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_open_workspace,
+            crate::shortcut_chord::DEFAULT_OPEN_WORKSPACE,
+        );
+        let open_workspace_keys = format!(
+            "{} / {}",
+            open_workspace_chord.display(),
+            open_workspace_chord.flipped_shift().display()
+        );
         let format_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_format_document,
             crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -7833,7 +7895,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 102] = [
+        let rows: [(&str, &str); 103] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -7961,6 +8023,10 @@ impl EditorApp {
                 "Open Selected Filename / Containing Folder",
             ),
             (open_folder_keys.as_str(), "Open Containing Folder / Shell"),
+            (
+                open_workspace_keys.as_str(),
+                "Open Folder as Workspace / Containing Folder",
+            ),
             (indent_outdent_keys.as_str(), "Indent / Outdent"),
             (format_keys.as_str(), "Format document"),
             (fold_all_keys.as_str(), "Fold / Unfold all"),
@@ -10383,6 +10449,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+L, Ctrl+Alt+L. Reveals the active file's folder in the file manager (File → Open Containing Folder → Explorer). Shift + that chord opens a shell in that folder (cmd / terminal). Does not collide with Show Line Numbers (Alt+L), Go to Line (Cmd+L), or Open Selected Filename (Cmd+Alt+J).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Open workspace shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_open_workspace,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+G"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_open_workspace
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_open_workspace =
+                                        crate::shortcut_chord::DEFAULT_OPEN_WORKSPACE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_OPEN_WORKSPACE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_open_workspace = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+G, Ctrl+Alt+G. Picks a folder as the project workspace (File → Open Folder as Workspace) and opens the Project Panel. Shift + that chord uses the active file's containing folder. Does not collide with Show Fold Margin (Alt+G), Find next (global) (Cmd+G), or Open Containing Folder (Cmd+Alt+L).",
                             )
                             .small()
                             .weak(),

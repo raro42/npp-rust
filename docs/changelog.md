@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.276] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Open Folder as Workspace** is remappable: Preferences → Open workspace shortcut, or `shortcut_open_workspace` in `npp-rs/settings.json` (default `Cmd+Alt+G`). **Shift** flips to Open Containing Folder as Workspace. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.275] — 2026-10-13
 
 Settings / shortcuts:

@@ -100,6 +100,7 @@ New keys:
 | `shortcut_copy_all_paths` | Copy All File Paths chord (`Cmd+Alt+M` default; Shift flips to All Filenames) |
 | `shortcut_open_selected` | Open Selected Filename chord (`Cmd+Alt+J` default; Shift flips to Open Containing Folder) |
 | `shortcut_open_folder` | Open Containing Folder chord (`Cmd+Alt+L` default; Shift flips to shell here) |
+| `shortcut_open_workspace` | Open Folder as Workspace chord (`Cmd+Alt+G` default; Shift flips to Containing Folder as Workspace) |
 | `shortcut_multi_select_next` | Multi-select next chord (`Cmd+Alt+N` default; Shift flips to skip current / go to next) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
 | `shortcut_find_in_files` | Find in Files chord (`Cmd+Alt+F` default) |

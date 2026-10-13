@@ -403,6 +403,12 @@ pub const DEFAULT_OPEN_SELECTED: &str = "Cmd+Alt+J";
 /// (Cmd+L), or Open Selected Filename (Cmd+Alt+J). Shift flips to open a shell here.
 pub const DEFAULT_OPEN_FOLDER: &str = "Cmd+Alt+L";
 
+/// Default Open Folder as Workspace binding (File → Open Folder as Workspace).
+/// Uses Cmd+Alt+G so it does not collide with Show Fold Margin (Alt+G), Find next
+/// (global) (Cmd+G), or Open Containing Folder (Cmd+Alt+L). Shift flips to Open
+/// Containing Folder as Workspace.
+pub const DEFAULT_OPEN_WORKSPACE: &str = "Cmd+Alt+G";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1791,6 +1797,19 @@ mod tests {
         let shell = c.flipped_shift();
         assert!(shell.shift);
         assert_eq!(shell.display(), "Cmd+Alt+Shift+L");
+    }
+
+    #[test]
+    fn parse_cmd_alt_g_default_open_workspace() {
+        let c = parse_chord(DEFAULT_OPEN_WORKSPACE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::G);
+        assert_eq!(c.display(), "Cmd+Alt+G");
+        let containing = c.flipped_shift();
+        assert!(containing.shift);
+        assert_eq!(containing.display(), "Cmd+Alt+Shift+G");
     }
 
     #[test]
