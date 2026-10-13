@@ -118,6 +118,11 @@ pub const DEFAULT_CLOSE_TAB: &str = "Cmd+W";
 /// Uses Cmd+Alt+W so it does not collide with Close tab (Cmd+W).
 pub const DEFAULT_CLOSE_ALL: &str = "Cmd+Alt+W";
 
+/// Default Close All but Pinned binding (File → Close All but Pinned Documents).
+/// Shift flips to Close All Unchanged. Uses Cmd+Alt+H so it does not collide with
+/// Close All (Cmd+Alt+W), Hide unchanged (Alt+H), or Replace (Cmd+H).
+pub const DEFAULT_CLOSE_BUT_PINNED: &str = "Cmd+Alt+H";
+
 /// Default trim-trailing binding (Edit → Blank Operations → Trim Trailing Space).
 /// Shift flips to Trim Leading and Trailing Space. Uses Cmd+Alt+T so it does not
 /// collide with Always on Top (Alt+T) or Toggle log tail (Cmd+Shift+T).
@@ -1151,6 +1156,19 @@ mod tests {
         assert_eq!(c.key, Key::W);
         assert_eq!(c.display(), "Cmd+Alt+W");
         assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+W");
+    }
+
+    #[test]
+    fn parse_cmd_alt_h_default_close_but_pinned() {
+        let c = parse_chord(DEFAULT_CLOSE_BUT_PINNED).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::H);
+        assert_eq!(c.display(), "Cmd+Alt+H");
+        let unchanged = c.flipped_shift();
+        assert!(unchanged.shift);
+        assert_eq!(unchanged.display(), "Cmd+Alt+Shift+H");
     }
 
     #[test]

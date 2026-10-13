@@ -4667,6 +4667,51 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_FILE_CLOSEALL");
             }
         }
+        // Remappable Close All but Pinned (default Cmd+Alt+H; settings.shortcut_close_but_pinned).
+        // Shift flips to Close All Unchanged.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_CLOSE_BUT_PINNED};
+            let close_pinned_chord = resolve_chord(
+                &self.state.settings.shortcut_close_but_pinned,
+                DEFAULT_CLOSE_BUT_PINNED,
+            );
+            let close_pinned_key_pressed = match close_pinned_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if close_pinned_key_pressed
+                && close_pinned_chord
+                    .flipped_shift()
+                    .matches(mods, close_pinned_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_FILE_CLOSEALL_UNCHANGED");
+            } else if close_pinned_key_pressed
+                && close_pinned_chord.matches(mods, close_pinned_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_FILE_CLOSEALL_BUT_PINNED");
+            }
+        }
         // Remappable trim trailing (default Cmd+Alt+T; settings.shortcut_trim_trailing).
         // Shift flips to Trim Leading and Trailing Space.
         {
@@ -6645,6 +6690,14 @@ impl EditorApp {
                 &s.shortcut_close_all,
                 crate::shortcut_chord::DEFAULT_CLOSE_ALL,
             ),
+            "IDM_FILE_CLOSEALL_BUT_PINNED" => primary(
+                &s.shortcut_close_but_pinned,
+                crate::shortcut_chord::DEFAULT_CLOSE_BUT_PINNED,
+            ),
+            "IDM_FILE_CLOSEALL_UNCHANGED" => shifted(
+                &s.shortcut_close_but_pinned,
+                crate::shortcut_chord::DEFAULT_CLOSE_BUT_PINNED,
+            ),
             "IDM_EDIT_TRIMTRAILING" => primary(
                 &s.shortcut_trim_trailing,
                 crate::shortcut_chord::DEFAULT_TRIM_TRAILING,
@@ -7605,6 +7658,15 @@ impl EditorApp {
             close_all_chord.display(),
             close_all_chord.flipped_shift().display()
         );
+        let close_but_pinned_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_close_but_pinned,
+            crate::shortcut_chord::DEFAULT_CLOSE_BUT_PINNED,
+        );
+        let close_but_pinned_keys = format!(
+            "{} / {}",
+            close_but_pinned_chord.display(),
+            close_but_pinned_chord.flipped_shift().display()
+        );
         let trim_trailing_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_trim_trailing,
             crate::shortcut_chord::DEFAULT_TRIM_TRAILING,
@@ -7895,7 +7957,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 103] = [
+        let rows: [(&str, &str); 104] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -8063,6 +8125,10 @@ impl EditorApp {
             (undo_keys.as_str(), "Undo / Redo"),
             (close_keys.as_str(), "Close tab"),
             (close_all_keys.as_str(), "Close all / Close all but current"),
+            (
+                close_but_pinned_keys.as_str(),
+                "Close all but pinned / Close all unchanged",
+            ),
             (
                 trim_trailing_keys.as_str(),
                 "Trim trailing / Trim leading and trailing",
@@ -10579,6 +10645,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+W, Ctrl+Alt+W. Shift flips to Close All but Current.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Close All but Pinned shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_close_but_pinned,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+H"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_close_but_pinned
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_close_but_pinned =
+                                        crate::shortcut_chord::DEFAULT_CLOSE_BUT_PINNED.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CLOSE_BUT_PINNED
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_close_but_pinned = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+H, Ctrl+Alt+H. Closes every unpinned tab (File → Close All but Pinned Documents). Shift + that chord closes unchanged tabs. Does not collide with Close All (Cmd+Alt+W), Hide unchanged (Alt+H), or Replace (Cmd+H).",
                             )
                             .small()
                             .weak(),

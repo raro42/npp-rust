@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.277] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Close All but Pinned** is remappable: Preferences → Close All but Pinned shortcut, or `shortcut_close_but_pinned` in `npp-rs/settings.json` (default `Cmd+Alt+H`). **Shift** flips to Close All Unchanged. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.276] — 2026-10-13
 
 Settings / shortcuts:
