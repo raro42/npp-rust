@@ -1501,6 +1501,45 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_DOC_MAP");
             }
         }
+        // Remappable Function List toggle (default Cmd+E; settings.shortcut_function_list).
+        // Shift flips to Character Panel.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FUNCTION_LIST};
+            let func_chord = resolve_chord(
+                &self.state.settings.shortcut_function_list,
+                DEFAULT_FUNCTION_LIST,
+            );
+            let func_key_pressed = match func_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if func_key_pressed && func_chord.flipped_shift().matches(mods, func_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_CHAR_PANEL");
+            } else if func_key_pressed && func_chord.matches(mods, func_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_FUNC_LIST");
+            }
+        }
         // Remappable fullscreen toggle (default F11; settings.shortcut_fullscreen).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FULLSCREEN};
@@ -5973,10 +6012,20 @@ impl EditorApp {
                 };
             }
             if flags.show_func_list {
-                self.show_func_list = true;
+                self.show_func_list = !self.show_func_list;
+                self.state.status = if self.show_func_list {
+                    "Function List".into()
+                } else {
+                    "Function List closed".into()
+                };
             }
             if flags.show_char_panel {
-                self.show_char_panel = true;
+                self.show_char_panel = !self.show_char_panel;
+                self.state.status = if self.show_char_panel {
+                    "Character Panel".into()
+                } else {
+                    "Character Panel closed".into()
+                };
             }
             match flags.zoom_delta {
                 Some(1) => {
@@ -6380,6 +6429,28 @@ impl EditorApp {
                         .display();
                         response.on_hover_text(format!(
                             "Toggle the Document Map panel ({chord}; Preferences remappable)"
+                        ))
+                    }
+                    "IDM_VIEW_FUNC_LIST" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_function_list,
+                            crate::shortcut_chord::DEFAULT_FUNCTION_LIST,
+                        );
+                        let func = chord.display();
+                        let char_panel = chord.flipped_shift().display();
+                        response.on_hover_text(format!(
+                            "Toggle the Function List panel ({func}; Preferences remappable; {char_panel} toggles Character Panel)"
+                        ))
+                    }
+                    "IDM_EDIT_CHAR_PANEL" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_function_list,
+                            crate::shortcut_chord::DEFAULT_FUNCTION_LIST,
+                        )
+                        .flipped_shift()
+                        .display();
+                        response.on_hover_text(format!(
+                            "Toggle the Character Panel ({chord}; Preferences → Function List shortcut + Shift)"
                         ))
                     }
                     "IDM_VIEW_SWITCHTO_OTHER_VIEW" => {
@@ -7202,6 +7273,14 @@ impl EditorApp {
                 &s.shortcut_document_map,
                 crate::shortcut_chord::DEFAULT_DOCUMENT_MAP,
             ),
+            "IDM_VIEW_FUNC_LIST" => primary(
+                &s.shortcut_function_list,
+                crate::shortcut_chord::DEFAULT_FUNCTION_LIST,
+            ),
+            "IDM_EDIT_CHAR_PANEL" => shifted(
+                &s.shortcut_function_list,
+                crate::shortcut_chord::DEFAULT_FUNCTION_LIST,
+            ),
             "IDM_VIEW_SWITCHTO_OTHER_VIEW" => primary(
                 &s.shortcut_focus_other_view,
                 crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW,
@@ -7970,6 +8049,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_DOCUMENT_MAP,
         )
         .display();
+        let function_list_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_function_list,
+            crate::shortcut_chord::DEFAULT_FUNCTION_LIST,
+        );
+        let function_list_keys = format!(
+            "{} / {}",
+            function_list_chord.display(),
+            function_list_chord.flipped_shift().display()
+        );
         let fullscreen_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_fullscreen,
             crate::shortcut_chord::DEFAULT_FULLSCREEN,
@@ -8076,7 +8164,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 106] = [
+        let rows: [(&str, &str); 107] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -8216,6 +8304,10 @@ impl EditorApp {
             (matching_brace_keys.as_str(), "Matching brace / Select pair"),
             (log_tail_keys.as_str(), "Toggle log tail"),
             (document_map_keys.as_str(), "Toggle Document Map"),
+            (
+                function_list_keys.as_str(),
+                "Toggle Function List / Character Panel",
+            ),
             (fullscreen_keys.as_str(), "Toggle fullscreen"),
             (postit_keys.as_str(), "Toggle Post-It"),
             (always_on_top_keys.as_str(), "Toggle always on top"),
@@ -11576,6 +11668,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Shift+D, Ctrl+Alt+D. Toggles View → Document Map.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Function List shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_function_list,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+E"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_function_list
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_function_list =
+                                        crate::shortcut_chord::DEFAULT_FUNCTION_LIST.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FUNCTION_LIST
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_function_list = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+E, Ctrl+E. Toggles View → Function List. Shift + that chord toggles Edit → Character Panel. Does not collide with Document Map (Cmd+Shift+D), Expand All Unchanged (Alt+E), or Remove Empty Lines (Cmd+Alt+E).",
                             )
                             .small()
                             .weak(),

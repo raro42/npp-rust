@@ -247,6 +247,12 @@ pub const DEFAULT_TOGGLE_LOG_TAIL: &str = "Cmd+Shift+T";
 /// Default Document Map toggle binding (View → Document Map).
 pub const DEFAULT_DOCUMENT_MAP: &str = "Cmd+Shift+D";
 
+/// Default Function List toggle binding (View → Function List).
+/// Shift flips to Character Panel. Uses Cmd+E so it does not collide with
+/// Document Map (Cmd+Shift+D), Expand All Unchanged (Alt+E), or Remove Empty
+/// Lines (Cmd+Alt+E).
+pub const DEFAULT_FUNCTION_LIST: &str = "Cmd+E";
+
 /// Default focus-other-view binding (View → Focus on Another View).
 /// Shift flips to swap the active tab with the other view (header Switch).
 pub const DEFAULT_FOCUS_OTHER_VIEW: &str = "F6";
@@ -1473,6 +1479,19 @@ mod tests {
         assert!(c.shift);
         assert_eq!(c.key, Key::D);
         assert_eq!(c.display(), "Cmd+Shift+D");
+    }
+
+    #[test]
+    fn parse_cmd_e_default_function_list() {
+        let c = parse_chord(DEFAULT_FUNCTION_LIST).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::E);
+        assert_eq!(c.display(), "Cmd+E");
+        let char_panel = c.flipped_shift();
+        assert!(char_panel.shift);
+        assert_eq!(char_panel.display(), "Cmd+Shift+E");
     }
 
     #[test]

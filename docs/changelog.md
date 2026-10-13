@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.280] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Function List** is remappable: Preferences → Function List shortcut, or `shortcut_function_list` in `npp-rs/settings.json` (default `Cmd+E`). **Shift** flips to Character Panel. Both panels toggle open/closed. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.279] — 2026-10-13
 
 Settings / shortcuts:

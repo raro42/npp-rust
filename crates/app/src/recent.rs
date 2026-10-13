@@ -464,6 +464,10 @@ fn default_shortcut_document_map() -> String {
     crate::shortcut_chord::DEFAULT_DOCUMENT_MAP.into()
 }
 
+fn default_shortcut_function_list() -> String {
+    crate::shortcut_chord::DEFAULT_FUNCTION_LIST.into()
+}
+
 fn default_shortcut_focus_other_view() -> String {
     crate::shortcut_chord::DEFAULT_FOCUS_OTHER_VIEW.into()
 }
@@ -908,6 +912,9 @@ pub struct AppSettings {
     /// Document Map toggle chord (`Cmd+Shift+D` default).
     #[serde(default = "default_shortcut_document_map")]
     pub shortcut_document_map: String,
+    /// Function List toggle chord (`Cmd+E` default; Shift flips to Character Panel).
+    #[serde(default = "default_shortcut_function_list")]
+    pub shortcut_function_list: String,
     /// Focus other dual-view pane chord (`F6` default; Shift swaps tabs).
     #[serde(default = "default_shortcut_focus_other_view")]
     pub shortcut_focus_other_view: String,
@@ -1150,6 +1157,7 @@ impl Default for AppSettings {
             shortcut_zoom_restore: default_shortcut_zoom_restore(),
             shortcut_toggle_log_tail: default_shortcut_toggle_log_tail(),
             shortcut_document_map: default_shortcut_document_map(),
+            shortcut_function_list: default_shortcut_function_list(),
             shortcut_focus_other_view: default_shortcut_focus_other_view(),
             shortcut_move_other_view: default_shortcut_move_other_view(),
             shortcut_rtl: default_shortcut_rtl(),
@@ -1603,6 +1611,7 @@ mod tests {
             shortcut_zoom_restore: "Ctrl+Alt+0".into(),
             shortcut_toggle_log_tail: "Ctrl+Alt+T".into(),
             shortcut_document_map: "Ctrl+Alt+Shift+D".into(),
+            shortcut_function_list: "Ctrl+Alt+Shift+E".into(),
             shortcut_focus_other_view: "Ctrl+Alt+F6".into(),
             shortcut_move_other_view: "Ctrl+Alt+Shift+O".into(),
             shortcut_rtl: "Ctrl+Alt+R".into(),
@@ -1739,6 +1748,7 @@ mod tests {
         assert_eq!(back.shortcut_zoom_restore, "Ctrl+Alt+0");
         assert_eq!(back.shortcut_toggle_log_tail, "Ctrl+Alt+T");
         assert_eq!(back.shortcut_document_map, "Ctrl+Alt+Shift+D");
+        assert_eq!(back.shortcut_function_list, "Ctrl+Alt+Shift+E");
         assert_eq!(back.shortcut_focus_other_view, "Ctrl+Alt+F6");
         assert_eq!(back.shortcut_move_other_view, "Ctrl+Alt+Shift+O");
         assert_eq!(back.shortcut_rtl, "Ctrl+Alt+R");

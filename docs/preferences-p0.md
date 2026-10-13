@@ -129,6 +129,7 @@ New keys:
 | `shortcut_zoom_restore` | Zoom-restore chord (`Cmd+0` default; mouse wheel stays hard-wired) |
 | `shortcut_toggle_log_tail` | Toggle log-tail follow chord (`Cmd+Shift+T` default) |
 | `shortcut_document_map` | Document Map toggle chord (`Cmd+Shift+D` default) |
+| `shortcut_function_list` | Function List toggle chord (`Cmd+E` default; Shift flips to Character Panel) |
 | `shortcut_fullscreen` | Fullscreen toggle chord (`F11` default) |
 | `shortcut_postit` | Post-It / distraction-free toggle chord (`F12` default; hides menu + status; same as View → Distraction Free) |
 | `shortcut_always_on_top` | Always-on-top toggle chord (`Alt+T` default) |
