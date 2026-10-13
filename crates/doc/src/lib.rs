@@ -1041,6 +1041,138 @@ impl Document {
         true
     }
 
+    /// Document Home/End every multi-caret (Cmd+Home/End / Cmd+Up/Down).
+    ///
+    /// Stream carets all move to char 0 or `len` (usually merge to one). Rect
+    /// blocks keep `rect_cols` and shift so the first line is 0 (Home) or the
+    /// last line is the document's last line (End).
+    /// Returns false when multi-carets / rect are inactive.
+    pub fn move_multi_doc_edge(&mut self, to_end: bool) -> bool {
+        if !self.has_multi_carets() && self.rect_cols.is_none() {
+            return false;
+        }
+        let line_count = self.buffer.line_count();
+        if line_count == 0 {
+            return false;
+        }
+        if let Some((col_lo, col_hi)) = self.rect_cols {
+            let Some((line_lo, line_hi)) = self.rect_line_span() else {
+                return false;
+            };
+            let span = line_hi.saturating_sub(line_lo);
+            let max_line = line_count - 1;
+            let (new_lo, new_hi) = if to_end {
+                let hi = max_line;
+                (hi.saturating_sub(span), hi)
+            } else {
+                (0, span.min(max_line))
+            };
+            if new_lo == new_hi {
+                let body_len = self.buffer.line_body_len(new_lo);
+                let col = col_lo.min(body_len);
+                let c = self.buffer.line_to_char(new_lo) + col;
+                self.multi_sels.clear();
+                self.rect_cols = None;
+                self.rect_anchor = None;
+                self.virtual_caret_col = if col_lo > body_len {
+                    Some(col_lo)
+                } else {
+                    None
+                };
+                self.buffer.set_caret(c);
+                return true;
+            }
+            let Some((al, ac)) = self.rect_anchor else {
+                self.set_rect_selection_cols(new_lo, col_lo, new_hi, col_hi);
+                return true;
+            };
+            // Preserve which corner was the anchor relative to the old span.
+            let anchor_at_lo = al == line_lo;
+            let anchor_at_col_lo = ac == col_lo;
+            let new_al = if anchor_at_lo { new_lo } else { new_hi };
+            let new_ac = if anchor_at_col_lo { col_lo } else { col_hi };
+            let new_cl = if anchor_at_lo { new_hi } else { new_lo };
+            let new_cc = if anchor_at_col_lo { col_hi } else { col_lo };
+            self.set_rect_selection_cols(new_al, new_ac, new_cl, new_cc);
+            return true;
+        }
+        if !self.has_multi_carets() {
+            return false;
+        }
+        let target = if to_end { self.buffer.len_chars() } else { 0 };
+        let mut new_sels = Vec::with_capacity(self.multi_sels.len());
+        for _ in &self.multi_sels {
+            new_sels.push((target, target));
+        }
+        new_sels.sort_by_key(|(c, _)| *c);
+        new_sels.dedup();
+        if new_sels.len() < 2 {
+            if let Some(&(c, _)) = new_sels.first() {
+                self.multi_sels.clear();
+                self.rect_cols = None;
+                self.rect_anchor = None;
+                self.virtual_caret_col = None;
+                self.buffer.set_caret(c);
+            }
+            return true;
+        }
+        self.finish_multi_sels(new_sels);
+        true
+    }
+
+    /// Shift+Document Home/End: extend every stream multi-caret to doc start/end.
+    ///
+    /// Keeps each range's anchor and moves its caret. Rect selections keep
+    /// `rect_anchor` and move the opposite line corner to line 0 (Home) or the
+    /// last document line (End), keeping the caret column.
+    /// Returns false when stream multi-carets / rect are inactive.
+    pub fn extend_multi_doc_edge(&mut self, to_end: bool) -> bool {
+        if self.rect_cols.is_some() {
+            let Some((al, ac)) = self.rect_anchor else {
+                return false;
+            };
+            let Some((_cl, cc)) = self.rect_caret_corner() else {
+                return false;
+            };
+            let line_count = self.buffer.line_count();
+            if line_count == 0 {
+                return false;
+            }
+            let new_cl = if to_end { line_count - 1 } else { 0 };
+            self.set_rect_selection_cols(al, ac, new_cl, cc);
+            self.collapse_single_line_rect_to_stream();
+            return true;
+        }
+        if !self.has_multi_carets() {
+            return false;
+        }
+        let len = self.buffer.len_chars();
+        let target = if to_end { len } else { 0 };
+        let mut new_sels = Vec::with_capacity(self.multi_sels.len());
+        for &(anchor, _) in &self.multi_sels {
+            let anchor = anchor.min(len);
+            new_sels.push((anchor, target));
+        }
+        new_sels.sort_by_key(|&(a, c)| (c, a));
+        new_sels.dedup();
+        if new_sels.len() < 2 {
+            if let Some(&(anchor, caret)) = new_sels.first() {
+                self.multi_sels.clear();
+                self.rect_cols = None;
+                self.rect_anchor = None;
+                self.virtual_caret_col = None;
+                if anchor == caret {
+                    self.buffer.set_caret(caret);
+                } else {
+                    self.buffer.set_selection(anchor, caret);
+                }
+            }
+            return true;
+        }
+        self.finish_multi_sels(new_sels);
+        true
+    }
+
     /// Shift+Left/Right: extend every stream multi-caret selection by `delta` chars.
     ///
     /// Keeps each range's anchor and moves its caret. Rect selections keep
@@ -2202,6 +2334,65 @@ mod tests {
         assert_eq!(doc.rect_cols, Some((0, 3)));
         assert_eq!(doc.rect_anchor, Some((0, 3)));
         assert_eq!(doc.multi_sels, vec![(0, 3), (8, 11)]);
+    }
+
+    #[test]
+    fn move_multi_doc_edge_merges_stream_carets() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("aa\nbb\ncc\n");
+        doc.multi_sels = vec![(1, 1), (4, 4), (7, 7)];
+        assert!(doc.move_multi_doc_edge(false));
+        assert!(!doc.has_multi_carets());
+        assert_eq!(doc.buffer.caret(), 0);
+        doc.multi_sels = vec![(1, 1), (4, 4), (7, 7)];
+        assert!(doc.move_multi_doc_edge(true));
+        assert!(!doc.has_multi_carets());
+        assert_eq!(doc.buffer.caret(), doc.buffer.len_chars());
+    }
+
+    #[test]
+    fn extend_multi_doc_edge_keeps_stream_anchors() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("aa\nbb\ncc\n");
+        doc.multi_sels = vec![(1, 1), (4, 4), (7, 7)];
+        assert!(doc.extend_multi_doc_edge(false));
+        assert_eq!(doc.multi_sels, vec![(1, 0), (4, 0), (7, 0)]);
+        assert!(doc.has_multi_carets());
+        doc.multi_sels = vec![(1, 1), (4, 4), (7, 7)];
+        assert!(doc.extend_multi_doc_edge(true));
+        let end = doc.buffer.len_chars();
+        assert_eq!(doc.multi_sels, vec![(1, end), (4, end), (7, end)]);
+        assert!(doc.has_multi_carets());
+    }
+
+    #[test]
+    fn move_multi_doc_edge_shifts_rect_block() {
+        let mut doc = Document::untitled(1, 1);
+        // No trailing newline → four body lines (0..=3).
+        doc.buffer = TextBuffer::from_str("aaaa\nbbbb\ncccc\ndddd");
+        doc.set_rect_selection_cols(1, 1, 2, 2);
+        assert_eq!(doc.rect_cols, Some((1, 2)));
+        assert!(doc.move_multi_doc_edge(false));
+        assert_eq!(doc.rect_cols, Some((1, 2)));
+        assert_eq!(doc.rect_line_span(), Some((0, 1)));
+        assert!(doc.move_multi_doc_edge(true));
+        assert_eq!(doc.rect_cols, Some((1, 2)));
+        assert_eq!(doc.rect_line_span(), Some((2, 3)));
+    }
+
+    #[test]
+    fn extend_multi_doc_edge_rect_grows_lines() {
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("aaaa\nbbbb\ncccc\ndddd");
+        doc.set_rect_selection_cols(1, 1, 1, 2);
+        assert_eq!(doc.rect_anchor, Some((1, 1)));
+        assert!(doc.extend_multi_doc_edge(true));
+        assert_eq!(doc.rect_cols, Some((1, 2)));
+        assert_eq!(doc.rect_anchor, Some((1, 1)));
+        assert_eq!(doc.rect_line_span(), Some((1, 3)));
+        assert!(doc.extend_multi_doc_edge(false));
+        assert_eq!(doc.rect_line_span(), Some((0, 1)));
+        assert_eq!(doc.rect_anchor, Some((1, 1)));
     }
 
     #[test]

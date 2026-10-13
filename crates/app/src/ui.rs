@@ -2810,18 +2810,40 @@ impl EditorApp {
                 if chord_key_pressed(end_chord.key)
                     && end_chord.matches_ignore_shift(mods, end_chord.key)
                 {
+                    let extend = mods.shift != end_chord.shift;
+                    let mut multi_ok = false;
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
+                        multi_ok = if extend {
+                            doc.extend_multi_doc_edge(true)
+                        } else {
+                            doc.move_multi_doc_edge(true)
+                        };
+                        if !multi_ok {
+                            doc.clear_multi_sels();
+                        }
                     }
-                    go_doc_end(&mut self.state, tab, mods.shift != end_chord.shift);
+                    if !multi_ok {
+                        go_doc_end(&mut self.state, tab, extend);
+                    }
                     self.follow_focused_caret();
                 } else if chord_key_pressed(home_chord.key)
                     && home_chord.matches_ignore_shift(mods, home_chord.key)
                 {
+                    let extend = mods.shift != home_chord.shift;
+                    let mut multi_ok = false;
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
+                        multi_ok = if extend {
+                            doc.extend_multi_doc_edge(false)
+                        } else {
+                            doc.move_multi_doc_edge(false)
+                        };
+                        if !multi_ok {
+                            doc.clear_multi_sels();
+                        }
                     }
-                    go_doc_start(&mut self.state, tab, mods.shift != home_chord.shift);
+                    if !multi_ok {
+                        go_doc_start(&mut self.state, tab, extend);
+                    }
                     self.follow_focused_caret();
                 }
             }
@@ -3589,16 +3611,28 @@ impl EditorApp {
                 };
                 let tab = self.focused_edit_tab();
                 if hit(end_chord) && end_chord.key != start_chord.key {
+                    let mut multi_ok = false;
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
+                        multi_ok = doc.move_multi_doc_edge(true);
+                        if !multi_ok {
+                            doc.clear_multi_sels();
+                        }
                     }
-                    go_doc_end(&mut self.state, tab, false);
+                    if !multi_ok {
+                        go_doc_end(&mut self.state, tab, false);
+                    }
                     self.follow_focused_caret();
                 } else if hit(start_chord) {
+                    let mut multi_ok = false;
                     if let Some(doc) = self.state.tabs.get_mut(tab) {
-                        doc.clear_multi_sels();
+                        multi_ok = doc.move_multi_doc_edge(false);
+                        if !multi_ok {
+                            doc.clear_multi_sels();
+                        }
                     }
-                    go_doc_start(&mut self.state, tab, false);
+                    if !multi_ok {
+                        go_doc_start(&mut self.state, tab, false);
+                    }
                     self.follow_focused_caret();
                 }
             }
@@ -18416,20 +18450,38 @@ impl EditorApp {
                             );
                             let doc_end = doc_start.goto_document_end_chord();
                             if doc_start.matches_ignore_shift(modifiers, Key::ArrowUp) {
+                                let extend = modifiers.shift != doc_start.shift;
+                                let mut multi_ok = false;
                                 if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                    doc.clear_multi_sels();
+                                    multi_ok = if extend {
+                                        doc.extend_multi_doc_edge(false)
+                                    } else {
+                                        doc.move_multi_doc_edge(false)
+                                    };
+                                    if !multi_ok {
+                                        doc.clear_multi_sels();
+                                    }
                                 }
-                                go_doc_start(
-                                    &mut self.state,
-                                    tab,
-                                    modifiers.shift != doc_start.shift,
-                                );
+                                if !multi_ok {
+                                    go_doc_start(&mut self.state, tab, extend);
+                                }
                                 caret_moved = true;
                             } else if doc_end.matches_ignore_shift(modifiers, Key::ArrowUp) {
+                                let extend = modifiers.shift != doc_end.shift;
+                                let mut multi_ok = false;
                                 if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                    doc.clear_multi_sels();
+                                    multi_ok = if extend {
+                                        doc.extend_multi_doc_edge(true)
+                                    } else {
+                                        doc.move_multi_doc_edge(true)
+                                    };
+                                    if !multi_ok {
+                                        doc.clear_multi_sels();
+                                    }
                                 }
-                                go_doc_end(&mut self.state, tab, modifiers.shift != doc_end.shift);
+                                if !multi_ok {
+                                    go_doc_end(&mut self.state, tab, extend);
+                                }
                                 caret_moved = true;
                             } else if up_chord != default_chord {
                                 // Remapped away from bare Up; ignore for line move.
@@ -18515,20 +18567,38 @@ impl EditorApp {
                             );
                             let doc_end = doc_start.goto_document_end_chord();
                             if doc_end.matches_ignore_shift(modifiers, Key::ArrowDown) {
+                                let extend = modifiers.shift != doc_end.shift;
+                                let mut multi_ok = false;
                                 if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                    doc.clear_multi_sels();
+                                    multi_ok = if extend {
+                                        doc.extend_multi_doc_edge(true)
+                                    } else {
+                                        doc.move_multi_doc_edge(true)
+                                    };
+                                    if !multi_ok {
+                                        doc.clear_multi_sels();
+                                    }
                                 }
-                                go_doc_end(&mut self.state, tab, modifiers.shift != doc_end.shift);
+                                if !multi_ok {
+                                    go_doc_end(&mut self.state, tab, extend);
+                                }
                                 caret_moved = true;
                             } else if doc_start.matches_ignore_shift(modifiers, Key::ArrowDown) {
+                                let extend = modifiers.shift != doc_start.shift;
+                                let mut multi_ok = false;
                                 if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                    doc.clear_multi_sels();
+                                    multi_ok = if extend {
+                                        doc.extend_multi_doc_edge(false)
+                                    } else {
+                                        doc.move_multi_doc_edge(false)
+                                    };
+                                    if !multi_ok {
+                                        doc.clear_multi_sels();
+                                    }
                                 }
-                                go_doc_start(
-                                    &mut self.state,
-                                    tab,
-                                    modifiers.shift != doc_start.shift,
-                                );
+                                if !multi_ok {
+                                    go_doc_start(&mut self.state, tab, extend);
+                                }
                                 caret_moved = true;
                             } else if up_chord != default_chord {
                                 // Remapped away from bare Down; ignore for line move.
@@ -18605,15 +18675,26 @@ impl EditorApp {
                         continue;
                     }
                     if modifiers.command || modifiers.ctrl {
-                        if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.clear_multi_sels();
-                        }
                         if doc_home != default_doc_home {
                             // Remapped away from Cmd+Home; ignore bare Cmd+Home.
                             continue;
                         }
-                        // Default Cmd+Home → document start.
-                        go_doc_start(&mut self.state, tab, modifiers.shift);
+                        // Default Cmd+Home → document start (multi-caret aware).
+                        let extend = modifiers.shift;
+                        let mut multi_ok = false;
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            multi_ok = if extend {
+                                doc.extend_multi_doc_edge(false)
+                            } else {
+                                doc.move_multi_doc_edge(false)
+                            };
+                            if !multi_ok {
+                                doc.clear_multi_sels();
+                            }
+                        }
+                        if !multi_ok {
+                            go_doc_start(&mut self.state, tab, extend);
+                        }
                         caret_moved = true;
                     } else if home_chord != default_chord {
                         // Remapped away from bare Home; ignore for line start.
@@ -18671,15 +18752,26 @@ impl EditorApp {
                         continue;
                     }
                     if modifiers.command || modifiers.ctrl {
-                        if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            doc.clear_multi_sels();
-                        }
                         if doc_home != default_doc_home {
                             // Remapped away from Cmd+End; ignore bare Cmd+End.
                             continue;
                         }
-                        // Default Cmd+End → document end.
-                        go_doc_end(&mut self.state, tab, modifiers.shift);
+                        // Default Cmd+End → document end (multi-caret aware).
+                        let extend = modifiers.shift;
+                        let mut multi_ok = false;
+                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                            multi_ok = if extend {
+                                doc.extend_multi_doc_edge(true)
+                            } else {
+                                doc.move_multi_doc_edge(true)
+                            };
+                            if !multi_ok {
+                                doc.clear_multi_sels();
+                            }
+                        }
+                        if !multi_ok {
+                            go_doc_end(&mut self.state, tab, extend);
+                        }
                         caret_moved = true;
                     } else if home_chord != default_chord {
                         // Remapped away from bare Home/End; ignore for line end.

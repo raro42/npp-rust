@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.264] — 2026-10-13
+
+Edit / column mode:
+
+- **Document Home/End** (Cmd/Ctrl+Home/End and Cmd/Ctrl+Up/Down) move multi-carets / rect blocks to the document edge; **Shift** extends stream multi-carets (keep anchors) and grows rect lines to the first/last document line (`docs/column-mode.md`).
+
 ## [0.3.263] — 2026-10-13
 
 Edit / column mode:

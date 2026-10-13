@@ -425,3 +425,5 @@
 009 keep: Rect Shift+Home/End extend (v0.3.262)
 
 009 keep: Alt+Shift+arrows start/extend rect column select (v0.3.263)
+
+009 keep: Document Home/End move / Shift-extend multi-carets / rect (v0.3.264)
