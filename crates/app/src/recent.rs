@@ -144,6 +144,10 @@ fn default_shortcut_column_editor() -> String {
     crate::shortcut_chord::DEFAULT_COLUMN_EDITOR.into()
 }
 
+fn default_shortcut_sort_lines() -> String {
+    crate::shortcut_chord::DEFAULT_SORT_LINES.into()
+}
+
 fn default_shortcut_blank_line() -> String {
     crate::shortcut_chord::DEFAULT_BLANK_LINE.into()
 }
@@ -922,6 +926,9 @@ pub struct AppSettings {
     /// Column Editor chord (`Cmd+Alt+C` default; `IDM_EDIT_COLUMNMODE`).
     #[serde(default = "default_shortcut_column_editor")]
     pub shortcut_column_editor: String,
+    /// Sort Lines Lexicographic Ascending chord (`Cmd+Alt+O` default; Shift flips to Descending).
+    #[serde(default = "default_shortcut_sort_lines")]
+    pub shortcut_sort_lines: String,
     /// Find in Files chord (`Cmd+Alt+F` default).
     #[serde(default = "default_shortcut_find_in_files")]
     pub shortcut_find_in_files: String,
@@ -1081,6 +1088,7 @@ impl Default for AppSettings {
             shortcut_begin_end_select: default_shortcut_begin_end_select(),
             shortcut_toggle_readonly: default_shortcut_toggle_readonly(),
             shortcut_column_editor: default_shortcut_column_editor(),
+            shortcut_sort_lines: default_shortcut_sort_lines(),
             shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             ollama_host: default_ollama_host(),
@@ -1521,6 +1529,7 @@ mod tests {
             shortcut_begin_end_select: "Ctrl+Alt+Shift+B".into(),
             shortcut_toggle_readonly: "Ctrl+Alt+Shift+R".into(),
             shortcut_column_editor: "Ctrl+Alt+Shift+C".into(),
+            shortcut_sort_lines: "Ctrl+Alt+Shift+O".into(),
             shortcut_find_in_files: "Alt+Shift+F".into(),
             ..Default::default()
         };
@@ -1644,6 +1653,7 @@ mod tests {
         assert_eq!(back.shortcut_begin_end_select, "Ctrl+Alt+Shift+B");
         assert_eq!(back.shortcut_toggle_readonly, "Ctrl+Alt+Shift+R");
         assert_eq!(back.shortcut_column_editor, "Ctrl+Alt+Shift+C");
+        assert_eq!(back.shortcut_sort_lines, "Ctrl+Alt+Shift+O");
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
     }
 

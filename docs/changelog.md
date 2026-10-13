@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.267] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Sort Lines Lexicographic Ascending** is remappable: Preferences → Sort Lines shortcut, or `shortcut_sort_lines` in `npp-rs/settings.json` (default `Cmd+Alt+O`). **Shift** flips to Lexicographic Descending. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.266] — 2026-10-13
 
 Settings / shortcuts:

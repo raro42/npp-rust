@@ -4047,6 +4047,46 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_COLUMNMODE");
             }
         }
+        // Remappable Sort Lines (default Cmd+Alt+O; settings.shortcut_sort_lines).
+        // Shift flips to Lexicographic Descending.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SORT_LINES};
+            let sort_chord =
+                resolve_chord(&self.state.settings.shortcut_sort_lines, DEFAULT_SORT_LINES);
+            let sort_key_pressed = match sort_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_desc =
+                sort_key_pressed && sort_chord.flipped_shift().matches(mods, sort_chord.key);
+            let remapped_asc = sort_key_pressed && sort_chord.matches(mods, sort_chord.key);
+            if remapped_desc {
+                self.run_shortcut_cmd("IDM_EDIT_SORTLINES_LEXICOGRAPHIC_DESCENDING");
+            } else if remapped_asc {
+                self.run_shortcut_cmd("IDM_EDIT_SORTLINES_LEXICOGRAPHIC_ASCENDING");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -6336,6 +6376,14 @@ impl EditorApp {
                 &s.shortcut_column_editor,
                 crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
             ),
+            "IDM_EDIT_SORTLINES_LEXICOGRAPHIC_ASCENDING" => primary(
+                &s.shortcut_sort_lines,
+                crate::shortcut_chord::DEFAULT_SORT_LINES,
+            ),
+            "IDM_EDIT_SORTLINES_LEXICOGRAPHIC_DESCENDING" => shifted(
+                &s.shortcut_sort_lines,
+                crate::shortcut_chord::DEFAULT_SORT_LINES,
+            ),
             "IDM_SEARCH_FIND" => primary(&s.shortcut_find, crate::shortcut_chord::DEFAULT_FIND),
             "IDM_SEARCH_FINDINFILES" => primary(
                 &s.shortcut_find_in_files,
@@ -7005,6 +7053,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
         )
         .display();
+        let sort_lines_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_sort_lines,
+            crate::shortcut_chord::DEFAULT_SORT_LINES,
+        );
+        let sort_lines_keys = format!(
+            "{} / {}",
+            sort_lines_chord.display(),
+            sort_lines_chord.flipped_shift().display()
+        );
         let format_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_format_document,
             crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -7314,7 +7371,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 93] = [
+        let rows: [(&str, &str); 94] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -7418,6 +7475,10 @@ impl EditorApp {
             ),
             (toggle_readonly_keys.as_str(), "Toggle read-only"),
             (column_editor_keys.as_str(), "Column Editor"),
+            (
+                sort_lines_keys.as_str(),
+                "Sort Lines Lexicographic Asc / Desc",
+            ),
             (indent_outdent_keys.as_str(), "Indent / Outdent"),
             (format_keys.as_str(), "Format document"),
             (fold_all_keys.as_str(), "Fold / Unfold all"),
@@ -9516,6 +9577,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+C, Ctrl+Alt+C. Runs Edit → Column Editor (insert clipboard text or 0,1,2… at the caret column). Does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Sort Lines shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_sort_lines,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+O"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_sort_lines
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_sort_lines =
+                                        crate::shortcut_chord::DEFAULT_SORT_LINES.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SORT_LINES
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_sort_lines = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+O, Ctrl+Alt+O. Sorts lines lexicographically ascending (Edit → Line Operations). Shift + that chord sorts descending. Does not collide with Open (Cmd+O) or Move/Clone Other View (Alt+O).",
                             )
                             .small()
                             .weak(),

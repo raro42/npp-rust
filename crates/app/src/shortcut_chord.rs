@@ -358,6 +358,11 @@ pub const DEFAULT_TOGGLE_READONLY: &str = "Cmd+Alt+R";
 /// Uses Cmd+Alt+C so it does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).
 pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
 
+/// Default Sort Lines Lexicographic Ascending binding.
+/// Uses Cmd+Alt+O so it does not collide with Open (Cmd+O) or Move/Clone Other View (Alt+O).
+/// Shift flips to Lexicographic Descending.
+pub const DEFAULT_SORT_LINES: &str = "Cmd+Alt+O";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1630,6 +1635,19 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::C);
         assert_eq!(c.display(), "Cmd+Alt+C");
+    }
+
+    #[test]
+    fn parse_cmd_alt_o_default_sort_lines() {
+        let c = parse_chord(DEFAULT_SORT_LINES).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::O);
+        assert_eq!(c.display(), "Cmd+Alt+O");
+        let desc = c.flipped_shift();
+        assert!(desc.shift);
+        assert_eq!(desc.display(), "Cmd+Alt+Shift+O");
     }
 
     #[test]

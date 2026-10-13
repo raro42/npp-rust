@@ -91,6 +91,7 @@ New keys:
 | `shortcut_begin_end_select` | Begin/End Select chord (`Cmd+Alt+B` default; Shift flips to column mode rect) |
 | `shortcut_toggle_readonly` | Toggle read-only chord (`Cmd+Alt+R` default; `IDM_EDIT_TOGGLEREADONLY`) |
 | `shortcut_column_editor` | Column Editor chord (`Cmd+Alt+C` default; `IDM_EDIT_COLUMNMODE`) |
+| `shortcut_sort_lines` | Sort Lines Lexicographic Ascending chord (`Cmd+Alt+O` default; Shift flips to Descending) |
 | `shortcut_multi_select_next` | Multi-select next chord (`Cmd+Alt+N` default; Shift flips to skip current / go to next) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
 | `shortcut_find_in_files` | Find in Files chord (`Cmd+Alt+F` default) |
