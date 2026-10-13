@@ -31,3 +31,5 @@ We are way ahead of next-gaps.md ... need to update the file and really show wha
 - User-facing notes already in `docs/changelog.md` under **[0.3.243]**.
 - Task goal met: `docs/next-gaps.md` refreshed for real remaining gaps (through v0.3.242); whats-missing / docs index checkpoint; version **0.3.243**. Commit `a1e8c6a`.
 - Close issue #20 with `agent:done`.
+Handoff: complete
+GitHub: closed
