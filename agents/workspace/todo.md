@@ -448,3 +448,5 @@
 009 keep: remappable Sort Lines Lexicographic Asc/Desc (v0.3.267)
 
 009 keep: remappable Remove Empty Lines / Containing Blank (v0.3.268)
+
+009 keep: remappable Select and Find Next/Previous (v0.3.282)
