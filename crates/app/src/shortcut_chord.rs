@@ -377,6 +377,11 @@ pub const DEFAULT_REMOVE_DUP_LINES: &str = "Cmd+Alt+D";
 /// Shift flips to Date Time (long). Customized stays menu-only.
 pub const DEFAULT_INSERT_DATETIME: &str = "F5";
 
+/// Default Copy Full Path to Clipboard binding (Edit → Copy to Clipboard).
+/// Uses Cmd+Alt+P so it does not collide with Print (Cmd+P), Project Panel (Alt+P),
+/// or Pin tab (Alt+Shift+P). Shift flips to Copy File Name.
+pub const DEFAULT_COPY_PATH: &str = "Cmd+Alt+P";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1703,6 +1708,19 @@ mod tests {
         let long = c.flipped_shift();
         assert!(long.shift);
         assert_eq!(long.display(), "Shift+F5");
+    }
+
+    #[test]
+    fn parse_cmd_alt_p_default_copy_path() {
+        let c = parse_chord(DEFAULT_COPY_PATH).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::P);
+        assert_eq!(c.display(), "Cmd+Alt+P");
+        let name = c.flipped_shift();
+        assert!(name.shift);
+        assert_eq!(name.display(), "Cmd+Alt+Shift+P");
     }
 
     #[test]

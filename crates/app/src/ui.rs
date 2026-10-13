@@ -4213,6 +4213,46 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_INSERT_DATETIME_SHORT");
             }
         }
+        // Remappable Copy Full Path (default Cmd+Alt+P; settings.shortcut_copy_path).
+        // Shift flips to Copy File Name. Current Dir stays menu-only.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_COPY_PATH};
+            let path_chord =
+                resolve_chord(&self.state.settings.shortcut_copy_path, DEFAULT_COPY_PATH);
+            let path_key_pressed = match path_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_name =
+                path_key_pressed && path_chord.flipped_shift().matches(mods, path_chord.key);
+            let remapped_path = path_key_pressed && path_chord.matches(mods, path_chord.key);
+            if remapped_name {
+                self.run_shortcut_cmd("IDM_EDIT_FILENAMETOCLIP");
+            } else if remapped_path {
+                self.run_shortcut_cmd("IDM_EDIT_FULLPATHTOCLIP");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -6534,6 +6574,14 @@ impl EditorApp {
                 &s.shortcut_insert_datetime,
                 crate::shortcut_chord::DEFAULT_INSERT_DATETIME,
             ),
+            "IDM_EDIT_FULLPATHTOCLIP" => primary(
+                &s.shortcut_copy_path,
+                crate::shortcut_chord::DEFAULT_COPY_PATH,
+            ),
+            "IDM_EDIT_FILENAMETOCLIP" => shifted(
+                &s.shortcut_copy_path,
+                crate::shortcut_chord::DEFAULT_COPY_PATH,
+            ),
             "IDM_SEARCH_FIND" => primary(&s.shortcut_find, crate::shortcut_chord::DEFAULT_FIND),
             "IDM_SEARCH_FINDINFILES" => primary(
                 &s.shortcut_find_in_files,
@@ -7239,6 +7287,15 @@ impl EditorApp {
             insert_datetime_chord.display(),
             insert_datetime_chord.flipped_shift().display()
         );
+        let copy_path_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_copy_path,
+            crate::shortcut_chord::DEFAULT_COPY_PATH,
+        );
+        let copy_path_keys = format!(
+            "{} / {}",
+            copy_path_chord.display(),
+            copy_path_chord.flipped_shift().display()
+        );
         let format_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_format_document,
             crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -7548,7 +7605,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 97] = [
+        let rows: [(&str, &str); 98] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -7665,6 +7722,7 @@ impl EditorApp {
                 "Remove Consecutive / Any Duplicate Lines",
             ),
             (insert_datetime_keys.as_str(), "Date Time short / long"),
+            (copy_path_keys.as_str(), "Copy Full Path / File Name"),
             (indent_outdent_keys.as_str(), "Indent / Outdent"),
             (format_keys.as_str(), "Format document"),
             (fold_all_keys.as_str(), "Fold / Unfold all"),
@@ -9907,6 +9965,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: F5, Ctrl+F5. Inserts Date Time (short) (Edit → Insert). Shift + that chord inserts Date Time (long). Customized format stays menu-only.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Copy path shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_copy_path,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+P"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_copy_path
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_copy_path =
+                                        crate::shortcut_chord::DEFAULT_COPY_PATH.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_COPY_PATH
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_copy_path = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+P, Ctrl+Alt+P. Copies the full path of the active file (Edit → Copy to Clipboard). Shift + that chord copies the file name. Current directory stays menu-only. Does not collide with Print (Cmd+P), Project Panel (Alt+P), or Pin tab (Alt+Shift+P).",
                             )
                             .small()
                             .weak(),

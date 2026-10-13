@@ -1,4 +1,4 @@
-# Next gaps (post v0.3.270)
+# Next gaps (post v0.3.271)
 
 Date: 2026-10-13  
 Status: Issues **#1**–**#20** closed or handed off (this refresh). Overnight idle work: `docs/autoresearch/standing_backlog.md`.
@@ -41,6 +41,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.268 | Remappable Remove Empty Lines / Containing Blank (`shortcut_remove_empty_lines`) |
 | v0.3.269 | Remappable Remove Consecutive / Any Duplicate Lines (`shortcut_remove_dup_lines`) |
 | v0.3.270 | Remappable Date Time short/long (`shortcut_insert_datetime`) |
+| v0.3.271 | Remappable Copy Full Path / File Name (`shortcut_copy_path`) |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 

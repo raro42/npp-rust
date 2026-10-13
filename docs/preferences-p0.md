@@ -95,6 +95,7 @@ New keys:
 | `shortcut_remove_empty_lines` | Remove Empty Lines chord (`Cmd+Alt+E` default; Shift flips to Containing Blank Characters) |
 | `shortcut_remove_dup_lines` | Remove Consecutive Duplicate Lines chord (`Cmd+Alt+D` default; Shift flips to any duplicates) |
 | `shortcut_insert_datetime` | Date Time (short) chord (`F5` default; Shift flips to long) |
+| `shortcut_copy_path` | Copy Full Path chord (`Cmd+Alt+P` default; Shift flips to File Name) |
 | `shortcut_multi_select_next` | Multi-select next chord (`Cmd+Alt+N` default; Shift flips to skip current / go to next) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
 | `shortcut_find_in_files` | Find in Files chord (`Cmd+Alt+F` default) |
