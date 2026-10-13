@@ -572,17 +572,21 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_BEGINENDSELECT" => {
-            let caret = state.tabs.active().buffer.caret();
+            let doc = state.tabs.active();
+            let caret = doc.buffer.caret();
+            let virt = doc.virtual_caret_col;
             match state.begin_end_select {
                 None => {
-                    state.begin_end_select = Some(caret);
+                    state.begin_end_select = Some((caret, virt));
                     state.status = "Begin/End Select: start set".into();
                 }
-                Some(anchor) => {
+                Some((anchor, _)) => {
                     let doc = state.tabs.active_mut();
+                    let line = doc.buffer.char_to_line(caret);
+                    let col =
+                        virt.unwrap_or_else(|| caret.saturating_sub(doc.buffer.line_to_char(line)));
                     doc.clear_multi_sels();
-                    doc.clear_virtual_caret();
-                    doc.buffer.set_selection(anchor, caret);
+                    doc.set_stream_selection_to_line_col(anchor, line, col);
                     state.begin_end_select = None;
                     ui.follow_caret = true;
                     state.status = "Begin/End Select: selection set".into();
@@ -591,14 +595,21 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_EDIT_BEGINENDSELECT_COLUMNMODE" => {
-            let caret = state.tabs.active().buffer.caret();
+            let doc = state.tabs.active();
+            let caret = doc.buffer.caret();
+            let virt = doc.virtual_caret_col;
             match state.begin_end_select {
                 None => {
-                    state.begin_end_select = Some(caret);
+                    state.begin_end_select = Some((caret, virt));
                     state.status = "Begin/End Select (column): start set".into();
                 }
-                Some(anchor) => {
-                    state.tabs.active_mut().set_rect_selection(anchor, caret);
+                Some((anchor, anchor_virt)) => {
+                    state.tabs.active_mut().set_rect_selection_from_marks(
+                        anchor,
+                        anchor_virt,
+                        caret,
+                        virt,
+                    );
                     state.begin_end_select = None;
                     ui.follow_caret = true;
                     state.status = "Begin/End Select (column): rect selection set".into();
@@ -864,7 +875,7 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         }
         "IDM_EDIT_COLUMNMODETIP" => {
             state.status =
-                "Column tip: Alt+drag for rect select (columns past EOL ok); Ctrl/Cmd+click adds carets; word-jump moves all carets; plain click/Right also past EOL. \
+                "Column tip: Alt+drag for rect select (columns past EOL ok); Begin/End Select in Column Mode also uses virtual columns; Ctrl/Cmd+click adds carets; word-jump moves all carets; plain click/Right also past EOL. \
 Type/Backspace/Paste hit all carets; short lines pad with spaces. Column Editor inserts clipboard (or 0,1,2…) at caret column."
                     .into();
             CmdResult::Handled

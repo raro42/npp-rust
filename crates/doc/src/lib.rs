@@ -1176,12 +1176,25 @@ impl Document {
 
     /// Set rectangular selection from two char corners (Alt+drag).
     pub fn set_rect_selection(&mut self, anchor: usize, caret: usize) {
+        self.set_rect_selection_from_marks(anchor, None, caret, None);
+    }
+
+    /// Set rectangular selection from Begin/End marks (char + optional virtual col past EOL).
+    pub fn set_rect_selection_from_marks(
+        &mut self,
+        anchor: usize,
+        anchor_virt: Option<usize>,
+        caret: usize,
+        caret_virt: Option<usize>,
+    ) {
         let a = anchor.min(self.buffer.len_chars());
         let b = caret.min(self.buffer.len_chars());
         let line_a = self.buffer.char_to_line(a);
         let line_b = self.buffer.char_to_line(b);
-        let col_a = a.saturating_sub(self.buffer.line_to_char(line_a));
-        let col_b = b.saturating_sub(self.buffer.line_to_char(line_b));
+        let col_a =
+            anchor_virt.unwrap_or_else(|| a.saturating_sub(self.buffer.line_to_char(line_a)));
+        let col_b =
+            caret_virt.unwrap_or_else(|| b.saturating_sub(self.buffer.line_to_char(line_b)));
         self.set_rect_selection_cols(line_a, col_a, line_b, col_b);
     }
 
@@ -1875,6 +1888,19 @@ mod tests {
         assert_eq!(doc.rect_cols, Some((1, 3)));
         assert!(doc.has_multi_carets());
         assert_eq!(doc.multi_sels.len(), 3);
+    }
+
+    #[test]
+    fn begin_end_select_column_mode_virtual_cols() {
+        // Free-caret past EOL marks → same rect path as Alt+drag past EOL.
+        let mut doc = Document::untitled(1, 1);
+        doc.buffer = TextBuffer::from_str("ab\nx\ncd\n");
+        // Line 0 EOL char 2 + virt col 5; line 2 EOL char 7 + virt col 5.
+        doc.set_rect_selection_from_marks(2, Some(5), 7, Some(5));
+        assert_eq!(doc.rect_cols, Some((5, 5)));
+        assert_eq!(doc.multi_sels, vec![(2, 2), (4, 4), (7, 7)]);
+        assert!(doc.insert_multi("Z"));
+        assert_eq!(doc.buffer.to_string(), "ab   Z\nx    Z\ncd   Z\n");
     }
 
     #[test]

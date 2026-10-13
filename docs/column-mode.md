@@ -1,11 +1,11 @@
 # Column / rectangular select
 
 Date: 2026-10-13  
-Version: 0.3.260
+Version: 0.3.261
 
 ## What works
 
-- **Begin/End Select in Column Mode**: mark a start caret, move, then complete with Edit → Begin/End Select in Column Mode (or remappable `shortcut_begin_end_select` with Shift; default `Cmd+Alt+Shift+B`) to build a rectangular selection between those char corners (same path as Alt+drag). Stream Begin/End Select stays a normal selection (`shortcut_begin_end_select`, default `Cmd+Alt+B`).
+- **Begin/End Select in Column Mode**: mark a start caret, move, then complete with Edit → Begin/End Select in Column Mode (or remappable `shortcut_begin_end_select` with Shift; default `Cmd+Alt+Shift+B`) to build a rectangular selection between those corners (same path as Alt+drag, including **virtual columns past EOL** when either mark used free-caret space). Stream Begin/End Select stays a normal selection and can end in virtual space (`shortcut_begin_end_select`, default `Cmd+Alt+B`).
 - **Multi-caret / rect paste line-split**: when pasted text has the same number of lines as carets (or rect rows), each caret gets its matching line (round-trip after multi-caret / column copy). Otherwise the full string is inserted at every caret.
 - **Escape clears multi-carets**: remappable close-Find chord (default Escape; `shortcut_close_find`) closes Find/Replace when open; when those bars are already closed, the same chord clears multi-carets / rect column select (primary caret stays).
 - **Alt+drag** (Option+drag on macOS) builds a rectangular selection.
@@ -24,7 +24,7 @@ Version: 0.3.260
 - **Copy** / **Cut** with two or more ranges joins line slices with newlines (rect copy includes virtual-space spaces).
 - **Multi-select next/all** carets also receive typing (same path). Multi-select Next is remappable (`shortcut_multi_select_next`, default Cmd+Alt+N; Shift skips current). Multi-select All is remappable (`shortcut_multi_select_all`, default Cmd+Alt+A; Shift = whole-word).
 - **Column Editor** (`IDM_EDIT_COLUMNMODE`) still inserts clipboard text or `0,1,2…` at the caret column.
-- Begin/End Select column mode uses char-index corners (not virtual columns past EOL); Alt+drag still covers past-EOL rects.
+- Begin/End Select column mode stores one virtual column per mark (same as free caret); it does not keep a separate virtual anchor for stream Begin/End.
 
 ## Differs from Notepad++ / Scintilla
 
@@ -35,6 +35,6 @@ Version: 0.3.260
 ## Code
 
 - Buffer: `TextBuffer::rect_ranges` / `rect_ranges_from_cols`, `anchor_and_caret` — `crates/buffer/src/lib.rs`
-- Document: `set_rect_selection` / `set_rect_selection_cols`, `rect_anchor`, `set_caret_at_line_col`, `add_caret_at_line_col`, `set_stream_selection_to_line_col`, `insert_plain`, `move_char`, `move_multi_char`, `move_multi_line`, `move_multi_word`, `extend_multi_word`, `move_multi_line_edge`, `extend_multi_line_edge`, `extend_multi_char`, `extend_multi_line`, `insert_multi`, `delete_*_multi` — `crates/doc/src/lib.rs`
+- Document: `set_rect_selection` / `set_rect_selection_from_marks` / `set_rect_selection_cols`, `rect_anchor`, `set_caret_at_line_col`, `add_caret_at_line_col`, `set_stream_selection_to_line_col`, `insert_plain`, `move_char`, `move_multi_char`, `move_multi_line`, `move_multi_word`, `extend_multi_word`, `move_multi_line_edge`, `extend_multi_line_edge`, `extend_multi_char`, `extend_multi_line`, `insert_multi`, `delete_*_multi` — `crates/doc/src/lib.rs`
 - Buffer: `word_jump_from` — `crates/buffer/src/lib.rs`
 - Hit-test / paint: `col_from_x_virtual`, `x_for_col` — `crates/app/src/ui_paint.rs`; Alt+drag + Ctrl/Cmd+click add caret + plain click / stream select path — `crates/app/src/ui.rs`

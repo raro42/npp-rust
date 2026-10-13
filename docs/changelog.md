@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.261] — 2026-10-13
+
+Edit / column mode:
+
+- **Begin/End Select in Column Mode** keeps virtual columns past EOL on both marks (free-caret space), so the rect matches Alt+drag past EOL. Stream Begin/End Select can also end in virtual space.
+
 ## [0.3.260] — 2026-10-13
 
 Edit / column mode / shortcuts:

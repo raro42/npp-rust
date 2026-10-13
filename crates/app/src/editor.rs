@@ -61,8 +61,8 @@ pub struct EditorState {
     pub reset_view: bool,
     /// Last time we scheduled disk polls for tail follow.
     tail_last_poll: Instant,
-    /// Begin/End Select: first caret, or `None` when idle.
-    pub begin_end_select: Option<usize>,
+    /// Begin/End Select: first mark `(char_pos, virtual_col past EOL)`, or `None` when idle.
+    pub begin_end_select: Option<(usize, Option<usize>)>,
     /// Search-on-Internet base URL (query is appended).
     pub search_engine: String,
     /// Show space/tab glyphs in the editor.

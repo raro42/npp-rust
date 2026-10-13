@@ -31,6 +31,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.256–v0.3.258 | Remappable Close All / Trim Trailing; multi-caret paste line-split |
 | v0.3.259 | Remappable Multi-select All (`shortcut_multi_select_all`) |
 | v0.3.260 | Begin/End Select column mode = real rect; remappable (`shortcut_begin_end_select`) |
+| v0.3.261 | Begin/End Select column mode virtual cols past EOL (+ stream end in virtual space) |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 
@@ -43,7 +44,7 @@ None. When the issue queue is empty, 009 picks the first non-struck item in `doc
 ### P0 — daily editor feel
 
 1. **Full shortcut mapper / `shortcuts.xml`** — most common chords remappable via `shortcut_*` settings keys; dump in Shortcut Mapper / About. Still no N++-style full remap file, and many menu commands still have no accelerator.
-2. **Column / multi-edit depth** — Alt+rect + multi-caret typing + **pad-on-type / pad-on-copy** + **Alt+drag click/drag past EOL** + **plain free caret past EOL** (click/Right + pad-on-type) + **stream select into virtual space** (Shift+click/drag + Shift+Right/Left at EOL) + **plain arrows move all multi-carets** + **Ctrl/Cmd+click add carets** + **Shift+extend stream multi** + **Rect Shift+extend** + **word-jump move / Shift-extend multi-carets** + **line Home/End move / Shift-extend multi-carets** + **Page Up/Down move / Shift-extend multi-carets** + **Escape clears multi-carets / rect when Find closed** + **paste line-split when clipboard lines match caret count**. Further column polish (`docs/column-mode.md`).
+2. **Column / multi-edit depth** — Alt+rect + multi-caret typing + **pad-on-type / pad-on-copy** + **Alt+drag click/drag past EOL** + **plain free caret past EOL** (click/Right + pad-on-type) + **stream select into virtual space** (Shift+click/drag + Shift+Right/Left at EOL) + **plain arrows move all multi-carets** + **Ctrl/Cmd+click add carets** + **Shift+extend stream multi** + **Rect Shift+extend** + **word-jump move / Shift-extend multi-carets** + **line Home/End move / Shift-extend multi-carets** + **Page Up/Down move / Shift-extend multi-carets** + **Escape clears multi-carets / rect when Find closed** + **paste line-split when clipboard lines match caret count** + **Begin/End Select column mode virtual cols**. Further column polish (`docs/column-mode.md`).
 3. **Find / Replace UI depth** — case/word/count/wrap/sel + linear-time Re + `$n` replace work; not the full N++ Find/Replace dialog (filters, mark-all panel, etc.).
 4. **Find in Files UI** — recursive workspace + globs + Re; not full N++ FIF dialog.
 
