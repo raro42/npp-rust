@@ -1,7 +1,7 @@
 # Column / rectangular select
 
 Date: 2026-10-13  
-Version: 0.3.264
+Version: 0.3.266
 
 ## What works
 
@@ -25,7 +25,7 @@ Version: 0.3.264
 - **Typing**, **Backspace**, **Delete**, **Paste**, **Enter**, and **Tab** apply to every multi-caret / rect range (one undo). Successive typing at the same carets coalesces into one undo unit (1s window), like plain typing.
 - **Copy** / **Cut** with two or more ranges joins line slices with newlines (rect copy includes virtual-space spaces).
 - **Multi-select next/all** carets also receive typing (same path). Multi-select Next is remappable (`shortcut_multi_select_next`, default Cmd+Alt+N; Shift skips current). Multi-select All is remappable (`shortcut_multi_select_all`, default Cmd+Alt+A; Shift = whole-word).
-- **Column Editor** (`IDM_EDIT_COLUMNMODE`) still inserts clipboard text or `0,1,2…` at the caret column.
+- **Column Editor** (`IDM_EDIT_COLUMNMODE`) still inserts clipboard text or `0,1,2…` at the caret column. Remappable (`shortcut_column_editor`, default `Cmd+Alt+C`).
 - Begin/End Select column mode stores one virtual column per mark (same as free caret); it does not keep a separate virtual anchor for stream Begin/End.
 
 ## Differs from Notepad++ / Scintilla

@@ -4011,6 +4011,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_TOGGLEREADONLY");
             }
         }
+        // Remappable Column Editor (default Cmd+Alt+C; settings.shortcut_column_editor).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_COLUMN_EDITOR};
+            let col_chord = resolve_chord(
+                &self.state.settings.shortcut_column_editor,
+                DEFAULT_COLUMN_EDITOR,
+            );
+            let col_key_pressed = match col_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if col_key_pressed && col_chord.matches(mods, col_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_COLUMNMODE");
+            }
+        }
         // Remappable format document (default Cmd+Shift+I; settings.shortcut_format_document).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_FORMAT_DOCUMENT};
@@ -6296,6 +6332,10 @@ impl EditorApp {
                 &s.shortcut_toggle_readonly,
                 crate::shortcut_chord::DEFAULT_TOGGLE_READONLY,
             ),
+            "IDM_EDIT_COLUMNMODE" => primary(
+                &s.shortcut_column_editor,
+                crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
+            ),
             "IDM_SEARCH_FIND" => primary(&s.shortcut_find, crate::shortcut_chord::DEFAULT_FIND),
             "IDM_SEARCH_FINDINFILES" => primary(
                 &s.shortcut_find_in_files,
@@ -6960,6 +7000,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_TOGGLE_READONLY,
         )
         .display();
+        let column_editor_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_column_editor,
+            crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
+        )
+        .display();
         let format_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_format_document,
             crate::shortcut_chord::DEFAULT_FORMAT_DOCUMENT,
@@ -7269,7 +7314,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 92] = [
+        let rows: [(&str, &str); 93] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -7372,6 +7417,7 @@ impl EditorApp {
                 "Begin/End Select / column mode",
             ),
             (toggle_readonly_keys.as_str(), "Toggle read-only"),
+            (column_editor_keys.as_str(), "Column Editor"),
             (indent_outdent_keys.as_str(), "Indent / Outdent"),
             (format_keys.as_str(), "Format document"),
             (fold_all_keys.as_str(), "Fold / Unfold all"),
@@ -9434,6 +9480,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+R, Ctrl+Alt+R. Toggles read-only on the active tab (Edit → Read-Only). Does not collide with Reload (Cmd+R) or RTL (Alt+R).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Column Editor shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_column_editor,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+C"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_column_editor
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_column_editor =
+                                        crate::shortcut_chord::DEFAULT_COLUMN_EDITOR.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_COLUMN_EDITOR
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_column_editor = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+C, Ctrl+Alt+C. Runs Edit → Column Editor (insert clipboard text or 0,1,2… at the caret column). Does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).",
                             )
                             .small()
                             .weak(),

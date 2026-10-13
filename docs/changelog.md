@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.266] — 2026-10-13
+
+Settings / shortcuts:
+
+- **Column Editor** is remappable: Preferences → Column Editor shortcut, or `shortcut_column_editor` in `npp-rs/settings.json` (default `Cmd+Alt+C`). Menu, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.265] — 2026-10-13
 
 Settings / shortcuts:

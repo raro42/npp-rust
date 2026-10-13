@@ -354,6 +354,10 @@ pub const DEFAULT_BEGIN_END_SELECT: &str = "Cmd+Alt+B";
 /// Uses Cmd+Alt+R so it does not collide with Reload (Cmd+R) or RTL (Alt+R).
 pub const DEFAULT_TOGGLE_READONLY: &str = "Cmd+Alt+R";
 
+/// Default Column Editor binding (Edit → Column Editor).
+/// Uses Cmd+Alt+C so it does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).
+pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1616,6 +1620,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::R);
         assert_eq!(c.display(), "Cmd+Alt+R");
+    }
+
+    #[test]
+    fn parse_cmd_alt_c_default_column_editor() {
+        let c = parse_chord(DEFAULT_COLUMN_EDITOR).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::C);
+        assert_eq!(c.display(), "Cmd+Alt+C");
     }
 
     #[test]
