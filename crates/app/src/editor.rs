@@ -2026,6 +2026,91 @@ impl EditorState {
         Some(joined)
     }
 
+    /// Cut every line that contains a Find match under Case/Word/Re/Sel: clipboard
+    /// payload (whole lines, deduped, body only) plus delete those lines (one document
+    /// replace). Distinct from [`Self::cut_find_matches`] (match substrings) and from
+    /// [`Self::delete_find_match_lines`] (no clipboard). Returns the clipboard text
+    /// (`Some("")` when empty / no match / read-only), or `None` when regex is invalid.
+    pub fn cut_find_match_lines(&mut self) -> Option<String> {
+        if !self.ensure_editable() {
+            return Some(String::new());
+        }
+        let q = self.find_query.clone();
+        if q.is_empty() {
+            self.status = "Cut matching lines: set Find text".into();
+            return Some(String::new());
+        }
+        if self.find_regex_blocked() {
+            return None;
+        }
+        self.capture_find_scope();
+        let flags = self.find_flags();
+        let (lo, hi) = self.find_bounds();
+        let text = self.tabs.active().buffer.to_string();
+        let matches = crate::search_util::find_all_matches_in(&text, &q, lo, hi, flags);
+        if matches.is_empty() {
+            self.status = "Cut matching lines: no match".into();
+            return Some(String::new());
+        }
+        let (joined, out, drop_lines, removed_before_lo, removed_before_hi) = {
+            let buf = &self.tabs.active().buffer;
+            let mut drop_lines = std::collections::BTreeSet::new();
+            for (start, _) in &matches {
+                drop_lines.insert(buf.char_to_line(*start));
+            }
+            let mut parts = Vec::with_capacity(drop_lines.len());
+            for &i in &drop_lines {
+                parts.push(buf.line(i).trim_end_matches(['\n', '\r']).to_string());
+            }
+            let joined = parts.join("\n");
+            let line_count = buf.line_count();
+            let mut out = String::new();
+            let mut removed_before_lo = 0usize;
+            let mut removed_before_hi = 0usize;
+            for i in 0..line_count {
+                let start = buf.line_to_char(i);
+                let end = if i + 1 < line_count {
+                    buf.line_to_char(i + 1)
+                } else {
+                    buf.len_chars()
+                };
+                if !drop_lines.contains(&i) {
+                    out.push_str(&buf.slice(start, end));
+                    continue;
+                }
+                if end <= lo {
+                    removed_before_lo += end - start;
+                    removed_before_hi += end - start;
+                } else if start < hi {
+                    if start < lo {
+                        removed_before_lo += lo - start;
+                    }
+                    removed_before_hi += hi.min(end).saturating_sub(start);
+                }
+            }
+            (
+                joined,
+                out,
+                drop_lines,
+                removed_before_lo,
+                removed_before_hi,
+            )
+        };
+        let count = drop_lines.len();
+        self.tabs.active_mut().buffer.replace_document(&out);
+        if self.settings.find_in_selection {
+            let new_lo = lo.saturating_sub(removed_before_lo);
+            let new_hi = hi.saturating_sub(removed_before_hi).max(new_lo);
+            self.find_scope = Some((new_lo, new_hi));
+        }
+        for line in &drop_lines {
+            self.tabs.active_mut().note_line_changed(*line);
+        }
+        self.mark_text_changed();
+        self.status = format!("Cut {count} matching line(s)");
+        Some(joined)
+    }
+
     /// Delete every line that contains a Find match under Case/Word/Re/Sel.
     /// Whole lines are removed (distinct from Cut, which deletes substrings only).
     /// Returns deleted line count, or `None` when regex is invalid.
@@ -4287,6 +4372,39 @@ mod tests {
         assert_eq!(state.tabs.active().buffer.to_string(), "a\nb\nc99\nd");
         assert!(state.status.contains("Cut 2"));
         assert_eq!(state.find_scope, Some((0, 4))); // a\nb\n
+    }
+
+    #[test]
+    fn cut_find_match_lines_respects_case_word() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer =
+            buffer::TextBuffer::from_str("Foo food\nfoo\nFOO bar\nfoo");
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = true;
+        let text = state.cut_find_match_lines().unwrap();
+        assert_eq!(text, "foo\nfoo");
+        assert_eq!(
+            state.tabs.active().buffer.to_string(),
+            "Foo food\nFOO bar\n"
+        );
+        assert!(state.status.contains("Cut 2 matching line"));
+    }
+
+    #[test]
+    fn cut_find_match_lines_dedupes_and_sel_bounds() {
+        let mut state = EditorState::new();
+        // Two matches on line 0; Sel excludes line 2's "99".
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("a12 x12\nb3\nc99\nd");
+        state.find_query = r"\d+".into();
+        state.settings.find_regex = true;
+        state.settings.find_in_selection = true;
+        state.find_scope = Some((0, 11)); // a12 x12\nb3\n
+        let text = state.cut_find_match_lines().unwrap();
+        assert_eq!(text, "a12 x12\nb3");
+        assert_eq!(state.tabs.active().buffer.to_string(), "c99\nd");
+        assert!(state.status.contains("Cut 2 matching line"));
+        assert_eq!(state.find_scope, Some((0, 0)));
     }
 
     #[test]

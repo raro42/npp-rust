@@ -16459,14 +16459,22 @@ impl EditorApp {
                         }
                     }
                 }
+                let cut_lines = ui.input(|i| i.modifiers.shift);
                 if ui
                     .button("Cut")
                     .on_hover_text(
-                        "Cut matching text to clipboard and delete matches (Case / Word / Re / Sel; one match per line)",
+                        "Cut matching text to clipboard and delete matches (Case / Word / Re / Sel; one match per line). Shift: cut matching lines (whole lines, deduped)",
                     )
                     .clicked()
                 {
-                    if let Some(text) = self.state.cut_find_matches() {
+                    if cut_lines {
+                        if let Some(text) = self.state.cut_find_match_lines() {
+                            if !text.is_empty() {
+                                self.last_app_clipboard = Some(text.clone());
+                                ctx.copy_text(text);
+                            }
+                        }
+                    } else if let Some(text) = self.state.cut_find_matches() {
                         if !text.is_empty() {
                             self.last_app_clipboard = Some(text.clone());
                             ctx.copy_text(text);

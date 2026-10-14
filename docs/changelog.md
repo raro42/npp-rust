@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.307] — 2026-10-14
+
+Search:
+
+- **Find Cut matching lines** — Find bar **Cut** with **Shift** copies every line that contains a Find match to the clipboard and deletes those lines (Case / Word / Re / Sel; same engine as Find Next), newline-joined, deduped. Whole lines (body only), distinct from plain **Cut** (match substrings) and from **Purge** (delete lines without clipboard).
+
 ## [0.3.306] — 2026-10-14
 
 Search:
