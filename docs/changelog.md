@@ -2,11 +2,17 @@
 
 ## [Unreleased]
 
+## [0.3.294] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Path autocomplete** is remappable: Preferences → Path autocomplete shortcut, or `shortcut_autocomplete_path` in `npp-rs/settings.json` (default `Cmd+Alt+Space`). Runs Edit → Function Completion Path. Menu, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.293] — 2026-10-14
 
 Settings / shortcuts:
 
-- **Autocomplete / Function Call Tip** is remappable: Preferences → Autocomplete shortcut, or `shortcut_autocomplete` in `npp-rs/settings.json` (default `Cmd+Space`). Runs Edit → Function Completion File. **Shift** flips to Function Call Tip. Path completion stays menu-only. Menu, Shortcut Mapper, and About show the effective binding.
+- **Autocomplete / Function Call Tip** is remappable: Preferences → Autocomplete shortcut, or `shortcut_autocomplete` in `npp-rs/settings.json` (default `Cmd+Space`). Runs Edit → Function Completion File. **Shift** flips to Function Call Tip. Path completion stayed menu-only until v0.3.294. Menu, Shortcut Mapper, and About show the effective binding.
 
 ## [0.3.292] — 2026-10-14
 

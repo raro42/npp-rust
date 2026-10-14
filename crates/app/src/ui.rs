@@ -3931,6 +3931,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_AUTOCOMPLETE");
             }
         }
+        // Remappable path autocomplete (default Cmd+Alt+Space; settings.shortcut_autocomplete_path).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_AUTOCOMPLETE_PATH};
+            let path_chord = resolve_chord(
+                &self.state.settings.shortcut_autocomplete_path,
+                DEFAULT_AUTOCOMPLETE_PATH,
+            );
+            let path_key_pressed = match path_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if path_key_pressed && path_chord.matches(mods, path_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_AUTOCOMPLETE_PATH");
+            }
+        }
         // Remappable join lines (default Cmd+J; settings.shortcut_join_lines).
         // Shift flips to Split Lines (N++ Ctrl+J family).
         {
@@ -7531,6 +7567,10 @@ impl EditorApp {
                 &s.shortcut_autocomplete,
                 crate::shortcut_chord::DEFAULT_AUTOCOMPLETE,
             ),
+            "IDM_EDIT_AUTOCOMPLETE_PATH" => primary(
+                &s.shortcut_autocomplete_path,
+                crate::shortcut_chord::DEFAULT_AUTOCOMPLETE_PATH,
+            ),
             "IDM_EDIT_JOIN_LINES" => primary(
                 &s.shortcut_join_lines,
                 crate::shortcut_chord::DEFAULT_JOIN_LINES,
@@ -8422,6 +8462,11 @@ impl EditorApp {
             autocomplete_chord.display(),
             autocomplete_chord.flipped_shift().display()
         );
+        let autocomplete_path_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_autocomplete_path,
+            crate::shortcut_chord::DEFAULT_AUTOCOMPLETE_PATH,
+        )
+        .display();
         let join_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_join_lines,
             crate::shortcut_chord::DEFAULT_JOIN_LINES,
@@ -8931,7 +8976,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 120] = [
+        let rows: [(&str, &str); 121] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9031,6 +9076,7 @@ impl EditorApp {
                 autocomplete_keys.as_str(),
                 "Autocomplete / Function Call Tip",
             ),
+            (autocomplete_path_keys.as_str(), "Path autocomplete"),
             (join_keys.as_str(), "Join Lines / Split Lines"),
             (invert_keys.as_str(), "Invert Case / Proper Case"),
             (blank_keys.as_str(), "Blank line below / above"),
@@ -11291,7 +11337,43 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: Cmd+Space, Ctrl+Space. Runs Edit → Function Completion File. Shift + that chord is Function Call Tip. Path completion stays menu-only. On macOS, remap if Cmd+Space is taken by Spotlight.",
+                                "Example: Cmd+Space, Ctrl+Space. Runs Edit → Function Completion File. Shift + that chord is Function Call Tip. On macOS, remap if Cmd+Space is taken by Spotlight.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Path autocomplete shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_autocomplete_path,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+Space"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_autocomplete_path
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_autocomplete_path =
+                                        crate::shortcut_chord::DEFAULT_AUTOCOMPLETE_PATH.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_AUTOCOMPLETE_PATH
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_autocomplete_path = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+Space, Ctrl+Alt+Space. Runs Edit → Function Completion Path.",
                             )
                             .small()
                             .weak(),

@@ -152,6 +152,10 @@ fn default_shortcut_autocomplete() -> String {
     crate::shortcut_chord::DEFAULT_AUTOCOMPLETE.into()
 }
 
+fn default_shortcut_autocomplete_path() -> String {
+    crate::shortcut_chord::DEFAULT_AUTOCOMPLETE_PATH.into()
+}
+
 fn default_shortcut_join_lines() -> String {
     crate::shortcut_chord::DEFAULT_JOIN_LINES.into()
 }
@@ -1057,6 +1061,9 @@ pub struct AppSettings {
     /// Autocomplete chord (`Cmd+Space` default; Shift flips to Function Call Tip).
     #[serde(default = "default_shortcut_autocomplete")]
     pub shortcut_autocomplete: String,
+    /// Path autocomplete chord (`Cmd+Alt+Space` default; `IDM_EDIT_AUTOCOMPLETE_PATH`).
+    #[serde(default = "default_shortcut_autocomplete_path")]
+    pub shortcut_autocomplete_path: String,
     /// Join Lines chord (`Cmd+J` default; Shift flips to Split Lines).
     #[serde(default = "default_shortcut_join_lines")]
     pub shortcut_join_lines: String,
@@ -1279,6 +1286,7 @@ impl Default for AppSettings {
             shortcut_next_changed: default_shortcut_next_changed(),
             shortcut_lowercase: default_shortcut_lowercase(),
             shortcut_autocomplete: default_shortcut_autocomplete(),
+            shortcut_autocomplete_path: default_shortcut_autocomplete_path(),
             shortcut_join_lines: default_shortcut_join_lines(),
             shortcut_invert_case: default_shortcut_invert_case(),
             shortcut_blank_line: default_shortcut_blank_line(),
@@ -1746,6 +1754,7 @@ mod tests {
             shortcut_next_changed: "Ctrl+F8".into(),
             shortcut_lowercase: "Ctrl+U".into(),
             shortcut_autocomplete: "Ctrl+Alt+Space".into(),
+            shortcut_autocomplete_path: "Alt+Space".into(),
             shortcut_join_lines: "Ctrl+J".into(),
             shortcut_invert_case: "Ctrl+Alt+Shift+U".into(),
             shortcut_blank_line: "Ctrl+Alt+Enter".into(),
@@ -1896,6 +1905,7 @@ mod tests {
         assert_eq!(back.shortcut_next_changed, "Ctrl+F8");
         assert_eq!(back.shortcut_lowercase, "Ctrl+U");
         assert_eq!(back.shortcut_autocomplete, "Ctrl+Alt+Space");
+        assert_eq!(back.shortcut_autocomplete_path, "Alt+Space");
         assert_eq!(back.shortcut_join_lines, "Ctrl+J");
         assert_eq!(back.shortcut_invert_case, "Ctrl+Alt+Shift+U");
         assert_eq!(back.shortcut_blank_line, "Ctrl+Alt+Enter");

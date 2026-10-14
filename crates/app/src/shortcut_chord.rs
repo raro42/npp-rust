@@ -404,8 +404,11 @@ pub const DEFAULT_LOWERCASE: &str = "Cmd+U";
 
 /// Default autocomplete binding (Edit → Function Completion File).
 /// Shift flips to Function Call Tip (N++ Ctrl+Space / Ctrl+Shift+Space family).
-/// Path completion stays menu-only (`IDM_EDIT_AUTOCOMPLETE_PATH`).
 pub const DEFAULT_AUTOCOMPLETE: &str = "Cmd+Space";
+
+/// Default path-autocomplete binding (Edit → Function Completion Path).
+/// N++ Ctrl+Alt+Space family; remappable via `shortcut_autocomplete_path`.
+pub const DEFAULT_AUTOCOMPLETE_PATH: &str = "Cmd+Alt+Space";
 
 /// Default join-lines binding (Edit → Join Lines). Shift flips to Split Lines (N++ Ctrl+J family).
 pub const DEFAULT_JOIN_LINES: &str = "Cmd+J";
@@ -2081,6 +2084,17 @@ mod tests {
         assert_eq!(c.display(), "Cmd+Space");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+Space");
         assert_eq!(parse_chord("Ctrl+Spacebar").unwrap().key, Key::Space);
+    }
+
+    #[test]
+    fn parse_cmd_alt_space_default_autocomplete_path() {
+        let c = parse_chord(DEFAULT_AUTOCOMPLETE_PATH).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Space);
+        assert_eq!(c.display(), "Cmd+Alt+Space");
+        assert_eq!(parse_chord("Ctrl+Alt+Spacebar").unwrap().key, Key::Space);
     }
 
     #[test]
