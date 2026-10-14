@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.311] — 2026-10-15
+
+Search:
+
+- **Next / Previous Search Result** (F4 / Shift+F4, remappable `shortcut_next_found`) walks the **Find Results** tab from Find All / Shift+All: parks and selects each `line:col:match` in the source document (multi-doc sections too), wraps with a status `· wrapped` bit. Without a Find Results tab (or parseable hits), falls back to Find Next / Prev.
+
 ## [0.3.310] — 2026-10-15
 
 Search:

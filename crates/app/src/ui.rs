@@ -10044,7 +10044,7 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: F4, Ctrl+F4. Runs Search → Next Search Result. Shift + that key is Previous Search Result. Does not collide with Find next (F3).",
+                                "Example: F4, Ctrl+F4. Walks Find Results hits into the source tab (Find All / Shift+All). Shift + that key is Previous. Without Find Results, Find Next / Prev. Does not collide with Find next (F3).",
                             )
                             .small()
                             .weak(),

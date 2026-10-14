@@ -259,13 +259,11 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_SEARCH_GOTONEXTFOUND" => {
-            state.find_next();
-            ui.follow_caret = true;
+            goto_search_result(state, ui, true);
             CmdResult::Handled
         }
         "IDM_SEARCH_GOTOPREVFOUND" => {
-            state.find_prev();
-            ui.follow_caret = true;
+            goto_search_result(state, ui, false);
             CmdResult::Handled
         }
         "IDM_SEARCH_MARK" => {
@@ -600,6 +598,221 @@ fn is_find_results_tab(title: &str) -> bool {
     title == FIND_RESULTS_TITLE || title == "Find in Files"
 }
 
+/// One hit line inside the Find Results tab (`line:col:match`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FindResultsHit {
+    /// 0-based line index inside the Find Results buffer.
+    results_line: usize,
+    doc_label: String,
+    /// 1-based line in the source document.
+    line: usize,
+    /// 1-based column in the source document.
+    col: usize,
+    matched: String,
+}
+
+/// Parse `LINE:COL:text` (1-based). Returns `None` when the line is not a hit.
+fn parse_find_results_hit_line(line: &str) -> Option<(usize, usize, String)> {
+    let mut parts = line.splitn(3, ':');
+    let a = parts.next()?;
+    let b = parts.next()?;
+    let rest = parts.next()?;
+    let a_ok = !a.is_empty() && a.bytes().all(|c| c.is_ascii_digit());
+    let b_ok = !b.is_empty() && b.bytes().all(|c| c.is_ascii_digit());
+    if !a_ok || !b_ok {
+        return None;
+    }
+    let line_no: usize = a.parse().ok()?;
+    let col: usize = b.parse().ok()?;
+    if line_no == 0 || col == 0 {
+        return None;
+    }
+    let matched = rest.replace("\\n", "\n").replace("\\r", "\r");
+    Some((line_no, col, matched))
+}
+
+/// Collect hit rows from a Find All (current / opened) results body.
+fn parse_find_results_hits(text: &str) -> Vec<FindResultsHit> {
+    let mut default_doc: Option<String> = None;
+    let mut section_doc: Option<String> = None;
+    let mut hits = Vec::new();
+    for (i, line) in text.lines().enumerate() {
+        if let Some(rest) = line.strip_prefix("Document: ") {
+            let label = rest.trim();
+            if !label.is_empty() {
+                default_doc = Some(label.to_string());
+            }
+            continue;
+        }
+        let trimmed = line.trim();
+        if trimmed.starts_with("===") && trimmed.ends_with("===") {
+            let inner = trimmed.trim_start_matches('=').trim_end_matches('=').trim();
+            if !inner.is_empty() {
+                section_doc = Some(inner.to_string());
+            }
+            continue;
+        }
+        let Some((line_no, col, matched)) = parse_find_results_hit_line(line) else {
+            continue;
+        };
+        let Some(doc_label) = section_doc
+            .clone()
+            .or_else(|| default_doc.clone())
+            .filter(|s| !s.is_empty())
+        else {
+            continue;
+        };
+        hits.push(FindResultsHit {
+            results_line: i,
+            doc_label,
+            line: line_no,
+            col,
+            matched,
+        });
+    }
+    hits
+}
+
+fn find_results_tab_index(state: &EditorState) -> Option<usize> {
+    let active = state.tabs.active_index();
+    if state.tabs.active().title == FIND_RESULTS_TITLE {
+        return Some(active);
+    }
+    state
+        .tabs
+        .iter()
+        .enumerate()
+        .find(|(_, d)| d.title == FIND_RESULTS_TITLE)
+        .map(|(i, _)| i)
+}
+
+fn tab_index_for_find_label(state: &EditorState, label: &str) -> Option<usize> {
+    state
+        .tabs
+        .iter()
+        .enumerate()
+        .find(|(_, d)| {
+            if is_find_results_tab(&d.title) {
+                return false;
+            }
+            let doc_label = d
+                .path
+                .as_ref()
+                .map(|p| crate::recent::short_path_label(p.as_path()))
+                .unwrap_or_else(|| d.title.clone());
+            doc_label == label || d.title == label
+        })
+        .map(|(i, _)| i)
+}
+
+/// Next / Previous Search Result: walk Find Results hit lines and park the source match.
+/// Falls back to Find Next / Prev when no Find Results tab (or no parseable hits).
+fn goto_search_result(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
+    let Some(results_idx) = find_results_tab_index(state) else {
+        if forward {
+            state.find_next();
+        } else {
+            state.find_prev();
+        }
+        ui.follow_caret = true;
+        return;
+    };
+
+    let body = state
+        .tabs
+        .get(results_idx)
+        .map(|d| d.buffer.to_string())
+        .unwrap_or_default();
+    let hits = parse_find_results_hits(&body);
+    if hits.is_empty() {
+        if forward {
+            state.find_next();
+        } else {
+            state.find_prev();
+        }
+        ui.follow_caret = true;
+        return;
+    }
+
+    let cur_line = state
+        .tabs
+        .get(results_idx)
+        .map(|d| d.buffer.char_to_line(d.buffer.caret()))
+        .unwrap_or(0);
+
+    let (pick, wrapped) = if forward {
+        if let Some((i, _)) = hits
+            .iter()
+            .enumerate()
+            .find(|(_, h)| h.results_line > cur_line)
+        {
+            (i, false)
+        } else {
+            (0, hits[0].results_line <= cur_line)
+        }
+    } else if let Some((i, _)) = hits
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, h)| h.results_line < cur_line)
+    {
+        (i, false)
+    } else {
+        let last = hits.len() - 1;
+        (last, hits[last].results_line >= cur_line)
+    };
+
+    let hit = hits[pick].clone();
+    let ordinal = pick + 1;
+    let total = hits.len();
+
+    if let Some(doc) = state.tabs.get_mut(results_idx) {
+        let at = doc.buffer.line_to_char(hit.results_line);
+        doc.buffer.set_caret(at);
+    }
+
+    let Some(src_idx) = tab_index_for_find_label(state, &hit.doc_label) else {
+        state.status = format!(
+            "Search result {ordinal}/{total}: document {:?} not open",
+            hit.doc_label
+        );
+        ui.follow_caret = true;
+        return;
+    };
+
+    state.tabs.set_active(src_idx);
+    let line_idx = hit.line.saturating_sub(1);
+    let col_idx = hit.col.saturating_sub(1);
+    let line_count = state.tabs.active().buffer.line_count();
+    if line_idx >= line_count {
+        state.status = format!(
+            "Search result {ordinal}/{total}: line {} missing in {:?}",
+            hit.line, hit.doc_label
+        );
+        ui.follow_caret = true;
+        return;
+    }
+    {
+        let buf = &mut state.tabs.active_mut().buffer;
+        let line_start = buf.line_to_char(line_idx);
+        let body_len = buf.line_body_len(line_idx);
+        let start = line_start + col_idx.min(body_len);
+        let match_len = hit.matched.chars().count();
+        let end = (start + match_len).min(line_start + body_len);
+        if match_len > 0 && end > start {
+            buf.set_selection(start, end);
+        } else {
+            buf.set_caret(start);
+        }
+    }
+    ui.follow_caret = true;
+    let wrap_bit = if wrapped { " · wrapped" } else { "" };
+    state.status = format!(
+        "Search result → {}:{} in {:?} ({ordinal}/{total}){wrap_bit}",
+        hit.line, hit.col, hit.doc_label
+    );
+}
+
 /// Prefer the active editor tab; if already on a results tab, use the previous non-results tab.
 fn find_all_source_index(state: &EditorState) -> usize {
     let active = state.tabs.active_index();
@@ -797,5 +1010,122 @@ fn goto_changed_line(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
         state.status = format!("Change history → line {} ({kind})", l + 1);
     } else {
         state.status = "No change-history marks".into();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::UiFlags;
+
+    #[test]
+    fn parse_hit_line_basic_and_escapes() {
+        assert_eq!(
+            parse_find_results_hit_line("12:3:foo"),
+            Some((12, 3, "foo".into()))
+        );
+        assert_eq!(
+            parse_find_results_hit_line("1:1:a\\nb"),
+            Some((1, 1, "a\nb".into()))
+        );
+        assert_eq!(parse_find_results_hit_line("Document: x"), None);
+        assert_eq!(parse_find_results_hit_line("=== a.txt ==="), None);
+        assert_eq!(parse_find_results_hit_line("src/a.rs:3:hit"), None);
+    }
+
+    #[test]
+    fn parse_hits_current_and_opened_sections() {
+        let current = "\
+Find All: \"foo\" · case
+Document: sample.txt
+
+2:1:foo
+4:1:foo
+
+— 2 match(es)";
+        let hits = parse_find_results_hits(current);
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].doc_label, "sample.txt");
+        assert_eq!(hits[0].line, 2);
+        assert_eq!(hits[0].col, 1);
+        assert_eq!(hits[1].line, 4);
+
+        let opened = "\
+Find All (opened): \"foo\"
+Documents: 2
+
+=== a.txt ===
+1:1:foo
+
+=== b.txt ===
+1:5:foo
+
+— 2 match(es) in 2 document(s)";
+        let hits = parse_find_results_hits(opened);
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].doc_label, "a.txt");
+        assert_eq!(hits[1].doc_label, "b.txt");
+        assert_eq!(hits[1].col, 5);
+    }
+
+    #[test]
+    fn goto_search_result_walks_find_results_and_wraps() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer =
+            buffer::TextBuffer::from_str("Foo food\nfoo\nFOO bar\nfoo");
+        state.tabs.active_mut().title = "sample.txt".into();
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = true;
+        let (body, n) = state.find_all_current_report().unwrap();
+        assert_eq!(n, 2);
+        present_find_results(&mut state, &body);
+
+        let mut ui = UiFlags::default();
+        goto_search_result(&mut state, &mut ui, true);
+        assert_eq!(state.tabs.active().title, "sample.txt");
+        assert_eq!(state.tabs.active().buffer.selection(), Some((9, 12)));
+        assert!(state.status.contains("2:1"));
+        assert!(state.status.contains("1/2"));
+        assert!(ui.follow_caret);
+
+        goto_search_result(&mut state, &mut ui, true);
+        assert_eq!(state.tabs.active().buffer.selection(), Some((21, 24)));
+        assert!(state.status.contains("4:1"));
+        assert!(state.status.contains("2/2"));
+        assert!(!state.status.contains("wrapped"));
+
+        goto_search_result(&mut state, &mut ui, true);
+        assert_eq!(state.tabs.active().buffer.selection(), Some((9, 12)));
+        assert!(state.status.contains("· wrapped"));
+
+        goto_search_result(&mut state, &mut ui, false);
+        assert_eq!(state.tabs.active().buffer.selection(), Some((21, 24)));
+        assert!(state.status.contains("2/2"));
+    }
+
+    #[test]
+    fn goto_search_result_opened_switches_document() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("foo one\n");
+        state.tabs.active_mut().title = "a.txt".into();
+        state.tabs.open_untitled();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("bar foo\n");
+        state.tabs.active_mut().title = "b.txt".into();
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = true;
+        let (body, n) = state.find_all_opened_report().unwrap();
+        assert_eq!(n, 2);
+        present_find_results(&mut state, &body);
+
+        let mut ui = UiFlags::default();
+        goto_search_result(&mut state, &mut ui, true);
+        assert_eq!(state.tabs.active().title, "a.txt");
+        assert_eq!(state.tabs.active().buffer.selection(), Some((0, 3)));
+
+        goto_search_result(&mut state, &mut ui, true);
+        assert_eq!(state.tabs.active().title, "b.txt");
+        assert_eq!(state.tabs.active().buffer.selection(), Some((4, 7)));
     }
 }
