@@ -477,3 +477,5 @@
 009 keep: Find-bar Cut matching substrings (Case/Word/Re/Sel, v0.3.304)
 
 009 keep: Find-bar Copy matching lines (Case/Word/Re/Sel, v0.3.306)
+
+009 keep: Find-bar Shift+Purge delete matching substrings (Case/Word/Re/Sel, v0.3.308)

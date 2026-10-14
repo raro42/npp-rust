@@ -16481,14 +16481,19 @@ impl EditorApp {
                         }
                     }
                 }
+                let purge_matches = ui.input(|i| i.modifiers.shift);
                 if ui
                     .button("Purge")
                     .on_hover_text(
-                        "Delete every line that contains a match (Case / Word / Re / Sel; whole lines)",
+                        "Delete every line that contains a match (Case / Word / Re / Sel; whole lines). Shift: delete matching substrings only (no clipboard)",
                     )
                     .clicked()
                 {
-                    let _ = self.state.delete_find_match_lines();
+                    if purge_matches {
+                        let _ = self.state.delete_find_matches();
+                    } else {
+                        let _ = self.state.delete_find_match_lines();
+                    }
                 }
                 if self.show_replace {
                     ui.separator();

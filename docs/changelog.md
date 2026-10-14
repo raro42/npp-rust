@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.308] — 2026-10-15
+
+Search:
+
+- **Find Purge matching substrings** — Find bar **Purge** with **Shift** deletes every matching substring (Case / Word / Re / Sel; same engine as Find Next / Replace All) without touching the clipboard. Distinct from plain **Purge** (whole matching lines) and from **Cut** (clipboard + delete substrings).
+
 ## [0.3.307] — 2026-10-14
 
 Search:
