@@ -5217,6 +5217,46 @@ impl EditorApp {
             }
         }
 
+        // Remappable Clear all styles (default Cmd+Shift+0; settings.shortcut_clear_all_styles).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_CLEAR_ALL_STYLES};
+            let clear_styles_chord = resolve_chord(
+                &self.state.settings.shortcut_clear_all_styles,
+                DEFAULT_CLEAR_ALL_STYLES,
+            );
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let clear_styles_key_pressed = key_pressed(clear_styles_chord.key);
+            let remapped_clear_styles = clear_styles_key_pressed
+                && clear_styles_chord.matches(mods, clear_styles_chord.key);
+            if remapped_clear_styles {
+                self.run_shortcut_cmd("IDM_SEARCH_CLEARALLMARKS");
+            }
+        }
+
         // Find next/prev: remappable F3 (Shift flips) + remappable global Cmd+G (Shift flips).
         {
             use crate::shortcut_chord::{
@@ -7457,6 +7497,10 @@ impl EditorApp {
                 &s.shortcut_mark_style_5,
                 crate::shortcut_chord::DEFAULT_MARK_STYLE_5,
             ),
+            "IDM_SEARCH_CLEARALLMARKS" => primary(
+                &s.shortcut_clear_all_styles,
+                crate::shortcut_chord::DEFAULT_CLEAR_ALL_STYLES,
+            ),
             "IDM_SEARCH_GOTOLINE" => primary(
                 &s.shortcut_goto_line,
                 crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -7816,6 +7860,11 @@ impl EditorApp {
             mark_style_5_chord.display(),
             mark_style_5_chord.flipped_shift().display()
         );
+        let clear_all_styles_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_clear_all_styles,
+            crate::shortcut_chord::DEFAULT_CLEAR_ALL_STYLES,
+        )
+        .display();
         let bm_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_next_bookmark,
             crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
@@ -8612,7 +8661,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 114] = [
+        let rows: [(&str, &str); 115] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -8632,6 +8681,7 @@ impl EditorApp {
             (mark_style_3_keys.as_str(), "Mark Style 3 / Clear Style 3"),
             (mark_style_4_keys.as_str(), "Mark Style 4 / Clear Style 4"),
             (mark_style_5_keys.as_str(), "Mark Style 5 / Clear Style 5"),
+            (clear_all_styles_keys.as_str(), "Clear all styles"),
             (goto_keys.as_str(), "Go to line"),
             (bm_keys.as_str(), "Next / prev bookmark"),
             (toggle_bm_keys.as_str(), "Toggle bookmark"),
@@ -9488,6 +9538,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+5, Ctrl+5. Marks all Find/selection matches with Style 5. Shift + that key clears Style 5.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Clear all styles shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_clear_all_styles,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Shift+0"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_clear_all_styles
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_clear_all_styles =
+                                        crate::shortcut_chord::DEFAULT_CLEAR_ALL_STYLES.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CLEAR_ALL_STYLES
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_clear_all_styles = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+0, Ctrl+Shift+0. Clears every style mark (1–5) in the active tab. Cmd+0 stays zoom restore; Alt+0 stays fold all.",
                             )
                             .small()
                             .weak(),

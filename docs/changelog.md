@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.288] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Clear all styles** is remappable: Preferences → Clear all styles shortcut, or `shortcut_clear_all_styles` in `npp-rs/settings.json` (default `Cmd+Shift+0`). Clears every style mark (1–5) in the active tab. Menu, Shortcut Mapper, and About show the effective binding. `Cmd+0` stays zoom restore; `Alt+0` stays fold all.
+
 ## [0.3.287] — 2026-10-14
 
 Settings / shortcuts:

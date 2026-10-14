@@ -38,6 +38,10 @@ pub const DEFAULT_MARK_STYLE_4: &str = "Cmd+4";
 /// Shift flips to Clear Style 5.
 pub const DEFAULT_MARK_STYLE_5: &str = "Cmd+5";
 
+/// Default clear-all-styles binding (Search → Clear all styles).
+/// `Cmd+0` stays zoom restore; `Alt+0` stays fold all.
+pub const DEFAULT_CLEAR_ALL_STYLES: &str = "Cmd+Shift+0";
+
 /// Default next-bookmark binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_BOOKMARK: &str = "F2";
 
@@ -896,6 +900,16 @@ mod tests {
         assert_eq!(c.key, Key::Num5);
         assert_eq!(c.display(), "Cmd+5");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+5");
+    }
+
+    #[test]
+    fn parse_cmd_shift_0_default_clear_all_styles() {
+        let c = parse_chord(DEFAULT_CLEAR_ALL_STYLES).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::Num0);
+        assert_eq!(c.display(), "Cmd+Shift+0");
     }
 
     #[test]
