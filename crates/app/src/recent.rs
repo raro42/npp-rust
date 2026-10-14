@@ -544,6 +544,10 @@ fn default_shortcut_sync_scroll() -> String {
     crate::shortcut_chord::DEFAULT_SYNC_SCROLL.into()
 }
 
+fn default_shortcut_zoom_sync() -> String {
+    crate::shortcut_chord::DEFAULT_ZOOM_SYNC.into()
+}
+
 fn default_shortcut_indent_guide() -> String {
     crate::shortcut_chord::DEFAULT_INDENT_GUIDE.into()
 }
@@ -1008,6 +1012,9 @@ pub struct AppSettings {
     /// Sync vertical scroll toggle chord (`Alt+Q` default; Shift flips to Sync H).
     #[serde(default = "default_shortcut_sync_scroll")]
     pub shortcut_sync_scroll: String,
+    /// Zoom Sync toggle chord (`Alt+Shift+Z` default; dual-view shared font size).
+    #[serde(default = "default_shortcut_zoom_sync")]
+    pub shortcut_zoom_sync: String,
     /// Indent guide toggle chord (`Alt+I` default).
     #[serde(default = "default_shortcut_indent_guide")]
     pub shortcut_indent_guide: String,
@@ -1240,6 +1247,7 @@ impl Default for AppSettings {
             shortcut_show_whitespace: default_shortcut_show_whitespace(),
             shortcut_show_npc: default_shortcut_show_npc(),
             shortcut_sync_scroll: default_shortcut_sync_scroll(),
+            shortcut_zoom_sync: default_shortcut_zoom_sync(),
             shortcut_indent_guide: default_shortcut_indent_guide(),
             shortcut_show_line_numbers: default_shortcut_show_line_numbers(),
             shortcut_show_fold_margin: default_shortcut_show_fold_margin(),
@@ -1703,6 +1711,7 @@ mod tests {
             shortcut_show_whitespace: "Ctrl+Alt+Shift+V".into(),
             shortcut_show_npc: "Ctrl+Alt+Shift+N".into(),
             shortcut_sync_scroll: "Ctrl+Alt+Shift+Q".into(),
+            shortcut_zoom_sync: "Ctrl+Alt+Shift+Z".into(),
             shortcut_indent_guide: "Ctrl+Alt+Shift+I".into(),
             shortcut_show_line_numbers: "Ctrl+Alt+Shift+L".into(),
             shortcut_show_fold_margin: "Ctrl+Alt+Shift+F".into(),
@@ -1849,6 +1858,7 @@ mod tests {
         assert_eq!(back.shortcut_show_whitespace, "Ctrl+Alt+Shift+V");
         assert_eq!(back.shortcut_show_npc, "Ctrl+Alt+Shift+N");
         assert_eq!(back.shortcut_sync_scroll, "Ctrl+Alt+Shift+Q");
+        assert_eq!(back.shortcut_zoom_sync, "Ctrl+Alt+Shift+Z");
         assert_eq!(back.shortcut_indent_guide, "Ctrl+Alt+Shift+I");
         assert_eq!(back.shortcut_show_line_numbers, "Ctrl+Alt+Shift+L");
         assert_eq!(back.shortcut_show_fold_margin, "Ctrl+Alt+Shift+F");

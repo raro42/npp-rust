@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.290] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Zoom Sync** is remappable: Preferences → Zoom Sync shortcut, or `shortcut_zoom_sync` in `npp-rs/settings.json` (default `Alt+Shift+Z`). Toggles dual-view shared font size. Menu, Shortcut Mapper, and About show the effective binding. Stays near word wrap (`Alt+Z`); Sync H keeps `Alt+Shift+Q`.
+
 ## [0.3.289] — 2026-10-14
 
 Settings / shortcuts:

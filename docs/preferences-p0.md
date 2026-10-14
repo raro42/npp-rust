@@ -147,6 +147,7 @@ New keys:
 | `shortcut_show_line_numbers` | Show-line-numbers toggle chord (`Alt+L` default; View → Show Line Numbers) |
 | `shortcut_show_fold_margin` | Show-fold-margin toggle chord (`Alt+G` default; View → Show Fold Margin) |
 | `shortcut_sync_scroll` | Sync vertical scroll toggle chord (`Alt+Q` default; Shift flips to Sync H) |
+| `shortcut_zoom_sync` | Zoom Sync toggle chord (`Alt+Shift+Z` default; dual-view shared font size) |
 | `shortcut_focus_other_view` | Focus other dual-view pane chord (`F6` default; Shift swaps tabs) |
 | `shortcut_move_other_view` | Move / clone to other view chord (`Alt+O` default; Shift clones) |
 | `shortcut_rtl` | RTL text-direction chord (`Alt+R` default; Shift flips to LTR) |

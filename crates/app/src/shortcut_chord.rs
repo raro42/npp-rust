@@ -320,6 +320,10 @@ pub const DEFAULT_SHOW_NPC: &str = "Alt+N";
 /// Shift + same key is Synchronize Horizontal Scrolling.
 pub const DEFAULT_SYNC_SCROLL: &str = "Alt+Q";
 
+/// Default Zoom Sync toggle binding (View → Zoom Sync; dual-view shared font size).
+/// Uses Alt+Shift+Z so it stays near word wrap (Alt+Z) without colliding with Sync H (Alt+Shift+Q).
+pub const DEFAULT_ZOOM_SYNC: &str = "Alt+Shift+Z";
+
 /// Default indent-guide toggle binding (View → Show Indent Guide).
 pub const DEFAULT_INDENT_GUIDE: &str = "Alt+I";
 
@@ -1755,6 +1759,16 @@ mod tests {
         assert_eq!(c.key, Key::Q);
         assert_eq!(c.display(), "Alt+Q");
         assert_eq!(c.flipped_shift().display(), "Alt+Shift+Q");
+    }
+
+    #[test]
+    fn parse_alt_shift_z_default_zoom_sync() {
+        let c = parse_chord(DEFAULT_ZOOM_SYNC).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::Z);
+        assert_eq!(c.display(), "Alt+Shift+Z");
     }
 
     #[test]

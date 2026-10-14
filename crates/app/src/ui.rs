@@ -1796,6 +1796,40 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_SYNSCROLLV");
             }
         }
+        // Remappable Zoom Sync toggle (default Alt+Shift+Z; settings.shortcut_zoom_sync).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_ZOOM_SYNC};
+            let zoom_sync_chord =
+                resolve_chord(&self.state.settings.shortcut_zoom_sync, DEFAULT_ZOOM_SYNC);
+            let zoom_sync_key_pressed = match zoom_sync_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if zoom_sync_key_pressed && zoom_sync_chord.matches(mods, zoom_sync_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_ZOOM_SYNC");
+            }
+        }
         // Remappable indent-guide toggle (default Alt+I; settings.shortcut_indent_guide).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_INDENT_GUIDE};
@@ -6978,6 +7012,16 @@ impl EditorApp {
                             "Toggle sync horizontal scroll ({sync_h}; Preferences remappable via Sync scroll shortcut + Shift; {sync_v} toggles sync vertical)"
                         ))
                     }
+                    "IDM_VIEW_ZOOM_SYNC" => {
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_zoom_sync,
+                            crate::shortcut_chord::DEFAULT_ZOOM_SYNC,
+                        )
+                        .display();
+                        response.on_hover_text(format!(
+                            "Toggle Zoom Sync shared font size ({chord}; Preferences remappable)"
+                        ))
+                    }
                     "IDM_VIEW_INDENT_GUIDE" => {
                         let chord = crate::shortcut_chord::resolve_chord(
                             &self.state.settings.shortcut_indent_guide,
@@ -7772,6 +7816,10 @@ impl EditorApp {
             "IDM_VIEW_SYNSCROLLH" => shifted(
                 &s.shortcut_sync_scroll,
                 crate::shortcut_chord::DEFAULT_SYNC_SCROLL,
+            ),
+            "IDM_VIEW_ZOOM_SYNC" => primary(
+                &s.shortcut_zoom_sync,
+                crate::shortcut_chord::DEFAULT_ZOOM_SYNC,
             ),
             "IDM_VIEW_INDENT_GUIDE" => primary(
                 &s.shortcut_indent_guide,
@@ -8617,6 +8665,11 @@ impl EditorApp {
             sync_scroll_chord.display(),
             sync_scroll_chord.flipped_shift().display()
         );
+        let zoom_sync_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_zoom_sync,
+            crate::shortcut_chord::DEFAULT_ZOOM_SYNC,
+        )
+        .display();
         let indent_guide_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_indent_guide,
             crate::shortcut_chord::DEFAULT_INDENT_GUIDE,
@@ -8680,7 +8733,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 116] = [
+        let rows: [(&str, &str); 117] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -8848,6 +8901,7 @@ impl EditorApp {
                 sync_scroll_keys.as_str(),
                 "Toggle sync vertical / horizontal scroll",
             ),
+            (zoom_sync_keys.as_str(), "Toggle Zoom Sync"),
             (indent_guide_keys.as_str(), "Toggle indent guide"),
             (show_line_numbers_keys.as_str(), "Toggle line numbers"),
             (show_fold_margin_keys.as_str(), "Toggle fold margin"),
@@ -12880,6 +12934,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+Q, Ctrl+Alt+Q. Toggles View → Synchronize Vertical Scrolling (opens dual view). Shift + that chord toggles Synchronize Horizontal Scrolling.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Zoom Sync shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_zoom_sync,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+Shift+Z"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_zoom_sync
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_zoom_sync =
+                                        crate::shortcut_chord::DEFAULT_ZOOM_SYNC.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_ZOOM_SYNC
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_zoom_sync = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+Z, Ctrl+Alt+Z. Toggles View → Zoom Sync (dual-view shared font size). Stays near word wrap (Alt+Z); Sync H keeps Alt+Shift+Q.",
                             )
                             .small()
                             .weak(),
