@@ -16317,6 +16317,7 @@ impl EditorApp {
             let mut persist = false;
             let mut run_find_files = false;
             let mut run_find_all = false;
+            let mut run_find_all_opened = false;
             ui.horizontal(|ui| {
                 ui.label("Find:");
                 let resp = ui.add(
@@ -16496,14 +16497,19 @@ impl EditorApp {
                         let _ = self.state.delete_find_match_lines();
                     }
                 }
+                let find_all_opened = ui.input(|i| i.modifiers.shift);
                 if ui
                     .button("All")
                     .on_hover_text(
-                        "Find All in current document: open Find Results tab (Case / Word / Re / Sel; line:col:match). Same as Search → Search Results Window",
+                        "Find All in current document: open Find Results tab (Case / Word / Re / Sel; line:col:match). Same as Search → Search Results Window. Shift: all opened editor tabs (Case / Word / Re; Sel ignored)",
                     )
                     .clicked()
                 {
-                    run_find_all = true;
+                    if find_all_opened {
+                        run_find_all_opened = true;
+                    } else {
+                        run_find_all = true;
+                    }
                 }
                 if self.show_replace {
                     ui.separator();
@@ -16605,7 +16611,7 @@ impl EditorApp {
                 self.state.settings.replace_with = self.replace_with.clone();
                 self.state.settings.save();
             }
-            if run_find_all {
+            if run_find_all || run_find_all_opened {
                 let mut flags = crate::commands::UiFlags {
                     find_open: self.state.find_open,
                     show_replace: self.show_replace,
@@ -16613,7 +16619,12 @@ impl EditorApp {
                     follow_caret: self.follow_caret,
                     ..Default::default()
                 };
-                let _ = self.dispatch_menu_cmd("IDM_FOCUS_ON_FOUND_RESULTS", &mut flags);
+                let cmd = if run_find_all_opened {
+                    "IDM_SEARCH_FINDALLINOPENEDDOCS"
+                } else {
+                    "IDM_FOCUS_ON_FOUND_RESULTS"
+                };
+                let _ = self.dispatch_menu_cmd(cmd, &mut flags);
                 self.state.find_open = flags.find_open;
                 self.show_replace = flags.show_replace;
                 self.find_focus_once = flags.find_focus_once;

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.310] — 2026-10-15
+
+Search:
+
+- **Find All in opened documents** — Find bar **All** with **Shift** searches every open editor tab (skips Find Results / Find in Files) and refreshes the **Find Results** tab with per-document sections (Case / Word / Re; Sel ignored for multi-doc). Plain **All** stays current document only.
+
 ## [0.3.309] — 2026-10-15
 
 Search:

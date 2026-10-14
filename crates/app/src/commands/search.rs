@@ -76,6 +76,10 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             find_all_current(state, ui);
             CmdResult::Handled
         }
+        "IDM_SEARCH_FINDALLINOPENEDDOCS" => {
+            find_all_opened(state, ui);
+            CmdResult::Handled
+        }
         "IDM_SEARCH_GOTOMATCHINGBRACE" => {
             let text = state.tabs.active().buffer.to_string();
             let caret = state.tabs.active().buffer.caret();
@@ -619,6 +623,38 @@ fn find_all_source_index(state: &EditorState) -> usize {
         .unwrap_or(active)
 }
 
+/// Open or refresh the Find Results tab with `body`.
+fn present_find_results(state: &mut EditorState, body: &str) {
+    let existing = state
+        .tabs
+        .iter()
+        .enumerate()
+        .find(|(_, d)| d.title == FIND_RESULTS_TITLE && d.read_only && d.path.is_none())
+        .map(|(i, _)| i);
+    if let Some(i) = existing {
+        state.tabs.set_active(i);
+        {
+            let doc = state.tabs.active_mut();
+            doc.buffer = buffer::TextBuffer::from_str(body);
+            doc.read_only = true;
+            doc.dirty = false;
+            doc.language = "plain".into();
+        }
+    } else {
+        state.tabs.open_untitled();
+        {
+            let doc = state.tabs.active_mut();
+            doc.title = FIND_RESULTS_TITLE.into();
+            doc.buffer = buffer::TextBuffer::from_str(body);
+            doc.dirty = false;
+            doc.language = "plain".into();
+            doc.read_only = true;
+        }
+    }
+    state.highlight_dirty = true;
+    state.reset_view = true;
+}
+
 /// Find All in the active document (Case/Word/Re/Sel); open or refresh Find Results tab.
 fn find_all_current(state: &mut EditorState, ui: &mut UiFlags) {
     let source = find_all_source_index(state);
@@ -641,34 +677,21 @@ fn find_all_current(state: &mut EditorState, ui: &mut UiFlags) {
         ui.find_focus_once = true;
         return;
     }
-    let existing = state
-        .tabs
-        .iter()
-        .enumerate()
-        .find(|(_, d)| d.title == FIND_RESULTS_TITLE && d.read_only && d.path.is_none())
-        .map(|(i, _)| i);
-    if let Some(i) = existing {
-        state.tabs.set_active(i);
-        {
-            let doc = state.tabs.active_mut();
-            doc.buffer = buffer::TextBuffer::from_str(&body);
-            doc.read_only = true;
-            doc.dirty = false;
-            doc.language = "plain".into();
-        }
-    } else {
-        state.tabs.open_untitled();
-        {
-            let doc = state.tabs.active_mut();
-            doc.title = FIND_RESULTS_TITLE.into();
-            doc.buffer = buffer::TextBuffer::from_str(&body);
-            doc.dirty = false;
-            doc.language = "plain".into();
-            doc.read_only = true;
-        }
+    present_find_results(state, &body);
+}
+
+/// Find All across open editor tabs (Case/Word/Re; Sel ignored); open or refresh Find Results.
+fn find_all_opened(state: &mut EditorState, ui: &mut UiFlags) {
+    let Some((body, _count)) = state.find_all_opened_report() else {
+        return;
+    };
+    if body.is_empty() {
+        ui.find_open = true;
+        ui.show_replace = false;
+        ui.find_focus_once = true;
+        return;
     }
-    state.highlight_dirty = true;
-    state.reset_view = true;
+    present_find_results(state, &body);
 }
 
 /// Scan workspace root recursively for `find_query`; write hits into a results tab.

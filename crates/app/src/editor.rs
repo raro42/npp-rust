@@ -1978,6 +1978,96 @@ impl EditorState {
         Some((body, count))
     }
 
+    /// Build a Find All report across every open editor tab (skips Find Results / Find in Files).
+    /// Uses Case/Word/Re on the full document text per tab (Sel is ignored for multi-doc).
+    /// Returns `(body, match_count)`, or `None` when regex is invalid.
+    /// Empty query yields `Some(("", 0))` and sets status; caller should open Find.
+    pub fn find_all_opened_report(&mut self) -> Option<(String, usize)> {
+        let q = self.find_query.clone();
+        if q.is_empty() {
+            self.status = "Find All (opened): set Find text".into();
+            return Some((String::new(), 0));
+        }
+        if self.find_regex_blocked() {
+            return None;
+        }
+        let flags = self.find_flags();
+        let mut flag_bits = Vec::new();
+        if flags.match_case {
+            flag_bits.push("case");
+        }
+        if flags.whole_word {
+            flag_bits.push("word");
+        }
+        if flags.use_regex {
+            flag_bits.push("re");
+        }
+        let flags_note = if flag_bits.is_empty() {
+            String::new()
+        } else {
+            format!(" · {}", flag_bits.join("+"))
+        };
+
+        let mut doc_indices: Vec<usize> = Vec::new();
+        for (i, doc) in self.tabs.iter().enumerate() {
+            let title = doc.title.as_str();
+            if title == "Find Results" || title == "Find in Files" {
+                continue;
+            }
+            doc_indices.push(i);
+        }
+        if doc_indices.is_empty() {
+            self.status = "Find All (opened): no editor tabs".into();
+            return Some((String::new(), 0));
+        }
+
+        let mut lines_out: Vec<String> = Vec::new();
+        lines_out.push(format!("Find All (opened): {q:?}{flags_note}"));
+        lines_out.push(format!("Documents: {}", doc_indices.len()));
+        lines_out.push(String::new());
+
+        let mut total = 0usize;
+        let mut docs_with_hits = 0usize;
+        for &i in &doc_indices {
+            let Some(doc) = self.tabs.get(i) else {
+                continue;
+            };
+            let doc_label = doc
+                .path
+                .as_ref()
+                .map(|p| crate::recent::short_path_label(p.as_path()))
+                .unwrap_or_else(|| doc.title.clone());
+            let text = doc.buffer.to_string();
+            let n = doc.buffer.len_chars();
+            let matches = crate::search_util::find_all_matches_in(&text, &q, 0, n, flags);
+            if matches.is_empty() {
+                continue;
+            }
+            docs_with_hits += 1;
+            total += matches.len();
+            lines_out.push(format!("=== {doc_label} ==="));
+            for &(s, e) in &matches {
+                let line = doc.buffer.char_to_line(s);
+                let col = s.saturating_sub(doc.buffer.line_to_char(line)) + 1;
+                let matched = doc.buffer.slice(s, e);
+                let matched = matched.replace('\n', "\\n").replace('\r', "\\r");
+                lines_out.push(format!("{}:{col}:{matched}", line + 1));
+            }
+            lines_out.push(String::new());
+        }
+
+        lines_out.push(format!(
+            "— {total} match(es) in {docs_with_hits} document(s)"
+        ));
+        let body = lines_out.join("\n");
+        self.status = if total == 0 {
+            "Find All (opened): no match".into()
+        } else {
+            format!("Find All (opened): {total} match(es) in {docs_with_hits} document(s)")
+        };
+        Some((body, total))
+    }
+
     /// Copy every Find match substring under Case/Word/Re/Sel, newline-joined.
     /// Returns the clipboard payload (`Some("")` when empty / no match), or `None`
     /// when regex is invalid.
@@ -4620,6 +4710,36 @@ mod tests {
         assert!(body.contains("2:2:3"));
         assert!(!body.contains("99"));
         assert!(state.status.contains("Find All: 2 match"));
+    }
+
+    #[test]
+    fn find_all_opened_report_scans_editor_tabs_skips_results() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("foo one\n");
+        state.tabs.active_mut().title = "a.txt".into();
+        state.tabs.open_untitled();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("bar foo\n");
+        state.tabs.active_mut().title = "b.txt".into();
+        state.tabs.open_untitled();
+        state.tabs.active_mut().title = "Find Results".into();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("foo should skip\n");
+        state.tabs.active_mut().read_only = true;
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = true;
+        state.settings.find_in_selection = true; // ignored for opened
+        let (body, n) = state.find_all_opened_report().unwrap();
+        assert_eq!(n, 2);
+        assert!(body.contains("Find All (opened): \"foo\" · case+word"));
+        assert!(body.contains("Documents: 2"));
+        assert!(body.contains("=== a.txt ==="));
+        assert!(body.contains("=== b.txt ==="));
+        assert!(body.contains("1:1:foo"));
+        assert!(body.contains("1:5:foo"));
+        assert!(!body.contains("should skip"));
+        assert!(!body.contains("sel"));
+        assert!(body.contains("— 2 match(es) in 2 document(s)"));
+        assert!(state.status.contains("Find All (opened): 2 match"));
     }
 
     #[test]

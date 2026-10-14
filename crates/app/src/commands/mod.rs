@@ -287,6 +287,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_SEARCH_VOLATILE_FINDPREV"
             | "IDM_SEARCH_FINDINCREMENT"
             | "IDM_FOCUS_ON_FOUND_RESULTS"
+            | "IDM_SEARCH_FINDALLINOPENEDDOCS"
             | "IDM_SEARCH_GOTOMATCHINGBRACE"
             | "IDM_SEARCH_SELECTMATCHINGBRACES"
             | "IDM_VIEW_GOTO_START"
