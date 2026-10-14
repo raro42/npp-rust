@@ -5098,6 +5098,50 @@ impl EditorApp {
             }
         }
 
+        // Remappable TAB → Space (default Cmd+Alt+V; settings.shortcut_tab_to_space).
+        // Shift flips to Space → TAB (Leading).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_TAB_TO_SPACE};
+            let tab_space_chord = resolve_chord(
+                &self.state.settings.shortcut_tab_to_space,
+                DEFAULT_TAB_TO_SPACE,
+            );
+            let tab_space_key_pressed = match tab_space_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if tab_space_key_pressed
+                && tab_space_chord
+                    .flipped_shift()
+                    .matches(mods, tab_space_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_EDIT_SW2TAB_LEADING");
+            } else if tab_space_key_pressed && tab_space_chord.matches(mods, tab_space_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_TAB2SW");
+            }
+        }
+
         // Remappable next tab (default Cmd+Tab; settings.shortcut_next_tab). Shift flips to prev.
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_NEXT_TAB};
@@ -7570,6 +7614,14 @@ impl EditorApp {
                 &s.shortcut_trim_trailing,
                 crate::shortcut_chord::DEFAULT_TRIM_TRAILING,
             ),
+            "IDM_EDIT_TAB2SW" => primary(
+                &s.shortcut_tab_to_space,
+                crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
+            ),
+            "IDM_EDIT_SW2TAB_LEADING" => shifted(
+                &s.shortcut_tab_to_space,
+                crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
+            ),
             "IDM_VIEW_TAB_NEXT" => primary(
                 &s.shortcut_next_tab,
                 crate::shortcut_chord::DEFAULT_NEXT_TAB,
@@ -8775,6 +8827,15 @@ impl EditorApp {
             trim_trailing_chord.display(),
             trim_trailing_chord.flipped_shift().display()
         );
+        let tab_to_space_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_tab_to_space,
+            crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
+        );
+        let tab_to_space_keys = format!(
+            "{} / {}",
+            tab_to_space_chord.display(),
+            tab_to_space_chord.flipped_shift().display()
+        );
         let next_tab_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_next_tab,
             crate::shortcut_chord::DEFAULT_NEXT_TAB,
@@ -9097,7 +9158,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 123] = [
+        let rows: [(&str, &str); 124] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9301,6 +9362,10 @@ impl EditorApp {
             (
                 trim_trailing_keys.as_str(),
                 "Trim trailing / Trim leading and trailing",
+            ),
+            (
+                tab_to_space_keys.as_str(),
+                "TAB to Space / Space to TAB (Leading)",
             ),
             (next_tab_keys.as_str(), "Next / prev tab"),
             (first_tab_keys.as_str(), "First / last tab"),
@@ -12363,6 +12428,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+T, Ctrl+Alt+T. Shift flips to Trim Leading and Trailing.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("TAB to Space shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_tab_to_space,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+V"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_tab_to_space.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_tab_to_space =
+                                        crate::shortcut_chord::DEFAULT_TAB_TO_SPACE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_TAB_TO_SPACE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_tab_to_space = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+V, Ctrl+Alt+V. Runs Edit → TAB to Space (each tab → four spaces). Shift + that chord runs Space to TAB (Leading). Does not collide with Paste (Cmd+V), Show White Space (Alt+V), or Trim Trailing (Cmd+Alt+T). Space to TAB (All) stays menu-only.",
                             )
                             .small()
                             .weak(),

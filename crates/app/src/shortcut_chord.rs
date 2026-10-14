@@ -501,6 +501,11 @@ pub const DEFAULT_OPEN_FOLDER: &str = "Cmd+Alt+L";
 /// Containing Folder as Workspace.
 pub const DEFAULT_OPEN_WORKSPACE: &str = "Cmd+Alt+G";
 
+/// Default TAB → Space binding (Edit → TAB to Space).
+/// Uses Cmd+Alt+V so it does not collide with Paste (Cmd+V), Show White Space (Alt+V),
+/// or Trim Trailing (Cmd+Alt+T). Shift flips to Space to TAB (Leading).
+pub const DEFAULT_TAB_TO_SPACE: &str = "Cmd+Alt+V";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1359,6 +1364,17 @@ mod tests {
         assert_eq!(c.line_end_chord().display(), "Cmd+Alt+End");
         let letter = parse_chord("Ctrl+Alt+T").unwrap();
         assert_eq!(letter.line_end_chord().display(), "Cmd+Alt+Shift+T");
+    }
+
+    #[test]
+    fn parse_cmd_alt_v_default_tab_to_space() {
+        let c = parse_chord(DEFAULT_TAB_TO_SPACE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::V);
+        assert_eq!(c.display(), "Cmd+Alt+V");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+V");
     }
 
     #[test]

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.297] — 2026-10-14
+
+Settings / shortcuts:
+
+- **TAB to Space / Space to TAB (Leading)** is remappable: Preferences → TAB to Space shortcut, or `shortcut_tab_to_space` in `npp-rs/settings.json` (default `Cmd+Alt+V`). Runs Edit → TAB to Space (each tab → four spaces). **Shift** flips to Space to TAB (Leading). Space to TAB (All) stays menu-only. Does not collide with Paste (`Cmd+V`), Show White Space (`Alt+V`), or Trim Trailing (`Cmd+Alt+T`). Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.296] — 2026-10-14
 
 Settings / shortcuts:

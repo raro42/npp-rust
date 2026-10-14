@@ -228,6 +228,10 @@ fn default_shortcut_open_workspace() -> String {
     crate::shortcut_chord::DEFAULT_OPEN_WORKSPACE.into()
 }
 
+fn default_shortcut_tab_to_space() -> String {
+    crate::shortcut_chord::DEFAULT_TAB_TO_SPACE.into()
+}
+
 fn default_shortcut_blank_line() -> String {
     crate::shortcut_chord::DEFAULT_BLANK_LINE.into()
 }
@@ -1132,6 +1136,9 @@ pub struct AppSettings {
     /// Open Folder as Workspace chord (`Cmd+Alt+G` default; Shift flips to Containing Folder as Workspace).
     #[serde(default = "default_shortcut_open_workspace")]
     pub shortcut_open_workspace: String,
+    /// TAB → Space chord (`Cmd+Alt+V` default; Shift flips to Space → TAB leading).
+    #[serde(default = "default_shortcut_tab_to_space")]
+    pub shortcut_tab_to_space: String,
     /// Find in Files chord (`Cmd+Alt+F` default).
     #[serde(default = "default_shortcut_find_in_files")]
     pub shortcut_find_in_files: String,
@@ -1321,6 +1328,7 @@ impl Default for AppSettings {
             shortcut_open_selected: default_shortcut_open_selected(),
             shortcut_open_folder: default_shortcut_open_folder(),
             shortcut_open_workspace: default_shortcut_open_workspace(),
+            shortcut_tab_to_space: default_shortcut_tab_to_space(),
             shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             ollama_host: default_ollama_host(),
@@ -1791,6 +1799,7 @@ mod tests {
             shortcut_open_selected: "Ctrl+Alt+Shift+J".into(),
             shortcut_open_folder: "Ctrl+Alt+Shift+L".into(),
             shortcut_open_workspace: "Ctrl+Alt+Shift+G".into(),
+            shortcut_tab_to_space: "Ctrl+Alt+V".into(),
             shortcut_find_in_files: "Alt+Shift+F".into(),
             ..Default::default()
         };
@@ -1944,6 +1953,7 @@ mod tests {
         assert_eq!(back.shortcut_open_selected, "Ctrl+Alt+Shift+J");
         assert_eq!(back.shortcut_open_folder, "Ctrl+Alt+Shift+L");
         assert_eq!(back.shortcut_open_workspace, "Ctrl+Alt+Shift+G");
+        assert_eq!(back.shortcut_tab_to_space, "Ctrl+Alt+V");
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
     }
 

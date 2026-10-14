@@ -465,3 +465,4 @@
 009 keep: remappable Select and Find Next/Previous (v0.3.282)
 
 009 keep: remappable Clear all styles (shortcut_clear_all_styles, Cmd+Shift+0 default, v0.3.288)
+009 keep: remappable TAB to Space / Space to TAB Leading (shortcut_tab_to_space, Cmd+Alt+V default, Shift=leading, v0.3.297)
