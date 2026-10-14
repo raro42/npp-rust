@@ -548,6 +548,10 @@ fn default_shortcut_zoom_sync() -> String {
     crate::shortcut_chord::DEFAULT_ZOOM_SYNC.into()
 }
 
+fn default_shortcut_rect_select() -> String {
+    crate::shortcut_chord::DEFAULT_RECT_SELECT.into()
+}
+
 fn default_shortcut_indent_guide() -> String {
     crate::shortcut_chord::DEFAULT_INDENT_GUIDE.into()
 }
@@ -814,6 +818,9 @@ pub struct AppSettings {
     /// Word-jump-back chord (`Alt+Left` default). Opposite arrow jumps forward; Shift extends.
     #[serde(default = "default_shortcut_word_jump")]
     pub shortcut_word_jump: String,
+    /// Rectangular column-select chord (`Alt+Shift+Left` default; any arrow with same mods).
+    #[serde(default = "default_shortcut_rect_select")]
+    pub shortcut_rect_select: String,
     /// Go-to-line chord (`Cmd+L` default).
     #[serde(default = "default_shortcut_goto_line")]
     pub shortcut_goto_line: String,
@@ -1185,6 +1192,7 @@ impl Default for AppSettings {
             shortcut_copy_compare_summary: default_shortcut_copy_compare_summary(),
             shortcut_copy_compare_hunk: default_shortcut_copy_compare_hunk(),
             shortcut_word_jump: default_shortcut_word_jump(),
+            shortcut_rect_select: default_shortcut_rect_select(),
             shortcut_goto_line: default_shortcut_goto_line(),
             shortcut_duplicate_line: default_shortcut_duplicate_line(),
             shortcut_delete_line: default_shortcut_delete_line(),
@@ -1649,6 +1657,7 @@ mod tests {
             shortcut_copy_compare_summary: "Ctrl+Alt+Y".into(),
             shortcut_copy_compare_hunk: "Ctrl+Alt+K".into(),
             shortcut_word_jump: "Ctrl+Alt+Left".into(),
+            shortcut_rect_select: "Ctrl+Alt+Shift+Left".into(),
             shortcut_goto_line: "Ctrl+Shift+G".into(),
             shortcut_duplicate_line: "Ctrl+Shift+D".into(),
             shortcut_delete_line: "Ctrl+Shift+K".into(),
@@ -1796,6 +1805,7 @@ mod tests {
         assert_eq!(back.shortcut_copy_compare_summary, "Ctrl+Alt+Y");
         assert_eq!(back.shortcut_copy_compare_hunk, "Ctrl+Alt+K");
         assert_eq!(back.shortcut_word_jump, "Ctrl+Alt+Left");
+        assert_eq!(back.shortcut_rect_select, "Ctrl+Alt+Shift+Left");
         assert_eq!(back.shortcut_goto_line, "Ctrl+Shift+G");
         assert_eq!(back.shortcut_duplicate_line, "Ctrl+Shift+D");
         assert_eq!(back.shortcut_delete_line, "Ctrl+Shift+K");

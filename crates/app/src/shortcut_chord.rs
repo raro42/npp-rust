@@ -125,6 +125,12 @@ pub const DEFAULT_COPY_COMPARE_HUNK: &str = "Alt+K";
 /// Default word-jump-back binding (opposite arrow jumps forward; Shift extends).
 pub const DEFAULT_WORD_JUMP: &str = "Alt+Left";
 
+/// Default rectangular column-select binding (Alt+Shift+arrows; N++-style).
+/// Arrow-family chords accept any arrow with the same modifiers (Left/Right grow
+/// columns; Up/Down grow rows). Letter remaps: base key = left, partner = right.
+/// On the default chord, Alt+Shift+Left/Right prefer rect over word-jump extend.
+pub const DEFAULT_RECT_SELECT: &str = "Alt+Shift+Left";
+
 /// Default go-to-line binding (matches historical hard-wire).
 pub const DEFAULT_GOTO_LINE: &str = "Cmd+L";
 
@@ -496,6 +502,68 @@ impl KeyChord {
         }
         let cmd = mods.command || mods.ctrl;
         cmd == self.ctrl_or_cmd && mods.alt == self.alt
+    }
+
+    /// Match modifiers only (ctrl/cmd, alt, shift); ignore which key was pressed.
+    pub fn matches_mods(self, mods: Modifiers) -> bool {
+        let cmd = mods.command || mods.ctrl;
+        cmd == self.ctrl_or_cmd && mods.shift == self.shift && mods.alt == self.alt
+    }
+
+    /// Direction for remappable rect column select (`shortcut_rect_select`).
+    ///
+    /// Returns `(char_delta, line_delta)`. Arrow-family chords accept any arrow
+    /// with matching modifiers. Letter remaps: base key = left (-1, 0); partner
+    /// via [`Self::char_right_chord`] = right (1, 0). Vertical letter remaps are
+    /// not supported.
+    pub fn rect_select_delta(self, mods: Modifiers, pressed: Key) -> Option<(isize, isize)> {
+        let arrow_family = matches!(
+            self.key,
+            Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown
+        );
+        if arrow_family {
+            if !self.matches_mods(mods) {
+                return None;
+            }
+            return match pressed {
+                Key::ArrowLeft => Some((-1, 0)),
+                Key::ArrowRight => Some((1, 0)),
+                Key::ArrowUp => Some((0, -1)),
+                Key::ArrowDown => Some((0, 1)),
+                _ => None,
+            };
+        }
+        if self.matches(mods, pressed) {
+            Some((-1, 0))
+        } else if self.char_right_chord().matches(mods, pressed) {
+            Some((1, 0))
+        } else {
+            None
+        }
+    }
+
+    /// Human-readable rect-select binding for Shortcut Mapper / About.
+    pub fn rect_select_display(self) -> String {
+        let arrow_family = matches!(
+            self.key,
+            Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown
+        );
+        if arrow_family {
+            let mut parts = Vec::new();
+            if self.ctrl_or_cmd {
+                parts.push("Cmd");
+            }
+            if self.alt {
+                parts.push("Alt");
+            }
+            if self.shift {
+                parts.push("Shift");
+            }
+            parts.push("Left/Right/Up/Down");
+            parts.join("+")
+        } else {
+            format!("{} / {}", self.display(), self.char_right_chord().display())
+        }
     }
 
     /// Same chord with Shift flipped (find next ↔ find previous).
@@ -1185,6 +1253,29 @@ mod tests {
         assert!(c.shift);
         assert_eq!(c.key, Key::Tab);
         assert_eq!(c.display(), "Shift+Tab");
+    }
+
+    #[test]
+    fn parse_alt_shift_left_default_rect_select() {
+        let c = parse_chord(DEFAULT_RECT_SELECT).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::ArrowLeft);
+        assert_eq!(c.rect_select_display(), "Alt+Shift+Left/Right/Up/Down");
+        let mods = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert_eq!(c.rect_select_delta(mods, Key::ArrowLeft), Some((-1, 0)));
+        assert_eq!(c.rect_select_delta(mods, Key::ArrowRight), Some((1, 0)));
+        assert_eq!(c.rect_select_delta(mods, Key::ArrowUp), Some((0, -1)));
+        assert_eq!(c.rect_select_delta(mods, Key::ArrowDown), Some((0, 1)));
+        assert_eq!(
+            c.rect_select_delta(Modifiers::default(), Key::ArrowLeft),
+            None
+        );
     }
 
     #[test]

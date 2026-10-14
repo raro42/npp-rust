@@ -67,6 +67,7 @@ New keys:
 | `shortcut_copy_compare_summary` | Copy-compare-summary chord (`Alt+Y` default; Shift flips to Open Compare Summary) |
 | `shortcut_copy_compare_hunk` | Copy-compare-hunk chord (`Alt+K` default; Shift flips to Open Compare Hunk) |
 | `shortcut_word_jump` | Word-jump-back chord (`Alt+Left` default; opposite arrow forward; Shift extends) |
+| `shortcut_rect_select` | Rect column-select chord (`Alt+Shift+Left` default; arrow-family = any arrow with same mods) |
 | `shortcut_goto_line` | Go-to-line chord (`Cmd+L` default; Cmd/Ctrl+Shift+L delete line stays hard-wired) |
 | `shortcut_duplicate_line` | Duplicate-line chord (`Cmd+D` default) |
 | `shortcut_delete_line` | Delete-line chord (`Cmd+Shift+L` default) |

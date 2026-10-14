@@ -4089,6 +4089,61 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_BEGINENDSELECT");
             }
         }
+        // Remappable rect column select (default Alt+Shift+arrows; settings.shortcut_rect_select).
+        // Arrow-family stays in handle_editor_input. Letter remaps (left/right only) run here.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_RECT_SELECT};
+            let rect_chord = resolve_chord(
+                &self.state.settings.shortcut_rect_select,
+                DEFAULT_RECT_SELECT,
+            );
+            let arrow_family = matches!(
+                rect_chord.key,
+                Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown
+            );
+            if !arrow_family {
+                let right = rect_chord.char_right_chord();
+                let chord_key_pressed = |key: Key| -> bool {
+                    match key {
+                        Key::Z => z,
+                        Key::N => n,
+                        Key::O => o,
+                        Key::S => s,
+                        Key::F => f,
+                        Key::Y => y,
+                        Key::W => w,
+                        Key::G => g,
+                        Key::A => a,
+                        Key::D => d,
+                        Key::L => l,
+                        Key::I => i_key,
+                        Key::T => t,
+                        Key::H => h,
+                        Key::F2 => f2,
+                        Key::F3 => f3,
+                        Key::F7 => f7,
+                        Key::Equals => equals,
+                        Key::Minus => minus,
+                        Key::Num0 => num0,
+                        Key::CloseBracket => close_br,
+                        Key::OpenBracket => open_br,
+                        other => ctx.input(|i| i.key_pressed(other)),
+                    }
+                };
+                let tab = self.focused_edit_tab();
+                if chord_key_pressed(rect_chord.key) && rect_chord.matches(mods, rect_chord.key) {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        let _ = doc.start_or_extend_rect_char(-1);
+                    }
+                    self.follow_focused_caret();
+                } else if chord_key_pressed(right.key) && right.matches(mods, right.key) {
+                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                        let _ = doc.start_or_extend_rect_char(1);
+                    }
+                    self.follow_focused_caret();
+                }
+            }
+        }
         // Remappable toggle read-only (default Cmd+Alt+R; settings.shortcut_toggle_readonly).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_TOGGLE_READONLY};
@@ -8123,6 +8178,11 @@ impl EditorApp {
             word_jump_chord.display(),
             word_jump_chord.flipped_horizontal().display()
         );
+        let rect_select_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_rect_select,
+            crate::shortcut_chord::DEFAULT_RECT_SELECT,
+        )
+        .rect_select_display();
         let goto_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_goto_line,
             crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -8733,7 +8793,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 117] = [
+        let rows: [(&str, &str); 118] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -8911,6 +8971,10 @@ impl EditorApp {
             (move_other_keys.as_str(), "Move / clone to other view"),
             (rtl_keys.as_str(), "RTL / LTR text direction"),
             (word_jump_keys.as_str(), "Word jump ← / →"),
+            (
+                rect_select_keys.as_str(),
+                "Rect column select (Alt+Shift+arrows)",
+            ),
             ("Double-click", "Select word"),
             (undo_keys.as_str(), "Undo / Redo"),
             (close_keys.as_str(), "Close tab"),
@@ -10494,6 +10558,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+Left, Ctrl+Left. Opposite Left/Right jumps the other way; Shift extends the selection. Keep Left/Right in the chord.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Rect column select shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_rect_select,
+                                )
+                                .desired_width(160.0)
+                                .hint_text("Alt+Shift+Left"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_rect_select
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_rect_select =
+                                        crate::shortcut_chord::DEFAULT_RECT_SELECT.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_RECT_SELECT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_rect_select = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+Left, Ctrl+Alt+Shift+Left. Arrow-family chords accept any arrow with those modifiers (Left/Right grow columns; Up/Down grow rows). Letter remaps: base = left, Shift-flipped partner = right. On the default chord, Alt+Shift+arrows prefer rect over word-jump extend.",
                             )
                             .small()
                             .weak(),
@@ -20650,11 +20750,21 @@ impl EditorApp {
                     modifiers,
                     ..
                 } => {
-                    // Alt+Shift+←: start / extend rectangular column select (N++-style).
-                    // Takes priority over Alt+Shift word-jump extend on the default chord.
-                    if modifiers.alt && modifiers.shift && !modifiers.command && !modifiers.ctrl {
+                    // Remappable rect column select (default Alt+Shift+arrows;
+                    // settings.shortcut_rect_select). On the default chord, prefers
+                    // rect over Alt+Shift word-jump extend.
+                    let rect = crate::shortcut_chord::resolve_chord(
+                        &self.state.settings.shortcut_rect_select,
+                        crate::shortcut_chord::DEFAULT_RECT_SELECT,
+                    );
+                    if let Some((dx, dy)) = rect.rect_select_delta(modifiers, Key::ArrowLeft) {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            if doc.start_or_extend_rect_char(-1) {
+                            let ok = if dy != 0 {
+                                doc.start_or_extend_rect_line(dy)
+                            } else {
+                                doc.start_or_extend_rect_char(dx)
+                            };
+                            if ok {
                                 caret_moved = true;
                             }
                         }
@@ -20764,10 +20874,19 @@ impl EditorApp {
                     modifiers,
                     ..
                 } => {
-                    // Alt+Shift+→: start / extend rectangular column select (N++-style).
-                    if modifiers.alt && modifiers.shift && !modifiers.command && !modifiers.ctrl {
+                    // Remappable rect column select (default Alt+Shift+arrows).
+                    let rect = crate::shortcut_chord::resolve_chord(
+                        &self.state.settings.shortcut_rect_select,
+                        crate::shortcut_chord::DEFAULT_RECT_SELECT,
+                    );
+                    if let Some((dx, dy)) = rect.rect_select_delta(modifiers, Key::ArrowRight) {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            if doc.start_or_extend_rect_char(1) {
+                            let ok = if dy != 0 {
+                                doc.start_or_extend_rect_line(dy)
+                            } else {
+                                doc.start_or_extend_rect_char(dx)
+                            };
+                            if ok {
                                 caret_moved = true;
                             }
                         }
@@ -20880,10 +20999,19 @@ impl EditorApp {
                     modifiers,
                     ..
                 } => {
-                    // Alt+Shift+↑: start / extend rectangular column select (N++-style).
-                    if modifiers.alt && modifiers.shift && !modifiers.command && !modifiers.ctrl {
+                    // Remappable rect column select (default Alt+Shift+arrows).
+                    let rect = crate::shortcut_chord::resolve_chord(
+                        &self.state.settings.shortcut_rect_select,
+                        crate::shortcut_chord::DEFAULT_RECT_SELECT,
+                    );
+                    if let Some((dx, dy)) = rect.rect_select_delta(modifiers, Key::ArrowUp) {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            if doc.start_or_extend_rect_line(-1) {
+                            let ok = if dy != 0 {
+                                doc.start_or_extend_rect_line(dy)
+                            } else {
+                                doc.start_or_extend_rect_char(dx)
+                            };
+                            if ok {
                                 caret_moved = true;
                             }
                         }
@@ -21000,10 +21128,19 @@ impl EditorApp {
                     modifiers,
                     ..
                 } => {
-                    // Alt+Shift+↓: start / extend rectangular column select (N++-style).
-                    if modifiers.alt && modifiers.shift && !modifiers.command && !modifiers.ctrl {
+                    // Remappable rect column select (default Alt+Shift+arrows).
+                    let rect = crate::shortcut_chord::resolve_chord(
+                        &self.state.settings.shortcut_rect_select,
+                        crate::shortcut_chord::DEFAULT_RECT_SELECT,
+                    );
+                    if let Some((dx, dy)) = rect.rect_select_delta(modifiers, Key::ArrowDown) {
                         if let Some(doc) = self.state.tabs.get_mut(tab) {
-                            if doc.start_or_extend_rect_line(1) {
+                            let ok = if dy != 0 {
+                                doc.start_or_extend_rect_line(dy)
+                            } else {
+                                doc.start_or_extend_rect_char(dx)
+                            };
+                            if ok {
                                 caret_moved = true;
                             }
                         }

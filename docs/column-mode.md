@@ -1,7 +1,7 @@
 # Column / rectangular select
 
-Date: 2026-10-13  
-Version: 0.3.266
+Date: 2026-10-14  
+Version: 0.3.291
 
 ## What works
 
@@ -9,7 +9,7 @@ Version: 0.3.266
 - **Multi-caret / rect paste line-split**: when pasted text has the same number of lines as carets (or rect rows), each caret gets its matching line (round-trip after multi-caret / column copy). Otherwise the full string is inserted at every caret.
 - **Escape clears multi-carets**: remappable close-Find chord (default Escape; `shortcut_close_find`) closes Find/Replace when open; when those bars are already closed, the same chord clears multi-carets / rect column select (primary caret stays).
 - **Document Home/End moves multi-carets** (Cmd/Ctrl+Home/End; also Cmd/Ctrl+Up/Down via `shortcut_goto_document_start`). Stream carets all jump to char 0 / end (usually merge). Rect blocks keep columns and shift to the first or last document lines. Shift+Document Home/End extends stream multi-carets (anchors stay) and grows rect to line 0 / last line.
-- **Alt+Shift+arrows** start or extend a rectangular column selection from the caret (N++-style), including virtual columns past EOL. Prefer Up/Down first for a multi-line block; Left/Right then grow columns. On the default Alt+Left/Right word-jump chord, Alt+Shift+Left/Right prefers rect over word-jump extend.
+- **Alt+Shift+arrows** start or extend a rectangular column selection from the caret (N++-style), including virtual columns past EOL. Remappable via Preferences / `shortcut_rect_select` (default `Alt+Shift+Left`; arrow-family chords accept any arrow with those modifiers). Prefer Up/Down first for a multi-line block; Left/Right then grow columns. On the default chord, Alt+Shift+Left/Right prefer rect over word-jump extend.
 - **Alt+drag** (Option+drag on macOS) builds a rectangular selection.
 - Each line in the block gets a range at the same columns (char indices clamp to line length).
 - **Virtual space past EOL** for Alt+drag: mouse hit-test can target columns past every line’s EOL (space width); carets and the selection wash draw at those columns; typing pads short lines with spaces to the target column; copy pads missing columns with spaces in the clipboard.

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.291] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Rect column select** is remappable: Preferences → Rect column select shortcut, or `shortcut_rect_select` in `npp-rs/settings.json` (default `Alt+Shift+Left`). Arrow-family chords accept any arrow with those modifiers (Left/Right grow columns; Up/Down grow rows). Letter remaps: base = left, Shift-flipped partner = right. On the default chord, Alt+Shift+arrows still prefer rect over word-jump extend. Shortcut Mapper and About show the effective binding.
+
 ## [0.3.290] — 2026-10-14
 
 Settings / shortcuts:
