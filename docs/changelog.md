@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.286] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Mark Style 4** is remappable: Preferences → Mark Style 4 shortcut, or `shortcut_mark_style_4` in `npp-rs/settings.json` (default `Cmd+4`). Marks all Find/selection matches with Style 4. **Shift** flips to Clear Style 4. Style 5 stays menu-only. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.285] — 2026-10-14
 
 Settings / shortcuts:
