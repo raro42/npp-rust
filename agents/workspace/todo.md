@@ -1,3 +1,4 @@
+009 keep: remappable rect column select (shortcut_rect_select, Alt+Shift+Left default, arrow-family any arrow, v0.3.291)
 009 keep: remappable Zoom Sync (shortcut_zoom_sync, Alt+Shift+Z default, v0.3.290)
 009 keep: remappable Inverse Bookmarks (shortcut_inverse_bookmarks, Alt+Shift+F2 default, v0.3.289)
 009 keep: remappable Mark Style 5 / Clear Style 5 (shortcut_mark_style_5, Cmd+5 default, Shift=clear, v0.3.287)
