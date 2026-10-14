@@ -3889,6 +3889,48 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_LOWERCASE");
             }
         }
+        // Remappable autocomplete (default Cmd+Space; settings.shortcut_autocomplete).
+        // Shift flips to Function Call Tip (N++ Ctrl+Space / Ctrl+Shift+Space family).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_AUTOCOMPLETE};
+            let ac_chord = resolve_chord(
+                &self.state.settings.shortcut_autocomplete,
+                DEFAULT_AUTOCOMPLETE,
+            );
+            let ac_key_pressed = match ac_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_call_tip =
+                ac_key_pressed && ac_chord.flipped_shift().matches(mods, ac_chord.key);
+            let remapped_complete = ac_key_pressed && ac_chord.matches(mods, ac_chord.key);
+            if remapped_call_tip {
+                self.run_shortcut_cmd("IDM_EDIT_FUNCCALLTIP");
+            } else if remapped_complete {
+                self.run_shortcut_cmd("IDM_EDIT_AUTOCOMPLETE");
+            }
+        }
         // Remappable join lines (default Cmd+J; settings.shortcut_join_lines).
         // Shift flips to Split Lines (N++ Ctrl+J family).
         {
@@ -7481,6 +7523,14 @@ impl EditorApp {
                 &s.shortcut_lowercase,
                 crate::shortcut_chord::DEFAULT_LOWERCASE,
             ),
+            "IDM_EDIT_AUTOCOMPLETE" | "IDM_EDIT_AUTOCOMPLETE_CURRENTFILE" => primary(
+                &s.shortcut_autocomplete,
+                crate::shortcut_chord::DEFAULT_AUTOCOMPLETE,
+            ),
+            "IDM_EDIT_FUNCCALLTIP" => shifted(
+                &s.shortcut_autocomplete,
+                crate::shortcut_chord::DEFAULT_AUTOCOMPLETE,
+            ),
             "IDM_EDIT_JOIN_LINES" => primary(
                 &s.shortcut_join_lines,
                 crate::shortcut_chord::DEFAULT_JOIN_LINES,
@@ -8363,6 +8413,15 @@ impl EditorApp {
             case_chord.display(),
             case_chord.flipped_shift().display()
         );
+        let autocomplete_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_autocomplete,
+            crate::shortcut_chord::DEFAULT_AUTOCOMPLETE,
+        );
+        let autocomplete_keys = format!(
+            "{} / {}",
+            autocomplete_chord.display(),
+            autocomplete_chord.flipped_shift().display()
+        );
         let join_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_join_lines,
             crate::shortcut_chord::DEFAULT_JOIN_LINES,
@@ -8872,7 +8931,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 119] = [
+        let rows: [(&str, &str); 120] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -8968,6 +9027,10 @@ impl EditorApp {
                 "Toggle line comment / Block comment",
             ),
             (case_keys.as_str(), "lowercase / UPPERCASE"),
+            (
+                autocomplete_keys.as_str(),
+                "Autocomplete / Function Call Tip",
+            ),
             (join_keys.as_str(), "Join Lines / Split Lines"),
             (invert_keys.as_str(), "Invert Case / Proper Case"),
             (blank_keys.as_str(), "Blank line below / above"),
@@ -11193,6 +11256,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+U, Ctrl+U. Shift + that chord is UPPERCASE.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Autocomplete shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_autocomplete,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Space"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_autocomplete
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_autocomplete =
+                                        crate::shortcut_chord::DEFAULT_AUTOCOMPLETE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_AUTOCOMPLETE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_autocomplete = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Space, Ctrl+Space. Runs Edit → Function Completion File. Shift + that chord is Function Call Tip. Path completion stays menu-only. On macOS, remap if Cmd+Space is taken by Spotlight.",
                             )
                             .small()
                             .weak(),

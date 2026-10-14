@@ -98,6 +98,7 @@ New keys:
 | `shortcut_move_line` | Move-line-up chord (`Cmd+Shift+Up` default; opposite Down moves down; letter remaps use Shift for down) |
 | `shortcut_toggle_comment` | Toggle line-comment chord (`Cmd+/` default; Shift flips to Block Comment) |
 | `shortcut_lowercase` | Lowercase chord (`Cmd+U` default; Shift flips to UPPERCASE) |
+| `shortcut_autocomplete` | Autocomplete chord (`Cmd+Space` default; Shift flips to Function Call Tip; path completion stays menu-only) |
 | `shortcut_join_lines` | Join Lines chord (`Cmd+J` default; Shift flips to Split Lines) |
 | `shortcut_invert_case` | Invert Case chord (`Cmd+Alt+U` default; Shift flips to Proper Case) |
 | `shortcut_blank_line` | Blank line below chord (`Cmd+Enter` default; Shift flips to blank line above) |

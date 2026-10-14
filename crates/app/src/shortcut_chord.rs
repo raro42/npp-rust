@@ -402,6 +402,11 @@ pub const DEFAULT_TOGGLE_COMMENT: &str = "Cmd+/";
 /// Default lowercase binding (Edit → lowercase). Shift flips to UPPERCASE (N++ Ctrl+U family).
 pub const DEFAULT_LOWERCASE: &str = "Cmd+U";
 
+/// Default autocomplete binding (Edit → Function Completion File).
+/// Shift flips to Function Call Tip (N++ Ctrl+Space / Ctrl+Shift+Space family).
+/// Path completion stays menu-only (`IDM_EDIT_AUTOCOMPLETE_PATH`).
+pub const DEFAULT_AUTOCOMPLETE: &str = "Cmd+Space";
+
 /// Default join-lines binding (Edit → Join Lines). Shift flips to Split Lines (N++ Ctrl+J family).
 pub const DEFAULT_JOIN_LINES: &str = "Cmd+J";
 
@@ -878,6 +883,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "pageup" | "pgup" => Some(Key::PageUp),
         "pagedown" | "pgdn" | "pgdown" => Some(Key::PageDown),
         "enter" | "return" => Some(Key::Enter),
+        "space" | "spacebar" => Some(Key::Space),
         "equals" | "=" | "plus" => Some(Key::Equals),
         "minus" | "-" => Some(Key::Minus),
         "0" | "num0" | "digit0" => Some(Key::Num0),
@@ -946,6 +952,7 @@ fn key_token(key: Key) -> &'static str {
         Key::PageUp => "PageUp",
         Key::PageDown => "PageDown",
         Key::Enter => "Enter",
+        Key::Space => "Space",
         Key::Equals => "=",
         Key::Minus => "-",
         Key::Num0 => "0",
@@ -2062,6 +2069,18 @@ mod tests {
         assert_eq!(c.key, Key::U);
         assert_eq!(c.display(), "Cmd+U");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+U");
+    }
+
+    #[test]
+    fn parse_cmd_space_default_autocomplete() {
+        let c = parse_chord(DEFAULT_AUTOCOMPLETE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Space);
+        assert_eq!(c.display(), "Cmd+Space");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+Space");
+        assert_eq!(parse_chord("Ctrl+Spacebar").unwrap().key, Key::Space);
     }
 
     #[test]
