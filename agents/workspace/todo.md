@@ -1,3 +1,4 @@
+009 keep: Find-bar All / Search Results Window (current-doc Find Results, Case/Word/Re/Sel, v0.3.309)
 009 keep: Find-bar Shift+Cut matching lines (Case/Word/Re/Sel, v0.3.307)
 009 keep: Find-bar Purge matching lines (Case/Word/Re/Sel, v0.3.305)
 009 keep: Find-bar Bookmark all matching lines (Case/Word/Re/Sel, v0.3.302)

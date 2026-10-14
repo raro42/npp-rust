@@ -1911,6 +1911,73 @@ impl EditorState {
         Some(added)
     }
 
+    /// Build a Find All report for the active document under Case/Word/Re/Sel.
+    /// Returns `(body, match_count)`, or `None` when regex is invalid.
+    /// Empty query yields `Some(("", 0))` and sets status; caller should open Find.
+    pub fn find_all_current_report(&mut self) -> Option<(String, usize)> {
+        let q = self.find_query.clone();
+        if q.is_empty() {
+            self.status = "Find All: set Find text".into();
+            return Some((String::new(), 0));
+        }
+        if self.find_regex_blocked() {
+            return None;
+        }
+        self.capture_find_scope();
+        let flags = self.find_flags();
+        let (lo, hi) = self.find_bounds();
+        let text = self.tabs.active().buffer.to_string();
+        let matches = crate::search_util::find_all_matches_in(&text, &q, lo, hi, flags);
+        let doc = self.tabs.active();
+        let doc_label = doc
+            .path
+            .as_ref()
+            .map(|p| crate::recent::short_path_label(p.as_path()))
+            .unwrap_or_else(|| doc.title.clone());
+        let mut flag_bits = Vec::new();
+        if flags.match_case {
+            flag_bits.push("case");
+        }
+        if flags.whole_word {
+            flag_bits.push("word");
+        }
+        if flags.use_regex {
+            flag_bits.push("re");
+        }
+        if self.settings.find_in_selection {
+            flag_bits.push("sel");
+        }
+        let flags_note = if flag_bits.is_empty() {
+            String::new()
+        } else {
+            format!(" · {}", flag_bits.join("+"))
+        };
+        let mut lines_out: Vec<String> = Vec::with_capacity(matches.len() + 6);
+        lines_out.push(format!("Find All: {q:?}{flags_note}"));
+        lines_out.push(format!("Document: {doc_label}"));
+        lines_out.push(String::new());
+        {
+            let buf = &self.tabs.active().buffer;
+            for &(s, e) in &matches {
+                let line = buf.char_to_line(s);
+                let col = s.saturating_sub(buf.line_to_char(line)) + 1;
+                let matched = buf.slice(s, e);
+                let matched = matched.replace('\n', "\\n").replace('\r', "\\r");
+                lines_out.push(format!("{}:{col}:{matched}", line + 1));
+            }
+        }
+        let count = matches.len();
+        lines_out.push(String::new());
+        lines_out.push(format!("— {count} match(es)"));
+        let body = lines_out.join("\n");
+        self.status = if count == 0 {
+            "Find All: no match".into()
+        } else {
+            format!("Find All: {count} match(es)")
+        };
+        Some((body, count))
+    }
+
     /// Copy every Find match substring under Case/Word/Re/Sel, newline-joined.
     /// Returns the clipboard payload (`Some("")` when empty / no match), or `None`
     /// when regex is invalid.
@@ -4517,6 +4584,42 @@ mod tests {
         assert_eq!(state.tabs.active().buffer.to_string(), "c99\nd");
         assert!(state.status.contains("Deleted 2 matching"));
         assert_eq!(state.find_scope, Some((0, 0)));
+    }
+
+    #[test]
+    fn find_all_current_report_respects_case_word() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer =
+            buffer::TextBuffer::from_str("Foo food\nfoo\nFOO bar\nfoo");
+        state.tabs.active_mut().title = "sample.txt".into();
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = true;
+        let (body, n) = state.find_all_current_report().unwrap();
+        assert_eq!(n, 2);
+        assert!(body.contains("Find All: \"foo\" · case+word"));
+        assert!(body.contains("Document: sample.txt"));
+        assert!(body.contains("2:1:foo"));
+        assert!(body.contains("4:1:foo"));
+        assert!(!body.contains("Foo"));
+        assert!(state.status.contains("Find All: 2 match"));
+    }
+
+    #[test]
+    fn find_all_current_report_regex_and_sel_bounds() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("a12\nb3\nc99\nd");
+        state.find_query = r"\d+".into();
+        state.settings.find_regex = true;
+        state.settings.find_in_selection = true;
+        state.find_scope = Some((0, 7)); // a12\nb3\n
+        let (body, n) = state.find_all_current_report().unwrap();
+        assert_eq!(n, 2);
+        assert!(body.contains("re+sel"));
+        assert!(body.contains("1:2:12"));
+        assert!(body.contains("2:2:3"));
+        assert!(!body.contains("99"));
+        assert!(state.status.contains("Find All: 2 match"));
     }
 
     #[test]

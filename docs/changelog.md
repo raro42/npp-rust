@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.309] — 2026-10-15
+
+Search:
+
+- **Find All (current document)** — Find bar **All** opens (or refreshes) a read-only **Find Results** tab listing every match as `line:col:text` (Case / Word / Re / Sel; same engine as Find Next). Search → Search Results Window runs the same. Re-running while on the results tab searches the previous editor tab.
+
 ## [0.3.308] — 2026-10-15
 
 Search:

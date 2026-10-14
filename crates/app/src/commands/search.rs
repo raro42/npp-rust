@@ -66,10 +66,14 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.follow_caret = true;
             CmdResult::Handled
         }
-        "IDM_SEARCH_FINDINCREMENT" | "IDM_FOCUS_ON_FOUND_RESULTS" => {
+        "IDM_SEARCH_FINDINCREMENT" => {
             ui.find_open = true;
             ui.show_replace = false;
             ui.find_focus_once = true;
+            CmdResult::Handled
+        }
+        "IDM_FOCUS_ON_FOUND_RESULTS" => {
+            find_all_current(state, ui);
             CmdResult::Handled
         }
         "IDM_SEARCH_GOTOMATCHINGBRACE" => {
@@ -584,6 +588,87 @@ fn find_char_in_range(state: &mut EditorState, ui: &mut UiFlags) {
     } else {
         state.status = format!("Char range {lo}-{hi}: no match");
     }
+}
+
+const FIND_RESULTS_TITLE: &str = "Find Results";
+
+fn is_find_results_tab(title: &str) -> bool {
+    title == FIND_RESULTS_TITLE || title == "Find in Files"
+}
+
+/// Prefer the active editor tab; if already on a results tab, use the previous non-results tab.
+fn find_all_source_index(state: &EditorState) -> usize {
+    let active = state.tabs.active_index();
+    if !is_find_results_tab(&state.tabs.active().title) {
+        return active;
+    }
+    if active > 0 {
+        let prev = active - 1;
+        if let Some(doc) = state.tabs.get(prev) {
+            if !is_find_results_tab(&doc.title) {
+                return prev;
+            }
+        }
+    }
+    state
+        .tabs
+        .iter()
+        .enumerate()
+        .find(|(_, d)| !is_find_results_tab(&d.title))
+        .map(|(i, _)| i)
+        .unwrap_or(active)
+}
+
+/// Find All in the active document (Case/Word/Re/Sel); open or refresh Find Results tab.
+fn find_all_current(state: &mut EditorState, ui: &mut UiFlags) {
+    let source = find_all_source_index(state);
+    let saved = state.tabs.active_index();
+    if source != saved {
+        state.tabs.set_active(source);
+    }
+    let Some((body, _count)) = state.find_all_current_report() else {
+        if source != saved && saved < state.tabs.len() {
+            state.tabs.set_active(saved);
+        }
+        return;
+    };
+    if body.is_empty() {
+        if source != saved && saved < state.tabs.len() {
+            state.tabs.set_active(saved);
+        }
+        ui.find_open = true;
+        ui.show_replace = false;
+        ui.find_focus_once = true;
+        return;
+    }
+    let existing = state
+        .tabs
+        .iter()
+        .enumerate()
+        .find(|(_, d)| d.title == FIND_RESULTS_TITLE && d.read_only && d.path.is_none())
+        .map(|(i, _)| i);
+    if let Some(i) = existing {
+        state.tabs.set_active(i);
+        {
+            let doc = state.tabs.active_mut();
+            doc.buffer = buffer::TextBuffer::from_str(&body);
+            doc.read_only = true;
+            doc.dirty = false;
+            doc.language = "plain".into();
+        }
+    } else {
+        state.tabs.open_untitled();
+        {
+            let doc = state.tabs.active_mut();
+            doc.title = FIND_RESULTS_TITLE.into();
+            doc.buffer = buffer::TextBuffer::from_str(&body);
+            doc.dirty = false;
+            doc.language = "plain".into();
+            doc.read_only = true;
+        }
+    }
+    state.highlight_dirty = true;
+    state.reset_view = true;
 }
 
 /// Scan workspace root recursively for `find_query`; write hits into a results tab.
