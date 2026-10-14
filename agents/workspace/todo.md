@@ -1,3 +1,4 @@
+009 keep: remappable Mark Style 5 / Clear Style 5 (shortcut_mark_style_5, Cmd+5 default, Shift=clear, v0.3.287)
 009 keep: remappable Mark Style 4 / Clear Style 4 (shortcut_mark_style_4, Cmd+4 default, Shift=clear, v0.3.286)
 009 keep: remappable Mark Style 3 / Clear Style 3 (shortcut_mark_style_3, Cmd+3 default, Shift=clear, v0.3.285)
 009 keep: remappable Mark Style 2 / Clear Style 2 (shortcut_mark_style_2, Cmd+2 default, Shift=clear, v0.3.284)
