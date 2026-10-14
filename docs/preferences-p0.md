@@ -176,4 +176,4 @@ Saved on quit when restore is on. Menu Save/Load Session uses the same file.
 
 ## Find
 
-Bar shows Case / Word / Sel / Wrap / Re toggles and live match count. **Mark** styles matching lines (Style 1); **Bookmark** bookmarks matching lines (keeps existing). Opening Find with a multi-line selection arms Sel. Next/Prev status is `n/total`. Wrap off reports passed end/beginning of file or selection. Re uses a linear-time regex engine. With Re on, Replace expands `$n` / `${n}` / `$&` / `$$` and `\1` (also `\n` `\t` `\r`).
+Bar shows Case / Word / Sel / Wrap / Re toggles and live match count. **Mark** styles matching lines (Style 1); **Bookmark** bookmarks matching lines (keeps existing); **Copy** / **Cut** put matching substrings on the clipboard (Cut also deletes them). Opening Find with a multi-line selection arms Sel. Next/Prev status is `n/total`. Wrap off reports passed end/beginning of file or selection. Re uses a linear-time regex engine. With Re on, Replace expands `$n` / `${n}` / `$&` / `$$` and `\1` (also `\n` `\t` `\r`).

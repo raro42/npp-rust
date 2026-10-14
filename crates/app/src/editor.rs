@@ -1942,6 +1942,54 @@ impl EditorState {
         Some(joined)
     }
 
+    /// Cut every Find match substring under Case/Word/Re/Sel: clipboard payload plus
+    /// delete matches (one document replace). Returns the clipboard text
+    /// (`Some("")` when empty / no match / read-only), or `None` when regex is invalid.
+    pub fn cut_find_matches(&mut self) -> Option<String> {
+        if !self.ensure_editable() {
+            return Some(String::new());
+        }
+        let q = self.find_query.clone();
+        if q.is_empty() {
+            self.status = "Cut matches: set Find text".into();
+            return Some(String::new());
+        }
+        if self.find_regex_blocked() {
+            return None;
+        }
+        self.capture_find_scope();
+        let flags = self.find_flags();
+        let (lo, hi) = self.find_bounds();
+        let text = self.tabs.active().buffer.to_string();
+        let matches = crate::search_util::find_all_matches_in(&text, &q, lo, hi, flags);
+        if matches.is_empty() {
+            self.status = "Cut matches: no match".into();
+            return Some(String::new());
+        }
+        let buf = &self.tabs.active().buffer;
+        let mut parts = Vec::with_capacity(matches.len());
+        let mut touched = std::collections::BTreeSet::new();
+        for &(s, e) in &matches {
+            parts.push(buf.slice(s, e));
+            touched.insert(buf.char_to_line(s));
+        }
+        let joined = parts.join("\n");
+        let count = matches.len();
+        let (new_text, replaced, new_hi) =
+            crate::search_util::replace_all_in(&text, &q, "", lo, hi, flags);
+        debug_assert_eq!(replaced, count);
+        self.tabs.active_mut().buffer.replace_document(&new_text);
+        if self.settings.find_in_selection {
+            self.find_scope = Some((lo, new_hi));
+        }
+        for line in touched {
+            self.tabs.active_mut().note_line_changed(line);
+        }
+        self.mark_text_changed();
+        self.status = format!("Cut {count} match(es)");
+        Some(joined)
+    }
+
     /// Find hits for Document Map: `(total_matches, first_span_per_line)`.
     ///
     /// Uses the active tab's Find bounds when `tab` is active; otherwise the whole
@@ -4072,6 +4120,38 @@ mod tests {
         let text = state.copy_find_matches().unwrap();
         assert_eq!(text, "12\n3");
         assert!(state.status.contains("Copied 2"));
+    }
+
+    #[test]
+    fn cut_find_matches_respects_case_word() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer =
+            buffer::TextBuffer::from_str("Foo food\nfoo\nFOO bar\nfoo");
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = true;
+        let text = state.cut_find_matches().unwrap();
+        assert_eq!(text, "foo\nfoo");
+        assert_eq!(
+            state.tabs.active().buffer.to_string(),
+            "Foo food\n\nFOO bar\n"
+        );
+        assert!(state.status.contains("Cut 2"));
+    }
+
+    #[test]
+    fn cut_find_matches_regex_and_sel_bounds() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("a12\nb3\nc99\nd");
+        state.find_query = r"\d+".into();
+        state.settings.find_regex = true;
+        state.settings.find_in_selection = true;
+        state.find_scope = Some((0, 7)); // a12\nb3\n
+        let text = state.cut_find_matches().unwrap();
+        assert_eq!(text, "12\n3");
+        assert_eq!(state.tabs.active().buffer.to_string(), "a\nb\nc99\nd");
+        assert!(state.status.contains("Cut 2"));
+        assert_eq!(state.find_scope, Some((0, 4))); // a\nb\n
     }
 
     #[test]

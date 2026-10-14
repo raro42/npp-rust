@@ -472,4 +472,5 @@
 009 keep: remappable Copy/Cut Bookmarked Lines (shortcut_copy_marked_lines, Cmd+Alt+F2 default, Shift=cut, v0.3.298)
 009 keep: Find-bar Mark + Style All honors Case/Word/Re/Sel (v0.3.301)
 009 keep: Find-bar Copy matching substrings (Case/Word/Re/Sel, v0.3.303)
+009 keep: Find-bar Cut matching substrings (Case/Word/Re/Sel, v0.3.304)
 

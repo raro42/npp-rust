@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.304] — 2026-10-14
+
+Search:
+
+- **Find Cut matches** — Find bar **Cut** copies every matching substring to the clipboard and deletes those matches (Case / Word / Re / Sel; same engine as Find Next / Replace All), newline-joined. Distinct from Cut Bookmarked Lines (whole lines).
+
 ## [0.3.303] — 2026-10-14
 
 Search:
