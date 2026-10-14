@@ -262,8 +262,15 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         }
         "IDM_SEARCH_MARK" => {
             ui.find_open = true;
+            ui.show_replace = false;
             ui.find_focus_once = true;
-            state.status = "Mark: find then use Style All Occurrences".into();
+            state.prepare_find_bar_from_selection();
+            if state.find_query.is_empty() {
+                state.status =
+                    "Mark: set Find text, then Mark (Style 1) or Style All Occurrences".into();
+            } else {
+                state.mark_all_style(1, true);
+            }
             CmdResult::Handled
         }
         "IDM_SEARCH_CHANGED_NEXT" => {
@@ -428,34 +435,8 @@ fn mark_all_token(state: &mut EditorState, style: Option<u8>, _one: bool) {
         state.status = "Bad style id".into();
         return;
     };
-    let token = if let Some((s, e)) = state.tabs.active().buffer.selection() {
-        state.tabs.active().buffer.slice(s, e)
-    } else if !state.find_query.is_empty() {
-        state.find_query.clone()
-    } else {
-        state.status = "Style all: select a token or set Find text".into();
-        return;
-    };
-    if token.is_empty() {
-        state.status = "Style all: empty token".into();
-        return;
-    }
-    let text = state.tabs.active().buffer.to_string();
-    let mut count = 0usize;
-    {
-        let slot = match style_slot(state, Some(style)) {
-            Some(s) => s,
-            None => return,
-        };
-        slot.clear();
-        for (i, line) in text.lines().enumerate() {
-            if line.contains(&token) {
-                slot.insert(i);
-                count += 1;
-            }
-        }
-    }
-    state.status = format!("Styled {count} line(s) with style {style}");
+    // Selection token (literal + Case/Word) or Find query (Case/Word/Re + Sel).
+    state.mark_all_style(style, false);
 }
 
 fn jump_marks(

@@ -16413,6 +16413,15 @@ impl EditorApp {
                 } else {
                     ui.label(format!("{n} match{}", if n == 1 { "" } else { "es" }));
                 }
+                if ui
+                    .button("Mark")
+                    .on_hover_text(
+                        "Style all matching lines with Style 1 (uses Case / Word / Re / Sel)",
+                    )
+                    .clicked()
+                {
+                    self.state.mark_all_style(1, true);
+                }
                 if self.show_replace {
                     ui.separator();
                     ui.label("Replace:");

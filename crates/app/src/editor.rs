@@ -1799,6 +1799,78 @@ impl EditorState {
         crate::search_util::find_all_matches_in(&text, q, lo, hi, self.find_flags()).len()
     }
 
+    /// Style every line that has a match under `flags` in `[lo, hi)`. Clears that style slot first.
+    /// Returns marked line count, or `None` when the style id is bad or regex is invalid.
+    pub fn mark_style_matches(
+        &mut self,
+        style: u8,
+        query: &str,
+        flags: crate::search_util::FindFlags,
+        lo: usize,
+        hi: usize,
+    ) -> Option<usize> {
+        if !(1..=5).contains(&style) {
+            self.status = "Bad style id".into();
+            return None;
+        }
+        if query.is_empty() {
+            self.status = "Style all: empty token".into();
+            return Some(0);
+        }
+        if flags.use_regex
+            && crate::search_util::find_regex_error(query, flags.match_case).is_some()
+        {
+            self.status = "Find: invalid regex".into();
+            return None;
+        }
+        let text = self.tabs.active().buffer.to_string();
+        let matches = crate::search_util::find_all_matches_in(&text, query, lo, hi, flags);
+        let mut lines = std::collections::BTreeSet::new();
+        {
+            let buf = &self.tabs.active().buffer;
+            for (start, _) in &matches {
+                lines.insert(buf.char_to_line(*start));
+            }
+        }
+        let count = lines.len();
+        self.tabs.active_mut().style_marks[(style as usize) - 1] = lines;
+        self.status = format!("Styled {count} line(s) with style {style}");
+        Some(count)
+    }
+
+    /// Mark All Style *N*: selection token (literal + Case/Word, whole file) or Find query
+    /// (Case/Word/Re + Sel bounds). `prefer_find_query` skips a non-empty selection (Find bar Mark).
+    pub fn mark_all_style(&mut self, style: u8, prefer_find_query: bool) {
+        let from_sel = if prefer_find_query {
+            None
+        } else {
+            self.tabs
+                .active()
+                .buffer
+                .selection()
+                .filter(|(s, e)| *e > *s)
+        };
+        if let Some((s, e)) = from_sel {
+            let token = self.tabs.active().buffer.slice(s, e);
+            let n = self.tabs.active().buffer.len_chars();
+            let flags = crate::search_util::FindFlags {
+                match_case: self.settings.find_match_case,
+                whole_word: self.settings.find_whole_word,
+                use_regex: false,
+            };
+            let _ = self.mark_style_matches(style, &token, flags, 0, n);
+            return;
+        }
+        let q = self.find_query.clone();
+        if q.is_empty() {
+            self.status = "Style all: select a token or set Find text".into();
+            return;
+        }
+        let (lo, hi) = self.find_bounds();
+        let flags = self.find_flags();
+        let _ = self.mark_style_matches(style, &q, flags, lo, hi);
+    }
+
     /// Find hits for Document Map: `(total_matches, first_span_per_line)`.
     ///
     /// Uses the active tab's Find bounds when `tab` is active; otherwise the whole
@@ -3833,6 +3905,44 @@ mod tests {
         state.find_query = "foo".into();
         state.settings.find_in_selection = true;
         assert_eq!(state.find_match_count(), 0);
+    }
+
+    #[test]
+    fn mark_all_style_respects_case_and_word() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("Foo food\nfoo\nFOO bar");
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = true;
+        state.mark_all_style(1, true);
+        let marks = &state.tabs.active().style_marks[0];
+        assert_eq!(marks.iter().copied().collect::<Vec<_>>(), vec![1]);
+        assert!(state.status.contains("Styled 1 line"));
+    }
+
+    #[test]
+    fn mark_all_style_regex_and_sel_bounds() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("a12\nb3\nc99\nd");
+        state.find_query = r"\d+".into();
+        state.settings.find_regex = true;
+        state.settings.find_in_selection = true;
+        // Select first two lines only (a12\nb3\n).
+        state.find_scope = Some((0, 7));
+        state.mark_all_style(2, true);
+        let marks = &state.tabs.active().style_marks[1];
+        assert_eq!(marks.iter().copied().collect::<Vec<_>>(), vec![0, 1]);
+    }
+
+    #[test]
+    fn mark_all_style_selection_token_skips_find_query() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("alpha\nbeta alpha\ngamma");
+        state.find_query = "gamma".into();
+        state.tabs.active_mut().buffer.set_selection(0, 5); // alpha
+        state.mark_all_style(1, false);
+        let marks = &state.tabs.active().style_marks[0];
+        assert_eq!(marks.iter().copied().collect::<Vec<_>>(), vec![0, 1]);
     }
 
     #[test]

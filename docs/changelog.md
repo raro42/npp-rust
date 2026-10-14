@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.301] — 2026-10-14
+
+Search:
+
+- **Find Mark All** respects Case / Word / Re / Sel (same engine as Find Next). Find bar **Mark** styles matching lines with Style 1. Search → Mark runs the same when Find text is set. Style All Occurrences (Ctrl/Cmd+1…5) uses a selection token as a literal (Case/Word) or the Find query with full flags when nothing is selected.
+
 ## [0.3.300] — 2026-10-14
 
 Settings / shortcuts:
