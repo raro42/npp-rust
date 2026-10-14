@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.300] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Space to TAB (All)** is remappable: Preferences → Space to TAB (All) shortcut, or `shortcut_space_to_tab_all` in `npp-rs/settings.json` (default `Cmd+Alt+X`). Runs Edit → Space to TAB (All) (every four spaces → one tab). Does not collide with Expand Unchanged at Caret (`Alt+X`) or TAB to Space (`Cmd+Alt+V`). Menu, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.299] — 2026-10-14
 
 Settings / shortcuts:

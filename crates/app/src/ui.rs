@@ -5142,6 +5142,43 @@ impl EditorApp {
             }
         }
 
+        // Remappable Space → TAB (All) (default Cmd+Alt+X; settings.shortcut_space_to_tab_all).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SPACE_TO_TAB_ALL};
+            let space_tab_chord = resolve_chord(
+                &self.state.settings.shortcut_space_to_tab_all,
+                DEFAULT_SPACE_TO_TAB_ALL,
+            );
+            let space_tab_key_pressed = match space_tab_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if space_tab_key_pressed && space_tab_chord.matches(mods, space_tab_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_SW2TAB_ALL");
+            }
+        }
+
         // Remappable next tab (default Cmd+Tab; settings.shortcut_next_tab). Shift flips to prev.
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_NEXT_TAB};
@@ -7656,6 +7693,10 @@ impl EditorApp {
                 &s.shortcut_tab_to_space,
                 crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
             ),
+            "IDM_EDIT_SW2TAB_ALL" => primary(
+                &s.shortcut_space_to_tab_all,
+                crate::shortcut_chord::DEFAULT_SPACE_TO_TAB_ALL,
+            ),
             "IDM_VIEW_TAB_NEXT" => primary(
                 &s.shortcut_next_tab,
                 crate::shortcut_chord::DEFAULT_NEXT_TAB,
@@ -8904,6 +8945,11 @@ impl EditorApp {
             tab_to_space_chord.display(),
             tab_to_space_chord.flipped_shift().display()
         );
+        let space_to_tab_all_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_space_to_tab_all,
+            crate::shortcut_chord::DEFAULT_SPACE_TO_TAB_ALL,
+        )
+        .display();
         let next_tab_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_next_tab,
             crate::shortcut_chord::DEFAULT_NEXT_TAB,
@@ -9226,7 +9272,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 126] = [
+        let rows: [(&str, &str); 127] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9440,6 +9486,7 @@ impl EditorApp {
                 tab_to_space_keys.as_str(),
                 "TAB to Space / Space to TAB (Leading)",
             ),
+            (space_to_tab_all_keys.as_str(), "Space to TAB (All)"),
             (next_tab_keys.as_str(), "Next / prev tab"),
             (first_tab_keys.as_str(), "First / last tab"),
             (
@@ -12604,7 +12651,43 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: Cmd+Alt+V, Ctrl+Alt+V. Runs Edit → TAB to Space (each tab → four spaces). Shift + that chord runs Space to TAB (Leading). Does not collide with Paste (Cmd+V), Show White Space (Alt+V), or Trim Trailing (Cmd+Alt+T). Space to TAB (All) stays menu-only.",
+                                "Example: Cmd+Alt+V, Ctrl+Alt+V. Runs Edit → TAB to Space (each tab → four spaces). Shift + that chord runs Space to TAB (Leading). Does not collide with Paste (Cmd+V), Show White Space (Alt+V), or Trim Trailing (Cmd+Alt+T). Space to TAB (All) has its own remappable chord below.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Space to TAB (All) shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_space_to_tab_all,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+X"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_space_to_tab_all
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_space_to_tab_all =
+                                        crate::shortcut_chord::DEFAULT_SPACE_TO_TAB_ALL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SPACE_TO_TAB_ALL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_space_to_tab_all = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+X, Ctrl+Alt+X. Runs Edit → Space to TAB (All) (every four spaces → one tab). Does not collide with Expand Unchanged at Caret (Alt+X) or TAB to Space (Cmd+Alt+V).",
                             )
                             .small()
                             .weak(),

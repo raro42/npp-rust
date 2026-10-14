@@ -517,6 +517,11 @@ pub const DEFAULT_OPEN_WORKSPACE: &str = "Cmd+Alt+G";
 /// or Trim Trailing (Cmd+Alt+T). Shift flips to Space to TAB (Leading).
 pub const DEFAULT_TAB_TO_SPACE: &str = "Cmd+Alt+V";
 
+/// Default Space → TAB (All) binding (Edit → Space to TAB (All)).
+/// Uses Cmd+Alt+X so it does not collide with Expand Unchanged at Caret (Alt+X),
+/// TAB to Space (Cmd+Alt+V), or Close All but Pinned (Cmd+Alt+H).
+pub const DEFAULT_SPACE_TO_TAB_ALL: &str = "Cmd+Alt+X";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyChord {
     pub ctrl_or_cmd: bool,
@@ -1386,6 +1391,16 @@ mod tests {
         assert_eq!(c.key, Key::V);
         assert_eq!(c.display(), "Cmd+Alt+V");
         assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+V");
+    }
+
+    #[test]
+    fn parse_cmd_alt_x_default_space_to_tab_all() {
+        let c = parse_chord(DEFAULT_SPACE_TO_TAB_ALL).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::X);
+        assert_eq!(c.display(), "Cmd+Alt+X");
     }
 
     #[test]

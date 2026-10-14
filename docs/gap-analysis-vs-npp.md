@@ -106,6 +106,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+Shift+PageDown (remappable) | Move tab forward (`shortcut_move_tab`; opposite PageUp = backward) |
 | Cmd/Ctrl+Alt+Home (remappable) | First tab (`shortcut_first_tab`; opposite End = last) |
 | Cmd/Ctrl+Alt+V (remappable) | TAB to Space (`shortcut_tab_to_space`; Shift = Space to TAB Leading) |
+| Cmd/Ctrl+Alt+X (remappable) | Space to TAB (All) (`shortcut_space_to_tab_all`) |
 | Alt+Shift+arrows (remappable `shortcut_rect_select`) | Start / extend rectangular column select (virtual cols ok) |
 
 Missing vs typical Notepad++ (examples, not exhaustive):

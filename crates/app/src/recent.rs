@@ -240,6 +240,10 @@ fn default_shortcut_tab_to_space() -> String {
     crate::shortcut_chord::DEFAULT_TAB_TO_SPACE.into()
 }
 
+fn default_shortcut_space_to_tab_all() -> String {
+    crate::shortcut_chord::DEFAULT_SPACE_TO_TAB_ALL.into()
+}
+
 fn default_shortcut_blank_line() -> String {
     crate::shortcut_chord::DEFAULT_BLANK_LINE.into()
 }
@@ -1153,6 +1157,9 @@ pub struct AppSettings {
     /// TAB → Space chord (`Cmd+Alt+V` default; Shift flips to Space → TAB leading).
     #[serde(default = "default_shortcut_tab_to_space")]
     pub shortcut_tab_to_space: String,
+    /// Space → TAB (All) chord (`Cmd+Alt+X` default).
+    #[serde(default = "default_shortcut_space_to_tab_all")]
+    pub shortcut_space_to_tab_all: String,
     /// Find in Files chord (`Cmd+Alt+F` default).
     #[serde(default = "default_shortcut_find_in_files")]
     pub shortcut_find_in_files: String,
@@ -1345,6 +1352,7 @@ impl Default for AppSettings {
             shortcut_open_folder: default_shortcut_open_folder(),
             shortcut_open_workspace: default_shortcut_open_workspace(),
             shortcut_tab_to_space: default_shortcut_tab_to_space(),
+            shortcut_space_to_tab_all: default_shortcut_space_to_tab_all(),
             shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             ollama_host: default_ollama_host(),
@@ -1818,6 +1826,7 @@ mod tests {
             shortcut_open_folder: "Ctrl+Alt+Shift+L".into(),
             shortcut_open_workspace: "Ctrl+Alt+Shift+G".into(),
             shortcut_tab_to_space: "Ctrl+Alt+V".into(),
+            shortcut_space_to_tab_all: "Ctrl+Alt+X".into(),
             shortcut_find_in_files: "Alt+Shift+F".into(),
             ..Default::default()
         };
@@ -1974,6 +1983,7 @@ mod tests {
         assert_eq!(back.shortcut_open_folder, "Ctrl+Alt+Shift+L");
         assert_eq!(back.shortcut_open_workspace, "Ctrl+Alt+Shift+G");
         assert_eq!(back.shortcut_tab_to_space, "Ctrl+Alt+V");
+        assert_eq!(back.shortcut_space_to_tab_all, "Ctrl+Alt+X");
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
     }
 
