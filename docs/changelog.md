@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.292] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Fold level 1…8** is remappable: Preferences → Fold level shortcut, or `shortcut_fold_level` in `npp-rs/settings.json` (default `Alt+1`). Digit-family chords accept `1`…`8` with those modifiers (fold that indent level). **Shift** flips to Unfold Level. `Alt+0` stays Fold All. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.291] — 2026-10-14
 
 Settings / shortcuts:

@@ -92,6 +92,7 @@ New keys:
 | `shortcut_tab_indent` | Tab indent chord (`Tab` default; inserts spaces at caret / multi-carets) |
 | `shortcut_shift_tab_outdent` | Shift+Tab outdent chord (`Shift+Tab` default; alternate to `shortcut_outdent`) |
 | `shortcut_fold_all` | Fold-all chord (`Alt+0` default; Shift flips to Unfold All) |
+| `shortcut_fold_level` | Fold-level chord (`Alt+1` default; digit-family `1`…`8`; Shift flips to Unfold Level) |
 | `shortcut_fold_current` | Fold-current chord (`Alt+F` default; Shift flips to Unfold Current) |
 | `shortcut_matching_brace` | Matching-brace chord (`Cmd+B` default; Shift flips to Select matching braces) |
 | `shortcut_move_line` | Move-line-up chord (`Cmd+Shift+Up` default; opposite Down moves down; letter remaps use Shift for down) |

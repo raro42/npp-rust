@@ -1,3 +1,4 @@
+009 keep: remappable Fold Level 1…8 (shortcut_fold_level, Alt+1 default, digit-family 1…8, Shift=unfold, v0.3.292)
 009 keep: remappable rect column select (shortcut_rect_select, Alt+Shift+Left default, arrow-family any arrow, v0.3.291)
 009 keep: remappable Zoom Sync (shortcut_zoom_sync, Alt+Shift+Z default, v0.3.290)
 009 keep: remappable Inverse Bookmarks (shortcut_inverse_bookmarks, Alt+Shift+F2 default, v0.3.289)

@@ -3597,6 +3597,61 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_FOLD_CURRENT");
             }
         }
+        // Remappable fold level 1…8 (default Alt+1; settings.shortcut_fold_level).
+        // Digit-family: Alt+1…8 folds that level; Shift unfolds. Letter remaps: level 1 only.
+        {
+            use crate::shortcut_chord::{resolve_chord, KeyChord, DEFAULT_FOLD_LEVEL};
+            let fold_chord =
+                resolve_chord(&self.state.settings.shortcut_fold_level, DEFAULT_FOLD_LEVEL);
+            let digit_family = KeyChord::fold_level_of_key(fold_chord.key).is_some();
+            let try_key = |key: Key| {
+                ctx.input(|i| i.key_pressed(key))
+                    .then(|| fold_chord.fold_level_action(mods, key))
+                    .flatten()
+            };
+            let action = if digit_family {
+                (1usize..=8).find_map(|level| KeyChord::key_for_fold_level(level).and_then(try_key))
+            } else {
+                let letter_key_pressed = match fold_chord.key {
+                    Key::Z => z,
+                    Key::N => n,
+                    Key::O => o,
+                    Key::S => s,
+                    Key::F => f,
+                    Key::Y => y,
+                    Key::W => w,
+                    Key::G => g,
+                    Key::A => a,
+                    Key::D => d,
+                    Key::L => l,
+                    Key::I => i_key,
+                    Key::T => t,
+                    Key::H => h,
+                    Key::F2 => f2,
+                    Key::F3 => f3,
+                    Key::F7 => f7,
+                    Key::Equals => equals,
+                    Key::Minus => minus,
+                    Key::Num0 => num0,
+                    Key::CloseBracket => close_br,
+                    Key::OpenBracket => open_br,
+                    other => ctx.input(|i| i.key_pressed(other)),
+                };
+                if letter_key_pressed {
+                    fold_chord.fold_level_action(mods, fold_chord.key)
+                } else {
+                    None
+                }
+            };
+            if let Some((level, fold)) = action {
+                let cmd = if fold {
+                    format!("IDM_VIEW_FOLD_{level}")
+                } else {
+                    format!("IDM_VIEW_UNFOLD_{level}")
+                };
+                self.run_shortcut_cmd(&cmd);
+            }
+        }
         // Remappable matching brace (default Cmd+B; settings.shortcut_matching_brace).
         // Shift + same chord selects the brace pair.
         {
@@ -7677,6 +7732,25 @@ impl EditorApp {
                 &s.shortcut_fold_current,
                 crate::shortcut_chord::DEFAULT_FOLD_CURRENT,
             ),
+            "IDM_VIEW_FOLD_1" | "IDM_VIEW_FOLD_2" | "IDM_VIEW_FOLD_3" | "IDM_VIEW_FOLD_4"
+            | "IDM_VIEW_FOLD_5" | "IDM_VIEW_FOLD_6" | "IDM_VIEW_FOLD_7" | "IDM_VIEW_FOLD_8" => {
+                let level = cmd.chars().last().and_then(|c| c.to_digit(10)).unwrap_or(1) as usize;
+                return crate::shortcut_chord::resolve_chord(
+                    &s.shortcut_fold_level,
+                    crate::shortcut_chord::DEFAULT_FOLD_LEVEL,
+                )
+                .fold_level_display_for(level, false);
+            }
+            "IDM_VIEW_UNFOLD_1" | "IDM_VIEW_UNFOLD_2" | "IDM_VIEW_UNFOLD_3"
+            | "IDM_VIEW_UNFOLD_4" | "IDM_VIEW_UNFOLD_5" | "IDM_VIEW_UNFOLD_6"
+            | "IDM_VIEW_UNFOLD_7" | "IDM_VIEW_UNFOLD_8" => {
+                let level = cmd.chars().last().and_then(|c| c.to_digit(10)).unwrap_or(1) as usize;
+                return crate::shortcut_chord::resolve_chord(
+                    &s.shortcut_fold_level,
+                    crate::shortcut_chord::DEFAULT_FOLD_LEVEL,
+                )
+                .fold_level_display_for(level, true);
+            }
             "IDM_VIEW_COMPARE" => {
                 primary(&s.shortcut_compare, crate::shortcut_chord::DEFAULT_COMPARE)
             }
@@ -8230,6 +8304,11 @@ impl EditorApp {
             fold_all_chord.display(),
             fold_all_chord.flipped_shift().display()
         );
+        let fold_level_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_fold_level,
+            crate::shortcut_chord::DEFAULT_FOLD_LEVEL,
+        );
+        let fold_level_keys = format!("{} (Shift = unfold)", fold_level_chord.fold_level_display());
         let fold_current_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_fold_current,
             crate::shortcut_chord::DEFAULT_FOLD_CURRENT,
@@ -8793,7 +8872,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 118] = [
+        let rows: [(&str, &str); 119] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -8937,6 +9016,7 @@ impl EditorApp {
             (indent_outdent_keys.as_str(), "Indent / Outdent"),
             (format_keys.as_str(), "Format document"),
             (fold_all_keys.as_str(), "Fold / Unfold all"),
+            (fold_level_keys.as_str(), "Fold / Unfold level 1…8"),
             (fold_current_keys.as_str(), "Fold / Unfold current"),
             (matching_brace_keys.as_str(), "Matching brace / Select pair"),
             (log_tail_keys.as_str(), "Toggle log tail"),
@@ -10833,6 +10913,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+0, Ctrl+Alt+0. Shift flips to Unfold All.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Fold level shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_fold_level,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+1"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_fold_level
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_fold_level =
+                                        crate::shortcut_chord::DEFAULT_FOLD_LEVEL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FOLD_LEVEL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_fold_level = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+1, Ctrl+Alt+1. Digit-family chords accept 1…8 with those modifiers (fold that level). Shift flips to Unfold Level. Alt+0 stays Fold All.",
                             )
                             .small()
                             .weak(),

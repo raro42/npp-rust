@@ -388,6 +388,10 @@ fn default_shortcut_fold_all() -> String {
     crate::shortcut_chord::DEFAULT_FOLD_ALL.into()
 }
 
+fn default_shortcut_fold_level() -> String {
+    crate::shortcut_chord::DEFAULT_FOLD_LEVEL.into()
+}
+
 fn default_shortcut_fold_current() -> String {
     crate::shortcut_chord::DEFAULT_FOLD_CURRENT.into()
 }
@@ -890,6 +894,9 @@ pub struct AppSettings {
     /// Fold-all chord (`Alt+0` default; Shift flips to Unfold All).
     #[serde(default = "default_shortcut_fold_all")]
     pub shortcut_fold_all: String,
+    /// Fold-level chord (`Alt+1` default; digit-family `1`…`8`; Shift flips to Unfold Level).
+    #[serde(default = "default_shortcut_fold_level")]
+    pub shortcut_fold_level: String,
     /// Fold-current chord (`Alt+F` default; Shift flips to Unfold Current).
     #[serde(default = "default_shortcut_fold_current")]
     pub shortcut_fold_current: String,
@@ -1216,6 +1223,7 @@ impl Default for AppSettings {
             shortcut_tab_indent: default_shortcut_tab_indent(),
             shortcut_shift_tab_outdent: default_shortcut_shift_tab_outdent(),
             shortcut_fold_all: default_shortcut_fold_all(),
+            shortcut_fold_level: default_shortcut_fold_level(),
             shortcut_fold_current: default_shortcut_fold_current(),
             shortcut_matching_brace: default_shortcut_matching_brace(),
             shortcut_move_line: default_shortcut_move_line(),
@@ -1681,6 +1689,7 @@ mod tests {
             shortcut_tab_indent: "Ctrl+I".into(),
             shortcut_shift_tab_outdent: "Ctrl+Shift+Tab".into(),
             shortcut_fold_all: "Ctrl+Alt+0".into(),
+            shortcut_fold_level: "Ctrl+Alt+1".into(),
             shortcut_fold_current: "Ctrl+Alt+F".into(),
             shortcut_matching_brace: "Ctrl+Alt+B".into(),
             shortcut_move_line: "Ctrl+Alt+Up".into(),
@@ -1829,6 +1838,7 @@ mod tests {
         assert_eq!(back.shortcut_tab_indent, "Ctrl+I");
         assert_eq!(back.shortcut_shift_tab_outdent, "Ctrl+Shift+Tab");
         assert_eq!(back.shortcut_fold_all, "Ctrl+Alt+0");
+        assert_eq!(back.shortcut_fold_level, "Ctrl+Alt+1");
         assert_eq!(back.shortcut_fold_current, "Ctrl+Alt+F");
         assert_eq!(back.shortcut_matching_brace, "Ctrl+Alt+B");
         assert_eq!(back.shortcut_move_line, "Ctrl+Alt+Up");

@@ -374,6 +374,11 @@ pub const DEFAULT_SHIFT_TAB_OUTDENT: &str = "Shift+Tab";
 /// Default fold-all binding (View → Fold All). Shift flips to Unfold All.
 pub const DEFAULT_FOLD_ALL: &str = "Alt+0";
 
+/// Default fold-level binding (View → Fold Level 1…8). Digit-family: same
+/// modifiers with `1`…`8` fold that level; Shift flips to Unfold Level.
+/// `Alt+0` stays Fold All (`shortcut_fold_all`).
+pub const DEFAULT_FOLD_LEVEL: &str = "Alt+1";
+
 /// Default fold-current binding (View → Fold Current). Shift flips to Unfold Current.
 pub const DEFAULT_FOLD_CURRENT: &str = "Alt+F";
 
@@ -563,6 +568,106 @@ impl KeyChord {
             parts.join("+")
         } else {
             format!("{} / {}", self.display(), self.char_right_chord().display())
+        }
+    }
+
+    /// Fold level digit `1`…`8` for [`Key::Num1`]…[`Key::Num8`].
+    pub fn fold_level_of_key(key: Key) -> Option<usize> {
+        match key {
+            Key::Num1 => Some(1),
+            Key::Num2 => Some(2),
+            Key::Num3 => Some(3),
+            Key::Num4 => Some(4),
+            Key::Num5 => Some(5),
+            Key::Num6 => Some(6),
+            Key::Num7 => Some(7),
+            Key::Num8 => Some(8),
+            _ => None,
+        }
+    }
+
+    /// Key for fold level `1`…`8`.
+    pub fn key_for_fold_level(level: usize) -> Option<Key> {
+        match level {
+            1 => Some(Key::Num1),
+            2 => Some(Key::Num2),
+            3 => Some(Key::Num3),
+            4 => Some(Key::Num4),
+            5 => Some(Key::Num5),
+            6 => Some(Key::Num6),
+            7 => Some(Key::Num7),
+            8 => Some(Key::Num8),
+            _ => None,
+        }
+    }
+
+    /// Fold / unfold level for remappable `shortcut_fold_level`.
+    ///
+    /// Returns `(level, fold)` where `fold` is true to fold and false to unfold.
+    /// Digit-family chords (base key `1`…`8`) accept any of those digits with
+    /// matching Ctrl/Cmd/Alt; Shift matching the base folds, flipped unfolds.
+    /// Letter remaps only drive level 1 (Shift flips to unfold).
+    pub fn fold_level_action(self, mods: Modifiers, pressed: Key) -> Option<(usize, bool)> {
+        let digit_family = Self::fold_level_of_key(self.key).is_some();
+        if digit_family {
+            let level = Self::fold_level_of_key(pressed)?;
+            let cmd = mods.command || mods.ctrl;
+            if cmd != self.ctrl_or_cmd || mods.alt != self.alt {
+                return None;
+            }
+            if mods.shift == self.shift {
+                Some((level, true))
+            } else {
+                Some((level, false))
+            }
+        } else if self.matches(mods, pressed) {
+            Some((1, true))
+        } else if self.flipped_shift().matches(mods, pressed) {
+            Some((1, false))
+        } else {
+            None
+        }
+    }
+
+    /// Human-readable fold-level binding for Shortcut Mapper / About.
+    pub fn fold_level_display(self) -> String {
+        if Self::fold_level_of_key(self.key).is_some() {
+            let mut parts = Vec::new();
+            if self.ctrl_or_cmd {
+                parts.push("Cmd");
+            }
+            if self.alt {
+                parts.push("Alt");
+            }
+            if self.shift {
+                parts.push("Shift");
+            }
+            parts.push("1…8");
+            parts.join("+")
+        } else {
+            format!("{} / {}", self.display(), self.flipped_shift().display())
+        }
+    }
+
+    /// Display for one fold/unfold level menu row (digit-family uses that digit).
+    pub fn fold_level_display_for(self, level: usize, unfold: bool) -> Option<String> {
+        let digit_family = Self::fold_level_of_key(self.key).is_some();
+        if digit_family {
+            let key = Self::key_for_fold_level(level)?;
+            let chord = Self {
+                key,
+                shift: if unfold { !self.shift } else { self.shift },
+                ..self
+            };
+            Some(chord.display())
+        } else if level == 1 {
+            Some(if unfold {
+                self.flipped_shift().display()
+            } else {
+                self.display()
+            })
+        } else {
+            None
         }
     }
 
@@ -781,6 +886,10 @@ fn parse_key(lower: &str) -> Option<Key> {
         "3" | "num3" | "digit3" => Some(Key::Num3),
         "4" | "num4" | "digit4" => Some(Key::Num4),
         "5" | "num5" | "digit5" => Some(Key::Num5),
+        "6" | "num6" | "digit6" => Some(Key::Num6),
+        "7" | "num7" | "digit7" => Some(Key::Num7),
+        "8" | "num8" | "digit8" => Some(Key::Num8),
+        "9" | "num9" | "digit9" => Some(Key::Num9),
         "]" | "closebracket" | "bracketright" => Some(Key::CloseBracket),
         "[" | "openbracket" | "bracketleft" => Some(Key::OpenBracket),
         "/" | "slash" => Some(Key::Slash),
@@ -845,6 +954,10 @@ fn key_token(key: Key) -> &'static str {
         Key::Num3 => "3",
         Key::Num4 => "4",
         Key::Num5 => "5",
+        Key::Num6 => "6",
+        Key::Num7 => "7",
+        Key::Num8 => "8",
+        Key::Num9 => "9",
         Key::CloseBracket => "]",
         Key::OpenBracket => "[",
         Key::Slash => "/",
@@ -1275,6 +1388,34 @@ mod tests {
         assert_eq!(
             c.rect_select_delta(Modifiers::default(), Key::ArrowLeft),
             None
+        );
+    }
+
+    #[test]
+    fn parse_alt_one_default_fold_level() {
+        let c = parse_chord(DEFAULT_FOLD_LEVEL).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Num1);
+        assert_eq!(c.fold_level_display(), "Alt+1…8");
+        let mods = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert_eq!(c.fold_level_action(mods, Key::Num1), Some((1, true)));
+        assert_eq!(c.fold_level_action(mods, Key::Num8), Some((8, true)));
+        let unfold = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert_eq!(c.fold_level_action(unfold, Key::Num3), Some((3, false)));
+        assert_eq!(c.fold_level_action(Modifiers::default(), Key::Num1), None);
+        assert_eq!(c.fold_level_display_for(4, false).as_deref(), Some("Alt+4"));
+        assert_eq!(
+            c.fold_level_display_for(4, true).as_deref(),
+            Some("Alt+Shift+4")
         );
     }
 
