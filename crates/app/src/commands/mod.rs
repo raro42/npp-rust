@@ -11,7 +11,7 @@ mod help;
 mod lang;
 mod macro_cmds;
 mod misc;
-mod search;
+pub(crate) mod search;
 mod view;
 
 use crate::editor::EditorState;

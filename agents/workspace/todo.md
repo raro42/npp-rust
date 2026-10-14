@@ -1,3 +1,4 @@
+009 keep: Find Results / Find in Files double-click hit jump (v0.3.313)
 009 keep: Next/Prev Search Result walks Find in Files hits (open from workspace, v0.3.312)
 009 keep: Find-bar Shift+All / Find All in opened docs (Case/Word/Re; Sel ignored, v0.3.310)
 009 keep: Find-bar All / Search Results Window (current-doc Find Results, Case/Word/Re/Sel, v0.3.309)

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.313] — 2026-10-15
+
+Search:
+
+- **Click-to-jump** on **Find Results** / **Find in Files**: double-click a hit row (`line:col:match` or `path:line:text`) opens the source (from the workspace when needed) and parks/selects the match. Header lines still select a word on double-click. Next/Prev Search Result (F4) unchanged.
+
 ## [0.3.312] — 2026-10-15
 
 Search:

@@ -775,67 +775,16 @@ fn resolve_or_open_find_target(state: &mut EditorState, label: &str) -> Option<u
         .or_else(|| tab_index_for_find_label(state, label))
 }
 
-/// Next / Previous Search Result: walk Find Results / Find in Files hit lines and park the match.
-/// Falls back to Find Next / Prev when no results tab (or no parseable hits).
-fn goto_search_result(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
-    let Some(results_idx) = find_results_tab_index(state) else {
-        if forward {
-            state.find_next();
-        } else {
-            state.find_prev();
-        }
-        ui.follow_caret = true;
-        return;
-    };
-
-    let body = state
-        .tabs
-        .get(results_idx)
-        .map(|d| d.buffer.to_string())
-        .unwrap_or_default();
-    let hits = parse_find_results_hits(&body);
-    if hits.is_empty() {
-        if forward {
-            state.find_next();
-        } else {
-            state.find_prev();
-        }
-        ui.follow_caret = true;
-        return;
-    }
-
-    let cur_line = state
-        .tabs
-        .get(results_idx)
-        .map(|d| d.buffer.char_to_line(d.buffer.caret()))
-        .unwrap_or(0);
-
-    let (pick, wrapped) = if forward {
-        if let Some((i, _)) = hits
-            .iter()
-            .enumerate()
-            .find(|(_, h)| h.results_line > cur_line)
-        {
-            (i, false)
-        } else {
-            (0, hits[0].results_line <= cur_line)
-        }
-    } else if let Some((i, _)) = hits
-        .iter()
-        .enumerate()
-        .rev()
-        .find(|(_, h)| h.results_line < cur_line)
-    {
-        (i, false)
-    } else {
-        let last = hits.len() - 1;
-        (last, hits[last].results_line >= cur_line)
-    };
-
-    let hit = hits[pick].clone();
-    let ordinal = pick + 1;
-    let total = hits.len();
-
+/// Park the source document on one Find Results / Find in Files hit.
+fn park_find_results_hit(
+    state: &mut EditorState,
+    ui: &mut UiFlags,
+    results_idx: usize,
+    hit: &FindResultsHit,
+    ordinal: usize,
+    total: usize,
+    wrapped: bool,
+) {
     if let Some(doc) = state.tabs.get_mut(results_idx) {
         let at = doc.buffer.line_to_char(hit.results_line);
         doc.buffer.set_caret(at);
@@ -912,6 +861,96 @@ fn goto_search_result(state: &mut EditorState, ui: &mut UiFlags, forward: bool) 
         line = hit.line,
         col = col_1based,
     );
+}
+
+/// Double-click jump: park the hit on the given 0-based line of the active results tab.
+/// Returns `false` when the active tab is not results, or that line is not a hit row.
+pub(crate) fn goto_search_result_at_line(
+    state: &mut EditorState,
+    ui: &mut UiFlags,
+    results_line: usize,
+) -> bool {
+    if !is_find_results_tab(&state.tabs.active().title) {
+        return false;
+    }
+    let results_idx = state.tabs.active_index();
+    let body = state
+        .tabs
+        .get(results_idx)
+        .map(|d| d.buffer.to_string())
+        .unwrap_or_default();
+    let hits = parse_find_results_hits(&body);
+    let Some((pick, hit)) = hits
+        .iter()
+        .enumerate()
+        .find(|(_, h)| h.results_line == results_line)
+    else {
+        return false;
+    };
+    let hit = hit.clone();
+    park_find_results_hit(state, ui, results_idx, &hit, pick + 1, hits.len(), false);
+    true
+}
+
+/// Next / Previous Search Result: walk Find Results / Find in Files hit lines and park the match.
+/// Falls back to Find Next / Prev when no results tab (or no parseable hits).
+fn goto_search_result(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
+    let Some(results_idx) = find_results_tab_index(state) else {
+        if forward {
+            state.find_next();
+        } else {
+            state.find_prev();
+        }
+        ui.follow_caret = true;
+        return;
+    };
+
+    let body = state
+        .tabs
+        .get(results_idx)
+        .map(|d| d.buffer.to_string())
+        .unwrap_or_default();
+    let hits = parse_find_results_hits(&body);
+    if hits.is_empty() {
+        if forward {
+            state.find_next();
+        } else {
+            state.find_prev();
+        }
+        ui.follow_caret = true;
+        return;
+    }
+
+    let cur_line = state
+        .tabs
+        .get(results_idx)
+        .map(|d| d.buffer.char_to_line(d.buffer.caret()))
+        .unwrap_or(0);
+
+    let (pick, wrapped) = if forward {
+        if let Some((i, _)) = hits
+            .iter()
+            .enumerate()
+            .find(|(_, h)| h.results_line > cur_line)
+        {
+            (i, false)
+        } else {
+            (0, hits[0].results_line <= cur_line)
+        }
+    } else if let Some((i, _)) = hits
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, h)| h.results_line < cur_line)
+    {
+        (i, false)
+    } else {
+        let last = hits.len() - 1;
+        (last, hits[last].results_line >= cur_line)
+    };
+
+    let hit = hits[pick].clone();
+    park_find_results_hit(state, ui, results_idx, &hit, pick + 1, hits.len(), wrapped);
 }
 
 /// Prefer the active editor tab; if already on a results tab, use the previous non-results tab.
@@ -1199,6 +1238,33 @@ Documents: 2
     }
 
     #[test]
+    fn goto_search_result_at_line_jumps_hit() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer =
+            buffer::TextBuffer::from_str("Foo food\nfoo\nFOO bar\nfoo");
+        state.tabs.active_mut().title = "sample.txt".into();
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = true;
+        let (body, n) = state.find_all_current_report().unwrap();
+        assert_eq!(n, 2);
+        present_find_results(&mut state, &body);
+
+        let hits = parse_find_results_hits(&body);
+        assert_eq!(hits.len(), 2);
+        let second_line = hits[1].results_line;
+
+        let mut ui = UiFlags::default();
+        assert!(!goto_search_result_at_line(&mut state, &mut ui, 0));
+        assert!(goto_search_result_at_line(&mut state, &mut ui, second_line));
+        assert_eq!(state.tabs.active().title, "sample.txt");
+        assert_eq!(state.tabs.active().buffer.selection(), Some((21, 24)));
+        assert!(state.status.contains("4:1"));
+        assert!(state.status.contains("2/2"));
+        assert!(ui.follow_caret);
+    }
+
+    #[test]
     fn goto_search_result_walks_find_results_and_wraps() {
         let mut state = EditorState::new();
         state.tabs.active_mut().buffer =
@@ -1335,6 +1401,50 @@ Documents: 2
             .unwrap_or_default();
         assert_eq!(wrapped, first);
         assert!(state.status.contains("· wrapped"));
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn goto_search_result_at_line_opens_find_in_files_hit() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let root = std::env::temp_dir().join(format!("npp-fif-click-{stamp}"));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("src/a.rs"), "foo one\n").unwrap();
+
+        let mut state = EditorState::new();
+        state.workspace_root = root.clone();
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_regex = false;
+        state.settings.find_files_include = String::new();
+        state.settings.find_files_exclude = "target".into();
+
+        let mut ui = UiFlags::default();
+        find_in_files(&mut state, &mut ui);
+        assert_eq!(state.tabs.active().title, "Find in Files");
+        let body = state.tabs.active().buffer.to_string();
+        let hits = parse_find_results_hits(&body);
+        assert!(!hits.is_empty());
+        let line = hits[0].results_line;
+
+        assert!(goto_search_result_at_line(&mut state, &mut ui, line));
+        let path = state
+            .tabs
+            .active()
+            .path
+            .as_ref()
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        assert!(path.ends_with("src/a.rs"), "status={}", state.status);
+        assert_eq!(state.tabs.active().buffer.selection(), Some((0, 3)));
+        assert!(ui.follow_caret);
 
         let _ = std::fs::remove_dir_all(&root);
     }

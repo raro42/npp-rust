@@ -17084,21 +17084,44 @@ impl EditorApp {
                 }
             } else if response.double_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
-                    let idx = hit_index(
+                    let (line, _col) = hit_line_col_virtual(
                         ui,
                         pos,
                         &self.state.tabs.active().buffer,
                         self.scroll_line,
                         &visible_lines,
                     );
-                    self.state.tabs.active_mut().clear_multi_sels();
-                    self.state.tabs.active_mut().clear_virtual_caret();
-                    self.state.tabs.active_mut().buffer.select_word_at(idx);
-                    self.drag_anchor = None;
-                    self.rect_drag = false;
-                    self.rect_drag_anchor = None;
-                    self.sel_text_drag = None;
-                    self.follow_caret = false;
+                    // Find Results / Find in Files: double-click a hit row → open + park match.
+                    let mut jump_flags = crate::commands::UiFlags::default();
+                    if crate::commands::search::goto_search_result_at_line(
+                        &mut self.state,
+                        &mut jump_flags,
+                        line,
+                    ) {
+                        self.drag_anchor = None;
+                        self.rect_drag = false;
+                        self.rect_drag_anchor = None;
+                        self.sel_text_drag = None;
+                        if jump_flags.follow_caret {
+                            self.follow_caret = true;
+                        }
+                    } else {
+                        let idx = hit_index(
+                            ui,
+                            pos,
+                            &self.state.tabs.active().buffer,
+                            self.scroll_line,
+                            &visible_lines,
+                        );
+                        self.state.tabs.active_mut().clear_multi_sels();
+                        self.state.tabs.active_mut().clear_virtual_caret();
+                        self.state.tabs.active_mut().buffer.select_word_at(idx);
+                        self.drag_anchor = None;
+                        self.rect_drag = false;
+                        self.rect_drag_anchor = None;
+                        self.sel_text_drag = None;
+                        self.follow_caret = false;
+                    }
                 }
             } else if response.drag_started() {
                 if let Some(pos) = response.interact_pointer_pos() {
