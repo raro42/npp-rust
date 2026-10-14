@@ -1,3 +1,4 @@
+009 keep: remappable Zoom Sync (shortcut_zoom_sync, Alt+Shift+Z default, v0.3.290)
 009 keep: remappable Inverse Bookmarks (shortcut_inverse_bookmarks, Alt+Shift+F2 default, v0.3.289)
 009 keep: remappable Mark Style 5 / Clear Style 5 (shortcut_mark_style_5, Cmd+5 default, Shift=clear, v0.3.287)
 009 keep: remappable Mark Style 4 / Clear Style 4 (shortcut_mark_style_4, Cmd+4 default, Shift=clear, v0.3.286)
