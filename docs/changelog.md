@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.312] — 2026-10-15
+
+Search:
+
+- **Next / Previous Search Result** also walks the **Find in Files** tab: parks each `path:line:text` hit, opens the file from the workspace root when needed, selects the Find match on that line, and wraps with a status `· wrapped` bit. Find Results (Find All) walk is unchanged.
+
 ## [0.3.311] — 2026-10-15
 
 Search:

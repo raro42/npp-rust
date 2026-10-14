@@ -598,15 +598,15 @@ fn is_find_results_tab(title: &str) -> bool {
     title == FIND_RESULTS_TITLE || title == "Find in Files"
 }
 
-/// One hit line inside the Find Results tab (`line:col:match`).
+/// One hit line inside Find Results (`line:col:match`) or Find in Files (`path:line:text`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FindResultsHit {
-    /// 0-based line index inside the Find Results buffer.
+    /// 0-based line index inside the results buffer.
     results_line: usize,
     doc_label: String,
     /// 1-based line in the source document.
     line: usize,
-    /// 1-based column in the source document.
+    /// 1-based column in the source document; `0` means resolve via Find query (FIF).
     col: usize,
     matched: String,
 }
@@ -631,7 +631,27 @@ fn parse_find_results_hit_line(line: &str) -> Option<(usize, usize, String)> {
     Some((line_no, col, matched))
 }
 
-/// Collect hit rows from a Find All (current / opened) results body.
+/// Parse Find in Files `path:LINE:text` (1-based line; path is not all-digits).
+/// `col` is 0: park resolves the match via the current Find query.
+fn parse_find_in_files_hit_line(line: &str) -> Option<(String, usize, String)> {
+    let mut parts = line.splitn(3, ':');
+    let path = parts.next()?;
+    let b = parts.next()?;
+    let rest = parts.next()?;
+    if path.is_empty() || path.bytes().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    if b.is_empty() || !b.bytes().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    let line_no: usize = b.parse().ok()?;
+    if line_no == 0 {
+        return None;
+    }
+    Some((path.to_string(), line_no, rest.to_string()))
+}
+
+/// Collect hit rows from Find All / Find in Files results bodies.
 fn parse_find_results_hits(text: &str) -> Vec<FindResultsHit> {
     let mut default_doc: Option<String> = None;
     let mut section_doc: Option<String> = None;
@@ -652,30 +672,39 @@ fn parse_find_results_hits(text: &str) -> Vec<FindResultsHit> {
             }
             continue;
         }
-        let Some((line_no, col, matched)) = parse_find_results_hit_line(line) else {
+        if let Some((line_no, col, matched)) = parse_find_results_hit_line(line) {
+            let Some(doc_label) = section_doc
+                .clone()
+                .or_else(|| default_doc.clone())
+                .filter(|s| !s.is_empty())
+            else {
+                continue;
+            };
+            hits.push(FindResultsHit {
+                results_line: i,
+                doc_label,
+                line: line_no,
+                col,
+                matched,
+            });
             continue;
-        };
-        let Some(doc_label) = section_doc
-            .clone()
-            .or_else(|| default_doc.clone())
-            .filter(|s| !s.is_empty())
-        else {
-            continue;
-        };
-        hits.push(FindResultsHit {
-            results_line: i,
-            doc_label,
-            line: line_no,
-            col,
-            matched,
-        });
+        }
+        if let Some((path, line_no, text_line)) = parse_find_in_files_hit_line(line) {
+            hits.push(FindResultsHit {
+                results_line: i,
+                doc_label: path,
+                line: line_no,
+                col: 0,
+                matched: text_line,
+            });
+        }
     }
     hits
 }
 
 fn find_results_tab_index(state: &EditorState) -> Option<usize> {
     let active = state.tabs.active_index();
-    if state.tabs.active().title == FIND_RESULTS_TITLE {
+    if is_find_results_tab(&state.tabs.active().title) {
         return Some(active);
     }
     state
@@ -684,6 +713,14 @@ fn find_results_tab_index(state: &EditorState) -> Option<usize> {
         .enumerate()
         .find(|(_, d)| d.title == FIND_RESULTS_TITLE)
         .map(|(i, _)| i)
+        .or_else(|| {
+            state
+                .tabs
+                .iter()
+                .enumerate()
+                .find(|(_, d)| d.title == "Find in Files")
+                .map(|(i, _)| i)
+        })
 }
 
 fn tab_index_for_find_label(state: &EditorState, label: &str) -> Option<usize> {
@@ -700,13 +737,46 @@ fn tab_index_for_find_label(state: &EditorState, label: &str) -> Option<usize> {
                 .as_ref()
                 .map(|p| crate::recent::short_path_label(p.as_path()))
                 .unwrap_or_else(|| d.title.clone());
-            doc_label == label || d.title == label
+            if doc_label == label || d.title == label {
+                return true;
+            }
+            if let Some(path) = d.path.as_ref() {
+                if path.ends_with(label) {
+                    return true;
+                }
+                if let Ok(rel) = path.strip_prefix(&state.workspace_root) {
+                    let rel = rel.to_string_lossy().replace('\\', "/");
+                    if rel == label {
+                        return true;
+                    }
+                }
+            }
+            false
         })
         .map(|(i, _)| i)
 }
 
-/// Next / Previous Search Result: walk Find Results hit lines and park the source match.
-/// Falls back to Find Next / Prev when no Find Results tab (or no parseable hits).
+/// Resolve a Find Results / Find in Files document label; open from workspace when needed.
+fn resolve_or_open_find_target(state: &mut EditorState, label: &str) -> Option<usize> {
+    if let Some(i) = tab_index_for_find_label(state, label) {
+        return Some(i);
+    }
+    let path = state.workspace_root.join(label);
+    if !path.is_file() {
+        return None;
+    }
+    state.open_path(path.clone());
+    state
+        .tabs
+        .iter()
+        .enumerate()
+        .find(|(_, d)| d.path.as_ref() == Some(&path))
+        .map(|(i, _)| i)
+        .or_else(|| tab_index_for_find_label(state, label))
+}
+
+/// Next / Previous Search Result: walk Find Results / Find in Files hit lines and park the match.
+/// Falls back to Find Next / Prev when no results tab (or no parseable hits).
 fn goto_search_result(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
     let Some(results_idx) = find_results_tab_index(state) else {
         if forward {
@@ -771,7 +841,7 @@ fn goto_search_result(state: &mut EditorState, ui: &mut UiFlags, forward: bool) 
         doc.buffer.set_caret(at);
     }
 
-    let Some(src_idx) = tab_index_for_find_label(state, &hit.doc_label) else {
+    let Some(src_idx) = resolve_or_open_find_target(state, &hit.doc_label) else {
         state.status = format!(
             "Search result {ordinal}/{total}: document {:?} not open",
             hit.doc_label
@@ -782,7 +852,6 @@ fn goto_search_result(state: &mut EditorState, ui: &mut UiFlags, forward: bool) 
 
     state.tabs.set_active(src_idx);
     let line_idx = hit.line.saturating_sub(1);
-    let col_idx = hit.col.saturating_sub(1);
     let line_count = state.tabs.active().buffer.line_count();
     if line_idx >= line_count {
         state.status = format!(
@@ -792,24 +861,56 @@ fn goto_search_result(state: &mut EditorState, ui: &mut UiFlags, forward: bool) 
         ui.follow_caret = true;
         return;
     }
-    {
-        let buf = &mut state.tabs.active_mut().buffer;
+
+    let (col_1based, sel_start, sel_end) = {
+        let buf = &state.tabs.active().buffer;
         let line_start = buf.line_to_char(line_idx);
         let body_len = buf.line_body_len(line_idx);
-        let start = line_start + col_idx.min(body_len);
-        let match_len = hit.matched.chars().count();
-        let end = (start + match_len).min(line_start + body_len);
-        if match_len > 0 && end > start {
-            buf.set_selection(start, end);
+        let line_body = buf.line(line_idx);
+        let line_body = line_body.trim_end_matches(['\n', '\r']);
+
+        if hit.col == 0 {
+            // Find in Files: locate the Find query on the line (FIF scan has no column).
+            let flags = crate::search_util::FindFlags {
+                match_case: state.settings.find_match_case,
+                whole_word: false,
+                use_regex: state.settings.find_regex,
+            };
+            if let Some((a, b)) =
+                crate::search_util::find_all_matches(line_body, &state.find_query, flags)
+                    .into_iter()
+                    .next()
+            {
+                let start = line_start + a;
+                let end = line_start + b.min(body_len);
+                (a + 1, start, end)
+            } else {
+                (1, line_start, line_start)
+            }
         } else {
-            buf.set_caret(start);
+            let col_idx = hit.col.saturating_sub(1);
+            let start = line_start + col_idx.min(body_len);
+            let match_len = hit.matched.chars().count();
+            let end = (start + match_len).min(line_start + body_len);
+            (hit.col, start, end)
+        }
+    };
+
+    {
+        let buf = &mut state.tabs.active_mut().buffer;
+        if sel_end > sel_start {
+            buf.set_selection(sel_start, sel_end);
+        } else {
+            buf.set_caret(sel_start);
         }
     }
     ui.follow_caret = true;
     let wrap_bit = if wrapped { " · wrapped" } else { "" };
     state.status = format!(
-        "Search result → {}:{} in {:?} ({ordinal}/{total}){wrap_bit}",
-        hit.line, hit.col, hit.doc_label
+        "Search result → {line}:{col} in {:?} ({ordinal}/{total}){wrap_bit}",
+        hit.doc_label,
+        line = hit.line,
+        col = col_1based,
     );
 }
 
@@ -1031,6 +1132,35 @@ mod tests {
         assert_eq!(parse_find_results_hit_line("Document: x"), None);
         assert_eq!(parse_find_results_hit_line("=== a.txt ==="), None);
         assert_eq!(parse_find_results_hit_line("src/a.rs:3:hit"), None);
+        assert_eq!(
+            parse_find_in_files_hit_line("src/a.rs:3:hit"),
+            Some(("src/a.rs".into(), 3, "hit".into()))
+        );
+        assert_eq!(
+            parse_find_in_files_hit_line("src/a.rs:3:foo:bar"),
+            Some(("src/a.rs".into(), 3, "foo:bar".into()))
+        );
+        assert_eq!(parse_find_in_files_hit_line("12:3:foo"), None);
+    }
+
+    #[test]
+    fn parse_hits_find_in_files_paths() {
+        let body = "\
+Find in Files: \"foo\"
+Directory: workspace root (recursive)
+Filters: include=* exclude=target
+
+src/a.rs:1:foo one
+sub/b.txt:2:x foo y
+
+— 2 match(es) in 2 file(s)";
+        let hits = parse_find_results_hits(body);
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].doc_label, "src/a.rs");
+        assert_eq!(hits[0].line, 1);
+        assert_eq!(hits[0].col, 0);
+        assert_eq!(hits[1].doc_label, "sub/b.txt");
+        assert_eq!(hits[1].line, 2);
     }
 
     #[test]
@@ -1127,5 +1257,85 @@ Documents: 2
         goto_search_result(&mut state, &mut ui, true);
         assert_eq!(state.tabs.active().title, "b.txt");
         assert_eq!(state.tabs.active().buffer.selection(), Some((4, 7)));
+    }
+
+    #[test]
+    fn goto_search_result_walks_find_in_files_and_opens() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let root = std::env::temp_dir().join(format!("npp-fif-goto-{stamp}"));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::create_dir_all(root.join("sub")).unwrap();
+        std::fs::write(root.join("src/a.rs"), "foo one\n").unwrap();
+        std::fs::write(root.join("sub/b.txt"), "x\nbar foo\n").unwrap();
+
+        let mut state = EditorState::new();
+        state.workspace_root = root.clone();
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_regex = false;
+        state.settings.find_files_include = String::new();
+        state.settings.find_files_exclude = "target".into();
+
+        let mut ui = UiFlags::default();
+        find_in_files(&mut state, &mut ui);
+        assert_eq!(state.tabs.active().title, "Find in Files");
+        assert!(state
+            .tabs
+            .active()
+            .buffer
+            .to_string()
+            .contains("src/a.rs:1:"));
+
+        goto_search_result(&mut state, &mut ui, true);
+        let first = state
+            .tabs
+            .active()
+            .path
+            .as_ref()
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        assert!(
+            first.ends_with("src/a.rs") || first.ends_with("sub/b.txt"),
+            "status={}",
+            state.status
+        );
+        assert!(state.tabs.active().buffer.selection().is_some());
+        assert!(state.status.contains("1/"));
+        assert!(!state.status.contains("wrapped"));
+
+        goto_search_result(&mut state, &mut ui, true);
+        let second = state
+            .tabs
+            .active()
+            .path
+            .as_ref()
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        assert!(
+            second.ends_with("src/a.rs") || second.ends_with("sub/b.txt"),
+            "status={}",
+            state.status
+        );
+        assert_ne!(first, second);
+        assert!(state.status.contains("2/"));
+
+        goto_search_result(&mut state, &mut ui, true);
+        let wrapped = state
+            .tabs
+            .active()
+            .path
+            .as_ref()
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        assert_eq!(wrapped, first);
+        assert!(state.status.contains("· wrapped"));
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 }
