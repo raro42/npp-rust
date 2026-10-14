@@ -4,7 +4,7 @@ When the issue queue is idle, overnight 009 **must** pull from this list (top fi
 
 ## P0 — editor correctness
 
-1. **Find / replace edge cases** — ~~wrap toggle~~, ~~regex that does not hang the UI~~, ~~selection-only (Find bar **Sel**, multi-line auto-arm)~~, ~~Find-bar Mark / Style All uses Case/Word/Re/Sel~~, ~~Find-bar Bookmark all matching lines (Case/Word/Re/Sel)~~.
+1. **Find / replace edge cases** — ~~wrap toggle~~, ~~regex that does not hang the UI~~, ~~selection-only (Find bar **Sel**, multi-line auto-arm)~~, ~~Find-bar Mark / Style All uses Case/Word/Re/Sel~~, ~~Find-bar Bookmark all matching lines (Case/Word/Re/Sel)~~, ~~Find-bar Copy matching substrings (Case/Word/Re/Sel)~~.
 2. **Save encoding** — ~~unmapped ANSI chars~~, ~~BOM-less UTF-16 detect~~, ~~session encoding (`@encoding`)~~ (`docs/encoding.md`).
 3. **Undo / typing coalesce** — ~~multi-caret / column typing coalesce~~ (`docs/undo-transactions.md`, `docs/column-mode.md`).
 4. **Vertical selection extend** — ~~Shift+Up/Down~~, ~~Shift+PageUp/PageDown~~ (char/word/Home/End already).

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.303] — 2026-10-14
+
+Search:
+
+- **Find Copy matches** — Find bar **Copy** copies every matching substring to the clipboard (Case / Word / Re / Sel; same engine as Find Next), newline-joined. Distinct from Copy Bookmarked Lines (whole lines).
+
 ## [0.3.302] — 2026-10-14
 
 Search:

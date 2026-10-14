@@ -16431,6 +16431,20 @@ impl EditorApp {
                 {
                     let _ = self.state.bookmark_find_matches();
                 }
+                if ui
+                    .button("Copy")
+                    .on_hover_text(
+                        "Copy matching text to clipboard (Case / Word / Re / Sel; one match per line)",
+                    )
+                    .clicked()
+                {
+                    if let Some(text) = self.state.copy_find_matches() {
+                        if !text.is_empty() {
+                            self.last_app_clipboard = Some(text.clone());
+                            ctx.copy_text(text);
+                        }
+                    }
+                }
                 if self.show_replace {
                     ui.separator();
                     ui.label("Replace:");

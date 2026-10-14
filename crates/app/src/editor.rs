@@ -1911,6 +1911,37 @@ impl EditorState {
         Some(added)
     }
 
+    /// Copy every Find match substring under Case/Word/Re/Sel, newline-joined.
+    /// Returns the clipboard payload (`Some("")` when empty / no match), or `None`
+    /// when regex is invalid.
+    pub fn copy_find_matches(&mut self) -> Option<String> {
+        let q = self.find_query.clone();
+        if q.is_empty() {
+            self.status = "Copy matches: set Find text".into();
+            return Some(String::new());
+        }
+        if self.find_regex_blocked() {
+            return None;
+        }
+        let (lo, hi) = self.find_bounds();
+        let flags = self.find_flags();
+        let text = self.tabs.active().buffer.to_string();
+        let matches = crate::search_util::find_all_matches_in(&text, &q, lo, hi, flags);
+        if matches.is_empty() {
+            self.status = "Copy matches: no match".into();
+            return Some(String::new());
+        }
+        let buf = &self.tabs.active().buffer;
+        let mut parts = Vec::with_capacity(matches.len());
+        for &(s, e) in &matches {
+            parts.push(buf.slice(s, e));
+        }
+        let joined = parts.join("\n");
+        let count = matches.len();
+        self.status = format!("Copied {count} match(es)");
+        Some(joined)
+    }
+
     /// Find hits for Document Map: `(total_matches, first_span_per_line)`.
     ///
     /// Uses the active tab's Find bounds when `tab` is active; otherwise the whole
@@ -4015,6 +4046,32 @@ mod tests {
         assert_eq!(added, 2);
         let bms: Vec<_> = state.tabs.active().bookmarks.iter().copied().collect();
         assert_eq!(bms, vec![0, 1]);
+    }
+
+    #[test]
+    fn copy_find_matches_respects_case_word() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer =
+            buffer::TextBuffer::from_str("Foo food\nfoo\nFOO bar\nfoo");
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = true;
+        let text = state.copy_find_matches().unwrap();
+        assert_eq!(text, "foo\nfoo");
+        assert!(state.status.contains("Copied 2"));
+    }
+
+    #[test]
+    fn copy_find_matches_regex_and_sel_bounds() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("a12\nb3\nc99\nd");
+        state.find_query = r"\d+".into();
+        state.settings.find_regex = true;
+        state.settings.find_in_selection = true;
+        state.find_scope = Some((0, 7)); // a12\nb3\n
+        let text = state.copy_find_matches().unwrap();
+        assert_eq!(text, "12\n3");
+        assert!(state.status.contains("Copied 2"));
     }
 
     #[test]

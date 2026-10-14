@@ -471,3 +471,5 @@
 009 keep: remappable TAB to Space / Space to TAB Leading (shortcut_tab_to_space, Cmd+Alt+V default, Shift=leading, v0.3.297)
 009 keep: remappable Copy/Cut Bookmarked Lines (shortcut_copy_marked_lines, Cmd+Alt+F2 default, Shift=cut, v0.3.298)
 009 keep: Find-bar Mark + Style All honors Case/Word/Re/Sel (v0.3.301)
+009 keep: Find-bar Copy matching substrings (Case/Word/Re/Sel, v0.3.303)
+
