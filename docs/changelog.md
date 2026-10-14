@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.295] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Next / Previous Search Result** is remappable: Preferences → Next search result shortcut, or `shortcut_next_found` in `npp-rs/settings.json` (default `F4`). Runs Search → Next Search Result. **Shift** flips to Previous Search Result. Chord parser accepts `F4`. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.294] — 2026-10-14
 
 Settings / shortcuts:

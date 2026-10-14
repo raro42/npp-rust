@@ -100,6 +100,10 @@ fn default_shortcut_set_and_find() -> String {
     crate::shortcut_chord::DEFAULT_SET_AND_FIND.into()
 }
 
+fn default_shortcut_next_found() -> String {
+    crate::shortcut_chord::DEFAULT_NEXT_FOUND.into()
+}
+
 fn default_shortcut_mark_style() -> String {
     crate::shortcut_chord::DEFAULT_MARK_STYLE.into()
 }
@@ -743,6 +747,9 @@ pub struct AppSettings {
     /// Select-and-find-next chord (`Cmd+F3` default). Shift flips to Select and Find Previous.
     #[serde(default = "default_shortcut_set_and_find")]
     pub shortcut_set_and_find: String,
+    /// Next-search-result chord (`F4` default). Shift flips to Previous Search Result.
+    #[serde(default = "default_shortcut_next_found")]
+    pub shortcut_next_found: String,
     /// Mark-all Style 1 chord (`Cmd+1` default). Shift flips to Clear Style 1.
     #[serde(default = "default_shortcut_mark_style")]
     pub shortcut_mark_style: String,
@@ -1184,6 +1191,7 @@ impl Default for AppSettings {
             shortcut_find_next: default_shortcut_find_next(),
             shortcut_find_next_global: default_shortcut_find_next_global(),
             shortcut_set_and_find: default_shortcut_set_and_find(),
+            shortcut_next_found: default_shortcut_next_found(),
             shortcut_mark_style: default_shortcut_mark_style(),
             shortcut_mark_style_2: default_shortcut_mark_style_2(),
             shortcut_mark_style_3: default_shortcut_mark_style_3(),
@@ -1652,6 +1660,7 @@ mod tests {
             shortcut_find_next: "Ctrl+F3".into(),
             shortcut_find_next_global: "Ctrl+Alt+G".into(),
             shortcut_set_and_find: "Ctrl+Alt+F3".into(),
+            shortcut_next_found: "Ctrl+F4".into(),
             shortcut_mark_style: "Ctrl+1".into(),
             shortcut_mark_style_2: "Ctrl+2".into(),
             shortcut_mark_style_3: "Ctrl+3".into(),
@@ -1803,6 +1812,7 @@ mod tests {
         assert_eq!(back.shortcut_find_next, "Ctrl+F3");
         assert_eq!(back.shortcut_find_next_global, "Ctrl+Alt+G");
         assert_eq!(back.shortcut_set_and_find, "Ctrl+Alt+F3");
+        assert_eq!(back.shortcut_next_found, "Ctrl+F4");
         assert_eq!(back.shortcut_mark_style, "Ctrl+1");
         assert_eq!(back.shortcut_mark_style_2, "Ctrl+2");
         assert_eq!(back.shortcut_mark_style_3, "Ctrl+3");

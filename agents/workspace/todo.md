@@ -1,3 +1,4 @@
+009 keep: remappable Next/Previous Search Result (shortcut_next_found, F4 default, Shift=prev, v0.3.295)
 009 keep: remappable Path autocomplete (shortcut_autocomplete_path, Cmd+Alt+Space default, v0.3.294)
 009 keep: remappable Autocomplete / Function Call Tip (shortcut_autocomplete, Cmd+Space default, Shift=call tip, v0.3.293)
 009 keep: remappable Fold Level 1…8 (shortcut_fold_level, Alt+1 default, digit-family 1…8, Shift=unfold, v0.3.292)

@@ -5221,6 +5221,48 @@ impl EditorApp {
             }
         }
 
+        // Remappable Next Search Result (default F4; settings.shortcut_next_found).
+        // Shift flips to Previous Search Result.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_NEXT_FOUND};
+            let found_chord =
+                resolve_chord(&self.state.settings.shortcut_next_found, DEFAULT_NEXT_FOUND);
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let found_key_pressed = key_pressed(found_chord.key);
+            let remapped_prev =
+                found_key_pressed && found_chord.flipped_shift().matches(mods, found_chord.key);
+            let remapped_next = found_key_pressed && found_chord.matches(mods, found_chord.key);
+            if remapped_prev {
+                self.run_shortcut_cmd("IDM_SEARCH_GOTOPREVFOUND");
+            } else if remapped_next {
+                self.run_shortcut_cmd("IDM_SEARCH_GOTONEXTFOUND");
+            }
+        }
+
         // Remappable Mark All Style 1 (default Cmd+1; settings.shortcut_mark_style).
         // Shift flips to Clear Style 1.
         {
@@ -7711,6 +7753,14 @@ impl EditorApp {
                 &s.shortcut_set_and_find,
                 crate::shortcut_chord::DEFAULT_SET_AND_FIND,
             ),
+            "IDM_SEARCH_GOTONEXTFOUND" => primary(
+                &s.shortcut_next_found,
+                crate::shortcut_chord::DEFAULT_NEXT_FOUND,
+            ),
+            "IDM_SEARCH_GOTOPREVFOUND" => shifted(
+                &s.shortcut_next_found,
+                crate::shortcut_chord::DEFAULT_NEXT_FOUND,
+            ),
             "IDM_SEARCH_MARKALLEXT1" => primary(
                 &s.shortcut_mark_style,
                 crate::shortcut_chord::DEFAULT_MARK_STYLE,
@@ -8095,6 +8145,15 @@ impl EditorApp {
             "{} / {}",
             set_and_find_chord.display(),
             set_and_find_chord.flipped_shift().display()
+        );
+        let next_found_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_next_found,
+            crate::shortcut_chord::DEFAULT_NEXT_FOUND,
+        );
+        let next_found_keys = format!(
+            "{} / {}",
+            next_found_chord.display(),
+            next_found_chord.flipped_shift().display()
         );
         let mark_style_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_mark_style,
@@ -8976,7 +9035,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 121] = [
+        let rows: [(&str, &str); 122] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -8991,6 +9050,7 @@ impl EditorApp {
             (find_keys.as_str(), "Find next / prev"),
             (find_global_keys.as_str(), "Find next / prev (global)"),
             (set_and_find_keys.as_str(), "Select and Find next / prev"),
+            (next_found_keys.as_str(), "Next / prev search result"),
             (mark_style_keys.as_str(), "Mark Style 1 / Clear Style 1"),
             (mark_style_2_keys.as_str(), "Mark Style 2 / Clear Style 2"),
             (mark_style_3_keys.as_str(), "Mark Style 3 / Clear Style 3"),
@@ -9705,6 +9765,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+F3, Ctrl+F3. Copies the selection into the find query then finds next. Shift + that key is Select and Find Previous. Does not collide with Find next (F3).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Next search result shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_next_found,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("F4"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_next_found.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_next_found =
+                                        crate::shortcut_chord::DEFAULT_NEXT_FOUND.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_NEXT_FOUND
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_next_found = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: F4, Ctrl+F4. Runs Search → Next Search Result. Shift + that key is Previous Search Result. Does not collide with Find next (F3).",
                             )
                             .small()
                             .weak(),

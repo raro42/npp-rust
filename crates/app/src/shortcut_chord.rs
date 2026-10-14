@@ -18,6 +18,10 @@ pub const DEFAULT_FIND_NEXT_GLOBAL: &str = "Cmd+G";
 /// Shift flips to Select and Find Previous. Uses Cmd+F3 so it does not collide with Find next (F3).
 pub const DEFAULT_SET_AND_FIND: &str = "Cmd+F3";
 
+/// Default next-search-result binding (Search → Next Search Result; N++ F4 family).
+/// Shift flips to Previous Search Result. Does not collide with Find next (F3).
+pub const DEFAULT_NEXT_FOUND: &str = "F4";
+
 /// Default mark-all Style 1 binding (Search → Using Style 1; N++ Ctrl+1 family).
 /// Shift flips to Clear Style 1.
 pub const DEFAULT_MARK_STYLE: &str = "Cmd+1";
@@ -871,6 +875,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "z" => Some(Key::Z),
         "f2" => Some(Key::F2),
         "f3" => Some(Key::F3),
+        "f4" => Some(Key::F4),
         "f5" => Some(Key::F5),
         "f6" => Some(Key::F6),
         "f7" => Some(Key::F7),
@@ -940,6 +945,7 @@ fn key_token(key: Key) -> &'static str {
         Key::Z => "Z",
         Key::F2 => "F2",
         Key::F3 => "F3",
+        Key::F4 => "F4",
         Key::F5 => "F5",
         Key::F6 => "F6",
         Key::F7 => "F7",
@@ -1044,6 +1050,17 @@ mod tests {
         assert_eq!(c.key, Key::F3);
         assert_eq!(c.display(), "Cmd+F3");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+F3");
+    }
+
+    #[test]
+    fn parse_f4_default_next_found() {
+        let c = parse_chord(DEFAULT_NEXT_FOUND).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F4);
+        assert_eq!(c.display(), "F4");
+        assert_eq!(c.flipped_shift().display(), "Shift+F4");
     }
 
     #[test]
