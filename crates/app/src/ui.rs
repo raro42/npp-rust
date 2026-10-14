@@ -16459,6 +16459,15 @@ impl EditorApp {
                         }
                     }
                 }
+                if ui
+                    .button("Purge")
+                    .on_hover_text(
+                        "Delete every line that contains a match (Case / Word / Re / Sel; whole lines)",
+                    )
+                    .clicked()
+                {
+                    let _ = self.state.delete_find_match_lines();
+                }
                 if self.show_replace {
                     ui.separator();
                     ui.label("Replace:");

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.305] — 2026-10-14
+
+Search:
+
+- **Find Purge matching lines** — Find bar **Purge** deletes every line that contains a Find match (Case / Word / Re / Sel; same engine as Find Next). Whole lines, not substrings. Distinct from Cut (match text only) and Remove Bookmarked Lines.
+
 ## [0.3.304] — 2026-10-14
 
 Search:

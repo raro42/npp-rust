@@ -1,3 +1,4 @@
+009 keep: Find-bar Purge matching lines (Case/Word/Re/Sel, v0.3.305)
 009 keep: Find-bar Bookmark all matching lines (Case/Word/Re/Sel, v0.3.302)
 009 keep: remappable Space to TAB (All) (shortcut_space_to_tab_all, Cmd+Alt+X default, v0.3.300)
 009 keep: remappable Paste/Remove Bookmarked Lines (shortcut_paste_marked_lines, Cmd+Alt+Q default, Shift=remove, v0.3.299)
