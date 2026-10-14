@@ -64,6 +64,12 @@ pub const DEFAULT_INVERSE_BOOKMARKS: &str = "Alt+Shift+F2";
 /// clear (Cmd+Shift+F2), or inverse (Alt+Shift+F2). Shift flips to Cut Bookmarked Lines.
 pub const DEFAULT_COPY_MARKED_LINES: &str = "Cmd+Alt+F2";
 
+/// Default paste-bookmarked-lines binding (Search → Paste Bookmarked Lines).
+/// Uses Cmd+Alt+Q so it does not collide with Sync Vertical Scroll (Alt+Q),
+/// Paste (Cmd+V), or Copy Bookmarked Lines (Cmd+Alt+F2). Shift flips to Remove
+/// Bookmarked Lines. Remove Unmarked stays menu-only.
+pub const DEFAULT_PASTE_MARKED_LINES: &str = "Cmd+Alt+Q";
+
 /// Default next change-history mark binding (Search → Next Change). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_CHANGED: &str = "F8";
 
@@ -1562,6 +1568,17 @@ mod tests {
         assert_eq!(c.key, Key::F2);
         assert_eq!(c.display(), "Cmd+Alt+F2");
         assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+F2");
+    }
+
+    #[test]
+    fn parse_cmd_alt_q_default_paste_marked_lines() {
+        let c = parse_chord(DEFAULT_PASTE_MARKED_LINES).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Q);
+        assert_eq!(c.display(), "Cmd+Alt+Q");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+Q");
     }
 
     #[test]

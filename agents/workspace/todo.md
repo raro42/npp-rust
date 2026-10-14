@@ -1,3 +1,4 @@
+009 keep: remappable Paste/Remove Bookmarked Lines (shortcut_paste_marked_lines, Cmd+Alt+Q default, Shift=remove, v0.3.299)
 009 keep: remappable First/Last Tab (shortcut_first_tab, Cmd+Alt+Home default, opposite End=last, v0.3.296)
 009 keep: remappable Next/Previous Search Result (shortcut_next_found, F4 default, Shift=prev, v0.3.295)
 009 keep: remappable Path autocomplete (shortcut_autocomplete_path, Cmd+Alt+Space default, v0.3.294)

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.299] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Paste / Remove Bookmarked Lines** is remappable: Preferences → Paste bookmarked lines shortcut, or `shortcut_paste_marked_lines` in `npp-rs/settings.json` (default `Cmd+Alt+Q`). Runs Search → Paste Bookmarked Lines. **Shift** flips to Remove Bookmarked Lines. Does not collide with Sync Vertical Scroll (`Alt+Q`), Paste (`Cmd+V`), or Copy Bookmarked Lines (`Cmd+Alt+F2`). Remove Unmarked stays menu-only. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.298] — 2026-10-14
 
 Settings / shortcuts:

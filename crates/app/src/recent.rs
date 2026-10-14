@@ -148,6 +148,10 @@ fn default_shortcut_copy_marked_lines() -> String {
     crate::shortcut_chord::DEFAULT_COPY_MARKED_LINES.into()
 }
 
+fn default_shortcut_paste_marked_lines() -> String {
+    crate::shortcut_chord::DEFAULT_PASTE_MARKED_LINES.into()
+}
+
 fn default_shortcut_next_changed() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_CHANGED.into()
 }
@@ -795,6 +799,9 @@ pub struct AppSettings {
     /// Copy Bookmarked Lines chord (`Cmd+Alt+F2` default; Shift flips to Cut Bookmarked Lines).
     #[serde(default = "default_shortcut_copy_marked_lines")]
     pub shortcut_copy_marked_lines: String,
+    /// Paste Bookmarked Lines chord (`Cmd+Alt+Q` default; Shift flips to Remove Bookmarked Lines).
+    #[serde(default = "default_shortcut_paste_marked_lines")]
+    pub shortcut_paste_marked_lines: String,
     /// Next-compare-diff chord (`F7` default). Shift + same key is previous difference.
     #[serde(default = "default_shortcut_next_diff")]
     pub shortcut_next_diff: String,
@@ -1224,6 +1231,7 @@ impl Default for AppSettings {
             shortcut_clear_bookmarks: default_shortcut_clear_bookmarks(),
             shortcut_inverse_bookmarks: default_shortcut_inverse_bookmarks(),
             shortcut_copy_marked_lines: default_shortcut_copy_marked_lines(),
+            shortcut_paste_marked_lines: default_shortcut_paste_marked_lines(),
             shortcut_next_diff: default_shortcut_next_diff(),
             shortcut_first_diff: default_shortcut_first_diff(),
             shortcut_next_hidden_equal: default_shortcut_next_hidden_equal(),
@@ -1696,6 +1704,7 @@ mod tests {
             shortcut_clear_bookmarks: "Ctrl+Shift+F2".into(),
             shortcut_inverse_bookmarks: "Alt+Shift+F2".into(),
             shortcut_copy_marked_lines: "Ctrl+Alt+F2".into(),
+            shortcut_paste_marked_lines: "Ctrl+Alt+Q".into(),
             shortcut_next_diff: "Ctrl+F7".into(),
             shortcut_first_diff: "Ctrl+Alt+F7".into(),
             shortcut_next_hidden_equal: "Ctrl+Alt+H".into(),
@@ -1851,6 +1860,7 @@ mod tests {
         assert_eq!(back.shortcut_clear_bookmarks, "Ctrl+Shift+F2");
         assert_eq!(back.shortcut_inverse_bookmarks, "Alt+Shift+F2");
         assert_eq!(back.shortcut_copy_marked_lines, "Ctrl+Alt+F2");
+        assert_eq!(back.shortcut_paste_marked_lines, "Ctrl+Alt+Q");
         assert_eq!(back.shortcut_next_diff, "Ctrl+F7");
         assert_eq!(back.shortcut_first_diff, "Ctrl+Alt+F7");
         assert_eq!(back.shortcut_next_hidden_equal, "Ctrl+Alt+H");
