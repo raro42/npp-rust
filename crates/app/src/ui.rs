@@ -5135,6 +5135,48 @@ impl EditorApp {
             }
         }
 
+        // Remappable first tab (default Cmd+Alt+Home; settings.shortcut_first_tab).
+        // Opposite Home/End jumps to last; letter remaps use Shift for last.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FIRST_TAB};
+            let first_chord =
+                resolve_chord(&self.state.settings.shortcut_first_tab, DEFAULT_FIRST_TAB);
+            let last_chord = first_chord.line_end_chord();
+            let chord_key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let hit = |chord: crate::shortcut_chord::KeyChord| {
+                chord_key_pressed(chord.key) && chord.matches(mods, chord.key)
+            };
+            if hit(last_chord) && last_chord != first_chord {
+                self.run_shortcut_cmd("IDM_VIEW_TAB_END");
+            } else if hit(first_chord) {
+                self.run_shortcut_cmd("IDM_VIEW_TAB_START");
+            }
+        }
+
         // Remappable move tab forward (default Cmd+Shift+PageDown; settings.shortcut_move_tab).
         // Opposite PageUp/PageDown moves backward; letter remaps use Shift for backward.
         {
@@ -7536,6 +7578,17 @@ impl EditorApp {
                 &s.shortcut_next_tab,
                 crate::shortcut_chord::DEFAULT_NEXT_TAB,
             ),
+            "IDM_VIEW_TAB_START" => primary(
+                &s.shortcut_first_tab,
+                crate::shortcut_chord::DEFAULT_FIRST_TAB,
+            ),
+            "IDM_VIEW_TAB_END" => {
+                let c = crate::shortcut_chord::resolve_chord(
+                    &s.shortcut_first_tab,
+                    crate::shortcut_chord::DEFAULT_FIRST_TAB,
+                );
+                c.line_end_chord().display()
+            }
             "IDM_VIEW_TAB_MOVEFORWARD" => primary(
                 &s.shortcut_move_tab,
                 crate::shortcut_chord::DEFAULT_MOVE_TAB,
@@ -8731,6 +8784,15 @@ impl EditorApp {
             next_tab_chord.display(),
             next_tab_chord.flipped_shift().display()
         );
+        let first_tab_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_first_tab,
+            crate::shortcut_chord::DEFAULT_FIRST_TAB,
+        );
+        let first_tab_keys = format!(
+            "{} / {}",
+            first_tab_chord.display(),
+            first_tab_chord.line_end_chord().display()
+        );
         let move_tab_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_move_tab,
             crate::shortcut_chord::DEFAULT_MOVE_TAB,
@@ -9035,7 +9097,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 122] = [
+        let rows: [(&str, &str); 123] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9241,6 +9303,7 @@ impl EditorApp {
                 "Trim trailing / Trim leading and trailing",
             ),
             (next_tab_keys.as_str(), "Next / prev tab"),
+            (first_tab_keys.as_str(), "First / last tab"),
             (
                 move_tab_keys.as_str(),
                 "Move tab forward / Move tab backward",
@@ -12367,6 +12430,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Tab, Ctrl+Alt+Tab. Shift flips to previous tab.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("First tab shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_first_tab,
+                                )
+                                .desired_width(160.0)
+                                .hint_text("Cmd+Alt+Home"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_first_tab.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_first_tab =
+                                        crate::shortcut_chord::DEFAULT_FIRST_TAB.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIRST_TAB
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_first_tab = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+Home, Ctrl+Alt+Home. Runs View → First Tab. Opposite End jumps to Last Tab; letter remaps use Shift for last. Does not collide with Document Home (Cmd+Home) or Next tab (Cmd+Tab).",
                             )
                             .small()
                             .weak(),

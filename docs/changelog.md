@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.296] — 2026-10-14
+
+Settings / shortcuts:
+
+- **First / Last Tab** is remappable: Preferences → First tab shortcut, or `shortcut_first_tab` in `npp-rs/settings.json` (default `Cmd+Alt+Home`). Runs View → First Tab. Opposite **End** jumps to Last Tab; letter remaps use **Shift** for last. Does not collide with Document Home (`Cmd+Home`) or Next tab (`Cmd+Tab`). Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.295] — 2026-10-14
 
 Settings / shortcuts:

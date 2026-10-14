@@ -356,6 +356,12 @@ pub const DEFAULT_RELOAD: &str = "Cmd+R";
 /// Default next-tab binding (new remappable chord). Shift flips to previous tab.
 pub const DEFAULT_NEXT_TAB: &str = "Cmd+Tab";
 
+/// Default first-tab binding (View → First Tab).
+/// Opposite Home/End jumps to Last Tab; letter remaps use Shift for last.
+/// Uses Cmd+Alt+Home so it does not collide with Document Home (Cmd+Home),
+/// line Home, or Next tab (Cmd+Tab).
+pub const DEFAULT_FIRST_TAB: &str = "Cmd+Alt+Home";
+
 /// Default move-tab-forward binding (View → Move Current Tab Forward).
 /// Opposite PageUp/PageDown moves backward; letter remaps use Shift for backward.
 /// Uses Cmd+Shift+PageDown so it does not collide with Next tab (Cmd+Tab), bare
@@ -1340,6 +1346,19 @@ mod tests {
         assert_eq!(c.key, Key::Tab);
         assert_eq!(c.display(), "Cmd+Tab");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+Tab");
+    }
+
+    #[test]
+    fn parse_cmd_alt_home_default_first_tab() {
+        let c = parse_chord(DEFAULT_FIRST_TAB).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Home);
+        assert_eq!(c.display(), "Cmd+Alt+Home");
+        assert_eq!(c.line_end_chord().display(), "Cmd+Alt+End");
+        let letter = parse_chord("Ctrl+Alt+T").unwrap();
+        assert_eq!(letter.line_end_chord().display(), "Cmd+Alt+Shift+T");
     }
 
     #[test]
