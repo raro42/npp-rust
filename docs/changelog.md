@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.298] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Copy / Cut Bookmarked Lines** is remappable: Preferences → Copy bookmarked lines shortcut, or `shortcut_copy_marked_lines` in `npp-rs/settings.json` (default `Cmd+Alt+F2`). Runs Search → Copy Bookmarked Lines. **Shift** flips to Cut Bookmarked Lines. Stays on the F2 bookmark family without colliding with next (`F2`), toggle (`Cmd+F2`), clear (`Cmd+Shift+F2`), or inverse (`Alt+Shift+F2`). Paste / Remove bookmarked lines stay menu-only. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.297] — 2026-10-14
 
 Settings / shortcuts:
