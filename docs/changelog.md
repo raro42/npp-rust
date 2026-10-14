@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.306] — 2026-10-14
+
+Search:
+
+- **Find Copy matching lines** — Find bar **Lines** copies every line that contains a Find match (Case / Word / Re / Sel; same engine as Find Next), newline-joined, deduped. Whole lines (body only), distinct from **Copy** (match substrings) and Copy Bookmarked Lines.
+
 ## [0.3.305] — 2026-10-14
 
 Search:

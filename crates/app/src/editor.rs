@@ -1942,6 +1942,42 @@ impl EditorState {
         Some(joined)
     }
 
+    /// Copy every line that contains a Find match under Case/Word/Re/Sel, newline-joined.
+    /// Whole lines (body only, no trailing EOL), distinct from [`Self::copy_find_matches`]
+    /// (match substrings) and from Copy Bookmarked Lines. Returns the clipboard payload
+    /// (`Some("")` when empty / no match), or `None` when regex is invalid.
+    pub fn copy_find_match_lines(&mut self) -> Option<String> {
+        let q = self.find_query.clone();
+        if q.is_empty() {
+            self.status = "Copy matching lines: set Find text".into();
+            return Some(String::new());
+        }
+        if self.find_regex_blocked() {
+            return None;
+        }
+        let (lo, hi) = self.find_bounds();
+        let flags = self.find_flags();
+        let text = self.tabs.active().buffer.to_string();
+        let matches = crate::search_util::find_all_matches_in(&text, &q, lo, hi, flags);
+        if matches.is_empty() {
+            self.status = "Copy matching lines: no match".into();
+            return Some(String::new());
+        }
+        let buf = &self.tabs.active().buffer;
+        let mut lines = std::collections::BTreeSet::new();
+        for (start, _) in &matches {
+            lines.insert(buf.char_to_line(*start));
+        }
+        let mut parts = Vec::with_capacity(lines.len());
+        for &i in &lines {
+            parts.push(buf.line(i).trim_end_matches(['\n', '\r']).to_string());
+        }
+        let joined = parts.join("\n");
+        let count = lines.len();
+        self.status = format!("Copied {count} matching line(s)");
+        Some(joined)
+    }
+
     /// Cut every Find match substring under Case/Word/Re/Sel: clipboard payload plus
     /// delete matches (one document replace). Returns the clipboard text
     /// (`Some("")` when empty / no match / read-only), or `None` when regex is invalid.
@@ -4192,6 +4228,33 @@ mod tests {
         let text = state.copy_find_matches().unwrap();
         assert_eq!(text, "12\n3");
         assert!(state.status.contains("Copied 2"));
+    }
+
+    #[test]
+    fn copy_find_match_lines_respects_case_word() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer =
+            buffer::TextBuffer::from_str("Foo food\nfoo\nFOO bar\nfoo");
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = true;
+        let text = state.copy_find_match_lines().unwrap();
+        assert_eq!(text, "foo\nfoo");
+        assert!(state.status.contains("Copied 2 matching line"));
+    }
+
+    #[test]
+    fn copy_find_match_lines_dedupes_and_sel_bounds() {
+        let mut state = EditorState::new();
+        // Two matches on line 0; Sel excludes line 2's "99".
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("a12 x12\nb3\nc99\nd");
+        state.find_query = r"\d+".into();
+        state.settings.find_regex = true;
+        state.settings.find_in_selection = true;
+        state.find_scope = Some((0, 11)); // a12 x12\nb3\n
+        let text = state.copy_find_match_lines().unwrap();
+        assert_eq!(text, "a12 x12\nb3");
+        assert!(state.status.contains("Copied 2 matching line"));
     }
 
     #[test]

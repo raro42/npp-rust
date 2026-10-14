@@ -475,3 +475,4 @@
 009 keep: Find-bar Copy matching substrings (Case/Word/Re/Sel, v0.3.303)
 009 keep: Find-bar Cut matching substrings (Case/Word/Re/Sel, v0.3.304)
 
+009 keep: Find-bar Copy matching lines (Case/Word/Re/Sel, v0.3.306)
