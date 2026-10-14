@@ -42,6 +42,7 @@ New keys:
 | `shortcut_mark_style_2` | Mark-all Style 2 chord (`Cmd+2` default; Shift flips to Clear Style 2) |
 | `shortcut_mark_style_3` | Mark-all Style 3 chord (`Cmd+3` default; Shift flips to Clear Style 3) |
 | `shortcut_mark_style_4` | Mark-all Style 4 chord (`Cmd+4` default; Shift flips to Clear Style 4) |
+| `shortcut_mark_style_5` | Mark-all Style 5 chord (`Cmd+5` default; Shift flips to Clear Style 5) |
 | `shortcut_next_bookmark` | Next-bookmark chord (`F2` default; Shift flips to previous) |
 | `shortcut_toggle_bookmark` | Toggle-bookmark chord (`Cmd+F2` default) |
 | `shortcut_clear_bookmarks` | Clear-all-bookmarks chord (`Cmd+Shift+F2` default) |

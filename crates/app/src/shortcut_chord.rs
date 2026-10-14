@@ -31,8 +31,12 @@ pub const DEFAULT_MARK_STYLE_2: &str = "Cmd+2";
 pub const DEFAULT_MARK_STYLE_3: &str = "Cmd+3";
 
 /// Default mark-all Style 4 binding (Search → Using Style 4; N++ Ctrl+4 family).
-/// Shift flips to Clear Style 4. Style 5 stays menu-only for now.
+/// Shift flips to Clear Style 4.
 pub const DEFAULT_MARK_STYLE_4: &str = "Cmd+4";
+
+/// Default mark-all Style 5 binding (Search → Using Style 5; N++ Ctrl+5 family).
+/// Shift flips to Clear Style 5.
+pub const DEFAULT_MARK_STYLE_5: &str = "Cmd+5";
 
 /// Default next-bookmark binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_BOOKMARK: &str = "F2";
@@ -881,6 +885,17 @@ mod tests {
         assert_eq!(c.key, Key::Num4);
         assert_eq!(c.display(), "Cmd+4");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+4");
+    }
+
+    #[test]
+    fn parse_cmd_5_default_mark_style_5() {
+        let c = parse_chord(DEFAULT_MARK_STYLE_5).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Num5);
+        assert_eq!(c.display(), "Cmd+5");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+5");
     }
 
     #[test]

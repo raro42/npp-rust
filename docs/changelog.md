@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.287] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Mark Style 5** is remappable: Preferences → Mark Style 5 shortcut, or `shortcut_mark_style_5` in `npp-rs/settings.json` (default `Cmd+5`). Marks all Find/selection matches with Style 5. **Shift** flips to Clear Style 5. Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.286] — 2026-10-14
 
 Settings / shortcuts:
