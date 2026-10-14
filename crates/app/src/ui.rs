@@ -16422,6 +16422,15 @@ impl EditorApp {
                 {
                     self.state.mark_all_style(1, true);
                 }
+                if ui
+                    .button("Bookmark")
+                    .on_hover_text(
+                        "Bookmark all matching lines (uses Case / Word / Re / Sel; keeps existing)",
+                    )
+                    .clicked()
+                {
+                    let _ = self.state.bookmark_find_matches();
+                }
                 if self.show_replace {
                     ui.separator();
                     ui.label("Replace:");

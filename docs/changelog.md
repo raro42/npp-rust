@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.302] — 2026-10-14
+
+Search:
+
+- **Find Bookmark all** — Find bar **Bookmark** bookmarks every matching line (Case / Word / Re / Sel; same engine as Find Next). Keeps existing bookmarks; status reports match lines and how many were new.
+
 ## [0.3.301] — 2026-10-14
 
 Search:

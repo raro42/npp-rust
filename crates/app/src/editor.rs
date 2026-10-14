@@ -1871,6 +1871,46 @@ impl EditorState {
         let _ = self.mark_style_matches(style, &q, flags, lo, hi);
     }
 
+    /// Bookmark every line that matches the Find query under Case/Word/Re/Sel.
+    /// Adds bookmarks; does not clear existing ones. Returns newly added count, or
+    /// `None` when regex is invalid.
+    pub fn bookmark_find_matches(&mut self) -> Option<usize> {
+        let q = self.find_query.clone();
+        if q.is_empty() {
+            self.status = "Bookmark all: set Find text".into();
+            return Some(0);
+        }
+        if self.find_regex_blocked() {
+            return None;
+        }
+        let (lo, hi) = self.find_bounds();
+        let flags = self.find_flags();
+        let text = self.tabs.active().buffer.to_string();
+        let matches = crate::search_util::find_all_matches_in(&text, &q, lo, hi, flags);
+        let mut lines = std::collections::BTreeSet::new();
+        {
+            let buf = &self.tabs.active().buffer;
+            for (start, _) in &matches {
+                lines.insert(buf.char_to_line(*start));
+            }
+        }
+        let match_lines = lines.len();
+        let doc = self.tabs.active_mut();
+        let before = doc.bookmarks.len();
+        for line in lines {
+            doc.bookmarks.insert(line);
+        }
+        let added = doc.bookmarks.len().saturating_sub(before);
+        self.status = if match_lines == 0 {
+            "Bookmark all: no match".into()
+        } else if added == match_lines {
+            format!("Bookmarked {match_lines} matching line(s)")
+        } else {
+            format!("Bookmarked {match_lines} matching line(s) ({added} new)")
+        };
+        Some(added)
+    }
+
     /// Find hits for Document Map: `(total_matches, first_span_per_line)`.
     ///
     /// Uses the active tab's Find bounds when `tab` is active; otherwise the whole
@@ -3943,6 +3983,38 @@ mod tests {
         state.mark_all_style(1, false);
         let marks = &state.tabs.active().style_marks[0];
         assert_eq!(marks.iter().copied().collect::<Vec<_>>(), vec![0, 1]);
+    }
+
+    #[test]
+    fn bookmark_find_matches_respects_case_word_and_keeps_existing() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer =
+            buffer::TextBuffer::from_str("Foo food\nfoo\nFOO bar\nfoo");
+        // Line 1 already bookmarked and is a match; line 0 is not a whole-word match.
+        state.tabs.active_mut().bookmarks.insert(1);
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = true;
+        let added = state.bookmark_find_matches().unwrap();
+        assert_eq!(added, 1);
+        let bms: Vec<_> = state.tabs.active().bookmarks.iter().copied().collect();
+        assert_eq!(bms, vec![1, 3]);
+        assert!(state.status.contains("Bookmarked 2 matching"));
+        assert!(state.status.contains("1 new"));
+    }
+
+    #[test]
+    fn bookmark_find_matches_regex_and_sel_bounds() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("a12\nb3\nc99\nd");
+        state.find_query = r"\d+".into();
+        state.settings.find_regex = true;
+        state.settings.find_in_selection = true;
+        state.find_scope = Some((0, 7)); // a12\nb3\n
+        let added = state.bookmark_find_matches().unwrap();
+        assert_eq!(added, 2);
+        let bms: Vec<_> = state.tabs.active().bookmarks.iter().copied().collect();
+        assert_eq!(bms, vec![0, 1]);
     }
 
     #[test]
