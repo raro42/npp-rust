@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.289] — 2026-10-14
+
+Settings / shortcuts:
+
+- **Inverse Bookmarks** is remappable: Preferences → Inverse bookmarks shortcut, or `shortcut_inverse_bookmarks` in `npp-rs/settings.json` (default `Alt+Shift+F2`). Inverts bookmarks on every line in the active tab. Menu, Shortcut Mapper, and About show the effective binding. Stays on the F2 family without colliding with next/prev/toggle/clear.
+
 ## [0.3.288] — 2026-10-14
 
 Settings / shortcuts:

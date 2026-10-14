@@ -5320,11 +5320,12 @@ impl EditorApp {
 
         // Bookmarks: remappable next (default F2; Shift flips to prev) + remappable toggle
         // (default Cmd+F2; settings.shortcut_toggle_bookmark) + remappable clear all
-        // (default Cmd+Shift+F2; settings.shortcut_clear_bookmarks).
+        // (default Cmd+Shift+F2; settings.shortcut_clear_bookmarks) + remappable inverse
+        // (default Alt+Shift+F2; settings.shortcut_inverse_bookmarks).
         {
             use crate::shortcut_chord::{
-                resolve_chord, DEFAULT_CLEAR_BOOKMARKS, DEFAULT_NEXT_BOOKMARK,
-                DEFAULT_TOGGLE_BOOKMARK,
+                resolve_chord, DEFAULT_CLEAR_BOOKMARKS, DEFAULT_INVERSE_BOOKMARKS,
+                DEFAULT_NEXT_BOOKMARK, DEFAULT_TOGGLE_BOOKMARK,
             };
             let bm_chord = resolve_chord(
                 &self.state.settings.shortcut_next_bookmark,
@@ -5337,6 +5338,10 @@ impl EditorApp {
             let clear_chord = resolve_chord(
                 &self.state.settings.shortcut_clear_bookmarks,
                 DEFAULT_CLEAR_BOOKMARKS,
+            );
+            let inverse_chord = resolve_chord(
+                &self.state.settings.shortcut_inverse_bookmarks,
+                DEFAULT_INVERSE_BOOKMARKS,
             );
             let key_pressed = |key: Key| match key {
                 Key::Z => z,
@@ -5366,9 +5371,12 @@ impl EditorApp {
             let bm_key_pressed = key_pressed(bm_chord.key);
             let toggle_key_pressed = key_pressed(toggle_chord.key);
             let clear_key_pressed = key_pressed(clear_chord.key);
+            let inverse_key_pressed = key_pressed(inverse_chord.key);
             let remapped_toggle =
                 toggle_key_pressed && toggle_chord.matches(mods, toggle_chord.key);
             let remapped_clear = clear_key_pressed && clear_chord.matches(mods, clear_chord.key);
+            let remapped_inverse =
+                inverse_key_pressed && inverse_chord.matches(mods, inverse_chord.key);
             let remapped_prev =
                 bm_key_pressed && bm_chord.flipped_shift().matches(mods, bm_chord.key);
             let remapped_next = bm_key_pressed && bm_chord.matches(mods, bm_chord.key);
@@ -5376,6 +5384,8 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_SEARCH_TOGGLE_BOOKMARK");
             } else if remapped_clear {
                 self.run_shortcut_cmd("IDM_SEARCH_CLEAR_BOOKMARKS");
+            } else if remapped_inverse {
+                self.run_shortcut_cmd("IDM_SEARCH_INVERSEMARKS");
             } else if remapped_prev {
                 self.run_shortcut_cmd("IDM_SEARCH_PREV_BOOKMARK");
             } else if remapped_next {
@@ -7517,6 +7527,10 @@ impl EditorApp {
                 &s.shortcut_clear_bookmarks,
                 crate::shortcut_chord::DEFAULT_CLEAR_BOOKMARKS,
             ),
+            "IDM_SEARCH_INVERSEMARKS" => primary(
+                &s.shortcut_inverse_bookmarks,
+                crate::shortcut_chord::DEFAULT_INVERSE_BOOKMARKS,
+            ),
             "IDM_SEARCH_NEXT_BOOKMARK" => primary(
                 &s.shortcut_next_bookmark,
                 crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
@@ -7882,6 +7896,11 @@ impl EditorApp {
         let clear_bm_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_clear_bookmarks,
             crate::shortcut_chord::DEFAULT_CLEAR_BOOKMARKS,
+        )
+        .display();
+        let inverse_bm_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_inverse_bookmarks,
+            crate::shortcut_chord::DEFAULT_INVERSE_BOOKMARKS,
         )
         .display();
         let changed_chord = crate::shortcut_chord::resolve_chord(
@@ -8661,7 +8680,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 115] = [
+        let rows: [(&str, &str); 116] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -8686,6 +8705,7 @@ impl EditorApp {
             (bm_keys.as_str(), "Next / prev bookmark"),
             (toggle_bm_keys.as_str(), "Toggle bookmark"),
             (clear_bm_keys.as_str(), "Clear all bookmarks"),
+            (inverse_bm_keys.as_str(), "Inverse bookmarks"),
             (changed_keys.as_str(), "Next / prev change history"),
             (compare_keys.as_str(), "Compare start / clear"),
             (swap_compare_keys.as_str(), "Swap Compare sides"),
@@ -9676,6 +9696,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Shift+F2, Ctrl+Shift+F2. Clears every bookmark in the active tab.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Inverse bookmarks shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_inverse_bookmarks,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+Shift+F2"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_inverse_bookmarks
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_inverse_bookmarks =
+                                        crate::shortcut_chord::DEFAULT_INVERSE_BOOKMARKS.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_INVERSE_BOOKMARKS
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_inverse_bookmarks = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+F2. Inverts bookmarks on every line in the active tab (marked ↔ unmarked).",
                             )
                             .small()
                             .weak(),
