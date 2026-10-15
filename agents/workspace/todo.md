@@ -496,3 +496,5 @@
 009 keep: Next/Prev Search Result walks Find Results hits (F4; multi-doc; wrap, v0.3.311)
 
 009 keep: Find Results / Find in Files Enter hit jump (v0.3.315)
+
+009 keep: remappable Clear Change History (shortcut_clear_change_history, Cmd+Shift+F8 default, v0.3.324)
