@@ -28,6 +28,11 @@ pub const DEFAULT_NEXT_FOUND: &str = "F4";
 /// Shift flips to Find All in opened editor tabs.
 pub const DEFAULT_FIND_ALL: &str = "Cmd+Alt+F4";
 
+/// Default Incremental Search binding (Search → Incremental Search; Find-bar Inc).
+/// Uses Alt+Shift+I so it stays near Indent Guide (Alt+I) without colliding with
+/// Format Document (Cmd+Shift+I) or Close All to the Left (Cmd+Alt+I).
+pub const DEFAULT_FIND_INCREMENTAL: &str = "Alt+Shift+I";
+
 /// Default mark-all Style 1 binding (Search → Using Style 1; N++ Ctrl+1 family).
 /// Shift flips to Clear Style 1.
 pub const DEFAULT_MARK_STYLE: &str = "Cmd+1";
@@ -1211,6 +1216,16 @@ mod tests {
         assert_eq!(c.key, Key::F4);
         assert_eq!(c.display(), "Cmd+Alt+F4");
         assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+F4");
+    }
+
+    #[test]
+    fn parse_alt_shift_i_default_find_incremental() {
+        let c = parse_chord(DEFAULT_FIND_INCREMENTAL).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::I);
+        assert_eq!(c.display(), "Alt+Shift+I");
     }
 
     #[test]

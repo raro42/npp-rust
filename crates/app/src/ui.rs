@@ -5436,6 +5436,44 @@ impl EditorApp {
             }
         }
 
+        // Remappable Incremental Search (default Alt+Shift+I; settings.shortcut_find_incremental).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND_INCREMENTAL};
+            let inc_chord = resolve_chord(
+                &self.state.settings.shortcut_find_incremental,
+                DEFAULT_FIND_INCREMENTAL,
+            );
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let inc_key_pressed = key_pressed(inc_chord.key);
+            if inc_key_pressed && inc_chord.matches(mods, inc_chord.key) {
+                self.run_shortcut_cmd("IDM_SEARCH_FINDINCREMENT");
+            }
+        }
+
         // Remappable Mark All Style 1 (default Cmd+1; settings.shortcut_mark_style).
         // Shift flips to Clear Style 1.
         {
@@ -8067,6 +8105,10 @@ impl EditorApp {
                 &s.shortcut_find_all,
                 crate::shortcut_chord::DEFAULT_FIND_ALL,
             ),
+            "IDM_SEARCH_FINDINCREMENT" => primary(
+                &s.shortcut_find_incremental,
+                crate::shortcut_chord::DEFAULT_FIND_INCREMENTAL,
+            ),
             "IDM_SEARCH_MARKALLEXT1" => primary(
                 &s.shortcut_mark_style,
                 crate::shortcut_chord::DEFAULT_MARK_STYLE,
@@ -8514,6 +8556,11 @@ impl EditorApp {
             find_all_chord.display(),
             find_all_chord.flipped_shift().display()
         );
+        let find_incremental_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_find_incremental,
+            crate::shortcut_chord::DEFAULT_FIND_INCREMENTAL,
+        )
+        .display();
         let mark_style_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_mark_style,
             crate::shortcut_chord::DEFAULT_MARK_STYLE,
@@ -9445,7 +9492,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 130] = [
+        let rows: [(&str, &str); 131] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9462,6 +9509,7 @@ impl EditorApp {
             (set_and_find_keys.as_str(), "Select and Find next / prev"),
             (next_found_keys.as_str(), "Next / prev search result"),
             (find_all_keys.as_str(), "Find All / Find All in opened"),
+            (find_incremental_keys.as_str(), "Incremental Search"),
             (mark_style_keys.as_str(), "Mark Style 1 / Clear Style 1"),
             (mark_style_2_keys.as_str(), "Mark Style 2 / Clear Style 2"),
             (mark_style_3_keys.as_str(), "Mark Style 3 / Clear Style 3"),
@@ -10253,6 +10301,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+F4, Ctrl+Alt+F4. Runs Search → Search Results Window (Find All current doc). Shift + that key is Find All in opened editor tabs. Does not collide with Next Search Result (F4) or Find in Files (Cmd+Alt+F).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Incremental Search shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_find_incremental,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+Shift+I"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_find_incremental
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_find_incremental =
+                                        crate::shortcut_chord::DEFAULT_FIND_INCREMENTAL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIND_INCREMENTAL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_find_incremental = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+I. Opens Find and enables Incremental Search (as-you-type jump; same as Search → Incremental Search / Find-bar Inc). Does not collide with Indent Guide (Alt+I), Format Document (Cmd+Shift+I), or Close All to the Left (Cmd+Alt+I).",
                             )
                             .small()
                             .weak(),
@@ -16714,9 +16798,16 @@ impl EditorApp {
                 }
                 if ui
                     .checkbox(&mut self.state.find_incremental, "Inc")
-                    .on_hover_text(
-                        "Incremental Search: typing in Find jumps to the match (Search → Incremental Search)",
-                    )
+                    .on_hover_text({
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_find_incremental,
+                            crate::shortcut_chord::DEFAULT_FIND_INCREMENTAL,
+                        );
+                        format!(
+                            "Incremental Search: typing in Find jumps to the match (Search → Incremental Search; {})",
+                            chord.display()
+                        )
+                    })
                     .changed()
                     && self.state.find_incremental
                     && !self.state.find_query.is_empty()

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.323] — 2026-10-15
+
+Search:
+
+- **Incremental Search** is remappable: Preferences → Incremental Search shortcut, or `shortcut_find_incremental` in `npp-rs/settings.json` (default `Alt+Shift+I`). Opens Find and enables as-you-type jump (same as Search → Incremental Search / Find-bar **Inc**). Does not collide with Indent Guide (`Alt+I`), Format Document (`Cmd+Shift+I`), or Close All to the Left (`Cmd+Alt+I`). Menu, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.322] — 2026-10-15
 
 Search:
