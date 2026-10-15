@@ -429,6 +429,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_SEARCH_GOTONEXTFOUND"
             | "IDM_SEARCH_GOTOPREVFOUND"
             | "IDM_SEARCH_MARK"
+            | "IDM_SEARCH_BOOKMARK_FIND_MATCHES"
             | "IDM_SEARCH_CHANGED_NEXT"
             | "IDM_SEARCH_CHANGED_PREV"
             | "IDM_SEARCH_CLEAR_CHANGE_HISTORY"

@@ -5510,6 +5510,44 @@ impl EditorApp {
             }
         }
 
+        // Remappable Find Bookmark (default Alt+Shift+F4; settings.shortcut_find_bookmark).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND_BOOKMARK};
+            let bookmark_chord = resolve_chord(
+                &self.state.settings.shortcut_find_bookmark,
+                DEFAULT_FIND_BOOKMARK,
+            );
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let bookmark_key_pressed = key_pressed(bookmark_chord.key);
+            if bookmark_key_pressed && bookmark_chord.matches(mods, bookmark_chord.key) {
+                self.run_shortcut_cmd("IDM_SEARCH_BOOKMARK_FIND_MATCHES");
+            }
+        }
+
         // Remappable Mark All Style 1 (default Cmd+1; settings.shortcut_mark_style).
         // Shift flips to Clear Style 1.
         {
@@ -8301,6 +8339,10 @@ impl EditorApp {
                 &s.shortcut_find_mark,
                 crate::shortcut_chord::DEFAULT_FIND_MARK,
             ),
+            "IDM_SEARCH_BOOKMARK_FIND_MATCHES" => primary(
+                &s.shortcut_find_bookmark,
+                crate::shortcut_chord::DEFAULT_FIND_BOOKMARK,
+            ),
             "IDM_SEARCH_MARKALLEXT1" => primary(
                 &s.shortcut_mark_style,
                 crate::shortcut_chord::DEFAULT_MARK_STYLE,
@@ -8797,6 +8839,11 @@ impl EditorApp {
         let find_mark_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_find_mark,
             crate::shortcut_chord::DEFAULT_FIND_MARK,
+        )
+        .display();
+        let find_bookmark_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_find_bookmark,
+            crate::shortcut_chord::DEFAULT_FIND_BOOKMARK,
         )
         .display();
         let mark_style_chord = crate::shortcut_chord::resolve_chord(
@@ -9745,7 +9792,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 135] = [
+        let rows: [(&str, &str); 136] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9764,6 +9811,10 @@ impl EditorApp {
             (find_all_keys.as_str(), "Find All / Find All in opened"),
             (find_incremental_keys.as_str(), "Incremental Search"),
             (find_mark_keys.as_str(), "Find Mark (Style 1)"),
+            (
+                find_bookmark_keys.as_str(),
+                "Find Bookmark all matching lines",
+            ),
             (mark_style_keys.as_str(), "Mark Style 1 / Clear Style 1"),
             (mark_style_2_keys.as_str(), "Mark Style 2 / Clear Style 2"),
             (mark_style_3_keys.as_str(), "Mark Style 3 / Clear Style 3"),
@@ -10629,6 +10680,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+Shift+F3. Runs Search → Mark (opens Find, seeds from selection, Style 1 mark-all with Case/Word/Re/Sel; same as Find-bar Mark). Does not collide with Find next (F3), Select and Find (Cmd+F3), or Inverse Bookmarks (Alt+Shift+F2).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Find Bookmark shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_find_bookmark,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+Shift+F4"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_find_bookmark.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_find_bookmark =
+                                        crate::shortcut_chord::DEFAULT_FIND_BOOKMARK.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIND_BOOKMARK
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_find_bookmark = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+F4. Opens Find, seeds from selection, bookmarks all matching lines with Case/Word/Re/Sel (same as Find-bar Bookmark). Does not collide with Next Search Result (F4), Find All (Cmd+Alt+F4), Find Mark (Alt+Shift+F3), or Inverse Bookmarks (Alt+Shift+F2).",
                             )
                             .small()
                             .weak(),
@@ -17235,9 +17318,16 @@ impl EditorApp {
                 }
                 if ui
                     .button("Bookmark")
-                    .on_hover_text(
-                        "Bookmark all matching lines (uses Case / Word / Re / Sel; keeps existing)",
-                    )
+                    .on_hover_text({
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_find_bookmark,
+                            crate::shortcut_chord::DEFAULT_FIND_BOOKMARK,
+                        );
+                        format!(
+                            "Bookmark all matching lines (Case / Word / Re / Sel; keeps existing; {})",
+                            chord.display()
+                        )
+                    })
                     .clicked()
                 {
                     let _ = self.state.bookmark_find_matches();

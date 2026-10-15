@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.328] — 2026-10-15
+
+Search:
+
+- **Find Bookmark** is remappable: Preferences → Find Bookmark shortcut, or `shortcut_find_bookmark` in `npp-rs/settings.json` (default `Alt+Shift+F4`). Opens Find, seeds from selection, bookmarks all matching lines with Case/Word/Re/Sel (same as Find-bar **Bookmark**; keeps existing). Does not collide with Next Search Result (`F4`), Find All (`Cmd+Alt+F4`), Find Mark (`Alt+Shift+F3`), or Inverse Bookmarks (`Alt+Shift+F2`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.327] — 2026-10-15
 
 Search:

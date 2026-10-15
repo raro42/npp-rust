@@ -38,6 +38,12 @@ pub const DEFAULT_FIND_INCREMENTAL: &str = "Alt+Shift+I";
 /// (F3), Select and Find (Cmd+F3), or Inverse Bookmarks (Alt+Shift+F2).
 pub const DEFAULT_FIND_MARK: &str = "Alt+Shift+F3";
 
+/// Default Find Bookmark binding (Find-bar Bookmark all matching lines; Case/Word/Re/Sel).
+/// Uses Alt+Shift+F4 so it stays near Find Mark (Alt+Shift+F3) and the F4 Find Results
+/// family without colliding with Next Search Result (F4), Find All (Cmd+Alt+F4), or
+/// Inverse Bookmarks (Alt+Shift+F2).
+pub const DEFAULT_FIND_BOOKMARK: &str = "Alt+Shift+F4";
+
 /// Default mark-all Style 1 binding (Search → Using Style 1; N++ Ctrl+1 family).
 /// Shift flips to Clear Style 1.
 pub const DEFAULT_MARK_STYLE: &str = "Cmd+1";
@@ -1389,6 +1395,16 @@ mod tests {
         assert!(c.shift);
         assert_eq!(c.key, Key::F3);
         assert_eq!(c.display(), "Alt+Shift+F3");
+    }
+
+    #[test]
+    fn parse_alt_shift_f4_default_find_bookmark() {
+        let c = parse_chord(DEFAULT_FIND_BOOKMARK).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::F4);
+        assert_eq!(c.display(), "Alt+Shift+F4");
     }
 
     #[test]
