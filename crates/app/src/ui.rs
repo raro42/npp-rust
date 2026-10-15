@@ -16642,7 +16642,7 @@ impl EditorApp {
                     let rresp = ui
                         .add(egui::TextEdit::singleline(&mut self.replace_with).desired_width(120.0))
                         .on_hover_text(
-                            "With Re: $1 / \\1 insert a capture, $0 / $& the match, $$ a dollar",
+                            "Enter: Replace once (same as Replace). Shift+Enter: Replace All. With Re: $1 / \\1 insert a capture, $0 / $& the match, $$ a dollar",
                         );
                     // Selection drag → drop into Replace field (fills replace text; does not move).
                     if self.sel_text_drag.is_some() {
@@ -16674,12 +16674,32 @@ impl EditorApp {
                     if rresp.changed() {
                         persist = true;
                     }
-                    if ui.button("Replace").clicked() {
+                    // Enter / Shift+Enter while Replace field focused (mirrors Find Next/Prev chords).
+                    let (replace_enter, replace_shift) =
+                        ui.input(|i| (i.key_pressed(Key::Enter), i.modifiers.shift));
+                    if rresp.has_focus() && replace_enter {
+                        let r = self.replace_with.clone();
+                        if replace_shift {
+                            self.state.replace_all(&r);
+                        } else {
+                            self.state.replace_next(&r);
+                            self.follow_caret = true;
+                        }
+                    }
+                    if ui
+                        .button("Replace")
+                        .on_hover_text("Replace once (Enter in the Replace field)")
+                        .clicked()
+                    {
                         let r = self.replace_with.clone();
                         self.state.replace_next(&r);
                         self.follow_caret = true;
                     }
-                    if ui.button("Replace All").clicked() {
+                    if ui
+                        .button("Replace All")
+                        .on_hover_text("Replace all matches (Shift+Enter in the Replace field)")
+                        .clicked()
+                    {
                         let r = self.replace_with.clone();
                         self.state.replace_all(&r);
                     }

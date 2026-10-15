@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.318] — 2026-10-15
+
+Search:
+
+- **Replace bar Enter / Shift+Enter**: with focus in the Replace field, **Enter** runs Replace once (same as the Replace button); **Shift+Enter** runs Replace All. Hover tips on the field and buttons mention the chords.
+
 ## [0.3.317] — 2026-10-15
 
 Search:
