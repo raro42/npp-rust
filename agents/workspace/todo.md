@@ -1,3 +1,4 @@
+009 keep: remappable Mark current line Style (shortcut_mark_one_style, Alt+Shift+1 default, digit-family 1…5, v0.3.326)
 009 keep: remappable Copy Styled Text (shortcut_style_to_clip, Cmd+Alt+Shift+1 default, digit-family 1…5, 0=all, v0.3.325)
 009 keep: remappable Clear Change History (shortcut_clear_change_history, Cmd+Shift+F8 default, v0.3.324)
 009 keep: remappable Incremental Search (shortcut_find_incremental, Alt+Shift+I default, v0.3.323)
