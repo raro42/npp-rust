@@ -21862,14 +21862,29 @@ impl EditorApp {
                     modifiers,
                     ..
                 } if !modifiers.command && !modifiers.ctrl => {
-                    // Find Results / Find in Files: Enter on a hit row → open + park (same as double-click).
+                    // Find Results / Find in Files: Shift+Enter = Previous Search Result (Shift+F4);
+                    // Enter on a hit row → open + park (same as double-click).
                     {
                         let mut jump_flags = crate::commands::UiFlags::default();
-                        if crate::commands::search::goto_search_result_at_caret(
-                            &mut self.state,
-                            &mut jump_flags,
-                            tab,
-                        ) {
+                        if modifiers.shift
+                            && crate::commands::search::goto_search_result_shift_enter(
+                                &mut self.state,
+                                &mut jump_flags,
+                                tab,
+                            )
+                        {
+                            if jump_flags.follow_caret {
+                                self.follow_caret = true;
+                            }
+                            continue;
+                        }
+                        if !modifiers.shift
+                            && crate::commands::search::goto_search_result_at_caret(
+                                &mut self.state,
+                                &mut jump_flags,
+                                tab,
+                            )
+                        {
                             if jump_flags.follow_caret {
                                 self.follow_caret = true;
                             }

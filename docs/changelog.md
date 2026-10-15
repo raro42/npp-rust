@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.320] — 2026-10-15
+
+Search:
+
+- **Find Results / Find in Files Shift+Enter**: with focus on a results tab (primary or dual-view secondary), **Shift+Enter** runs Previous Search Result (same as Shift+F4). Plain **Enter** still jumps the hit under the caret.
+
 ## [0.3.319] — 2026-10-15
 
 Search:

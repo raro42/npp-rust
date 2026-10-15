@@ -910,6 +910,23 @@ pub(crate) fn goto_search_result_at_caret(
     goto_search_result_at_line(state, ui, tab, line)
 }
 
+/// Shift+Enter on Find Results / Find in Files: Previous Search Result (same as Shift+F4).
+/// Returns `true` when `tab` is a results tab so the key is consumed (no newline / read-only tip).
+pub(crate) fn goto_search_result_shift_enter(
+    state: &mut EditorState,
+    ui: &mut UiFlags,
+    tab: usize,
+) -> bool {
+    let Some(doc) = state.tabs.get(tab) else {
+        return false;
+    };
+    if !is_find_results_tab(&doc.title) {
+        return false;
+    }
+    goto_search_result(state, ui, false);
+    true
+}
+
 /// Next / Previous Search Result: walk Find Results / Find in Files hit lines and park the match.
 /// Falls back to Find Next / Prev when no results tab (or no parseable hits).
 fn goto_search_result(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
@@ -1385,6 +1402,47 @@ Documents: 2
         ));
         assert_eq!(state.tabs.active().title, "sample.txt");
         assert_eq!(state.tabs.active().buffer.selection(), Some((21, 24)));
+        assert!(ui.follow_caret);
+    }
+
+    #[test]
+    fn goto_search_result_shift_enter_walks_previous() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer =
+            buffer::TextBuffer::from_str("Foo food\nfoo\nFOO bar\nfoo");
+        state.tabs.active_mut().title = "sample.txt".into();
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = true;
+        let (body, n) = state.find_all_current_report().unwrap();
+        assert_eq!(n, 2);
+        present_find_results(&mut state, &body);
+
+        let hits = parse_find_results_hits(&body);
+        assert_eq!(hits.len(), 2);
+        let results_idx = state.tabs.active_index();
+        let second_line = hits[1].results_line;
+        {
+            let doc = state.tabs.active_mut();
+            let start = doc.buffer.line_to_char(second_line);
+            doc.buffer.set_caret(start);
+        }
+
+        let mut ui = UiFlags::default();
+        assert!(!goto_search_result_shift_enter(
+            &mut state,
+            &mut ui,
+            results_idx + 99
+        ));
+
+        assert!(goto_search_result_shift_enter(
+            &mut state,
+            &mut ui,
+            results_idx
+        ));
+        assert_eq!(state.tabs.active().title, "sample.txt");
+        assert_eq!(state.tabs.active().buffer.selection(), Some((9, 12)));
+        assert!(state.status.contains("1/2"));
         assert!(ui.follow_caret);
     }
 
