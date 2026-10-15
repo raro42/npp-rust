@@ -33,6 +33,11 @@ pub const DEFAULT_FIND_ALL: &str = "Cmd+Alt+F4";
 /// Format Document (Cmd+Shift+I) or Close All to the Left (Cmd+Alt+I).
 pub const DEFAULT_FIND_INCREMENTAL: &str = "Alt+Shift+I";
 
+/// Default Find Mark binding (Search → Mark; Find-bar Mark / Style 1 with Case/Word/Re/Sel).
+/// Uses Alt+Shift+F3 so it stays on the F3 Find family without colliding with Find next
+/// (F3), Select and Find (Cmd+F3), or Inverse Bookmarks (Alt+Shift+F2).
+pub const DEFAULT_FIND_MARK: &str = "Alt+Shift+F3";
+
 /// Default mark-all Style 1 binding (Search → Using Style 1; N++ Ctrl+1 family).
 /// Shift flips to Clear Style 1.
 pub const DEFAULT_MARK_STYLE: &str = "Cmd+1";
@@ -1374,6 +1379,16 @@ mod tests {
         assert!(c.shift);
         assert_eq!(c.key, Key::I);
         assert_eq!(c.display(), "Alt+Shift+I");
+    }
+
+    #[test]
+    fn parse_alt_shift_f3_default_find_mark() {
+        let c = parse_chord(DEFAULT_FIND_MARK).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::F3);
+        assert_eq!(c.display(), "Alt+Shift+F3");
     }
 
     #[test]

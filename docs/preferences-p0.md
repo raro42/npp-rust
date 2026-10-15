@@ -41,6 +41,7 @@ New keys:
 | `shortcut_next_found` | Next-search-result chord (`F4` default; Shift flips to Previous Search Result) |
 | `shortcut_find_all` | Find All / Search Results Window chord (`Cmd+Alt+F4` default; Shift flips to Find All in opened editor tabs) |
 | `shortcut_find_incremental` | Incremental Search chord (`Alt+Shift+I` default) |
+| `shortcut_find_mark` | Find Mark chord (`Alt+Shift+F3` default; Search → Mark / Find-bar Mark Style 1) |
 | `shortcut_mark_style` | Mark-all Style 1 chord (`Cmd+1` default; Shift flips to Clear Style 1) |
 | `shortcut_mark_style_2` | Mark-all Style 2 chord (`Cmd+2` default; Shift flips to Clear Style 2) |
 | `shortcut_mark_style_3` | Mark-all Style 3 chord (`Cmd+3` default; Shift flips to Clear Style 3) |

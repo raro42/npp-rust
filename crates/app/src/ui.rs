@@ -5474,6 +5474,42 @@ impl EditorApp {
             }
         }
 
+        // Remappable Find Mark (default Alt+Shift+F3; settings.shortcut_find_mark).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND_MARK};
+            let mark_chord =
+                resolve_chord(&self.state.settings.shortcut_find_mark, DEFAULT_FIND_MARK);
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let mark_key_pressed = key_pressed(mark_chord.key);
+            if mark_key_pressed && mark_chord.matches(mods, mark_chord.key) {
+                self.run_shortcut_cmd("IDM_SEARCH_MARK");
+            }
+        }
+
         // Remappable Mark All Style 1 (default Cmd+1; settings.shortcut_mark_style).
         // Shift flips to Clear Style 1.
         {
@@ -8261,6 +8297,10 @@ impl EditorApp {
                 &s.shortcut_find_incremental,
                 crate::shortcut_chord::DEFAULT_FIND_INCREMENTAL,
             ),
+            "IDM_SEARCH_MARK" => primary(
+                &s.shortcut_find_mark,
+                crate::shortcut_chord::DEFAULT_FIND_MARK,
+            ),
             "IDM_SEARCH_MARKALLEXT1" => primary(
                 &s.shortcut_mark_style,
                 crate::shortcut_chord::DEFAULT_MARK_STYLE,
@@ -8752,6 +8792,11 @@ impl EditorApp {
         let find_incremental_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_find_incremental,
             crate::shortcut_chord::DEFAULT_FIND_INCREMENTAL,
+        )
+        .display();
+        let find_mark_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_find_mark,
+            crate::shortcut_chord::DEFAULT_FIND_MARK,
         )
         .display();
         let mark_style_chord = crate::shortcut_chord::resolve_chord(
@@ -9700,7 +9745,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 134] = [
+        let rows: [(&str, &str); 135] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9718,6 +9763,7 @@ impl EditorApp {
             (next_found_keys.as_str(), "Next / prev search result"),
             (find_all_keys.as_str(), "Find All / Find All in opened"),
             (find_incremental_keys.as_str(), "Incremental Search"),
+            (find_mark_keys.as_str(), "Find Mark (Style 1)"),
             (mark_style_keys.as_str(), "Mark Style 1 / Clear Style 1"),
             (mark_style_2_keys.as_str(), "Mark Style 2 / Clear Style 2"),
             (mark_style_3_keys.as_str(), "Mark Style 3 / Clear Style 3"),
@@ -10551,6 +10597,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+Shift+I. Opens Find and enables Incremental Search (as-you-type jump; same as Search → Incremental Search / Find-bar Inc). Does not collide with Indent Guide (Alt+I), Format Document (Cmd+Shift+I), or Close All to the Left (Cmd+Alt+I).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Find Mark shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_find_mark,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+Shift+F3"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_find_mark.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_find_mark =
+                                        crate::shortcut_chord::DEFAULT_FIND_MARK.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIND_MARK
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_find_mark = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+F3. Runs Search → Mark (opens Find, seeds from selection, Style 1 mark-all with Case/Word/Re/Sel; same as Find-bar Mark). Does not collide with Find next (F3), Select and Find (Cmd+F3), or Inverse Bookmarks (Alt+Shift+F2).",
                             )
                             .small()
                             .weak(),
@@ -17141,9 +17219,16 @@ impl EditorApp {
                 }
                 if ui
                     .button("Mark")
-                    .on_hover_text(
-                        "Style all matching lines with Style 1 (uses Case / Word / Re / Sel)",
-                    )
+                    .on_hover_text({
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_find_mark,
+                            crate::shortcut_chord::DEFAULT_FIND_MARK,
+                        );
+                        format!(
+                            "Style all matching lines with Style 1 (Case / Word / Re / Sel; Search → Mark; {})",
+                            chord.display()
+                        )
+                    })
                     .clicked()
                 {
                     self.state.mark_all_style(1, true);

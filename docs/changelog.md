@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.327] — 2026-10-15
+
+Search:
+
+- **Find Mark** is remappable: Preferences → Find Mark shortcut, or `shortcut_find_mark` in `npp-rs/settings.json` (default `Alt+Shift+F3`). Runs Search → Mark (opens Find, seeds from selection, Style 1 mark-all with Case/Word/Re/Sel; same as Find-bar **Mark**). Does not collide with Find next (`F3`), Select and Find (`Cmd+F3`), or Inverse Bookmarks (`Alt+Shift+F2`). Menu, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.326] — 2026-10-15
 
 Search:

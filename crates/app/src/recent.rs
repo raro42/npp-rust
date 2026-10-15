@@ -112,6 +112,10 @@ fn default_shortcut_find_incremental() -> String {
     crate::shortcut_chord::DEFAULT_FIND_INCREMENTAL.into()
 }
 
+fn default_shortcut_find_mark() -> String {
+    crate::shortcut_chord::DEFAULT_FIND_MARK.into()
+}
+
 fn default_shortcut_mark_style() -> String {
     crate::shortcut_chord::DEFAULT_MARK_STYLE.into()
 }
@@ -805,6 +809,9 @@ pub struct AppSettings {
     /// Incremental Search chord (`Alt+Shift+I` default).
     #[serde(default = "default_shortcut_find_incremental")]
     pub shortcut_find_incremental: String,
+    /// Find Mark chord (`Alt+Shift+F3` default; Search → Mark / Find-bar Mark Style 1).
+    #[serde(default = "default_shortcut_find_mark")]
+    pub shortcut_find_mark: String,
     /// Mark-all Style 1 chord (`Cmd+1` default). Shift flips to Clear Style 1.
     #[serde(default = "default_shortcut_mark_style")]
     pub shortcut_mark_style: String,
@@ -1279,6 +1286,7 @@ impl Default for AppSettings {
             shortcut_next_found: default_shortcut_next_found(),
             shortcut_find_all: default_shortcut_find_all(),
             shortcut_find_incremental: default_shortcut_find_incremental(),
+            shortcut_find_mark: default_shortcut_find_mark(),
             shortcut_mark_style: default_shortcut_mark_style(),
             shortcut_mark_style_2: default_shortcut_mark_style_2(),
             shortcut_mark_style_3: default_shortcut_mark_style_3(),
@@ -1760,6 +1768,7 @@ mod tests {
             shortcut_next_found: "Ctrl+F4".into(),
             shortcut_find_all: "Ctrl+Alt+F4".into(),
             shortcut_find_incremental: "Alt+Shift+I".into(),
+            shortcut_find_mark: "Alt+Shift+F3".into(),
             shortcut_mark_style: "Ctrl+1".into(),
             shortcut_mark_style_2: "Ctrl+2".into(),
             shortcut_mark_style_3: "Ctrl+3".into(),
@@ -1924,6 +1933,7 @@ mod tests {
         assert_eq!(back.shortcut_next_found, "Ctrl+F4");
         assert_eq!(back.shortcut_find_all, "Ctrl+Alt+F4");
         assert_eq!(back.shortcut_find_incremental, "Alt+Shift+I");
+        assert_eq!(back.shortcut_find_mark, "Alt+Shift+F3");
         assert_eq!(back.shortcut_mark_style, "Ctrl+1");
         assert_eq!(back.shortcut_mark_style_2, "Ctrl+2");
         assert_eq!(back.shortcut_mark_style_3, "Ctrl+3");
