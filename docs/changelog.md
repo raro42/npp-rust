@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.336] — 2026-10-16
+
+Edit:
+
+- **Sort Lines Decimal Dot Asc / Desc** is remappable: Preferences → Sort Lines Decimal Dot shortcut, or `shortcut_sort_lines_decimal_dot` in `npp-rs/settings.json` (default `Cmd+Alt+F8`). Runs Edit → Line Operations → Sort Lines As Decimals (Dot) Ascending. **Shift** flips to descending. Does not collide with Next Change (`F8`), Find Purge (`Alt+Shift+F8`), Clear Change History (`Cmd+Shift+F8`), or Sort Lines Ignoring Case (`Cmd+Alt+F6`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.335] — 2026-10-15
 
 Edit:

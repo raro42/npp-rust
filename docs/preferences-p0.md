@@ -128,6 +128,7 @@ New keys:
 | `shortcut_sort_lines` | Sort Lines Lexicographic Ascending chord (`Cmd+Alt+O` default; Shift flips to Descending) |
 | `shortcut_sort_lines_integer` | Sort Lines Integer Ascending chord (`Cmd+Alt+F5` default; Shift flips to Descending) |
 | `shortcut_sort_lines_case_insensitive` | Sort Lines Lex Ignoring Case Ascending chord (`Cmd+Alt+F6` default; Shift flips to Descending) |
+| `shortcut_sort_lines_decimal_dot` | Sort Lines Decimal Dot Ascending chord (`Cmd+Alt+F8` default; Shift flips to Descending) |
 | `shortcut_remove_empty_lines` | Remove Empty Lines chord (`Cmd+Alt+E` default; Shift flips to Containing Blank Characters) |
 | `shortcut_remove_dup_lines` | Remove Consecutive Duplicate Lines chord (`Cmd+Alt+D` default; Shift flips to any duplicates) |
 | `shortcut_insert_datetime` | Date Time (short) chord (`F5` default; Shift flips to long) |

@@ -4488,6 +4488,51 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_SORTLINES_LEXICO_CASE_INSENS_ASCENDING");
             }
         }
+        // Remappable Sort Lines Decimal Dot (default Cmd+Alt+F8;
+        // settings.shortcut_sort_lines_decimal_dot). Shift flips to Decimal Dot Descending.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SORT_LINES_DECIMAL_DOT};
+            let sort_dot_chord = resolve_chord(
+                &self.state.settings.shortcut_sort_lines_decimal_dot,
+                DEFAULT_SORT_LINES_DECIMAL_DOT,
+            );
+            let sort_dot_key_pressed = match sort_dot_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_desc = sort_dot_key_pressed
+                && sort_dot_chord
+                    .flipped_shift()
+                    .matches(mods, sort_dot_chord.key);
+            let remapped_asc =
+                sort_dot_key_pressed && sort_dot_chord.matches(mods, sort_dot_chord.key);
+            if remapped_desc {
+                self.run_shortcut_cmd("IDM_EDIT_SORTLINES_DECIMALDOT_DESCENDING");
+            } else if remapped_asc {
+                self.run_shortcut_cmd("IDM_EDIT_SORTLINES_DECIMALDOT_ASCENDING");
+            }
+        }
         // Remappable Remove Empty Lines (default Cmd+Alt+E; settings.shortcut_remove_empty_lines).
         // Shift flips to Remove Empty Lines (Containing Blank Characters).
         {
@@ -8563,6 +8608,14 @@ impl EditorApp {
                 &s.shortcut_sort_lines_case_insensitive,
                 crate::shortcut_chord::DEFAULT_SORT_LINES_CASE_INSENSITIVE,
             ),
+            "IDM_EDIT_SORTLINES_DECIMALDOT_ASCENDING" => primary(
+                &s.shortcut_sort_lines_decimal_dot,
+                crate::shortcut_chord::DEFAULT_SORT_LINES_DECIMAL_DOT,
+            ),
+            "IDM_EDIT_SORTLINES_DECIMALDOT_DESCENDING" => shifted(
+                &s.shortcut_sort_lines_decimal_dot,
+                crate::shortcut_chord::DEFAULT_SORT_LINES_DECIMAL_DOT,
+            ),
             "IDM_EDIT_REMOVEEMPTYLINES" => primary(
                 &s.shortcut_remove_empty_lines,
                 crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES,
@@ -9760,6 +9813,15 @@ impl EditorApp {
             sort_lines_case_insensitive_chord.display(),
             sort_lines_case_insensitive_chord.flipped_shift().display()
         );
+        let sort_lines_decimal_dot_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_sort_lines_decimal_dot,
+            crate::shortcut_chord::DEFAULT_SORT_LINES_DECIMAL_DOT,
+        );
+        let sort_lines_decimal_dot_keys = format!(
+            "{} / {}",
+            sort_lines_decimal_dot_chord.display(),
+            sort_lines_decimal_dot_chord.flipped_shift().display()
+        );
         let remove_empty_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_remove_empty_lines,
             crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES,
@@ -10219,7 +10281,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 143] = [
+        let rows: [(&str, &str); 144] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -10386,6 +10448,10 @@ impl EditorApp {
             (
                 sort_lines_case_insensitive_keys.as_str(),
                 "Sort Lines Lex Ignoring Case Asc / Desc",
+            ),
+            (
+                sort_lines_decimal_dot_keys.as_str(),
+                "Sort Lines Decimal Dot Asc / Desc",
             ),
             (
                 remove_empty_keys.as_str(),
@@ -13626,6 +13692,43 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+F6, Ctrl+Alt+F6. Sorts lines lexicographically ascending ignoring case (Edit → Line Operations). Shift + that chord sorts descending ignoring case. Does not collide with Focus on Another View (F6), Find Cut (Alt+Shift+F6), or Sort Lines Integer (Cmd+Alt+F5).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Sort Lines Decimal Dot shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_sort_lines_decimal_dot,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+F8"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_sort_lines_decimal_dot
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_sort_lines_decimal_dot =
+                                        crate::shortcut_chord::DEFAULT_SORT_LINES_DECIMAL_DOT
+                                            .into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SORT_LINES_DECIMAL_DOT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_sort_lines_decimal_dot = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+F8, Ctrl+Alt+F8. Sorts lines by leading decimal (dot) ascending (Edit → Line Operations). Shift + that chord sorts descending. Does not collide with Next Change (F8), Find Purge (Alt+Shift+F8), Clear Change History (Cmd+Shift+F8), or Sort Lines Ignoring Case (Cmd+Alt+F6).",
                             )
                             .small()
                             .weak(),

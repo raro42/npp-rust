@@ -560,6 +560,12 @@ pub const DEFAULT_SORT_LINES_INTEGER: &str = "Cmd+Alt+F5";
 /// (`Alt+Shift+F6`).
 pub const DEFAULT_SORT_LINES_CASE_INSENSITIVE: &str = "Cmd+Alt+F6";
 
+/// Default Sort Lines Decimal Dot Ascending binding (Edit → Line Operations).
+/// Shift flips to Decimal Dot Descending. Uses Cmd+Alt+F8 so it stays near Integer /
+/// Ignoring Case sort (`Cmd+Alt+F5` / `Cmd+Alt+F6`) without colliding with Next Change
+/// (`F8`), Find Purge (`Alt+Shift+F8`), or Clear Change History (`Cmd+Shift+F8`).
+pub const DEFAULT_SORT_LINES_DECIMAL_DOT: &str = "Cmd+Alt+F8";
+
 /// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
 /// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
 /// Shift flips to Remove Empty Lines (Containing Blank Characters).
@@ -2870,6 +2876,19 @@ mod tests {
         let desc = c.flipped_shift();
         assert!(desc.shift);
         assert_eq!(desc.display(), "Cmd+Alt+Shift+F6");
+    }
+
+    #[test]
+    fn parse_cmd_alt_f8_default_sort_lines_decimal_dot() {
+        let c = parse_chord(DEFAULT_SORT_LINES_DECIMAL_DOT).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F8);
+        assert_eq!(c.display(), "Cmd+Alt+F8");
+        let desc = c.flipped_shift();
+        assert!(desc.shift);
+        assert_eq!(desc.display(), "Cmd+Alt+Shift+F8");
     }
 
     #[test]
