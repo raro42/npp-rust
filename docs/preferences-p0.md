@@ -53,6 +53,7 @@ New keys:
 | `shortcut_inverse_bookmarks` | Inverse-bookmarks chord (`Alt+Shift+F2` default) |
 | `shortcut_copy_marked_lines` | Copy Bookmarked Lines chord (`Cmd+Alt+F2` default; Shift flips to Cut Bookmarked Lines) |
 | `shortcut_paste_marked_lines` | Paste Bookmarked Lines chord (`Cmd+Alt+Q` default; Shift flips to Remove Bookmarked Lines) |
+| `shortcut_remove_unmarked` | Remove Unmarked Lines chord (`Cmd+Alt+Z` default) |
 | `shortcut_next_diff` | Next-compare-diff chord (`F7` default; Shift flips to previous) |
 | `shortcut_first_diff` | First-compare-diff chord (`Cmd+F7` default; Shift flips to last) |
 | `shortcut_next_hidden_equal` | Next-hidden-equal chord (`Alt+F7` default; Shift flips to previous) |

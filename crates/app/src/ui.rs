@@ -5818,12 +5818,13 @@ impl EditorApp {
         // (default Alt+Shift+F2; settings.shortcut_inverse_bookmarks) + remappable copy/cut
         // bookmarked lines (default Cmd+Alt+F2; settings.shortcut_copy_marked_lines; Shift=cut)
         // + remappable paste/remove bookmarked lines (default Cmd+Alt+Q;
-        // settings.shortcut_paste_marked_lines; Shift=remove).
+        // settings.shortcut_paste_marked_lines; Shift=remove) + remappable remove
+        // unmarked lines (default Cmd+Alt+Z; settings.shortcut_remove_unmarked).
         {
             use crate::shortcut_chord::{
                 resolve_chord, DEFAULT_CLEAR_BOOKMARKS, DEFAULT_COPY_MARKED_LINES,
                 DEFAULT_INVERSE_BOOKMARKS, DEFAULT_NEXT_BOOKMARK, DEFAULT_PASTE_MARKED_LINES,
-                DEFAULT_TOGGLE_BOOKMARK,
+                DEFAULT_REMOVE_UNMARKED, DEFAULT_TOGGLE_BOOKMARK,
             };
             let bm_chord = resolve_chord(
                 &self.state.settings.shortcut_next_bookmark,
@@ -5848,6 +5849,10 @@ impl EditorApp {
             let paste_marked_chord = resolve_chord(
                 &self.state.settings.shortcut_paste_marked_lines,
                 DEFAULT_PASTE_MARKED_LINES,
+            );
+            let remove_unmarked_chord = resolve_chord(
+                &self.state.settings.shortcut_remove_unmarked,
+                DEFAULT_REMOVE_UNMARKED,
             );
             let key_pressed = |key: Key| match key {
                 Key::Z => z,
@@ -5880,6 +5885,7 @@ impl EditorApp {
             let inverse_key_pressed = key_pressed(inverse_chord.key);
             let copy_marked_key_pressed = key_pressed(copy_marked_chord.key);
             let paste_marked_key_pressed = key_pressed(paste_marked_chord.key);
+            let remove_unmarked_key_pressed = key_pressed(remove_unmarked_chord.key);
             let remapped_toggle =
                 toggle_key_pressed && toggle_chord.matches(mods, toggle_chord.key);
             let remapped_clear = clear_key_pressed && clear_chord.matches(mods, clear_chord.key);
@@ -5897,6 +5903,8 @@ impl EditorApp {
                     .matches(mods, paste_marked_chord.key);
             let remapped_paste_marked = paste_marked_key_pressed
                 && paste_marked_chord.matches(mods, paste_marked_chord.key);
+            let remapped_remove_unmarked = remove_unmarked_key_pressed
+                && remove_unmarked_chord.matches(mods, remove_unmarked_chord.key);
             let remapped_prev =
                 bm_key_pressed && bm_chord.flipped_shift().matches(mods, bm_chord.key);
             let remapped_next = bm_key_pressed && bm_chord.matches(mods, bm_chord.key);
@@ -5914,6 +5922,8 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_SEARCH_DELETEMARKEDLINES");
             } else if remapped_paste_marked {
                 self.run_shortcut_cmd("IDM_SEARCH_PASTEMARKEDLINES");
+            } else if remapped_remove_unmarked {
+                self.run_shortcut_cmd("IDM_SEARCH_DELETEUNMARKEDLINES");
             } else if remapped_prev {
                 self.run_shortcut_cmd("IDM_SEARCH_PREV_BOOKMARK");
             } else if remapped_next {
@@ -8161,6 +8171,10 @@ impl EditorApp {
                 &s.shortcut_paste_marked_lines,
                 crate::shortcut_chord::DEFAULT_PASTE_MARKED_LINES,
             ),
+            "IDM_SEARCH_DELETEUNMARKEDLINES" => primary(
+                &s.shortcut_remove_unmarked,
+                crate::shortcut_chord::DEFAULT_REMOVE_UNMARKED,
+            ),
             "IDM_SEARCH_NEXT_BOOKMARK" => primary(
                 &s.shortcut_next_bookmark,
                 crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
@@ -8597,6 +8611,11 @@ impl EditorApp {
             paste_marked_chord.display(),
             paste_marked_chord.flipped_shift().display()
         );
+        let remove_unmarked_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_remove_unmarked,
+            crate::shortcut_chord::DEFAULT_REMOVE_UNMARKED,
+        )
+        .display();
         let changed_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_next_changed,
             crate::shortcut_chord::DEFAULT_NEXT_CHANGED,
@@ -9426,7 +9445,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 129] = [
+        let rows: [(&str, &str); 130] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9460,6 +9479,7 @@ impl EditorApp {
                 paste_marked_keys.as_str(),
                 "Paste / Remove Bookmarked Lines",
             ),
+            (remove_unmarked_keys.as_str(), "Remove Unmarked Lines"),
             (changed_keys.as_str(), "Next / prev change history"),
             (compare_keys.as_str(), "Compare start / clear"),
             (swap_compare_keys.as_str(), "Swap Compare sides"),
@@ -10670,7 +10690,43 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: Cmd+Alt+Q, Ctrl+Alt+Q. Pastes onto bookmarked lines (Search → Paste Bookmarked Lines). Shift + that chord removes bookmarked lines. Remove Unmarked stays menu-only.",
+                                "Example: Cmd+Alt+Q, Ctrl+Alt+Q. Pastes onto bookmarked lines (Search → Paste Bookmarked Lines). Shift + that chord removes bookmarked lines. Remove Unmarked has its own remappable chord below.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Remove unmarked lines shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_remove_unmarked,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+Z"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_remove_unmarked
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_remove_unmarked =
+                                        crate::shortcut_chord::DEFAULT_REMOVE_UNMARKED.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_REMOVE_UNMARKED
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_remove_unmarked = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+Z, Ctrl+Alt+Z. Deletes every line that is not bookmarked (Search → Remove Unmarked Lines). Does not collide with Word Wrap (Alt+Z), Zoom Sync (Alt+Shift+Z), or Paste Bookmarked (Cmd+Alt+Q).",
                             )
                             .small()
                             .weak(),

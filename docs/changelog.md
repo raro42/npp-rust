@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.322] — 2026-10-15
+
+Search:
+
+- **Remove Unmarked Lines** is remappable: Preferences → Remove unmarked lines shortcut, or `shortcut_remove_unmarked` in `npp-rs/settings.json` (default `Cmd+Alt+Z`). Runs Search → Remove Unmarked Lines (keeps bookmarked lines only). Does not collide with Word Wrap (`Alt+Z`), Zoom Sync (`Alt+Shift+Z`), or Paste Bookmarked (`Cmd+Alt+Q`). Menu, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.321] — 2026-10-15
 
 Search:
