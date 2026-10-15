@@ -554,6 +554,12 @@ pub const DEFAULT_SORT_LINES: &str = "Cmd+Alt+O";
 /// (`Cmd+Alt+O`) without colliding with Date Time (`F5`) or Find Copy (`Alt+Shift+F5`).
 pub const DEFAULT_SORT_LINES_INTEGER: &str = "Cmd+Alt+F5";
 
+/// Default Sort Lines Lexicographic Ascending Ignoring Case binding (Edit → Line Operations).
+/// Shift flips to Descending Ignoring Case. Uses Cmd+Alt+F6 so it stays near Integer
+/// sort (`Cmd+Alt+F5`) without colliding with Focus Other View (`F6`) or Find Cut
+/// (`Alt+Shift+F6`).
+pub const DEFAULT_SORT_LINES_CASE_INSENSITIVE: &str = "Cmd+Alt+F6";
+
 /// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
 /// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
 /// Shift flips to Remove Empty Lines (Containing Blank Characters).
@@ -2851,6 +2857,19 @@ mod tests {
         let desc = c.flipped_shift();
         assert!(desc.shift);
         assert_eq!(desc.display(), "Cmd+Alt+Shift+F5");
+    }
+
+    #[test]
+    fn parse_cmd_alt_f6_default_sort_lines_case_insensitive() {
+        let c = parse_chord(DEFAULT_SORT_LINES_CASE_INSENSITIVE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F6);
+        assert_eq!(c.display(), "Cmd+Alt+F6");
+        let desc = c.flipped_shift();
+        assert!(desc.shift);
+        assert_eq!(desc.display(), "Cmd+Alt+Shift+F6");
     }
 
     #[test]

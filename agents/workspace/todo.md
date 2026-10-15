@@ -1,3 +1,4 @@
+009 keep: remappable Sort Lines Lex Ignoring Case (shortcut_sort_lines_case_insensitive, Cmd+Alt+F6 default; Shift=desc, v0.3.335)
 009 keep: remappable Sort Lines Integer (shortcut_sort_lines_integer, Cmd+Alt+F5 default; Shift=desc, v0.3.334)
 009 keep: Find Next/Previous (Volatile) selection query + remappable shortcut_find_volatile (Cmd+Alt+F3 default; Shift=prev, v0.3.333)
 009 keep: remappable Find characters in range (shortcut_find_char_range, Alt+F9 default; Shift=prev, v0.3.332)

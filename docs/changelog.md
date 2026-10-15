@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.335] — 2026-10-15
+
+Edit:
+
+- **Sort Lines Lex Ignoring Case Asc / Desc** is remappable: Preferences → Sort Lines Ignoring Case shortcut, or `shortcut_sort_lines_case_insensitive` in `npp-rs/settings.json` (default `Cmd+Alt+F6`). Runs Edit → Line Operations → Sort Lines Lex. Ascending Ignoring Case. **Shift** flips to descending ignoring case. Does not collide with Focus on Another View (`F6`), Find Cut (`Alt+Shift+F6`), or Sort Lines Integer (`Cmd+Alt+F5`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.334] — 2026-10-15
 
 Edit:
