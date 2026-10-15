@@ -70,6 +70,13 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             ui.find_open = true;
             ui.show_replace = false;
             ui.find_focus_once = true;
+            state.find_incremental = true;
+            if state.find_query.is_empty() {
+                state.status = "Incremental Find: type to jump".into();
+            } else {
+                state.find_incremental_update();
+                ui.follow_caret = true;
+            }
             CmdResult::Handled
         }
         "IDM_FOCUS_ON_FOUND_RESULTS" => {
@@ -1192,6 +1199,24 @@ fn goto_changed_line(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
 mod tests {
     use super::*;
     use crate::commands::UiFlags;
+    use crate::editor::EditorState;
+
+    #[test]
+    fn find_increment_enables_incremental_and_jumps() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("alpha beta");
+        state.find_query = "beta".into();
+        state.tabs.active_mut().buffer.set_caret(0);
+        let mut ui = UiFlags::default();
+        let r = try_dispatch("IDM_SEARCH_FINDINCREMENT", &mut state, &mut ui).unwrap();
+        assert!(matches!(r, CmdResult::Handled));
+        assert!(state.find_incremental);
+        assert!(ui.find_open);
+        assert!(ui.find_focus_once);
+        assert!(ui.follow_caret);
+        assert_eq!(state.tabs.active().buffer.selection(), Some((6, 10)));
+        assert!(state.status.starts_with("Incremental Find:"));
+    }
 
     #[test]
     fn parse_hit_line_basic_and_escapes() {

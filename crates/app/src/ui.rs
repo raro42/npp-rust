@@ -6718,6 +6718,7 @@ impl EditorApp {
                 if self.state.find_open || self.show_replace {
                     self.state.find_open = false;
                     self.show_replace = false;
+                    self.state.find_incremental = false;
                 } else if let Some(doc) = self.state.tabs.get_mut(self.state.tabs.active_index()) {
                     if doc.has_multi_carets() || doc.rect_cols.is_some() {
                         doc.clear_multi_sels();
@@ -16576,6 +16577,10 @@ impl EditorApp {
                 }
                 if resp.changed() {
                     persist = true;
+                    if self.state.find_incremental {
+                        self.state.find_incremental_update();
+                        self.follow_caret = true;
+                    }
                 }
                 let (enter, shift_enter) =
                     ui.input(|i| (i.key_pressed(Key::Enter), i.modifiers.shift));
@@ -16603,17 +16608,20 @@ impl EditorApp {
                     self.state.find_prev();
                     self.follow_caret = true;
                 }
+                let mut find_opts_changed = false;
                 if ui
                     .checkbox(&mut self.state.settings.find_match_case, "Case")
                     .changed()
                 {
                     persist = true;
+                    find_opts_changed = true;
                 }
                 if ui
                     .checkbox(&mut self.state.settings.find_whole_word, "Word")
                     .changed()
                 {
                     persist = true;
+                    find_opts_changed = true;
                 }
                 if ui
                     .checkbox(&mut self.state.settings.find_in_selection, "Sel")
@@ -16623,6 +16631,7 @@ impl EditorApp {
                     .changed()
                 {
                     persist = true;
+                    find_opts_changed = true;
                     if self.state.settings.find_in_selection {
                         self.state.capture_find_scope();
                     } else {
@@ -16635,6 +16644,7 @@ impl EditorApp {
                     .changed()
                 {
                     persist = true;
+                    find_opts_changed = true;
                 }
                 if ui
                     .checkbox(&mut self.state.settings.find_regex, "Re")
@@ -16644,6 +16654,23 @@ impl EditorApp {
                     .changed()
                 {
                     persist = true;
+                    find_opts_changed = true;
+                }
+                if ui
+                    .checkbox(&mut self.state.find_incremental, "Inc")
+                    .on_hover_text(
+                        "Incremental Search: typing in Find jumps to the match (Search → Incremental Search)",
+                    )
+                    .changed()
+                    && self.state.find_incremental
+                    && !self.state.find_query.is_empty()
+                {
+                    find_opts_changed = true;
+                }
+                if find_opts_changed && self.state.find_incremental && !self.state.find_query.is_empty()
+                {
+                    self.state.find_incremental_update();
+                    self.follow_caret = true;
                 }
                 let n = self.state.find_match_count();
                 if self.state.find_query.is_empty() {
@@ -16829,6 +16856,7 @@ impl EditorApp {
                     persist = true;
                     self.state.find_open = false;
                     self.show_replace = false;
+                    self.state.find_incremental = false;
                 }
                 if self.find_focus_once {
                     resp.request_focus();

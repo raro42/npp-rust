@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.321] — 2026-10-15
+
+Search:
+
+- **Incremental Search**: Search → Incremental Search (or Find-bar **Inc**) enables as-you-type jump: each Find-field edit selects the first match at or after the selection start (growing the query lengthens in place). Closing Find clears Inc. Case / Word / Re / Sel / Wrap changes re-run while Inc is on.
+
 ## [0.3.320] — 2026-10-15
 
 Search:

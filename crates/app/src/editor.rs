@@ -22,6 +22,8 @@ pub struct EditorState {
     pub tabs: TabSet,
     pub find_query: String,
     pub find_open: bool,
+    /// Find-bar Incremental Search: typing jumps to the next match (not persisted).
+    pub find_incremental: bool,
     /// Frozen `[lo, hi)` for Find in selection (not persisted).
     pub find_scope: Option<(usize, usize)>,
     pub status: String,
@@ -202,6 +204,7 @@ impl EditorState {
             tabs: TabSet::new(),
             find_query,
             find_open: false,
+            find_incremental: false,
             find_scope: None,
             status: "Ready".into(),
             highlighter: SyntaxHighlighter::new(),
@@ -2458,6 +2461,55 @@ impl EditorState {
         }
     }
 
+    /// Incremental Search: jump to the first match at or after the selection start (or caret).
+    /// Growing the query re-searches from the same start so the highlight can lengthen in place.
+    pub fn find_incremental_update(&mut self) {
+        let q = self.find_query.clone();
+        if q.is_empty() {
+            self.status = "Incremental Find".into();
+            return;
+        }
+        if self.find_regex_blocked() {
+            return;
+        }
+        self.capture_find_scope();
+        if self.settings.find_in_selection && self.find_scope.is_none() {
+            self.status = "Incremental Find: select a range first".into();
+            return;
+        }
+        let from = self
+            .tabs
+            .active()
+            .buffer
+            .selection()
+            .map(|(s, _)| s)
+            .unwrap_or_else(|| self.tabs.active().buffer.caret());
+        let text = self.tabs.active().buffer.to_string();
+        let flags = self.find_flags();
+        let wrap = self.settings.find_wrap;
+        let (lo, hi) = self.find_bounds();
+        let all = crate::search_util::find_all_matches_in(&text, &q, lo, hi, flags);
+        let total = all.len();
+        if let Some((s, e)) =
+            crate::search_util::find_next_in(&text, &q, from, wrap, (lo, hi), flags)
+        {
+            self.tabs.active_mut().buffer.set_selection(s, e);
+            let idx = all
+                .iter()
+                .position(|(a, _)| *a == s)
+                .map(|i| i + 1)
+                .unwrap_or(1);
+            self.status = format!("Incremental Find: {idx}/{total}");
+        } else if total == 0 {
+            self.status = "Incremental Find: no match".into();
+        } else {
+            self.status = format!(
+                "Incremental Find: passed end of {}",
+                self.find_bound_label()
+            );
+        }
+    }
+
     pub fn find_prev(&mut self) {
         let q = self.find_query.clone();
         if q.is_empty() {
@@ -4355,6 +4407,29 @@ mod tests {
         state.find_next();
         state.replace_next(r"\1-\2");
         assert_eq!(state.tabs.active().buffer.to_string(), "x-y");
+    }
+
+    #[test]
+    fn find_incremental_update_grows_match_from_selection_start() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("food\nfoo\nbar");
+        state.settings.find_match_case = true;
+        state.settings.find_wrap = true;
+        state.tabs.active_mut().buffer.set_caret(0);
+        state.find_query = "f".into();
+        state.find_incremental_update();
+        assert_eq!(state.tabs.active().buffer.selection(), Some((0, 1)));
+        assert!(state.status.starts_with("Incremental Find:"));
+        // Growing the query re-searches from selection start (not past the match).
+        state.find_query = "foo".into();
+        state.find_incremental_update();
+        assert_eq!(state.tabs.active().buffer.selection(), Some((0, 3)));
+        state.find_query = "food".into();
+        state.find_incremental_update();
+        assert_eq!(state.tabs.active().buffer.selection(), Some((0, 4)));
+        state.find_query = "zzz".into();
+        state.find_incremental_update();
+        assert_eq!(state.status, "Incremental Find: no match");
     }
 
     #[test]
