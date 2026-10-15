@@ -1,3 +1,5 @@
+009 keep: remappable Copy Styled Text (shortcut_style_to_clip, Cmd+Alt+Shift+1 default, digit-family 1…5, 0=all, v0.3.325)
+009 keep: remappable Clear Change History (shortcut_clear_change_history, Cmd+Shift+F8 default, v0.3.324)
 009 keep: remappable Incremental Search (shortcut_find_incremental, Alt+Shift+I default, v0.3.323)
 009 keep: remappable Remove Unmarked Lines (shortcut_remove_unmarked, Cmd+Alt+Z default, v0.3.322)
 009 keep: Find-bar Incremental Search (Inc; as-you-type jump, v0.3.321)
@@ -496,5 +498,3 @@
 009 keep: Next/Prev Search Result walks Find Results hits (F4; multi-doc; wrap, v0.3.311)
 
 009 keep: Find Results / Find in Files Enter hit jump (v0.3.315)
-
-009 keep: remappable Clear Change History (shortcut_clear_change_history, Cmd+Shift+F8 default, v0.3.324)
