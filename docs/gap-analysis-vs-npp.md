@@ -91,6 +91,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+Alt+R (remappable) | Toggle Read-Only (`shortcut_toggle_readonly`) |
 | Cmd/Ctrl+Alt+C (remappable) | Column Editor (`shortcut_column_editor`) |
 | Cmd/Ctrl+Alt+O (remappable) | Sort Lines Lexicographic Asc (`shortcut_sort_lines`; Shift = Desc) |
+| Cmd/Ctrl+Alt+F5 (remappable) | Sort Lines Integer Asc (`shortcut_sort_lines_integer`; Shift = Desc) |
 | Cmd/Ctrl+Alt+E (remappable) | Remove Empty Lines (`shortcut_remove_empty_lines`; Shift = Containing Blank) |
 | Cmd/Ctrl+Alt+D (remappable) | Remove Consecutive Duplicate Lines (`shortcut_remove_dup_lines`; Shift = any) |
 | F5 (remappable) | Date Time short (`shortcut_insert_datetime`; Shift = long) |

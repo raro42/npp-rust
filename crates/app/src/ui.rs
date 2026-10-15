@@ -4398,6 +4398,51 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_SORTLINES_LEXICOGRAPHIC_ASCENDING");
             }
         }
+        // Remappable Sort Lines Integer (default Cmd+Alt+F5; settings.shortcut_sort_lines_integer).
+        // Shift flips to Integer Descending.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SORT_LINES_INTEGER};
+            let sort_int_chord = resolve_chord(
+                &self.state.settings.shortcut_sort_lines_integer,
+                DEFAULT_SORT_LINES_INTEGER,
+            );
+            let sort_int_key_pressed = match sort_int_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_desc = sort_int_key_pressed
+                && sort_int_chord
+                    .flipped_shift()
+                    .matches(mods, sort_int_chord.key);
+            let remapped_asc =
+                sort_int_key_pressed && sort_int_chord.matches(mods, sort_int_chord.key);
+            if remapped_desc {
+                self.run_shortcut_cmd("IDM_EDIT_SORTLINES_INTEGER_DESCENDING");
+            } else if remapped_asc {
+                self.run_shortcut_cmd("IDM_EDIT_SORTLINES_INTEGER_ASCENDING");
+            }
+        }
         // Remappable Remove Empty Lines (default Cmd+Alt+E; settings.shortcut_remove_empty_lines).
         // Shift flips to Remove Empty Lines (Containing Blank Characters).
         {
@@ -8457,6 +8502,14 @@ impl EditorApp {
                 &s.shortcut_sort_lines,
                 crate::shortcut_chord::DEFAULT_SORT_LINES,
             ),
+            "IDM_EDIT_SORTLINES_INTEGER_ASCENDING" => primary(
+                &s.shortcut_sort_lines_integer,
+                crate::shortcut_chord::DEFAULT_SORT_LINES_INTEGER,
+            ),
+            "IDM_EDIT_SORTLINES_INTEGER_DESCENDING" => shifted(
+                &s.shortcut_sort_lines_integer,
+                crate::shortcut_chord::DEFAULT_SORT_LINES_INTEGER,
+            ),
             "IDM_EDIT_REMOVEEMPTYLINES" => primary(
                 &s.shortcut_remove_empty_lines,
                 crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES,
@@ -9636,6 +9689,15 @@ impl EditorApp {
             sort_lines_chord.display(),
             sort_lines_chord.flipped_shift().display()
         );
+        let sort_lines_integer_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_sort_lines_integer,
+            crate::shortcut_chord::DEFAULT_SORT_LINES_INTEGER,
+        );
+        let sort_lines_integer_keys = format!(
+            "{} / {}",
+            sort_lines_integer_chord.display(),
+            sort_lines_integer_chord.flipped_shift().display()
+        );
         let remove_empty_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_remove_empty_lines,
             crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES,
@@ -10095,7 +10157,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 141] = [
+        let rows: [(&str, &str); 142] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -10254,6 +10316,10 @@ impl EditorApp {
             (
                 sort_lines_keys.as_str(),
                 "Sort Lines Lexicographic Asc / Desc",
+            ),
+            (
+                sort_lines_integer_keys.as_str(),
+                "Sort Lines Integer Asc / Desc",
             ),
             (
                 remove_empty_keys.as_str(),
@@ -13421,6 +13487,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+O, Ctrl+Alt+O. Sorts lines lexicographically ascending (Edit → Line Operations). Shift + that chord sorts descending. Does not collide with Open (Cmd+O) or Move/Clone Other View (Alt+O).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Sort Lines Integer shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_sort_lines_integer,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+F5"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_sort_lines_integer
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_sort_lines_integer =
+                                        crate::shortcut_chord::DEFAULT_SORT_LINES_INTEGER.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SORT_LINES_INTEGER
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_sort_lines_integer = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+F5, Ctrl+Alt+F5. Sorts lines by leading integer ascending (Edit → Line Operations → Sort Lines As Integers Ascending). Shift + that chord sorts descending. Does not collide with Date Time (F5), Find Copy (Alt+Shift+F5), or Sort Lines Lexicographic (Cmd+Alt+O).",
                             )
                             .small()
                             .weak(),

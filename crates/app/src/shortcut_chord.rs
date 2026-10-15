@@ -549,6 +549,11 @@ pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
 /// Shift flips to Lexicographic Descending.
 pub const DEFAULT_SORT_LINES: &str = "Cmd+Alt+O";
 
+/// Default Sort Lines Integer Ascending binding (Edit → Line Operations).
+/// Shift flips to Integer Descending. Uses Cmd+Alt+F5 so it stays near Sort Lines
+/// (`Cmd+Alt+O`) without colliding with Date Time (`F5`) or Find Copy (`Alt+Shift+F5`).
+pub const DEFAULT_SORT_LINES_INTEGER: &str = "Cmd+Alt+F5";
+
 /// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
 /// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
 /// Shift flips to Remove Empty Lines (Containing Blank Characters).
@@ -2833,6 +2838,19 @@ mod tests {
         let desc = c.flipped_shift();
         assert!(desc.shift);
         assert_eq!(desc.display(), "Cmd+Alt+Shift+O");
+    }
+
+    #[test]
+    fn parse_cmd_alt_f5_default_sort_lines_integer() {
+        let c = parse_chord(DEFAULT_SORT_LINES_INTEGER).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F5);
+        assert_eq!(c.display(), "Cmd+Alt+F5");
+        let desc = c.flipped_shift();
+        assert!(desc.shift);
+        assert_eq!(desc.display(), "Cmd+Alt+Shift+F5");
     }
 
     #[test]

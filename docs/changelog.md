@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.334] — 2026-10-15
+
+Edit:
+
+- **Sort Lines Integer Asc / Desc** is remappable: Preferences → Sort Lines Integer shortcut, or `shortcut_sort_lines_integer` in `npp-rs/settings.json` (default `Cmd+Alt+F5`). Runs Edit → Line Operations → Sort Lines As Integers Ascending. **Shift** flips to descending. Does not collide with Date Time (`F5`), Find Copy (`Alt+Shift+F5`), or Sort Lines Lexicographic (`Cmd+Alt+O`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.333] — 2026-10-15
 
 Search:

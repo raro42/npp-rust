@@ -256,6 +256,10 @@ fn default_shortcut_sort_lines() -> String {
     crate::shortcut_chord::DEFAULT_SORT_LINES.into()
 }
 
+fn default_shortcut_sort_lines_integer() -> String {
+    crate::shortcut_chord::DEFAULT_SORT_LINES_INTEGER.into()
+}
+
 fn default_shortcut_remove_empty_lines() -> String {
     crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES.into()
 }
@@ -1231,6 +1235,9 @@ pub struct AppSettings {
     /// Sort Lines Lexicographic Ascending chord (`Cmd+Alt+O` default; Shift flips to Descending).
     #[serde(default = "default_shortcut_sort_lines")]
     pub shortcut_sort_lines: String,
+    /// Sort Lines Integer Ascending chord (`Cmd+Alt+F5` default; Shift flips to Descending).
+    #[serde(default = "default_shortcut_sort_lines_integer")]
+    pub shortcut_sort_lines_integer: String,
     /// Remove Empty Lines chord (`Cmd+Alt+E` default; Shift flips to Containing Blank Characters).
     #[serde(default = "default_shortcut_remove_empty_lines")]
     pub shortcut_remove_empty_lines: String,
@@ -1460,6 +1467,7 @@ impl Default for AppSettings {
             shortcut_toggle_readonly: default_shortcut_toggle_readonly(),
             shortcut_column_editor: default_shortcut_column_editor(),
             shortcut_sort_lines: default_shortcut_sort_lines(),
+            shortcut_sort_lines_integer: default_shortcut_sort_lines_integer(),
             shortcut_remove_empty_lines: default_shortcut_remove_empty_lines(),
             shortcut_remove_dup_lines: default_shortcut_remove_dup_lines(),
             shortcut_insert_datetime: default_shortcut_insert_datetime(),
@@ -1948,6 +1956,7 @@ mod tests {
             shortcut_toggle_readonly: "Ctrl+Alt+Shift+R".into(),
             shortcut_column_editor: "Ctrl+Alt+Shift+C".into(),
             shortcut_sort_lines: "Ctrl+Alt+Shift+O".into(),
+            shortcut_sort_lines_integer: "Ctrl+Alt+Shift+F5".into(),
             shortcut_remove_empty_lines: "Ctrl+Alt+Shift+E".into(),
             shortcut_remove_dup_lines: "Ctrl+Alt+Shift+D".into(),
             shortcut_insert_datetime: "Ctrl+F5".into(),
@@ -2119,6 +2128,7 @@ mod tests {
         assert_eq!(back.shortcut_toggle_readonly, "Ctrl+Alt+Shift+R");
         assert_eq!(back.shortcut_column_editor, "Ctrl+Alt+Shift+C");
         assert_eq!(back.shortcut_sort_lines, "Ctrl+Alt+Shift+O");
+        assert_eq!(back.shortcut_sort_lines_integer, "Ctrl+Alt+Shift+F5");
         assert_eq!(back.shortcut_remove_empty_lines, "Ctrl+Alt+Shift+E");
         assert_eq!(back.shortcut_remove_dup_lines, "Ctrl+Alt+Shift+D");
         assert_eq!(back.shortcut_insert_datetime, "Ctrl+F5");
