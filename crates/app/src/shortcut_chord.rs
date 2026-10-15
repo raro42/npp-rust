@@ -576,6 +576,12 @@ pub const DEFAULT_SORT_LINES_DECIMAL_COMMA: &str = "Cmd+Alt+F9";
 /// sort (`Cmd+Alt+F9`) without colliding with First Hidden Equal (`Cmd+Alt+F7`).
 pub const DEFAULT_SORT_LINES_LENGTH: &str = "Cmd+Alt+F10";
 
+/// Default EOL to Space binding (Edit → Blank Operations → EOL to Space).
+/// Shift flips to Trim Both and EOL to Space (`IDM_EDIT_TRIMALL`). Uses Cmd+Alt+F11 so it
+/// stays near Sort Lines by Length (`Cmd+Alt+F10`) and Trim Trailing (`Cmd+Alt+T`) without
+/// colliding with Fullscreen (`F11`) or Post-It (`F12`).
+pub const DEFAULT_EOL_TO_SPACE: &str = "Cmd+Alt+F11";
+
 /// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
 /// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
 /// Shift flips to Remove Empty Lines (Containing Blank Characters).
@@ -2925,6 +2931,19 @@ mod tests {
         let desc = c.flipped_shift();
         assert!(desc.shift);
         assert_eq!(desc.display(), "Cmd+Alt+Shift+F10");
+    }
+
+    #[test]
+    fn parse_cmd_alt_f11_default_eol_to_space() {
+        let c = parse_chord(DEFAULT_EOL_TO_SPACE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F11);
+        assert_eq!(c.display(), "Cmd+Alt+F11");
+        let trim_all = c.flipped_shift();
+        assert!(trim_all.shift);
+        assert_eq!(trim_all.display(), "Cmd+Alt+Shift+F11");
     }
 
     #[test]

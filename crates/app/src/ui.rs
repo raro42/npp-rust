@@ -5331,6 +5331,45 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_TRIMTRAILING");
             }
         }
+        // Remappable EOL to Space (default Cmd+Alt+F11; settings.shortcut_eol_to_space).
+        // Shift flips to Trim Both and EOL to Space.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_EOL_TO_SPACE};
+            let eol_chord = resolve_chord(
+                &self.state.settings.shortcut_eol_to_space,
+                DEFAULT_EOL_TO_SPACE,
+            );
+            let eol_key_pressed = match eol_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if eol_key_pressed && eol_chord.flipped_shift().matches(mods, eol_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_TRIMALL");
+            } else if eol_key_pressed && eol_chord.matches(mods, eol_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_EOL2WS");
+            }
+        }
 
         // Remappable TAB → Space (default Cmd+Alt+V; settings.shortcut_tab_to_space).
         // Shift flips to Space → TAB (Leading).
@@ -8510,6 +8549,14 @@ impl EditorApp {
                 &s.shortcut_trim_trailing,
                 crate::shortcut_chord::DEFAULT_TRIM_TRAILING,
             ),
+            "IDM_EDIT_EOL2WS" => primary(
+                &s.shortcut_eol_to_space,
+                crate::shortcut_chord::DEFAULT_EOL_TO_SPACE,
+            ),
+            "IDM_EDIT_TRIMALL" => shifted(
+                &s.shortcut_eol_to_space,
+                crate::shortcut_chord::DEFAULT_EOL_TO_SPACE,
+            ),
             "IDM_EDIT_TAB2SW" => primary(
                 &s.shortcut_tab_to_space,
                 crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -10069,6 +10116,15 @@ impl EditorApp {
             trim_trailing_chord.display(),
             trim_trailing_chord.flipped_shift().display()
         );
+        let eol_to_space_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_eol_to_space,
+            crate::shortcut_chord::DEFAULT_EOL_TO_SPACE,
+        );
+        let eol_to_space_keys = format!(
+            "{} / {}",
+            eol_to_space_chord.display(),
+            eol_to_space_chord.flipped_shift().display()
+        );
         let tab_to_space_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_tab_to_space,
             crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -10405,7 +10461,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 146] = [
+        let rows: [(&str, &str); 147] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -10666,6 +10722,10 @@ impl EditorApp {
             (
                 trim_trailing_keys.as_str(),
                 "Trim trailing / Trim leading and trailing",
+            ),
+            (
+                eol_to_space_keys.as_str(),
+                "EOL to Space / Trim Both and EOL to Space",
             ),
             (
                 tab_to_space_keys.as_str(),
@@ -14456,6 +14516,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+T, Ctrl+Alt+T. Shift flips to Trim Leading and Trailing.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("EOL to Space shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_eol_to_space,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+F11"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_eol_to_space.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_eol_to_space =
+                                        crate::shortcut_chord::DEFAULT_EOL_TO_SPACE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_EOL_TO_SPACE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_eol_to_space = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+F11, Ctrl+Alt+F11. Converts end-of-line to space (Edit → Blank Operations → EOL to Space). Shift + that chord trims leading/trailing then converts EOL to space. Does not collide with Fullscreen (F11), Sort Lines by Length (Cmd+Alt+F10), or Trim Trailing (Cmd+Alt+T).",
                             )
                             .small()
                             .weak(),

@@ -1,3 +1,4 @@
+009 keep: remappable EOL to Space (shortcut_eol_to_space, Cmd+Alt+F11 default; Shift=Trim All, v0.3.339)
 009 keep: remappable Sort Lines by Length (shortcut_sort_lines_length, Cmd+Alt+F10 default; Shift=desc, v0.3.338)
 009 keep: remappable Sort Lines Decimal Comma (shortcut_sort_lines_decimal_comma, Cmd+Alt+F9 default; Shift=desc, v0.3.337)
 009 keep: remappable Sort Lines Decimal Dot (shortcut_sort_lines_decimal_dot, Cmd+Alt+F8 default; Shift=desc, v0.3.336)

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.339] — 2026-10-16
+
+Edit:
+
+- **EOL to Space / Trim Both and EOL to Space** is remappable: Preferences → EOL to Space shortcut, or `shortcut_eol_to_space` in `npp-rs/settings.json` (default `Cmd+Alt+F11`). Runs Edit → Blank Operations → EOL to Space. **Shift** flips to Trim Both and EOL to Space. Does not collide with Fullscreen (`F11`), Sort Lines by Length (`Cmd+Alt+F10`), or Trim Trailing (`Cmd+Alt+T`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.338] — 2026-10-16
 
 Edit:

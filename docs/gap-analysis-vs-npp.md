@@ -96,6 +96,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+Alt+F8 (remappable) | Sort Lines Decimal Dot Asc (`shortcut_sort_lines_decimal_dot`; Shift = Desc) |
 | Cmd/Ctrl+Alt+F9 (remappable) | Sort Lines Decimal Comma Asc (`shortcut_sort_lines_decimal_comma`; Shift = Desc) |
 | Cmd/Ctrl+Alt+F10 (remappable) | Sort Lines by Length Asc (`shortcut_sort_lines_length`; Shift = Desc) |
+| Cmd/Ctrl+Alt+F11 (remappable) | EOL to Space (`shortcut_eol_to_space`; Shift = Trim Both and EOL to Space) |
 | Cmd/Ctrl+Alt+E (remappable) | Remove Empty Lines (`shortcut_remove_empty_lines`; Shift = Containing Blank) |
 | Cmd/Ctrl+Alt+D (remappable) | Remove Consecutive Duplicate Lines (`shortcut_remove_dup_lines`; Shift = any) |
 | F5 (remappable) | Date Time short (`shortcut_insert_datetime`; Shift = long) |
