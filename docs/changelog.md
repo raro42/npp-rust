@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.316] — 2026-10-15
+
+Search:
+
+- **Dual-view secondary pane** double-click on **Find Results** / **Find in Files** hit rows opens the source and parks/selects the match (same as primary-pane double-click and Enter). Works when the results tab is not the active primary tab.
+
 ## [0.3.315] — 2026-10-15
 
 Search:

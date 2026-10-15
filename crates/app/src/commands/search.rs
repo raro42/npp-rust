@@ -863,22 +863,22 @@ fn park_find_results_hit(
     );
 }
 
-/// Double-click / Enter jump: park the hit on the given 0-based line of the active results tab.
-/// Returns `false` when the active tab is not results, or that line is not a hit row.
+/// Double-click / Enter jump: park the hit on the given 0-based line of results `tab`.
+/// `tab` may be the dual-view secondary pane (not necessarily the active tab).
+/// Returns `false` when `tab` is not results, or that line is not a hit row.
 pub(crate) fn goto_search_result_at_line(
     state: &mut EditorState,
     ui: &mut UiFlags,
+    tab: usize,
     results_line: usize,
 ) -> bool {
-    if !is_find_results_tab(&state.tabs.active().title) {
+    let Some(doc) = state.tabs.get(tab) else {
+        return false;
+    };
+    if !is_find_results_tab(&doc.title) {
         return false;
     }
-    let results_idx = state.tabs.active_index();
-    let body = state
-        .tabs
-        .get(results_idx)
-        .map(|d| d.buffer.to_string())
-        .unwrap_or_default();
+    let body = doc.buffer.to_string();
     let hits = parse_find_results_hits(&body);
     let Some((pick, hit)) = hits
         .iter()
@@ -888,12 +888,12 @@ pub(crate) fn goto_search_result_at_line(
         return false;
     };
     let hit = hit.clone();
-    park_find_results_hit(state, ui, results_idx, &hit, pick + 1, hits.len(), false);
+    park_find_results_hit(state, ui, tab, &hit, pick + 1, hits.len(), false);
     true
 }
 
 /// Enter jump: park the hit under the caret on a Find Results / Find in Files tab.
-/// Activates `tab` when needed so dual-view secondary panes work. Returns `false` when
+/// Works for dual-view secondary panes (`tab` need not be active). Returns `false` when
 /// `tab` is not a results tab or the caret line is not a hit row.
 pub(crate) fn goto_search_result_at_caret(
     state: &mut EditorState,
@@ -907,18 +907,7 @@ pub(crate) fn goto_search_result_at_caret(
         return false;
     }
     let line = doc.buffer.char_to_line(doc.buffer.caret());
-    let saved = state.tabs.active_index();
-    if saved != tab {
-        state.tabs.set_active(tab);
-    }
-    if goto_search_result_at_line(state, ui, line) {
-        true
-    } else {
-        if saved != tab && saved < state.tabs.len() {
-            state.tabs.set_active(saved);
-        }
-        false
-    }
+    goto_search_result_at_line(state, ui, tab, line)
 }
 
 /// Next / Previous Search Result: walk Find Results / Find in Files hit lines and park the match.
@@ -1281,15 +1270,65 @@ Documents: 2
 
         let hits = parse_find_results_hits(&body);
         assert_eq!(hits.len(), 2);
+        let results_idx = state.tabs.active_index();
         let second_line = hits[1].results_line;
 
         let mut ui = UiFlags::default();
-        assert!(!goto_search_result_at_line(&mut state, &mut ui, 0));
-        assert!(goto_search_result_at_line(&mut state, &mut ui, second_line));
+        assert!(!goto_search_result_at_line(
+            &mut state,
+            &mut ui,
+            results_idx,
+            0
+        ));
+        assert!(goto_search_result_at_line(
+            &mut state,
+            &mut ui,
+            results_idx,
+            second_line
+        ));
         assert_eq!(state.tabs.active().title, "sample.txt");
         assert_eq!(state.tabs.active().buffer.selection(), Some((21, 24)));
         assert!(state.status.contains("4:1"));
         assert!(state.status.contains("2/2"));
+        assert!(ui.follow_caret);
+    }
+
+    #[test]
+    fn goto_search_result_at_line_works_when_results_not_active() {
+        // Dual-view secondary pane: results tab is not the active (primary) tab.
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer =
+            buffer::TextBuffer::from_str("Foo food\nfoo\nFOO bar\nfoo");
+        state.tabs.active_mut().title = "sample.txt".into();
+        state.find_query = "foo".into();
+        state.settings.find_match_case = true;
+        state.settings.find_whole_word = true;
+        let (body, n) = state.find_all_current_report().unwrap();
+        assert_eq!(n, 2);
+        present_find_results(&mut state, &body);
+
+        let hits = parse_find_results_hits(&body);
+        let results_idx = state.tabs.active_index();
+        let second_line = hits[1].results_line;
+        let sample_idx = state
+            .tabs
+            .iter()
+            .enumerate()
+            .find(|(_, d)| d.title == "sample.txt")
+            .map(|(i, _)| i)
+            .unwrap();
+        state.tabs.set_active(sample_idx);
+        assert_ne!(state.tabs.active_index(), results_idx);
+
+        let mut ui = UiFlags::default();
+        assert!(goto_search_result_at_line(
+            &mut state,
+            &mut ui,
+            results_idx,
+            second_line
+        ));
+        assert_eq!(state.tabs.active().title, "sample.txt");
+        assert_eq!(state.tabs.active().buffer.selection(), Some((21, 24)));
         assert!(ui.follow_caret);
     }
 
@@ -1519,7 +1558,13 @@ Documents: 2
         assert!(!hits.is_empty());
         let line = hits[0].results_line;
 
-        assert!(goto_search_result_at_line(&mut state, &mut ui, line));
+        let results_idx = state.tabs.active_index();
+        assert!(goto_search_result_at_line(
+            &mut state,
+            &mut ui,
+            results_idx,
+            line
+        ));
         let path = state
             .tabs
             .active()
