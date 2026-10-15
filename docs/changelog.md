@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.314] — 2026-10-15
+
+Search:
+
+- **Find All / Search Results Window** is remappable: Preferences → Find All shortcut, or `shortcut_find_all` in `npp-rs/settings.json` (default `Cmd+Alt+F4`). Runs Search → Search Results Window (Find All current document). **Shift** flips to Find All in opened editor tabs. Does not collide with Next Search Result (`F4`) or Find in Files (`Cmd+Alt+F`). Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.313] — 2026-10-15
 
 Search:

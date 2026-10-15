@@ -1,3 +1,4 @@
+009 keep: remappable Find All / Find All in opened (shortcut_find_all, Cmd+Alt+F4 default, Shift=opened, v0.3.314)
 009 keep: Find Results / Find in Files double-click hit jump (v0.3.313)
 009 keep: Next/Prev Search Result walks Find in Files hits (open from workspace, v0.3.312)
 009 keep: Find-bar Shift+All / Find All in opened docs (Case/Word/Re; Sel ignored, v0.3.310)

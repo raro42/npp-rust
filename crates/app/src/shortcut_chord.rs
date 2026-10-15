@@ -22,6 +22,12 @@ pub const DEFAULT_SET_AND_FIND: &str = "Cmd+F3";
 /// Shift flips to Previous Search Result. Does not collide with Find next (F3).
 pub const DEFAULT_NEXT_FOUND: &str = "F4";
 
+/// Default Find All / Search Results Window binding (current document Find Results).
+/// Uses Cmd+Alt+F4 so it stays on the F4 Find Results family without colliding with
+/// Next Search Result (F4), Find in Files (Cmd+Alt+F), or Find (Cmd+F).
+/// Shift flips to Find All in opened editor tabs.
+pub const DEFAULT_FIND_ALL: &str = "Cmd+Alt+F4";
+
 /// Default mark-all Style 1 binding (Search → Using Style 1; N++ Ctrl+1 family).
 /// Shift flips to Clear Style 1.
 pub const DEFAULT_MARK_STYLE: &str = "Cmd+1";
@@ -1088,6 +1094,17 @@ mod tests {
         assert_eq!(c.key, Key::F4);
         assert_eq!(c.display(), "F4");
         assert_eq!(c.flipped_shift().display(), "Shift+F4");
+    }
+
+    #[test]
+    fn parse_cmd_alt_f4_default_find_all() {
+        let c = parse_chord(DEFAULT_FIND_ALL).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F4);
+        assert_eq!(c.display(), "Cmd+Alt+F4");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+F4");
     }
 
     #[test]

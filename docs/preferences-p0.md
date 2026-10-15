@@ -39,6 +39,7 @@ New keys:
 | `shortcut_find_next_global` | Global find-next chord (`Cmd+G` default; Shift flips to find previous) |
 | `shortcut_set_and_find` | Select-and-find-next chord (`Cmd+F3` default; Shift flips to Select and Find Previous) |
 | `shortcut_next_found` | Next-search-result chord (`F4` default; Shift flips to Previous Search Result) |
+| `shortcut_find_all` | Find All / Search Results Window chord (`Cmd+Alt+F4` default; Shift flips to Find All in opened editor tabs) |
 | `shortcut_mark_style` | Mark-all Style 1 chord (`Cmd+1` default; Shift flips to Clear Style 1) |
 | `shortcut_mark_style_2` | Mark-all Style 2 chord (`Cmd+2` default; Shift flips to Clear Style 2) |
 | `shortcut_mark_style_3` | Mark-all Style 3 chord (`Cmd+3` default; Shift flips to Clear Style 3) |
