@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.331] — 2026-10-15
+
+Search:
+
+- **Find Purge** is remappable: Preferences → Find Purge shortcut, or `shortcut_find_purge` in `npp-rs/settings.json` (default `Alt+Shift+F8`). Opens Find, seeds from selection, deletes every line that contains a Find match with Case/Word/Re/Sel (same as Find-bar **Purge**; no clipboard). **Shift** flips to Purge matching substrings (Find-bar **Shift+Purge**). Does not collide with Next Hidden Equal (`Alt+F7` / `Alt+Shift+F7`), Next Change (`F8`), Clear Change History (`Cmd+Shift+F8`), or Find Cut (`Alt+Shift+F6`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.330] — 2026-10-15
 
 Search:

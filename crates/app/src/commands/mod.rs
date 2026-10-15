@@ -434,6 +434,8 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_SEARCH_COPY_FIND_MATCH_LINES"
             | "IDM_SEARCH_CUT_FIND_MATCHES"
             | "IDM_SEARCH_CUT_FIND_MATCH_LINES"
+            | "IDM_SEARCH_PURGE_FIND_MATCH_LINES"
+            | "IDM_SEARCH_PURGE_FIND_MATCHES"
             | "IDM_SEARCH_CHANGED_NEXT"
             | "IDM_SEARCH_CHANGED_PREV"
             | "IDM_SEARCH_CLEAR_CHANGE_HISTORY"

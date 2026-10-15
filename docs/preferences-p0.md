@@ -45,6 +45,7 @@ New keys:
 | `shortcut_find_bookmark` | Find Bookmark chord (`Alt+Shift+F4` default; Find-bar Bookmark all matching lines) |
 | `shortcut_find_copy` | Find Copy chord (`Alt+Shift+F5` default; Find-bar Copy matching substrings; Shift flips to matching lines) |
 | `shortcut_find_cut` | Find Cut chord (`Alt+Shift+F6` default; Find-bar Cut matching substrings; Shift flips to matching lines) |
+| `shortcut_find_purge` | Find Purge chord (`Alt+Shift+F8` default; Find-bar Purge matching lines; Shift flips to matching substrings) |
 | `shortcut_mark_style` | Mark-all Style 1 chord (`Cmd+1` default; Shift flips to Clear Style 1) |
 | `shortcut_mark_style_2` | Mark-all Style 2 chord (`Cmd+2` default; Shift flips to Clear Style 2) |
 | `shortcut_mark_style_3` | Mark-all Style 3 chord (`Cmd+3` default; Shift flips to Clear Style 3) |

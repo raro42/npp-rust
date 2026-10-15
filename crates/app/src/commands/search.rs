@@ -365,6 +365,34 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             }
             CmdResult::Handled
         }
+        "IDM_SEARCH_PURGE_FIND_MATCH_LINES" => {
+            ui.find_open = true;
+            ui.show_replace = false;
+            ui.find_focus_once = true;
+            state.prepare_find_bar_from_selection();
+            if state.find_query.is_empty() {
+                state.status =
+                    "Purge matching lines: set Find text, then Purge (Case / Word / Re / Sel)"
+                        .into();
+            } else {
+                let _ = state.delete_find_match_lines();
+            }
+            CmdResult::Handled
+        }
+        "IDM_SEARCH_PURGE_FIND_MATCHES" => {
+            ui.find_open = true;
+            ui.show_replace = false;
+            ui.find_focus_once = true;
+            state.prepare_find_bar_from_selection();
+            if state.find_query.is_empty() {
+                state.status =
+                    "Purge matches: set Find text, then Shift+Purge (Case / Word / Re / Sel)"
+                        .into();
+            } else {
+                let _ = state.delete_find_matches();
+            }
+            CmdResult::Handled
+        }
         "IDM_SEARCH_CHANGED_NEXT" => {
             goto_changed_line(state, ui, true);
             CmdResult::Handled

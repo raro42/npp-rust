@@ -5632,6 +5632,49 @@ impl EditorApp {
             }
         }
 
+        // Remappable Find Purge (default Alt+Shift+F8; settings.shortcut_find_purge).
+        // Shift flips to Purge matching substrings (Find-bar Shift+Purge).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND_PURGE};
+            let purge_chord =
+                resolve_chord(&self.state.settings.shortcut_find_purge, DEFAULT_FIND_PURGE);
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let purge_key_pressed = key_pressed(purge_chord.key);
+            let remapped_purge_matches =
+                purge_key_pressed && purge_chord.flipped_shift().matches(mods, purge_chord.key);
+            let remapped_purge_lines =
+                purge_key_pressed && purge_chord.matches(mods, purge_chord.key);
+            if remapped_purge_matches {
+                self.run_shortcut_cmd("IDM_SEARCH_PURGE_FIND_MATCHES");
+            } else if remapped_purge_lines {
+                self.run_shortcut_cmd("IDM_SEARCH_PURGE_FIND_MATCH_LINES");
+            }
+        }
+
         // Remappable Mark All Style 1 (default Cmd+1; settings.shortcut_mark_style).
         // Shift flips to Clear Style 1.
         {
@@ -8443,6 +8486,14 @@ impl EditorApp {
                 &s.shortcut_find_cut,
                 crate::shortcut_chord::DEFAULT_FIND_CUT,
             ),
+            "IDM_SEARCH_PURGE_FIND_MATCH_LINES" => primary(
+                &s.shortcut_find_purge,
+                crate::shortcut_chord::DEFAULT_FIND_PURGE,
+            ),
+            "IDM_SEARCH_PURGE_FIND_MATCHES" => shifted(
+                &s.shortcut_find_purge,
+                crate::shortcut_chord::DEFAULT_FIND_PURGE,
+            ),
             "IDM_SEARCH_MARKALLEXT1" => primary(
                 &s.shortcut_mark_style,
                 crate::shortcut_chord::DEFAULT_MARK_STYLE,
@@ -8963,6 +9014,15 @@ impl EditorApp {
             "{} / {}",
             find_cut_chord.display(),
             find_cut_chord.flipped_shift().display()
+        );
+        let find_purge_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_find_purge,
+            crate::shortcut_chord::DEFAULT_FIND_PURGE,
+        );
+        let find_purge_keys = format!(
+            "{} / {}",
+            find_purge_chord.display(),
+            find_purge_chord.flipped_shift().display()
         );
         let mark_style_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_mark_style,
@@ -9910,7 +9970,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 138] = [
+        let rows: [(&str, &str); 139] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9938,6 +9998,10 @@ impl EditorApp {
                 "Find Copy matches / matching lines",
             ),
             (find_cut_keys.as_str(), "Find Cut matches / matching lines"),
+            (
+                find_purge_keys.as_str(),
+                "Find Purge matching lines / matches",
+            ),
             (mark_style_keys.as_str(), "Mark Style 1 / Clear Style 1"),
             (mark_style_2_keys.as_str(), "Mark Style 2 / Clear Style 2"),
             (mark_style_3_keys.as_str(), "Mark Style 3 / Clear Style 3"),
@@ -10899,6 +10963,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+Shift+F6. Opens Find, seeds from selection, cuts matching substrings to clipboard and deletes them with Case/Word/Re/Sel (same as Find-bar Cut). Shift flips to Cut matching lines (Find-bar Shift+Cut). Does not collide with Focus on Another View (F6), Find Copy (Alt+Shift+F5), or Find Bookmark (Alt+Shift+F4).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Find Purge shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_find_purge,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+Shift+F8"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_find_purge.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_find_purge =
+                                        crate::shortcut_chord::DEFAULT_FIND_PURGE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIND_PURGE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_find_purge = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+F8. Opens Find, seeds from selection, deletes every line that contains a Find match with Case/Word/Re/Sel (same as Find-bar Purge; no clipboard). Shift flips to Purge matching substrings (Find-bar Shift+Purge). Does not collide with Next Hidden Equal (Alt+F7 / Alt+Shift+F7), Next Change (F8), Clear Change History (Cmd+Shift+F8), or Find Cut (Alt+Shift+F6).",
                             )
                             .small()
                             .weak(),
@@ -17594,9 +17690,17 @@ impl EditorApp {
                 let purge_matches = ui.input(|i| i.modifiers.shift);
                 if ui
                     .button("Purge")
-                    .on_hover_text(
-                        "Delete every line that contains a match (Case / Word / Re / Sel; whole lines). Shift: delete matching substrings only (no clipboard)",
-                    )
+                    .on_hover_text({
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_find_purge,
+                            crate::shortcut_chord::DEFAULT_FIND_PURGE,
+                        );
+                        format!(
+                            "Delete every line that contains a match (Case / Word / Re / Sel; whole lines; {}). Shift ({}): delete matching substrings only (no clipboard)",
+                            chord.display(),
+                            chord.flipped_shift().display()
+                        )
+                    })
                     .clicked()
                 {
                     if purge_matches {

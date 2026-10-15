@@ -56,6 +56,12 @@ pub const DEFAULT_FIND_COPY: &str = "Alt+Shift+F5";
 /// Shift flips to Cut matching lines (Find-bar Shift+Cut).
 pub const DEFAULT_FIND_CUT: &str = "Alt+Shift+F6";
 
+/// Default Find Purge binding (Find-bar Purge matching lines; Case/Word/Re/Sel).
+/// Uses Alt+Shift+F8 so it stays near Find Cut without colliding with Next Hidden Equal
+/// (`Alt+F7` / `Alt+Shift+F7`), Next Change (`F8`), or Clear Change History (`Cmd+Shift+F8`).
+/// Shift flips to Purge matching substrings (Find-bar Shift+Purge; no clipboard).
+pub const DEFAULT_FIND_PURGE: &str = "Alt+Shift+F8";
+
 /// Default mark-all Style 1 binding (Search → Using Style 1; N++ Ctrl+1 family).
 /// Shift flips to Clear Style 1.
 pub const DEFAULT_MARK_STYLE: &str = "Cmd+1";
@@ -1443,6 +1449,19 @@ mod tests {
         let lines = c.flipped_shift();
         assert!(!lines.shift);
         assert_eq!(lines.display(), "Alt+F6");
+    }
+
+    #[test]
+    fn parse_alt_shift_f8_default_find_purge() {
+        let c = parse_chord(DEFAULT_FIND_PURGE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::F8);
+        assert_eq!(c.display(), "Alt+Shift+F8");
+        let matches = c.flipped_shift();
+        assert!(!matches.shift);
+        assert_eq!(matches.display(), "Alt+F8");
     }
 
     #[test]
