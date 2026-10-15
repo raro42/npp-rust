@@ -502,3 +502,5 @@
 009 keep: Find Results / Find in Files Enter hit jump (v0.3.315)
 
 009 keep: remappable Find Bookmark (shortcut_find_bookmark, Alt+Shift+F4 default, v0.3.328)
+
+009 keep: remappable Find Copy (shortcut_find_copy, Alt+Shift+F5 default; Shift=lines, v0.3.329)
