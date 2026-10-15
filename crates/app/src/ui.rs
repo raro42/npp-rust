@@ -5675,6 +5675,50 @@ impl EditorApp {
             }
         }
 
+        // Remappable Find characters in range (default Alt+F9; settings.shortcut_find_char_range).
+        // Shift flips to previous character in range.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND_CHAR_RANGE};
+            let range_chord = resolve_chord(
+                &self.state.settings.shortcut_find_char_range,
+                DEFAULT_FIND_CHAR_RANGE,
+            );
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let range_key_pressed = key_pressed(range_chord.key);
+            let remapped_prev =
+                range_key_pressed && range_chord.flipped_shift().matches(mods, range_chord.key);
+            let remapped_next = range_key_pressed && range_chord.matches(mods, range_chord.key);
+            if remapped_prev {
+                self.run_shortcut_cmd("IDM_SEARCH_FINDCHARINRANGE_PREV");
+            } else if remapped_next {
+                self.run_shortcut_cmd("IDM_SEARCH_FINDCHARINRANGE");
+            }
+        }
+
         // Remappable Mark All Style 1 (default Cmd+1; settings.shortcut_mark_style).
         // Shift flips to Clear Style 1.
         {
@@ -8494,6 +8538,14 @@ impl EditorApp {
                 &s.shortcut_find_purge,
                 crate::shortcut_chord::DEFAULT_FIND_PURGE,
             ),
+            "IDM_SEARCH_FINDCHARINRANGE" => primary(
+                &s.shortcut_find_char_range,
+                crate::shortcut_chord::DEFAULT_FIND_CHAR_RANGE,
+            ),
+            "IDM_SEARCH_FINDCHARINRANGE_PREV" => shifted(
+                &s.shortcut_find_char_range,
+                crate::shortcut_chord::DEFAULT_FIND_CHAR_RANGE,
+            ),
             "IDM_SEARCH_MARKALLEXT1" => primary(
                 &s.shortcut_mark_style,
                 crate::shortcut_chord::DEFAULT_MARK_STYLE,
@@ -9023,6 +9075,15 @@ impl EditorApp {
             "{} / {}",
             find_purge_chord.display(),
             find_purge_chord.flipped_shift().display()
+        );
+        let find_char_range_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_find_char_range,
+            crate::shortcut_chord::DEFAULT_FIND_CHAR_RANGE,
+        );
+        let find_char_range_keys = format!(
+            "{} / {}",
+            find_char_range_chord.display(),
+            find_char_range_chord.flipped_shift().display()
         );
         let mark_style_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_mark_style,
@@ -9970,7 +10031,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 139] = [
+        let rows: [(&str, &str); 140] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -10001,6 +10062,10 @@ impl EditorApp {
             (
                 find_purge_keys.as_str(),
                 "Find Purge matching lines / matches",
+            ),
+            (
+                find_char_range_keys.as_str(),
+                "Find characters in range next / prev",
             ),
             (mark_style_keys.as_str(), "Mark Style 1 / Clear Style 1"),
             (mark_style_2_keys.as_str(), "Mark Style 2 / Clear Style 2"),
@@ -10995,6 +11060,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+Shift+F8. Opens Find, seeds from selection, deletes every line that contains a Find match with Case/Word/Re/Sel (same as Find-bar Purge; no clipboard). Shift flips to Purge matching substrings (Find-bar Shift+Purge). Does not collide with Next Hidden Equal (Alt+F7 / Alt+Shift+F7), Next Change (F8), Clear Change History (Cmd+Shift+F8), or Find Cut (Alt+Shift+F6).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Find characters in range shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_find_char_range,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+F9"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_find_char_range
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_find_char_range =
+                                        crate::shortcut_chord::DEFAULT_FIND_CHAR_RANGE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIND_CHAR_RANGE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_find_char_range = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+F9. Runs Search → Find characters in range (Find text = ascii / non-ascii / start-end such as 65-90). Shift flips to previous character in range. Does not collide with Find Purge (Alt+Shift+F8 / Alt+F8), Next Change (F8), or Fullscreen (F11).",
                             )
                             .small()
                             .weak(),

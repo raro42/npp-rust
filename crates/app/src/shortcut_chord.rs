@@ -62,6 +62,12 @@ pub const DEFAULT_FIND_CUT: &str = "Alt+Shift+F6";
 /// Shift flips to Purge matching substrings (Find-bar Shift+Purge; no clipboard).
 pub const DEFAULT_FIND_PURGE: &str = "Alt+Shift+F8";
 
+/// Default Find characters in range binding (Search → Find characters in range).
+/// Uses Alt+F9 so it stays near the Find Mark/Copy/Cut/Purge F-key family without colliding
+/// with Find Purge (`Alt+Shift+F8` / `Alt+F8`), Next Change (`F8`), or Fullscreen (`F11`).
+/// Shift flips to find the previous character in range.
+pub const DEFAULT_FIND_CHAR_RANGE: &str = "Alt+F9";
+
 /// Default mark-all Style 1 binding (Search → Using Style 1; N++ Ctrl+1 family).
 /// Shift flips to Clear Style 1.
 pub const DEFAULT_MARK_STYLE: &str = "Cmd+1";
@@ -1201,6 +1207,8 @@ fn parse_key(lower: &str) -> Option<Key> {
         "f6" => Some(Key::F6),
         "f7" => Some(Key::F7),
         "f8" => Some(Key::F8),
+        "f9" => Some(Key::F9),
+        "f10" => Some(Key::F10),
         "f11" => Some(Key::F11),
         "f12" => Some(Key::F12),
         "escape" | "esc" => Some(Key::Escape),
@@ -1271,6 +1279,8 @@ fn key_token(key: Key) -> &'static str {
         Key::F6 => "F6",
         Key::F7 => "F7",
         Key::F8 => "F8",
+        Key::F9 => "F9",
+        Key::F10 => "F10",
         Key::F11 => "F11",
         Key::F12 => "F12",
         Key::Escape => "Escape",
@@ -1462,6 +1472,19 @@ mod tests {
         let matches = c.flipped_shift();
         assert!(!matches.shift);
         assert_eq!(matches.display(), "Alt+F8");
+    }
+
+    #[test]
+    fn parse_alt_f9_default_find_char_range() {
+        let c = parse_chord(DEFAULT_FIND_CHAR_RANGE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F9);
+        assert_eq!(c.display(), "Alt+F9");
+        let prev = c.flipped_shift();
+        assert!(prev.shift);
+        assert_eq!(prev.display(), "Alt+Shift+F9");
     }
 
     #[test]

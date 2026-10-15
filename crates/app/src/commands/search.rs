@@ -412,7 +412,11 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_SEARCH_FINDCHARINRANGE" => {
-            find_char_in_range(state, ui);
+            find_char_in_range(state, ui, true);
+            CmdResult::Handled
+        }
+        "IDM_SEARCH_FINDCHARINRANGE_PREV" => {
+            find_char_in_range(state, ui, false);
             CmdResult::Handled
         }
         "IDM_SEARCH_MARKALLEXT1"
@@ -658,7 +662,7 @@ fn parse_char_range(query: &str) -> Option<(u32, u32)> {
     Some((start, end))
 }
 
-fn find_char_in_range(state: &mut EditorState, ui: &mut UiFlags) {
+fn find_char_in_range(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
     let Some((lo, hi)) = parse_char_range(&state.find_query) else {
         ui.find_open = true;
         ui.show_replace = false;
@@ -671,36 +675,69 @@ fn find_char_in_range(state: &mut EditorState, ui: &mut UiFlags) {
         return;
     };
     let text = state.tabs.active().buffer.to_string();
-    let from = state
-        .tabs
-        .active()
-        .buffer
-        .selection()
-        .map(|(_, e)| e)
-        .unwrap_or_else(|| state.tabs.active().buffer.caret());
+    let caret = state.tabs.active().buffer.caret();
+    let from = if forward {
+        state
+            .tabs
+            .active()
+            .buffer
+            .selection()
+            .map(|(_, e)| e)
+            .unwrap_or(caret)
+    } else {
+        state
+            .tabs
+            .active()
+            .buffer
+            .selection()
+            .map(|(s, _)| s)
+            .unwrap_or(caret)
+    };
     let chars: Vec<char> = text.chars().collect();
     let n = chars.len();
-    let mut found = None;
-    for (i, ch) in chars.iter().enumerate().skip(from) {
-        let cp = *ch as u32;
-        if cp >= lo && cp <= hi {
-            found = Some(i);
-            break;
+    let in_range = |ch: char| {
+        let cp = ch as u32;
+        cp >= lo && cp <= hi
+    };
+    let found = if forward {
+        let mut hit = chars
+            .iter()
+            .enumerate()
+            .skip(from)
+            .find(|(_, ch)| in_range(**ch))
+            .map(|(i, _)| i);
+        if hit.is_none() {
+            hit = chars
+                .iter()
+                .enumerate()
+                .take(from.min(n))
+                .find(|(_, ch)| in_range(**ch))
+                .map(|(i, _)| i);
         }
-    }
-    if found.is_none() {
-        for (i, ch) in chars.iter().enumerate().take(from.min(n)) {
-            let cp = *ch as u32;
-            if cp >= lo && cp <= hi {
-                found = Some(i);
-                break;
-            }
+        hit
+    } else {
+        let at = from.min(n);
+        let mut hit = chars[..at]
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, ch)| in_range(**ch))
+            .map(|(i, _)| i);
+        if hit.is_none() {
+            hit = chars[at..]
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, ch)| in_range(**ch))
+                .map(|(i, _)| at + i);
         }
-    }
+        hit
+    };
     if let Some(i) = found {
         state.tabs.active_mut().buffer.set_selection(i, i + 1);
         ui.follow_caret = true;
-        state.status = format!("Char range {lo}-{hi}: match at {i}");
+        let dir = if forward { "next" } else { "prev" };
+        state.status = format!("Char range {lo}-{hi}: {dir} match at {i}");
     } else {
         state.status = format!("Char range {lo}-{hi}: no match");
     }
@@ -1307,6 +1344,26 @@ mod tests {
     use super::*;
     use crate::commands::UiFlags;
     use crate::editor::EditorState;
+
+    #[test]
+    fn find_char_in_range_next_and_prev() {
+        let mut state = EditorState::new();
+        // A=65, space, B=66, space, C=67
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("A B C");
+        state.find_query = "65-67".into();
+        state.tabs.active_mut().buffer.set_caret(0);
+        let mut ui = UiFlags::default();
+        let r = try_dispatch("IDM_SEARCH_FINDCHARINRANGE", &mut state, &mut ui).unwrap();
+        assert!(matches!(r, CmdResult::Handled));
+        assert_eq!(state.tabs.active().buffer.selection(), Some((0, 1)));
+        let r = try_dispatch("IDM_SEARCH_FINDCHARINRANGE", &mut state, &mut ui).unwrap();
+        assert!(matches!(r, CmdResult::Handled));
+        assert_eq!(state.tabs.active().buffer.selection(), Some((2, 3)));
+        let r = try_dispatch("IDM_SEARCH_FINDCHARINRANGE_PREV", &mut state, &mut ui).unwrap();
+        assert!(matches!(r, CmdResult::Handled));
+        assert_eq!(state.tabs.active().buffer.selection(), Some((0, 1)));
+        assert!(ui.follow_caret);
+    }
 
     #[test]
     fn find_increment_enables_incremental_and_jumps() {

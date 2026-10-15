@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.332] — 2026-10-15
+
+Search:
+
+- **Find characters in range** is remappable: Preferences → Find characters in range shortcut, or `shortcut_find_char_range` in `npp-rs/settings.json` (default `Alt+F9`). Runs Search → Find characters in range (Find text = `ascii` / `non-ascii` / `start-end` such as `65-90`). **Shift** flips to the previous character in range. Chord parsing now accepts `F9` / `F10`. Does not collide with Find Purge (`Alt+Shift+F8` / `Alt+F8`), Next Change (`F8`), or Fullscreen (`F11`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.331] — 2026-10-15
 
 Search:
