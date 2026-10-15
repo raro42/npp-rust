@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.338] — 2026-10-16
+
+Edit:
+
+- **Sort Lines by Length Asc / Desc** is remappable: Preferences → Sort Lines by Length shortcut, or `shortcut_sort_lines_length` in `npp-rs/settings.json` (default `Cmd+Alt+F10`). Runs Edit → Line Operations → Sort Lines by Length Ascending. **Shift** flips to descending. Does not collide with Sort Lines Decimal Comma (`Cmd+Alt+F9`) or First Hidden Equal (`Cmd+Alt+F7`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.337] — 2026-10-16
 
 Edit:

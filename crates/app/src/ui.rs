@@ -4578,6 +4578,51 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_SORTLINES_DECIMALCOMMA_ASCENDING");
             }
         }
+        // Remappable Sort Lines by Length (default Cmd+Alt+F10;
+        // settings.shortcut_sort_lines_length). Shift flips to Length Descending.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SORT_LINES_LENGTH};
+            let sort_len_chord = resolve_chord(
+                &self.state.settings.shortcut_sort_lines_length,
+                DEFAULT_SORT_LINES_LENGTH,
+            );
+            let sort_len_key_pressed = match sort_len_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_desc = sort_len_key_pressed
+                && sort_len_chord
+                    .flipped_shift()
+                    .matches(mods, sort_len_chord.key);
+            let remapped_asc =
+                sort_len_key_pressed && sort_len_chord.matches(mods, sort_len_chord.key);
+            if remapped_desc {
+                self.run_shortcut_cmd("IDM_EDIT_SORTLINES_LENGTH_DESCENDING");
+            } else if remapped_asc {
+                self.run_shortcut_cmd("IDM_EDIT_SORTLINES_LENGTH_ASCENDING");
+            }
+        }
         // Remappable Remove Empty Lines (default Cmd+Alt+E; settings.shortcut_remove_empty_lines).
         // Shift flips to Remove Empty Lines (Containing Blank Characters).
         {
@@ -8669,6 +8714,14 @@ impl EditorApp {
                 &s.shortcut_sort_lines_decimal_comma,
                 crate::shortcut_chord::DEFAULT_SORT_LINES_DECIMAL_COMMA,
             ),
+            "IDM_EDIT_SORTLINES_LENGTH_ASCENDING" => primary(
+                &s.shortcut_sort_lines_length,
+                crate::shortcut_chord::DEFAULT_SORT_LINES_LENGTH,
+            ),
+            "IDM_EDIT_SORTLINES_LENGTH_DESCENDING" => shifted(
+                &s.shortcut_sort_lines_length,
+                crate::shortcut_chord::DEFAULT_SORT_LINES_LENGTH,
+            ),
             "IDM_EDIT_REMOVEEMPTYLINES" => primary(
                 &s.shortcut_remove_empty_lines,
                 crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES,
@@ -9884,6 +9937,15 @@ impl EditorApp {
             sort_lines_decimal_comma_chord.display(),
             sort_lines_decimal_comma_chord.flipped_shift().display()
         );
+        let sort_lines_length_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_sort_lines_length,
+            crate::shortcut_chord::DEFAULT_SORT_LINES_LENGTH,
+        );
+        let sort_lines_length_keys = format!(
+            "{} / {}",
+            sort_lines_length_chord.display(),
+            sort_lines_length_chord.flipped_shift().display()
+        );
         let remove_empty_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_remove_empty_lines,
             crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES,
@@ -10343,7 +10405,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 145] = [
+        let rows: [(&str, &str); 146] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -10518,6 +10580,10 @@ impl EditorApp {
             (
                 sort_lines_decimal_comma_keys.as_str(),
                 "Sort Lines Decimal Comma Asc / Desc",
+            ),
+            (
+                sort_lines_length_keys.as_str(),
+                "Sort Lines by Length Asc / Desc",
             ),
             (
                 remove_empty_keys.as_str(),
@@ -13832,6 +13898,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+F9, Ctrl+Alt+F9. Sorts lines by leading decimal (comma) ascending (Edit → Line Operations). Shift + that chord sorts descending. Does not collide with Find characters in range (Alt+F9) or Sort Lines Decimal Dot (Cmd+Alt+F8).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Sort Lines by Length shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_sort_lines_length,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+F10"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_sort_lines_length
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_sort_lines_length =
+                                        crate::shortcut_chord::DEFAULT_SORT_LINES_LENGTH.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SORT_LINES_LENGTH
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_sort_lines_length = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+F10, Ctrl+Alt+F10. Sorts lines by character length ascending (Edit → Line Operations). Shift + that chord sorts descending. Does not collide with Sort Lines Decimal Comma (Cmd+Alt+F9) or First Hidden Equal (Cmd+Alt+F7).",
                             )
                             .small()
                             .weak(),

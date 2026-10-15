@@ -272,6 +272,10 @@ fn default_shortcut_sort_lines_decimal_comma() -> String {
     crate::shortcut_chord::DEFAULT_SORT_LINES_DECIMAL_COMMA.into()
 }
 
+fn default_shortcut_sort_lines_length() -> String {
+    crate::shortcut_chord::DEFAULT_SORT_LINES_LENGTH.into()
+}
+
 fn default_shortcut_remove_empty_lines() -> String {
     crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES.into()
 }
@@ -1259,6 +1263,9 @@ pub struct AppSettings {
     /// Sort Lines Decimal Comma Ascending chord (`Cmd+Alt+F9` default; Shift flips to Descending).
     #[serde(default = "default_shortcut_sort_lines_decimal_comma")]
     pub shortcut_sort_lines_decimal_comma: String,
+    /// Sort Lines by Length Ascending chord (`Cmd+Alt+F10` default; Shift flips to Descending).
+    #[serde(default = "default_shortcut_sort_lines_length")]
+    pub shortcut_sort_lines_length: String,
     /// Remove Empty Lines chord (`Cmd+Alt+E` default; Shift flips to Containing Blank Characters).
     #[serde(default = "default_shortcut_remove_empty_lines")]
     pub shortcut_remove_empty_lines: String,
@@ -1492,6 +1499,7 @@ impl Default for AppSettings {
             shortcut_sort_lines_case_insensitive: default_shortcut_sort_lines_case_insensitive(),
             shortcut_sort_lines_decimal_dot: default_shortcut_sort_lines_decimal_dot(),
             shortcut_sort_lines_decimal_comma: default_shortcut_sort_lines_decimal_comma(),
+            shortcut_sort_lines_length: default_shortcut_sort_lines_length(),
             shortcut_remove_empty_lines: default_shortcut_remove_empty_lines(),
             shortcut_remove_dup_lines: default_shortcut_remove_dup_lines(),
             shortcut_insert_datetime: default_shortcut_insert_datetime(),
@@ -1984,6 +1992,7 @@ mod tests {
             shortcut_sort_lines_case_insensitive: "Ctrl+Alt+Shift+F6".into(),
             shortcut_sort_lines_decimal_dot: "Ctrl+Alt+Shift+F8".into(),
             shortcut_sort_lines_decimal_comma: "Ctrl+Alt+Shift+F9".into(),
+            shortcut_sort_lines_length: "Ctrl+Alt+Shift+F10".into(),
             shortcut_remove_empty_lines: "Ctrl+Alt+Shift+E".into(),
             shortcut_remove_dup_lines: "Ctrl+Alt+Shift+D".into(),
             shortcut_insert_datetime: "Ctrl+F5".into(),
@@ -2162,6 +2171,7 @@ mod tests {
         );
         assert_eq!(back.shortcut_sort_lines_decimal_dot, "Ctrl+Alt+Shift+F8");
         assert_eq!(back.shortcut_sort_lines_decimal_comma, "Ctrl+Alt+Shift+F9");
+        assert_eq!(back.shortcut_sort_lines_length, "Ctrl+Alt+Shift+F10");
         assert_eq!(back.shortcut_remove_empty_lines, "Ctrl+Alt+Shift+E");
         assert_eq!(back.shortcut_remove_dup_lines, "Ctrl+Alt+Shift+D");
         assert_eq!(back.shortcut_insert_datetime, "Ctrl+F5");

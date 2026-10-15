@@ -571,6 +571,11 @@ pub const DEFAULT_SORT_LINES_DECIMAL_DOT: &str = "Cmd+Alt+F8";
 /// sort (`Cmd+Alt+F8`) without colliding with Find characters in range (`Alt+F9`).
 pub const DEFAULT_SORT_LINES_DECIMAL_COMMA: &str = "Cmd+Alt+F9";
 
+/// Default Sort Lines by Length Ascending binding (Edit → Line Operations).
+/// Shift flips to Length Descending. Uses Cmd+Alt+F10 so it stays near Decimal Comma
+/// sort (`Cmd+Alt+F9`) without colliding with First Hidden Equal (`Cmd+Alt+F7`).
+pub const DEFAULT_SORT_LINES_LENGTH: &str = "Cmd+Alt+F10";
+
 /// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
 /// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
 /// Shift flips to Remove Empty Lines (Containing Blank Characters).
@@ -2907,6 +2912,19 @@ mod tests {
         let desc = c.flipped_shift();
         assert!(desc.shift);
         assert_eq!(desc.display(), "Cmd+Alt+Shift+F9");
+    }
+
+    #[test]
+    fn parse_cmd_alt_f10_default_sort_lines_length() {
+        let c = parse_chord(DEFAULT_SORT_LINES_LENGTH).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F10);
+        assert_eq!(c.display(), "Cmd+Alt+F10");
+        let desc = c.flipped_shift();
+        assert!(desc.shift);
+        assert_eq!(desc.display(), "Cmd+Alt+Shift+F10");
     }
 
     #[test]
