@@ -96,6 +96,11 @@ pub const DEFAULT_REMOVE_UNMARKED: &str = "Cmd+Alt+Z";
 /// Default next change-history mark binding (Search → Next Change). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_CHANGED: &str = "F8";
 
+/// Default clear change-history binding (Search → Clear Change History).
+/// Uses Cmd+Shift+F8 so it stays near Next/Prev Change (F8 / Shift+F8) without
+/// colliding with those chords (they have no Cmd).
+pub const DEFAULT_CLEAR_CHANGE_HISTORY: &str = "Cmd+Shift+F8";
+
 /// Default next-compare-diff binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_DIFF: &str = "F7";
 
@@ -1765,6 +1770,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::Z);
         assert_eq!(c.display(), "Cmd+Alt+Z");
+    }
+
+    #[test]
+    fn parse_cmd_shift_f8_default_clear_change_history() {
+        let c = parse_chord(DEFAULT_CLEAR_CHANGE_HISTORY).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::F8);
+        assert_eq!(c.display(), "Cmd+Shift+F8");
     }
 
     #[test]

@@ -172,6 +172,10 @@ fn default_shortcut_next_changed() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_CHANGED.into()
 }
 
+fn default_shortcut_clear_change_history() -> String {
+    crate::shortcut_chord::DEFAULT_CLEAR_CHANGE_HISTORY.into()
+}
+
 fn default_shortcut_lowercase() -> String {
     crate::shortcut_chord::DEFAULT_LOWERCASE.into()
 }
@@ -1120,6 +1124,9 @@ pub struct AppSettings {
     /// Next change-history mark chord (`F8` default; Shift flips to previous).
     #[serde(default = "default_shortcut_next_changed")]
     pub shortcut_next_changed: String,
+    /// Clear change-history chord (`Cmd+Shift+F8` default; `IDM_SEARCH_CLEAR_CHANGE_HISTORY`).
+    #[serde(default = "default_shortcut_clear_change_history")]
+    pub shortcut_clear_change_history: String,
     /// Lowercase chord (`Cmd+U` default; Shift flips to UPPERCASE).
     #[serde(default = "default_shortcut_lowercase")]
     pub shortcut_lowercase: String,
@@ -1363,6 +1370,7 @@ impl Default for AppSettings {
             shortcut_project_panel: default_shortcut_project_panel(),
             shortcut_pin_tab: default_shortcut_pin_tab(),
             shortcut_next_changed: default_shortcut_next_changed(),
+            shortcut_clear_change_history: default_shortcut_clear_change_history(),
             shortcut_lowercase: default_shortcut_lowercase(),
             shortcut_autocomplete: default_shortcut_autocomplete(),
             shortcut_autocomplete_path: default_shortcut_autocomplete_path(),
@@ -1841,6 +1849,7 @@ mod tests {
             shortcut_project_panel: "Ctrl+Alt+Shift+P".into(),
             shortcut_pin_tab: "Ctrl+Alt+Shift+G".into(),
             shortcut_next_changed: "Ctrl+F8".into(),
+            shortcut_clear_change_history: "Ctrl+Shift+F8".into(),
             shortcut_lowercase: "Ctrl+U".into(),
             shortcut_autocomplete: "Ctrl+Alt+Space".into(),
             shortcut_autocomplete_path: "Alt+Space".into(),
@@ -2002,6 +2011,7 @@ mod tests {
         assert_eq!(back.shortcut_project_panel, "Ctrl+Alt+Shift+P");
         assert_eq!(back.shortcut_pin_tab, "Ctrl+Alt+Shift+G");
         assert_eq!(back.shortcut_next_changed, "Ctrl+F8");
+        assert_eq!(back.shortcut_clear_change_history, "Ctrl+Shift+F8");
         assert_eq!(back.shortcut_lowercase, "Ctrl+U");
         assert_eq!(back.shortcut_autocomplete, "Ctrl+Alt+Space");
         assert_eq!(back.shortcut_autocomplete_path, "Alt+Space");

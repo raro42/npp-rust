@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.324] — 2026-10-15
+
+Search:
+
+- **Clear Change History** is remappable: Preferences → Clear change history shortcut, or `shortcut_clear_change_history` in `npp-rs/settings.json` (default `Cmd+Shift+F8`). Clears amber/green change-history marks on the active tab (Search → Clear Change History). Stays near Next/Prev Change (`F8` / `Shift+F8`) without colliding (those chords have no Cmd). Menu, Shortcut Mapper, and About show the effective binding.
+
 ## [0.3.323] — 2026-10-15
 
 Search:

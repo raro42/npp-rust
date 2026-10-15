@@ -6012,6 +6012,44 @@ impl EditorApp {
             }
         }
 
+        // Remappable Clear Change History (default Cmd+Shift+F8; settings.shortcut_clear_change_history).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_CLEAR_CHANGE_HISTORY};
+            let clear_ch_chord = resolve_chord(
+                &self.state.settings.shortcut_clear_change_history,
+                DEFAULT_CLEAR_CHANGE_HISTORY,
+            );
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let clear_ch_key_pressed = key_pressed(clear_ch_chord.key);
+            if clear_ch_key_pressed && clear_ch_chord.matches(mods, clear_ch_chord.key) {
+                self.run_shortcut_cmd("IDM_SEARCH_CLEAR_CHANGE_HISTORY");
+            }
+        }
+
         // Compare hunks: remappable next (default F7; Shift flips to prev).
         // Remappable first (default Cmd+F7; Shift flips to last).
         // Hidden equal: remappable next (default Alt+F7; Shift flips to prev).
@@ -8233,6 +8271,10 @@ impl EditorApp {
                 &s.shortcut_next_changed,
                 crate::shortcut_chord::DEFAULT_NEXT_CHANGED,
             ),
+            "IDM_SEARCH_CLEAR_CHANGE_HISTORY" => primary(
+                &s.shortcut_clear_change_history,
+                crate::shortcut_chord::DEFAULT_CLEAR_CHANGE_HISTORY,
+            ),
             "IDM_VIEW_WRAP" => primary(
                 &s.shortcut_word_wrap,
                 crate::shortcut_chord::DEFAULT_WORD_WRAP,
@@ -8672,6 +8714,11 @@ impl EditorApp {
             changed_chord.display(),
             changed_chord.flipped_shift().display()
         );
+        let clear_change_history_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_clear_change_history,
+            crate::shortcut_chord::DEFAULT_CLEAR_CHANGE_HISTORY,
+        )
+        .display();
         let diff_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_next_diff,
             crate::shortcut_chord::DEFAULT_NEXT_DIFF,
@@ -9492,7 +9539,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 131] = [
+        let rows: [(&str, &str); 132] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9529,6 +9576,7 @@ impl EditorApp {
             ),
             (remove_unmarked_keys.as_str(), "Remove Unmarked Lines"),
             (changed_keys.as_str(), "Next / prev change history"),
+            (clear_change_history_keys.as_str(), "Clear change history"),
             (compare_keys.as_str(), "Compare start / clear"),
             (swap_compare_keys.as_str(), "Swap Compare sides"),
             (compare_to_saved_keys.as_str(), "Compare to Saved"),
@@ -10843,6 +10891,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: F8, Alt+F8. Shift + that key is Previous change history.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Clear change history shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_clear_change_history,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Shift+F8"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_clear_change_history
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_clear_change_history =
+                                        crate::shortcut_chord::DEFAULT_CLEAR_CHANGE_HISTORY.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CLEAR_CHANGE_HISTORY
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_clear_change_history = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+F8, Ctrl+Shift+F8. Clears amber/green change-history marks on the active tab (Search → Clear Change History). Stays near Next/Prev Change (F8 / Shift+F8) without colliding (those chords have no Cmd).",
                             )
                             .small()
                             .weak(),
