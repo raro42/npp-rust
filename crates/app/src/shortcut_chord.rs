@@ -44,6 +44,12 @@ pub const DEFAULT_FIND_MARK: &str = "Alt+Shift+F3";
 /// Inverse Bookmarks (Alt+Shift+F2).
 pub const DEFAULT_FIND_BOOKMARK: &str = "Alt+Shift+F4";
 
+/// Default Find Copy binding (Find-bar Copy matching substrings; Case/Word/Re/Sel).
+/// Uses Alt+Shift+F5 so it stays near Find Mark / Find Bookmark without colliding with
+/// Date Time (`F5`), Find Mark (`Alt+Shift+F3`), or Find Bookmark (`Alt+Shift+F4`).
+/// Shift flips to Copy matching lines (Find-bar Lines).
+pub const DEFAULT_FIND_COPY: &str = "Alt+Shift+F5";
+
 /// Default mark-all Style 1 binding (Search → Using Style 1; N++ Ctrl+1 family).
 /// Shift flips to Clear Style 1.
 pub const DEFAULT_MARK_STYLE: &str = "Cmd+1";
@@ -1405,6 +1411,19 @@ mod tests {
         assert!(c.shift);
         assert_eq!(c.key, Key::F4);
         assert_eq!(c.display(), "Alt+Shift+F4");
+    }
+
+    #[test]
+    fn parse_alt_shift_f5_default_find_copy() {
+        let c = parse_chord(DEFAULT_FIND_COPY).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::F5);
+        assert_eq!(c.display(), "Alt+Shift+F5");
+        let lines = c.flipped_shift();
+        assert!(!lines.shift);
+        assert_eq!(lines.display(), "Alt+F5");
     }
 
     #[test]

@@ -5548,6 +5548,49 @@ impl EditorApp {
             }
         }
 
+        // Remappable Find Copy (default Alt+Shift+F5; settings.shortcut_find_copy).
+        // Shift flips to Copy matching lines (Find-bar Lines).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND_COPY};
+            let copy_chord =
+                resolve_chord(&self.state.settings.shortcut_find_copy, DEFAULT_FIND_COPY);
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let copy_key_pressed = key_pressed(copy_chord.key);
+            let remapped_copy_lines =
+                copy_key_pressed && copy_chord.flipped_shift().matches(mods, copy_chord.key);
+            let remapped_copy_matches =
+                copy_key_pressed && copy_chord.matches(mods, copy_chord.key);
+            if remapped_copy_lines {
+                self.run_shortcut_cmd("IDM_SEARCH_COPY_FIND_MATCH_LINES");
+            } else if remapped_copy_matches {
+                self.run_shortcut_cmd("IDM_SEARCH_COPY_FIND_MATCHES");
+            }
+        }
+
         // Remappable Mark All Style 1 (default Cmd+1; settings.shortcut_mark_style).
         // Shift flips to Clear Style 1.
         {
@@ -8343,6 +8386,14 @@ impl EditorApp {
                 &s.shortcut_find_bookmark,
                 crate::shortcut_chord::DEFAULT_FIND_BOOKMARK,
             ),
+            "IDM_SEARCH_COPY_FIND_MATCHES" => primary(
+                &s.shortcut_find_copy,
+                crate::shortcut_chord::DEFAULT_FIND_COPY,
+            ),
+            "IDM_SEARCH_COPY_FIND_MATCH_LINES" => shifted(
+                &s.shortcut_find_copy,
+                crate::shortcut_chord::DEFAULT_FIND_COPY,
+            ),
             "IDM_SEARCH_MARKALLEXT1" => primary(
                 &s.shortcut_mark_style,
                 crate::shortcut_chord::DEFAULT_MARK_STYLE,
@@ -8846,6 +8897,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_FIND_BOOKMARK,
         )
         .display();
+        let find_copy_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_find_copy,
+            crate::shortcut_chord::DEFAULT_FIND_COPY,
+        );
+        let find_copy_keys = format!(
+            "{} / {}",
+            find_copy_chord.display(),
+            find_copy_chord.flipped_shift().display()
+        );
         let mark_style_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_mark_style,
             crate::shortcut_chord::DEFAULT_MARK_STYLE,
@@ -9792,7 +9852,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 136] = [
+        let rows: [(&str, &str); 137] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9814,6 +9874,10 @@ impl EditorApp {
             (
                 find_bookmark_keys.as_str(),
                 "Find Bookmark all matching lines",
+            ),
+            (
+                find_copy_keys.as_str(),
+                "Find Copy matches / matching lines",
             ),
             (mark_style_keys.as_str(), "Mark Style 1 / Clear Style 1"),
             (mark_style_2_keys.as_str(), "Mark Style 2 / Clear Style 2"),
@@ -10712,6 +10776,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+Shift+F4. Opens Find, seeds from selection, bookmarks all matching lines with Case/Word/Re/Sel (same as Find-bar Bookmark). Does not collide with Next Search Result (F4), Find All (Cmd+Alt+F4), Find Mark (Alt+Shift+F3), or Inverse Bookmarks (Alt+Shift+F2).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Find Copy shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_find_copy,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+Shift+F5"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_find_copy.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_find_copy =
+                                        crate::shortcut_chord::DEFAULT_FIND_COPY.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIND_COPY
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_find_copy = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+F5. Opens Find, seeds from selection, copies matching substrings with Case/Word/Re/Sel (same as Find-bar Copy). Shift flips to Copy matching lines (Find-bar Lines). Does not collide with Date Time (F5), Find Mark (Alt+Shift+F3), or Find Bookmark (Alt+Shift+F4).",
                             )
                             .small()
                             .weak(),
@@ -17334,9 +17430,16 @@ impl EditorApp {
                 }
                 if ui
                     .button("Copy")
-                    .on_hover_text(
-                        "Copy matching text to clipboard (Case / Word / Re / Sel; one match per line)",
-                    )
+                    .on_hover_text({
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_find_copy,
+                            crate::shortcut_chord::DEFAULT_FIND_COPY,
+                        );
+                        format!(
+                            "Copy matching text to clipboard (Case / Word / Re / Sel; one match per line; {})",
+                            chord.display()
+                        )
+                    })
                     .clicked()
                 {
                     if let Some(text) = self.state.copy_find_matches() {
@@ -17348,9 +17451,16 @@ impl EditorApp {
                 }
                 if ui
                     .button("Lines")
-                    .on_hover_text(
-                        "Copy matching lines to clipboard (Case / Word / Re / Sel; whole lines, deduped)",
-                    )
+                    .on_hover_text({
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_find_copy,
+                            crate::shortcut_chord::DEFAULT_FIND_COPY,
+                        );
+                        format!(
+                            "Copy matching lines to clipboard (Case / Word / Re / Sel; whole lines, deduped; {})",
+                            chord.flipped_shift().display()
+                        )
+                    })
                     .clicked()
                 {
                     if let Some(text) = self.state.copy_find_match_lines() {

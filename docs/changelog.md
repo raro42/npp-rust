@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.329] — 2026-10-15
+
+Search:
+
+- **Find Copy** is remappable: Preferences → Find Copy shortcut, or `shortcut_find_copy` in `npp-rs/settings.json` (default `Alt+Shift+F5`). Opens Find, seeds from selection, copies matching substrings with Case/Word/Re/Sel (same as Find-bar **Copy**). **Shift** flips to Copy matching lines (Find-bar **Lines**). Does not collide with Date Time (`F5`), Find Mark (`Alt+Shift+F3`), or Find Bookmark (`Alt+Shift+F4`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.328] — 2026-10-15
 
 Search:
