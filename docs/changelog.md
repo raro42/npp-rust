@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.317] — 2026-10-15
+
+Search:
+
+- **Find bar Shift+Enter**: with focus in the Find field, **Enter** still runs Find Next; **Shift+Enter** runs Find Previous (same as the Prev button). Hover tips on the field and Next/Prev mention the chords.
+
 ## [0.3.316] — 2026-10-15
 
 Search:

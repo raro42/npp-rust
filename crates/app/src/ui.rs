@@ -16420,11 +16420,15 @@ impl EditorApp {
             let mut run_find_all_opened = false;
             ui.horizontal(|ui| {
                 ui.label("Find:");
-                let resp = ui.add(
-                    egui::TextEdit::singleline(&mut self.state.find_query)
-                        .desired_width(180.0)
-                        .hint_text("search text"),
-                );
+                let resp = ui
+                    .add(
+                        egui::TextEdit::singleline(&mut self.state.find_query)
+                            .desired_width(180.0)
+                            .hint_text("search text"),
+                    )
+                    .on_hover_text(
+                        "Enter: Find Next. Shift+Enter: Find Previous (same as Prev button)",
+                    );
                 // Selection drag → drop into Find field (fills query; does not move text).
                 if self.sel_text_drag.is_some() {
                     let over_find = ui
@@ -16454,16 +16458,29 @@ impl EditorApp {
                 if resp.changed() {
                     persist = true;
                 }
-                let enter = ui.input(|i| i.key_pressed(Key::Enter));
+                let (enter, shift_enter) =
+                    ui.input(|i| (i.key_pressed(Key::Enter), i.modifiers.shift));
                 if resp.has_focus() && enter {
+                    if shift_enter {
+                        self.state.find_prev();
+                    } else {
+                        self.state.find_next();
+                    }
+                    self.follow_caret = true;
+                }
+                if ui
+                    .button("Next")
+                    .on_hover_text("Find Next (Enter in the Find field)")
+                    .clicked()
+                {
                     self.state.find_next();
                     self.follow_caret = true;
                 }
-                if ui.button("Next").clicked() {
-                    self.state.find_next();
-                    self.follow_caret = true;
-                }
-                if ui.button("Prev").clicked() {
+                if ui
+                    .button("Prev")
+                    .on_hover_text("Find Previous (Shift+Enter in the Find field)")
+                    .clicked()
+                {
                     self.state.find_prev();
                     self.follow_caret = true;
                 }

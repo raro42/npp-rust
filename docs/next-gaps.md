@@ -87,6 +87,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.314 | Remappable Find All / Find All in opened (`shortcut_find_all`; Cmd+Alt+F4; Shift=opened) |
 | v0.3.315 | Find Results / Find in Files Enter on hit row → open + park match |
 | v0.3.316 | Find Results / Find in Files dual-view secondary double-click hit jump |
+| v0.3.317 | Find-bar Shift+Enter = Find Previous |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 
