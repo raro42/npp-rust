@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.326] — 2026-10-15
+
+Search:
+
+- **Mark current line Style 1…5** is remappable: Preferences → Mark current line style shortcut, or `shortcut_mark_one_style` in `npp-rs/settings.json` (default `Alt+Shift+1`). Digit-family chords accept `1`…`5` with those modifiers (mark the caret line with that style; Search → Mark → Using 1st…5th Style). Letter remaps mark Style 1 only. Does not collide with Mark Style (`Cmd+1`…`5`), Next Style (`Cmd+Alt+1`…`5`), Copy Styled (`Cmd+Alt+Shift+1`…`5`), or Fold Level (`Alt+1`…`8`). Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.325] — 2026-10-15
 
 Search:

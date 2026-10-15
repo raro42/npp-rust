@@ -5849,6 +5849,60 @@ impl EditorApp {
             }
         }
 
+        // Remappable mark current line style (default Alt+Shift+1; settings.shortcut_mark_one_style).
+        // Digit-family: Alt+Shift+1…5 mark caret line with that style. Letter remaps: Style 1 only.
+        {
+            use crate::shortcut_chord::{resolve_chord, KeyChord, DEFAULT_MARK_ONE_STYLE};
+            let mark_one_chord = resolve_chord(
+                &self.state.settings.shortcut_mark_one_style,
+                DEFAULT_MARK_ONE_STYLE,
+            );
+            let digit_family = KeyChord::style_marker_of_key(mark_one_chord.key).is_some();
+            let try_key = |key: Key| {
+                ctx.input(|i| i.key_pressed(key))
+                    .then(|| mark_one_chord.mark_one_style_action(mods, key))
+                    .flatten()
+            };
+            let action = if digit_family {
+                (1usize..=5)
+                    .find_map(|style| KeyChord::key_for_style_marker(style).and_then(try_key))
+            } else {
+                let letter_key_pressed = match mark_one_chord.key {
+                    Key::Z => z,
+                    Key::N => n,
+                    Key::O => o,
+                    Key::S => s,
+                    Key::F => f,
+                    Key::Y => y,
+                    Key::W => w,
+                    Key::G => g,
+                    Key::A => a,
+                    Key::D => d,
+                    Key::L => l,
+                    Key::I => i_key,
+                    Key::T => t,
+                    Key::H => h,
+                    Key::F2 => f2,
+                    Key::F3 => f3,
+                    Key::F7 => f7,
+                    Key::Equals => equals,
+                    Key::Minus => minus,
+                    Key::Num0 => num0,
+                    Key::CloseBracket => close_br,
+                    Key::OpenBracket => open_br,
+                    other => ctx.input(|i| i.key_pressed(other)),
+                };
+                if letter_key_pressed {
+                    mark_one_chord.mark_one_style_action(mods, mark_one_chord.key)
+                } else {
+                    None
+                }
+            };
+            if let Some(style) = action {
+                self.run_shortcut_cmd(&format!("IDM_SEARCH_MARKONEEXT{style}"));
+            }
+        }
+
         // Find next/prev: remappable F3 (Shift flips) + remappable global Cmd+G (Shift flips).
         {
             use crate::shortcut_chord::{
@@ -8300,6 +8354,18 @@ impl EditorApp {
                     .style_to_clip_display_all(),
                 );
             }
+            "IDM_SEARCH_MARKONEEXT1"
+            | "IDM_SEARCH_MARKONEEXT2"
+            | "IDM_SEARCH_MARKONEEXT3"
+            | "IDM_SEARCH_MARKONEEXT4"
+            | "IDM_SEARCH_MARKONEEXT5" => {
+                let style = cmd.chars().last().and_then(|c| c.to_digit(10)).unwrap_or(1) as usize;
+                return crate::shortcut_chord::resolve_chord(
+                    &s.shortcut_mark_one_style,
+                    crate::shortcut_chord::DEFAULT_MARK_ONE_STYLE,
+                )
+                .mark_one_style_display_for(style);
+            }
             "IDM_SEARCH_GOTOLINE" => primary(
                 &s.shortcut_goto_line,
                 crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -8748,6 +8814,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_STYLE_TO_CLIP,
         )
         .style_to_clip_display();
+        let mark_one_style_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_mark_one_style,
+            crate::shortcut_chord::DEFAULT_MARK_ONE_STYLE,
+        )
+        .mark_one_style_display();
         let bm_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_next_bookmark,
             crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
@@ -9629,7 +9700,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 133] = [
+        let rows: [(&str, &str); 134] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9658,6 +9729,7 @@ impl EditorApp {
                 style_to_clip_keys.as_str(),
                 "Copy Styled Text 1…5 / All Styles",
             ),
+            (mark_one_style_keys.as_str(), "Mark current line Style 1…5"),
             (goto_keys.as_str(), "Go to line"),
             (bm_keys.as_str(), "Next / prev bookmark"),
             (toggle_bm_keys.as_str(), "Toggle bookmark"),
@@ -10739,6 +10811,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+Shift+1, Ctrl+Alt+Shift+1. Digit-family chords accept 1…5 with those modifiers (copy that style's lines). Same mods + 0 copies all styled lines. Letter remaps: base = Style 1; Shift = all. Does not collide with Mark Style (Cmd+1…5), Next Style (Cmd+Alt+1…5), or Fold Level (Alt+1…8).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Mark current line style shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_mark_one_style,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+Shift+1"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_mark_one_style.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_mark_one_style =
+                                        crate::shortcut_chord::DEFAULT_MARK_ONE_STYLE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MARK_ONE_STYLE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_mark_one_style = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+1. Digit-family chords accept 1…5 with those modifiers (mark the caret line with that style). Letter remaps mark Style 1 only. Does not collide with Mark Style (Cmd+1…5), Next Style (Cmd+Alt+1…5), Copy Styled (Cmd+Alt+Shift+1…5), or Fold Level (Alt+1…8).",
                             )
                             .small()
                             .weak(),

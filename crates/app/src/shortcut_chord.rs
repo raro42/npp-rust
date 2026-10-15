@@ -70,6 +70,13 @@ pub const DEFAULT_NEXT_STYLE: &str = "Cmd+Alt+1";
 /// mods + `0` copies all styled lines.
 pub const DEFAULT_STYLE_TO_CLIP: &str = "Cmd+Alt+Shift+1";
 
+/// Default mark-current-line-style binding (Search → Mark → Using 1st…5th Style).
+/// Uses Alt+Shift+1 so it stays on the Style digit family without colliding with
+/// Mark Style (`Cmd+1`…`5`), Next Style (`Cmd+Alt+1`…`5`), Copy Styled
+/// (`Cmd+Alt+Shift+1`…`5`), or Fold Level (`Alt+1`…`8`). Digit-family chords
+/// accept `1`…`5` with those modifiers.
+pub const DEFAULT_MARK_ONE_STYLE: &str = "Alt+Shift+1";
+
 /// Default next-bookmark binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_BOOKMARK: &str = "F2";
 
@@ -834,6 +841,60 @@ impl KeyChord {
             } else {
                 self.display()
             })
+        } else {
+            None
+        }
+    }
+
+    /// Mark current line with style for remappable `shortcut_mark_one_style`.
+    ///
+    /// Returns `Some(style)` for style `1`…`5`, or `None` when the chord does not match.
+    /// Digit-family chords (base key `1`…`5`) accept those digits with matching
+    /// Ctrl/Cmd/Alt/Shift. Letter remaps mark Style 1 only.
+    pub fn mark_one_style_action(self, mods: Modifiers, pressed: Key) -> Option<u8> {
+        let digit_family = Self::style_marker_of_key(self.key).is_some();
+        if digit_family {
+            let cmd = mods.command || mods.ctrl;
+            if cmd != self.ctrl_or_cmd || mods.alt != self.alt || mods.shift != self.shift {
+                return None;
+            }
+            Self::style_marker_of_key(pressed).map(|s| s as u8)
+        } else if self.matches(mods, pressed) {
+            Some(1)
+        } else {
+            None
+        }
+    }
+
+    /// Human-readable mark-current-line-style binding for Shortcut Mapper / About.
+    pub fn mark_one_style_display(self) -> String {
+        if Self::style_marker_of_key(self.key).is_some() {
+            let mut parts = Vec::new();
+            if self.ctrl_or_cmd {
+                parts.push("Cmd");
+            }
+            if self.alt {
+                parts.push("Alt");
+            }
+            if self.shift {
+                parts.push("Shift");
+            }
+            parts.push("1…5");
+            parts.join("+")
+        } else {
+            self.display()
+        }
+    }
+
+    /// Display for one Mark Current Line Style menu row (digit-family uses that digit).
+    pub fn mark_one_style_display_for(self, style: usize) -> Option<String> {
+        let digit_family = Self::style_marker_of_key(self.key).is_some();
+        if digit_family {
+            let key = Self::key_for_style_marker(style)?;
+            let chord = Self { key, ..self };
+            Some(chord.display())
+        } else if style == 1 {
+            Some(self.display())
         } else {
             None
         }
@@ -1796,6 +1857,42 @@ mod tests {
             Some("Cmd+Alt+Shift+3")
         );
         assert_eq!(c.style_to_clip_display_all(), "Cmd+Alt+Shift+0");
+    }
+
+    #[test]
+    fn parse_alt_shift_one_default_mark_one_style() {
+        let c = parse_chord(DEFAULT_MARK_ONE_STYLE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::Num1);
+        assert_eq!(c.mark_one_style_display(), "Alt+Shift+1…5");
+        let mods = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert_eq!(c.mark_one_style_action(mods, Key::Num1), Some(1));
+        assert_eq!(c.mark_one_style_action(mods, Key::Num5), Some(5));
+        assert_eq!(c.mark_one_style_action(mods, Key::Num6), None);
+        // Without Shift: must not steal Fold Level (Alt+1…8).
+        let no_shift = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert_eq!(c.mark_one_style_action(no_shift, Key::Num1), None);
+        // With Cmd: must not steal Copy Styled (Cmd+Alt+Shift+1…5).
+        let with_cmd = Modifiers {
+            command: true,
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert_eq!(c.mark_one_style_action(with_cmd, Key::Num1), None);
+        assert_eq!(
+            c.mark_one_style_display_for(3).as_deref(),
+            Some("Alt+Shift+3")
+        );
     }
 
     #[test]
