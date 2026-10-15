@@ -1,3 +1,4 @@
+009 keep: Find-bar Shift+Enter = Find Previous (v0.3.317)
 009 keep: Find Results / Find in Files dual-view secondary double-click hit jump (v0.3.316)
 009 keep: remappable Find All / Find All in opened (shortcut_find_all, Cmd+Alt+F4 default, Shift=opened, v0.3.314)
 009 keep: Find Results / Find in Files double-click hit jump (v0.3.313)
