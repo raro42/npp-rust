@@ -5789,6 +5789,66 @@ impl EditorApp {
             }
         }
 
+        // Remappable copy styled text (default Cmd+Alt+Shift+1; settings.shortcut_style_to_clip).
+        // Digit-family: Cmd+Alt+Shift+1…5 copy that style; same mods+0 = all styles.
+        // Letter remaps: Style 1; Shift flips to all styles.
+        {
+            use crate::shortcut_chord::{resolve_chord, KeyChord, DEFAULT_STYLE_TO_CLIP};
+            let clip_chord = resolve_chord(
+                &self.state.settings.shortcut_style_to_clip,
+                DEFAULT_STYLE_TO_CLIP,
+            );
+            let digit_family = KeyChord::style_marker_of_key(clip_chord.key).is_some();
+            let try_key = |key: Key| {
+                ctx.input(|i| i.key_pressed(key))
+                    .then(|| clip_chord.style_to_clip_action(mods, key))
+                    .flatten()
+            };
+            let action = if digit_family {
+                (1usize..=5)
+                    .find_map(|style| KeyChord::key_for_style_marker(style).and_then(try_key))
+                    .or_else(|| try_key(Key::Num0))
+            } else {
+                let letter_key_pressed = match clip_chord.key {
+                    Key::Z => z,
+                    Key::N => n,
+                    Key::O => o,
+                    Key::S => s,
+                    Key::F => f,
+                    Key::Y => y,
+                    Key::W => w,
+                    Key::G => g,
+                    Key::A => a,
+                    Key::D => d,
+                    Key::L => l,
+                    Key::I => i_key,
+                    Key::T => t,
+                    Key::H => h,
+                    Key::F2 => f2,
+                    Key::F3 => f3,
+                    Key::F7 => f7,
+                    Key::Equals => equals,
+                    Key::Minus => minus,
+                    Key::Num0 => num0,
+                    Key::CloseBracket => close_br,
+                    Key::OpenBracket => open_br,
+                    other => ctx.input(|i| i.key_pressed(other)),
+                };
+                if letter_key_pressed {
+                    clip_chord.style_to_clip_action(mods, clip_chord.key)
+                } else {
+                    None
+                }
+            };
+            if let Some(style) = action {
+                let cmd = match style {
+                    Some(n) => format!("IDM_SEARCH_STYLE{n}TOCLIP"),
+                    None => "IDM_SEARCH_ALLSTYLESTOCLIP".into(),
+                };
+                self.run_shortcut_cmd(&cmd);
+            }
+        }
+
         // Find next/prev: remappable F3 (Shift flips) + remappable global Cmd+G (Shift flips).
         {
             use crate::shortcut_chord::{
@@ -8215,6 +8275,31 @@ impl EditorApp {
                 )
                 .style_marker_display_for(style, true);
             }
+            "IDM_SEARCH_STYLE1TOCLIP"
+            | "IDM_SEARCH_STYLE2TOCLIP"
+            | "IDM_SEARCH_STYLE3TOCLIP"
+            | "IDM_SEARCH_STYLE4TOCLIP"
+            | "IDM_SEARCH_STYLE5TOCLIP" => {
+                let style = cmd
+                    .chars()
+                    .find(|c| c.is_ascii_digit())
+                    .and_then(|c| c.to_digit(10))
+                    .unwrap_or(1) as usize;
+                return crate::shortcut_chord::resolve_chord(
+                    &s.shortcut_style_to_clip,
+                    crate::shortcut_chord::DEFAULT_STYLE_TO_CLIP,
+                )
+                .style_to_clip_display_for(style);
+            }
+            "IDM_SEARCH_ALLSTYLESTOCLIP" => {
+                return Some(
+                    crate::shortcut_chord::resolve_chord(
+                        &s.shortcut_style_to_clip,
+                        crate::shortcut_chord::DEFAULT_STYLE_TO_CLIP,
+                    )
+                    .style_to_clip_display_all(),
+                );
+            }
             "IDM_SEARCH_GOTOLINE" => primary(
                 &s.shortcut_goto_line,
                 crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -8658,6 +8743,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_NEXT_STYLE,
         );
         let next_style_keys = format!("{} (Shift = prev)", next_style_chord.style_marker_display());
+        let style_to_clip_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_style_to_clip,
+            crate::shortcut_chord::DEFAULT_STYLE_TO_CLIP,
+        )
+        .style_to_clip_display();
         let bm_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_next_bookmark,
             crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
@@ -9539,7 +9629,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 132] = [
+        let rows: [(&str, &str); 133] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9564,6 +9654,10 @@ impl EditorApp {
             (mark_style_5_keys.as_str(), "Mark Style 5 / Clear Style 5"),
             (clear_all_styles_keys.as_str(), "Clear all styles"),
             (next_style_keys.as_str(), "Next / prev style marker 1…5"),
+            (
+                style_to_clip_keys.as_str(),
+                "Copy Styled Text 1…5 / All Styles",
+            ),
             (goto_keys.as_str(), "Go to line"),
             (bm_keys.as_str(), "Next / prev bookmark"),
             (toggle_bm_keys.as_str(), "Toggle bookmark"),
@@ -10613,6 +10707,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+1, Ctrl+Alt+1. Digit-family chords accept 1…5 with those modifiers (next that style). Shift flips to previous style. Cmd+1…5 stay Mark Style; Alt+1…8 stay Fold Level.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Copy styled text shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_style_to_clip,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+Shift+1"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_style_to_clip.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_style_to_clip =
+                                        crate::shortcut_chord::DEFAULT_STYLE_TO_CLIP.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_STYLE_TO_CLIP
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_style_to_clip = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+Shift+1, Ctrl+Alt+Shift+1. Digit-family chords accept 1…5 with those modifiers (copy that style's lines). Same mods + 0 copies all styled lines. Letter remaps: base = Style 1; Shift = all. Does not collide with Mark Style (Cmd+1…5), Next Style (Cmd+Alt+1…5), or Fold Level (Alt+1…8).",
                             )
                             .small()
                             .weak(),

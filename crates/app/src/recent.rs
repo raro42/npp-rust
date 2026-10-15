@@ -140,6 +140,10 @@ fn default_shortcut_next_style() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_STYLE.into()
 }
 
+fn default_shortcut_style_to_clip() -> String {
+    crate::shortcut_chord::DEFAULT_STYLE_TO_CLIP.into()
+}
+
 fn default_shortcut_next_bookmark() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK.into()
 }
@@ -818,6 +822,9 @@ pub struct AppSettings {
     /// Next-style-marker chord (`Cmd+Alt+1` default; digit-family `1`…`5`; Shift flips to previous).
     #[serde(default = "default_shortcut_next_style")]
     pub shortcut_next_style: String,
+    /// Copy-styled-text chord (`Cmd+Alt+Shift+1` default; digit-family `1`…`5`; same mods + `0` = all).
+    #[serde(default = "default_shortcut_style_to_clip")]
+    pub shortcut_style_to_clip: String,
     /// Next-bookmark chord (`F2` default). Shift + same key is previous bookmark.
     #[serde(default = "default_shortcut_next_bookmark")]
     pub shortcut_next_bookmark: String,
@@ -1272,6 +1279,7 @@ impl Default for AppSettings {
             shortcut_mark_style_5: default_shortcut_mark_style_5(),
             shortcut_clear_all_styles: default_shortcut_clear_all_styles(),
             shortcut_next_style: default_shortcut_next_style(),
+            shortcut_style_to_clip: default_shortcut_style_to_clip(),
             shortcut_next_bookmark: default_shortcut_next_bookmark(),
             shortcut_toggle_bookmark: default_shortcut_toggle_bookmark(),
             shortcut_clear_bookmarks: default_shortcut_clear_bookmarks(),
@@ -1751,6 +1759,7 @@ mod tests {
             shortcut_mark_style_5: "Ctrl+5".into(),
             shortcut_clear_all_styles: "Ctrl+Shift+0".into(),
             shortcut_next_style: "Ctrl+Alt+Shift+1".into(),
+            shortcut_style_to_clip: "Ctrl+Alt+Shift+6".into(),
             shortcut_next_bookmark: "Ctrl+F2".into(),
             shortcut_toggle_bookmark: "Alt+F2".into(),
             shortcut_clear_bookmarks: "Ctrl+Shift+F2".into(),
@@ -1913,6 +1922,7 @@ mod tests {
         assert_eq!(back.shortcut_mark_style_5, "Ctrl+5");
         assert_eq!(back.shortcut_clear_all_styles, "Ctrl+Shift+0");
         assert_eq!(back.shortcut_next_style, "Ctrl+Alt+Shift+1");
+        assert_eq!(back.shortcut_style_to_clip, "Ctrl+Alt+Shift+6");
         assert_eq!(back.shortcut_next_bookmark, "Ctrl+F2");
         assert_eq!(back.shortcut_toggle_bookmark, "Alt+F2");
         assert_eq!(back.shortcut_clear_bookmarks, "Ctrl+Shift+F2");

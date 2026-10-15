@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.325] — 2026-10-15
+
+Search:
+
+- **Copy Styled Text** is remappable: Preferences → Copy styled text shortcut, or `shortcut_style_to_clip` in `npp-rs/settings.json` (default `Cmd+Alt+Shift+1`). Digit-family chords accept `1`…`5` with those modifiers (copy that style's lines to the clipboard). Same mods + `0` copies all styled lines (Search → Copy All Styles to Clipboard). Letter remaps: base = Style 1; Shift = all. Does not collide with Mark Style (`Cmd+1`…`5`), Next Style (`Cmd+Alt+1`…`5`), or Fold Level (`Alt+1`…`8`). Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.324] — 2026-10-15
 
 Search:
