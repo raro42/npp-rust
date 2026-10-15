@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.330] — 2026-10-15
+
+Search:
+
+- **Find Cut** is remappable: Preferences → Find Cut shortcut, or `shortcut_find_cut` in `npp-rs/settings.json` (default `Alt+Shift+F6`). Opens Find, seeds from selection, cuts matching substrings to the clipboard and deletes them with Case/Word/Re/Sel (same as Find-bar **Cut**). **Shift** flips to Cut matching lines (Find-bar **Shift+Cut**). Does not collide with Focus on Another View (`F6`), Find Copy (`Alt+Shift+F5`), or Find Bookmark (`Alt+Shift+F4`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.329] — 2026-10-15
 
 Search:

@@ -124,6 +124,10 @@ fn default_shortcut_find_copy() -> String {
     crate::shortcut_chord::DEFAULT_FIND_COPY.into()
 }
 
+fn default_shortcut_find_cut() -> String {
+    crate::shortcut_chord::DEFAULT_FIND_CUT.into()
+}
+
 fn default_shortcut_mark_style() -> String {
     crate::shortcut_chord::DEFAULT_MARK_STYLE.into()
 }
@@ -827,6 +831,10 @@ pub struct AppSettings {
     /// Shift flips to Copy matching lines (Find-bar Lines).
     #[serde(default = "default_shortcut_find_copy")]
     pub shortcut_find_copy: String,
+    /// Find Cut chord (`Alt+Shift+F6` default; Find-bar Cut matching substrings).
+    /// Shift flips to Cut matching lines (Find-bar Shift+Cut).
+    #[serde(default = "default_shortcut_find_cut")]
+    pub shortcut_find_cut: String,
     /// Mark-all Style 1 chord (`Cmd+1` default). Shift flips to Clear Style 1.
     #[serde(default = "default_shortcut_mark_style")]
     pub shortcut_mark_style: String,
@@ -1304,6 +1312,7 @@ impl Default for AppSettings {
             shortcut_find_mark: default_shortcut_find_mark(),
             shortcut_find_bookmark: default_shortcut_find_bookmark(),
             shortcut_find_copy: default_shortcut_find_copy(),
+            shortcut_find_cut: default_shortcut_find_cut(),
             shortcut_mark_style: default_shortcut_mark_style(),
             shortcut_mark_style_2: default_shortcut_mark_style_2(),
             shortcut_mark_style_3: default_shortcut_mark_style_3(),
@@ -1788,6 +1797,7 @@ mod tests {
             shortcut_find_mark: "Alt+Shift+F3".into(),
             shortcut_find_bookmark: "Alt+Shift+F4".into(),
             shortcut_find_copy: "Alt+Shift+F5".into(),
+            shortcut_find_cut: "Alt+Shift+F6".into(),
             shortcut_mark_style: "Ctrl+1".into(),
             shortcut_mark_style_2: "Ctrl+2".into(),
             shortcut_mark_style_3: "Ctrl+3".into(),
@@ -1955,6 +1965,7 @@ mod tests {
         assert_eq!(back.shortcut_find_mark, "Alt+Shift+F3");
         assert_eq!(back.shortcut_find_bookmark, "Alt+Shift+F4");
         assert_eq!(back.shortcut_find_copy, "Alt+Shift+F5");
+        assert_eq!(back.shortcut_find_cut, "Alt+Shift+F6");
         assert_eq!(back.shortcut_mark_style, "Ctrl+1");
         assert_eq!(back.shortcut_mark_style_2, "Ctrl+2");
         assert_eq!(back.shortcut_mark_style_3, "Ctrl+3");

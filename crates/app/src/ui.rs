@@ -5591,6 +5591,47 @@ impl EditorApp {
             }
         }
 
+        // Remappable Find Cut (default Alt+Shift+F6; settings.shortcut_find_cut).
+        // Shift flips to Cut matching lines (Find-bar Shift+Cut).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND_CUT};
+            let cut_chord = resolve_chord(&self.state.settings.shortcut_find_cut, DEFAULT_FIND_CUT);
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let cut_key_pressed = key_pressed(cut_chord.key);
+            let remapped_cut_lines =
+                cut_key_pressed && cut_chord.flipped_shift().matches(mods, cut_chord.key);
+            let remapped_cut_matches = cut_key_pressed && cut_chord.matches(mods, cut_chord.key);
+            if remapped_cut_lines {
+                self.run_shortcut_cmd("IDM_SEARCH_CUT_FIND_MATCH_LINES");
+            } else if remapped_cut_matches {
+                self.run_shortcut_cmd("IDM_SEARCH_CUT_FIND_MATCHES");
+            }
+        }
+
         // Remappable Mark All Style 1 (default Cmd+1; settings.shortcut_mark_style).
         // Shift flips to Clear Style 1.
         {
@@ -8394,6 +8435,14 @@ impl EditorApp {
                 &s.shortcut_find_copy,
                 crate::shortcut_chord::DEFAULT_FIND_COPY,
             ),
+            "IDM_SEARCH_CUT_FIND_MATCHES" => primary(
+                &s.shortcut_find_cut,
+                crate::shortcut_chord::DEFAULT_FIND_CUT,
+            ),
+            "IDM_SEARCH_CUT_FIND_MATCH_LINES" => shifted(
+                &s.shortcut_find_cut,
+                crate::shortcut_chord::DEFAULT_FIND_CUT,
+            ),
             "IDM_SEARCH_MARKALLEXT1" => primary(
                 &s.shortcut_mark_style,
                 crate::shortcut_chord::DEFAULT_MARK_STYLE,
@@ -8905,6 +8954,15 @@ impl EditorApp {
             "{} / {}",
             find_copy_chord.display(),
             find_copy_chord.flipped_shift().display()
+        );
+        let find_cut_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_find_cut,
+            crate::shortcut_chord::DEFAULT_FIND_CUT,
+        );
+        let find_cut_keys = format!(
+            "{} / {}",
+            find_cut_chord.display(),
+            find_cut_chord.flipped_shift().display()
         );
         let mark_style_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_mark_style,
@@ -9852,7 +9910,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 137] = [
+        let rows: [(&str, &str); 138] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9879,6 +9937,7 @@ impl EditorApp {
                 find_copy_keys.as_str(),
                 "Find Copy matches / matching lines",
             ),
+            (find_cut_keys.as_str(), "Find Cut matches / matching lines"),
             (mark_style_keys.as_str(), "Mark Style 1 / Clear Style 1"),
             (mark_style_2_keys.as_str(), "Mark Style 2 / Clear Style 2"),
             (mark_style_3_keys.as_str(), "Mark Style 3 / Clear Style 3"),
@@ -10808,6 +10867,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+Shift+F5. Opens Find, seeds from selection, copies matching substrings with Case/Word/Re/Sel (same as Find-bar Copy). Shift flips to Copy matching lines (Find-bar Lines). Does not collide with Date Time (F5), Find Mark (Alt+Shift+F3), or Find Bookmark (Alt+Shift+F4).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Find Cut shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_find_cut,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+Shift+F6"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_find_cut.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_find_cut =
+                                        crate::shortcut_chord::DEFAULT_FIND_CUT.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIND_CUT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_find_cut = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+F6. Opens Find, seeds from selection, cuts matching substrings to clipboard and deletes them with Case/Word/Re/Sel (same as Find-bar Cut). Shift flips to Cut matching lines (Find-bar Shift+Cut). Does not collide with Focus on Another View (F6), Find Copy (Alt+Shift+F5), or Find Bookmark (Alt+Shift+F4).",
                             )
                             .small()
                             .weak(),
@@ -17473,9 +17564,17 @@ impl EditorApp {
                 let cut_lines = ui.input(|i| i.modifiers.shift);
                 if ui
                     .button("Cut")
-                    .on_hover_text(
-                        "Cut matching text to clipboard and delete matches (Case / Word / Re / Sel; one match per line). Shift: cut matching lines (whole lines, deduped)",
-                    )
+                    .on_hover_text({
+                        let chord = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_find_cut,
+                            crate::shortcut_chord::DEFAULT_FIND_CUT,
+                        );
+                        format!(
+                            "Cut matching text to clipboard and delete matches (Case / Word / Re / Sel; one match per line; {}). Shift ({}): cut matching lines (whole lines, deduped)",
+                            chord.display(),
+                            chord.flipped_shift().display()
+                        )
+                    })
                     .clicked()
                 {
                     if cut_lines {

@@ -50,6 +50,12 @@ pub const DEFAULT_FIND_BOOKMARK: &str = "Alt+Shift+F4";
 /// Shift flips to Copy matching lines (Find-bar Lines).
 pub const DEFAULT_FIND_COPY: &str = "Alt+Shift+F5";
 
+/// Default Find Cut binding (Find-bar Cut matching substrings; Case/Word/Re/Sel).
+/// Uses Alt+Shift+F6 so it stays near Find Copy without colliding with Focus on Another
+/// View (`F6`), Find Copy (`Alt+Shift+F5`), or Find Bookmark (`Alt+Shift+F4`).
+/// Shift flips to Cut matching lines (Find-bar Shift+Cut).
+pub const DEFAULT_FIND_CUT: &str = "Alt+Shift+F6";
+
 /// Default mark-all Style 1 binding (Search → Using Style 1; N++ Ctrl+1 family).
 /// Shift flips to Clear Style 1.
 pub const DEFAULT_MARK_STYLE: &str = "Cmd+1";
@@ -1424,6 +1430,19 @@ mod tests {
         let lines = c.flipped_shift();
         assert!(!lines.shift);
         assert_eq!(lines.display(), "Alt+F5");
+    }
+
+    #[test]
+    fn parse_alt_shift_f6_default_find_cut() {
+        let c = parse_chord(DEFAULT_FIND_CUT).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::F6);
+        assert_eq!(c.display(), "Alt+Shift+F6");
+        let lines = c.flipped_shift();
+        assert!(!lines.shift);
+        assert_eq!(lines.display(), "Alt+F6");
     }
 
     #[test]
