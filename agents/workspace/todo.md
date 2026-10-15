@@ -1,3 +1,4 @@
+009 keep: remappable Find Cut (shortcut_find_cut, Alt+Shift+F6 default; Shift=lines, v0.3.330)
 009 keep: remappable Find Mark (shortcut_find_mark, Alt+Shift+F3 default, v0.3.327)
 009 keep: remappable Mark current line Style (shortcut_mark_one_style, Alt+Shift+1 default, digit-family 1…5, v0.3.326)
 009 keep: remappable Copy Styled Text (shortcut_style_to_clip, Cmd+Alt+Shift+1 default, digit-family 1…5, 0=all, v0.3.325)
