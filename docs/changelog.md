@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.337] — 2026-10-16
+
+Edit:
+
+- **Sort Lines Decimal Comma Asc / Desc** is remappable: Preferences → Sort Lines Decimal Comma shortcut, or `shortcut_sort_lines_decimal_comma` in `npp-rs/settings.json` (default `Cmd+Alt+F9`). Runs Edit → Line Operations → Sort Lines As Decimals (Comma) Ascending. **Shift** flips to descending. Does not collide with Find characters in range (`Alt+F9`) or Sort Lines Decimal Dot (`Cmd+Alt+F8`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.336] — 2026-10-16
 
 Edit:

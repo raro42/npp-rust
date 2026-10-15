@@ -1,3 +1,4 @@
+009 keep: remappable Sort Lines Decimal Comma (shortcut_sort_lines_decimal_comma, Cmd+Alt+F9 default; Shift=desc, v0.3.337)
 009 keep: remappable Sort Lines Decimal Dot (shortcut_sort_lines_decimal_dot, Cmd+Alt+F8 default; Shift=desc, v0.3.336)
 009 keep: remappable Sort Lines Lex Ignoring Case (shortcut_sort_lines_case_insensitive, Cmd+Alt+F6 default; Shift=desc, v0.3.335)
 009 keep: remappable Sort Lines Integer (shortcut_sort_lines_integer, Cmd+Alt+F5 default; Shift=desc, v0.3.334)
