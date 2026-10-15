@@ -5719,6 +5719,53 @@ impl EditorApp {
             }
         }
 
+        // Remappable Find Next (Volatile) (default Cmd+Alt+F3; settings.shortcut_find_volatile).
+        // Shift flips to Find Previous (Volatile). Selection is the query; Find dialog untouched.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_FIND_VOLATILE};
+            let volatile_chord = resolve_chord(
+                &self.state.settings.shortcut_find_volatile,
+                DEFAULT_FIND_VOLATILE,
+            );
+            let key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let volatile_key_pressed = key_pressed(volatile_chord.key);
+            let remapped_prev = volatile_key_pressed
+                && volatile_chord
+                    .flipped_shift()
+                    .matches(mods, volatile_chord.key);
+            let remapped_next =
+                volatile_key_pressed && volatile_chord.matches(mods, volatile_chord.key);
+            if remapped_prev {
+                self.run_shortcut_cmd("IDM_SEARCH_VOLATILE_FINDPREV");
+            } else if remapped_next {
+                self.run_shortcut_cmd("IDM_SEARCH_VOLATILE_FINDNEXT");
+            }
+        }
+
         // Remappable Mark All Style 1 (default Cmd+1; settings.shortcut_mark_style).
         // Shift flips to Clear Style 1.
         {
@@ -8546,6 +8593,14 @@ impl EditorApp {
                 &s.shortcut_find_char_range,
                 crate::shortcut_chord::DEFAULT_FIND_CHAR_RANGE,
             ),
+            "IDM_SEARCH_VOLATILE_FINDNEXT" => primary(
+                &s.shortcut_find_volatile,
+                crate::shortcut_chord::DEFAULT_FIND_VOLATILE,
+            ),
+            "IDM_SEARCH_VOLATILE_FINDPREV" => shifted(
+                &s.shortcut_find_volatile,
+                crate::shortcut_chord::DEFAULT_FIND_VOLATILE,
+            ),
             "IDM_SEARCH_MARKALLEXT1" => primary(
                 &s.shortcut_mark_style,
                 crate::shortcut_chord::DEFAULT_MARK_STYLE,
@@ -9084,6 +9139,15 @@ impl EditorApp {
             "{} / {}",
             find_char_range_chord.display(),
             find_char_range_chord.flipped_shift().display()
+        );
+        let find_volatile_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_find_volatile,
+            crate::shortcut_chord::DEFAULT_FIND_VOLATILE,
+        );
+        let find_volatile_keys = format!(
+            "{} / {}",
+            find_volatile_chord.display(),
+            find_volatile_chord.flipped_shift().display()
         );
         let mark_style_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_mark_style,
@@ -10031,7 +10095,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 140] = [
+        let rows: [(&str, &str); 141] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -10066,6 +10130,10 @@ impl EditorApp {
             (
                 find_char_range_keys.as_str(),
                 "Find characters in range next / prev",
+            ),
+            (
+                find_volatile_keys.as_str(),
+                "Find Next / Previous (Volatile)",
             ),
             (mark_style_keys.as_str(), "Mark Style 1 / Clear Style 1"),
             (mark_style_2_keys.as_str(), "Mark Style 2 / Clear Style 2"),
@@ -11096,6 +11164,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+F9. Runs Search → Find characters in range (Find text = ascii / non-ascii / start-end such as 65-90). Shift flips to previous character in range. Does not collide with Find Purge (Alt+Shift+F8 / Alt+F8), Next Change (F8), or Fullscreen (F11).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Find Next (Volatile) shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_find_volatile,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+F3"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_find_volatile
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_find_volatile =
+                                        crate::shortcut_chord::DEFAULT_FIND_VOLATILE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_FIND_VOLATILE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_find_volatile = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+F3. Finds the next occurrence of the current selection without changing the Find dialog (literal; Case/Word; Re/Sel ignored). Shift flips to previous. Distinct from Select and Find (Cmd+F3), which copies the selection into the Find query. Does not collide with Find next (F3), Find Mark (Alt+Shift+F3), or Find All (Cmd+Alt+F4).",
                             )
                             .small()
                             .weak(),

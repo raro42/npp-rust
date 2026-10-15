@@ -2554,6 +2554,56 @@ impl EditorState {
         }
     }
 
+    /// Find next/prev occurrence of the current selection without touching `find_query`.
+    /// Literal search with Case/Word prefs (Re and Sel ignored). Whole document.
+    pub fn find_volatile(&mut self, forward: bool) {
+        let Some((s0, e0)) = self.tabs.active().buffer.selection() else {
+            self.status = "Volatile Find: select text first".into();
+            return;
+        };
+        if s0 >= e0 {
+            self.status = "Volatile Find: select text first".into();
+            return;
+        }
+        let q = self.tabs.active().buffer.slice(s0, e0);
+        if q.is_empty() {
+            self.status = "Volatile Find: select text first".into();
+            return;
+        }
+        let flags = crate::search_util::FindFlags {
+            match_case: self.settings.find_match_case,
+            whole_word: self.settings.find_whole_word,
+            use_regex: false,
+        };
+        let wrap = self.settings.find_wrap;
+        let text = self.tabs.active().buffer.to_string();
+        let lo = 0usize;
+        let hi = text.chars().count();
+        let all = crate::search_util::find_all_matches_in(&text, &q, lo, hi, flags);
+        let total = all.len();
+        let from = if forward { e0 } else { s0 };
+        let hit = if forward {
+            crate::search_util::find_next_in(&text, &q, from, wrap, (lo, hi), flags)
+        } else {
+            crate::search_util::find_prev_in(&text, &q, from, wrap, (lo, hi), flags)
+        };
+        if let Some((s, e)) = hit {
+            self.tabs.active_mut().buffer.set_selection(s, e);
+            let idx = all
+                .iter()
+                .position(|(a, _)| *a == s)
+                .map(|i| i + 1)
+                .unwrap_or(1);
+            self.status = format!("Volatile Find: {idx}/{total}");
+        } else if total == 0 {
+            self.status = "Volatile Find: no match".into();
+        } else if forward {
+            self.status = "Volatile Find: passed end of file".into();
+        } else {
+            self.status = "Volatile Find: passed beginning of file".into();
+        }
+    }
+
     /// Push a path onto recent files using Preferences max.
     pub fn touch_recent(&mut self, path: &std::path::Path) {
         let max = self.settings.recent_limit();
@@ -4455,6 +4505,30 @@ mod tests {
         state.find_prev();
         assert_eq!(state.tabs.active().buffer.selection(), Some((0, 3)));
         assert_eq!(state.status, "Find: passed beginning of file");
+    }
+
+    #[test]
+    fn find_volatile_uses_selection_without_touching_find_query() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("foo bar foo");
+        state.find_query = "needle".into();
+        state.settings.find_match_case = true;
+        state.settings.find_regex = true; // volatile ignores Re
+        state.settings.find_wrap = true;
+        state.settings.find_in_selection = true; // volatile ignores Sel
+        state.tabs.active_mut().buffer.set_selection(0, 3); // "foo"
+        state.find_volatile(true);
+        assert_eq!(state.find_query, "needle");
+        assert_eq!(state.tabs.active().buffer.selection(), Some((8, 11)));
+        assert_eq!(state.status, "Volatile Find: 2/2");
+        state.find_volatile(false);
+        assert_eq!(state.find_query, "needle");
+        assert_eq!(state.tabs.active().buffer.selection(), Some((0, 3)));
+        assert_eq!(state.status, "Volatile Find: 1/2");
+        state.tabs.active_mut().buffer.set_caret(0);
+        state.find_volatile(true);
+        assert_eq!(state.status, "Volatile Find: select text first");
+        assert_eq!(state.find_query, "needle");
     }
 
     #[test]

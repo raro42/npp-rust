@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.333] — 2026-10-15
+
+Search:
+
+- **Find Next / Previous (Volatile)** uses the current selection as an ephemeral literal query and does **not** change the Find dialog / `find_query`. Honors Case / Word; ignores Re and Sel (whole document). Remappable via Preferences → Find Next (Volatile) shortcut, or `shortcut_find_volatile` in `npp-rs/settings.json` (default `Cmd+Alt+F3`; **Shift** = previous). Distinct from Select and Find (`Cmd+F3`), which copies the selection into the Find query. Does not collide with Find next (`F3`), Find Mark (`Alt+Shift+F3`), or Find All (`Cmd+Alt+F4`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.332] — 2026-10-15
 
 Search:

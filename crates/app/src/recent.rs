@@ -136,6 +136,10 @@ fn default_shortcut_find_char_range() -> String {
     crate::shortcut_chord::DEFAULT_FIND_CHAR_RANGE.into()
 }
 
+fn default_shortcut_find_volatile() -> String {
+    crate::shortcut_chord::DEFAULT_FIND_VOLATILE.into()
+}
+
 fn default_shortcut_mark_style() -> String {
     crate::shortcut_chord::DEFAULT_MARK_STYLE.into()
 }
@@ -851,6 +855,10 @@ pub struct AppSettings {
     /// Shift flips to previous character in range.
     #[serde(default = "default_shortcut_find_char_range")]
     pub shortcut_find_char_range: String,
+    /// Find Next (Volatile) chord (`Cmd+Alt+F3` default; Search → Find Next (Volatile)).
+    /// Shift flips to Find Previous (Volatile). Selection is the query; Find dialog untouched.
+    #[serde(default = "default_shortcut_find_volatile")]
+    pub shortcut_find_volatile: String,
     /// Mark-all Style 1 chord (`Cmd+1` default). Shift flips to Clear Style 1.
     #[serde(default = "default_shortcut_mark_style")]
     pub shortcut_mark_style: String,
@@ -1331,6 +1339,7 @@ impl Default for AppSettings {
             shortcut_find_cut: default_shortcut_find_cut(),
             shortcut_find_purge: default_shortcut_find_purge(),
             shortcut_find_char_range: default_shortcut_find_char_range(),
+            shortcut_find_volatile: default_shortcut_find_volatile(),
             shortcut_mark_style: default_shortcut_mark_style(),
             shortcut_mark_style_2: default_shortcut_mark_style_2(),
             shortcut_mark_style_3: default_shortcut_mark_style_3(),
@@ -1818,6 +1827,7 @@ mod tests {
             shortcut_find_cut: "Alt+Shift+F6".into(),
             shortcut_find_purge: "Alt+Shift+F8".into(),
             shortcut_find_char_range: "Alt+F9".into(),
+            shortcut_find_volatile: "Ctrl+Alt+Shift+F3".into(),
             shortcut_mark_style: "Ctrl+1".into(),
             shortcut_mark_style_2: "Ctrl+2".into(),
             shortcut_mark_style_3: "Ctrl+3".into(),
@@ -1988,6 +1998,7 @@ mod tests {
         assert_eq!(back.shortcut_find_cut, "Alt+Shift+F6");
         assert_eq!(back.shortcut_find_purge, "Alt+Shift+F8");
         assert_eq!(back.shortcut_find_char_range, "Alt+F9");
+        assert_eq!(back.shortcut_find_volatile, "Ctrl+Alt+Shift+F3");
         assert_eq!(back.shortcut_mark_style, "Ctrl+1");
         assert_eq!(back.shortcut_mark_style_2, "Ctrl+2");
         assert_eq!(back.shortcut_mark_style_3, "Ctrl+3");

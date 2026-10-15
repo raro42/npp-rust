@@ -57,12 +57,12 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_SEARCH_VOLATILE_FINDNEXT" => {
-            state.find_next();
+            state.find_volatile(true);
             ui.follow_caret = true;
             CmdResult::Handled
         }
         "IDM_SEARCH_VOLATILE_FINDPREV" => {
-            state.find_prev();
+            state.find_volatile(false);
             ui.follow_caret = true;
             CmdResult::Handled
         }

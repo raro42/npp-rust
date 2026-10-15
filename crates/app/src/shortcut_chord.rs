@@ -68,6 +68,12 @@ pub const DEFAULT_FIND_PURGE: &str = "Alt+Shift+F8";
 /// Shift flips to find the previous character in range.
 pub const DEFAULT_FIND_CHAR_RANGE: &str = "Alt+F9";
 
+/// Default Find Next (Volatile) binding (Search → Find Next (Volatile)).
+/// Uses Cmd+Alt+F3 so it stays on the F3 Find family without colliding with Find next (`F3`),
+/// Select and Find (`Cmd+F3`), Find Mark (`Alt+Shift+F3`), or Find All (`Cmd+Alt+F4`).
+/// Shift flips to Find Previous (Volatile). Selection is the ephemeral query; Find dialog untouched.
+pub const DEFAULT_FIND_VOLATILE: &str = "Cmd+Alt+F3";
+
 /// Default mark-all Style 1 binding (Search → Using Style 1; N++ Ctrl+1 family).
 /// Shift flips to Clear Style 1.
 pub const DEFAULT_MARK_STYLE: &str = "Cmd+1";
@@ -1485,6 +1491,19 @@ mod tests {
         let prev = c.flipped_shift();
         assert!(prev.shift);
         assert_eq!(prev.display(), "Alt+Shift+F9");
+    }
+
+    #[test]
+    fn parse_cmd_alt_f3_default_find_volatile() {
+        let c = parse_chord(DEFAULT_FIND_VOLATILE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F3);
+        assert_eq!(c.display(), "Cmd+Alt+F3");
+        let prev = c.flipped_shift();
+        assert!(prev.shift);
+        assert_eq!(prev.display(), "Cmd+Alt+Shift+F3");
     }
 
     #[test]
