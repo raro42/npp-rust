@@ -1,3 +1,4 @@
+009 keep: Find Results / Find in Files Shift+Enter = Previous Search Result (v0.3.320)
 009 keep: remappable Next/Previous Style marker (shortcut_next_style, Cmd+Alt+1 default, digit-family 1…5, Shift=prev, v0.3.319)
 009 keep: Replace-bar Enter = Replace / Shift+Enter = Replace All (v0.3.318)
 009 keep: Find-bar Shift+Enter = Find Previous (v0.3.317)
