@@ -1,3 +1,4 @@
+009 keep: remappable Remove Unmarked Lines (shortcut_remove_unmarked, Cmd+Alt+Z default, v0.3.322)
 009 keep: Find-bar Incremental Search (Inc; as-you-type jump, v0.3.321)
 009 keep: Find Results / Find in Files Shift+Enter = Previous Search Result (v0.3.320)
 009 keep: remappable Next/Previous Style marker (shortcut_next_style, Cmd+Alt+1 default, digit-family 1…5, Shift=prev, v0.3.319)
