@@ -2788,7 +2788,16 @@ impl EditorApp {
                 };
                 if enter_key_pressed && enter_chord.matches(mods, enter_chord.key) {
                     let tab = self.focused_edit_tab();
-                    if self.state.tabs.get(tab).is_some_and(|d| d.read_only) {
+                    let mut jump_flags = crate::commands::UiFlags::default();
+                    if crate::commands::search::goto_search_result_at_caret(
+                        &mut self.state,
+                        &mut jump_flags,
+                        tab,
+                    ) {
+                        if jump_flags.follow_caret {
+                            self.follow_focused_caret();
+                        }
+                    } else if self.state.tabs.get(tab).is_some_and(|d| d.read_only) {
                         self.state.status = "Document is read-only".into();
                     } else {
                         self.state.prepare_edit_at(tab);
@@ -21672,6 +21681,20 @@ impl EditorApp {
                     modifiers,
                     ..
                 } if !modifiers.command && !modifiers.ctrl => {
+                    // Find Results / Find in Files: Enter on a hit row → open + park (same as double-click).
+                    {
+                        let mut jump_flags = crate::commands::UiFlags::default();
+                        if crate::commands::search::goto_search_result_at_caret(
+                            &mut self.state,
+                            &mut jump_flags,
+                            tab,
+                        ) {
+                            if jump_flags.follow_caret {
+                                self.follow_caret = true;
+                            }
+                            continue;
+                        }
+                    }
                     // Remappable Enter (default Enter). When remapped away from default,
                     // ignore bare Enter; remapped chord is handled in handle_shortcuts.
                     {

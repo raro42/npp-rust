@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.315] — 2026-10-15
+
+Search:
+
+- **Enter-to-jump** on **Find Results** / **Find in Files**: with the caret on a hit row, Enter opens the source and parks/selects the match (same path as double-click). Header lines stay inert (read-only). Next/Prev Search Result (F4) unchanged.
+
 ## [0.3.314] — 2026-10-15
 
 Search:

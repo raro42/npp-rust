@@ -486,3 +486,5 @@
 009 keep: Find-bar Shift+Purge delete matching substrings (Case/Word/Re/Sel, v0.3.308)
 
 009 keep: Next/Prev Search Result walks Find Results hits (F4; multi-doc; wrap, v0.3.311)
+
+009 keep: Find Results / Find in Files Enter hit jump (v0.3.315)
