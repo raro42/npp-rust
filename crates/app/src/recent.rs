@@ -132,6 +132,10 @@ fn default_shortcut_clear_all_styles() -> String {
     crate::shortcut_chord::DEFAULT_CLEAR_ALL_STYLES.into()
 }
 
+fn default_shortcut_next_style() -> String {
+    crate::shortcut_chord::DEFAULT_NEXT_STYLE.into()
+}
+
 fn default_shortcut_next_bookmark() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK.into()
 }
@@ -796,6 +800,9 @@ pub struct AppSettings {
     /// Clear-all-styles chord (`Cmd+Shift+0` default).
     #[serde(default = "default_shortcut_clear_all_styles")]
     pub shortcut_clear_all_styles: String,
+    /// Next-style-marker chord (`Cmd+Alt+1` default; digit-family `1`…`5`; Shift flips to previous).
+    #[serde(default = "default_shortcut_next_style")]
+    pub shortcut_next_style: String,
     /// Next-bookmark chord (`F2` default). Shift + same key is previous bookmark.
     #[serde(default = "default_shortcut_next_bookmark")]
     pub shortcut_next_bookmark: String,
@@ -1242,6 +1249,7 @@ impl Default for AppSettings {
             shortcut_mark_style_4: default_shortcut_mark_style_4(),
             shortcut_mark_style_5: default_shortcut_mark_style_5(),
             shortcut_clear_all_styles: default_shortcut_clear_all_styles(),
+            shortcut_next_style: default_shortcut_next_style(),
             shortcut_next_bookmark: default_shortcut_next_bookmark(),
             shortcut_toggle_bookmark: default_shortcut_toggle_bookmark(),
             shortcut_clear_bookmarks: default_shortcut_clear_bookmarks(),
@@ -1717,6 +1725,7 @@ mod tests {
             shortcut_mark_style_4: "Ctrl+4".into(),
             shortcut_mark_style_5: "Ctrl+5".into(),
             shortcut_clear_all_styles: "Ctrl+Shift+0".into(),
+            shortcut_next_style: "Ctrl+Alt+Shift+1".into(),
             shortcut_next_bookmark: "Ctrl+F2".into(),
             shortcut_toggle_bookmark: "Alt+F2".into(),
             shortcut_clear_bookmarks: "Ctrl+Shift+F2".into(),
@@ -1875,6 +1884,7 @@ mod tests {
         assert_eq!(back.shortcut_mark_style_4, "Ctrl+4");
         assert_eq!(back.shortcut_mark_style_5, "Ctrl+5");
         assert_eq!(back.shortcut_clear_all_styles, "Ctrl+Shift+0");
+        assert_eq!(back.shortcut_next_style, "Ctrl+Alt+Shift+1");
         assert_eq!(back.shortcut_next_bookmark, "Ctrl+F2");
         assert_eq!(back.shortcut_toggle_bookmark, "Alt+F2");
         assert_eq!(back.shortcut_clear_bookmarks, "Ctrl+Shift+F2");

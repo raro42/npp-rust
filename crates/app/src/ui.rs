@@ -5694,6 +5694,63 @@ impl EditorApp {
             }
         }
 
+        // Remappable next/prev style marker (default Cmd+Alt+1; settings.shortcut_next_style).
+        // Digit-family: Cmd+Alt+1…5 next that style; Shift flips to previous. Letter remaps: style 1 only.
+        {
+            use crate::shortcut_chord::{resolve_chord, KeyChord, DEFAULT_NEXT_STYLE};
+            let style_chord =
+                resolve_chord(&self.state.settings.shortcut_next_style, DEFAULT_NEXT_STYLE);
+            let digit_family = KeyChord::style_marker_of_key(style_chord.key).is_some();
+            let try_key = |key: Key| {
+                ctx.input(|i| i.key_pressed(key))
+                    .then(|| style_chord.style_marker_action(mods, key))
+                    .flatten()
+            };
+            let action = if digit_family {
+                (1usize..=5)
+                    .find_map(|style| KeyChord::key_for_style_marker(style).and_then(try_key))
+            } else {
+                let letter_key_pressed = match style_chord.key {
+                    Key::Z => z,
+                    Key::N => n,
+                    Key::O => o,
+                    Key::S => s,
+                    Key::F => f,
+                    Key::Y => y,
+                    Key::W => w,
+                    Key::G => g,
+                    Key::A => a,
+                    Key::D => d,
+                    Key::L => l,
+                    Key::I => i_key,
+                    Key::T => t,
+                    Key::H => h,
+                    Key::F2 => f2,
+                    Key::F3 => f3,
+                    Key::F7 => f7,
+                    Key::Equals => equals,
+                    Key::Minus => minus,
+                    Key::Num0 => num0,
+                    Key::CloseBracket => close_br,
+                    Key::OpenBracket => open_br,
+                    other => ctx.input(|i| i.key_pressed(other)),
+                };
+                if letter_key_pressed {
+                    style_chord.style_marker_action(mods, style_chord.key)
+                } else {
+                    None
+                }
+            };
+            if let Some((style, forward)) = action {
+                let cmd = if forward {
+                    format!("IDM_SEARCH_GONEXTMARKER{style}")
+                } else {
+                    format!("IDM_SEARCH_GOPREVMARKER{style}")
+                };
+                self.run_shortcut_cmd(&cmd);
+            }
+        }
+
         // Find next/prev: remappable F3 (Shift flips) + remappable global Cmd+G (Shift flips).
         {
             use crate::shortcut_chord::{
@@ -8043,6 +8100,30 @@ impl EditorApp {
                 &s.shortcut_clear_all_styles,
                 crate::shortcut_chord::DEFAULT_CLEAR_ALL_STYLES,
             ),
+            "IDM_SEARCH_GONEXTMARKER1"
+            | "IDM_SEARCH_GONEXTMARKER2"
+            | "IDM_SEARCH_GONEXTMARKER3"
+            | "IDM_SEARCH_GONEXTMARKER4"
+            | "IDM_SEARCH_GONEXTMARKER5" => {
+                let style = cmd.chars().last().and_then(|c| c.to_digit(10)).unwrap_or(1) as usize;
+                return crate::shortcut_chord::resolve_chord(
+                    &s.shortcut_next_style,
+                    crate::shortcut_chord::DEFAULT_NEXT_STYLE,
+                )
+                .style_marker_display_for(style, false);
+            }
+            "IDM_SEARCH_GOPREVMARKER1"
+            | "IDM_SEARCH_GOPREVMARKER2"
+            | "IDM_SEARCH_GOPREVMARKER3"
+            | "IDM_SEARCH_GOPREVMARKER4"
+            | "IDM_SEARCH_GOPREVMARKER5" => {
+                let style = cmd.chars().last().and_then(|c| c.to_digit(10)).unwrap_or(1) as usize;
+                return crate::shortcut_chord::resolve_chord(
+                    &s.shortcut_next_style,
+                    crate::shortcut_chord::DEFAULT_NEXT_STYLE,
+                )
+                .style_marker_display_for(style, true);
+            }
             "IDM_SEARCH_GOTOLINE" => primary(
                 &s.shortcut_goto_line,
                 crate::shortcut_chord::DEFAULT_GOTO_LINE,
@@ -8468,6 +8549,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_CLEAR_ALL_STYLES,
         )
         .display();
+        let next_style_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_next_style,
+            crate::shortcut_chord::DEFAULT_NEXT_STYLE,
+        );
+        let next_style_keys = format!("{} (Shift = prev)", next_style_chord.style_marker_display());
         let bm_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_next_bookmark,
             crate::shortcut_chord::DEFAULT_NEXT_BOOKMARK,
@@ -9339,7 +9425,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 128] = [
+        let rows: [(&str, &str); 129] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -9362,6 +9448,7 @@ impl EditorApp {
             (mark_style_4_keys.as_str(), "Mark Style 4 / Clear Style 4"),
             (mark_style_5_keys.as_str(), "Mark Style 5 / Clear Style 5"),
             (clear_all_styles_keys.as_str(), "Clear all styles"),
+            (next_style_keys.as_str(), "Next / prev style marker 1…5"),
             (goto_keys.as_str(), "Go to line"),
             (bm_keys.as_str(), "Next / prev bookmark"),
             (toggle_bm_keys.as_str(), "Toggle bookmark"),
@@ -10341,6 +10428,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Shift+0, Ctrl+Shift+0. Clears every style mark (1–5) in the active tab. Cmd+0 stays zoom restore; Alt+0 stays fold all.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Next style marker shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_next_style,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+1"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_next_style.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_next_style =
+                                        crate::shortcut_chord::DEFAULT_NEXT_STYLE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_NEXT_STYLE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_next_style = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+1, Ctrl+Alt+1. Digit-family chords accept 1…5 with those modifiers (next that style). Shift flips to previous style. Cmd+1…5 stay Mark Style; Alt+1…8 stay Fold Level.",
                             )
                             .small()
                             .weak(),

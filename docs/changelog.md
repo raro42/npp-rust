@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.319] — 2026-10-15
+
+Search:
+
+- **Next / Previous Style marker** is remappable: Preferences → Next style marker shortcut, or `shortcut_next_style` in `npp-rs/settings.json` (default `Cmd+Alt+1`). Digit-family chords accept `1`…`5` with those modifiers (next that style). **Shift** flips to previous style. Does not collide with Mark Style (`Cmd+1`…`5`) or Fold Level (`Alt+1`…`8`). Menu, Shortcut Mapper, and About show the effective bindings.
+
 ## [0.3.318] — 2026-10-15
 
 Search:

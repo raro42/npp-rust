@@ -52,6 +52,12 @@ pub const DEFAULT_MARK_STYLE_5: &str = "Cmd+5";
 /// `Cmd+0` stays zoom restore; `Alt+0` stays fold all.
 pub const DEFAULT_CLEAR_ALL_STYLES: &str = "Cmd+Shift+0";
 
+/// Default next-style-marker binding (Search → Go to next style 1…5).
+/// Uses Cmd+Alt+1 so it stays on the Style digit family without colliding with
+/// Mark Style (`Cmd+1`…`5`) or Fold Level (`Alt+1`…`8`). Digit-family chords
+/// accept `1`…`5` with those modifiers; Shift flips to previous style.
+pub const DEFAULT_NEXT_STYLE: &str = "Cmd+Alt+1";
+
 /// Default next-bookmark binding (matches historical hard-wire). Prev uses Shift toggled.
 pub const DEFAULT_NEXT_BOOKMARK: &str = "F2";
 
@@ -707,6 +713,100 @@ impl KeyChord {
             Some(chord.display())
         } else if level == 1 {
             Some(if unfold {
+                self.flipped_shift().display()
+            } else {
+                self.display()
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Style marker digit `1`…`5` for [`Key::Num1`]…[`Key::Num5`].
+    pub fn style_marker_of_key(key: Key) -> Option<usize> {
+        match key {
+            Key::Num1 => Some(1),
+            Key::Num2 => Some(2),
+            Key::Num3 => Some(3),
+            Key::Num4 => Some(4),
+            Key::Num5 => Some(5),
+            _ => None,
+        }
+    }
+
+    /// Key for style marker `1`…`5`.
+    pub fn key_for_style_marker(style: usize) -> Option<Key> {
+        match style {
+            1 => Some(Key::Num1),
+            2 => Some(Key::Num2),
+            3 => Some(Key::Num3),
+            4 => Some(Key::Num4),
+            5 => Some(Key::Num5),
+            _ => None,
+        }
+    }
+
+    /// Next / previous style marker for remappable `shortcut_next_style`.
+    ///
+    /// Returns `(style, forward)` where `forward` is true for next and false for previous.
+    /// Digit-family chords (base key `1`…`5`) accept any of those digits with matching
+    /// Ctrl/Cmd/Alt; Shift matching the base goes next, flipped goes previous.
+    /// Letter remaps only drive style 1 (Shift flips to previous).
+    pub fn style_marker_action(self, mods: Modifiers, pressed: Key) -> Option<(usize, bool)> {
+        let digit_family = Self::style_marker_of_key(self.key).is_some();
+        if digit_family {
+            let style = Self::style_marker_of_key(pressed)?;
+            let cmd = mods.command || mods.ctrl;
+            if cmd != self.ctrl_or_cmd || mods.alt != self.alt {
+                return None;
+            }
+            if mods.shift == self.shift {
+                Some((style, true))
+            } else {
+                Some((style, false))
+            }
+        } else if self.matches(mods, pressed) {
+            Some((1, true))
+        } else if self.flipped_shift().matches(mods, pressed) {
+            Some((1, false))
+        } else {
+            None
+        }
+    }
+
+    /// Human-readable next-style binding for Shortcut Mapper / About.
+    pub fn style_marker_display(self) -> String {
+        if Self::style_marker_of_key(self.key).is_some() {
+            let mut parts = Vec::new();
+            if self.ctrl_or_cmd {
+                parts.push("Cmd");
+            }
+            if self.alt {
+                parts.push("Alt");
+            }
+            if self.shift {
+                parts.push("Shift");
+            }
+            parts.push("1…5");
+            parts.join("+")
+        } else {
+            format!("{} / {}", self.display(), self.flipped_shift().display())
+        }
+    }
+
+    /// Display for one next/prev style menu row (digit-family uses that digit).
+    pub fn style_marker_display_for(self, style: usize, previous: bool) -> Option<String> {
+        let digit_family = Self::style_marker_of_key(self.key).is_some();
+        if digit_family {
+            let key = Self::key_for_style_marker(style)?;
+            let chord = Self {
+                key,
+                shift: if previous { !self.shift } else { self.shift },
+                ..self
+            };
+            Some(chord.display())
+        } else if style == 1 {
+            Some(if previous {
                 self.flipped_shift().display()
             } else {
                 self.display()
@@ -1521,6 +1621,40 @@ mod tests {
         assert_eq!(
             c.fold_level_display_for(4, true).as_deref(),
             Some("Alt+Shift+4")
+        );
+    }
+
+    #[test]
+    fn parse_cmd_alt_one_default_next_style() {
+        let c = parse_chord(DEFAULT_NEXT_STYLE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Num1);
+        assert_eq!(c.style_marker_display(), "Cmd+Alt+1…5");
+        let mods = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert_eq!(c.style_marker_action(mods, Key::Num1), Some((1, true)));
+        assert_eq!(c.style_marker_action(mods, Key::Num5), Some((5, true)));
+        assert_eq!(c.style_marker_action(mods, Key::Num6), None);
+        let prev = Modifiers {
+            command: true,
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert_eq!(c.style_marker_action(prev, Key::Num3), Some((3, false)));
+        assert_eq!(c.style_marker_action(Modifiers::default(), Key::Num1), None);
+        assert_eq!(
+            c.style_marker_display_for(4, false).as_deref(),
+            Some("Cmd+Alt+4")
+        );
+        assert_eq!(
+            c.style_marker_display_for(4, true).as_deref(),
+            Some("Cmd+Alt+Shift+4")
         );
     }
 

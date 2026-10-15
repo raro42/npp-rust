@@ -63,6 +63,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+4 / Shift+4 | Mark Style 4 / Clear Style 4 (remappable `shortcut_mark_style_4`) |
 | Cmd/Ctrl+5 / Shift+5 | Mark Style 5 / Clear Style 5 (remappable `shortcut_mark_style_5`) |
 | Cmd/Ctrl+Shift+0 | Clear all styles (remappable `shortcut_clear_all_styles`) |
+| Cmd/Ctrl+Alt+1…5 / Shift | Next / Previous Style marker 1…5 (remappable `shortcut_next_style`) |
 | Cmd/Ctrl+G / Shift+G | Find next/prev (**global**) |
 | Cmd/Ctrl+L | Go to line |
 | Cmd/Ctrl+B (remappable) | Matching brace (`shortcut_matching_brace`; Shift selects pair) |
