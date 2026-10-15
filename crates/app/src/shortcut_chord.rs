@@ -582,6 +582,12 @@ pub const DEFAULT_SORT_LINES_LENGTH: &str = "Cmd+Alt+F10";
 /// colliding with Fullscreen (`F11`) or Post-It (`F12`).
 pub const DEFAULT_EOL_TO_SPACE: &str = "Cmd+Alt+F11";
 
+/// Default Convert to Unix (LF) EOL binding (Format → Convert to Unix).
+/// Shift flips to Convert to Windows (CRLF). Uses Cmd+Alt+F12 so it stays near EOL to Space
+/// (`Cmd+Alt+F11`) without colliding with Post-It (`F12`) or EOL to Space (`Cmd+Alt+F11`).
+/// Macintosh (CR) stays menu-only.
+pub const DEFAULT_CONVERT_EOL: &str = "Cmd+Alt+F12";
+
 /// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
 /// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
 /// Shift flips to Remove Empty Lines (Containing Blank Characters).
@@ -2944,6 +2950,19 @@ mod tests {
         let trim_all = c.flipped_shift();
         assert!(trim_all.shift);
         assert_eq!(trim_all.display(), "Cmd+Alt+Shift+F11");
+    }
+
+    #[test]
+    fn parse_cmd_alt_f12_default_convert_eol() {
+        let c = parse_chord(DEFAULT_CONVERT_EOL).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F12);
+        assert_eq!(c.display(), "Cmd+Alt+F12");
+        let windows = c.flipped_shift();
+        assert!(windows.shift);
+        assert_eq!(windows.display(), "Cmd+Alt+Shift+F12");
     }
 
     #[test]

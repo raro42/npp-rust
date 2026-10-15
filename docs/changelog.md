@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.340] — 2026-10-16
+
+Format:
+
+- **Convert EOL Unix (LF) / Windows (CRLF)** is remappable: Preferences → Convert EOL shortcut, or `shortcut_convert_eol` in `npp-rs/settings.json` (default `Cmd+Alt+F12`). Runs Format → Convert to Unix. **Shift** flips to Convert to Windows. Macintosh (CR) stays menu-only. Does not collide with Post-It (`F12`) or EOL to Space (`Cmd+Alt+F11`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.339] — 2026-10-16
 
 Edit:

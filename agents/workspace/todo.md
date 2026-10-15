@@ -514,3 +514,5 @@
 009 keep: remappable Find Bookmark (shortcut_find_bookmark, Alt+Shift+F4 default, v0.3.328)
 
 009 keep: remappable Find Copy (shortcut_find_copy, Alt+Shift+F5 default; Shift=lines, v0.3.329)
+
+009 keep: remappable Convert EOL Unix/Windows (shortcut_convert_eol, Cmd+Alt+F12 default; Shift=Windows, v0.3.340)
