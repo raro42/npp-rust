@@ -532,6 +532,12 @@ pub const DEFAULT_SENTENCE_CASE: &str = "Cmd+Alt+8";
 /// (`Cmd+Alt+U`; Shift still aliases Proper Case Force), or Fold Level (`Alt+1`…`8`).
 pub const DEFAULT_PROPER_CASE: &str = "Cmd+Alt+9";
 
+/// Default Random Case binding (Edit → Convert Case to → Random Case).
+/// Uses Cmd+Alt+0 so it stays near Proper Case (`Cmd+Alt+9`) without colliding with
+/// Fold All (`Alt+0`), Copy Styled Text all (`Cmd+Alt+Shift+0`), Next Style
+/// (`Cmd+Alt+1`…`5`), or Fold Level (`Alt+1`…`8`).
+pub const DEFAULT_RANDOM_CASE: &str = "Cmd+Alt+0";
+
 /// Default blank-line-below binding (Edit → Insert Empty Line Below Current).
 /// Shift flips to Insert Empty Line Above Current.
 pub const DEFAULT_BLANK_LINE: &str = "Cmd+Enter";
@@ -3039,6 +3045,16 @@ mod tests {
         let blend = c.flipped_shift();
         assert!(blend.shift);
         assert_eq!(blend.display(), "Cmd+Alt+Shift+9");
+    }
+
+    #[test]
+    fn parse_cmd_alt_0_default_random_case() {
+        let c = parse_chord(DEFAULT_RANDOM_CASE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Num0);
+        assert_eq!(c.display(), "Cmd+Alt+0");
     }
 
     #[test]

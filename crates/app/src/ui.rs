@@ -4148,6 +4148,44 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_PROPERCASE_FORCE");
             }
         }
+        // Remappable Random Case (default Cmd+Alt+0; settings.shortcut_random_case).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_RANDOM_CASE};
+            let random_chord = resolve_chord(
+                &self.state.settings.shortcut_random_case,
+                DEFAULT_RANDOM_CASE,
+            );
+            let random_key_pressed = match random_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_random_case =
+                random_key_pressed && random_chord.matches(mods, random_chord.key);
+            if remapped_random_case {
+                self.run_shortcut_cmd("IDM_EDIT_RANDOMCASE");
+            }
+        }
         // Remappable blank line below (default Cmd+Enter; settings.shortcut_blank_line).
         // Shift flips to blank line above.
         {
@@ -8925,6 +8963,10 @@ impl EditorApp {
                 &s.shortcut_sentence_case,
                 crate::shortcut_chord::DEFAULT_SENTENCE_CASE,
             ),
+            "IDM_EDIT_RANDOMCASE" => primary(
+                &s.shortcut_random_case,
+                crate::shortcut_chord::DEFAULT_RANDOM_CASE,
+            ),
             "IDM_EDIT_BLANKLINEBELOWCURRENT" => primary(
                 &s.shortcut_blank_line,
                 crate::shortcut_chord::DEFAULT_BLANK_LINE,
@@ -10171,6 +10213,11 @@ impl EditorApp {
             proper_case_chord.display(),
             proper_case_chord.flipped_shift().display()
         );
+        let random_case_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_random_case,
+            crate::shortcut_chord::DEFAULT_RANDOM_CASE,
+        )
+        .display();
         let blank_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_blank_line,
             crate::shortcut_chord::DEFAULT_BLANK_LINE,
@@ -10766,7 +10813,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 152] = [
+        let rows: [(&str, &str); 153] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -10909,6 +10956,7 @@ impl EditorApp {
             (invert_keys.as_str(), "Invert Case / Proper Case"),
             (sentence_case_keys.as_str(), "Sentence Case Force / Blend"),
             (proper_case_keys.as_str(), "Proper Case Force / Blend"),
+            (random_case_keys.as_str(), "Random Case"),
             (blank_keys.as_str(), "Blank line below / above"),
             (
                 multi_select_keys.as_str(),
@@ -13954,6 +14002,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+9, Ctrl+Alt+9. Proper Case force (Edit → Convert Case to → Proper Case). Shift + that chord is Proper Case blend. Invert Case + Shift still aliases Proper Case force. Does not collide with Sentence Case (Cmd+Alt+8), Next Style (Cmd+Alt+1…5), or Fold Level (Alt+1…8).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Random Case shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_random_case,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+0"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_random_case
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_random_case =
+                                        crate::shortcut_chord::DEFAULT_RANDOM_CASE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_RANDOM_CASE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_random_case = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+0, Ctrl+Alt+0. Random Case (Edit → Convert Case to → rANdOm CasE). Does not collide with Fold All (Alt+0), Copy Styled Text all (Cmd+Alt+Shift+0), Proper Case (Cmd+Alt+9), Next Style (Cmd+Alt+1…5), or Fold Level (Alt+1…8).",
                             )
                             .small()
                             .weak(),

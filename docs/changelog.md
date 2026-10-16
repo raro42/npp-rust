@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.345] — 2026-10-16
+
+Edit:
+
+- **Random Case** is remappable: Preferences → Random Case shortcut, or `shortcut_random_case` in `npp-rs/settings.json` (default `Cmd+Alt+0`). Runs Edit → Convert Case to → Random Case. Does not collide with Fold All (`Alt+0`), Copy Styled Text all (`Cmd+Alt+Shift+0`), Proper Case (`Cmd+Alt+9`), Next Style (`Cmd+Alt+1`…`5`), or Fold Level (`Alt+1`…`8`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.344] — 2026-10-16
 
 Edit:

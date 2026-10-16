@@ -1,3 +1,4 @@
+009 keep: remappable Random Case (shortcut_random_case, Cmd+Alt+0 default, v0.3.345)
 009 keep: remappable Sentence Case Force/Blend (shortcut_sentence_case, Cmd+Alt+8 default; Shift=blend, v0.3.343)
 009 keep: remappable EOL to Space (shortcut_eol_to_space, Cmd+Alt+F11 default; Shift=Trim All, v0.3.339)
 009 keep: remappable Sort Lines by Length (shortcut_sort_lines_length, Cmd+Alt+F10 default; Shift=desc, v0.3.338)

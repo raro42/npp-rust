@@ -124,6 +124,7 @@ New keys:
 | `shortcut_invert_case` | Invert Case chord (`Cmd+Alt+U` default; Shift flips to Proper Case) |
 | `shortcut_sentence_case` | Sentence Case Force chord (`Cmd+Alt+8` default; Shift flips to Sentence Case Blend) |
 | `shortcut_proper_case` | Proper Case Force chord (`Cmd+Alt+9` default; Shift flips to Proper Case Blend) |
+| `shortcut_random_case` | Random Case chord (`Cmd+Alt+0` default) |
 | `shortcut_blank_line` | Blank line below chord (`Cmd+Enter` default; Shift flips to blank line above) |
 | `shortcut_multi_select_all` | Multi-select all chord (`Cmd+Alt+A` default; Shift flips to whole-word) |
 | `shortcut_begin_end_select` | Begin/End Select chord (`Cmd+Alt+B` default; Shift flips to column mode rect) |
