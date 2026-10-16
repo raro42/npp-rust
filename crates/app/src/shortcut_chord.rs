@@ -506,6 +506,11 @@ pub const DEFAULT_SORT_TABS: &str = "Cmd+Alt+F1";
 /// or Preferences (`Cmd+,`). Shift flips to Path Z to A.
 pub const DEFAULT_SORT_TABS_PATH: &str = "Cmd+Alt+,";
 
+/// Default sort-tabs-by-type binding (Window → Type A to Z).
+/// Uses Cmd+Alt+. so it does not collide with Sort by path (`Cmd+Alt+,`)
+/// or Preferences (`Cmd+,`). Shift flips to Type Z to A.
+pub const DEFAULT_SORT_TABS_TYPE: &str = "Cmd+Alt+.";
+
 /// Default Tab indent binding (editor Tab arm; inserts spaces at caret / multi-carets).
 pub const DEFAULT_TAB_INDENT: &str = "Tab";
 
@@ -1383,6 +1388,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "[" | "openbracket" | "bracketleft" => Some(Key::OpenBracket),
         "/" | "slash" => Some(Key::Slash),
         "," | "comma" => Some(Key::Comma),
+        "." | "period" | "dot" => Some(Key::Period),
         "left" | "arrowleft" => Some(Key::ArrowLeft),
         "right" | "arrowright" => Some(Key::ArrowRight),
         "up" | "arrowup" => Some(Key::ArrowUp),
@@ -1457,6 +1463,7 @@ fn key_token(key: Key) -> &'static str {
         Key::OpenBracket => "[",
         Key::Slash => "/",
         Key::Comma => ",",
+        Key::Period => ".",
         Key::ArrowLeft => "Left",
         Key::ArrowRight => "Right",
         Key::ArrowUp => "Up",
@@ -2051,6 +2058,26 @@ mod tests {
         assert_ne!(c.display(), name.display());
         assert_ne!(c.display(), prefs.display());
         assert_ne!(desc.display(), prefs.flipped_shift().display());
+    }
+
+    #[test]
+    fn parse_cmd_alt_period_default_sort_tabs_type() {
+        let c = parse_chord(DEFAULT_SORT_TABS_TYPE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Period);
+        assert_eq!(c.display(), "Cmd+Alt+.");
+        let desc = c.flipped_shift();
+        assert!(desc.shift);
+        assert!(desc.alt);
+        assert_eq!(desc.display(), "Cmd+Alt+Shift+.");
+        let path = parse_chord(DEFAULT_SORT_TABS_PATH).unwrap();
+        let prefs = parse_chord(DEFAULT_PREFERENCES).unwrap();
+        assert_ne!(c.display(), path.display());
+        assert_ne!(c.display(), prefs.display());
+        assert_ne!(desc.display(), path.flipped_shift().display());
+        assert_eq!(parse_chord("Ctrl+period").unwrap().key, Key::Period);
     }
 
     #[test]

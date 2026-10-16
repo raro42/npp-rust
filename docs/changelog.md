@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.360] — 2026-10-16
+
+Window:
+
+- **Sort tabs by type** is remappable: Preferences → Sort tabs by type shortcut, or `shortcut_sort_tabs_type` in `npp-rs/settings.json` (default `Cmd+Alt+.`). Sorts open tabs by type A to Z (Window, Type A to Z). Shift + that chord sorts Z to A. Does not collide with Sort tabs by path (`Cmd+Alt+,`) or Preferences (`Cmd+,`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.359] — 2026-10-16
 
 Window:
