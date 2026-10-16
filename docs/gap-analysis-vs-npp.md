@@ -112,6 +112,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+F11 (remappable) | ANSI (`shortcut_encoding_ansi`) |
 | Alt+F10 (remappable) | MD5 generate; Shift = clipboard (`shortcut_md5`) |
 | Alt+F11 (remappable) | SHA-256 generate; Shift = clipboard (`shortcut_sha256`) |
+| Cmd/Ctrl+F12 (remappable) | SHA-1 generate; Shift = clipboard (`shortcut_sha1`) |
 | Alt+Shift+L (remappable) | Hide Lines (`shortcut_hide_lines`; current line or selection) |
 | Cmd/Ctrl+Alt+E (remappable) | Remove Empty Lines (`shortcut_remove_empty_lines`; Shift = Containing Blank) |
 | Cmd/Ctrl+Alt+D (remappable) | Remove Consecutive Duplicate Lines (`shortcut_remove_dup_lines`; Shift = any) |

@@ -348,6 +348,10 @@ fn default_shortcut_sha256() -> String {
     crate::shortcut_chord::DEFAULT_SHA256.into()
 }
 
+fn default_shortcut_sha1() -> String {
+    crate::shortcut_chord::DEFAULT_SHA1.into()
+}
+
 fn default_shortcut_remove_empty_lines() -> String {
     crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES.into()
 }
@@ -1466,6 +1470,9 @@ pub struct AppSettings {
     /// SHA-256 generate chord (`Alt+F11` default; Shift flips to clipboard).
     #[serde(default = "default_shortcut_sha256")]
     pub shortcut_sha256: String,
+    /// SHA-1 generate chord (`Cmd+F12` default; Shift flips to clipboard).
+    #[serde(default = "default_shortcut_sha1")]
+    pub shortcut_sha1: String,
     /// Remove Empty Lines chord (`Cmd+Alt+E` default; Shift flips to Containing Blank Characters).
     #[serde(default = "default_shortcut_remove_empty_lines")]
     pub shortcut_remove_empty_lines: String,
@@ -1729,6 +1736,7 @@ impl Default for AppSettings {
             shortcut_encoding_ansi: default_shortcut_encoding_ansi(),
             shortcut_md5: default_shortcut_md5(),
             shortcut_sha256: default_shortcut_sha256(),
+            shortcut_sha1: default_shortcut_sha1(),
             shortcut_remove_empty_lines: default_shortcut_remove_empty_lines(),
             shortcut_remove_dup_lines: default_shortcut_remove_dup_lines(),
             shortcut_insert_datetime: default_shortcut_insert_datetime(),
@@ -2259,6 +2267,7 @@ mod tests {
             shortcut_encoding_ansi: "Ctrl+F11".into(),
             shortcut_md5: "Ctrl+Alt+Shift+F1".into(),
             shortcut_sha256: "Ctrl+Alt+Shift+F11".into(),
+            shortcut_sha1: "Ctrl+Alt+F12".into(),
             shortcut_remove_empty_lines: "Ctrl+Alt+Shift+E".into(),
             shortcut_remove_dup_lines: "Ctrl+Alt+Shift+D".into(),
             shortcut_insert_datetime: "Ctrl+F5".into(),
@@ -2466,6 +2475,7 @@ mod tests {
         assert_eq!(back.shortcut_encoding_ansi, "Ctrl+F11");
         assert_eq!(back.shortcut_md5, "Ctrl+Alt+Shift+F1");
         assert_eq!(back.shortcut_sha256, "Ctrl+Alt+Shift+F11");
+        assert_eq!(back.shortcut_sha1, "Ctrl+Alt+F12");
         assert_eq!(back.shortcut_remove_empty_lines, "Ctrl+Alt+Shift+E");
         assert_eq!(back.shortcut_remove_dup_lines, "Ctrl+Alt+Shift+D");
         assert_eq!(back.shortcut_insert_datetime, "Ctrl+F5");

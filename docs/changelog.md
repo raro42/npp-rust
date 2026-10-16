@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.368] — 2026-10-17
+
+Tools:
+
+- **SHA-1 generate / clipboard** is remappable: Preferences → SHA-1 shortcut, or `shortcut_sha1` in `npp-rs/settings.json` (default `Cmd+F12`). Hashes the selection, or the whole document, and inserts the digest (Tools → SHA-1 → Generate). Shift + that chord copies the digest instead. Does not collide with Post-It (`F12`), Convert EOL Macintosh (`Alt+Shift+F12`), or Convert EOL Unix/Windows (`Cmd+Alt+F12`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.367] — 2026-10-17
 
 Tools:

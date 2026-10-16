@@ -730,6 +730,12 @@ pub const DEFAULT_MD5: &str = "Alt+F10";
 /// (`Cmd+F11`), or EOL to Space (`Cmd+Alt+F11`).
 pub const DEFAULT_SHA256: &str = "Alt+F11";
 
+/// Default SHA-1 generate binding (Tools → SHA-1 → Generate).
+/// Shift flips to Generate from selection into clipboard. Uses Cmd+F12 so it
+/// stays next to the hash family without taking Post-It (`F12`), Convert EOL
+/// Macintosh (`Alt+Shift+F12`), or Convert EOL Unix/Windows (`Cmd+Alt+F12`).
+pub const DEFAULT_SHA1: &str = "Cmd+F12";
+
 /// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
 /// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
 /// Shift flips to Remove Empty Lines (Containing Blank Characters).
@@ -3547,6 +3553,37 @@ mod tests {
         };
         assert!(!c.matches(cmd_alt, Key::F11));
         assert!(!clip.matches(cmd_alt, Key::F11));
+    }
+
+    #[test]
+    fn parse_cmd_f12_default_sha1() {
+        let c = parse_chord(DEFAULT_SHA1).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F12);
+        assert_eq!(c.display(), "Cmd+F12");
+        let clip = c.flipped_shift();
+        assert!(clip.ctrl_or_cmd);
+        assert!(clip.shift);
+        assert!(!clip.alt);
+        assert_eq!(clip.display(), "Cmd+Shift+F12");
+        let bare = Modifiers::default();
+        assert!(!c.matches(bare, Key::F12));
+        assert!(!clip.matches(bare, Key::F12));
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::F12));
+        assert!(!clip.matches(alt, Key::F12));
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt_shift, Key::F12));
+        assert!(!clip.matches(alt_shift, Key::F12));
     }
 
     #[test]
