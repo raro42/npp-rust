@@ -520,6 +520,12 @@ pub const DEFAULT_JOIN_LINES: &str = "Cmd+J";
 /// Default invert-case binding (Edit → iNVERT cASE). Shift flips to Proper Case.
 pub const DEFAULT_INVERT_CASE: &str = "Cmd+Alt+U";
 
+/// Default Sentence Case Force binding (Edit → Convert Case to → Sentence case).
+/// Shift flips to Sentence Case Blend. Uses Cmd+Alt+8 so it stays near Sort Lines Locale
+/// (`Cmd+Alt+7`) without colliding with Next Style (`Cmd+Alt+1`…`5`), Invert Case
+/// (`Cmd+Alt+U`), or Fold Level (`Alt+1`…`8`).
+pub const DEFAULT_SENTENCE_CASE: &str = "Cmd+Alt+8";
+
 /// Default blank-line-below binding (Edit → Insert Empty Line Below Current).
 /// Shift flips to Insert Empty Line Above Current.
 pub const DEFAULT_BLANK_LINE: &str = "Cmd+Enter";
@@ -3001,6 +3007,19 @@ mod tests {
         let descending = c.flipped_shift();
         assert!(descending.shift);
         assert_eq!(descending.display(), "Cmd+Alt+Shift+7");
+    }
+
+    #[test]
+    fn parse_cmd_alt_8_default_sentence_case() {
+        let c = parse_chord(DEFAULT_SENTENCE_CASE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Num8);
+        assert_eq!(c.display(), "Cmd+Alt+8");
+        let blend = c.flipped_shift();
+        assert!(blend.shift);
+        assert_eq!(blend.display(), "Cmd+Alt+Shift+8");
     }
 
     #[test]

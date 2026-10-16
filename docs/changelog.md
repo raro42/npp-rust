@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.343] — 2026-10-16
+
+Edit:
+
+- **Sentence Case Force / Blend** is remappable: Preferences → Sentence Case shortcut, or `shortcut_sentence_case` in `npp-rs/settings.json` (default `Cmd+Alt+8`). Runs Edit → Convert Case to → Sentence case. **Shift** flips to Sentence case blend. Does not collide with Sort Lines Locale (`Cmd+Alt+7`), Invert Case (`Cmd+Alt+U`), Next Style (`Cmd+Alt+1`…`5`), or Fold Level (`Alt+1`…`8`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.342] — 2026-10-16
 
 Edit:

@@ -122,6 +122,7 @@ New keys:
 | `shortcut_autocomplete_path` | Path autocomplete chord (`Cmd+Alt+Space` default; `IDM_EDIT_AUTOCOMPLETE_PATH`) |
 | `shortcut_join_lines` | Join Lines chord (`Cmd+J` default; Shift flips to Split Lines) |
 | `shortcut_invert_case` | Invert Case chord (`Cmd+Alt+U` default; Shift flips to Proper Case) |
+| `shortcut_sentence_case` | Sentence Case Force chord (`Cmd+Alt+8` default; Shift flips to Sentence Case Blend) |
 | `shortcut_blank_line` | Blank line below chord (`Cmd+Enter` default; Shift flips to blank line above) |
 | `shortcut_multi_select_all` | Multi-select all chord (`Cmd+Alt+A` default; Shift flips to whole-word) |
 | `shortcut_begin_end_select` | Begin/End Select chord (`Cmd+Alt+B` default; Shift flips to column mode rect) |

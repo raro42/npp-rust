@@ -232,6 +232,10 @@ fn default_shortcut_invert_case() -> String {
     crate::shortcut_chord::DEFAULT_INVERT_CASE.into()
 }
 
+fn default_shortcut_sentence_case() -> String {
+    crate::shortcut_chord::DEFAULT_SENTENCE_CASE.into()
+}
+
 fn default_shortcut_multi_select_next() -> String {
     crate::shortcut_chord::DEFAULT_MULTI_SELECT_NEXT.into()
 }
@@ -1246,6 +1250,9 @@ pub struct AppSettings {
     /// Invert Case chord (`Cmd+Alt+U` default; Shift flips to Proper Case).
     #[serde(default = "default_shortcut_invert_case")]
     pub shortcut_invert_case: String,
+    /// Sentence Case Force chord (`Cmd+Alt+8` default; Shift flips to Sentence Case Blend).
+    #[serde(default = "default_shortcut_sentence_case")]
+    pub shortcut_sentence_case: String,
     /// Blank line below chord (`Cmd+Enter` default; Shift flips to blank line above).
     #[serde(default = "default_shortcut_blank_line")]
     pub shortcut_blank_line: String,
@@ -1516,6 +1523,7 @@ impl Default for AppSettings {
             shortcut_autocomplete_path: default_shortcut_autocomplete_path(),
             shortcut_join_lines: default_shortcut_join_lines(),
             shortcut_invert_case: default_shortcut_invert_case(),
+            shortcut_sentence_case: default_shortcut_sentence_case(),
             shortcut_blank_line: default_shortcut_blank_line(),
             shortcut_multi_select_next: default_shortcut_multi_select_next(),
             shortcut_multi_select_all: default_shortcut_multi_select_all(),
@@ -2013,6 +2021,7 @@ mod tests {
             shortcut_autocomplete_path: "Alt+Space".into(),
             shortcut_join_lines: "Ctrl+J".into(),
             shortcut_invert_case: "Ctrl+Alt+Shift+U".into(),
+            shortcut_sentence_case: "Ctrl+Alt+Shift+8".into(),
             shortcut_blank_line: "Ctrl+Alt+Enter".into(),
             shortcut_multi_select_next: "Ctrl+Alt+Shift+N".into(),
             shortcut_multi_select_all: "Ctrl+Alt+Shift+A".into(),
@@ -2193,6 +2202,7 @@ mod tests {
         assert_eq!(back.shortcut_autocomplete_path, "Alt+Space");
         assert_eq!(back.shortcut_join_lines, "Ctrl+J");
         assert_eq!(back.shortcut_invert_case, "Ctrl+Alt+Shift+U");
+        assert_eq!(back.shortcut_sentence_case, "Ctrl+Alt+Shift+8");
         assert_eq!(back.shortcut_blank_line, "Ctrl+Alt+Enter");
         assert_eq!(back.shortcut_multi_select_next, "Ctrl+Alt+Shift+N");
         assert_eq!(back.shortcut_multi_select_all, "Ctrl+Alt+Shift+A");
