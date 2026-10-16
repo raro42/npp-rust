@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.364] — 2026-10-17
+
+Encoding:
+
+- **UTF-16 LE / UTF-16 BE** is remappable: Preferences → UTF-16 shortcut, or `shortcut_encoding_utf16` in `npp-rs/settings.json` (default `Cmd+F10`). Sets the active tab to UTF-16 LE BOM (Encoding → UTF-16 LE BOM). Shift + that chord sets UTF-16 BE BOM. Does not collide with Read-only for all documents (`F10` / Shift+F10) or Sort Lines by Length (`Cmd+Alt+F10`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.363] — 2026-10-16
 
 Encoding:

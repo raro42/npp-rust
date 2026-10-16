@@ -6311,6 +6311,45 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_FORMAT_AS_UTF_8");
             }
         }
+        // Remappable UTF-16 LE (default Cmd+F10; settings.shortcut_encoding_utf16).
+        // Shift flips to UTF-16 BE.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_ENCODING_UTF16};
+            let utf16_chord = resolve_chord(
+                &self.state.settings.shortcut_encoding_utf16,
+                DEFAULT_ENCODING_UTF16,
+            );
+            let utf16_key_pressed = match utf16_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if utf16_key_pressed && utf16_chord.flipped_shift().matches(mods, utf16_chord.key) {
+                self.run_shortcut_cmd("IDM_FORMAT_UTF_16BE");
+            } else if utf16_key_pressed && utf16_chord.matches(mods, utf16_chord.key) {
+                self.run_shortcut_cmd("IDM_FORMAT_UTF_16LE");
+            }
+        }
 
         // Remappable TAB → Space (default Cmd+Alt+V; settings.shortcut_tab_to_space).
         // Shift flips to Space → TAB (Leading).
@@ -9572,6 +9611,14 @@ impl EditorApp {
                 &s.shortcut_encoding_utf8,
                 crate::shortcut_chord::DEFAULT_ENCODING_UTF8,
             ),
+            "IDM_FORMAT_UTF_16LE" | "IDM_FORMAT_CONV2_UTF_16LE" => primary(
+                &s.shortcut_encoding_utf16,
+                crate::shortcut_chord::DEFAULT_ENCODING_UTF16,
+            ),
+            "IDM_FORMAT_UTF_16BE" | "IDM_FORMAT_CONV2_UTF_16BE" => shifted(
+                &s.shortcut_encoding_utf16,
+                crate::shortcut_chord::DEFAULT_ENCODING_UTF16,
+            ),
             "IDM_EDIT_TAB2SW" => primary(
                 &s.shortcut_tab_to_space,
                 crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -11327,6 +11374,15 @@ impl EditorApp {
             encoding_utf8_chord.display(),
             encoding_utf8_chord.flipped_shift().display()
         );
+        let encoding_utf16_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_encoding_utf16,
+            crate::shortcut_chord::DEFAULT_ENCODING_UTF16,
+        );
+        let encoding_utf16_keys = format!(
+            "{} / {}",
+            encoding_utf16_chord.display(),
+            encoding_utf16_chord.flipped_shift().display()
+        );
         let tab_to_space_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_tab_to_space,
             crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -11732,7 +11788,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 170] = [
+        let rows: [(&str, &str); 171] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -12051,6 +12107,7 @@ impl EditorApp {
             ),
             (convert_eol_mac_keys.as_str(), "Convert EOL Macintosh (CR)"),
             (encoding_utf8_keys.as_str(), "UTF-8 / UTF-8-BOM"),
+            (encoding_utf16_keys.as_str(), "UTF-16 LE / UTF-16 BE"),
             (
                 tab_to_space_keys.as_str(),
                 "TAB to Space / Space to TAB (Leading)",
@@ -16359,6 +16416,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+F9, Ctrl+F9. Sets the active tab to UTF-8 without BOM (Encoding → UTF-8). Shift + that chord sets UTF-8-BOM. Does not collide with Find characters in range (Alt+F9) or Sort Lines Decimal Comma (Cmd+Alt+F9).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("UTF-16 shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_encoding_utf16,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+F10"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_encoding_utf16
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_encoding_utf16 =
+                                        crate::shortcut_chord::DEFAULT_ENCODING_UTF16.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_ENCODING_UTF16
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_encoding_utf16 = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+F10, Ctrl+F10. Sets the active tab to UTF-16 LE BOM (Encoding → UTF-16 LE BOM). Shift + that chord sets UTF-16 BE BOM. Does not collide with Read-only for all documents (F10 / Shift+F10) or Sort Lines by Length (Cmd+Alt+F10).",
                             )
                             .small()
                             .weak(),

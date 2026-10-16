@@ -1,3 +1,4 @@
+009 keep: remappable UTF-16 LE / UTF-16 BE (shortcut_encoding_utf16, Cmd+F10 default; Shift=BE, v0.3.364)
 009 keep: remappable UTF-8 / UTF-8-BOM (shortcut_encoding_utf8, Cmd+F9 default; Shift=BOM, v0.3.363)
 009 keep: remappable Sort tabs by modified time (shortcut_sort_tabs_modified, Cmd+Alt+; default; Shift=desc, v0.3.362)
 009 keep: remappable Sort tabs by size (shortcut_sort_tabs_size, Cmd+Alt+/ default; Shift=desc, v0.3.361)

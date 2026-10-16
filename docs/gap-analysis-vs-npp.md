@@ -108,6 +108,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+Alt+F12 (remappable) | Convert EOL Unix (`shortcut_convert_eol`; Shift = Windows CRLF) |
 | Alt+Shift+F12 (remappable) | Convert EOL Macintosh (`shortcut_convert_eol_mac`) |
 | Cmd/Ctrl+F9 (remappable) | UTF-8 (`shortcut_encoding_utf8`; Shift = UTF-8-BOM) |
+| Cmd/Ctrl+F10 (remappable) | UTF-16 LE (`shortcut_encoding_utf16`; Shift = UTF-16 BE) |
 | Alt+Shift+L (remappable) | Hide Lines (`shortcut_hide_lines`; current line or selection) |
 | Cmd/Ctrl+Alt+E (remappable) | Remove Empty Lines (`shortcut_remove_empty_lines`; Shift = Containing Blank) |
 | Cmd/Ctrl+Alt+D (remappable) | Remove Consecutive Duplicate Lines (`shortcut_remove_dup_lines`; Shift = any) |
