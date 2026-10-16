@@ -486,6 +486,11 @@ pub const DEFAULT_SAVE_ALL: &str = "Cmd+Alt+S";
 /// Default print binding (new remappable chord; File → Print).
 pub const DEFAULT_PRINT: &str = "Cmd+P";
 
+/// Default exit binding (File → Exit).
+/// Uses Cmd+Q, left free by Toggle Comment (`Cmd+/`), so it does not collide with
+/// Paste Bookmarked Lines (`Cmd+Alt+Q`) or Sync Vertical Scroll (`Alt+Q`).
+pub const DEFAULT_EXIT: &str = "Cmd+Q";
+
 /// Default Tab indent binding (editor Tab arm; inserts spaces at caret / multi-carets).
 pub const DEFAULT_TAB_INDENT: &str = "Tab";
 
@@ -1973,6 +1978,16 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::P);
         assert_eq!(c.display(), "Cmd+P");
+    }
+
+    #[test]
+    fn parse_cmd_q_default_exit() {
+        let c = parse_chord(DEFAULT_EXIT).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Q);
+        assert_eq!(c.display(), "Cmd+Q");
     }
 
     #[test]

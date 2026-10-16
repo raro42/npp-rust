@@ -112,6 +112,7 @@ New keys:
 | `shortcut_save_copy` | Save a Copy As chord (`Cmd+Alt+Y` default; Shift flips to Rename) |
 | `shortcut_save_all` | Save-all chord (`Cmd+Alt+S` default) |
 | `shortcut_print` | Print chord (`Cmd+P` default) |
+| `shortcut_exit` | Exit chord (`Cmd+Q` default; File → Exit) |
 | `shortcut_tab_indent` | Tab indent chord (`Tab` default; inserts spaces at caret / multi-carets) |
 | `shortcut_shift_tab_outdent` | Shift+Tab outdent chord (`Shift+Tab` default; alternate to `shortcut_outdent`) |
 | `shortcut_fold_all` | Fold-all chord (`Alt+0` default; Shift flips to Unfold All) |

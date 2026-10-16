@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.356] — 2026-10-16
+
+File:
+
+- **Exit** is remappable: Preferences → Exit shortcut, or `shortcut_exit` in `npp-rs/settings.json` (default `Cmd+Q`). Quits (File → Exit) and still prompts when a document is dirty. Does not collide with Paste Bookmarked Lines (`Cmd+Alt+Q`) or Sync Vertical Scroll (`Alt+Q`). Toggle Comment stays `Cmd+/`. Shortcut Mapper and About show the binding.
+
 ## [0.3.355] — 2026-10-16
 
 Settings:
