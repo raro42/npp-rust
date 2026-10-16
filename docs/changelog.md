@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.357] — 2026-10-16
+
+File:
+
+- **Load Session / Save Session** is remappable: Preferences → Load Session shortcut, or `shortcut_load_session` in `npp-rs/settings.json` (default `Cmd+F1`). Loads the saved session (File → Load Session). Shift + that chord saves the session. Does not collide with Summary (`Alt+F1`) or Find (`Cmd+F`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.356] — 2026-10-16
 
 File:

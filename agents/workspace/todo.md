@@ -1,3 +1,4 @@
+009 keep: remappable Load Session / Save Session (shortcut_load_session, Cmd+F1 default; Shift=save, v0.3.357)
 009 keep: remappable Exit (shortcut_exit, Cmd+Q default, v0.3.356)
 009 keep: remappable Preferences / Style Configurator (shortcut_preferences, Cmd+, default; Shift=style, v0.3.355)
 009 keep: remappable Summary / Document List (shortcut_summary, Alt+F1 default; Shift=doc list, v0.3.354)

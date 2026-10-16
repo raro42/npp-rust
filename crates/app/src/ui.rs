@@ -2505,6 +2505,45 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_FILE_EXIT");
             }
         }
+        // Remappable Load Session (default Cmd+F1; settings.shortcut_load_session).
+        // Shift flips to Save Session.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_LOAD_SESSION};
+            let load_chord = resolve_chord(
+                &self.state.settings.shortcut_load_session,
+                DEFAULT_LOAD_SESSION,
+            );
+            let load_key_pressed = match load_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if load_key_pressed && load_chord.flipped_shift().matches(mods, load_chord.key) {
+                self.run_shortcut_cmd("IDM_FILE_SAVESESSION");
+            } else if load_key_pressed && load_chord.matches(mods, load_chord.key) {
+                self.run_shortcut_cmd("IDM_FILE_LOADSESSION");
+            }
+        }
         let mut opened_replace = false;
         // Remappable replace alt (default Cmd+Shift+F; settings.shortcut_replace_alt)
         // and remappable replace (default Cmd+H; settings.shortcut_replace).
@@ -9165,6 +9204,14 @@ impl EditorApp {
             ),
             "IDM_FILE_PRINT" => primary(&s.shortcut_print, crate::shortcut_chord::DEFAULT_PRINT),
             "IDM_FILE_EXIT" => primary(&s.shortcut_exit, crate::shortcut_chord::DEFAULT_EXIT),
+            "IDM_FILE_LOADSESSION" => primary(
+                &s.shortcut_load_session,
+                crate::shortcut_chord::DEFAULT_LOAD_SESSION,
+            ),
+            "IDM_FILE_SAVESESSION" => shifted(
+                &s.shortcut_load_session,
+                crate::shortcut_chord::DEFAULT_LOAD_SESSION,
+            ),
             "IDM_FILE_CLOSE" => primary(
                 &s.shortcut_close_tab,
                 crate::shortcut_chord::DEFAULT_CLOSE_TAB,
@@ -11056,6 +11103,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_EXIT,
         )
         .display();
+        let load_session_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_load_session,
+            crate::shortcut_chord::DEFAULT_LOAD_SESSION,
+        );
+        let load_session_keys = format!(
+            "{} / {}",
+            load_session_chord.display(),
+            load_session_chord.flipped_shift().display()
+        );
         let find_open_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_find,
             crate::shortcut_chord::DEFAULT_FIND,
@@ -11322,7 +11378,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 163] = [
+        let rows: [(&str, &str); 164] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -11332,6 +11388,7 @@ impl EditorApp {
             (save_all_keys.as_str(), "Save All"),
             (print_keys.as_str(), "Print"),
             (exit_keys.as_str(), "Exit"),
+            (load_session_keys.as_str(), "Load Session / Save Session"),
             (find_open_keys.as_str(), "Find"),
             (find_in_files_keys.as_str(), "Find in Files"),
             (replace_row.as_str(), "Replace"),
@@ -17548,6 +17605,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Q, Ctrl+Q. Quits (File → Exit), prompting if a document is dirty. Does not collide with Paste Bookmarked Lines (Cmd+Alt+Q) or Sync Vertical Scroll (Alt+Q). Toggle Comment stays Cmd+/.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Load Session shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_load_session,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+F1"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_load_session.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_load_session =
+                                        crate::shortcut_chord::DEFAULT_LOAD_SESSION.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_LOAD_SESSION
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_load_session = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+F1, Ctrl+F1. Loads the saved session (File → Load Session). Shift + that chord saves the session. Does not collide with Summary (Alt+F1) or Find (Cmd+F).",
                             )
                             .small()
                             .weak(),

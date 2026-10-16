@@ -491,6 +491,11 @@ pub const DEFAULT_PRINT: &str = "Cmd+P";
 /// Paste Bookmarked Lines (`Cmd+Alt+Q`) or Sync Vertical Scroll (`Alt+Q`).
 pub const DEFAULT_EXIT: &str = "Cmd+Q";
 
+/// Default load-session binding (File → Load Session).
+/// Uses Cmd+F1 so it does not collide with Summary (`Alt+F1`), Find (`Cmd+F`),
+/// or Open (`Cmd+O`). Shift flips to Save Session (`Cmd+Shift+F1`).
+pub const DEFAULT_LOAD_SESSION: &str = "Cmd+F1";
+
 /// Default Tab indent binding (editor Tab arm; inserts spaces at caret / multi-carets).
 pub const DEFAULT_TAB_INDENT: &str = "Tab";
 
@@ -1988,6 +1993,19 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::Q);
         assert_eq!(c.display(), "Cmd+Q");
+    }
+
+    #[test]
+    fn parse_cmd_f1_default_load_session() {
+        let c = parse_chord(DEFAULT_LOAD_SESSION).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F1);
+        assert_eq!(c.display(), "Cmd+F1");
+        let save = c.flipped_shift();
+        assert!(save.shift);
+        assert_eq!(save.display(), "Cmd+Shift+F1");
     }
 
     #[test]
