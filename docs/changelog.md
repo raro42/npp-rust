@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.347] — 2026-10-16
+
+Edit:
+
+- **Trim Leading Space** is remappable: Preferences → Trim Leading shortcut, or `shortcut_trim_leading` in `npp-rs/settings.json` (default `Alt+Shift+T`). Runs Edit → Blank Operations → Trim Leading Space. Does not collide with Trim Trailing (`Cmd+Alt+T`), Always on Top (`Alt+T`), or Toggle log tail (`Cmd+Shift+T`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.346] — 2026-10-16
 
 Edit:

@@ -274,6 +274,11 @@ pub const DEFAULT_SAVE_COPY: &str = "Cmd+Alt+Y";
 /// collide with Always on Top (Alt+T) or Toggle log tail (Cmd+Shift+T).
 pub const DEFAULT_TRIM_TRAILING: &str = "Cmd+Alt+T";
 
+/// Default Trim Leading Space binding (Edit → Blank Operations → Trim Leading Space).
+/// Uses Alt+Shift+T so it stays near Trim Trailing (Cmd+Alt+T) and Always on Top
+/// (Alt+T) without colliding with either or with Toggle log tail (Cmd+Shift+T).
+pub const DEFAULT_TRIM_LEADING: &str = "Alt+Shift+T";
+
 /// Default new-file binding (matches historical hard-wire).
 pub const DEFAULT_NEW: &str = "Cmd+N";
 
@@ -2327,6 +2332,16 @@ mod tests {
         assert_eq!(c.key, Key::T);
         assert_eq!(c.display(), "Cmd+Alt+T");
         assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+T");
+    }
+
+    #[test]
+    fn parse_alt_shift_t_default_trim_leading() {
+        let c = parse_chord(DEFAULT_TRIM_LEADING).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::T);
+        assert_eq!(c.display(), "Alt+Shift+T");
     }
 
     #[test]

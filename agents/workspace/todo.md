@@ -525,3 +525,5 @@
 009 keep: remappable Sort Lines Locale Asc/Desc (shortcut_sort_lines_locale, Cmd+Alt+7 default; Shift=desc, v0.3.342)
 
 009 keep: remappable Proper Case Force/Blend (shortcut_proper_case, Cmd+Alt+9 default; Shift=blend, v0.3.344)
+
+009 keep: remappable Trim Leading Space (shortcut_trim_leading, Alt+Shift+T default, v0.3.347)

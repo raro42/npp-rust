@@ -5587,6 +5587,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_TRIMTRAILING");
             }
         }
+        // Remappable Trim Leading Space (default Alt+Shift+T; settings.shortcut_trim_leading).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_TRIM_LEADING};
+            let lead_chord = resolve_chord(
+                &self.state.settings.shortcut_trim_leading,
+                DEFAULT_TRIM_LEADING,
+            );
+            let lead_key_pressed = match lead_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if lead_key_pressed && lead_chord.matches(mods, lead_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_TRIMLINEHEAD");
+            }
+        }
         // Remappable EOL to Space (default Cmd+Alt+F11; settings.shortcut_eol_to_space).
         // Shift flips to Trim Both and EOL to Space.
         {
@@ -8850,6 +8886,10 @@ impl EditorApp {
                 &s.shortcut_trim_trailing,
                 crate::shortcut_chord::DEFAULT_TRIM_TRAILING,
             ),
+            "IDM_EDIT_TRIMLINEHEAD" => primary(
+                &s.shortcut_trim_leading,
+                crate::shortcut_chord::DEFAULT_TRIM_LEADING,
+            ),
             "IDM_EDIT_EOL2WS" => primary(
                 &s.shortcut_eol_to_space,
                 crate::shortcut_chord::DEFAULT_EOL_TO_SPACE,
@@ -10510,6 +10550,11 @@ impl EditorApp {
             trim_trailing_chord.display(),
             trim_trailing_chord.flipped_shift().display()
         );
+        let trim_leading_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_trim_leading,
+            crate::shortcut_chord::DEFAULT_TRIM_LEADING,
+        )
+        .display();
         let eol_to_space_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_eol_to_space,
             crate::shortcut_chord::DEFAULT_EOL_TO_SPACE,
@@ -10864,7 +10909,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 154] = [
+        let rows: [(&str, &str); 155] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -11138,6 +11183,7 @@ impl EditorApp {
                 trim_trailing_keys.as_str(),
                 "Trim trailing / Trim leading and trailing",
             ),
+            (trim_leading_keys.as_str(), "Trim Leading Space"),
             (
                 eol_to_space_keys.as_str(),
                 "EOL to Space / Trim Both and EOL to Space",
@@ -15147,6 +15193,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+T, Ctrl+Alt+T. Shift flips to Trim Leading and Trailing.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Trim Leading shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_trim_leading,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+Shift+T"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_trim_leading.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_trim_leading =
+                                        crate::shortcut_chord::DEFAULT_TRIM_LEADING.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_TRIM_LEADING
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_trim_leading = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+T. Trim Leading Space (Edit → Blank Operations). Does not collide with Trim Trailing (Cmd+Alt+T), Always on Top (Alt+T), or Toggle log tail (Cmd+Shift+T).",
                             )
                             .small()
                             .weak(),

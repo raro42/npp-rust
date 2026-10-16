@@ -94,6 +94,7 @@ New keys:
 | `shortcut_close_but_pinned` | Close All but Pinned chord (`Cmd+Alt+H` default; Shift flips to Close All Unchanged) |
 | `shortcut_close_to_side` | Close All to the Left chord (`Cmd+Alt+I` default; Shift flips to Close All to the Right) |
 | `shortcut_trim_trailing` | Trim Trailing chord (`Cmd+Alt+T` default; Shift flips to Trim Leading and Trailing) |
+| `shortcut_trim_leading` | Trim Leading Space chord (`Alt+Shift+T` default; `IDM_EDIT_TRIMLINEHEAD`) |
 | `shortcut_eol_to_space` | EOL to Space chord (`Cmd+Alt+F11` default; Shift flips to Trim Both and EOL to Space) |
 | `shortcut_convert_eol` | Convert EOL to Unix (LF) chord (`Cmd+Alt+F12` default; Shift flips to Windows CRLF) |
 | `shortcut_tab_to_space` | TAB → Space chord (`Cmd+Alt+V` default; Shift flips to Space → TAB Leading) |

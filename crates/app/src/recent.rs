@@ -476,6 +476,10 @@ fn default_shortcut_trim_trailing() -> String {
     crate::shortcut_chord::DEFAULT_TRIM_TRAILING.into()
 }
 
+fn default_shortcut_trim_leading() -> String {
+    crate::shortcut_chord::DEFAULT_TRIM_LEADING.into()
+}
+
 fn default_shortcut_next_tab() -> String {
     crate::shortcut_chord::DEFAULT_NEXT_TAB.into()
 }
@@ -1052,6 +1056,9 @@ pub struct AppSettings {
     /// Trim-trailing chord (`Cmd+Alt+T` default; Shift flips to Trim Both).
     #[serde(default = "default_shortcut_trim_trailing")]
     pub shortcut_trim_trailing: String,
+    /// Trim Leading Space chord (`Alt+Shift+T` default; `IDM_EDIT_TRIMLINEHEAD`).
+    #[serde(default = "default_shortcut_trim_leading")]
+    pub shortcut_trim_leading: String,
     /// Next-tab chord (`Cmd+Tab` default; Shift flips to previous).
     #[serde(default = "default_shortcut_next_tab")]
     pub shortcut_next_tab: String,
@@ -1478,6 +1485,7 @@ impl Default for AppSettings {
             shortcut_close_but_pinned: default_shortcut_close_but_pinned(),
             shortcut_close_to_side: default_shortcut_close_to_side(),
             shortcut_trim_trailing: default_shortcut_trim_trailing(),
+            shortcut_trim_leading: default_shortcut_trim_leading(),
             shortcut_next_tab: default_shortcut_next_tab(),
             shortcut_first_tab: default_shortcut_first_tab(),
             shortcut_move_tab: default_shortcut_move_tab(),
@@ -1979,6 +1987,7 @@ mod tests {
             shortcut_close_but_pinned: "Ctrl+Alt+Shift+H".into(),
             shortcut_close_to_side: "Ctrl+Alt+Shift+I".into(),
             shortcut_trim_trailing: "Ctrl+Alt+Shift+T".into(),
+            shortcut_trim_leading: "Ctrl+Alt+Shift+H".into(),
             shortcut_next_tab: "Ctrl+Alt+Tab".into(),
             shortcut_first_tab: "Ctrl+Alt+Home".into(),
             shortcut_move_tab: "Ctrl+Alt+PageDown".into(),
@@ -2163,6 +2172,7 @@ mod tests {
         assert_eq!(back.shortcut_close_but_pinned, "Ctrl+Alt+Shift+H");
         assert_eq!(back.shortcut_close_to_side, "Ctrl+Alt+Shift+I");
         assert_eq!(back.shortcut_trim_trailing, "Ctrl+Alt+Shift+T");
+        assert_eq!(back.shortcut_trim_leading, "Ctrl+Alt+Shift+H");
         assert_eq!(back.shortcut_next_tab, "Ctrl+Alt+Tab");
         assert_eq!(back.shortcut_first_tab, "Ctrl+Alt+Home");
         assert_eq!(back.shortcut_move_tab, "Ctrl+Alt+PageDown");
