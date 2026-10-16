@@ -501,6 +501,11 @@ pub const DEFAULT_LOAD_SESSION: &str = "Cmd+F1";
 /// Summary (`Alt+F1`). Shift flips to descending.
 pub const DEFAULT_SORT_TABS: &str = "Cmd+Alt+F1";
 
+/// Default sort-tabs-by-path binding (Window → Path A to Z).
+/// Uses Cmd+Alt+, so it does not collide with Sort by name (`Cmd+Alt+F1`)
+/// or Preferences (`Cmd+,`). Shift flips to Path Z to A.
+pub const DEFAULT_SORT_TABS_PATH: &str = "Cmd+Alt+,";
+
 /// Default Tab indent binding (editor Tab arm; inserts spaces at caret / multi-carets).
 pub const DEFAULT_TAB_INDENT: &str = "Tab";
 
@@ -2027,6 +2032,25 @@ mod tests {
         assert_eq!(desc.display(), "Cmd+Alt+Shift+F1");
         let load = parse_chord(DEFAULT_LOAD_SESSION).unwrap();
         assert_ne!(c.display(), load.display());
+    }
+
+    #[test]
+    fn parse_cmd_alt_comma_default_sort_tabs_path() {
+        let c = parse_chord(DEFAULT_SORT_TABS_PATH).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Comma);
+        assert_eq!(c.display(), "Cmd+Alt+,");
+        let desc = c.flipped_shift();
+        assert!(desc.shift);
+        assert!(desc.alt);
+        assert_eq!(desc.display(), "Cmd+Alt+Shift+,");
+        let name = parse_chord(DEFAULT_SORT_TABS).unwrap();
+        let prefs = parse_chord(DEFAULT_PREFERENCES).unwrap();
+        assert_ne!(c.display(), name.display());
+        assert_ne!(c.display(), prefs.display());
+        assert_ne!(desc.display(), prefs.flipped_shift().display());
     }
 
     #[test]

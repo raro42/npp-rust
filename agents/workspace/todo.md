@@ -1,3 +1,4 @@
+009 keep: remappable Sort tabs by path (shortcut_sort_tabs_path, Cmd+Alt+, default; Shift=desc, v0.3.359)
 009 keep: remappable Sort tabs by name (shortcut_sort_tabs, Cmd+Alt+F1 default; Shift=desc, v0.3.358)
 009 keep: remappable Load Session / Save Session (shortcut_load_session, Cmd+F1 default; Shift=save, v0.3.357)
 009 keep: remappable Exit (shortcut_exit, Cmd+Q default, v0.3.356)
