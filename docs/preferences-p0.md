@@ -127,6 +127,7 @@ New keys:
 | `shortcut_proper_case` | Proper Case Force chord (`Cmd+Alt+9` default; Shift flips to Proper Case Blend) |
 | `shortcut_random_case` | Random Case chord (`Cmd+Alt+0` default) |
 | `shortcut_redact` | Redact Selection chord (`Alt+J` default; Shift flips to ●) |
+| `shortcut_search_internet` | Search on Internet chord (`Alt+U` default; Shift flips to Change Search Engine) |
 | `shortcut_blank_line` | Blank line below chord (`Cmd+Enter` default; Shift flips to blank line above) |
 | `shortcut_multi_select_all` | Multi-select all chord (`Cmd+Alt+A` default; Shift flips to whole-word) |
 | `shortcut_begin_end_select` | Begin/End Select chord (`Cmd+Alt+B` default; Shift flips to column mode rect) |

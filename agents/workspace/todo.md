@@ -1,3 +1,4 @@
+009 keep: remappable Search on Internet (shortcut_search_internet, Alt+U default; Shift=Change Search Engine, v0.3.348)
 009 keep: remappable Redact Selection (shortcut_redact, Alt+J; Shift=●, v0.3.346)
 009 keep: remappable Random Case (shortcut_random_case, Cmd+Alt+0 default, v0.3.345)
 009 keep: remappable Sentence Case Force/Blend (shortcut_sentence_case, Cmd+Alt+8 default; Shift=blend, v0.3.343)

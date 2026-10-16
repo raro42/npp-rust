@@ -4225,6 +4225,51 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_REDACT_SELECTION");
             }
         }
+        // Remappable Search on Internet (default Alt+U; settings.shortcut_search_internet).
+        // Shift flips to Change Search Engine.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SEARCH_INTERNET};
+            let search_net_chord = resolve_chord(
+                &self.state.settings.shortcut_search_internet,
+                DEFAULT_SEARCH_INTERNET,
+            );
+            let search_net_key_pressed = match search_net_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_change_engine = search_net_key_pressed
+                && search_net_chord
+                    .flipped_shift()
+                    .matches(mods, search_net_chord.key);
+            let remapped_search =
+                search_net_key_pressed && search_net_chord.matches(mods, search_net_chord.key);
+            if remapped_change_engine {
+                self.run_shortcut_cmd("IDM_EDIT_CHANGESEARCHENGINE");
+            } else if remapped_search {
+                self.run_shortcut_cmd("IDM_EDIT_SEARCHONINTERNET");
+            }
+        }
         // Remappable blank line below (default Cmd+Enter; settings.shortcut_blank_line).
         // Shift flips to blank line above.
         {
@@ -9049,6 +9094,14 @@ impl EditorApp {
             "IDM_EDIT_REDACT_SELECTION" => {
                 primary(&s.shortcut_redact, crate::shortcut_chord::DEFAULT_REDACT)
             }
+            "IDM_EDIT_SEARCHONINTERNET" => primary(
+                &s.shortcut_search_internet,
+                crate::shortcut_chord::DEFAULT_SEARCH_INTERNET,
+            ),
+            "IDM_EDIT_CHANGESEARCHENGINE" => shifted(
+                &s.shortcut_search_internet,
+                crate::shortcut_chord::DEFAULT_SEARCH_INTERNET,
+            ),
             "IDM_EDIT_BLANKLINEBELOWCURRENT" => primary(
                 &s.shortcut_blank_line,
                 crate::shortcut_chord::DEFAULT_BLANK_LINE,
@@ -10309,6 +10362,15 @@ impl EditorApp {
             redact_chord.display(),
             redact_chord.flipped_shift().display()
         );
+        let search_internet_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_search_internet,
+            crate::shortcut_chord::DEFAULT_SEARCH_INTERNET,
+        );
+        let search_internet_keys = format!(
+            "{} / {}",
+            search_internet_chord.display(),
+            search_internet_chord.flipped_shift().display()
+        );
         let blank_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_blank_line,
             crate::shortcut_chord::DEFAULT_BLANK_LINE,
@@ -10909,7 +10971,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 155] = [
+        let rows: [(&str, &str); 156] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -11054,6 +11116,10 @@ impl EditorApp {
             (proper_case_keys.as_str(), "Proper Case Force / Blend"),
             (random_case_keys.as_str(), "Random Case"),
             (redact_keys.as_str(), "Redact Selection █ / ●"),
+            (
+                search_internet_keys.as_str(),
+                "Search on Internet / Change Search Engine",
+            ),
             (blank_keys.as_str(), "Blank line below / above"),
             (
                 multi_select_keys.as_str(),
@@ -14168,6 +14234,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+J. Redact Selection █ (Edit → On Selection). Shift + that chord fills with ●. Does not collide with Join Lines (Cmd+J), RTL (Alt+R), Toggle Read-Only (Cmd+Alt+R), or Invert Case (Cmd+Alt+U).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Search on Internet shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_search_internet,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+U"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_search_internet
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_search_internet =
+                                        crate::shortcut_chord::DEFAULT_SEARCH_INTERNET.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SEARCH_INTERNET
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_search_internet = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+U. Search on Internet (Edit → Search on Internet; selection required). Shift + that chord cycles Change Search Engine. Does not collide with Invert Case (Cmd+Alt+U), lowercase (Cmd+U), or Redact Selection (Alt+J).",
                             )
                             .small()
                             .weak(),

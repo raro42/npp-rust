@@ -548,6 +548,11 @@ pub const DEFAULT_RANDOM_CASE: &str = "Cmd+Alt+0";
 /// RTL (`Alt+R`), Toggle Read-Only (`Cmd+Alt+R`), or Invert Case (`Cmd+Alt+U`).
 pub const DEFAULT_REDACT: &str = "Alt+J";
 
+/// Default Search on Internet binding (Edit → Search on Internet).
+/// Shift flips to Change Search Engine. Uses Alt+U so it does not collide with Invert Case
+/// (`Cmd+Alt+U`), lowercase (`Cmd+U`), or Redact Selection (`Alt+J`).
+pub const DEFAULT_SEARCH_INTERNET: &str = "Alt+U";
+
 /// Default blank-line-below binding (Edit → Insert Empty Line Below Current).
 /// Shift flips to Insert Empty Line Above Current.
 pub const DEFAULT_BLANK_LINE: &str = "Cmd+Enter";
@@ -3088,6 +3093,19 @@ mod tests {
         let circle = c.flipped_shift();
         assert!(circle.shift);
         assert_eq!(circle.display(), "Alt+Shift+J");
+    }
+
+    #[test]
+    fn parse_alt_u_default_search_internet() {
+        let c = parse_chord(DEFAULT_SEARCH_INTERNET).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::U);
+        assert_eq!(c.display(), "Alt+U");
+        let change_engine = c.flipped_shift();
+        assert!(change_engine.shift);
+        assert_eq!(change_engine.display(), "Alt+Shift+U");
     }
 
     #[test]

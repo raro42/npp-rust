@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.348] — 2026-10-16
+
+Edit:
+
+- **Search on Internet / Change Search Engine** is remappable: Preferences → Search on Internet shortcut, or `shortcut_search_internet` in `npp-rs/settings.json` (default `Alt+U`). Runs Edit → Search on Internet (selection required). **Shift** flips to Change Search Engine. Does not collide with Invert Case (`Cmd+Alt+U`), lowercase (`Cmd+U`), or Redact Selection (`Alt+J`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.347] — 2026-10-16
 
 Edit:

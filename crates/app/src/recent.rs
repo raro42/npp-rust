@@ -248,6 +248,10 @@ fn default_shortcut_redact() -> String {
     crate::shortcut_chord::DEFAULT_REDACT.into()
 }
 
+fn default_shortcut_search_internet() -> String {
+    crate::shortcut_chord::DEFAULT_SEARCH_INTERNET.into()
+}
+
 fn default_shortcut_multi_select_next() -> String {
     crate::shortcut_chord::DEFAULT_MULTI_SELECT_NEXT.into()
 }
@@ -1281,6 +1285,9 @@ pub struct AppSettings {
     /// Redact Selection chord (`Alt+J` default; Shift flips to ● fill).
     #[serde(default = "default_shortcut_redact")]
     pub shortcut_redact: String,
+    /// Search on Internet chord (`Alt+U` default; Shift flips to Change Search Engine).
+    #[serde(default = "default_shortcut_search_internet")]
+    pub shortcut_search_internet: String,
     /// Blank line below chord (`Cmd+Enter` default; Shift flips to blank line above).
     #[serde(default = "default_shortcut_blank_line")]
     pub shortcut_blank_line: String,
@@ -1556,6 +1563,7 @@ impl Default for AppSettings {
             shortcut_proper_case: default_shortcut_proper_case(),
             shortcut_random_case: default_shortcut_random_case(),
             shortcut_redact: default_shortcut_redact(),
+            shortcut_search_internet: default_shortcut_search_internet(),
             shortcut_blank_line: default_shortcut_blank_line(),
             shortcut_multi_select_next: default_shortcut_multi_select_next(),
             shortcut_multi_select_all: default_shortcut_multi_select_all(),
@@ -2058,6 +2066,7 @@ mod tests {
             shortcut_proper_case: "Ctrl+Alt+Shift+9".into(),
             shortcut_random_case: "Ctrl+Alt+Shift+0".into(),
             shortcut_redact: "Ctrl+Alt+Shift+J".into(),
+            shortcut_search_internet: "Ctrl+Alt+Shift+U".into(),
             shortcut_blank_line: "Ctrl+Alt+Enter".into(),
             shortcut_multi_select_next: "Ctrl+Alt+Shift+N".into(),
             shortcut_multi_select_all: "Ctrl+Alt+Shift+A".into(),
@@ -2243,6 +2252,7 @@ mod tests {
         assert_eq!(back.shortcut_proper_case, "Ctrl+Alt+Shift+9");
         assert_eq!(back.shortcut_random_case, "Ctrl+Alt+Shift+0");
         assert_eq!(back.shortcut_redact, "Ctrl+Alt+Shift+J");
+        assert_eq!(back.shortcut_search_internet, "Ctrl+Alt+Shift+U");
         assert_eq!(back.shortcut_blank_line, "Ctrl+Alt+Enter");
         assert_eq!(back.shortcut_multi_select_next, "Ctrl+Alt+Shift+N");
         assert_eq!(back.shortcut_multi_select_all, "Ctrl+Alt+Shift+A");
