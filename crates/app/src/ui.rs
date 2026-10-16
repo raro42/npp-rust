@@ -1936,6 +1936,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_HIDELINES");
             }
         }
+        // Remappable Show Wrap Symbol (default Alt+Shift+G; settings.shortcut_show_wrap_symbol).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SHOW_WRAP_SYMBOL};
+            let wrap_sym_chord = resolve_chord(
+                &self.state.settings.shortcut_show_wrap_symbol,
+                DEFAULT_SHOW_WRAP_SYMBOL,
+            );
+            let wrap_sym_key_pressed = match wrap_sym_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if wrap_sym_key_pressed && wrap_sym_chord.matches(mods, wrap_sym_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_WRAP_SYMBOL");
+            }
+        }
         // Remappable show-fold-margin toggle (default Alt+G; settings.shortcut_show_fold_margin).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_SHOW_FOLD_MARGIN};
@@ -9853,6 +9889,10 @@ impl EditorApp {
                 &s.shortcut_hide_lines,
                 crate::shortcut_chord::DEFAULT_HIDE_LINES,
             ),
+            "IDM_VIEW_WRAP_SYMBOL" => primary(
+                &s.shortcut_show_wrap_symbol,
+                crate::shortcut_chord::DEFAULT_SHOW_WRAP_SYMBOL,
+            ),
             "IDM_VIEW_FOLDMARGIN" => primary(
                 &s.shortcut_show_fold_margin,
                 crate::shortcut_chord::DEFAULT_SHOW_FOLD_MARGIN,
@@ -11009,6 +11049,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_HIDE_LINES,
         )
         .display();
+        let show_wrap_symbol_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_show_wrap_symbol,
+            crate::shortcut_chord::DEFAULT_SHOW_WRAP_SYMBOL,
+        )
+        .display();
         let show_fold_margin_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_show_fold_margin,
             crate::shortcut_chord::DEFAULT_SHOW_FOLD_MARGIN,
@@ -11062,7 +11107,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 158] = [
+        let rows: [(&str, &str); 159] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -11314,6 +11359,7 @@ impl EditorApp {
             (indent_guide_keys.as_str(), "Toggle indent guide"),
             (show_line_numbers_keys.as_str(), "Toggle line numbers"),
             (hide_lines_keys.as_str(), "Hide lines"),
+            (show_wrap_symbol_keys.as_str(), "Toggle show wrap symbol"),
             (show_fold_margin_keys.as_str(), "Toggle fold margin"),
             (project_panel_keys.as_str(), "Toggle project panel"),
             (pin_tab_keys.as_str(), "Pin / unpin tab"),
@@ -16891,6 +16937,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+Shift+L, Ctrl+Alt+Shift+L. Hides the current line or the selected line range (View → Hide Lines). Does not collide with Show Line Numbers (Alt+L), Go to line (Cmd+L), Delete line (Cmd+Shift+L), or Open Containing Folder (Cmd+Alt+L).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Show wrap symbol shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_show_wrap_symbol,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+Shift+G"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_show_wrap_symbol
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_show_wrap_symbol =
+                                        crate::shortcut_chord::DEFAULT_SHOW_WRAP_SYMBOL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SHOW_WRAP_SYMBOL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_show_wrap_symbol = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+G, Ctrl+Alt+Shift+G. Toggles View → Show Wrap Symbol. Does not collide with Show Fold Margin (Alt+G), Open Folder as Workspace (Cmd+Alt+G), word wrap (Alt+Z), or Zoom Sync (Alt+Shift+Z).",
                             )
                             .small()
                             .weak(),

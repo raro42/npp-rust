@@ -1,3 +1,4 @@
+009 keep: remappable Show Wrap Symbol (shortcut_show_wrap_symbol, Alt+Shift+G default, v0.3.352)
 009 keep: Show Wrap Symbol toggles the soft-wrap mark (show_wrap_symbol, default on, v0.3.351)
 009 keep: remappable Hide Lines (shortcut_hide_lines, Alt+Shift+L default, v0.3.350)
 009 keep: remappable Search on Internet (shortcut_search_internet, Alt+U default; Shift=Change Search Engine, v0.3.348)

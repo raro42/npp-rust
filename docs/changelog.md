@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.352] — 2026-10-16
+
+View:
+
+- **Show Wrap Symbol** is remappable: Preferences → Show wrap symbol shortcut, or `shortcut_show_wrap_symbol` in `npp-rs/settings.json` (default `Alt+Shift+G`). Runs View → Show Wrap Symbol. Does not collide with Show Fold Margin (`Alt+G`), Open Folder as Workspace (`Cmd+Alt+G`), word wrap (`Alt+Z`), or Zoom Sync (`Alt+Shift+Z`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.351] — 2026-10-16
 
 View:

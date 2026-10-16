@@ -445,6 +445,12 @@ pub const DEFAULT_SHOW_LINE_NUMBERS: &str = "Alt+L";
 /// (`Cmd+Alt+L`; Shift = shell).
 pub const DEFAULT_HIDE_LINES: &str = "Alt+Shift+L";
 
+/// Default Show Wrap Symbol toggle (View → Show Wrap Symbol).
+/// Uses Alt+Shift+G so it does not collide with Show Fold Margin (`Alt+G`),
+/// Open Folder as Workspace (`Cmd+Alt+G`; Shift = containing folder), or
+/// word wrap (`Alt+Z`) / Zoom Sync (`Alt+Shift+Z`).
+pub const DEFAULT_SHOW_WRAP_SYMBOL: &str = "Alt+Shift+G";
+
 /// Default show-fold-margin toggle binding (View → Show Fold Margin).
 pub const DEFAULT_SHOW_FOLD_MARGIN: &str = "Alt+G";
 
@@ -3060,6 +3066,36 @@ mod tests {
             ..Modifiers::default()
         };
         assert!(!c.matches(with_cmd, Key::L));
+    }
+
+    #[test]
+    fn parse_alt_shift_g_default_show_wrap_symbol() {
+        let c = parse_chord(DEFAULT_SHOW_WRAP_SYMBOL).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::G);
+        assert_eq!(c.display(), "Alt+Shift+G");
+        let mods = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(mods, Key::G));
+        // Without Shift: must not steal Show Fold Margin (Alt+G).
+        let no_shift = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(no_shift, Key::G));
+        // With Cmd: must not steal Open Folder as Workspace (Cmd+Alt+G / containing folder).
+        let with_cmd = Modifiers {
+            command: true,
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(with_cmd, Key::G));
     }
 
     #[test]

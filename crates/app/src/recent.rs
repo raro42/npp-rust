@@ -720,6 +720,10 @@ fn default_shortcut_hide_lines() -> String {
     crate::shortcut_chord::DEFAULT_HIDE_LINES.into()
 }
 
+fn default_shortcut_show_wrap_symbol() -> String {
+    crate::shortcut_chord::DEFAULT_SHOW_WRAP_SYMBOL.into()
+}
+
 fn default_shortcut_show_fold_margin() -> String {
     crate::shortcut_chord::DEFAULT_SHOW_FOLD_MARGIN.into()
 }
@@ -1258,6 +1262,9 @@ pub struct AppSettings {
     /// Hide Lines chord (`Alt+Shift+L` default; `IDM_VIEW_HIDELINES`).
     #[serde(default = "default_shortcut_hide_lines")]
     pub shortcut_hide_lines: String,
+    /// Show Wrap Symbol toggle chord (`Alt+Shift+G` default; `IDM_VIEW_WRAP_SYMBOL`).
+    #[serde(default = "default_shortcut_show_wrap_symbol")]
+    pub shortcut_show_wrap_symbol: String,
     /// Show fold margin toggle chord (`Alt+G` default).
     #[serde(default = "default_shortcut_show_fold_margin")]
     pub shortcut_show_fold_margin: String,
@@ -1569,6 +1576,7 @@ impl Default for AppSettings {
             shortcut_indent_guide: default_shortcut_indent_guide(),
             shortcut_show_line_numbers: default_shortcut_show_line_numbers(),
             shortcut_hide_lines: default_shortcut_hide_lines(),
+            shortcut_show_wrap_symbol: default_shortcut_show_wrap_symbol(),
             shortcut_show_fold_margin: default_shortcut_show_fold_margin(),
             shortcut_project_panel: default_shortcut_project_panel(),
             shortcut_pin_tab: default_shortcut_pin_tab(),
@@ -2083,6 +2091,7 @@ mod tests {
             shortcut_indent_guide: "Ctrl+Alt+Shift+I".into(),
             shortcut_show_line_numbers: "Ctrl+Alt+Shift+L".into(),
             shortcut_hide_lines: "Ctrl+Alt+Shift+L".into(),
+            shortcut_show_wrap_symbol: "Ctrl+Alt+Shift+G".into(),
             shortcut_show_fold_margin: "Ctrl+Alt+Shift+F".into(),
             shortcut_project_panel: "Ctrl+Alt+Shift+P".into(),
             shortcut_pin_tab: "Ctrl+Alt+Shift+G".into(),
@@ -2271,6 +2280,7 @@ mod tests {
         assert_eq!(back.shortcut_indent_guide, "Ctrl+Alt+Shift+I");
         assert_eq!(back.shortcut_show_line_numbers, "Ctrl+Alt+Shift+L");
         assert_eq!(back.shortcut_hide_lines, "Ctrl+Alt+Shift+L");
+        assert_eq!(back.shortcut_show_wrap_symbol, "Ctrl+Alt+Shift+G");
         assert_eq!(back.shortcut_show_fold_margin, "Ctrl+Alt+Shift+F");
         assert_eq!(back.shortcut_project_panel, "Ctrl+Alt+Shift+P");
         assert_eq!(back.shortcut_pin_tab, "Ctrl+Alt+Shift+G");
