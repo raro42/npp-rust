@@ -6422,6 +6422,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_TOOL_MD5_GENERATE");
             }
         }
+        // Remappable SHA-256 (default Alt+F11; settings.shortcut_sha256).
+        // Shift flips to Generate into clipboard.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SHA256};
+            let sha256_chord = resolve_chord(&self.state.settings.shortcut_sha256, DEFAULT_SHA256);
+            let sha256_key_pressed = match sha256_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if sha256_key_pressed && sha256_chord.flipped_shift().matches(mods, sha256_chord.key) {
+                self.run_shortcut_cmd("IDM_TOOL_SHA256_GENERATEINTOCLIPBOARD");
+            } else if sha256_key_pressed && sha256_chord.matches(mods, sha256_chord.key) {
+                self.run_shortcut_cmd("IDM_TOOL_SHA256_GENERATE");
+            }
+        }
 
         // Remappable TAB → Space (default Cmd+Alt+V; settings.shortcut_tab_to_space).
         // Shift flips to Space → TAB (Leading).
@@ -9699,6 +9735,12 @@ impl EditorApp {
             "IDM_TOOL_MD5_GENERATEINTOCLIPBOARD" => {
                 shifted(&s.shortcut_md5, crate::shortcut_chord::DEFAULT_MD5)
             }
+            "IDM_TOOL_SHA256_GENERATE" => {
+                primary(&s.shortcut_sha256, crate::shortcut_chord::DEFAULT_SHA256)
+            }
+            "IDM_TOOL_SHA256_GENERATEINTOCLIPBOARD" => {
+                shifted(&s.shortcut_sha256, crate::shortcut_chord::DEFAULT_SHA256)
+            }
             "IDM_EDIT_TAB2SW" => primary(
                 &s.shortcut_tab_to_space,
                 crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -11477,6 +11519,15 @@ impl EditorApp {
             md5_chord.display(),
             md5_chord.flipped_shift().display()
         );
+        let sha256_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_sha256,
+            crate::shortcut_chord::DEFAULT_SHA256,
+        );
+        let sha256_keys = format!(
+            "{} / {}",
+            sha256_chord.display(),
+            sha256_chord.flipped_shift().display()
+        );
         let tab_to_space_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_tab_to_space,
             crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -11882,7 +11933,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 173] = [
+        let rows: [(&str, &str); 174] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -12204,6 +12255,7 @@ impl EditorApp {
             (encoding_utf16_keys.as_str(), "UTF-16 LE / UTF-16 BE"),
             (encoding_ansi_keys.as_str(), "ANSI"),
             (md5_keys.as_str(), "MD5 generate / clipboard"),
+            (sha256_keys.as_str(), "SHA-256 generate / clipboard"),
             (
                 tab_to_space_keys.as_str(),
                 "TAB to Space / Space to TAB (Leading)",
@@ -16609,6 +16661,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+F10. Hashes the selection, or the whole document, and inserts the digest (Tools → MD5 → Generate). Shift + that chord copies the digest instead. Does not collide with Read-only for all documents (F10 / Shift+F10), UTF-16 (Cmd+F10), or Sort Lines by Length (Cmd+Alt+F10).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("SHA-256 shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_sha256,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+F11"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_sha256.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_sha256 =
+                                        crate::shortcut_chord::DEFAULT_SHA256.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SHA256
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_sha256 = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+F11. Hashes the selection, or the whole document, and inserts the digest (Tools → SHA-256 → Generate). Shift + that chord copies the digest instead. Does not collide with Fullscreen (F11), ANSI (Cmd+F11), or EOL to Space (Cmd+Alt+F11).",
                             )
                             .small()
                             .weak(),

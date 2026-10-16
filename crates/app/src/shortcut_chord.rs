@@ -724,6 +724,12 @@ pub const DEFAULT_ENCODING_ANSI: &str = "Cmd+F11";
 /// `Cmd+Shift+F10`), and Sort Lines by Length (`Cmd+Alt+F10` / `Cmd+Alt+Shift+F10`).
 pub const DEFAULT_MD5: &str = "Alt+F10";
 
+/// Default SHA-256 generate binding (Tools → SHA-256 → Generate).
+/// Shift flips to Generate from selection into clipboard. Uses Alt+F11 so it
+/// stays next to MD5 (`Alt+F10`) without taking Fullscreen (`F11`), ANSI
+/// (`Cmd+F11`), or EOL to Space (`Cmd+Alt+F11`).
+pub const DEFAULT_SHA256: &str = "Alt+F11";
+
 /// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
 /// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
 /// Shift flips to Remove Empty Lines (Containing Blank Characters).
@@ -3504,6 +3510,43 @@ mod tests {
         };
         assert!(!c.matches(cmd_alt, Key::F10));
         assert!(!clip.matches(cmd_alt, Key::F10));
+    }
+
+    #[test]
+    fn parse_alt_f11_default_sha256() {
+        let c = parse_chord(DEFAULT_SHA256).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F11);
+        assert_eq!(c.display(), "Alt+F11");
+        let clip = c.flipped_shift();
+        assert!(clip.alt);
+        assert!(clip.shift);
+        assert!(!clip.ctrl_or_cmd);
+        assert_eq!(clip.display(), "Alt+Shift+F11");
+        let bare = Modifiers::default();
+        assert!(!c.matches(bare, Key::F11));
+        assert!(!clip.matches(bare, Key::F11));
+        let shift_only = Modifiers {
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(shift_only, Key::F11));
+        assert!(!clip.matches(shift_only, Key::F11));
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::F11));
+        assert!(!clip.matches(cmd, Key::F11));
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt, Key::F11));
+        assert!(!clip.matches(cmd_alt, Key::F11));
     }
 
     #[test]

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.367] — 2026-10-17
+
+Tools:
+
+- **SHA-256 generate / clipboard** is remappable: Preferences → SHA-256 shortcut, or `shortcut_sha256` in `npp-rs/settings.json` (default `Alt+F11`). Hashes the selection, or the whole document, and inserts the digest (Tools → SHA-256 → Generate). Shift + that chord copies the digest instead. Does not collide with Fullscreen (`F11`), ANSI (`Cmd+F11`), or EOL to Space (`Cmd+Alt+F11`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.366] — 2026-10-17
 
 Tools:

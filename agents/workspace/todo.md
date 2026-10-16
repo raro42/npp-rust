@@ -1,3 +1,4 @@
+009 keep: remappable SHA-256 generate / clipboard (shortcut_sha256, Alt+F11 default; Shift=clipboard, v0.3.367)
 009 keep: remappable MD5 generate / clipboard (shortcut_md5, Alt+F10 default; Shift=clipboard, v0.3.366)
 009 keep: remappable ANSI (shortcut_encoding_ansi, Cmd+F11 default, v0.3.365)
 009 keep: remappable UTF-16 LE / UTF-16 BE (shortcut_encoding_utf16, Cmd+F10 default; Shift=BE, v0.3.364)
