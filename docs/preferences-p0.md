@@ -133,6 +133,7 @@ New keys:
 | `shortcut_sort_lines_decimal_dot` | Sort Lines Decimal Dot Ascending chord (`Cmd+Alt+F8` default; Shift flips to Descending) |
 | `shortcut_sort_lines_decimal_comma` | Sort Lines Decimal Comma Ascending chord (`Cmd+Alt+F9` default; Shift flips to Descending) |
 | `shortcut_sort_lines_length` | Sort Lines by Length Ascending chord (`Cmd+Alt+F10` default; Shift flips to Descending) |
+| `shortcut_sort_lines_reverse` | Sort Lines Reverse Order chord (`Cmd+Alt+6` default; Shift flips to Sort Lines Randomly) |
 | `shortcut_remove_empty_lines` | Remove Empty Lines chord (`Cmd+Alt+E` default; Shift flips to Containing Blank Characters) |
 | `shortcut_remove_dup_lines` | Remove Consecutive Duplicate Lines chord (`Cmd+Alt+D` default; Shift flips to any duplicates) |
 | `shortcut_insert_datetime` | Date Time (short) chord (`F5` default; Shift flips to long) |

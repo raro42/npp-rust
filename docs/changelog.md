@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.341] — 2026-10-16
+
+Edit:
+
+- **Sort Lines Reverse Order / Randomly** is remappable: Preferences → Sort Lines Reverse shortcut, or `shortcut_sort_lines_reverse` in `npp-rs/settings.json` (default `Cmd+Alt+6`). Runs Edit → Line Operations → Sort Lines in Reverse Order. **Shift** flips to Sort Lines Randomly. Does not collide with Next Style (`Cmd+Alt+1`…`5`) or Fold Level (`Alt+1`…`8`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.340] — 2026-10-16
 
 Format:

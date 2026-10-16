@@ -4623,6 +4623,51 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_SORTLINES_LENGTH_ASCENDING");
             }
         }
+        // Remappable Sort Lines Reverse Order (default Cmd+Alt+6;
+        // settings.shortcut_sort_lines_reverse). Shift flips to Sort Lines Randomly.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SORT_LINES_REVERSE};
+            let sort_rev_chord = resolve_chord(
+                &self.state.settings.shortcut_sort_lines_reverse,
+                DEFAULT_SORT_LINES_REVERSE,
+            );
+            let sort_rev_key_pressed = match sort_rev_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_random = sort_rev_key_pressed
+                && sort_rev_chord
+                    .flipped_shift()
+                    .matches(mods, sort_rev_chord.key);
+            let remapped_reverse =
+                sort_rev_key_pressed && sort_rev_chord.matches(mods, sort_rev_chord.key);
+            if remapped_random {
+                self.run_shortcut_cmd("IDM_EDIT_SORTLINES_RANDOMLY");
+            } else if remapped_reverse {
+                self.run_shortcut_cmd("IDM_EDIT_SORTLINES_REVERSE_ORDER");
+            }
+        }
         // Remappable Remove Empty Lines (default Cmd+Alt+E; settings.shortcut_remove_empty_lines).
         // Shift flips to Remove Empty Lines (Containing Blank Characters).
         {
@@ -8822,6 +8867,14 @@ impl EditorApp {
                 &s.shortcut_sort_lines_length,
                 crate::shortcut_chord::DEFAULT_SORT_LINES_LENGTH,
             ),
+            "IDM_EDIT_SORTLINES_REVERSE_ORDER" => primary(
+                &s.shortcut_sort_lines_reverse,
+                crate::shortcut_chord::DEFAULT_SORT_LINES_REVERSE,
+            ),
+            "IDM_EDIT_SORTLINES_RANDOMLY" => shifted(
+                &s.shortcut_sort_lines_reverse,
+                crate::shortcut_chord::DEFAULT_SORT_LINES_REVERSE,
+            ),
             "IDM_EDIT_REMOVEEMPTYLINES" => primary(
                 &s.shortcut_remove_empty_lines,
                 crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES,
@@ -10046,6 +10099,15 @@ impl EditorApp {
             sort_lines_length_chord.display(),
             sort_lines_length_chord.flipped_shift().display()
         );
+        let sort_lines_reverse_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_sort_lines_reverse,
+            crate::shortcut_chord::DEFAULT_SORT_LINES_REVERSE,
+        );
+        let sort_lines_reverse_keys = format!(
+            "{} / {}",
+            sort_lines_reverse_chord.display(),
+            sort_lines_reverse_chord.flipped_shift().display()
+        );
         let remove_empty_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_remove_empty_lines,
             crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES,
@@ -10523,7 +10585,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 148] = [
+        let rows: [(&str, &str); 149] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -10702,6 +10764,10 @@ impl EditorApp {
             (
                 sort_lines_length_keys.as_str(),
                 "Sort Lines by Length Asc / Desc",
+            ),
+            (
+                sort_lines_reverse_keys.as_str(),
+                "Sort Lines Reverse / Randomly",
             ),
             (
                 remove_empty_keys.as_str(),
@@ -14060,6 +14126,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+F10, Ctrl+Alt+F10. Sorts lines by character length ascending (Edit → Line Operations). Shift + that chord sorts descending. Does not collide with Sort Lines Decimal Comma (Cmd+Alt+F9) or First Hidden Equal (Cmd+Alt+F7).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Sort Lines Reverse shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_sort_lines_reverse,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+6"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_sort_lines_reverse
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_sort_lines_reverse =
+                                        crate::shortcut_chord::DEFAULT_SORT_LINES_REVERSE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SORT_LINES_REVERSE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_sort_lines_reverse = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+6, Ctrl+Alt+6. Reverses line order (Edit → Line Operations → Sort Lines in Reverse Order). Shift + that chord sorts randomly. Does not collide with Next Style (Cmd+Alt+1…5) or Fold Level (Alt+1…8).",
                             )
                             .small()
                             .weak(),

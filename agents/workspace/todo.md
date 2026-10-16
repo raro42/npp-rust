@@ -516,3 +516,5 @@
 009 keep: remappable Find Copy (shortcut_find_copy, Alt+Shift+F5 default; Shift=lines, v0.3.329)
 
 009 keep: remappable Convert EOL Unix/Windows (shortcut_convert_eol, Cmd+Alt+F12 default; Shift=Windows, v0.3.340)
+
+009 keep: remappable Sort Lines Reverse / Randomly (shortcut_sort_lines_reverse, Cmd+Alt+6 default; Shift=randomly, v0.3.341)

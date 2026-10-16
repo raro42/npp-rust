@@ -576,6 +576,12 @@ pub const DEFAULT_SORT_LINES_DECIMAL_COMMA: &str = "Cmd+Alt+F9";
 /// sort (`Cmd+Alt+F9`) without colliding with First Hidden Equal (`Cmd+Alt+F7`).
 pub const DEFAULT_SORT_LINES_LENGTH: &str = "Cmd+Alt+F10";
 
+/// Default Sort Lines Reverse Order binding (Edit → Line Operations).
+/// Shift flips to Sort Lines Randomly. Uses Cmd+Alt+6 so it stays near Length sort
+/// (`Cmd+Alt+F10`) without colliding with Next Style (`Cmd+Alt+1`…`5`) or Fold Level
+/// (`Alt+1`…`8`).
+pub const DEFAULT_SORT_LINES_REVERSE: &str = "Cmd+Alt+6";
+
 /// Default EOL to Space binding (Edit → Blank Operations → EOL to Space).
 /// Shift flips to Trim Both and EOL to Space (`IDM_EDIT_TRIMALL`). Uses Cmd+Alt+F11 so it
 /// stays near Sort Lines by Length (`Cmd+Alt+F10`) and Trim Trailing (`Cmd+Alt+T`) without
@@ -2963,6 +2969,19 @@ mod tests {
         let windows = c.flipped_shift();
         assert!(windows.shift);
         assert_eq!(windows.display(), "Cmd+Alt+Shift+F12");
+    }
+
+    #[test]
+    fn parse_cmd_alt_6_default_sort_lines_reverse() {
+        let c = parse_chord(DEFAULT_SORT_LINES_REVERSE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Num6);
+        assert_eq!(c.display(), "Cmd+Alt+6");
+        let randomly = c.flipped_shift();
+        assert!(randomly.shift);
+        assert_eq!(randomly.display(), "Cmd+Alt+Shift+6");
     }
 
     #[test]
