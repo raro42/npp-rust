@@ -564,6 +564,10 @@ fn default_shortcut_sort_tabs_size() -> String {
     crate::shortcut_chord::DEFAULT_SORT_TABS_SIZE.into()
 }
 
+fn default_shortcut_sort_tabs_modified() -> String {
+    crate::shortcut_chord::DEFAULT_SORT_TABS_MODIFIED.into()
+}
+
 fn default_shortcut_tab_indent() -> String {
     crate::shortcut_chord::DEFAULT_TAB_INDENT.into()
 }
@@ -1163,6 +1167,9 @@ pub struct AppSettings {
     /// Sort tabs by size chord (`Cmd+Alt+/` default; Shift flips to descending).
     #[serde(default = "default_shortcut_sort_tabs_size")]
     pub shortcut_sort_tabs_size: String,
+    /// Sort tabs by modified time chord (`Cmd+Alt+;` default; Shift flips to descending).
+    #[serde(default = "default_shortcut_sort_tabs_modified")]
+    pub shortcut_sort_tabs_modified: String,
     /// Tab indent chord (`Tab` default; inserts spaces at caret / multi-carets).
     #[serde(default = "default_shortcut_tab_indent")]
     pub shortcut_tab_indent: String,
@@ -1598,6 +1605,7 @@ impl Default for AppSettings {
             shortcut_sort_tabs_path: default_shortcut_sort_tabs_path(),
             shortcut_sort_tabs_type: default_shortcut_sort_tabs_type(),
             shortcut_sort_tabs_size: default_shortcut_sort_tabs_size(),
+            shortcut_sort_tabs_modified: default_shortcut_sort_tabs_modified(),
             shortcut_tab_indent: default_shortcut_tab_indent(),
             shortcut_shift_tab_outdent: default_shortcut_shift_tab_outdent(),
             shortcut_fold_all: default_shortcut_fold_all(),
@@ -2122,6 +2130,7 @@ mod tests {
             shortcut_sort_tabs_path: "Alt+Shift+,".into(),
             shortcut_sort_tabs_type: "Alt+Shift+.".into(),
             shortcut_sort_tabs_size: "Alt+Shift+/".into(),
+            shortcut_sort_tabs_modified: "Alt+Shift+;".into(),
             shortcut_tab_indent: "Ctrl+I".into(),
             shortcut_shift_tab_outdent: "Ctrl+Shift+Tab".into(),
             shortcut_fold_all: "Ctrl+Alt+0".into(),
@@ -2320,6 +2329,7 @@ mod tests {
         assert_eq!(back.shortcut_sort_tabs_path, "Alt+Shift+,");
         assert_eq!(back.shortcut_sort_tabs_type, "Alt+Shift+.");
         assert_eq!(back.shortcut_sort_tabs_size, "Alt+Shift+/");
+        assert_eq!(back.shortcut_sort_tabs_modified, "Alt+Shift+;");
         assert_eq!(back.shortcut_tab_indent, "Ctrl+I");
         assert_eq!(back.shortcut_shift_tab_outdent, "Ctrl+Shift+Tab");
         assert_eq!(back.shortcut_fold_all, "Ctrl+Alt+0");

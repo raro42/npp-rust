@@ -516,6 +516,11 @@ pub const DEFAULT_SORT_TABS_TYPE: &str = "Cmd+Alt+.";
 /// without colliding with Toggle comment (`Cmd+/`).
 pub const DEFAULT_SORT_TABS_SIZE: &str = "Cmd+Alt+/";
 
+/// Default Sort tabs by modified time ascending binding (Window menu).
+/// Shift flips to descending. Uses `Cmd+Alt+;` so it stays next to size (`/`)
+/// without colliding with that chord or Toggle comment (`Cmd+/`).
+pub const DEFAULT_SORT_TABS_MODIFIED: &str = "Cmd+Alt+;";
+
 /// Default Tab indent binding (editor Tab arm; inserts spaces at caret / multi-carets).
 pub const DEFAULT_TAB_INDENT: &str = "Tab";
 
@@ -1392,6 +1397,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "]" | "closebracket" | "bracketright" => Some(Key::CloseBracket),
         "[" | "openbracket" | "bracketleft" => Some(Key::OpenBracket),
         "/" | "slash" => Some(Key::Slash),
+        ";" | "semicolon" => Some(Key::Semicolon),
         "," | "comma" => Some(Key::Comma),
         "." | "period" | "dot" => Some(Key::Period),
         "left" | "arrowleft" => Some(Key::ArrowLeft),
@@ -1467,6 +1473,7 @@ fn key_token(key: Key) -> &'static str {
         Key::CloseBracket => "]",
         Key::OpenBracket => "[",
         Key::Slash => "/",
+        Key::Semicolon => ";",
         Key::Comma => ",",
         Key::Period => ".",
         Key::ArrowLeft => "Left",
@@ -2103,6 +2110,26 @@ mod tests {
         assert_ne!(c.display(), comment.display());
         assert_ne!(desc.display(), comment.flipped_shift().display());
         assert_eq!(parse_chord("Ctrl+slash").unwrap().key, Key::Slash);
+    }
+
+    #[test]
+    fn parse_cmd_alt_semicolon_default_sort_tabs_modified() {
+        let c = parse_chord(DEFAULT_SORT_TABS_MODIFIED).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Semicolon);
+        assert_eq!(c.display(), "Cmd+Alt+;");
+        let desc = c.flipped_shift();
+        assert!(desc.shift);
+        assert!(desc.alt);
+        assert_eq!(desc.display(), "Cmd+Alt+Shift+;");
+        let size = parse_chord(DEFAULT_SORT_TABS_SIZE).unwrap();
+        let comment = parse_chord(DEFAULT_TOGGLE_COMMENT).unwrap();
+        assert_ne!(c.display(), size.display());
+        assert_ne!(c.display(), comment.display());
+        assert_ne!(desc.display(), size.flipped_shift().display());
+        assert_eq!(parse_chord("Ctrl+semicolon").unwrap().key, Key::Semicolon);
     }
 
     #[test]

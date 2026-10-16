@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.362] — 2026-10-16
+
+Window:
+
+- **Sort tabs by modified time** is remappable: Preferences → Sort tabs by modified time shortcut, or `shortcut_sort_tabs_modified` in `npp-rs/settings.json` (default `Cmd+Alt+;`). Sorts open tabs by file modified time, oldest first (Window, Modified Time Ascending). Shift + that chord sorts newest first. Does not collide with Sort tabs by size (`Cmd+Alt+/`) or Toggle comment (`Cmd+/`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.361] — 2026-10-16
 
 Window:

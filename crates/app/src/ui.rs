@@ -2714,6 +2714,49 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_WINDOW_SORT_FS_ASC");
             }
         }
+        // Remappable sort tabs by modified time (default Cmd+Alt+; settings.shortcut_sort_tabs_modified).
+        // Shift flips to descending.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SORT_TABS_MODIFIED};
+            let sort_mod_chord = resolve_chord(
+                &self.state.settings.shortcut_sort_tabs_modified,
+                DEFAULT_SORT_TABS_MODIFIED,
+            );
+            let sort_mod_key_pressed = match sort_mod_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if sort_mod_key_pressed
+                && sort_mod_chord
+                    .flipped_shift()
+                    .matches(mods, sort_mod_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_WINDOW_SORT_FD_DSC");
+            } else if sort_mod_key_pressed && sort_mod_chord.matches(mods, sort_mod_chord.key) {
+                self.run_shortcut_cmd("IDM_WINDOW_SORT_FD_ASC");
+            }
+        }
         let mut opened_replace = false;
         // Remappable replace alt (default Cmd+Shift+F; settings.shortcut_replace_alt)
         // and remappable replace (default Cmd+H; settings.shortcut_replace).
@@ -9414,6 +9457,14 @@ impl EditorApp {
                 &s.shortcut_sort_tabs_size,
                 crate::shortcut_chord::DEFAULT_SORT_TABS_SIZE,
             ),
+            "IDM_WINDOW_SORT_FD_ASC" => primary(
+                &s.shortcut_sort_tabs_modified,
+                crate::shortcut_chord::DEFAULT_SORT_TABS_MODIFIED,
+            ),
+            "IDM_WINDOW_SORT_FD_DSC" => shifted(
+                &s.shortcut_sort_tabs_modified,
+                crate::shortcut_chord::DEFAULT_SORT_TABS_MODIFIED,
+            ),
             "IDM_FILE_CLOSE" => primary(
                 &s.shortcut_close_tab,
                 crate::shortcut_chord::DEFAULT_CLOSE_TAB,
@@ -11350,6 +11401,15 @@ impl EditorApp {
             sort_tabs_size_chord.display(),
             sort_tabs_size_chord.flipped_shift().display()
         );
+        let sort_tabs_modified_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_sort_tabs_modified,
+            crate::shortcut_chord::DEFAULT_SORT_TABS_MODIFIED,
+        );
+        let sort_tabs_modified_keys = format!(
+            "{} / {}",
+            sort_tabs_modified_chord.display(),
+            sort_tabs_modified_chord.flipped_shift().display()
+        );
         let find_open_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_find,
             crate::shortcut_chord::DEFAULT_FIND,
@@ -11616,7 +11676,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 168] = [
+        let rows: [(&str, &str); 169] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -11639,6 +11699,10 @@ impl EditorApp {
             (
                 sort_tabs_size_keys.as_str(),
                 "Sort tabs by size ascending / descending",
+            ),
+            (
+                sort_tabs_modified_keys.as_str(),
+                "Sort tabs by modified time ascending / descending",
             ),
             (find_open_keys.as_str(), "Find"),
             (find_in_files_keys.as_str(), "Find in Files"),
@@ -18027,6 +18091,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+/ or Ctrl+Alt+/. Sorts open tabs by size, smallest first (Window → Size Ascending). Shift + that chord sorts largest first. Does not collide with Sort tabs by type (Cmd+Alt+.) or Toggle comment (Cmd+/).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Sort tabs by modified time shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_sort_tabs_modified,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+;"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_sort_tabs_modified
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_sort_tabs_modified =
+                                        crate::shortcut_chord::DEFAULT_SORT_TABS_MODIFIED.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SORT_TABS_MODIFIED
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_sort_tabs_modified = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+; or Ctrl+Alt+;. Sorts open tabs by file modified time, oldest first (Window → Modified Time Ascending). Shift + that chord sorts newest first. Does not collide with Sort tabs by size (Cmd+Alt+/) or Toggle comment (Cmd+/).",
                             )
                             .small()
                             .weak(),
