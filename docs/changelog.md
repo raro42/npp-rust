@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.353] — 2026-10-16
+
+Edit:
+
+- **Read-only for all documents** is remappable: Preferences → Read-only for all documents shortcut, or `shortcut_readonly_all` in `npp-rs/settings.json` (default `F10`). Sets read-only on every open document. Shift + that chord clears read-only on every open document. Does not collide with Toggle Read-Only (`Cmd+Alt+R`), RTL (`Alt+R`), Reload (`Cmd+R`), or Sort Lines by Length (`Cmd+Alt+F10`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.352] — 2026-10-16
 
 View:

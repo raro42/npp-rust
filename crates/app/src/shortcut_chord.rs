@@ -585,6 +585,12 @@ pub const DEFAULT_BEGIN_END_SELECT: &str = "Cmd+Alt+B";
 /// Uses Cmd+Alt+R so it does not collide with Reload (Cmd+R) or RTL (Alt+R).
 pub const DEFAULT_TOGGLE_READONLY: &str = "Cmd+Alt+R";
 
+/// Default read-only-for-all-documents binding (Edit → Set Read-Only for All Documents).
+/// Shift flips to Clear Read-Only for All Documents. Uses bare F10 so it does not
+/// collide with Toggle Read-Only (`Cmd+Alt+R`), RTL (`Alt+R`; Shift = LTR), Reload
+/// (`Cmd+R`), or Sort Lines by Length (`Cmd+Alt+F10` / `Cmd+Alt+Shift+F10`).
+pub const DEFAULT_READONLY_ALL: &str = "F10";
+
 /// Default Column Editor binding (Edit → Column Editor).
 /// Uses Cmd+Alt+C so it does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).
 pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
@@ -2922,6 +2928,41 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::R);
         assert_eq!(c.display(), "Cmd+Alt+R");
+    }
+
+    #[test]
+    fn parse_f10_default_readonly_all() {
+        let c = parse_chord(DEFAULT_READONLY_ALL).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F10);
+        assert_eq!(c.display(), "F10");
+        assert_eq!(c.flipped_shift().display(), "Shift+F10");
+        let bare = Modifiers::default();
+        assert!(c.matches(bare, Key::F10));
+        let shift = Modifiers {
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(shift, Key::F10));
+        assert!(c.flipped_shift().matches(shift, Key::F10));
+        // Must not steal Sort Lines by Length (Cmd+Alt+F10 / Cmd+Alt+Shift+F10).
+        let length = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(length, Key::F10));
+        assert!(!c.flipped_shift().matches(length, Key::F10));
+        let length_shift = Modifiers {
+            command: true,
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(length_shift, Key::F10));
+        assert!(!c.flipped_shift().matches(length_shift, Key::F10));
     }
 
     #[test]

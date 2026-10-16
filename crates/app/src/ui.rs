@@ -4603,6 +4603,48 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_TOGGLEREADONLY");
             }
         }
+        // Remappable read-only for all documents (default F10; settings.shortcut_readonly_all).
+        // Shift flips to clear read-only on every open document.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_READONLY_ALL};
+            let ro_all_chord = resolve_chord(
+                &self.state.settings.shortcut_readonly_all,
+                DEFAULT_READONLY_ALL,
+            );
+            let ro_all_key_pressed = match ro_all_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_clear =
+                ro_all_key_pressed && ro_all_chord.flipped_shift().matches(mods, ro_all_chord.key);
+            let remapped_set = ro_all_key_pressed && ro_all_chord.matches(mods, ro_all_chord.key);
+            if remapped_clear {
+                self.run_shortcut_cmd("IDM_EDIT_CLEARREADONLYFORALLDOCS");
+            } else if remapped_set {
+                self.run_shortcut_cmd("IDM_EDIT_SETREADONLYFORALLDOCS");
+            }
+        }
         // Remappable Column Editor (default Cmd+Alt+C; settings.shortcut_column_editor).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_COLUMN_EDITOR};
@@ -9251,6 +9293,14 @@ impl EditorApp {
                 &s.shortcut_toggle_readonly,
                 crate::shortcut_chord::DEFAULT_TOGGLE_READONLY,
             ),
+            "IDM_EDIT_SETREADONLYFORALLDOCS" => primary(
+                &s.shortcut_readonly_all,
+                crate::shortcut_chord::DEFAULT_READONLY_ALL,
+            ),
+            "IDM_EDIT_CLEARREADONLYFORALLDOCS" => shifted(
+                &s.shortcut_readonly_all,
+                crate::shortcut_chord::DEFAULT_READONLY_ALL,
+            ),
             "IDM_EDIT_COLUMNMODE" => primary(
                 &s.shortcut_column_editor,
                 crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -10533,6 +10583,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_TOGGLE_READONLY,
         )
         .display();
+        let readonly_all_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_readonly_all,
+            crate::shortcut_chord::DEFAULT_READONLY_ALL,
+        );
+        let readonly_all_keys = format!(
+            "{} / {}",
+            readonly_all_chord.display(),
+            readonly_all_chord.flipped_shift().display()
+        );
         let column_editor_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_column_editor,
             crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -11107,7 +11166,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 159] = [
+        let rows: [(&str, &str); 160] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -11270,6 +11329,10 @@ impl EditorApp {
                 "Begin/End Select / column mode",
             ),
             (toggle_readonly_keys.as_str(), "Toggle read-only"),
+            (
+                readonly_all_keys.as_str(),
+                "Read-only for all documents / clear all",
+            ),
             (column_editor_keys.as_str(), "Column Editor"),
             (
                 sort_lines_keys.as_str(),
@@ -14595,6 +14658,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+R, Ctrl+Alt+R. Toggles read-only on the active tab (Edit → Read-Only). Does not collide with Reload (Cmd+R) or RTL (Alt+R).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Read-only for all documents shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_readonly_all,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("F10"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_readonly_all
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_readonly_all =
+                                        crate::shortcut_chord::DEFAULT_READONLY_ALL.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_READONLY_ALL
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_readonly_all = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: F10. Sets read-only on every open document (Edit → Set Read-Only for All Documents). Shift + that chord clears read-only on every open document. Does not collide with Toggle Read-Only (Cmd+Alt+R), RTL (Alt+R), Reload (Cmd+R), or Sort Lines by Length (Cmd+Alt+F10).",
                             )
                             .small()
                             .weak(),

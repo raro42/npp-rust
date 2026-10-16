@@ -268,6 +268,10 @@ fn default_shortcut_toggle_readonly() -> String {
     crate::shortcut_chord::DEFAULT_TOGGLE_READONLY.into()
 }
 
+fn default_shortcut_readonly_all() -> String {
+    crate::shortcut_chord::DEFAULT_READONLY_ALL.into()
+}
+
 fn default_shortcut_column_editor() -> String {
     crate::shortcut_chord::DEFAULT_COLUMN_EDITOR.into()
 }
@@ -1325,6 +1329,9 @@ pub struct AppSettings {
     /// Toggle read-only chord (`Cmd+Alt+R` default; `IDM_EDIT_TOGGLEREADONLY`).
     #[serde(default = "default_shortcut_toggle_readonly")]
     pub shortcut_toggle_readonly: String,
+    /// Read-only for all documents chord (`F10` default; Shift clears all).
+    #[serde(default = "default_shortcut_readonly_all")]
+    pub shortcut_readonly_all: String,
     /// Column Editor chord (`Cmd+Alt+C` default; `IDM_EDIT_COLUMNMODE`).
     #[serde(default = "default_shortcut_column_editor")]
     pub shortcut_column_editor: String,
@@ -1597,6 +1604,7 @@ impl Default for AppSettings {
             shortcut_multi_select_all: default_shortcut_multi_select_all(),
             shortcut_begin_end_select: default_shortcut_begin_end_select(),
             shortcut_toggle_readonly: default_shortcut_toggle_readonly(),
+            shortcut_readonly_all: default_shortcut_readonly_all(),
             shortcut_column_editor: default_shortcut_column_editor(),
             shortcut_sort_lines: default_shortcut_sort_lines(),
             shortcut_sort_lines_integer: default_shortcut_sort_lines_integer(),
@@ -2112,6 +2120,7 @@ mod tests {
             shortcut_multi_select_all: "Ctrl+Alt+Shift+A".into(),
             shortcut_begin_end_select: "Ctrl+Alt+Shift+B".into(),
             shortcut_toggle_readonly: "Ctrl+Alt+Shift+R".into(),
+            shortcut_readonly_all: "Ctrl+Shift+F10".into(),
             shortcut_column_editor: "Ctrl+Alt+Shift+C".into(),
             shortcut_sort_lines: "Ctrl+Alt+Shift+O".into(),
             shortcut_sort_lines_integer: "Ctrl+Alt+Shift+F5".into(),
@@ -2301,6 +2310,7 @@ mod tests {
         assert_eq!(back.shortcut_multi_select_all, "Ctrl+Alt+Shift+A");
         assert_eq!(back.shortcut_begin_end_select, "Ctrl+Alt+Shift+B");
         assert_eq!(back.shortcut_toggle_readonly, "Ctrl+Alt+Shift+R");
+        assert_eq!(back.shortcut_readonly_all, "Ctrl+Shift+F10");
         assert_eq!(back.shortcut_column_editor, "Ctrl+Alt+Shift+C");
         assert_eq!(back.shortcut_sort_lines, "Ctrl+Alt+Shift+O");
         assert_eq!(back.shortcut_sort_lines_integer, "Ctrl+Alt+Shift+F5");
