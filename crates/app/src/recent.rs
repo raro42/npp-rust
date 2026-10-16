@@ -771,6 +771,10 @@ pub struct AppSettings {
     /// Soft word wrap (session + Preferences).
     #[serde(default)]
     pub word_wrap: bool,
+    /// Draw a wrap mark on lines that soft-wrap (View → Show Wrap Symbol).
+    /// Default on so existing wrap users keep the mark when the key is absent.
+    #[serde(default = "default_true")]
+    pub show_wrap_symbol: bool,
     /// Show space/tab glyphs (View → Show Symbol → Show White Space and TAB).
     #[serde(default)]
     pub show_whitespace: bool,
@@ -1409,6 +1413,7 @@ impl Default for AppSettings {
             show_fold_margin: default_show_fold_margin(),
             tab_width: default_tab_width(),
             word_wrap: false,
+            show_wrap_symbol: true,
             show_whitespace: false,
             show_eol: false,
             show_npc: false,
@@ -1899,6 +1904,15 @@ mod tests {
         assert!(back.zoom_sync);
 
         let defaults: AppSettings = serde_json::from_str("{}").expect("empty object");
+        assert!(defaults.show_wrap_symbol);
+        let off = AppSettings {
+            show_wrap_symbol: false,
+            ..Default::default()
+        };
+        let off_text = serde_json::to_string(&off).expect("serialize wrap symbol off");
+        let off_back: AppSettings =
+            serde_json::from_str(&off_text).expect("deserialize wrap symbol off");
+        assert!(!off_back.show_wrap_symbol);
         assert!(!defaults.show_whitespace);
         assert!(!defaults.show_eol);
         assert!(!defaults.show_npc);

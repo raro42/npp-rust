@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.351] — 2026-10-16
+
+View:
+
+- **Show Wrap Symbol** is a real toggle: View → Show Wrap Symbol, or Preferences → Show wrap symbol, or `show_wrap_symbol` in `npp-rs/settings.json`. When on (the default), a wrapped line draws a wrap mark. Turning it off keeps word wrap and hides the mark. The menu shows a check when the mark is on.
+
 ## [0.3.350] — 2026-10-16
 
 View:

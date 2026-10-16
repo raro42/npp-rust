@@ -77,6 +77,8 @@ pub struct EditorState {
     pub show_indent_guide: bool,
     /// Soft word wrap (visual; hit-test stays line-based for now).
     pub word_wrap: bool,
+    /// Draw the soft-wrap mark when a line wraps (View → Show Wrap Symbol).
+    pub show_wrap_symbol: bool,
     /// Macro recording active.
     pub macro_recording: bool,
     /// Recorded menu command ids.
@@ -181,6 +183,7 @@ impl EditorState {
     pub fn new() -> Self {
         let settings = AppSettings::load();
         let word_wrap = settings.word_wrap;
+        let show_wrap_symbol = settings.show_wrap_symbol;
         let show_whitespace = settings.show_whitespace;
         let show_eol = settings.show_eol;
         let show_npc = settings.show_npc;
@@ -237,6 +240,7 @@ impl EditorState {
             show_npc,
             show_indent_guide,
             word_wrap,
+            show_wrap_symbol,
             macro_recording: false,
             macro_cmds: Vec::new(),
             pending_close: None,

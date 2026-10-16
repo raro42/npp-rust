@@ -8174,6 +8174,7 @@ impl EditorApp {
                     "IDM_VIEW_COMPARE_IGNORE_CASE" => self.state.settings.compare_ignore_case,
                     "IDM_VIEW_COMPARE_IGNORE_BLANK" => self.state.settings.compare_ignore_blank,
                     "IDM_VIEW_COMPARE_HIDE_EQUAL" => self.state.settings.compare_hide_equal,
+                    "IDM_VIEW_WRAP_SYMBOL" => self.state.show_wrap_symbol,
                     "IDM_VIEW_POSTIT" | "IDM_VIEW_DISTRACTIONFREE" => self.post_it,
                     _ => false,
                 };
@@ -11660,6 +11661,16 @@ impl EditorApp {
                             .changed()
                         {
                             self.state.word_wrap = self.state.settings.word_wrap;
+                            changed = true;
+                        }
+                        if ui
+                            .checkbox(
+                                &mut self.state.settings.show_wrap_symbol,
+                                "Show wrap symbol",
+                            )
+                            .changed()
+                        {
+                            self.state.show_wrap_symbol = self.state.settings.show_wrap_symbol;
                             changed = true;
                         }
                         if ui
@@ -20856,7 +20867,7 @@ impl EditorApp {
                         }
                     }
                 }
-                if self.state.word_wrap {
+                if self.state.word_wrap && self.state.show_wrap_symbol {
                     let max_w = (rect.right() - text_left - 8.0).max(40.0);
                     if text_width(ui, &font_id, line_text) > max_w {
                         painter.text(

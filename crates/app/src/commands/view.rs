@@ -129,12 +129,18 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_VIEW_WRAP_SYMBOL" => {
-            // Used together with word wrap; toggle is recorded for UI.
-            state.status = if state.word_wrap {
-                "Wrap symbol follows word wrap".into()
+            state.show_wrap_symbol = !state.show_wrap_symbol;
+            state.settings.show_wrap_symbol = state.show_wrap_symbol;
+            state.settings.save();
+            let visible = if state.word_wrap {
+                ""
             } else {
-                "Wrap symbol: enable Word wrap to see soft-wrap marks".into()
+                " (visible when word wrap is on)"
             };
+            state.status = format!(
+                "Wrap symbol: {}{visible}",
+                if state.show_wrap_symbol { "on" } else { "off" }
+            );
             CmdResult::Handled
         }
         "IDM_VIEW_WRAP" => {

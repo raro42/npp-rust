@@ -26,6 +26,7 @@ New keys:
 | `show_fold_margin` | Gutter fold markers (`−` / `+`); default on |
 | `show_whitespace` | Show space/tab glyphs (View + Preferences); default off |
 | `show_eol` | Show end-of-line marks; default off |
+| `show_wrap_symbol` | Soft-wrap mark on wrapped lines (View → Show Wrap Symbol + Preferences); default on |
 | `show_npc` | Show non-printing / control characters; default off |
 | `show_indent_guide` | Vertical indent guides; default off |
 | `text_rtl` | Right-to-left editor line anchors + status cue (Edit → RTL / LTR + Preferences); default off |

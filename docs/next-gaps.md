@@ -121,6 +121,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.348 | Remappable Search on Internet / Change Search Engine (`shortcut_search_internet`; Alt+U default; Shift=engine) |
 | v0.3.349 | Remappable Convert EOL Macintosh (`shortcut_convert_eol_mac`; Alt+Shift+F12 default) |
 | v0.3.350 | Remappable Hide Lines (`shortcut_hide_lines`; Alt+Shift+L default) |
+| v0.3.351 | Show Wrap Symbol toggles the soft-wrap mark (`show_wrap_symbol`; default on) |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 
