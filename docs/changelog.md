@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.344] — 2026-10-16
+
+Edit:
+
+- **Proper Case Force / Blend** is remappable: Preferences → Proper Case shortcut, or `shortcut_proper_case` in `npp-rs/settings.json` (default `Cmd+Alt+9`). Runs Edit → Convert Case to → Proper Case. **Shift** flips to Proper Case blend. Invert Case + Shift still aliases Proper Case force. Does not collide with Sentence Case (`Cmd+Alt+8`), Next Style (`Cmd+Alt+1`…`5`), or Fold Level (`Alt+1`…`8`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.343] — 2026-10-16
 
 Edit:

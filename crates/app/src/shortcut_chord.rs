@@ -526,6 +526,12 @@ pub const DEFAULT_INVERT_CASE: &str = "Cmd+Alt+U";
 /// (`Cmd+Alt+U`), or Fold Level (`Alt+1`…`8`).
 pub const DEFAULT_SENTENCE_CASE: &str = "Cmd+Alt+8";
 
+/// Default Proper Case Force binding (Edit → Convert Case to → Proper Case).
+/// Shift flips to Proper Case Blend. Uses Cmd+Alt+9 so it stays near Sentence Case
+/// (`Cmd+Alt+8`) without colliding with Next Style (`Cmd+Alt+1`…`5`), Invert Case
+/// (`Cmd+Alt+U`; Shift still aliases Proper Case Force), or Fold Level (`Alt+1`…`8`).
+pub const DEFAULT_PROPER_CASE: &str = "Cmd+Alt+9";
+
 /// Default blank-line-below binding (Edit → Insert Empty Line Below Current).
 /// Shift flips to Insert Empty Line Above Current.
 pub const DEFAULT_BLANK_LINE: &str = "Cmd+Enter";
@@ -3020,6 +3026,19 @@ mod tests {
         let blend = c.flipped_shift();
         assert!(blend.shift);
         assert_eq!(blend.display(), "Cmd+Alt+Shift+8");
+    }
+
+    #[test]
+    fn parse_cmd_alt_9_default_proper_case() {
+        let c = parse_chord(DEFAULT_PROPER_CASE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Num9);
+        assert_eq!(c.display(), "Cmd+Alt+9");
+        let blend = c.flipped_shift();
+        assert!(blend.shift);
+        assert_eq!(blend.display(), "Cmd+Alt+Shift+9");
     }
 
     #[test]
