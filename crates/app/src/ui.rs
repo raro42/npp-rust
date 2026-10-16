@@ -5708,7 +5708,7 @@ impl EditorApp {
             }
         }
         // Remappable Convert EOL Unix/Windows (default Cmd+Alt+F12; settings.shortcut_convert_eol).
-        // Shift flips to Windows (CRLF). Macintosh (CR) stays menu-only.
+        // Shift flips to Windows (CRLF). Macintosh (CR) is separate (shortcut_convert_eol_mac).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_CONVERT_EOL};
             let convert_eol_chord = resolve_chord(
@@ -5750,6 +5750,44 @@ impl EditorApp {
                 && convert_eol_chord.matches(mods, convert_eol_chord.key)
             {
                 self.run_shortcut_cmd("IDM_FORMAT_TOUNIX");
+            }
+        }
+        // Remappable Convert EOL Macintosh (default Alt+Shift+F12; settings.shortcut_convert_eol_mac).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_CONVERT_EOL_MAC};
+            let convert_eol_mac_chord = resolve_chord(
+                &self.state.settings.shortcut_convert_eol_mac,
+                DEFAULT_CONVERT_EOL_MAC,
+            );
+            let convert_eol_mac_key_pressed = match convert_eol_mac_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if convert_eol_mac_key_pressed
+                && convert_eol_mac_chord.matches(mods, convert_eol_mac_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_FORMAT_TOMAC");
             }
         }
 
@@ -8951,6 +8989,10 @@ impl EditorApp {
                 &s.shortcut_convert_eol,
                 crate::shortcut_chord::DEFAULT_CONVERT_EOL,
             ),
+            "IDM_FORMAT_TOMAC" => primary(
+                &s.shortcut_convert_eol_mac,
+                crate::shortcut_chord::DEFAULT_CONVERT_EOL_MAC,
+            ),
             "IDM_EDIT_TAB2SW" => primary(
                 &s.shortcut_tab_to_space,
                 crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -10635,6 +10677,11 @@ impl EditorApp {
             convert_eol_chord.display(),
             convert_eol_chord.flipped_shift().display()
         );
+        let convert_eol_mac_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_convert_eol_mac,
+            crate::shortcut_chord::DEFAULT_CONVERT_EOL_MAC,
+        )
+        .display();
         let tab_to_space_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_tab_to_space,
             crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -10971,7 +11018,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 156] = [
+        let rows: [(&str, &str); 157] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -11258,6 +11305,7 @@ impl EditorApp {
                 convert_eol_keys.as_str(),
                 "Convert EOL Unix (LF) / Windows (CRLF)",
             ),
+            (convert_eol_mac_keys.as_str(), "Convert EOL Macintosh (CR)"),
             (
                 tab_to_space_keys.as_str(),
                 "TAB to Space / Space to TAB (Leading)",
@@ -15390,7 +15438,43 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: Cmd+Alt+F12, Ctrl+Alt+F12. Converts line endings to Unix LF (Format → Convert to Unix). Shift + that chord converts to Windows CRLF. Macintosh CR stays menu-only. Does not collide with Post-It (F12) or EOL to Space (Cmd+Alt+F11).",
+                                "Example: Cmd+Alt+F12, Ctrl+Alt+F12. Converts line endings to Unix LF (Format → Convert to Unix). Shift + that chord converts to Windows CRLF. Macintosh CR uses the Convert EOL Macintosh shortcut below. Does not collide with Post-It (F12) or EOL to Space (Cmd+Alt+F11).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Convert EOL Macintosh shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_convert_eol_mac,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+Shift+F12"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_convert_eol_mac
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_convert_eol_mac =
+                                        crate::shortcut_chord::DEFAULT_CONVERT_EOL_MAC.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CONVERT_EOL_MAC
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_convert_eol_mac = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+F12. Converts line endings to Macintosh CR (Format → Convert to Macintosh). Does not collide with Post-It (F12), Convert EOL Unix/Windows (Cmd+Alt+F12 / Cmd+Alt+Shift+F12), or Find Purge (Alt+Shift+F8).",
                             )
                             .small()
                             .weak(),

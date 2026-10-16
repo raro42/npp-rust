@@ -97,6 +97,7 @@ New keys:
 | `shortcut_trim_leading` | Trim Leading Space chord (`Alt+Shift+T` default; `IDM_EDIT_TRIMLINEHEAD`) |
 | `shortcut_eol_to_space` | EOL to Space chord (`Cmd+Alt+F11` default; Shift flips to Trim Both and EOL to Space) |
 | `shortcut_convert_eol` | Convert EOL to Unix (LF) chord (`Cmd+Alt+F12` default; Shift flips to Windows CRLF) |
+| `shortcut_convert_eol_mac` | Convert EOL to Macintosh (CR) chord (`Alt+Shift+F12` default) |
 | `shortcut_tab_to_space` | TAB → Space chord (`Cmd+Alt+V` default; Shift flips to Space → TAB Leading) |
 | `shortcut_space_to_tab_all` | Space → TAB (All) chord (`Cmd+Alt+X` default) |
 | `shortcut_pin_tab` | Pin / unpin active tab chord (`Alt+Shift+P` default; `IDM_PINTAB`) |

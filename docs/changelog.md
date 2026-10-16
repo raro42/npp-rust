@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.349] — 2026-10-16
+
+Format:
+
+- **Convert EOL Macintosh (CR)** is remappable: Preferences → Convert EOL Macintosh shortcut, or `shortcut_convert_eol_mac` in `npp-rs/settings.json` (default `Alt+Shift+F12`). Runs Format → Convert to Macintosh. Does not collide with Post-It (`F12`), Convert EOL Unix/Windows (`Cmd+Alt+F12` / `Cmd+Alt+Shift+F12`), or Find Purge (`Alt+Shift+F8`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.348] — 2026-10-16
 
 Edit:

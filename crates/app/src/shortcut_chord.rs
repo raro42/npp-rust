@@ -630,8 +630,14 @@ pub const DEFAULT_EOL_TO_SPACE: &str = "Cmd+Alt+F11";
 /// Default Convert to Unix (LF) EOL binding (Format → Convert to Unix).
 /// Shift flips to Convert to Windows (CRLF). Uses Cmd+Alt+F12 so it stays near EOL to Space
 /// (`Cmd+Alt+F11`) without colliding with Post-It (`F12`) or EOL to Space (`Cmd+Alt+F11`).
-/// Macintosh (CR) stays menu-only.
+/// Macintosh (CR) uses `shortcut_convert_eol_mac` / `DEFAULT_CONVERT_EOL_MAC`.
 pub const DEFAULT_CONVERT_EOL: &str = "Cmd+Alt+F12";
+
+/// Default Convert to Macintosh (CR) EOL binding (Format → Convert to Macintosh).
+/// Uses Alt+Shift+F12 so it stays near Convert EOL Unix/Windows (`Cmd+Alt+F12`) without
+/// colliding with Post-It (`F12`), Convert EOL + Shift (`Cmd+Alt+Shift+F12`), or Find Purge
+/// (`Alt+Shift+F8`).
+pub const DEFAULT_CONVERT_EOL_MAC: &str = "Alt+Shift+F12";
 
 /// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
 /// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
@@ -3018,6 +3024,16 @@ mod tests {
         let windows = c.flipped_shift();
         assert!(windows.shift);
         assert_eq!(windows.display(), "Cmd+Alt+Shift+F12");
+    }
+
+    #[test]
+    fn parse_alt_shift_f12_default_convert_eol_mac() {
+        let c = parse_chord(DEFAULT_CONVERT_EOL_MAC).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::F12);
+        assert_eq!(c.display(), "Alt+Shift+F12");
     }
 
     #[test]
