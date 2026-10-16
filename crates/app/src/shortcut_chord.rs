@@ -538,6 +538,11 @@ pub const DEFAULT_PROPER_CASE: &str = "Cmd+Alt+9";
 /// (`Cmd+Alt+1`…`5`), or Fold Level (`Alt+1`…`8`).
 pub const DEFAULT_RANDOM_CASE: &str = "Cmd+Alt+0";
 
+/// Default Redact Selection binding (Edit → On Selection → Redact Selection █).
+/// Shift flips to ● fill. Uses Alt+J so it does not collide with Join Lines (`Cmd+J`),
+/// RTL (`Alt+R`), Toggle Read-Only (`Cmd+Alt+R`), or Invert Case (`Cmd+Alt+U`).
+pub const DEFAULT_REDACT: &str = "Alt+J";
+
 /// Default blank-line-below binding (Edit → Insert Empty Line Below Current).
 /// Shift flips to Insert Empty Line Above Current.
 pub const DEFAULT_BLANK_LINE: &str = "Cmd+Enter";
@@ -3055,6 +3060,19 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::Num0);
         assert_eq!(c.display(), "Cmd+Alt+0");
+    }
+
+    #[test]
+    fn parse_alt_j_default_redact() {
+        let c = parse_chord(DEFAULT_REDACT).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::J);
+        assert_eq!(c.display(), "Alt+J");
+        let circle = c.flipped_shift();
+        assert!(circle.shift);
+        assert_eq!(circle.display(), "Alt+Shift+J");
     }
 
     #[test]

@@ -4186,6 +4186,45 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_RANDOMCASE");
             }
         }
+        // Remappable Redact Selection (default Alt+J; settings.shortcut_redact).
+        // Shift flips to ● fill (menu label: Redact Selection █ (Shift: ●)).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_REDACT};
+            let redact_chord = resolve_chord(&self.state.settings.shortcut_redact, DEFAULT_REDACT);
+            let redact_key_pressed = match redact_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_circle =
+                redact_key_pressed && redact_chord.flipped_shift().matches(mods, redact_chord.key);
+            let remapped_block = redact_key_pressed && redact_chord.matches(mods, redact_chord.key);
+            if remapped_circle {
+                self.run_shortcut_cmd("IDM_EDIT_REDACT_SELECTION_CIRCLE");
+            } else if remapped_block {
+                self.run_shortcut_cmd("IDM_EDIT_REDACT_SELECTION");
+            }
+        }
         // Remappable blank line below (default Cmd+Enter; settings.shortcut_blank_line).
         // Shift flips to blank line above.
         {
@@ -8967,6 +9006,9 @@ impl EditorApp {
                 &s.shortcut_random_case,
                 crate::shortcut_chord::DEFAULT_RANDOM_CASE,
             ),
+            "IDM_EDIT_REDACT_SELECTION" => {
+                primary(&s.shortcut_redact, crate::shortcut_chord::DEFAULT_REDACT)
+            }
             "IDM_EDIT_BLANKLINEBELOWCURRENT" => primary(
                 &s.shortcut_blank_line,
                 crate::shortcut_chord::DEFAULT_BLANK_LINE,
@@ -10218,6 +10260,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_RANDOM_CASE,
         )
         .display();
+        let redact_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_redact,
+            crate::shortcut_chord::DEFAULT_REDACT,
+        );
+        let redact_keys = format!(
+            "{} / {}",
+            redact_chord.display(),
+            redact_chord.flipped_shift().display()
+        );
         let blank_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_blank_line,
             crate::shortcut_chord::DEFAULT_BLANK_LINE,
@@ -10813,7 +10864,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 153] = [
+        let rows: [(&str, &str); 154] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -10957,6 +11008,7 @@ impl EditorApp {
             (sentence_case_keys.as_str(), "Sentence Case Force / Blend"),
             (proper_case_keys.as_str(), "Proper Case Force / Blend"),
             (random_case_keys.as_str(), "Random Case"),
+            (redact_keys.as_str(), "Redact Selection █ / ●"),
             (blank_keys.as_str(), "Blank line below / above"),
             (
                 multi_select_keys.as_str(),
@@ -14038,6 +14090,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+0, Ctrl+Alt+0. Random Case (Edit → Convert Case to → rANdOm CasE). Does not collide with Fold All (Alt+0), Copy Styled Text all (Cmd+Alt+Shift+0), Proper Case (Cmd+Alt+9), Next Style (Cmd+Alt+1…5), or Fold Level (Alt+1…8).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Redact Selection shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_redact,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+J"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_redact.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_redact =
+                                        crate::shortcut_chord::DEFAULT_REDACT.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_REDACT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_redact = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+J. Redact Selection █ (Edit → On Selection). Shift + that chord fills with ●. Does not collide with Join Lines (Cmd+J), RTL (Alt+R), Toggle Read-Only (Cmd+Alt+R), or Invert Case (Cmd+Alt+U).",
                             )
                             .small()
                             .weak(),

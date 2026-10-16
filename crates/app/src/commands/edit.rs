@@ -677,22 +677,8 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             state.status = format!("Search engine: {}", state.search_engine);
             CmdResult::Handled
         }
-        "IDM_EDIT_REDACT_SELECTION" => {
-            if state.tabs.active().read_only {
-                state.status = "Document is read-only".into();
-                return Some(CmdResult::Handled);
-            }
-            if let Some((s, e)) = state.tabs.active().buffer.selection() {
-                let n = e.saturating_sub(s);
-                let block = "█".repeat(n.max(1));
-                state.tabs.active_mut().buffer.insert(&block);
-                state.mark_text_changed();
-                state.status = "Redacted selection".into();
-            } else {
-                state.status = "Redact: select text first".into();
-            }
-            CmdResult::Handled
-        }
+        "IDM_EDIT_REDACT_SELECTION" => redact_selection(state, "█"),
+        "IDM_EDIT_REDACT_SELECTION_CIRCLE" => redact_selection(state, "●"),
         "IDM_EDIT_TOGGLEREADONLY" => {
             let d = state.tabs.active_mut();
             d.read_only = !d.read_only;
@@ -929,6 +915,23 @@ Type/Backspace/Paste hit all carets; short lines pad with spaces. Column Editor 
 
         _ => CmdResult::Stub,
     })
+}
+
+fn redact_selection(state: &mut EditorState, fill: &str) -> CmdResult {
+    if let Some((s, e)) = state.tabs.active().buffer.selection() {
+        let n = e.saturating_sub(s);
+        let block = fill.repeat(n.max(1));
+        state.tabs.active_mut().buffer.insert(&block);
+        state.mark_text_changed();
+        state.status = if fill == "●" {
+            "Redacted selection (●)".into()
+        } else {
+            "Redacted selection".into()
+        };
+    } else {
+        state.status = "Redact: select text first".into();
+    }
+    CmdResult::Handled
 }
 
 fn paste_plain_fallback(state: &mut EditorState, ui: &mut UiFlags, cmd: &str) {

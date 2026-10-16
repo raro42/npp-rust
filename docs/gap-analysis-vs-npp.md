@@ -87,6 +87,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+Alt+8 (remappable) | Sentence Case Force (`shortcut_sentence_case`; Shift = Blend) |
 | Cmd/Ctrl+Alt+9 (remappable) | Proper Case Force (`shortcut_proper_case`; Shift = Blend; Invert+Shift still aliases Force) |
 | Cmd/Ctrl+Alt+0 (remappable) | Random Case (`shortcut_random_case`) |
+| Alt+J (remappable) | Redact Selection █; Shift = ● (`shortcut_redact`) |
 | Cmd/Ctrl+Enter (remappable) | Blank line below (`shortcut_blank_line`; Shift = blank line above) |
 | Cmd/Ctrl+Alt+N (remappable) | Multi-select next (`shortcut_multi_select_next`; Shift = skip current) |
 | Cmd/Ctrl+Alt+A (remappable) | Multi-select all (`shortcut_multi_select_all`; Shift = whole-word) |

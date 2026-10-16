@@ -244,6 +244,10 @@ fn default_shortcut_random_case() -> String {
     crate::shortcut_chord::DEFAULT_RANDOM_CASE.into()
 }
 
+fn default_shortcut_redact() -> String {
+    crate::shortcut_chord::DEFAULT_REDACT.into()
+}
+
 fn default_shortcut_multi_select_next() -> String {
     crate::shortcut_chord::DEFAULT_MULTI_SELECT_NEXT.into()
 }
@@ -1267,6 +1271,9 @@ pub struct AppSettings {
     /// Random Case chord (`Cmd+Alt+0` default).
     #[serde(default = "default_shortcut_random_case")]
     pub shortcut_random_case: String,
+    /// Redact Selection chord (`Alt+J` default; Shift flips to ● fill).
+    #[serde(default = "default_shortcut_redact")]
+    pub shortcut_redact: String,
     /// Blank line below chord (`Cmd+Enter` default; Shift flips to blank line above).
     #[serde(default = "default_shortcut_blank_line")]
     pub shortcut_blank_line: String,
@@ -1540,6 +1547,7 @@ impl Default for AppSettings {
             shortcut_sentence_case: default_shortcut_sentence_case(),
             shortcut_proper_case: default_shortcut_proper_case(),
             shortcut_random_case: default_shortcut_random_case(),
+            shortcut_redact: default_shortcut_redact(),
             shortcut_blank_line: default_shortcut_blank_line(),
             shortcut_multi_select_next: default_shortcut_multi_select_next(),
             shortcut_multi_select_all: default_shortcut_multi_select_all(),
@@ -2040,6 +2048,7 @@ mod tests {
             shortcut_sentence_case: "Ctrl+Alt+Shift+8".into(),
             shortcut_proper_case: "Ctrl+Alt+Shift+9".into(),
             shortcut_random_case: "Ctrl+Alt+Shift+0".into(),
+            shortcut_redact: "Ctrl+Alt+Shift+J".into(),
             shortcut_blank_line: "Ctrl+Alt+Enter".into(),
             shortcut_multi_select_next: "Ctrl+Alt+Shift+N".into(),
             shortcut_multi_select_all: "Ctrl+Alt+Shift+A".into(),
@@ -2223,6 +2232,7 @@ mod tests {
         assert_eq!(back.shortcut_sentence_case, "Ctrl+Alt+Shift+8");
         assert_eq!(back.shortcut_proper_case, "Ctrl+Alt+Shift+9");
         assert_eq!(back.shortcut_random_case, "Ctrl+Alt+Shift+0");
+        assert_eq!(back.shortcut_redact, "Ctrl+Alt+Shift+J");
         assert_eq!(back.shortcut_blank_line, "Ctrl+Alt+Enter");
         assert_eq!(back.shortcut_multi_select_next, "Ctrl+Alt+Shift+N");
         assert_eq!(back.shortcut_multi_select_all, "Ctrl+Alt+Shift+A");

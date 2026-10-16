@@ -412,6 +412,7 @@ pub fn is_implemented(cmd: &str) -> bool {
             | "IDM_WINDOW_SORT_FD_ASC"
             | "IDM_WINDOW_SORT_FD_DSC"
             | "IDM_EDIT_REDACT_SELECTION"
+            | "IDM_EDIT_REDACT_SELECTION_CIRCLE"
             | "IDM_EDIT_TOGGLEREADONLY"
             | "IDM_EDIT_SETREADONLYFORALLDOCS"
             | "IDM_EDIT_CLEARREADONLYFORALLDOCS"

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.346] — 2026-10-16
+
+Edit:
+
+- **Redact Selection** is remappable: Preferences → Redact Selection shortcut, or `shortcut_redact` in `npp-rs/settings.json` (default `Alt+J`). Runs Edit → On Selection → Redact Selection █. **Shift** flips to ● fill (matches the menu label). Does not collide with Join Lines (`Cmd+J`), RTL (`Alt+R`), Toggle Read-Only (`Cmd+Alt+R`), or Invert Case (`Cmd+Alt+U`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.345] — 2026-10-16
 
 Edit:
