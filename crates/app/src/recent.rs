@@ -340,6 +340,10 @@ fn default_shortcut_encoding_ansi() -> String {
     crate::shortcut_chord::DEFAULT_ENCODING_ANSI.into()
 }
 
+fn default_shortcut_md5() -> String {
+    crate::shortcut_chord::DEFAULT_MD5.into()
+}
+
 fn default_shortcut_remove_empty_lines() -> String {
     crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES.into()
 }
@@ -1452,6 +1456,9 @@ pub struct AppSettings {
     /// ANSI (Windows-1252) chord (`Cmd+F11` default).
     #[serde(default = "default_shortcut_encoding_ansi")]
     pub shortcut_encoding_ansi: String,
+    /// MD5 generate chord (`Alt+F10` default; Shift flips to clipboard).
+    #[serde(default = "default_shortcut_md5")]
+    pub shortcut_md5: String,
     /// Remove Empty Lines chord (`Cmd+Alt+E` default; Shift flips to Containing Blank Characters).
     #[serde(default = "default_shortcut_remove_empty_lines")]
     pub shortcut_remove_empty_lines: String,
@@ -1713,6 +1720,7 @@ impl Default for AppSettings {
             shortcut_encoding_utf8: default_shortcut_encoding_utf8(),
             shortcut_encoding_utf16: default_shortcut_encoding_utf16(),
             shortcut_encoding_ansi: default_shortcut_encoding_ansi(),
+            shortcut_md5: default_shortcut_md5(),
             shortcut_remove_empty_lines: default_shortcut_remove_empty_lines(),
             shortcut_remove_dup_lines: default_shortcut_remove_dup_lines(),
             shortcut_insert_datetime: default_shortcut_insert_datetime(),
@@ -2241,6 +2249,7 @@ mod tests {
             shortcut_encoding_utf8: "Ctrl+Shift+F9".into(),
             shortcut_encoding_utf16: "Ctrl+Alt+F10".into(),
             shortcut_encoding_ansi: "Ctrl+F11".into(),
+            shortcut_md5: "Ctrl+Alt+Shift+F1".into(),
             shortcut_remove_empty_lines: "Ctrl+Alt+Shift+E".into(),
             shortcut_remove_dup_lines: "Ctrl+Alt+Shift+D".into(),
             shortcut_insert_datetime: "Ctrl+F5".into(),
@@ -2446,6 +2455,7 @@ mod tests {
         assert_eq!(back.shortcut_encoding_utf8, "Ctrl+Shift+F9");
         assert_eq!(back.shortcut_encoding_utf16, "Ctrl+Alt+F10");
         assert_eq!(back.shortcut_encoding_ansi, "Ctrl+F11");
+        assert_eq!(back.shortcut_md5, "Ctrl+Alt+Shift+F1");
         assert_eq!(back.shortcut_remove_empty_lines, "Ctrl+Alt+Shift+E");
         assert_eq!(back.shortcut_remove_dup_lines, "Ctrl+Alt+Shift+D");
         assert_eq!(back.shortcut_insert_datetime, "Ctrl+F5");

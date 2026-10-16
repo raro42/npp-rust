@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.366] — 2026-10-17
+
+Tools:
+
+- **MD5 generate / clipboard** is remappable: Preferences → MD5 shortcut, or `shortcut_md5` in `npp-rs/settings.json` (default `Alt+F10`). Hashes the selection, or the whole document, and inserts the digest (Tools → MD5 → Generate). Shift + that chord copies the digest instead. Does not collide with Read-only for all documents (`F10` / Shift+F10), UTF-16 (`Cmd+F10`), or Sort Lines by Length (`Cmd+Alt+F10`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.365] — 2026-10-17
 
 Encoding:

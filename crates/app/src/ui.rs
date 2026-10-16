@@ -6386,6 +6386,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_FORMAT_ANSI");
             }
         }
+        // Remappable MD5 (default Alt+F10; settings.shortcut_md5).
+        // Shift flips to Generate into clipboard.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_MD5};
+            let md5_chord = resolve_chord(&self.state.settings.shortcut_md5, DEFAULT_MD5);
+            let md5_key_pressed = match md5_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if md5_key_pressed && md5_chord.flipped_shift().matches(mods, md5_chord.key) {
+                self.run_shortcut_cmd("IDM_TOOL_MD5_GENERATEINTOCLIPBOARD");
+            } else if md5_key_pressed && md5_chord.matches(mods, md5_chord.key) {
+                self.run_shortcut_cmd("IDM_TOOL_MD5_GENERATE");
+            }
+        }
 
         // Remappable TAB → Space (default Cmd+Alt+V; settings.shortcut_tab_to_space).
         // Shift flips to Space → TAB (Leading).
@@ -9659,6 +9695,10 @@ impl EditorApp {
                 &s.shortcut_encoding_ansi,
                 crate::shortcut_chord::DEFAULT_ENCODING_ANSI,
             ),
+            "IDM_TOOL_MD5_GENERATE" => primary(&s.shortcut_md5, crate::shortcut_chord::DEFAULT_MD5),
+            "IDM_TOOL_MD5_GENERATEINTOCLIPBOARD" => {
+                shifted(&s.shortcut_md5, crate::shortcut_chord::DEFAULT_MD5)
+            }
             "IDM_EDIT_TAB2SW" => primary(
                 &s.shortcut_tab_to_space,
                 crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -11428,6 +11468,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_ENCODING_ANSI,
         )
         .display();
+        let md5_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_md5,
+            crate::shortcut_chord::DEFAULT_MD5,
+        );
+        let md5_keys = format!(
+            "{} / {}",
+            md5_chord.display(),
+            md5_chord.flipped_shift().display()
+        );
         let tab_to_space_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_tab_to_space,
             crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -11833,7 +11882,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 172] = [
+        let rows: [(&str, &str); 173] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -12154,6 +12203,7 @@ impl EditorApp {
             (encoding_utf8_keys.as_str(), "UTF-8 / UTF-8-BOM"),
             (encoding_utf16_keys.as_str(), "UTF-16 LE / UTF-16 BE"),
             (encoding_ansi_keys.as_str(), "ANSI"),
+            (md5_keys.as_str(), "MD5 generate / clipboard"),
             (
                 tab_to_space_keys.as_str(),
                 "TAB to Space / Space to TAB (Leading)",
@@ -16530,6 +16580,35 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+F11, Ctrl+F11. Sets the active tab to ANSI (Encoding → ANSI; save writes Windows-1252). Does not collide with Fullscreen (F11) or EOL to Space (Cmd+Alt+F11).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("MD5 shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(&mut self.state.settings.shortcut_md5)
+                                    .desired_width(140.0)
+                                    .hint_text("Alt+F10"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_md5.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_md5 =
+                                        crate::shortcut_chord::DEFAULT_MD5.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MD5
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_md5 = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+F10. Hashes the selection, or the whole document, and inserts the digest (Tools → MD5 → Generate). Shift + that chord copies the digest instead. Does not collide with Read-only for all documents (F10 / Shift+F10), UTF-16 (Cmd+F10), or Sort Lines by Length (Cmd+Alt+F10).",
                             )
                             .small()
                             .weak(),
