@@ -1,3 +1,4 @@
+009 keep: remappable Preferences / Style Configurator (shortcut_preferences, Cmd+, default; Shift=style, v0.3.355)
 009 keep: remappable Summary / Document List (shortcut_summary, Alt+F1 default; Shift=doc list, v0.3.354)
 009 keep: remappable Read-only for all documents (shortcut_readonly_all, F10 default; Shift=clear, v0.3.353)
 009 keep: remappable Show Wrap Symbol (shortcut_show_wrap_symbol, Alt+Shift+G default, v0.3.352)

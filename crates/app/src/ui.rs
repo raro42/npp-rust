@@ -4688,6 +4688,48 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_SUMMARY");
             }
         }
+        // Remappable Preferences (default Cmd+,; settings.shortcut_preferences).
+        // Shift flips to Style Configurator.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_PREFERENCES};
+            let pref_chord = resolve_chord(
+                &self.state.settings.shortcut_preferences,
+                DEFAULT_PREFERENCES,
+            );
+            let pref_key_pressed = match pref_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_style =
+                pref_key_pressed && pref_chord.flipped_shift().matches(mods, pref_chord.key);
+            let remapped_pref = pref_key_pressed && pref_chord.matches(mods, pref_chord.key);
+            if remapped_style {
+                self.run_shortcut_cmd("IDM_LANGSTYLE_CONFIG_DLG");
+            } else if remapped_pref {
+                self.run_shortcut_cmd("IDM_SETTING_PREFERENCE");
+            }
+        }
         // Remappable Column Editor (default Cmd+Alt+C; settings.shortcut_column_editor).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_COLUMN_EDITOR};
@@ -9350,6 +9392,14 @@ impl EditorApp {
             "IDM_VIEW_DOCLIST" => {
                 shifted(&s.shortcut_summary, crate::shortcut_chord::DEFAULT_SUMMARY)
             }
+            "IDM_SETTING_PREFERENCE" => primary(
+                &s.shortcut_preferences,
+                crate::shortcut_chord::DEFAULT_PREFERENCES,
+            ),
+            "IDM_LANGSTYLE_CONFIG_DLG" => shifted(
+                &s.shortcut_preferences,
+                crate::shortcut_chord::DEFAULT_PREFERENCES,
+            ),
             "IDM_EDIT_COLUMNMODE" => primary(
                 &s.shortcut_column_editor,
                 crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -10650,6 +10700,15 @@ impl EditorApp {
             summary_chord.display(),
             summary_chord.flipped_shift().display()
         );
+        let preferences_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_preferences,
+            crate::shortcut_chord::DEFAULT_PREFERENCES,
+        );
+        let preferences_keys = format!(
+            "{} / {}",
+            preferences_chord.display(),
+            preferences_chord.flipped_shift().display()
+        );
         let column_editor_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_column_editor,
             crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -11224,7 +11283,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 161] = [
+        let rows: [(&str, &str); 162] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -11392,6 +11451,10 @@ impl EditorApp {
                 "Read-only for all documents / clear all",
             ),
             (summary_keys.as_str(), "Summary / Document List"),
+            (
+                preferences_keys.as_str(),
+                "Preferences / Style Configurator",
+            ),
             (column_editor_keys.as_str(), "Column Editor"),
             (
                 sort_lines_keys.as_str(),
@@ -14782,6 +14845,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+F1. Opens View → Summary. Shift + that chord opens View → Document List. Does not collide with Find characters in range (Alt+F9) or Read-only for all documents (F10).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Preferences shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_preferences,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+,"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_preferences.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_preferences =
+                                        crate::shortcut_chord::DEFAULT_PREFERENCES.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_PREFERENCES
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_preferences = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+,. Opens Settings → Preferences. Shift + that chord opens Style Configurator. Does not collide with Summary (Alt+F1), Print (Cmd+P), or Project Panel (Alt+P).",
                             )
                             .small()
                             .weak(),

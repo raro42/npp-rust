@@ -276,6 +276,10 @@ fn default_shortcut_summary() -> String {
     crate::shortcut_chord::DEFAULT_SUMMARY.into()
 }
 
+fn default_shortcut_preferences() -> String {
+    crate::shortcut_chord::DEFAULT_PREFERENCES.into()
+}
+
 fn default_shortcut_column_editor() -> String {
     crate::shortcut_chord::DEFAULT_COLUMN_EDITOR.into()
 }
@@ -1339,6 +1343,9 @@ pub struct AppSettings {
     /// Summary chord (`Alt+F1` default; Shift flips to Document List).
     #[serde(default = "default_shortcut_summary")]
     pub shortcut_summary: String,
+    /// Preferences chord (`Cmd+,` default; Shift flips to Style Configurator).
+    #[serde(default = "default_shortcut_preferences")]
+    pub shortcut_preferences: String,
     /// Column Editor chord (`Cmd+Alt+C` default; `IDM_EDIT_COLUMNMODE`).
     #[serde(default = "default_shortcut_column_editor")]
     pub shortcut_column_editor: String,
@@ -1613,6 +1620,7 @@ impl Default for AppSettings {
             shortcut_toggle_readonly: default_shortcut_toggle_readonly(),
             shortcut_readonly_all: default_shortcut_readonly_all(),
             shortcut_summary: default_shortcut_summary(),
+            shortcut_preferences: default_shortcut_preferences(),
             shortcut_column_editor: default_shortcut_column_editor(),
             shortcut_sort_lines: default_shortcut_sort_lines(),
             shortcut_sort_lines_integer: default_shortcut_sort_lines_integer(),
@@ -2130,6 +2138,7 @@ mod tests {
             shortcut_toggle_readonly: "Ctrl+Alt+Shift+R".into(),
             shortcut_readonly_all: "Ctrl+Shift+F10".into(),
             shortcut_summary: "Ctrl+Alt+F1".into(),
+            shortcut_preferences: "Ctrl+,".into(),
             shortcut_column_editor: "Ctrl+Alt+Shift+C".into(),
             shortcut_sort_lines: "Ctrl+Alt+Shift+O".into(),
             shortcut_sort_lines_integer: "Ctrl+Alt+Shift+F5".into(),
@@ -2321,6 +2330,7 @@ mod tests {
         assert_eq!(back.shortcut_toggle_readonly, "Ctrl+Alt+Shift+R");
         assert_eq!(back.shortcut_readonly_all, "Ctrl+Shift+F10");
         assert_eq!(back.shortcut_summary, "Ctrl+Alt+F1");
+        assert_eq!(back.shortcut_preferences, "Ctrl+,");
         assert_eq!(back.shortcut_column_editor, "Ctrl+Alt+Shift+C");
         assert_eq!(back.shortcut_sort_lines, "Ctrl+Alt+Shift+O");
         assert_eq!(back.shortcut_sort_lines_integer, "Ctrl+Alt+Shift+F5");

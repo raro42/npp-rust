@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.355] — 2026-10-16
+
+Settings:
+
+- **Preferences / Style Configurator** is remappable: Preferences → Preferences shortcut, or `shortcut_preferences` in `npp-rs/settings.json` (default `Cmd+,`). Opens Settings → Preferences. Shift + that chord opens Style Configurator. Does not collide with Summary (`Alt+F1`), Print (`Cmd+P`), or Project Panel (`Alt+P`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.354] — 2026-10-16
 
 View:

@@ -597,6 +597,11 @@ pub const DEFAULT_READONLY_ALL: &str = "F10";
 /// or Sort Lines by Length (`Cmd+Alt+F10`).
 pub const DEFAULT_SUMMARY: &str = "Alt+F1";
 
+/// Default Preferences binding (Settings → Preferences).
+/// Shift flips to Style Configurator. Uses Cmd+, so it does not collide with
+/// Summary (`Alt+F1`), Print (`Cmd+P`), or Project Panel (`Alt+P`).
+pub const DEFAULT_PREFERENCES: &str = "Cmd+,";
+
 /// Default Column Editor binding (Edit → Column Editor).
 /// Uses Cmd+Alt+C so it does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).
 pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
@@ -1357,6 +1362,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "]" | "closebracket" | "bracketright" => Some(Key::CloseBracket),
         "[" | "openbracket" | "bracketleft" => Some(Key::OpenBracket),
         "/" | "slash" => Some(Key::Slash),
+        "," | "comma" => Some(Key::Comma),
         "left" | "arrowleft" => Some(Key::ArrowLeft),
         "right" | "arrowright" => Some(Key::ArrowRight),
         "up" | "arrowup" => Some(Key::ArrowUp),
@@ -1430,6 +1436,7 @@ fn key_token(key: Key) -> &'static str {
         Key::CloseBracket => "]",
         Key::OpenBracket => "[",
         Key::Slash => "/",
+        Key::Comma => ",",
         Key::ArrowLeft => "Left",
         Key::ArrowRight => "Right",
         Key::ArrowUp => "Up",
@@ -2963,6 +2970,30 @@ mod tests {
         assert!(!c.matches(alt, Key::F9));
         assert!(!c.matches(Modifiers::default(), Key::F10));
         assert!(!c.flipped_shift().matches(alt, Key::F9));
+    }
+
+    #[test]
+    fn parse_cmd_comma_default_preferences() {
+        let c = parse_chord(DEFAULT_PREFERENCES).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Comma);
+        assert_eq!(c.display(), "Cmd+,");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+,");
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd, Key::Comma));
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_shift, Key::Comma));
+        assert!(c.flipped_shift().matches(cmd_shift, Key::Comma));
+        assert_eq!(parse_chord("Ctrl+comma").unwrap().key, Key::Comma);
     }
 
     #[test]
