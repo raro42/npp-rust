@@ -6272,6 +6272,45 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_FORMAT_TOMAC");
             }
         }
+        // Remappable UTF-8 (default Cmd+F9; settings.shortcut_encoding_utf8).
+        // Shift flips to UTF-8-BOM.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_ENCODING_UTF8};
+            let utf8_chord = resolve_chord(
+                &self.state.settings.shortcut_encoding_utf8,
+                DEFAULT_ENCODING_UTF8,
+            );
+            let utf8_key_pressed = match utf8_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if utf8_key_pressed && utf8_chord.flipped_shift().matches(mods, utf8_chord.key) {
+                self.run_shortcut_cmd("IDM_FORMAT_UTF_8");
+            } else if utf8_key_pressed && utf8_chord.matches(mods, utf8_chord.key) {
+                self.run_shortcut_cmd("IDM_FORMAT_AS_UTF_8");
+            }
+        }
 
         // Remappable TAB → Space (default Cmd+Alt+V; settings.shortcut_tab_to_space).
         // Shift flips to Space → TAB (Leading).
@@ -9525,6 +9564,14 @@ impl EditorApp {
                 &s.shortcut_convert_eol_mac,
                 crate::shortcut_chord::DEFAULT_CONVERT_EOL_MAC,
             ),
+            "IDM_FORMAT_AS_UTF_8" | "IDM_FORMAT_CONV2_AS_UTF_8" => primary(
+                &s.shortcut_encoding_utf8,
+                crate::shortcut_chord::DEFAULT_ENCODING_UTF8,
+            ),
+            "IDM_FORMAT_UTF_8" | "IDM_FORMAT_CONV2_UTF_8" => shifted(
+                &s.shortcut_encoding_utf8,
+                crate::shortcut_chord::DEFAULT_ENCODING_UTF8,
+            ),
             "IDM_EDIT_TAB2SW" => primary(
                 &s.shortcut_tab_to_space,
                 crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -11271,6 +11318,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_CONVERT_EOL_MAC,
         )
         .display();
+        let encoding_utf8_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_encoding_utf8,
+            crate::shortcut_chord::DEFAULT_ENCODING_UTF8,
+        );
+        let encoding_utf8_keys = format!(
+            "{} / {}",
+            encoding_utf8_chord.display(),
+            encoding_utf8_chord.flipped_shift().display()
+        );
         let tab_to_space_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_tab_to_space,
             crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -11676,7 +11732,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 169] = [
+        let rows: [(&str, &str); 170] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -11994,6 +12050,7 @@ impl EditorApp {
                 "Convert EOL Unix (LF) / Windows (CRLF)",
             ),
             (convert_eol_mac_keys.as_str(), "Convert EOL Macintosh (CR)"),
+            (encoding_utf8_keys.as_str(), "UTF-8 / UTF-8-BOM"),
             (
                 tab_to_space_keys.as_str(),
                 "TAB to Space / Space to TAB (Leading)",
@@ -16270,6 +16327,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+Shift+F12. Converts line endings to Macintosh CR (Format → Convert to Macintosh). Does not collide with Post-It (F12), Convert EOL Unix/Windows (Cmd+Alt+F12 / Cmd+Alt+Shift+F12), or Find Purge (Alt+Shift+F8).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("UTF-8 shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_encoding_utf8,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+F9"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_encoding_utf8.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_encoding_utf8 =
+                                        crate::shortcut_chord::DEFAULT_ENCODING_UTF8.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_ENCODING_UTF8
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_encoding_utf8 = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+F9, Ctrl+F9. Sets the active tab to UTF-8 without BOM (Encoding → UTF-8). Shift + that chord sets UTF-8-BOM. Does not collide with Find characters in range (Alt+F9) or Sort Lines Decimal Comma (Cmd+Alt+F9).",
                             )
                             .small()
                             .weak(),

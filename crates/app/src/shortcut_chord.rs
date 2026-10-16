@@ -703,6 +703,11 @@ pub const DEFAULT_CONVERT_EOL: &str = "Cmd+Alt+F12";
 /// (`Alt+Shift+F8`).
 pub const DEFAULT_CONVERT_EOL_MAC: &str = "Alt+Shift+F12";
 
+/// Default UTF-8 (no BOM) binding (Encoding → UTF-8).
+/// Shift flips to UTF-8-BOM. Uses Cmd+F9 so it stays near Find characters in range
+/// (`Alt+F9`) and Sort Lines Decimal Comma (`Cmd+Alt+F9`) without taking either chord.
+pub const DEFAULT_ENCODING_UTF8: &str = "Cmd+F9";
+
 /// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
 /// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
 /// Shift flips to Remove Empty Lines (Containing Blank Characters).
@@ -3360,6 +3365,33 @@ mod tests {
             ..Modifiers::default()
         };
         assert!(!c.matches(with_cmd, Key::G));
+    }
+
+    #[test]
+    fn parse_cmd_f9_default_encoding_utf8() {
+        let c = parse_chord(DEFAULT_ENCODING_UTF8).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F9);
+        assert_eq!(c.display(), "Cmd+F9");
+        let bom = c.flipped_shift();
+        assert!(bom.shift);
+        assert!(!bom.alt);
+        assert_eq!(bom.display(), "Cmd+Shift+F9");
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::F9));
+        assert!(!bom.matches(alt, Key::F9));
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt, Key::F9));
+        assert!(!bom.matches(cmd_alt, Key::F9));
     }
 
     #[test]

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.363] — 2026-10-16
+
+Encoding:
+
+- **UTF-8 / UTF-8-BOM** is remappable: Preferences → UTF-8 shortcut, or `shortcut_encoding_utf8` in `npp-rs/settings.json` (default `Cmd+F9`). Sets the active tab to UTF-8 without BOM (Encoding → UTF-8). Shift + that chord sets UTF-8-BOM. Does not collide with Find characters in range (`Alt+F9`) or Sort Lines Decimal Comma (`Cmd+Alt+F9`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.362] — 2026-10-16
 
 Window:

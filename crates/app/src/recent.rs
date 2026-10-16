@@ -328,6 +328,10 @@ fn default_shortcut_convert_eol_mac() -> String {
     crate::shortcut_chord::DEFAULT_CONVERT_EOL_MAC.into()
 }
 
+fn default_shortcut_encoding_utf8() -> String {
+    crate::shortcut_chord::DEFAULT_ENCODING_UTF8.into()
+}
+
 fn default_shortcut_remove_empty_lines() -> String {
     crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES.into()
 }
@@ -1431,6 +1435,9 @@ pub struct AppSettings {
     /// Convert EOL to Macintosh (CR) chord (`Alt+Shift+F12` default).
     #[serde(default = "default_shortcut_convert_eol_mac")]
     pub shortcut_convert_eol_mac: String,
+    /// UTF-8 (no BOM) chord (`Cmd+F9` default; Shift flips to UTF-8-BOM).
+    #[serde(default = "default_shortcut_encoding_utf8")]
+    pub shortcut_encoding_utf8: String,
     /// Remove Empty Lines chord (`Cmd+Alt+E` default; Shift flips to Containing Blank Characters).
     #[serde(default = "default_shortcut_remove_empty_lines")]
     pub shortcut_remove_empty_lines: String,
@@ -1689,6 +1696,7 @@ impl Default for AppSettings {
             shortcut_eol_to_space: default_shortcut_eol_to_space(),
             shortcut_convert_eol: default_shortcut_convert_eol(),
             shortcut_convert_eol_mac: default_shortcut_convert_eol_mac(),
+            shortcut_encoding_utf8: default_shortcut_encoding_utf8(),
             shortcut_remove_empty_lines: default_shortcut_remove_empty_lines(),
             shortcut_remove_dup_lines: default_shortcut_remove_dup_lines(),
             shortcut_insert_datetime: default_shortcut_insert_datetime(),
@@ -2214,6 +2222,7 @@ mod tests {
             shortcut_eol_to_space: "Ctrl+Alt+Shift+F11".into(),
             shortcut_convert_eol: "Ctrl+Alt+Shift+F12".into(),
             shortcut_convert_eol_mac: "Ctrl+Shift+F12".into(),
+            shortcut_encoding_utf8: "Ctrl+Shift+F9".into(),
             shortcut_remove_empty_lines: "Ctrl+Alt+Shift+E".into(),
             shortcut_remove_dup_lines: "Ctrl+Alt+Shift+D".into(),
             shortcut_insert_datetime: "Ctrl+F5".into(),
@@ -2416,6 +2425,7 @@ mod tests {
         assert_eq!(back.shortcut_eol_to_space, "Ctrl+Alt+Shift+F11");
         assert_eq!(back.shortcut_convert_eol, "Ctrl+Alt+Shift+F12");
         assert_eq!(back.shortcut_convert_eol_mac, "Ctrl+Shift+F12");
+        assert_eq!(back.shortcut_encoding_utf8, "Ctrl+Shift+F9");
         assert_eq!(back.shortcut_remove_empty_lines, "Ctrl+Alt+Shift+E");
         assert_eq!(back.shortcut_remove_dup_lines, "Ctrl+Alt+Shift+D");
         assert_eq!(back.shortcut_insert_datetime, "Ctrl+F5");
