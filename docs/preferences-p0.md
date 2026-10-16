@@ -183,6 +183,7 @@ New keys:
 | `shortcut_show_whitespace` | Show-whitespace toggle chord (`Alt+V` default; Shift flips to Show EOL) |
 | `shortcut_show_npc` | Show-NPC toggle chord (`Alt+N` default) |
 | `shortcut_show_line_numbers` | Show-line-numbers toggle chord (`Alt+L` default; View → Show Line Numbers) |
+| `shortcut_hide_lines` | Hide Lines chord (`Alt+Shift+L` default; View → Hide Lines) |
 | `shortcut_show_fold_margin` | Show-fold-margin toggle chord (`Alt+G` default; View → Show Fold Margin) |
 | `shortcut_sync_scroll` | Sync vertical scroll toggle chord (`Alt+Q` default; Shift flips to Sync H) |
 | `shortcut_zoom_sync` | Zoom Sync toggle chord (`Alt+Shift+Z` default; dual-view shared font size) |

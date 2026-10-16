@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.350] — 2026-10-16
+
+View:
+
+- **Hide Lines** is remappable: Preferences → Hide lines shortcut, or `shortcut_hide_lines` in `npp-rs/settings.json` (default `Alt+Shift+L`). Runs View → Hide Lines (current line, or the selected line range). Does not collide with Show Line Numbers (`Alt+L`), Go to line (`Cmd+L`), Delete line (`Cmd+Shift+L`), or Open Containing Folder (`Cmd+Alt+L`). Shortcut Mapper and About show the effective binding.
+
 ## [0.3.349] — 2026-10-16
 
 Format:

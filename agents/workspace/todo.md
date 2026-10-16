@@ -1,3 +1,4 @@
+009 keep: remappable Hide Lines (shortcut_hide_lines, Alt+Shift+L default, v0.3.350)
 009 keep: remappable Search on Internet (shortcut_search_internet, Alt+U default; Shift=Change Search Engine, v0.3.348)
 009 keep: remappable Redact Selection (shortcut_redact, Alt+J; Shift=●, v0.3.346)
 009 keep: remappable Random Case (shortcut_random_case, Cmd+Alt+0 default, v0.3.345)
