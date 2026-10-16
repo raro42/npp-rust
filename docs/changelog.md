@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.361] — 2026-10-16
+
+Window:
+
+- **Sort tabs by size** is remappable: Preferences → Sort tabs by size shortcut, or `shortcut_sort_tabs_size` in `npp-rs/settings.json` (default `Cmd+Alt+/`). Sorts open tabs by buffer size, smallest first (Window, Size Ascending). Shift + that chord sorts largest first. Does not collide with Sort tabs by type (`Cmd+Alt+.`) or Toggle comment (`Cmd+/`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.360] — 2026-10-16
 
 Window:

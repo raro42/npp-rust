@@ -511,6 +511,11 @@ pub const DEFAULT_SORT_TABS_PATH: &str = "Cmd+Alt+,";
 /// or Preferences (`Cmd+,`). Shift flips to Type Z to A.
 pub const DEFAULT_SORT_TABS_TYPE: &str = "Cmd+Alt+.";
 
+/// Default Sort tabs by size ascending binding (Window menu).
+/// Shift flips to descending. Uses `Cmd+Alt+/` so it stays near type (`.`)
+/// without colliding with Toggle comment (`Cmd+/`).
+pub const DEFAULT_SORT_TABS_SIZE: &str = "Cmd+Alt+/";
+
 /// Default Tab indent binding (editor Tab arm; inserts spaces at caret / multi-carets).
 pub const DEFAULT_TAB_INDENT: &str = "Tab";
 
@@ -2078,6 +2083,26 @@ mod tests {
         assert_ne!(c.display(), prefs.display());
         assert_ne!(desc.display(), path.flipped_shift().display());
         assert_eq!(parse_chord("Ctrl+period").unwrap().key, Key::Period);
+    }
+
+    #[test]
+    fn parse_cmd_alt_slash_default_sort_tabs_size() {
+        let c = parse_chord(DEFAULT_SORT_TABS_SIZE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Slash);
+        assert_eq!(c.display(), "Cmd+Alt+/");
+        let desc = c.flipped_shift();
+        assert!(desc.shift);
+        assert!(desc.alt);
+        assert_eq!(desc.display(), "Cmd+Alt+Shift+/");
+        let kind = parse_chord(DEFAULT_SORT_TABS_TYPE).unwrap();
+        let comment = parse_chord(DEFAULT_TOGGLE_COMMENT).unwrap();
+        assert_ne!(c.display(), kind.display());
+        assert_ne!(c.display(), comment.display());
+        assert_ne!(desc.display(), comment.flipped_shift().display());
+        assert_eq!(parse_chord("Ctrl+slash").unwrap().key, Key::Slash);
     }
 
     #[test]

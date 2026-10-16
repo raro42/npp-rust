@@ -1,3 +1,4 @@
+009 keep: remappable Sort tabs by size (shortcut_sort_tabs_size, Cmd+Alt+/ default; Shift=desc, v0.3.361)
 009 keep: remappable Sort tabs by type (shortcut_sort_tabs_type, Cmd+Alt+. default; Shift=desc, v0.3.360)
 009 keep: remappable Sort tabs by path (shortcut_sort_tabs_path, Cmd+Alt+, default; Shift=desc, v0.3.359)
 009 keep: remappable Sort tabs by name (shortcut_sort_tabs, Cmd+Alt+F1 default; Shift=desc, v0.3.358)
