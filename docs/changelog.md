@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.354] — 2026-10-16
+
+View:
+
+- **Summary / Document List** is remappable: Preferences → Summary shortcut, or `shortcut_summary` in `npp-rs/settings.json` (default `Alt+F1`). Opens View → Summary. Shift + that chord opens View → Document List. Does not collide with Find characters in range (`Alt+F9`) or Read-only for all documents (`F10`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.353] — 2026-10-16
 
 Edit:

@@ -4645,6 +4645,49 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_SETREADONLYFORALLDOCS");
             }
         }
+        // Remappable Summary (default Alt+F1; settings.shortcut_summary).
+        // Shift flips to Document List.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SUMMARY};
+            let summary_chord =
+                resolve_chord(&self.state.settings.shortcut_summary, DEFAULT_SUMMARY);
+            let summary_key_pressed = match summary_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_docs = summary_key_pressed
+                && summary_chord
+                    .flipped_shift()
+                    .matches(mods, summary_chord.key);
+            let remapped_summary =
+                summary_key_pressed && summary_chord.matches(mods, summary_chord.key);
+            if remapped_docs {
+                self.run_shortcut_cmd("IDM_VIEW_DOCLIST");
+            } else if remapped_summary {
+                self.run_shortcut_cmd("IDM_VIEW_SUMMARY");
+            }
+        }
         // Remappable Column Editor (default Cmd+Alt+C; settings.shortcut_column_editor).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_COLUMN_EDITOR};
@@ -9301,6 +9344,12 @@ impl EditorApp {
                 &s.shortcut_readonly_all,
                 crate::shortcut_chord::DEFAULT_READONLY_ALL,
             ),
+            "IDM_VIEW_SUMMARY" => {
+                primary(&s.shortcut_summary, crate::shortcut_chord::DEFAULT_SUMMARY)
+            }
+            "IDM_VIEW_DOCLIST" => {
+                shifted(&s.shortcut_summary, crate::shortcut_chord::DEFAULT_SUMMARY)
+            }
             "IDM_EDIT_COLUMNMODE" => primary(
                 &s.shortcut_column_editor,
                 crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -10592,6 +10641,15 @@ impl EditorApp {
             readonly_all_chord.display(),
             readonly_all_chord.flipped_shift().display()
         );
+        let summary_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_summary,
+            crate::shortcut_chord::DEFAULT_SUMMARY,
+        );
+        let summary_keys = format!(
+            "{} / {}",
+            summary_chord.display(),
+            summary_chord.flipped_shift().display()
+        );
         let column_editor_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_column_editor,
             crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -11166,7 +11224,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 160] = [
+        let rows: [(&str, &str); 161] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -11333,6 +11391,7 @@ impl EditorApp {
                 readonly_all_keys.as_str(),
                 "Read-only for all documents / clear all",
             ),
+            (summary_keys.as_str(), "Summary / Document List"),
             (column_editor_keys.as_str(), "Column Editor"),
             (
                 sort_lines_keys.as_str(),
@@ -14694,6 +14753,35 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: F10. Sets read-only on every open document (Edit → Set Read-Only for All Documents). Shift + that chord clears read-only on every open document. Does not collide with Toggle Read-Only (Cmd+Alt+R), RTL (Alt+R), Reload (Cmd+R), or Sort Lines by Length (Cmd+Alt+F10).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Summary shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(&mut self.state.settings.shortcut_summary)
+                                    .desired_width(120.0)
+                                    .hint_text("Alt+F1"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_summary.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_summary =
+                                        crate::shortcut_chord::DEFAULT_SUMMARY.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SUMMARY
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_summary = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+F1. Opens View → Summary. Shift + that chord opens View → Document List. Does not collide with Find characters in range (Alt+F9) or Read-only for all documents (F10).",
                             )
                             .small()
                             .weak(),

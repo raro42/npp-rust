@@ -591,6 +591,12 @@ pub const DEFAULT_TOGGLE_READONLY: &str = "Cmd+Alt+R";
 /// (`Cmd+R`), or Sort Lines by Length (`Cmd+Alt+F10` / `Cmd+Alt+Shift+F10`).
 pub const DEFAULT_READONLY_ALL: &str = "F10";
 
+/// Default Summary binding (View → Summary).
+/// Shift flips to Document List. Uses Alt+F1 so it does not collide with
+/// Find characters in range (`Alt+F9`), Read-only for all documents (`F10`),
+/// or Sort Lines by Length (`Cmd+Alt+F10`).
+pub const DEFAULT_SUMMARY: &str = "Alt+F1";
+
 /// Default Column Editor binding (Edit → Column Editor).
 /// Uses Cmd+Alt+C so it does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).
 pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
@@ -1314,6 +1320,7 @@ fn parse_key(lower: &str) -> Option<Key> {
         "x" => Some(Key::X),
         "y" => Some(Key::Y),
         "z" => Some(Key::Z),
+        "f1" => Some(Key::F1),
         "f2" => Some(Key::F2),
         "f3" => Some(Key::F3),
         "f4" => Some(Key::F4),
@@ -1386,6 +1393,7 @@ fn key_token(key: Key) -> &'static str {
         Key::X => "X",
         Key::Y => "Y",
         Key::Z => "Z",
+        Key::F1 => "F1",
         Key::F2 => "F2",
         Key::F3 => "F3",
         Key::F4 => "F4",
@@ -2928,6 +2936,33 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::R);
         assert_eq!(c.display(), "Cmd+Alt+R");
+    }
+
+    #[test]
+    fn parse_alt_f1_default_summary() {
+        let c = parse_chord(DEFAULT_SUMMARY).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F1);
+        assert_eq!(c.display(), "Alt+F1");
+        assert_eq!(c.flipped_shift().display(), "Alt+Shift+F1");
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(alt, Key::F1));
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt_shift, Key::F1));
+        assert!(c.flipped_shift().matches(alt_shift, Key::F1));
+        // Must not steal Find characters in range (Alt+F9) or read-only-all (F10).
+        assert!(!c.matches(alt, Key::F9));
+        assert!(!c.matches(Modifiers::default(), Key::F10));
+        assert!(!c.flipped_shift().matches(alt, Key::F9));
     }
 
     #[test]

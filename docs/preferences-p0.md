@@ -135,6 +135,7 @@ New keys:
 | `shortcut_begin_end_select` | Begin/End Select chord (`Cmd+Alt+B` default; Shift flips to column mode rect) |
 | `shortcut_toggle_readonly` | Toggle read-only chord (`Cmd+Alt+R` default; `IDM_EDIT_TOGGLEREADONLY`) |
 | `shortcut_readonly_all` | Read-only for all documents chord (`F10` default; Shift clears all; `IDM_EDIT_SETREADONLYFORALLDOCS`) |
+| `shortcut_summary` | Summary chord (`Alt+F1` default; Shift opens Document List; `IDM_VIEW_SUMMARY`) |
 | `shortcut_column_editor` | Column Editor chord (`Cmd+Alt+C` default; `IDM_EDIT_COLUMNMODE`) |
 | `shortcut_sort_lines` | Sort Lines Lexicographic Ascending chord (`Cmd+Alt+O` default; Shift flips to Descending) |
 | `shortcut_sort_lines_integer` | Sort Lines Integer Ascending chord (`Cmd+Alt+F5` default; Shift flips to Descending) |
