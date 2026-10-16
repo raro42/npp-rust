@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.358] — 2026-10-16
+
+Window:
+
+- **Sort tabs by name** is remappable: Preferences → Sort tabs by name shortcut, or `shortcut_sort_tabs` in `npp-rs/settings.json` (default `Cmd+Alt+F1`). Sorts open tabs A to Z (Window, Name A to Z). Shift + that chord sorts Z to A. Does not collide with Load Session (`Cmd+F1`) or Summary (`Alt+F1`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.357] — 2026-10-16
 
 File:

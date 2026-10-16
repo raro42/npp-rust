@@ -496,6 +496,11 @@ pub const DEFAULT_EXIT: &str = "Cmd+Q";
 /// or Open (`Cmd+O`). Shift flips to Save Session (`Cmd+Shift+F1`).
 pub const DEFAULT_LOAD_SESSION: &str = "Cmd+F1";
 
+/// Default sort-tabs-by-name binding (Window → Sort by name ascending).
+/// Uses Cmd+Alt+F1 so it does not collide with Load Session (`Cmd+F1`) or
+/// Summary (`Alt+F1`). Shift flips to descending.
+pub const DEFAULT_SORT_TABS: &str = "Cmd+Alt+F1";
+
 /// Default Tab indent binding (editor Tab arm; inserts spaces at caret / multi-carets).
 pub const DEFAULT_TAB_INDENT: &str = "Tab";
 
@@ -2006,6 +2011,22 @@ mod tests {
         let save = c.flipped_shift();
         assert!(save.shift);
         assert_eq!(save.display(), "Cmd+Shift+F1");
+    }
+
+    #[test]
+    fn parse_cmd_alt_f1_default_sort_tabs() {
+        let c = parse_chord(DEFAULT_SORT_TABS).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F1);
+        assert_eq!(c.display(), "Cmd+Alt+F1");
+        let desc = c.flipped_shift();
+        assert!(desc.shift);
+        assert!(desc.alt);
+        assert_eq!(desc.display(), "Cmd+Alt+Shift+F1");
+        let load = parse_chord(DEFAULT_LOAD_SESSION).unwrap();
+        assert_ne!(c.display(), load.display());
     }
 
     #[test]

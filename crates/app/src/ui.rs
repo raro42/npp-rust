@@ -2544,6 +2544,47 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_FILE_LOADSESSION");
             }
         }
+        // Remappable sort tabs by name (default Cmd+Alt+F1; settings.shortcut_sort_tabs).
+        // Shift flips to descending.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SORT_TABS};
+            let sort_tabs_chord =
+                resolve_chord(&self.state.settings.shortcut_sort_tabs, DEFAULT_SORT_TABS);
+            let sort_tabs_key_pressed = match sort_tabs_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if sort_tabs_key_pressed
+                && sort_tabs_chord
+                    .flipped_shift()
+                    .matches(mods, sort_tabs_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_WINDOW_SORT_FN_DSC");
+            } else if sort_tabs_key_pressed && sort_tabs_chord.matches(mods, sort_tabs_chord.key) {
+                self.run_shortcut_cmd("IDM_WINDOW_SORT_FN_ASC");
+            }
+        }
         let mut opened_replace = false;
         // Remappable replace alt (default Cmd+Shift+F; settings.shortcut_replace_alt)
         // and remappable replace (default Cmd+H; settings.shortcut_replace).
@@ -9212,6 +9253,14 @@ impl EditorApp {
                 &s.shortcut_load_session,
                 crate::shortcut_chord::DEFAULT_LOAD_SESSION,
             ),
+            "IDM_WINDOW_SORT_FN_ASC" => primary(
+                &s.shortcut_sort_tabs,
+                crate::shortcut_chord::DEFAULT_SORT_TABS,
+            ),
+            "IDM_WINDOW_SORT_FN_DSC" => shifted(
+                &s.shortcut_sort_tabs,
+                crate::shortcut_chord::DEFAULT_SORT_TABS,
+            ),
             "IDM_FILE_CLOSE" => primary(
                 &s.shortcut_close_tab,
                 crate::shortcut_chord::DEFAULT_CLOSE_TAB,
@@ -11112,6 +11161,15 @@ impl EditorApp {
             load_session_chord.display(),
             load_session_chord.flipped_shift().display()
         );
+        let sort_tabs_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_sort_tabs,
+            crate::shortcut_chord::DEFAULT_SORT_TABS,
+        );
+        let sort_tabs_keys = format!(
+            "{} / {}",
+            sort_tabs_chord.display(),
+            sort_tabs_chord.flipped_shift().display()
+        );
         let find_open_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_find,
             crate::shortcut_chord::DEFAULT_FIND,
@@ -11378,7 +11436,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 164] = [
+        let rows: [(&str, &str); 165] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -11389,6 +11447,7 @@ impl EditorApp {
             (print_keys.as_str(), "Print"),
             (exit_keys.as_str(), "Exit"),
             (load_session_keys.as_str(), "Load Session / Save Session"),
+            (sort_tabs_keys.as_str(), "Sort tabs by name A to Z / Z to A"),
             (find_open_keys.as_str(), "Find"),
             (find_in_files_keys.as_str(), "Find in Files"),
             (replace_row.as_str(), "Replace"),
@@ -17636,7 +17695,38 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: Cmd+F1, Ctrl+F1. Loads the saved session (File → Load Session). Shift + that chord saves the session. Does not collide with Summary (Alt+F1) or Find (Cmd+F).",
+                                "Example: Cmd+F1, Ctrl+F1. Loads the saved session (File → Load Session). Shift + that chord saves the session. Does not collide with Summary (Alt+F1), Sort tabs by name (Cmd+Alt+F1), or Find (Cmd+F).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Sort tabs by name shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_sort_tabs,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+F1"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_sort_tabs.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_sort_tabs =
+                                        crate::shortcut_chord::DEFAULT_SORT_TABS.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SORT_TABS
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_sort_tabs = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+F1, Ctrl+Alt+F1. Sorts open tabs by name A to Z (Window → Name A to Z). Shift + that chord sorts Z to A. Does not collide with Load Session (Cmd+F1) or Summary (Alt+F1).",
                             )
                             .small()
                             .weak(),

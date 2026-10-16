@@ -548,6 +548,10 @@ fn default_shortcut_load_session() -> String {
     crate::shortcut_chord::DEFAULT_LOAD_SESSION.into()
 }
 
+fn default_shortcut_sort_tabs() -> String {
+    crate::shortcut_chord::DEFAULT_SORT_TABS.into()
+}
+
 fn default_shortcut_tab_indent() -> String {
     crate::shortcut_chord::DEFAULT_TAB_INDENT.into()
 }
@@ -1135,6 +1139,9 @@ pub struct AppSettings {
     /// Load-session chord (`Cmd+F1` default; Shift flips to Save Session).
     #[serde(default = "default_shortcut_load_session")]
     pub shortcut_load_session: String,
+    /// Sort tabs by name chord (`Cmd+Alt+F1` default; Shift flips to descending).
+    #[serde(default = "default_shortcut_sort_tabs")]
+    pub shortcut_sort_tabs: String,
     /// Tab indent chord (`Tab` default; inserts spaces at caret / multi-carets).
     #[serde(default = "default_shortcut_tab_indent")]
     pub shortcut_tab_indent: String,
@@ -1566,6 +1573,7 @@ impl Default for AppSettings {
             shortcut_print: default_shortcut_print(),
             shortcut_exit: default_shortcut_exit(),
             shortcut_load_session: default_shortcut_load_session(),
+            shortcut_sort_tabs: default_shortcut_sort_tabs(),
             shortcut_tab_indent: default_shortcut_tab_indent(),
             shortcut_shift_tab_outdent: default_shortcut_shift_tab_outdent(),
             shortcut_fold_all: default_shortcut_fold_all(),
@@ -2086,6 +2094,7 @@ mod tests {
             shortcut_print: "Ctrl+Alt+P".into(),
             shortcut_exit: "Ctrl+Alt+Q".into(),
             shortcut_load_session: "Ctrl+Alt+F1".into(),
+            shortcut_sort_tabs: "Alt+Shift+F1".into(),
             shortcut_tab_indent: "Ctrl+I".into(),
             shortcut_shift_tab_outdent: "Ctrl+Shift+Tab".into(),
             shortcut_fold_all: "Ctrl+Alt+0".into(),
@@ -2280,6 +2289,7 @@ mod tests {
         assert_eq!(back.shortcut_print, "Ctrl+Alt+P");
         assert_eq!(back.shortcut_exit, "Ctrl+Alt+Q");
         assert_eq!(back.shortcut_load_session, "Ctrl+Alt+F1");
+        assert_eq!(back.shortcut_sort_tabs, "Alt+Shift+F1");
         assert_eq!(back.shortcut_tab_indent, "Ctrl+I");
         assert_eq!(back.shortcut_shift_tab_outdent, "Ctrl+Shift+Tab");
         assert_eq!(back.shortcut_fold_all, "Ctrl+Alt+0");
