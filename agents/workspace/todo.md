@@ -518,3 +518,5 @@
 009 keep: remappable Convert EOL Unix/Windows (shortcut_convert_eol, Cmd+Alt+F12 default; Shift=Windows, v0.3.340)
 
 009 keep: remappable Sort Lines Reverse / Randomly (shortcut_sort_lines_reverse, Cmd+Alt+6 default; Shift=randomly, v0.3.341)
+
+009 keep: remappable Sort Lines Locale Asc/Desc (shortcut_sort_lines_locale, Cmd+Alt+7 default; Shift=desc, v0.3.342)

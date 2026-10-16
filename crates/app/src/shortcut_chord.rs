@@ -582,6 +582,12 @@ pub const DEFAULT_SORT_LINES_LENGTH: &str = "Cmd+Alt+F10";
 /// (`Alt+1`…`8`).
 pub const DEFAULT_SORT_LINES_REVERSE: &str = "Cmd+Alt+6";
 
+/// Default Sort Lines Locale Ascending binding (Edit → Line Operations).
+/// Shift flips to Locale Descending. Uses Cmd+Alt+7 so it stays near Reverse sort
+/// (`Cmd+Alt+6`) without colliding with Next Style (`Cmd+Alt+1`…`5`) or Fold Level
+/// (`Alt+1`…`8`).
+pub const DEFAULT_SORT_LINES_LOCALE: &str = "Cmd+Alt+7";
+
 /// Default EOL to Space binding (Edit → Blank Operations → EOL to Space).
 /// Shift flips to Trim Both and EOL to Space (`IDM_EDIT_TRIMALL`). Uses Cmd+Alt+F11 so it
 /// stays near Sort Lines by Length (`Cmd+Alt+F10`) and Trim Trailing (`Cmd+Alt+T`) without
@@ -2982,6 +2988,19 @@ mod tests {
         let randomly = c.flipped_shift();
         assert!(randomly.shift);
         assert_eq!(randomly.display(), "Cmd+Alt+Shift+6");
+    }
+
+    #[test]
+    fn parse_cmd_alt_7_default_sort_lines_locale() {
+        let c = parse_chord(DEFAULT_SORT_LINES_LOCALE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Num7);
+        assert_eq!(c.display(), "Cmd+Alt+7");
+        let descending = c.flipped_shift();
+        assert!(descending.shift);
+        assert_eq!(descending.display(), "Cmd+Alt+Shift+7");
     }
 
     #[test]

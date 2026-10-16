@@ -280,6 +280,10 @@ fn default_shortcut_sort_lines_reverse() -> String {
     crate::shortcut_chord::DEFAULT_SORT_LINES_REVERSE.into()
 }
 
+fn default_shortcut_sort_lines_locale() -> String {
+    crate::shortcut_chord::DEFAULT_SORT_LINES_LOCALE.into()
+}
+
 fn default_shortcut_eol_to_space() -> String {
     crate::shortcut_chord::DEFAULT_EOL_TO_SPACE.into()
 }
@@ -1281,6 +1285,9 @@ pub struct AppSettings {
     /// Sort Lines Reverse Order chord (`Cmd+Alt+6` default; Shift flips to Sort Lines Randomly).
     #[serde(default = "default_shortcut_sort_lines_reverse")]
     pub shortcut_sort_lines_reverse: String,
+    /// Sort Lines Locale Ascending chord (`Cmd+Alt+7` default; Shift flips to Descending).
+    #[serde(default = "default_shortcut_sort_lines_locale")]
+    pub shortcut_sort_lines_locale: String,
     /// EOL to Space chord (`Cmd+Alt+F11` default; Shift flips to Trim Both and EOL to Space).
     #[serde(default = "default_shortcut_eol_to_space")]
     pub shortcut_eol_to_space: String,
@@ -1522,6 +1529,7 @@ impl Default for AppSettings {
             shortcut_sort_lines_decimal_comma: default_shortcut_sort_lines_decimal_comma(),
             shortcut_sort_lines_length: default_shortcut_sort_lines_length(),
             shortcut_sort_lines_reverse: default_shortcut_sort_lines_reverse(),
+            shortcut_sort_lines_locale: default_shortcut_sort_lines_locale(),
             shortcut_eol_to_space: default_shortcut_eol_to_space(),
             shortcut_convert_eol: default_shortcut_convert_eol(),
             shortcut_remove_empty_lines: default_shortcut_remove_empty_lines(),
@@ -2018,6 +2026,7 @@ mod tests {
             shortcut_sort_lines_decimal_comma: "Ctrl+Alt+Shift+F9".into(),
             shortcut_sort_lines_length: "Ctrl+Alt+Shift+F10".into(),
             shortcut_sort_lines_reverse: "Ctrl+Alt+Shift+6".into(),
+            shortcut_sort_lines_locale: "Ctrl+Alt+Shift+7".into(),
             shortcut_eol_to_space: "Ctrl+Alt+Shift+F11".into(),
             shortcut_convert_eol: "Ctrl+Alt+Shift+F12".into(),
             shortcut_remove_empty_lines: "Ctrl+Alt+Shift+E".into(),
@@ -2200,6 +2209,7 @@ mod tests {
         assert_eq!(back.shortcut_sort_lines_decimal_comma, "Ctrl+Alt+Shift+F9");
         assert_eq!(back.shortcut_sort_lines_length, "Ctrl+Alt+Shift+F10");
         assert_eq!(back.shortcut_sort_lines_reverse, "Ctrl+Alt+Shift+6");
+        assert_eq!(back.shortcut_sort_lines_locale, "Ctrl+Alt+Shift+7");
         assert_eq!(back.shortcut_eol_to_space, "Ctrl+Alt+Shift+F11");
         assert_eq!(back.shortcut_convert_eol, "Ctrl+Alt+Shift+F12");
         assert_eq!(back.shortcut_remove_empty_lines, "Ctrl+Alt+Shift+E");

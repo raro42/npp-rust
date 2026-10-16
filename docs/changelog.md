@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.342] — 2026-10-16
+
+Edit:
+
+- **Sort Lines Locale Asc / Desc** is remappable: Preferences → Sort Lines Locale shortcut, or `shortcut_sort_lines_locale` in `npp-rs/settings.json` (default `Cmd+Alt+7`). Runs Edit → Line Operations → Sort Lines Locale Ascending. **Shift** flips to descending. Does not collide with Sort Lines Reverse (`Cmd+Alt+6`), Next Style (`Cmd+Alt+1`…`5`), or Fold Level (`Alt+1`…`8`). Shortcut Mapper and About show the effective bindings.
+
 ## [0.3.341] — 2026-10-16
 
 Edit:
