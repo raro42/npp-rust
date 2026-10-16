@@ -41,6 +41,8 @@ Appended chunks keep valid UTF-8. Invalid bytes map via Windows-1252. Status sho
 
 Convert-to menu items set the same per-tab save encoding.
 
+Shortcuts (remappable in Preferences or `npp-rs/settings.json`): UTF-8 `Cmd+F9` (Shift = UTF-8-BOM), UTF-16 LE `Cmd+F10` (Shift = UTF-16 BE), ANSI `Cmd+F11`.
+
 ## Code
 
 - `fs::decode_bytes` / `fs::count_windows_1252_unmapped` — `crates/fs`

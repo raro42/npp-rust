@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.365] — 2026-10-17
+
+Encoding:
+
+- **ANSI** is remappable: Preferences → ANSI shortcut, or `shortcut_encoding_ansi` in `npp-rs/settings.json` (default `Cmd+F11`). Sets the active tab to ANSI (Encoding → ANSI; save writes Windows-1252). Does not collide with Fullscreen (`F11`) or EOL to Space (`Cmd+Alt+F11`). Shortcut Mapper and About show the binding.
+
 ## [0.3.364] — 2026-10-17
 
 Encoding:

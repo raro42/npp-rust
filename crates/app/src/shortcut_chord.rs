@@ -713,6 +713,11 @@ pub const DEFAULT_ENCODING_UTF8: &str = "Cmd+F9";
 /// (`F10` / Shift+F10) and Sort Lines by Length (`Cmd+Alt+F10` / `Cmd+Alt+Shift+F10`).
 pub const DEFAULT_ENCODING_UTF16: &str = "Cmd+F10";
 
+/// Default ANSI (Windows-1252) binding (Encoding → ANSI).
+/// Uses Cmd+F11 so it stays next to UTF-8 (`Cmd+F9`) and UTF-16 (`Cmd+F10`)
+/// without taking Fullscreen (`F11`) or EOL to Space (`Cmd+Alt+F11`).
+pub const DEFAULT_ENCODING_ANSI: &str = "Cmd+F11";
+
 /// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
 /// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
 /// Shift flips to Remove Empty Lines (Containing Blank Characters).
@@ -3427,6 +3432,35 @@ mod tests {
         };
         assert!(!c.matches(cmd_alt, Key::F10));
         assert!(!be.matches(cmd_alt, Key::F10));
+    }
+
+    #[test]
+    fn parse_cmd_f11_default_encoding_ansi() {
+        let c = parse_chord(DEFAULT_ENCODING_ANSI).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F11);
+        assert_eq!(c.display(), "Cmd+F11");
+        let bare = Modifiers::default();
+        assert!(!c.matches(bare, Key::F11));
+        let shift_only = Modifiers {
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(shift_only, Key::F11));
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_shift, Key::F11));
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt, Key::F11));
     }
 
     #[test]
