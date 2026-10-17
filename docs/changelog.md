@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.395] — 2026-10-18
+
+Edit:
+
+- **Multi-select All (Match Case)** is remappable: Preferences → Multi-select all match case shortcut, or `shortcut_multi_select_all_case` in `npp-rs/settings.json` (default `Cmd+Shift+A`). Selects every case-sensitive match of the current word or selection as multi-carets (Edit → Multi-select All → Match Case Only). Shift is part of the chord so it does not steal Select All (`Cmd+A`), Show All Characters (`Alt+A`), or Multi-select all / whole word (`Cmd+Alt+A` / `Cmd+Alt+Shift+A`). Shortcut Mapper and About show the binding.
+
 ## [0.3.394] — 2026-10-18
 
 Edit:

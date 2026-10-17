@@ -276,6 +276,10 @@ fn default_shortcut_multi_select_all() -> String {
     crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL.into()
 }
 
+fn default_shortcut_multi_select_all_case() -> String {
+    crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL_CASE.into()
+}
+
 fn default_shortcut_multi_select_undo() -> String {
     crate::shortcut_chord::DEFAULT_MULTI_SELECT_UNDO.into()
 }
@@ -1532,6 +1536,9 @@ pub struct AppSettings {
     /// Multi-select all chord (`Cmd+Alt+A` default; Shift flips to whole-word).
     #[serde(default = "default_shortcut_multi_select_all")]
     pub shortcut_multi_select_all: String,
+    /// Multi-select all match-case chord (`Cmd+Shift+A` default).
+    #[serde(default = "default_shortcut_multi_select_all_case")]
+    pub shortcut_multi_select_all_case: String,
     /// Undo the latest added multi-select (`Cmd+Alt+Backspace` default).
     #[serde(default = "default_shortcut_multi_select_undo")]
     pub shortcut_multi_select_undo: String,
@@ -1904,6 +1911,7 @@ impl Default for AppSettings {
             shortcut_multi_select_next_word: default_shortcut_multi_select_next_word(),
             shortcut_multi_select_next_case_word: default_shortcut_multi_select_next_case_word(),
             shortcut_multi_select_all: default_shortcut_multi_select_all(),
+            shortcut_multi_select_all_case: default_shortcut_multi_select_all_case(),
             shortcut_multi_select_undo: default_shortcut_multi_select_undo(),
             shortcut_begin_end_select: default_shortcut_begin_end_select(),
             shortcut_toggle_readonly: default_shortcut_toggle_readonly(),
@@ -2461,6 +2469,7 @@ mod tests {
             shortcut_multi_select_next_word: "Ctrl+Shift+E".into(),
             shortcut_multi_select_next_case_word: "Alt+Shift+E".into(),
             shortcut_multi_select_all: "Ctrl+Alt+Shift+A".into(),
+            shortcut_multi_select_all_case: "Ctrl+Shift+E".into(),
             shortcut_multi_select_undo: "Ctrl+Alt+Backspace".into(),
             shortcut_begin_end_select: "Ctrl+Alt+Shift+B".into(),
             shortcut_toggle_readonly: "Ctrl+Alt+Shift+R".into(),
@@ -2691,6 +2700,7 @@ mod tests {
         assert_eq!(back.shortcut_multi_select_next_word, "Ctrl+Shift+E");
         assert_eq!(back.shortcut_multi_select_next_case_word, "Alt+Shift+E");
         assert_eq!(back.shortcut_multi_select_all, "Ctrl+Alt+Shift+A");
+        assert_eq!(back.shortcut_multi_select_all_case, "Ctrl+Shift+E");
         assert_eq!(back.shortcut_multi_select_undo, "Ctrl+Alt+Backspace");
         assert_eq!(back.shortcut_begin_end_select, "Ctrl+Alt+Shift+B");
         assert_eq!(back.shortcut_toggle_readonly, "Ctrl+Alt+Shift+R");

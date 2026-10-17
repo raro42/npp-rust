@@ -5202,6 +5202,47 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_MULTISELECTALL");
             }
         }
+        // Remappable multi-select all match case (default Cmd+Shift+A;
+        // settings.shortcut_multi_select_all_case). Shift is part of the chord so it
+        // does not steal Select All (Cmd+A), Show All Characters (Alt+A), or
+        // Multi-select all / whole word (Cmd+Alt+A).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_MULTI_SELECT_ALL_CASE};
+            let multi_all_case_chord = resolve_chord(
+                &self.state.settings.shortcut_multi_select_all_case,
+                DEFAULT_MULTI_SELECT_ALL_CASE,
+            );
+            let multi_all_case_key_pressed = match multi_all_case_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if multi_all_case_key_pressed
+                && multi_all_case_chord.matches(mods, multi_all_case_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_EDIT_MULTISELECTALLMATCHCASE");
+            }
+        }
         // Remappable multi-select undo (default Cmd+Alt+Backspace; settings.shortcut_multi_select_undo).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_MULTI_SELECT_UNDO};
@@ -11035,6 +11076,10 @@ impl EditorApp {
                 &s.shortcut_multi_select_all,
                 crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL,
             ),
+            "IDM_EDIT_MULTISELECTALLMATCHCASE" => primary(
+                &s.shortcut_multi_select_all_case,
+                crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL_CASE,
+            ),
             "IDM_EDIT_MULTISELECTUNDO" => primary(
                 &s.shortcut_multi_select_undo,
                 crate::shortcut_chord::DEFAULT_MULTI_SELECT_UNDO,
@@ -12454,6 +12499,11 @@ impl EditorApp {
             multi_select_all_chord.display(),
             multi_select_all_chord.flipped_shift().display()
         );
+        let multi_select_all_case_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_multi_select_all_case,
+            crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL_CASE,
+        )
+        .display();
         let multi_select_undo_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_multi_select_undo,
             crate::shortcut_chord::DEFAULT_MULTI_SELECT_UNDO,
@@ -13306,7 +13356,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 201] = [
+        let rows: [(&str, &str); 202] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13506,6 +13556,10 @@ impl EditorApp {
             (
                 multi_select_all_keys.as_str(),
                 "Multi-select all / all whole word",
+            ),
+            (
+                multi_select_all_case_keys.as_str(),
+                "Multi-select all match case",
             ),
             (
                 multi_select_undo_keys.as_str(),
@@ -17025,6 +17079,43 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+A, Ctrl+Alt+A. Selects every match of the current word/selection as multi-carets. Shift + that chord uses whole-word matching.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Multi-select all match case shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_multi_select_all_case,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Shift+A"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_multi_select_all_case
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_multi_select_all_case =
+                                        crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL_CASE
+                                            .into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL_CASE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_multi_select_all_case = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+A. Selects every case-sensitive match as multi-carets. Shift is part of the chord so it does not steal Select All (Cmd+A), Show All Characters (Alt+A), or Multi-select all (Cmd+Alt+A).",
                             )
                             .small()
                             .weak(),

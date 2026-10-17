@@ -136,6 +136,7 @@ New keys:
 | `shortcut_search_internet` | Search on Internet chord (`Alt+U` default; Shift flips to Change Search Engine) |
 | `shortcut_blank_line` | Blank line below chord (`Cmd+Enter` default; Shift flips to blank line above) |
 | `shortcut_multi_select_all` | Multi-select all chord (`Cmd+Alt+A` default; Shift flips to whole-word) |
+| `shortcut_multi_select_all_case` | Multi-select all match-case chord (`Cmd+Shift+A` default; Shift is part of the chord) |
 | `shortcut_begin_end_select` | Begin/End Select chord (`Cmd+Alt+B` default; Shift flips to column mode rect) |
 | `shortcut_toggle_readonly` | Toggle read-only chord (`Cmd+Alt+R` default; `IDM_EDIT_TOGGLEREADONLY`) |
 | `shortcut_readonly_all` | Read-only for all documents chord (`F10` default; Shift clears all; `IDM_EDIT_SETREADONLYFORALLDOCS`) |
