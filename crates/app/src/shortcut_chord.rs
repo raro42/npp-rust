@@ -662,6 +662,9 @@ pub const DEFAULT_BLANK_LINE: &str = "Cmd+Enter";
 /// Default multi-select-next binding (Edit → Multi-select Next).
 /// Shift flips to Skip Current / Go to Next Multi-select.
 pub const DEFAULT_MULTI_SELECT_NEXT: &str = "Cmd+Alt+N";
+/// Multi-select next, match case (`Alt+Shift+N`). Shift is part of the chord so it
+/// does not steal Show NPC (`Alt+N`) or Multi-select next / skip (`Cmd+Alt+N`).
+pub const DEFAULT_MULTI_SELECT_NEXT_CASE: &str = "Alt+Shift+N";
 
 /// Default multi-select-all binding (Edit → Multi-select All).
 /// Shift flips to Multi-select All (Whole Word).
@@ -3417,6 +3420,34 @@ mod tests {
         assert_eq!(c.key, Key::N);
         assert_eq!(c.display(), "Cmd+Alt+N");
         assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+N");
+    }
+
+    #[test]
+    fn parse_alt_shift_n_default_multi_select_next_case() {
+        let c = parse_chord(DEFAULT_MULTI_SELECT_NEXT_CASE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::N);
+        assert_eq!(c.display(), "Alt+Shift+N");
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(alt_shift, Key::N));
+        // Must not steal Show NPC (Alt+N) or Multi-select next (Cmd+Alt+N).
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::N));
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt, Key::N));
     }
 
     #[test]

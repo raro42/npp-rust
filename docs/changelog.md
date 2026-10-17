@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.392] — 2026-10-18
+
+Edit:
+
+- **Multi-select Next (Match Case)** is remappable: Preferences → Multi-select next match case shortcut, or `shortcut_multi_select_next_case` in `npp-rs/settings.json` (default `Alt+Shift+N`). Adds the next case-sensitive match as a caret (Edit → Multi-select Next → Match Case Only). Shift is part of the chord so it does not steal Show NPC (`Alt+N`) or Multi-select next / skip (`Cmd+Alt+N` / `Cmd+Alt+Shift+N`). Shortcut Mapper and About show the binding.
+
 ## [0.3.391] — 2026-10-18
 
 Edit:

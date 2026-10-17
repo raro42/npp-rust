@@ -260,6 +260,10 @@ fn default_shortcut_multi_select_next() -> String {
     crate::shortcut_chord::DEFAULT_MULTI_SELECT_NEXT.into()
 }
 
+fn default_shortcut_multi_select_next_case() -> String {
+    crate::shortcut_chord::DEFAULT_MULTI_SELECT_NEXT_CASE.into()
+}
+
 fn default_shortcut_multi_select_all() -> String {
     crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL.into()
 }
@@ -1508,6 +1512,9 @@ pub struct AppSettings {
     /// Multi-select next chord (`Cmd+Alt+N` default; Shift flips to skip current / go to next).
     #[serde(default = "default_shortcut_multi_select_next")]
     pub shortcut_multi_select_next: String,
+    /// Multi-select next match-case chord (`Alt+Shift+N` default).
+    #[serde(default = "default_shortcut_multi_select_next_case")]
+    pub shortcut_multi_select_next_case: String,
     /// Multi-select all chord (`Cmd+Alt+A` default; Shift flips to whole-word).
     #[serde(default = "default_shortcut_multi_select_all")]
     pub shortcut_multi_select_all: String,
@@ -1879,6 +1886,7 @@ impl Default for AppSettings {
             shortcut_search_internet: default_shortcut_search_internet(),
             shortcut_blank_line: default_shortcut_blank_line(),
             shortcut_multi_select_next: default_shortcut_multi_select_next(),
+            shortcut_multi_select_next_case: default_shortcut_multi_select_next_case(),
             shortcut_multi_select_all: default_shortcut_multi_select_all(),
             shortcut_multi_select_undo: default_shortcut_multi_select_undo(),
             shortcut_begin_end_select: default_shortcut_begin_end_select(),
@@ -2433,6 +2441,7 @@ mod tests {
             shortcut_search_internet: "Ctrl+Alt+Shift+U".into(),
             shortcut_blank_line: "Ctrl+Alt+Enter".into(),
             shortcut_multi_select_next: "Ctrl+Alt+Shift+N".into(),
+            shortcut_multi_select_next_case: "Ctrl+Alt+Shift+E".into(),
             shortcut_multi_select_all: "Ctrl+Alt+Shift+A".into(),
             shortcut_multi_select_undo: "Ctrl+Alt+Backspace".into(),
             shortcut_begin_end_select: "Ctrl+Alt+Shift+B".into(),
@@ -2660,6 +2669,7 @@ mod tests {
         assert_eq!(back.shortcut_search_internet, "Ctrl+Alt+Shift+U");
         assert_eq!(back.shortcut_blank_line, "Ctrl+Alt+Enter");
         assert_eq!(back.shortcut_multi_select_next, "Ctrl+Alt+Shift+N");
+        assert_eq!(back.shortcut_multi_select_next_case, "Ctrl+Alt+Shift+E");
         assert_eq!(back.shortcut_multi_select_all, "Ctrl+Alt+Shift+A");
         assert_eq!(back.shortcut_multi_select_undo, "Ctrl+Alt+Backspace");
         assert_eq!(back.shortcut_begin_end_select, "Ctrl+Alt+Shift+B");

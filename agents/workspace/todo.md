@@ -1,3 +1,4 @@
+009 keep: remappable Multi-select Next match case (shortcut_multi_select_next_case, Alt+Shift+N default, v0.3.392)
 009 keep: remappable Block Comment / Block Uncomment (shortcut_stream_comment, Alt+, default; Shift=uncomment, v0.3.391)
 009 keep: remappable Single Line Comment / Uncomment (shortcut_line_comment, Alt+/ default; Shift=uncomment, v0.3.390)
 009 keep: remappable Run a Macro Multiple Times (shortcut_macro_repeat, Cmd+Alt+Shift+K default, v0.3.389)
