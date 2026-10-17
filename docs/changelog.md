@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.381] — 2026-10-17
+
+Edit:
+
+- **Function Parameters Next / Previous** is remappable: Preferences → Function parameters shortcut, or `shortcut_calltip_nav` in `npp-rs/settings.json` (default `Alt+Down`). Steps the in-file function call tip. Opposite Up is the previous hint. Letter remaps use Shift for previous. Does not collide with Move Line (`Cmd+Shift+Up`/`Down`), plain arrow motion, or rect select (`Alt+Shift+arrows`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.380] — 2026-10-17
 
 File:

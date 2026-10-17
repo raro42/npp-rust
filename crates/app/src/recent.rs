@@ -224,6 +224,10 @@ fn default_shortcut_autocomplete_path() -> String {
     crate::shortcut_chord::DEFAULT_AUTOCOMPLETE_PATH.into()
 }
 
+fn default_shortcut_calltip_nav() -> String {
+    crate::shortcut_chord::DEFAULT_CALLTIP_NAV.into()
+}
+
 fn default_shortcut_join_lines() -> String {
     crate::shortcut_chord::DEFAULT_JOIN_LINES.into()
 }
@@ -1422,6 +1426,9 @@ pub struct AppSettings {
     /// Path autocomplete chord (`Cmd+Alt+Space` default; `IDM_EDIT_AUTOCOMPLETE_PATH`).
     #[serde(default = "default_shortcut_autocomplete_path")]
     pub shortcut_autocomplete_path: String,
+    /// Next function-parameter hint (`Alt+Down` default; opposite Up = previous).
+    #[serde(default = "default_shortcut_calltip_nav")]
+    pub shortcut_calltip_nav: String,
     /// Join Lines chord (`Cmd+J` default; Shift flips to Split Lines).
     #[serde(default = "default_shortcut_join_lines")]
     pub shortcut_join_lines: String,
@@ -1788,6 +1795,7 @@ impl Default for AppSettings {
             shortcut_lowercase: default_shortcut_lowercase(),
             shortcut_autocomplete: default_shortcut_autocomplete(),
             shortcut_autocomplete_path: default_shortcut_autocomplete_path(),
+            shortcut_calltip_nav: default_shortcut_calltip_nav(),
             shortcut_join_lines: default_shortcut_join_lines(),
             shortcut_invert_case: default_shortcut_invert_case(),
             shortcut_sentence_case: default_shortcut_sentence_case(),
@@ -2331,6 +2339,7 @@ mod tests {
             shortcut_lowercase: "Ctrl+U".into(),
             shortcut_autocomplete: "Ctrl+Alt+Space".into(),
             shortcut_autocomplete_path: "Alt+Space".into(),
+            shortcut_calltip_nav: "Ctrl+Alt+Down".into(),
             shortcut_join_lines: "Ctrl+J".into(),
             shortcut_invert_case: "Ctrl+Alt+Shift+U".into(),
             shortcut_sentence_case: "Ctrl+Alt+Shift+8".into(),
@@ -2608,6 +2617,7 @@ mod tests {
         assert_eq!(back.shortcut_open_viewer, "Ctrl+Alt+Shift+O");
         assert_eq!(back.shortcut_about, "Ctrl+Alt+Shift+F1");
         assert_eq!(back.shortcut_delete_file, "Ctrl+Alt+Shift+Delete");
+        assert_eq!(back.shortcut_calltip_nav, "Ctrl+Alt+Down");
     }
 
     #[test]

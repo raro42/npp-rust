@@ -587,6 +587,13 @@ pub const DEFAULT_AUTOCOMPLETE: &str = "Cmd+Space";
 /// N++ Ctrl+Alt+Space family; remappable via `shortcut_autocomplete_path`.
 pub const DEFAULT_AUTOCOMPLETE_PATH: &str = "Cmd+Alt+Space";
 
+/// Default next function-parameter hint (Edit → Function Parameters Next Hint).
+/// Opposite Up is previous. Uses Alt+Down so it does not collide with Move Line
+/// (`Cmd+Shift+Up`/`Down`), document start (`Cmd+Up`), line motion (plain arrows),
+/// rect select (`Alt+Shift+arrows`), or word jump (`Alt+Left`/`Right`).
+/// Letter remaps use Shift for the previous hint.
+pub const DEFAULT_CALLTIP_NAV: &str = "Alt+Down";
+
 /// Default join-lines binding (Edit → Join Lines). Shift flips to Split Lines (N++ Ctrl+J family).
 pub const DEFAULT_JOIN_LINES: &str = "Cmd+J";
 
@@ -1308,6 +1315,12 @@ impl KeyChord {
             Key::ArrowUp | Key::ArrowDown => self.flipped_vertical(),
             _ => self.flipped_shift(),
         }
+    }
+
+    /// Partner chord for the previous function-parameter hint.
+    /// Opposite Up/Down when the binding is vertical; otherwise Shift flip.
+    pub fn calltip_prev_chord(self) -> Self {
+        self.move_line_down_chord()
     }
 
     /// Partner chord for document-end: same rules as [`Self::move_line_down_chord`].
@@ -3116,6 +3129,19 @@ mod tests {
         assert_eq!(c.display(), "Cmd+Space");
         assert_eq!(c.flipped_shift().display(), "Cmd+Shift+Space");
         assert_eq!(parse_chord("Ctrl+Spacebar").unwrap().key, Key::Space);
+    }
+
+    #[test]
+    fn parse_alt_down_default_calltip_nav() {
+        let c = parse_chord(DEFAULT_CALLTIP_NAV).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::ArrowDown);
+        assert_eq!(c.display(), "Alt+Down");
+        assert_eq!(c.calltip_prev_chord().display(), "Alt+Up");
+        let letter = parse_chord("Alt+K").unwrap();
+        assert_eq!(letter.calltip_prev_chord().display(), "Alt+Shift+K");
     }
 
     #[test]

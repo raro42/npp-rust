@@ -81,6 +81,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Alt+← / → (remappable) | Word jump (`shortcut_word_jump`) |
 | Cmd/Ctrl+U (remappable) | lowercase (`shortcut_lowercase`; Shift = UPPERCASE) |
 | Cmd/Ctrl+Space (remappable) | Autocomplete (`shortcut_autocomplete`; Shift = Function Call Tip) |
+| Alt+Down (remappable) | Function Parameters Next (`shortcut_calltip_nav`; opposite Up = previous) |
 | Cmd/Ctrl+Alt+Space (remappable) | Path autocomplete (`shortcut_autocomplete_path`) |
 | Cmd/Ctrl+J (remappable) | Join Lines (`shortcut_join_lines`; Shift = Split Lines) |
 | Cmd/Ctrl+Alt+U (remappable) | Invert Case (`shortcut_invert_case`; Shift = Proper Case) |

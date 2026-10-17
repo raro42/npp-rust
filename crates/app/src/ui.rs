@@ -4400,6 +4400,51 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_AUTOCOMPLETE");
             }
         }
+        // Remappable function-parameter hints (default Alt+Down; settings.shortcut_calltip_nav).
+        // Opposite Up/Down is previous; letter remaps use Shift for previous.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_CALLTIP_NAV};
+            let next_chord = resolve_chord(
+                &self.state.settings.shortcut_calltip_nav,
+                DEFAULT_CALLTIP_NAV,
+            );
+            let prev_chord = next_chord.calltip_prev_chord();
+            let chord_key_pressed = |key: Key| match key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                Key::ArrowLeft => arrow_left,
+                Key::ArrowRight => arrow_right,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let hit = |chord: crate::shortcut_chord::KeyChord| {
+                chord_key_pressed(chord.key) && chord.matches(mods, chord.key)
+            };
+            if hit(prev_chord) && prev_chord.key != next_chord.key {
+                self.run_shortcut_cmd("IDM_EDIT_FUNCCALLTIP_PREVIOUS");
+            } else if hit(next_chord) {
+                self.run_shortcut_cmd("IDM_EDIT_FUNCCALLTIP_NEXT");
+            }
+        }
         // Remappable path autocomplete (default Cmd+Alt+Space; settings.shortcut_autocomplete_path).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_AUTOCOMPLETE_PATH};
@@ -10360,6 +10405,16 @@ impl EditorApp {
                 &s.shortcut_autocomplete_path,
                 crate::shortcut_chord::DEFAULT_AUTOCOMPLETE_PATH,
             ),
+            "IDM_EDIT_FUNCCALLTIP_NEXT" => primary(
+                &s.shortcut_calltip_nav,
+                crate::shortcut_chord::DEFAULT_CALLTIP_NAV,
+            ),
+            "IDM_EDIT_FUNCCALLTIP_PREVIOUS" => resolve_chord(
+                &s.shortcut_calltip_nav,
+                crate::shortcut_chord::DEFAULT_CALLTIP_NAV,
+            )
+            .calltip_prev_chord()
+            .display(),
             "IDM_EDIT_JOIN_LINES" => primary(
                 &s.shortcut_join_lines,
                 crate::shortcut_chord::DEFAULT_JOIN_LINES,
@@ -11676,6 +11731,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_AUTOCOMPLETE_PATH,
         )
         .display();
+        let calltip_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_calltip_nav,
+            crate::shortcut_chord::DEFAULT_CALLTIP_NAV,
+        );
+        let calltip_keys = format!(
+            "{} / {}",
+            calltip_chord.display(),
+            calltip_chord.calltip_prev_chord().display()
+        );
         let join_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_join_lines,
             crate::shortcut_chord::DEFAULT_JOIN_LINES,
@@ -12570,7 +12634,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 187] = [
+        let rows: [(&str, &str); 188] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -12730,6 +12794,7 @@ impl EditorApp {
                 autocomplete_keys.as_str(),
                 "Autocomplete / Function Call Tip",
             ),
+            (calltip_keys.as_str(), "Function Parameters Next / Previous"),
             (autocomplete_path_keys.as_str(), "Path autocomplete"),
             (join_keys.as_str(), "Join Lines / Split Lines"),
             (invert_keys.as_str(), "Invert Case / Proper Case"),
@@ -15688,6 +15753,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+Space, Ctrl+Alt+Space. Runs Edit → Function Completion Path.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Function parameters shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_calltip_nav,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+Down"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_calltip_nav
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_calltip_nav =
+                                        crate::shortcut_chord::DEFAULT_CALLTIP_NAV.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CALLTIP_NAV
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_calltip_nav = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Down. Next function-parameter hint. Opposite Up is previous; letter remaps use Shift for previous. Does not collide with Move Line or plain arrow motion.",
                             )
                             .small()
                             .weak(),
@@ -27587,108 +27688,123 @@ impl EditorApp {
                             }
                         }
                     } else {
-                        // Remappable move-line (default Cmd+Shift+Up) is handled in
-                        // handle_shortcuts; skip caret nav so we do not also jump.
-                        let move_up = crate::shortcut_chord::resolve_chord(
-                            &self.state.settings.shortcut_move_line,
-                            crate::shortcut_chord::DEFAULT_MOVE_LINE,
+                        // Remappable call-tip nav (default Alt+Up = previous) is handled
+                        // in handle_shortcuts; skip caret nav so we do not also jump.
+                        let calltip = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_calltip_nav,
+                            crate::shortcut_chord::DEFAULT_CALLTIP_NAV,
                         );
-                        let move_down = move_up.move_line_down_chord();
-                        if move_up.matches(modifiers, Key::ArrowUp)
-                            || (move_down.key != move_up.key
-                                && move_down.matches(modifiers, Key::ArrowUp))
+                        let calltip_prev = calltip.calltip_prev_chord();
+                        if calltip_prev.matches(modifiers, Key::ArrowUp)
+                            || (calltip_prev.key != calltip.key
+                                && calltip.matches(modifiers, Key::ArrowUp))
                         {
                             caret_moved = true;
                         } else {
-                            use crate::shortcut_chord::{resolve_chord, DEFAULT_LINE_UP};
-                            let up_chord = resolve_chord(
-                                &self.state.settings.shortcut_line_up,
-                                DEFAULT_LINE_UP,
+                            // Remappable move-line (default Cmd+Shift+Up) is handled in
+                            // handle_shortcuts; skip caret nav so we do not also jump.
+                            let move_up = crate::shortcut_chord::resolve_chord(
+                                &self.state.settings.shortcut_move_line,
+                                crate::shortcut_chord::DEFAULT_MOVE_LINE,
                             );
-                            let default_chord = resolve_chord(DEFAULT_LINE_UP, DEFAULT_LINE_UP);
-                            let down_chord = up_chord.line_down_chord();
-                            if up_chord != default_chord
-                                && (up_chord.matches_ignore_shift(modifiers, Key::ArrowUp)
-                                    || down_chord.matches_ignore_shift(modifiers, Key::ArrowUp))
+                            let move_down = move_up.move_line_down_chord();
+                            if move_up.matches(modifiers, Key::ArrowUp)
+                                || (move_down.key != move_up.key
+                                    && move_down.matches(modifiers, Key::ArrowUp))
                             {
-                                // Remapped chord handled in handle_shortcuts.
-                                continue;
-                            }
-                            // Remappable document start/end (default Cmd+Up / Cmd+Down).
-                            let doc_start = crate::shortcut_chord::resolve_chord(
-                                &self.state.settings.shortcut_goto_document_start,
-                                crate::shortcut_chord::DEFAULT_GOTO_DOCUMENT_START,
-                            );
-                            let doc_end = doc_start.goto_document_end_chord();
-                            if doc_start.matches_ignore_shift(modifiers, Key::ArrowUp) {
-                                let extend = modifiers.shift != doc_start.shift;
-                                let mut multi_ok = false;
-                                if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                    multi_ok = if extend {
-                                        doc.extend_multi_doc_edge(false)
-                                    } else {
-                                        doc.move_multi_doc_edge(false)
-                                    };
-                                    if !multi_ok {
-                                        doc.clear_multi_sels();
-                                    }
-                                }
-                                if !multi_ok {
-                                    go_doc_start(&mut self.state, tab, extend);
-                                }
                                 caret_moved = true;
-                            } else if doc_end.matches_ignore_shift(modifiers, Key::ArrowUp) {
-                                let extend = modifiers.shift != doc_end.shift;
-                                let mut multi_ok = false;
-                                if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                    multi_ok = if extend {
-                                        doc.extend_multi_doc_edge(true)
-                                    } else {
-                                        doc.move_multi_doc_edge(true)
-                                    };
-                                    if !multi_ok {
-                                        doc.clear_multi_sels();
+                            } else {
+                                use crate::shortcut_chord::{resolve_chord, DEFAULT_LINE_UP};
+                                let up_chord = resolve_chord(
+                                    &self.state.settings.shortcut_line_up,
+                                    DEFAULT_LINE_UP,
+                                );
+                                let default_chord = resolve_chord(DEFAULT_LINE_UP, DEFAULT_LINE_UP);
+                                let down_chord = up_chord.line_down_chord();
+                                if up_chord != default_chord
+                                    && (up_chord.matches_ignore_shift(modifiers, Key::ArrowUp)
+                                        || down_chord.matches_ignore_shift(modifiers, Key::ArrowUp))
+                                {
+                                    // Remapped chord handled in handle_shortcuts.
+                                    continue;
+                                }
+                                // Remappable document start/end (default Cmd+Up / Cmd+Down).
+                                let doc_start = crate::shortcut_chord::resolve_chord(
+                                    &self.state.settings.shortcut_goto_document_start,
+                                    crate::shortcut_chord::DEFAULT_GOTO_DOCUMENT_START,
+                                );
+                                let doc_end = doc_start.goto_document_end_chord();
+                                if doc_start.matches_ignore_shift(modifiers, Key::ArrowUp) {
+                                    let extend = modifiers.shift != doc_start.shift;
+                                    let mut multi_ok = false;
+                                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                        multi_ok = if extend {
+                                            doc.extend_multi_doc_edge(false)
+                                        } else {
+                                            doc.move_multi_doc_edge(false)
+                                        };
+                                        if !multi_ok {
+                                            doc.clear_multi_sels();
+                                        }
                                     }
-                                }
-                                if !multi_ok {
-                                    go_doc_end(&mut self.state, tab, extend);
-                                }
-                                caret_moved = true;
-                            } else if up_chord != default_chord {
-                                // Remapped away from bare Up; ignore for line move.
-                                continue;
-                            } else if !modifiers.shift
-                                && !modifiers.command
-                                && !modifiers.ctrl
-                                && !modifiers.alt
-                            {
-                                let moved_multi = self.state.tabs.get_mut(tab).is_some_and(|doc| {
-                                    doc.has_multi_carets() && doc.move_multi_line(-1)
-                                });
-                                if moved_multi {
+                                    if !multi_ok {
+                                        go_doc_start(&mut self.state, tab, extend);
+                                    }
+                                    caret_moved = true;
+                                } else if doc_end.matches_ignore_shift(modifiers, Key::ArrowUp) {
+                                    let extend = modifiers.shift != doc_end.shift;
+                                    let mut multi_ok = false;
+                                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                        multi_ok = if extend {
+                                            doc.extend_multi_doc_edge(true)
+                                        } else {
+                                            doc.move_multi_doc_edge(true)
+                                        };
+                                        if !multi_ok {
+                                            doc.clear_multi_sels();
+                                        }
+                                    }
+                                    if !multi_ok {
+                                        go_doc_end(&mut self.state, tab, extend);
+                                    }
+                                    caret_moved = true;
+                                } else if up_chord != default_chord {
+                                    // Remapped away from bare Up; ignore for line move.
+                                    continue;
+                                } else if !modifiers.shift
+                                    && !modifiers.command
+                                    && !modifiers.ctrl
+                                    && !modifiers.alt
+                                {
+                                    let moved_multi =
+                                        self.state.tabs.get_mut(tab).is_some_and(|doc| {
+                                            doc.has_multi_carets() && doc.move_multi_line(-1)
+                                        });
+                                    if moved_multi {
+                                        caret_moved = true;
+                                    } else {
+                                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                            doc.clear_multi_sels();
+                                        }
+                                        move_caret_vert(&mut self.state, tab, -1, false);
+                                        caret_moved = true;
+                                    }
+                                } else if modifiers.shift
+                                    && !modifiers.command
+                                    && !modifiers.ctrl
+                                    && !modifiers.alt
+                                    && self.state.tabs.get_mut(tab).is_some_and(|doc| {
+                                        doc.has_multi_carets() && doc.extend_multi_line(-1)
+                                    })
+                                {
                                     caret_moved = true;
                                 } else {
                                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                                         doc.clear_multi_sels();
                                     }
-                                    move_caret_vert(&mut self.state, tab, -1, false);
+                                    move_caret_vert(&mut self.state, tab, -1, modifiers.shift);
                                     caret_moved = true;
                                 }
-                            } else if modifiers.shift
-                                && !modifiers.command
-                                && !modifiers.ctrl
-                                && !modifiers.alt
-                                && self.state.tabs.get_mut(tab).is_some_and(|doc| {
-                                    doc.has_multi_carets() && doc.extend_multi_line(-1)
-                                })
-                            {
-                                caret_moved = true;
-                            } else {
-                                if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                    doc.clear_multi_sels();
-                                }
-                                move_caret_vert(&mut self.state, tab, -1, modifiers.shift);
-                                caret_moved = true;
                             }
                         }
                     } // end else (!Alt+Shift rect)
@@ -27716,105 +27832,122 @@ impl EditorApp {
                             }
                         }
                     } else {
-                        let move_up = crate::shortcut_chord::resolve_chord(
-                            &self.state.settings.shortcut_move_line,
-                            crate::shortcut_chord::DEFAULT_MOVE_LINE,
+                        // Remappable call-tip nav (default Alt+Down = next) is handled
+                        // in handle_shortcuts; skip caret nav so we do not also jump.
+                        let calltip = crate::shortcut_chord::resolve_chord(
+                            &self.state.settings.shortcut_calltip_nav,
+                            crate::shortcut_chord::DEFAULT_CALLTIP_NAV,
                         );
-                        let move_down = move_up.move_line_down_chord();
-                        if move_down.matches(modifiers, Key::ArrowDown)
-                            || (move_down.key != move_up.key
-                                && move_up.matches(modifiers, Key::ArrowDown))
+                        let calltip_prev = calltip.calltip_prev_chord();
+                        if calltip.matches(modifiers, Key::ArrowDown)
+                            || (calltip_prev.key != calltip.key
+                                && calltip_prev.matches(modifiers, Key::ArrowDown))
                         {
                             caret_moved = true;
                         } else {
-                            use crate::shortcut_chord::{resolve_chord, DEFAULT_LINE_UP};
-                            let up_chord = resolve_chord(
-                                &self.state.settings.shortcut_line_up,
-                                DEFAULT_LINE_UP,
+                            let move_up = crate::shortcut_chord::resolve_chord(
+                                &self.state.settings.shortcut_move_line,
+                                crate::shortcut_chord::DEFAULT_MOVE_LINE,
                             );
-                            let default_chord = resolve_chord(DEFAULT_LINE_UP, DEFAULT_LINE_UP);
-                            let down_chord = up_chord.line_down_chord();
-                            if up_chord != default_chord
-                                && (up_chord.matches_ignore_shift(modifiers, Key::ArrowDown)
-                                    || down_chord.matches_ignore_shift(modifiers, Key::ArrowDown))
+                            let move_down = move_up.move_line_down_chord();
+                            if move_down.matches(modifiers, Key::ArrowDown)
+                                || (move_down.key != move_up.key
+                                    && move_up.matches(modifiers, Key::ArrowDown))
                             {
-                                // Remapped chord handled in handle_shortcuts.
-                                continue;
-                            }
-                            let doc_start = crate::shortcut_chord::resolve_chord(
-                                &self.state.settings.shortcut_goto_document_start,
-                                crate::shortcut_chord::DEFAULT_GOTO_DOCUMENT_START,
-                            );
-                            let doc_end = doc_start.goto_document_end_chord();
-                            if doc_end.matches_ignore_shift(modifiers, Key::ArrowDown) {
-                                let extend = modifiers.shift != doc_end.shift;
-                                let mut multi_ok = false;
-                                if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                    multi_ok = if extend {
-                                        doc.extend_multi_doc_edge(true)
-                                    } else {
-                                        doc.move_multi_doc_edge(true)
-                                    };
-                                    if !multi_ok {
-                                        doc.clear_multi_sels();
-                                    }
-                                }
-                                if !multi_ok {
-                                    go_doc_end(&mut self.state, tab, extend);
-                                }
                                 caret_moved = true;
-                            } else if doc_start.matches_ignore_shift(modifiers, Key::ArrowDown) {
-                                let extend = modifiers.shift != doc_start.shift;
-                                let mut multi_ok = false;
-                                if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                    multi_ok = if extend {
-                                        doc.extend_multi_doc_edge(false)
-                                    } else {
-                                        doc.move_multi_doc_edge(false)
-                                    };
-                                    if !multi_ok {
-                                        doc.clear_multi_sels();
+                            } else {
+                                use crate::shortcut_chord::{resolve_chord, DEFAULT_LINE_UP};
+                                let up_chord = resolve_chord(
+                                    &self.state.settings.shortcut_line_up,
+                                    DEFAULT_LINE_UP,
+                                );
+                                let default_chord = resolve_chord(DEFAULT_LINE_UP, DEFAULT_LINE_UP);
+                                let down_chord = up_chord.line_down_chord();
+                                if up_chord != default_chord
+                                    && (up_chord.matches_ignore_shift(modifiers, Key::ArrowDown)
+                                        || down_chord
+                                            .matches_ignore_shift(modifiers, Key::ArrowDown))
+                                {
+                                    // Remapped chord handled in handle_shortcuts.
+                                    continue;
+                                }
+                                let doc_start = crate::shortcut_chord::resolve_chord(
+                                    &self.state.settings.shortcut_goto_document_start,
+                                    crate::shortcut_chord::DEFAULT_GOTO_DOCUMENT_START,
+                                );
+                                let doc_end = doc_start.goto_document_end_chord();
+                                if doc_end.matches_ignore_shift(modifiers, Key::ArrowDown) {
+                                    let extend = modifiers.shift != doc_end.shift;
+                                    let mut multi_ok = false;
+                                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                        multi_ok = if extend {
+                                            doc.extend_multi_doc_edge(true)
+                                        } else {
+                                            doc.move_multi_doc_edge(true)
+                                        };
+                                        if !multi_ok {
+                                            doc.clear_multi_sels();
+                                        }
                                     }
-                                }
-                                if !multi_ok {
-                                    go_doc_start(&mut self.state, tab, extend);
-                                }
-                                caret_moved = true;
-                            } else if up_chord != default_chord {
-                                // Remapped away from bare Down; ignore for line move.
-                                continue;
-                            } else if !modifiers.shift
-                                && !modifiers.command
-                                && !modifiers.ctrl
-                                && !modifiers.alt
-                            {
-                                let moved_multi = self.state.tabs.get_mut(tab).is_some_and(|doc| {
-                                    doc.has_multi_carets() && doc.move_multi_line(1)
-                                });
-                                if moved_multi {
+                                    if !multi_ok {
+                                        go_doc_end(&mut self.state, tab, extend);
+                                    }
+                                    caret_moved = true;
+                                } else if doc_start.matches_ignore_shift(modifiers, Key::ArrowDown)
+                                {
+                                    let extend = modifiers.shift != doc_start.shift;
+                                    let mut multi_ok = false;
+                                    if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                        multi_ok = if extend {
+                                            doc.extend_multi_doc_edge(false)
+                                        } else {
+                                            doc.move_multi_doc_edge(false)
+                                        };
+                                        if !multi_ok {
+                                            doc.clear_multi_sels();
+                                        }
+                                    }
+                                    if !multi_ok {
+                                        go_doc_start(&mut self.state, tab, extend);
+                                    }
+                                    caret_moved = true;
+                                } else if up_chord != default_chord {
+                                    // Remapped away from bare Down; ignore for line move.
+                                    continue;
+                                } else if !modifiers.shift
+                                    && !modifiers.command
+                                    && !modifiers.ctrl
+                                    && !modifiers.alt
+                                {
+                                    let moved_multi =
+                                        self.state.tabs.get_mut(tab).is_some_and(|doc| {
+                                            doc.has_multi_carets() && doc.move_multi_line(1)
+                                        });
+                                    if moved_multi {
+                                        caret_moved = true;
+                                    } else {
+                                        if let Some(doc) = self.state.tabs.get_mut(tab) {
+                                            doc.clear_multi_sels();
+                                        }
+                                        move_caret_vert(&mut self.state, tab, 1, false);
+                                        caret_moved = true;
+                                    }
+                                } else if modifiers.shift
+                                    && !modifiers.command
+                                    && !modifiers.ctrl
+                                    && !modifiers.alt
+                                    && self.state.tabs.get_mut(tab).is_some_and(|doc| {
+                                        doc.has_multi_carets() && doc.extend_multi_line(1)
+                                    })
+                                {
                                     caret_moved = true;
                                 } else {
                                     if let Some(doc) = self.state.tabs.get_mut(tab) {
                                         doc.clear_multi_sels();
                                     }
-                                    move_caret_vert(&mut self.state, tab, 1, false);
+                                    move_caret_vert(&mut self.state, tab, 1, modifiers.shift);
                                     caret_moved = true;
                                 }
-                            } else if modifiers.shift
-                                && !modifiers.command
-                                && !modifiers.ctrl
-                                && !modifiers.alt
-                                && self.state.tabs.get_mut(tab).is_some_and(|doc| {
-                                    doc.has_multi_carets() && doc.extend_multi_line(1)
-                                })
-                            {
-                                caret_moved = true;
-                            } else {
-                                if let Some(doc) = self.state.tabs.get_mut(tab) {
-                                    doc.clear_multi_sels();
-                                }
-                                move_caret_vert(&mut self.state, tab, 1, modifiers.shift);
-                                caret_moved = true;
                             }
                         }
                     } // end else (!Alt+Shift rect)

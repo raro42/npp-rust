@@ -1,3 +1,4 @@
+009 keep: remappable Function Parameters Next/Previous (shortcut_calltip_nav, Alt+Down default; opposite Up=prev, v0.3.381)
 009 keep: remappable Move to Recycle Bin (shortcut_delete_file, Cmd+Shift+Delete default, v0.3.380)
 009 keep: remappable Clipboard History (shortcut_clipboard_history, Cmd+Shift+C default, v0.3.376)
 
