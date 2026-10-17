@@ -206,6 +206,7 @@ New keys:
 | `shortcut_reload` | Reload-from-disk chord (`Cmd+R` default) |
 | `shortcut_run` | Run… chord (`Cmd+Shift+R` default; `IDM_EXECUTE`) |
 | `shortcut_open_viewer` | Open in Default Viewer chord (`Cmd+Shift+O` default; `IDM_FILE_OPEN_DEFAULT_VIEWER`) |
+| `shortcut_about` | About chord (`F1` default; `IDM_ABOUT`) |
 | `ollama_host` | Local Ollama base URL (loopback only; default `http://127.0.0.1:11434`) |
 | `ollama_model` | Model for Plugins → Ask Ollama (default `llama3.2`) |
 

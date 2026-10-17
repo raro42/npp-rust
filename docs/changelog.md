@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.379] — 2026-10-17
+
+Help:
+
+- **About** is remappable: Preferences → About shortcut, or `shortcut_about` in `npp-rs/settings.json` (default `F1`). Opens ? → About npp-rs. Does not collide with Summary (`Alt+F1`), Load Session (`Cmd+F1`), or Sort tabs by name (`Cmd+Alt+F1`). Shortcut Mapper and About show the binding.
+
 ## [0.3.378] — 2026-10-17
 
 File:

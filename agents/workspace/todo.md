@@ -560,3 +560,5 @@
 009 keep: remappable Run (shortcut_run, Cmd+Shift+R default, v0.3.377)
 
 009 keep: remappable Open in Default Viewer (shortcut_open_viewer, Cmd+Shift+O default, v0.3.378)
+
+009 keep: remappable About (shortcut_about, F1 default, v0.3.379)

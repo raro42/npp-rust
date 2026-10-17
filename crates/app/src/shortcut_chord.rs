@@ -475,6 +475,11 @@ pub const DEFAULT_RUN: &str = "Cmd+Shift+R";
 /// Move/Clone Other View (`Alt+O`), or Sort Lines (`Cmd+Alt+O`).
 pub const DEFAULT_OPEN_VIEWER: &str = "Cmd+Shift+O";
 
+/// Default About binding (? → About npp-rs).
+/// Uses bare `F1` (N++ Help family) so it does not collide with Summary (`Alt+F1`),
+/// Load Session (`Cmd+F1`), or Sort tabs by name (`Cmd+Alt+F1`).
+pub const DEFAULT_ABOUT: &str = "F1";
+
 /// Default next-tab binding (new remappable chord). Shift flips to previous tab.
 pub const DEFAULT_NEXT_TAB: &str = "Cmd+Tab";
 
@@ -503,8 +508,8 @@ pub const DEFAULT_PRINT: &str = "Cmd+P";
 pub const DEFAULT_EXIT: &str = "Cmd+Q";
 
 /// Default load-session binding (File → Load Session).
-/// Uses Cmd+F1 so it does not collide with Summary (`Alt+F1`), Find (`Cmd+F`),
-/// or Open (`Cmd+O`). Shift flips to Save Session (`Cmd+Shift+F1`).
+/// Uses Cmd+F1 so it does not collide with About (`F1`), Summary (`Alt+F1`),
+/// Find (`Cmd+F`), or Open (`Cmd+O`). Shift flips to Save Session (`Cmd+Shift+F1`).
 pub const DEFAULT_LOAD_SESSION: &str = "Cmd+F1";
 
 /// Default sort-tabs-by-name binding (Window → Sort by name ascending).
@@ -639,8 +644,8 @@ pub const DEFAULT_READONLY_ALL: &str = "F10";
 
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
-/// Find characters in range (`Alt+F9`), Read-only for all documents (`F10`),
-/// or Sort Lines by Length (`Cmd+Alt+F10`).
+/// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
+/// (`F10`), or Sort Lines by Length (`Cmd+Alt+F10`).
 pub const DEFAULT_SUMMARY: &str = "Alt+F1";
 
 /// Default Preferences binding (Settings → Preferences).
@@ -4372,6 +4377,30 @@ mod tests {
             ..Modifiers::default()
         };
         assert!(!c.matches(alt, Key::R));
+    }
+
+    #[test]
+    fn parse_f1_default_about() {
+        let c = parse_chord(DEFAULT_ABOUT).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F1);
+        assert_eq!(c.display(), "F1");
+        let none = Modifiers::default();
+        assert!(c.matches(none, Key::F1));
+        // Must not steal Summary (Alt+F1).
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::F1));
+        // Must not steal Load Session (Cmd+F1).
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::F1));
     }
 
     #[test]
