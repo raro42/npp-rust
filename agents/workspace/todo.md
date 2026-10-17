@@ -1,3 +1,4 @@
+009 keep: remappable Start/Stop Recording (shortcut_macro_record, Cmd+Alt+Shift+R default, toggle, v0.3.387)
 009 keep: remappable Macro Playback (shortcut_macro_playback, Cmd+Shift+P default, v0.3.386)
 009 keep: remappable Date Time customized (shortcut_insert_datetime_custom, Cmd+Alt+= default, v0.3.385)
 009 keep: remappable 1st–9th Tab (shortcut_goto_tab, Cmd+Shift+1…9 default, v0.3.384)

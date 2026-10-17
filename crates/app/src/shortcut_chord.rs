@@ -860,6 +860,13 @@ pub const DEFAULT_INSERT_DATETIME_CUSTOM: &str = "Cmd+Alt+=";
 /// Shift is part of the chord, not a flip (a flip would be Print).
 pub const DEFAULT_MACRO_PLAYBACK: &str = "Cmd+Shift+P";
 
+/// Default Start/Stop Recording binding (Macro → Start Recording / Stop Recording).
+/// Same chord toggles: start when idle, stop while recording (N++ shares one accelerator).
+/// Uses Cmd+Alt+Shift+R so it does not collide with Reload (`Cmd+R`), Run (`Cmd+Shift+R`),
+/// Toggle Read-Only (`Cmd+Alt+R`), or RTL/LTR (`Alt+R` / `Alt+Shift+R`).
+/// Shift is part of the chord, not a flip.
+pub const DEFAULT_MACRO_RECORD: &str = "Cmd+Alt+Shift+R";
+
 /// Default Copy Full Path to Clipboard binding (Edit → Copy to Clipboard).
 /// Uses Cmd+Alt+P so it does not collide with Print (Cmd+P), Project Panel (Alt+P),
 /// or Pin tab (Alt+Shift+P). Shift flips to Copy File Name.
@@ -4393,6 +4400,55 @@ mod tests {
             ..Modifiers::default()
         };
         assert!(!c.matches(alt, Key::P));
+    }
+
+    #[test]
+    fn parse_cmd_alt_shift_r_default_macro_record() {
+        let c = parse_chord(DEFAULT_MACRO_RECORD).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::R);
+        assert_eq!(c.display(), "Cmd+Alt+Shift+R");
+        let all = Modifiers {
+            command: true,
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(all, Key::R));
+        // Must not steal Reload (Cmd+R).
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::R));
+        // Must not steal Run (Cmd+Shift+R).
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_shift, Key::R));
+        // Must not steal Toggle Read-Only (Cmd+Alt+R).
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt, Key::R));
+        // Must not steal RTL (Alt+R) or LTR (Alt+Shift+R).
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::R));
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt_shift, Key::R));
     }
 
     #[test]

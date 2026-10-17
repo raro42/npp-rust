@@ -6195,6 +6195,48 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_MACRO_PLAYBACKRECORDEDMACRO");
             }
         }
+        // Remappable Start/Stop Recording (default Cmd+Alt+Shift+R; settings.shortcut_macro_record).
+        // Same chord toggles. Shift is part of the chord so it does not steal Reload, Run,
+        // Toggle Read-Only, or RTL/LTR.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_MACRO_RECORD};
+            let record_chord = resolve_chord(
+                &self.state.settings.shortcut_macro_record,
+                DEFAULT_MACRO_RECORD,
+            );
+            let record_key_pressed = match record_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if record_key_pressed && record_chord.matches(mods, record_chord.key) {
+                if self.state.macro_recording {
+                    self.run_shortcut_cmd("IDM_MACRO_STOPRECORDINGMACRO");
+                } else {
+                    self.run_shortcut_cmd("IDM_MACRO_STARTRECORDINGMACRO");
+                }
+            }
+        }
         // Remappable Copy Full Path (default Cmd+Alt+P; settings.shortcut_copy_path).
         // Shift flips to Copy File Name.
         {
@@ -10853,6 +10895,10 @@ impl EditorApp {
                 &s.shortcut_macro_playback,
                 crate::shortcut_chord::DEFAULT_MACRO_PLAYBACK,
             ),
+            "IDM_MACRO_STARTRECORDINGMACRO" | "IDM_MACRO_STOPRECORDINGMACRO" => primary(
+                &s.shortcut_macro_record,
+                crate::shortcut_chord::DEFAULT_MACRO_RECORD,
+            ),
             "IDM_EDIT_FULLPATHTOCLIP" => primary(
                 &s.shortcut_copy_path,
                 crate::shortcut_chord::DEFAULT_COPY_PATH,
@@ -12276,6 +12322,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_MACRO_PLAYBACK,
         )
         .display();
+        let macro_record_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_macro_record,
+            crate::shortcut_chord::DEFAULT_MACRO_RECORD,
+        )
+        .display();
         let copy_path_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_copy_path,
             crate::shortcut_chord::DEFAULT_COPY_PATH,
@@ -12893,7 +12944,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 193] = [
+        let rows: [(&str, &str); 194] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13144,6 +13195,7 @@ impl EditorApp {
             (insert_datetime_keys.as_str(), "Date Time short / long"),
             (insert_datetime_custom_keys.as_str(), "Date Time customized"),
             (macro_playback_keys.as_str(), "Macro Playback"),
+            (macro_record_keys.as_str(), "Start/Stop Recording"),
             (copy_path_keys.as_str(), "Copy Full Path / File Name"),
             (copy_dir_keys.as_str(), "Copy Current Directory Path"),
             (
@@ -17369,6 +17421,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Shift+P, Ctrl+Shift+P. Plays the recorded macro (Macro → Playback). Shift is part of the chord so it does not steal Print (Cmd+P).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Start/Stop Recording shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_macro_record,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+Shift+R"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_macro_record
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_macro_record =
+                                        crate::shortcut_chord::DEFAULT_MACRO_RECORD.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MACRO_RECORD
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_macro_record = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+Shift+R, Ctrl+Alt+Shift+R. Toggles Macro → Start Recording / Stop Recording. Shift is part of the chord so it does not steal Reload (Cmd+R), Run (Cmd+Shift+R), Toggle Read-Only (Cmd+Alt+R), or RTL/LTR (Alt+R / Alt+Shift+R).",
                             )
                             .small()
                             .weak(),

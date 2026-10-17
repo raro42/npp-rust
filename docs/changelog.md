@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.387] — 2026-10-17
+
+Macro:
+
+- **Start/Stop Recording** is remappable: Preferences → Start/Stop Recording shortcut, or `shortcut_macro_record` in `npp-rs/settings.json` (default `Cmd+Alt+Shift+R`). The same chord starts recording when idle and stops while recording (Macro → Start Recording / Stop Recording). Shift is part of the chord so it does not steal Reload (`Cmd+R`), Run (`Cmd+Shift+R`), Toggle Read-Only (`Cmd+Alt+R`), or RTL/LTR (`Alt+R` / `Alt+Shift+R`). Shortcut Mapper and About show the binding.
+
 ## [0.3.386] — 2026-10-17
 
 Macro:
