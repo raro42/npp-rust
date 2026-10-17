@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.383] — 2026-10-17
+
+View:
+
+- **Move to New Instance / Open in New Instance** is remappable: Preferences → New instance shortcut, or `shortcut_new_instance` in `npp-rs/settings.json` (default `F9`). Shift opens another window and keeps this tab. Does not collide with Find characters in range (`Alt+F9`), UTF-8 (`Cmd+F9`), read-only for all (`F10`), fullscreen (`F11`), or Post-It (`F12`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.382] — 2026-10-17
 
 Edit:

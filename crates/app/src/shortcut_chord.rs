@@ -402,6 +402,12 @@ pub const DEFAULT_FOCUS_OTHER_VIEW: &str = "F6";
 /// Shift flips to Clone to Other View.
 pub const DEFAULT_MOVE_OTHER_VIEW: &str = "Alt+O";
 
+/// Default move-to-new-instance binding (View → Move to New Instance).
+/// Shift flips to Open in New Instance (keeps this tab).
+/// Uses F9 so it does not collide with Find characters in range (`Alt+F9`),
+/// UTF-8 (`Cmd+F9`), read-only for all (`F10`), fullscreen (`F11`), or Post-It (`F12`).
+pub const DEFAULT_NEW_INSTANCE: &str = "F9";
+
 /// Default RTL text-direction binding (Edit → RTL).
 /// Shift flips to LTR.
 pub const DEFAULT_RTL: &str = "Alt+R";
@@ -3240,6 +3246,36 @@ mod tests {
         };
         assert!(!c.matches(cmd, Key::Z));
         assert!(!c.matches(cmd, Key::Backspace));
+    }
+
+    #[test]
+    fn parse_f9_default_new_instance() {
+        let c = parse_chord(DEFAULT_NEW_INSTANCE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F9);
+        assert_eq!(c.display(), "F9");
+        assert_eq!(c.flipped_shift().display(), "Shift+F9");
+        assert!(c.matches(Modifiers::default(), Key::F9));
+        let shift = Modifiers {
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(shift, Key::F9));
+        assert!(c.flipped_shift().matches(shift, Key::F9));
+        // Must not steal Find characters in range (Alt+F9) or UTF-8 (Cmd+F9).
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::F9));
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::F9));
+        assert!(!c.matches(Modifiers::default(), Key::F10));
     }
 
     #[test]

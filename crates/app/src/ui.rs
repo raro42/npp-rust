@@ -2160,6 +2160,48 @@ impl EditorApp {
                 }
             }
         }
+        // Remappable Move to New Instance (default F9; settings.shortcut_new_instance).
+        // Shift + that chord opens another window and keeps this tab.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_NEW_INSTANCE};
+            let instance_chord = resolve_chord(
+                &self.state.settings.shortcut_new_instance,
+                DEFAULT_NEW_INSTANCE,
+            );
+            let instance_key_pressed = match instance_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if instance_key_pressed && instance_chord.matches_ignore_shift(mods, instance_chord.key)
+            {
+                if mods.shift != instance_chord.shift {
+                    self.run_shortcut_cmd("IDM_VIEW_LOAD_IN_NEW_INSTANCE");
+                } else {
+                    self.run_shortcut_cmd("IDM_VIEW_GOTO_NEW_INSTANCE");
+                }
+            }
+        }
         // Remappable RTL / LTR (default Alt+R; settings.shortcut_rtl).
         // Shift + that chord sets LTR.
         {
@@ -11174,6 +11216,14 @@ impl EditorApp {
                 &s.shortcut_move_other_view,
                 crate::shortcut_chord::DEFAULT_MOVE_OTHER_VIEW,
             ),
+            "IDM_VIEW_GOTO_NEW_INSTANCE" => primary(
+                &s.shortcut_new_instance,
+                crate::shortcut_chord::DEFAULT_NEW_INSTANCE,
+            ),
+            "IDM_VIEW_LOAD_IN_NEW_INSTANCE" => shifted(
+                &s.shortcut_new_instance,
+                crate::shortcut_chord::DEFAULT_NEW_INSTANCE,
+            ),
             "IDM_EDIT_RTL" => primary(&s.shortcut_rtl, crate::shortcut_chord::DEFAULT_RTL),
             "IDM_EDIT_LTR" => shifted(&s.shortcut_rtl, crate::shortcut_chord::DEFAULT_RTL),
             "IDM_VIEW_FULLSCREENTOGGLE" => primary(
@@ -12644,6 +12694,15 @@ impl EditorApp {
             move_other_chord.display(),
             move_other_chord.flipped_shift().display()
         );
+        let new_instance_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_new_instance,
+            crate::shortcut_chord::DEFAULT_NEW_INSTANCE,
+        );
+        let new_instance_keys = format!(
+            "{} / {}",
+            new_instance_chord.display(),
+            new_instance_chord.flipped_shift().display()
+        );
         let rtl_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_rtl,
             crate::shortcut_chord::DEFAULT_RTL,
@@ -12679,7 +12738,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 189] = [
+        let rows: [(&str, &str); 190] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -12981,6 +13040,10 @@ impl EditorApp {
             (pin_tab_keys.as_str(), "Pin / unpin tab"),
             (focus_other_keys.as_str(), "Focus other view / swap tabs"),
             (move_other_keys.as_str(), "Move / clone to other view"),
+            (
+                new_instance_keys.as_str(),
+                "Move to new instance / open in new instance",
+            ),
             (rtl_keys.as_str(), "RTL / LTR text direction"),
             (word_jump_keys.as_str(), "Word jump ← / →"),
             (
@@ -18875,6 +18938,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+O, Ctrl+Alt+O. Moves View → Move Current Document to Other View. Shift + that chord clones to other view.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("New instance shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_new_instance,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("F9"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_new_instance
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_new_instance =
+                                        crate::shortcut_chord::DEFAULT_NEW_INSTANCE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_NEW_INSTANCE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_new_instance = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: F9, Shift+F9. Moves View → Move to New Instance. Shift + that chord opens another window and keeps this tab. Does not collide with Alt+F9 (Find characters in range) or Cmd+F9 (UTF-8).",
                             )
                             .small()
                             .weak(),

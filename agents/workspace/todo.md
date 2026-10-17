@@ -1,3 +1,4 @@
+009 keep: remappable Move to New Instance / Open in New Instance (shortcut_new_instance, F9 default; Shift=keep tab, v0.3.383)
 009 keep: remappable Undo the latest added multi-select (shortcut_multi_select_undo, Cmd+Alt+Backspace default, v0.3.382)
 009 keep: remappable Function Parameters Next/Previous (shortcut_calltip_nav, Alt+Down default; opposite Up=prev, v0.3.381)
 009 keep: remappable Move to Recycle Bin (shortcut_delete_file, Cmd+Shift+Delete default, v0.3.380)

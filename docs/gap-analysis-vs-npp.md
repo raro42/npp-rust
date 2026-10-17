@@ -95,6 +95,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+Alt+N (remappable) | Multi-select next (`shortcut_multi_select_next`; Shift = skip current) |
 | Cmd/Ctrl+Alt+A (remappable) | Multi-select all (`shortcut_multi_select_all`; Shift = whole-word) |
 | Cmd/Ctrl+Alt+Backspace (remappable) | Undo the latest added multi-select (`shortcut_multi_select_undo`) |
+| F9 (remappable) | Move to New Instance (`shortcut_new_instance`; Shift = Open in New Instance, keep this tab) |
 | Cmd/Ctrl+Alt+B (remappable) | Begin/End Select (`shortcut_begin_end_select`; Shift = column mode rect) |
 | Cmd/Ctrl+Alt+R (remappable) | Toggle Read-Only (`shortcut_toggle_readonly`) |
 | Cmd/Ctrl+Alt+C (remappable) | Column Editor (`shortcut_column_editor`) |
