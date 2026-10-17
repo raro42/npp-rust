@@ -2202,6 +2202,55 @@ impl EditorApp {
                 }
             }
         }
+        // Remappable 1st–9th tab (default Cmd+Shift+1; settings.shortcut_goto_tab).
+        // Digit-family: Cmd+Shift+1…9 jumps to that tab. Letter remaps: 1st tab only.
+        {
+            use crate::shortcut_chord::{resolve_chord, KeyChord, DEFAULT_GOTO_TAB};
+            let tab_chord = resolve_chord(&self.state.settings.shortcut_goto_tab, DEFAULT_GOTO_TAB);
+            let digit_family = KeyChord::tab_index_of_key(tab_chord.key).is_some();
+            let try_key = |key: Key| {
+                ctx.input(|i| i.key_pressed(key))
+                    .then(|| tab_chord.goto_tab_action(mods, key))
+                    .flatten()
+            };
+            let index = if digit_family {
+                (1usize..=9).find_map(|n| KeyChord::key_for_tab_index(n).and_then(try_key))
+            } else {
+                let letter_key_pressed = match tab_chord.key {
+                    Key::Z => z,
+                    Key::N => n,
+                    Key::O => o,
+                    Key::S => s,
+                    Key::F => f,
+                    Key::Y => y,
+                    Key::W => w,
+                    Key::G => g,
+                    Key::A => a,
+                    Key::D => d,
+                    Key::L => l,
+                    Key::I => i_key,
+                    Key::T => t,
+                    Key::H => h,
+                    Key::F2 => f2,
+                    Key::F3 => f3,
+                    Key::F7 => f7,
+                    Key::Equals => equals,
+                    Key::Minus => minus,
+                    Key::Num0 => num0,
+                    Key::CloseBracket => close_br,
+                    Key::OpenBracket => open_br,
+                    other => ctx.input(|i| i.key_pressed(other)),
+                };
+                if letter_key_pressed {
+                    tab_chord.goto_tab_action(mods, tab_chord.key)
+                } else {
+                    None
+                }
+            };
+            if let Some(index) = index {
+                self.run_shortcut_cmd(&format!("IDM_VIEW_TAB{index}"));
+            }
+        }
         // Remappable RTL / LTR (default Alt+R; settings.shortcut_rtl).
         // Shift + that chord sets LTR.
         {
@@ -11224,6 +11273,16 @@ impl EditorApp {
                 &s.shortcut_new_instance,
                 crate::shortcut_chord::DEFAULT_NEW_INSTANCE,
             ),
+            "IDM_VIEW_TAB1" | "IDM_VIEW_TAB2" | "IDM_VIEW_TAB3" | "IDM_VIEW_TAB4"
+            | "IDM_VIEW_TAB5" | "IDM_VIEW_TAB6" | "IDM_VIEW_TAB7" | "IDM_VIEW_TAB8"
+            | "IDM_VIEW_TAB9" => {
+                let index = cmd.chars().last().and_then(|c| c.to_digit(10)).unwrap_or(1) as usize;
+                return crate::shortcut_chord::resolve_chord(
+                    &s.shortcut_goto_tab,
+                    crate::shortcut_chord::DEFAULT_GOTO_TAB,
+                )
+                .goto_tab_display_for(index);
+            }
             "IDM_EDIT_RTL" => primary(&s.shortcut_rtl, crate::shortcut_chord::DEFAULT_RTL),
             "IDM_EDIT_LTR" => shifted(&s.shortcut_rtl, crate::shortcut_chord::DEFAULT_RTL),
             "IDM_VIEW_FULLSCREENTOGGLE" => primary(
@@ -12703,6 +12762,11 @@ impl EditorApp {
             new_instance_chord.display(),
             new_instance_chord.flipped_shift().display()
         );
+        let goto_tab_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_goto_tab,
+            crate::shortcut_chord::DEFAULT_GOTO_TAB,
+        )
+        .goto_tab_display();
         let rtl_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_rtl,
             crate::shortcut_chord::DEFAULT_RTL,
@@ -12738,7 +12802,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 190] = [
+        let rows: [(&str, &str); 191] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13044,6 +13108,7 @@ impl EditorApp {
                 new_instance_keys.as_str(),
                 "Move to new instance / open in new instance",
             ),
+            (goto_tab_keys.as_str(), "1st–9th tab"),
             (rtl_keys.as_str(), "RTL / LTR text direction"),
             (word_jump_keys.as_str(), "Word jump ← / →"),
             (
@@ -18974,6 +19039,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: F9, Shift+F9. Moves View → Move to New Instance. Shift + that chord opens another window and keeps this tab. Does not collide with Alt+F9 (Find characters in range) or Cmd+F9 (UTF-8).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("1st–9th tab shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_goto_tab,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Shift+1"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_goto_tab.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_goto_tab =
+                                        crate::shortcut_chord::DEFAULT_GOTO_TAB.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_GOTO_TAB
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_goto_tab = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+1, Ctrl+Alt+1. Digit keys 1…9 with those modifiers jump to View → Tab → 1st…9th Tab. A letter remap jumps to the 1st tab only. Does not collide with Mark Style (Cmd+1) or Clear all styles (Cmd+Shift+0).",
                             )
                             .small()
                             .weak(),

@@ -202,6 +202,7 @@ New keys:
 | `shortcut_zoom_sync` | Zoom Sync toggle chord (`Alt+Shift+Z` default; dual-view shared font size) |
 | `shortcut_focus_other_view` | Focus other dual-view pane chord (`F6` default; Shift swaps tabs) |
 | `shortcut_move_other_view` | Move / clone to other view chord (`Alt+O` default; Shift clones) |
+| `shortcut_goto_tab` | 1st–9th tab chord (`Cmd+Shift+1` default; digit-family `1`…`9`; letter remap = 1st tab) |
 | `shortcut_rtl` | RTL text-direction chord (`Alt+R` default; Shift flips to LTR) |
 | `shortcut_reload` | Reload-from-disk chord (`Cmd+R` default) |
 | `shortcut_run` | Run… chord (`Cmd+Shift+R` default; `IDM_EXECUTE`) |

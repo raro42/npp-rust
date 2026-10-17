@@ -500,6 +500,14 @@ pub const DEFAULT_NEXT_TAB: &str = "Cmd+Tab";
 /// line Home, or Next tab (Cmd+Tab).
 pub const DEFAULT_FIRST_TAB: &str = "Cmd+Alt+Home";
 
+/// Default 1st-tab binding (View → Tab → 1st Tab). Digit-family: the same
+/// modifiers with `1`…`9` jump to that tab. Letter remaps jump to the 1st tab only.
+/// Uses `Cmd+Shift+1` so it does not collide with Mark Style (`Cmd+1`…`5`),
+/// Fold Level (`Alt+1`…`8`), Next Style (`Cmd+Alt+1`…`5`), Mark current line
+/// (`Alt+Shift+1`…`5`), Copy Styled Text (`Cmd+Alt+Shift+1`…`5`), or Clear all
+/// styles (`Cmd+Shift+0`).
+pub const DEFAULT_GOTO_TAB: &str = "Cmd+Shift+1";
+
 /// Default move-tab-forward binding (View → Move Current Tab Forward).
 /// Opposite PageUp/PageDown moves backward; letter remaps use Shift for backward.
 /// Uses Cmd+Shift+PageDown so it does not collide with Next tab (Cmd+Tab), bare
@@ -1065,6 +1073,92 @@ impl KeyChord {
             } else {
                 self.display()
             })
+        } else {
+            None
+        }
+    }
+
+    /// Tab index `1`…`9` for [`Key::Num1`]…[`Key::Num9`].
+    pub fn tab_index_of_key(key: Key) -> Option<usize> {
+        match key {
+            Key::Num1 => Some(1),
+            Key::Num2 => Some(2),
+            Key::Num3 => Some(3),
+            Key::Num4 => Some(4),
+            Key::Num5 => Some(5),
+            Key::Num6 => Some(6),
+            Key::Num7 => Some(7),
+            Key::Num8 => Some(8),
+            Key::Num9 => Some(9),
+            _ => None,
+        }
+    }
+
+    /// Key for tab index `1`…`9`.
+    pub fn key_for_tab_index(index: usize) -> Option<Key> {
+        match index {
+            1 => Some(Key::Num1),
+            2 => Some(Key::Num2),
+            3 => Some(Key::Num3),
+            4 => Some(Key::Num4),
+            5 => Some(Key::Num5),
+            6 => Some(Key::Num6),
+            7 => Some(Key::Num7),
+            8 => Some(Key::Num8),
+            9 => Some(Key::Num9),
+            _ => None,
+        }
+    }
+
+    /// Jump to tab `1`…`9` for remappable `shortcut_goto_tab`.
+    ///
+    /// Digit-family chords (base key `1`…`9`) accept any of those digits with
+    /// matching Ctrl/Cmd/Alt/Shift. Letter remaps jump to the 1st tab only.
+    pub fn goto_tab_action(self, mods: Modifiers, pressed: Key) -> Option<usize> {
+        let digit_family = Self::tab_index_of_key(self.key).is_some();
+        if digit_family {
+            let index = Self::tab_index_of_key(pressed)?;
+            let cmd = mods.command || mods.ctrl;
+            if cmd != self.ctrl_or_cmd || mods.alt != self.alt || mods.shift != self.shift {
+                return None;
+            }
+            Some(index)
+        } else if self.matches(mods, pressed) {
+            Some(1)
+        } else {
+            None
+        }
+    }
+
+    /// Human-readable 1st–9th tab binding for Shortcut Mapper / About.
+    pub fn goto_tab_display(self) -> String {
+        if Self::tab_index_of_key(self.key).is_some() {
+            let mut parts = Vec::new();
+            if self.ctrl_or_cmd {
+                parts.push("Cmd");
+            }
+            if self.alt {
+                parts.push("Alt");
+            }
+            if self.shift {
+                parts.push("Shift");
+            }
+            parts.push("1…9");
+            parts.join("+")
+        } else {
+            self.display()
+        }
+    }
+
+    /// Display for one 1st–9th tab menu row (digit-family uses that digit).
+    pub fn goto_tab_display_for(self, index: usize) -> Option<String> {
+        let digit_family = Self::tab_index_of_key(self.key).is_some();
+        if digit_family {
+            let key = Self::key_for_tab_index(index)?;
+            let chord = Self { key, ..self };
+            Some(chord.display())
+        } else if index == 1 {
+            Some(self.display())
         } else {
             None
         }
@@ -3246,6 +3340,35 @@ mod tests {
         };
         assert!(!c.matches(cmd, Key::Z));
         assert!(!c.matches(cmd, Key::Backspace));
+    }
+
+    #[test]
+    fn parse_cmd_shift_one_default_goto_tab() {
+        let c = parse_chord(DEFAULT_GOTO_TAB).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::Num1);
+        assert_eq!(c.goto_tab_display(), "Cmd+Shift+1…9");
+        let mods = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert_eq!(c.goto_tab_action(mods, Key::Num1), Some(1));
+        assert_eq!(c.goto_tab_action(mods, Key::Num9), Some(9));
+        assert_eq!(c.goto_tab_action(mods, Key::Num0), None);
+        let no_shift = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert_eq!(c.goto_tab_action(no_shift, Key::Num1), None);
+        assert_eq!(c.goto_tab_display_for(4).as_deref(), Some("Cmd+Shift+4"));
+        assert_eq!(c.goto_tab_display_for(9).as_deref(), Some("Cmd+Shift+9"));
+        assert!(c.goto_tab_display_for(10).is_none());
+        // Must not steal Mark Style 1 (Cmd+1) or Clear all styles (Cmd+Shift+0).
+        assert_eq!(c.goto_tab_action(no_shift, Key::Num1), None);
+        assert_eq!(c.goto_tab_action(mods, Key::Num0), None);
     }
 
     #[test]

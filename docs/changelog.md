@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.384] — 2026-10-17
+
+View:
+
+- **1st–9th Tab** is remappable: Preferences → 1st–9th tab shortcut, or `shortcut_goto_tab` in `npp-rs/settings.json` (default `Cmd+Shift+1`). Digit keys 1 through 9 with those modifiers jump to View → Tab → 1st…9th Tab. A letter remap jumps to the 1st tab only. Does not collide with Mark Style (`Cmd+1`…`5`), Fold Level (`Alt+1`…`8`), or Clear all styles (`Cmd+Shift+0`). Shortcut Mapper and About show the binding.
+
 ## [0.3.383] — 2026-10-17
 
 View:

@@ -776,6 +776,10 @@ fn default_shortcut_new_instance() -> String {
     crate::shortcut_chord::DEFAULT_NEW_INSTANCE.into()
 }
 
+fn default_shortcut_goto_tab() -> String {
+    crate::shortcut_chord::DEFAULT_GOTO_TAB.into()
+}
+
 fn default_shortcut_rtl() -> String {
     crate::shortcut_chord::DEFAULT_RTL.into()
 }
@@ -1374,6 +1378,9 @@ pub struct AppSettings {
     /// Move to a new instance chord (`F9` default; Shift opens without closing this tab).
     #[serde(default = "default_shortcut_new_instance")]
     pub shortcut_new_instance: String,
+    /// 1st–9th tab chord (`Cmd+Shift+1` default; digit-family `1`…`9`).
+    #[serde(default = "default_shortcut_goto_tab")]
+    pub shortcut_goto_tab: String,
     /// RTL text-direction chord (`Alt+R` default; Shift flips to LTR).
     #[serde(default = "default_shortcut_rtl")]
     pub shortcut_rtl: String,
@@ -1789,6 +1796,7 @@ impl Default for AppSettings {
             shortcut_focus_other_view: default_shortcut_focus_other_view(),
             shortcut_move_other_view: default_shortcut_move_other_view(),
             shortcut_new_instance: default_shortcut_new_instance(),
+            shortcut_goto_tab: default_shortcut_goto_tab(),
             shortcut_rtl: default_shortcut_rtl(),
             shortcut_fullscreen: default_shortcut_fullscreen(),
             shortcut_postit: default_shortcut_postit(),
@@ -2335,6 +2343,7 @@ mod tests {
             shortcut_focus_other_view: "Ctrl+Alt+F6".into(),
             shortcut_move_other_view: "Ctrl+Alt+Shift+O".into(),
             shortcut_new_instance: "Ctrl+F9".into(),
+            shortcut_goto_tab: "Ctrl+Alt+1".into(),
             shortcut_rtl: "Ctrl+Alt+R".into(),
             shortcut_fullscreen: "Ctrl+Alt+F11".into(),
             shortcut_postit: "Ctrl+Alt+F12".into(),
@@ -2555,6 +2564,7 @@ mod tests {
         assert_eq!(back.shortcut_focus_other_view, "Ctrl+Alt+F6");
         assert_eq!(back.shortcut_move_other_view, "Ctrl+Alt+Shift+O");
         assert_eq!(back.shortcut_new_instance, "Ctrl+F9");
+        assert_eq!(back.shortcut_goto_tab, "Ctrl+Alt+1");
         assert_eq!(back.shortcut_rtl, "Ctrl+Alt+R");
         assert_eq!(back.shortcut_fullscreen, "Ctrl+Alt+F11");
         assert_eq!(back.shortcut_postit, "Ctrl+Alt+F12");
