@@ -640,6 +640,12 @@ pub const DEFAULT_MULTI_SELECT_NEXT: &str = "Cmd+Alt+N";
 /// Shift flips to Multi-select All (Whole Word).
 pub const DEFAULT_MULTI_SELECT_ALL: &str = "Cmd+Alt+A";
 
+/// Default undo-latest-multi-select binding (Edit → Undo the Latest Added Multi-Select).
+/// Uses Cmd+Alt+Backspace so it stays on the multi-caret family without colliding with
+/// Undo (`Cmd+Z`), Multi-select next (`Cmd+Alt+N`), Multi-select all (`Cmd+Alt+A`),
+/// or bare Backspace (delete backward).
+pub const DEFAULT_MULTI_SELECT_UNDO: &str = "Cmd+Alt+Backspace";
+
 /// Default Begin/End Select binding (Edit → Begin/End Select).
 /// Shift flips to Begin/End Select in Column Mode.
 pub const DEFAULT_BEGIN_END_SELECT: &str = "Cmd+Alt+B";
@@ -3209,6 +3215,31 @@ mod tests {
         assert_eq!(c.key, Key::A);
         assert_eq!(c.display(), "Cmd+Alt+A");
         assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+A");
+    }
+
+    #[test]
+    fn parse_cmd_alt_backspace_default_multi_select_undo() {
+        let c = parse_chord(DEFAULT_MULTI_SELECT_UNDO).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Backspace);
+        assert_eq!(c.display(), "Cmd+Alt+Backspace");
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd_alt, Key::Backspace));
+        // Must not steal bare Backspace (delete backward).
+        assert!(!c.matches(Modifiers::default(), Key::Backspace));
+        // Must not steal Undo (Cmd+Z).
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::Z));
+        assert!(!c.matches(cmd, Key::Backspace));
     }
 
     #[test]

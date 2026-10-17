@@ -264,6 +264,10 @@ fn default_shortcut_multi_select_all() -> String {
     crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL.into()
 }
 
+fn default_shortcut_multi_select_undo() -> String {
+    crate::shortcut_chord::DEFAULT_MULTI_SELECT_UNDO.into()
+}
+
 fn default_shortcut_begin_end_select() -> String {
     crate::shortcut_chord::DEFAULT_BEGIN_END_SELECT.into()
 }
@@ -1459,6 +1463,9 @@ pub struct AppSettings {
     /// Multi-select all chord (`Cmd+Alt+A` default; Shift flips to whole-word).
     #[serde(default = "default_shortcut_multi_select_all")]
     pub shortcut_multi_select_all: String,
+    /// Undo the latest added multi-select (`Cmd+Alt+Backspace` default).
+    #[serde(default = "default_shortcut_multi_select_undo")]
+    pub shortcut_multi_select_undo: String,
     /// Begin/End Select chord (`Cmd+Alt+B` default; Shift flips to column mode).
     #[serde(default = "default_shortcut_begin_end_select")]
     pub shortcut_begin_end_select: String,
@@ -1806,6 +1813,7 @@ impl Default for AppSettings {
             shortcut_blank_line: default_shortcut_blank_line(),
             shortcut_multi_select_next: default_shortcut_multi_select_next(),
             shortcut_multi_select_all: default_shortcut_multi_select_all(),
+            shortcut_multi_select_undo: default_shortcut_multi_select_undo(),
             shortcut_begin_end_select: default_shortcut_begin_end_select(),
             shortcut_toggle_readonly: default_shortcut_toggle_readonly(),
             shortcut_readonly_all: default_shortcut_readonly_all(),
@@ -2350,6 +2358,7 @@ mod tests {
             shortcut_blank_line: "Ctrl+Alt+Enter".into(),
             shortcut_multi_select_next: "Ctrl+Alt+Shift+N".into(),
             shortcut_multi_select_all: "Ctrl+Alt+Shift+A".into(),
+            shortcut_multi_select_undo: "Ctrl+Alt+Backspace".into(),
             shortcut_begin_end_select: "Ctrl+Alt+Shift+B".into(),
             shortcut_toggle_readonly: "Ctrl+Alt+Shift+R".into(),
             shortcut_readonly_all: "Ctrl+Shift+F10".into(),
@@ -2567,6 +2576,7 @@ mod tests {
         assert_eq!(back.shortcut_blank_line, "Ctrl+Alt+Enter");
         assert_eq!(back.shortcut_multi_select_next, "Ctrl+Alt+Shift+N");
         assert_eq!(back.shortcut_multi_select_all, "Ctrl+Alt+Shift+A");
+        assert_eq!(back.shortcut_multi_select_undo, "Ctrl+Alt+Backspace");
         assert_eq!(back.shortcut_begin_end_select, "Ctrl+Alt+Shift+B");
         assert_eq!(back.shortcut_toggle_readonly, "Ctrl+Alt+Shift+R");
         assert_eq!(back.shortcut_readonly_all, "Ctrl+Shift+F10");

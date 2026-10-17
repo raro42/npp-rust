@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.382] — 2026-10-17
+
+Edit:
+
+- **Undo the latest added multi-select** is remappable: Preferences → Multi-select undo shortcut, or `shortcut_multi_select_undo` in `npp-rs/settings.json` (default `Cmd+Alt+Backspace`). Drops the newest extra caret. Does not also delete a character, and does not collide with Undo (`Cmd+Z`) or bare Backspace. Shortcut Mapper and About show the binding.
+
 ## [0.3.381] — 2026-10-17
 
 Edit:
