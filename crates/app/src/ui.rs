@@ -6494,6 +6494,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_TOOL_SHA1_GENERATE");
             }
         }
+        // Remappable SHA-512 (default Cmd+F6; settings.shortcut_sha512).
+        // Shift flips to Generate into clipboard.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SHA512};
+            let sha512_chord = resolve_chord(&self.state.settings.shortcut_sha512, DEFAULT_SHA512);
+            let sha512_key_pressed = match sha512_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if sha512_key_pressed && sha512_chord.flipped_shift().matches(mods, sha512_chord.key) {
+                self.run_shortcut_cmd("IDM_TOOL_SHA512_GENERATEINTOCLIPBOARD");
+            } else if sha512_key_pressed && sha512_chord.matches(mods, sha512_chord.key) {
+                self.run_shortcut_cmd("IDM_TOOL_SHA512_GENERATE");
+            }
+        }
 
         // Remappable TAB → Space (default Cmd+Alt+V; settings.shortcut_tab_to_space).
         // Shift flips to Space → TAB (Leading).
@@ -9783,6 +9819,12 @@ impl EditorApp {
             "IDM_TOOL_SHA1_GENERATEINTOCLIPBOARD" => {
                 shifted(&s.shortcut_sha1, crate::shortcut_chord::DEFAULT_SHA1)
             }
+            "IDM_TOOL_SHA512_GENERATE" => {
+                primary(&s.shortcut_sha512, crate::shortcut_chord::DEFAULT_SHA512)
+            }
+            "IDM_TOOL_SHA512_GENERATEINTOCLIPBOARD" => {
+                shifted(&s.shortcut_sha512, crate::shortcut_chord::DEFAULT_SHA512)
+            }
             "IDM_EDIT_TAB2SW" => primary(
                 &s.shortcut_tab_to_space,
                 crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -11579,6 +11621,15 @@ impl EditorApp {
             sha1_chord.display(),
             sha1_chord.flipped_shift().display()
         );
+        let sha512_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_sha512,
+            crate::shortcut_chord::DEFAULT_SHA512,
+        );
+        let sha512_keys = format!(
+            "{} / {}",
+            sha512_chord.display(),
+            sha512_chord.flipped_shift().display()
+        );
         let tab_to_space_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_tab_to_space,
             crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -11984,7 +12035,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 175] = [
+        let rows: [(&str, &str); 176] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -12308,6 +12359,7 @@ impl EditorApp {
             (md5_keys.as_str(), "MD5 generate / clipboard"),
             (sha256_keys.as_str(), "SHA-256 generate / clipboard"),
             (sha1_keys.as_str(), "SHA-1 generate / clipboard"),
+            (sha512_keys.as_str(), "SHA-512 generate / clipboard"),
             (
                 tab_to_space_keys.as_str(),
                 "TAB to Space / Space to TAB (Leading)",
@@ -16773,6 +16825,35 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+F12, Ctrl+F12. Hashes the selection, or the whole document, and inserts the digest (Tools → SHA-1 → Generate). Shift + that chord copies the digest instead. Does not collide with Post-It (F12), Convert EOL Macintosh (Alt+Shift+F12), or Convert EOL Unix/Windows (Cmd+Alt+F12).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("SHA-512 shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(&mut self.state.settings.shortcut_sha512)
+                                    .desired_width(140.0)
+                                    .hint_text("Cmd+F6"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_sha512.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_sha512 =
+                                        crate::shortcut_chord::DEFAULT_SHA512.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SHA512
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_sha512 = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+F6, Ctrl+F6. Hashes the selection, or the whole document, and inserts the digest (Tools → SHA-512 → Generate). Shift + that chord copies the digest instead. Does not collide with Focus on Another View (F6), Find Cut (Alt+Shift+F6), or Sort Lines Lex Ignoring Case (Cmd+Alt+F6).",
                             )
                             .small()
                             .weak(),

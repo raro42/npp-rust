@@ -736,6 +736,13 @@ pub const DEFAULT_SHA256: &str = "Alt+F11";
 /// Macintosh (`Alt+Shift+F12`), or Convert EOL Unix/Windows (`Cmd+Alt+F12`).
 pub const DEFAULT_SHA1: &str = "Cmd+F12";
 
+/// Default SHA-512 generate binding (Tools → SHA-512 → Generate).
+/// Shift flips to Generate from selection into clipboard. Uses Cmd+F6 so it
+/// stays off Focus on Another View (`F6` / Shift+F6), Find Cut
+/// (`Alt+Shift+F6` / `Alt+F6`), and Sort Lines Lex Ignoring Case
+/// (`Cmd+Alt+F6` / `Cmd+Alt+Shift+F6`).
+pub const DEFAULT_SHA512: &str = "Cmd+F6";
+
 /// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
 /// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
 /// Shift flips to Remove Empty Lines (Containing Blank Characters).
@@ -3584,6 +3591,44 @@ mod tests {
         };
         assert!(!c.matches(alt_shift, Key::F12));
         assert!(!clip.matches(alt_shift, Key::F12));
+    }
+
+    #[test]
+    fn parse_cmd_f6_default_sha512() {
+        let c = parse_chord(DEFAULT_SHA512).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F6);
+        assert_eq!(c.display(), "Cmd+F6");
+        let clip = c.flipped_shift();
+        assert!(clip.ctrl_or_cmd);
+        assert!(clip.shift);
+        assert!(!clip.alt);
+        assert_eq!(clip.display(), "Cmd+Shift+F6");
+        let bare = Modifiers::default();
+        assert!(!c.matches(bare, Key::F6));
+        assert!(!clip.matches(bare, Key::F6));
+        let shift_only = Modifiers {
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(shift_only, Key::F6));
+        assert!(!clip.matches(shift_only, Key::F6));
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt_shift, Key::F6));
+        assert!(!clip.matches(alt_shift, Key::F6));
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt, Key::F6));
+        assert!(!clip.matches(cmd_alt, Key::F6));
     }
 
     #[test]

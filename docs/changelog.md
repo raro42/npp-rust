@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.369] — 2026-10-17
+
+Tools:
+
+- **SHA-512 generate / clipboard** is remappable: Preferences → SHA-512 shortcut, or `shortcut_sha512` in `npp-rs/settings.json` (default `Cmd+F6`). Hashes the selection, or the whole document, and inserts the digest (Tools → SHA-512 → Generate). Shift + that chord copies the digest instead. Does not collide with Focus on Another View (`F6`), Find Cut (`Alt+Shift+F6`), or Sort Lines Lex Ignoring Case (`Cmd+Alt+F6`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.368] — 2026-10-17
 
 Tools:
