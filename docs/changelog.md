@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.373] — 2026-10-17
+
+View:
+
+- **Tab colour 3 / clear** is remappable: Preferences → Tab colour 3 shortcut, or `shortcut_tab_colour_3` in `npp-rs/settings.json` (default `Cmd+K`). Sets View → Apply Color 3 on the active tab. Shift + that chord removes the tab colour. Does not collide with Copy Compare Hunk (`Alt+K`), Shortcut Mapper (`Alt+Shift+K`), or Copy Current Directory (`Cmd+Alt+K`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.372] — 2026-10-17
 
 View:

@@ -292,6 +292,10 @@ fn default_shortcut_tab_colour_2() -> String {
     crate::shortcut_chord::DEFAULT_TAB_COLOUR_2.into()
 }
 
+fn default_shortcut_tab_colour_3() -> String {
+    crate::shortcut_chord::DEFAULT_TAB_COLOUR_3.into()
+}
+
 fn default_shortcut_column_editor() -> String {
     crate::shortcut_chord::DEFAULT_COLUMN_EDITOR.into()
 }
@@ -1444,6 +1448,9 @@ pub struct AppSettings {
     /// Tab colour 2 chord (`Cmd+F4` default; Shift clears; `IDM_VIEW_TAB_COLOUR_2`).
     #[serde(default = "default_shortcut_tab_colour_2")]
     pub shortcut_tab_colour_2: String,
+    /// Tab colour 3 chord (`Cmd+K` default; Shift clears; `IDM_VIEW_TAB_COLOUR_3`).
+    #[serde(default = "default_shortcut_tab_colour_3")]
+    pub shortcut_tab_colour_3: String,
     /// Column Editor chord (`Cmd+Alt+C` default; `IDM_EDIT_COLUMNMODE`).
     #[serde(default = "default_shortcut_column_editor")]
     pub shortcut_column_editor: String,
@@ -1750,6 +1757,7 @@ impl Default for AppSettings {
             shortcut_mapper: default_shortcut_mapper(),
             shortcut_tab_colour: default_shortcut_tab_colour(),
             shortcut_tab_colour_2: default_shortcut_tab_colour_2(),
+            shortcut_tab_colour_3: default_shortcut_tab_colour_3(),
             shortcut_column_editor: default_shortcut_column_editor(),
             shortcut_sort_lines: default_shortcut_sort_lines(),
             shortcut_sort_lines_integer: default_shortcut_sort_lines_integer(),
@@ -2285,6 +2293,7 @@ mod tests {
             shortcut_mapper: "Ctrl+Alt+Shift+K".into(),
             shortcut_tab_colour: "Ctrl+Shift+F5".into(),
             shortcut_tab_colour_2: "Ctrl+Shift+F4".into(),
+            shortcut_tab_colour_3: "Ctrl+Shift+K".into(),
             shortcut_column_editor: "Ctrl+Alt+Shift+C".into(),
             shortcut_sort_lines: "Ctrl+Alt+Shift+O".into(),
             shortcut_sort_lines_integer: "Ctrl+Alt+Shift+F5".into(),
@@ -2494,6 +2503,7 @@ mod tests {
         assert_eq!(back.shortcut_mapper, "Ctrl+Alt+Shift+K");
         assert_eq!(back.shortcut_tab_colour, "Ctrl+Shift+F5");
         assert_eq!(back.shortcut_tab_colour_2, "Ctrl+Shift+F4");
+        assert_eq!(back.shortcut_tab_colour_3, "Ctrl+Shift+K");
         assert_eq!(back.shortcut_column_editor, "Ctrl+Alt+Shift+C");
         assert_eq!(back.shortcut_sort_lines, "Ctrl+Alt+Shift+O");
         assert_eq!(back.shortcut_sort_lines_integer, "Ctrl+Alt+Shift+F5");

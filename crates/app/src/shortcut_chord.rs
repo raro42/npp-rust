@@ -655,6 +655,13 @@ pub const DEFAULT_TAB_COLOUR: &str = "Cmd+F5";
 /// Find Bookmark (`Alt+Shift+F4` / `Alt+F4`).
 pub const DEFAULT_TAB_COLOUR_2: &str = "Cmd+F4";
 
+/// Default Tab colour 3 binding (View → Apply Color 3).
+/// Shift clears the colour. Uses Cmd+K so it stays near Shortcut Mapper
+/// (`Alt+Shift+K`) and Copy Current Directory (`Cmd+Alt+K`) without taking
+/// Copy Compare Hunk (`Alt+K`), Tab colour 1/2 (`Cmd+F5` / `Cmd+F4`), or
+/// Clear Change History (`Cmd+Shift+F8`).
+pub const DEFAULT_TAB_COLOUR_3: &str = "Cmd+K";
+
 /// Default Column Editor binding (Edit → Column Editor).
 /// Uses Cmd+Alt+C so it does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).
 pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
@@ -3305,6 +3312,51 @@ mod tests {
         };
         assert!(!c.matches(bookmark, Key::F4));
         assert!(!c.flipped_shift().matches(bookmark, Key::F4));
+    }
+
+    #[test]
+    fn parse_cmd_k_default_tab_colour_3() {
+        let c = parse_chord(DEFAULT_TAB_COLOUR_3).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::K);
+        assert_eq!(c.display(), "Cmd+K");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+K");
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd, Key::K));
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_shift, Key::K));
+        assert!(c.flipped_shift().matches(cmd_shift, Key::K));
+        // Must not steal Copy Compare Hunk (Alt+K) or Shortcut Mapper (Alt+Shift+K).
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::K));
+        assert!(!c.flipped_shift().matches(alt, Key::K));
+        let mapper = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(mapper, Key::K));
+        assert!(!c.flipped_shift().matches(mapper, Key::K));
+        // Must not steal Copy Current Directory (Cmd+Alt+K).
+        let copy_dir = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(copy_dir, Key::K));
+        assert!(!c.flipped_shift().matches(copy_dir, Key::K));
     }
 
     #[test]
