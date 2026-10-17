@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.389] — 2026-10-17
+
+Macro:
+
+- **Run a Macro Multiple Times** is remappable: Preferences → Run macro multiple times shortcut, or `shortcut_macro_repeat` in `npp-rs/settings.json` (default `Cmd+Alt+Shift+K`). Replays the recorded steps three times (Macro → Run a Macro Multiple Times). Shift is part of the chord so it does not steal Copy Current Directory (`Cmd+Alt+K`), Copy Compare Hunk (`Alt+K`), Shortcut Mapper (`Alt+Shift+K`), or Tab colour 3 (`Cmd+K`). Shortcut Mapper and About show the binding.
+
 ## [0.3.388] — 2026-10-17
 
 Macro:

@@ -161,6 +161,7 @@ New keys:
 | `shortcut_macro_playback` | Macro Playback chord (`Cmd+Shift+P` default; Shift is part of the chord) |
 | `shortcut_macro_record` | Start/Stop Recording chord (`Cmd+Alt+Shift+R` default; same chord toggles) |
 | `shortcut_macro_save` | Save Current Recorded Macro chord (`Cmd+Alt+Shift+S` default; Shift is part of the chord) |
+| `shortcut_macro_repeat` | Run a Macro Multiple Times chord (`Cmd+Alt+Shift+K` default; Shift is part of the chord) |
 | `shortcut_copy_path` | Copy Full Path chord (`Cmd+Alt+P` default; Shift flips to File Name) |
 | `shortcut_copy_dir` | Copy Current Directory Path chord (`Cmd+Alt+K` default) |
 | `shortcut_copy_all_paths` | Copy All File Paths chord (`Cmd+Alt+M` default; Shift flips to All Filenames) |

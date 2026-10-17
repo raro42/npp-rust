@@ -1,3 +1,4 @@
+009 keep: remappable Run a Macro Multiple Times (shortcut_macro_repeat, Cmd+Alt+Shift+K default, v0.3.389)
 009 keep: remappable Save Current Recorded Macro (shortcut_macro_save, Cmd+Alt+Shift+S default, v0.3.388)
 009 keep: remappable Start/Stop Recording (shortcut_macro_record, Cmd+Alt+Shift+R default, toggle, v0.3.387)
 009 keep: remappable Macro Playback (shortcut_macro_playback, Cmd+Shift+P default, v0.3.386)

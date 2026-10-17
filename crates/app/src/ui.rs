@@ -6272,6 +6272,45 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_MACRO_SAVECURRENTMACRO");
             }
         }
+        // Remappable Run a Macro Multiple Times (default Cmd+Alt+Shift+K; settings.shortcut_macro_repeat).
+        // Shift is part of the chord so it does not steal Copy Directory, Copy Compare Hunk,
+        // Shortcut Mapper, or Tab colour 3.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_MACRO_REPEAT};
+            let repeat_macro_chord = resolve_chord(
+                &self.state.settings.shortcut_macro_repeat,
+                DEFAULT_MACRO_REPEAT,
+            );
+            let repeat_macro_key_pressed = match repeat_macro_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if repeat_macro_key_pressed && repeat_macro_chord.matches(mods, repeat_macro_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_MACRO_RUNMULTIMACRODLG");
+            }
+        }
         // Remappable Copy Full Path (default Cmd+Alt+P; settings.shortcut_copy_path).
         // Shift flips to Copy File Name.
         {
@@ -10938,6 +10977,10 @@ impl EditorApp {
                 &s.shortcut_macro_save,
                 crate::shortcut_chord::DEFAULT_MACRO_SAVE,
             ),
+            "IDM_MACRO_RUNMULTIMACRODLG" => primary(
+                &s.shortcut_macro_repeat,
+                crate::shortcut_chord::DEFAULT_MACRO_REPEAT,
+            ),
             "IDM_EDIT_FULLPATHTOCLIP" => primary(
                 &s.shortcut_copy_path,
                 crate::shortcut_chord::DEFAULT_COPY_PATH,
@@ -12371,6 +12414,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_MACRO_SAVE,
         )
         .display();
+        let macro_repeat_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_macro_repeat,
+            crate::shortcut_chord::DEFAULT_MACRO_REPEAT,
+        )
+        .display();
         let copy_path_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_copy_path,
             crate::shortcut_chord::DEFAULT_COPY_PATH,
@@ -12988,7 +13036,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 195] = [
+        let rows: [(&str, &str); 196] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13241,6 +13289,7 @@ impl EditorApp {
             (macro_playback_keys.as_str(), "Macro Playback"),
             (macro_record_keys.as_str(), "Start/Stop Recording"),
             (macro_save_keys.as_str(), "Save Current Recorded Macro"),
+            (macro_repeat_keys.as_str(), "Run a Macro Multiple Times"),
             (copy_path_keys.as_str(), "Copy Full Path / File Name"),
             (copy_dir_keys.as_str(), "Copy Current Directory Path"),
             (
@@ -17538,6 +17587,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+Shift+S, Ctrl+Alt+Shift+S. Saves the recorded macro (Macro → Save Current Recorded Macro). Shift is part of the chord so it does not steal Save (Cmd+S), Save As (Cmd+Shift+S), Save All (Cmd+Alt+S), Swap Compare (Alt+S), or Compare to Saved (Alt+Shift+S).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Run macro multiple times shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_macro_repeat,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+Shift+K"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_macro_repeat
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_macro_repeat =
+                                        crate::shortcut_chord::DEFAULT_MACRO_REPEAT.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MACRO_REPEAT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_macro_repeat = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+Shift+K, Ctrl+Alt+Shift+K. Repeats the recorded macro (Macro → Run a Macro Multiple Times). Shift is part of the chord so it does not steal Copy Current Directory (Cmd+Alt+K), Copy Compare Hunk (Alt+K), Shortcut Mapper (Alt+Shift+K), or Tab colour 3 (Cmd+K).",
                             )
                             .small()
                             .weak(),

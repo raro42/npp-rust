@@ -873,6 +873,12 @@ pub const DEFAULT_MACRO_RECORD: &str = "Cmd+Alt+Shift+R";
 /// to Saved (`Alt+Shift+S`). Shift is part of the chord, not a flip.
 pub const DEFAULT_MACRO_SAVE: &str = "Cmd+Alt+Shift+S";
 
+/// Default Run a Macro Multiple Times binding (Macro → Run a Macro Multiple Times).
+/// Uses Cmd+Alt+Shift+K so it does not collide with Copy Current Directory
+/// (`Cmd+Alt+K`), Copy Compare Hunk (`Alt+K`), Shortcut Mapper (`Alt+Shift+K`),
+/// or Tab colour 3 (`Cmd+K`). Shift is part of the chord, not a flip.
+pub const DEFAULT_MACRO_REPEAT: &str = "Cmd+Alt+Shift+K";
+
 /// Default Copy Full Path to Clipboard binding (Edit → Copy to Clipboard).
 /// Uses Cmd+Alt+P so it does not collide with Print (Cmd+P), Project Panel (Alt+P),
 /// or Pin tab (Alt+Shift+P). Shift flips to Copy File Name.
@@ -4504,6 +4510,48 @@ mod tests {
             ..Modifiers::default()
         };
         assert!(!c.matches(alt_shift, Key::S));
+    }
+
+    #[test]
+    fn parse_cmd_alt_shift_k_default_macro_repeat() {
+        let c = parse_chord(DEFAULT_MACRO_REPEAT).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::K);
+        assert_eq!(c.display(), "Cmd+Alt+Shift+K");
+        let all = Modifiers {
+            command: true,
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(all, Key::K));
+        // Must not steal Copy Current Directory (Cmd+Alt+K).
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt, Key::K));
+        // Must not steal Tab colour 3 (Cmd+K).
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::K));
+        // Must not steal Copy Compare Hunk (Alt+K) or Shortcut Mapper (Alt+Shift+K).
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::K));
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt_shift, Key::K));
     }
 
     #[test]
