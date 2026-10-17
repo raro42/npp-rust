@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.370] — 2026-10-17
+
+Settings:
+
+- **Shortcut Mapper** is remappable: Preferences → Shortcut Mapper shortcut, or `shortcut_mapper` in `npp-rs/settings.json` (default `Alt+Shift+K`). Opens Settings → Shortcut Mapper (static dump of hard-wired and remappable chords). Does not collide with Copy Compare Hunk (`Alt+K`), Copy Current Directory Path (`Cmd+Alt+K`), or Preferences (`Cmd+,`). Shortcut Mapper and About show the binding.
+
 ## [0.3.369] — 2026-10-17
 
 Tools:

@@ -5015,6 +5015,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_SETTING_PREFERENCE");
             }
         }
+        // Remappable Shortcut Mapper (default Alt+Shift+K; settings.shortcut_mapper).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SHORTCUT_MAPPER};
+            let mapper_chord = resolve_chord(
+                &self.state.settings.shortcut_mapper,
+                DEFAULT_SHORTCUT_MAPPER,
+            );
+            let mapper_key_pressed = match mapper_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if mapper_key_pressed && mapper_chord.matches(mods, mapper_chord.key) {
+                self.run_shortcut_cmd("IDM_SETTING_SHORTCUT_MAPPER");
+            }
+        }
         // Remappable Column Editor (default Cmd+Alt+C; settings.shortcut_column_editor).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_COLUMN_EDITOR};
@@ -10034,6 +10070,10 @@ impl EditorApp {
                 &s.shortcut_preferences,
                 crate::shortcut_chord::DEFAULT_PREFERENCES,
             ),
+            "IDM_SETTING_SHORTCUT_MAPPER" => primary(
+                &s.shortcut_mapper,
+                crate::shortcut_chord::DEFAULT_SHORTCUT_MAPPER,
+            ),
             "IDM_EDIT_COLUMNMODE" => primary(
                 &s.shortcut_column_editor,
                 crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -11343,6 +11383,11 @@ impl EditorApp {
             preferences_chord.display(),
             preferences_chord.flipped_shift().display()
         );
+        let shortcut_mapper_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_mapper,
+            crate::shortcut_chord::DEFAULT_SHORTCUT_MAPPER,
+        )
+        .display();
         let column_editor_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_column_editor,
             crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -12035,7 +12080,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 176] = [
+        let rows: [(&str, &str); 177] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -12226,6 +12271,7 @@ impl EditorApp {
                 preferences_keys.as_str(),
                 "Preferences / Style Configurator",
             ),
+            (shortcut_mapper_keys.as_str(), "Shortcut Mapper"),
             (column_editor_keys.as_str(), "Column Editor"),
             (
                 sort_lines_keys.as_str(),
@@ -15655,6 +15701,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+,. Opens Settings → Preferences. Shift + that chord opens Style Configurator. Does not collide with Summary (Alt+F1), Print (Cmd+P), or Project Panel (Alt+P).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Shortcut Mapper shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_mapper,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+Shift+K"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_mapper.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_mapper =
+                                        crate::shortcut_chord::DEFAULT_SHORTCUT_MAPPER.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SHORTCUT_MAPPER
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_mapper = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+K. Opens Settings → Shortcut Mapper (static dump of hard-wired and remappable chords). Does not collide with Copy Compare Hunk (Alt+K), Copy Current Directory Path (Cmd+Alt+K), or Preferences (Cmd+,).",
                             )
                             .small()
                             .weak(),

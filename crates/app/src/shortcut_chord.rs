@@ -637,6 +637,11 @@ pub const DEFAULT_SUMMARY: &str = "Alt+F1";
 /// Summary (`Alt+F1`), Print (`Cmd+P`), or Project Panel (`Alt+P`).
 pub const DEFAULT_PREFERENCES: &str = "Cmd+,";
 
+/// Default Shortcut Mapper binding (Settings → Shortcut Mapper).
+/// Uses Alt+Shift+K so it does not collide with Copy Compare Hunk (`Alt+K`),
+/// Copy Current Directory Path (`Cmd+Alt+K`), or Preferences (`Cmd+,`).
+pub const DEFAULT_SHORTCUT_MAPPER: &str = "Alt+Shift+K";
+
 /// Default Column Editor binding (Edit → Column Editor).
 /// Uses Cmd+Alt+C so it does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).
 pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
@@ -3191,6 +3196,35 @@ mod tests {
         assert!(!c.matches(cmd_shift, Key::Comma));
         assert!(c.flipped_shift().matches(cmd_shift, Key::Comma));
         assert_eq!(parse_chord("Ctrl+comma").unwrap().key, Key::Comma);
+    }
+
+    #[test]
+    fn parse_alt_shift_k_default_shortcut_mapper() {
+        let c = parse_chord(DEFAULT_SHORTCUT_MAPPER).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::K);
+        assert_eq!(c.display(), "Alt+Shift+K");
+        let bare = Modifiers::default();
+        assert!(!c.matches(bare, Key::K));
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::K));
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(alt_shift, Key::K));
+        let cmd_alt_k = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt_k, Key::K));
     }
 
     #[test]
