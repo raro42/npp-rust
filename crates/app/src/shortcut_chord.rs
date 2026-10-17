@@ -662,6 +662,12 @@ pub const DEFAULT_TAB_COLOUR_2: &str = "Cmd+F4";
 /// Clear Change History (`Cmd+Shift+F8`).
 pub const DEFAULT_TAB_COLOUR_3: &str = "Cmd+K";
 
+/// Default Tab colour 4 binding (View → Apply Color 4).
+/// Shift clears the colour. Uses Cmd+M so it stays near Tab colour 3 (`Cmd+K`)
+/// without taking Bookmark Compare Diffs (`Alt+M`), Copy All Paths (`Cmd+Alt+M`),
+/// or Tab colour 1/2/3 (`Cmd+F5` / `Cmd+F4` / `Cmd+K`).
+pub const DEFAULT_TAB_COLOUR_4: &str = "Cmd+M";
+
 /// Default Column Editor binding (Edit → Column Editor).
 /// Uses Cmd+Alt+C so it does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).
 pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
@@ -3357,6 +3363,44 @@ mod tests {
         };
         assert!(!c.matches(copy_dir, Key::K));
         assert!(!c.flipped_shift().matches(copy_dir, Key::K));
+    }
+
+    #[test]
+    fn parse_cmd_m_default_tab_colour_4() {
+        let c = parse_chord(DEFAULT_TAB_COLOUR_4).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::M);
+        assert_eq!(c.display(), "Cmd+M");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+M");
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd, Key::M));
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_shift, Key::M));
+        assert!(c.flipped_shift().matches(cmd_shift, Key::M));
+        // Must not steal Bookmark Compare Diffs (Alt+M).
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::M));
+        assert!(!c.flipped_shift().matches(alt, Key::M));
+        // Must not steal Copy All Paths (Cmd+Alt+M).
+        let copy_all = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(copy_all, Key::M));
+        assert!(!c.flipped_shift().matches(copy_all, Key::M));
     }
 
     #[test]

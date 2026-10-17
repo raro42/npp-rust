@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.374] — 2026-10-17
+
+View:
+
+- **Tab colour 4 / clear** is remappable: Preferences → Tab colour 4 shortcut, or `shortcut_tab_colour_4` in `npp-rs/settings.json` (default `Cmd+M`). Sets View → Apply Color 4 on the active tab. Shift + that chord removes the tab colour. Does not collide with Bookmark Compare Diffs (`Alt+M`), Copy All Paths (`Cmd+Alt+M`), or Tab colour 3 (`Cmd+K`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.373] — 2026-10-17
 
 View:
