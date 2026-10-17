@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.376] — 2026-10-17
+
+Edit:
+
+- **Clipboard History** is remappable: Preferences → Clipboard History shortcut, or `shortcut_clipboard_history` in `npp-rs/settings.json` (default `Cmd+Shift+C`). Runs Edit → Clipboard History (shows the last copied entry in the status line; 1-entry MVP). Does not collide with Copy (`Cmd+C`), Column Editor (`Cmd+Alt+C`), or Copy Compare Diff (`Alt+C`). Shortcut Mapper and About show the binding.
+
 ## [0.3.375] — 2026-10-17
 
 View:

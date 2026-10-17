@@ -143,6 +143,7 @@ New keys:
 | `shortcut_tab_colour_3` | Tab colour 3 chord (`Cmd+K` default; Shift clears; `IDM_VIEW_TAB_COLOUR_3`) |
 | `shortcut_tab_colour_4` | Tab colour 4 chord (`Cmd+M` default; Shift clears; `IDM_VIEW_TAB_COLOUR_4`) |
 | `shortcut_tab_colour_5` | Tab colour 5 chord (`Cmd+;` default; Shift clears; `IDM_VIEW_TAB_COLOUR_5`) |
+| `shortcut_clipboard_history` | Clipboard History chord (`Cmd+Shift+C` default; `IDM_EDIT_CLIPBOARDHISTORY_PANEL`) |
 | `shortcut_preferences` | Preferences chord (`Cmd+,` default; Shift opens Style Configurator; `IDM_SETTING_PREFERENCE`) |
 | `shortcut_column_editor` | Column Editor chord (`Cmd+Alt+C` default; `IDM_EDIT_COLUMNMODE`) |
 | `shortcut_sort_lines` | Sort Lines Lexicographic Ascending chord (`Cmd+Alt+O` default; Shift flips to Descending) |

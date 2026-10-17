@@ -120,6 +120,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+K (remappable) | Tab colour 3; Shift clears (`shortcut_tab_colour_3`) |
 | Cmd/Ctrl+M (remappable) | Tab colour 4; Shift clears (`shortcut_tab_colour_4`) |
 | Cmd/Ctrl+; (remappable) | Tab colour 5; Shift clears (`shortcut_tab_colour_5`) |
+| Cmd/Ctrl+Shift+C (remappable) | Clipboard History (`shortcut_clipboard_history`) |
 | Alt+Shift+L (remappable) | Hide Lines (`shortcut_hide_lines`; current line or selection) |
 | Cmd/Ctrl+Alt+E (remappable) | Remove Empty Lines (`shortcut_remove_empty_lines`; Shift = Containing Blank) |
 | Cmd/Ctrl+Alt+D (remappable) | Remove Consecutive Duplicate Lines (`shortcut_remove_dup_lines`; Shift = any) |

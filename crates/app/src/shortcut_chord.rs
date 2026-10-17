@@ -674,6 +674,12 @@ pub const DEFAULT_TAB_COLOUR_4: &str = "Cmd+M";
 /// Preferences (`Cmd+,`).
 pub const DEFAULT_TAB_COLOUR_5: &str = "Cmd+;";
 
+/// Default Clipboard History binding (Edit → Clipboard History).
+/// Shows the last copied entry in the status line (1-entry MVP). Uses `Cmd+Shift+C`
+/// so it stays near Copy (`Cmd+C`) without taking that chord, Column Editor
+/// (`Cmd+Alt+C`), or Copy Compare Diff (`Alt+C`).
+pub const DEFAULT_CLIPBOARD_HISTORY: &str = "Cmd+Shift+C";
+
 /// Default Column Editor binding (Edit → Column Editor).
 /// Uses Cmd+Alt+C so it does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).
 pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
@@ -3440,6 +3446,41 @@ mod tests {
         assert!(!c.flipped_shift().matches(sort_mod, Key::Semicolon));
         // Must not steal Preferences (Cmd+,).
         assert!(!c.matches(cmd, Key::Comma));
+    }
+
+    #[test]
+    fn parse_cmd_shift_c_default_clipboard_history() {
+        let c = parse_chord(DEFAULT_CLIPBOARD_HISTORY).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::C);
+        assert_eq!(c.display(), "Cmd+Shift+C");
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd_shift, Key::C));
+        // Must not steal Copy (Cmd+C).
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::C));
+        // Must not steal Column Editor (Cmd+Alt+C).
+        let col = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(col, Key::C));
+        // Must not steal Copy Compare Diff (Alt+C).
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::C));
     }
 
     #[test]

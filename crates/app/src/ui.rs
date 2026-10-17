@@ -5259,6 +5259,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_TAB_COLOUR_5");
             }
         }
+        // Remappable Clipboard History (default Cmd+Shift+C; settings.shortcut_clipboard_history).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_CLIPBOARD_HISTORY};
+            let hist_chord = resolve_chord(
+                &self.state.settings.shortcut_clipboard_history,
+                DEFAULT_CLIPBOARD_HISTORY,
+            );
+            let hist_key_pressed = match hist_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if hist_key_pressed && hist_chord.matches(mods, hist_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_CLIPBOARDHISTORY_PANEL");
+            }
+        }
         // Remappable Column Editor (default Cmd+Alt+C; settings.shortcut_column_editor).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_COLUMN_EDITOR};
@@ -10306,6 +10342,10 @@ impl EditorApp {
                 &s.shortcut_tab_colour_5,
                 crate::shortcut_chord::DEFAULT_TAB_COLOUR_5,
             ),
+            "IDM_EDIT_CLIPBOARDHISTORY_PANEL" => primary(
+                &s.shortcut_clipboard_history,
+                crate::shortcut_chord::DEFAULT_CLIPBOARD_HISTORY,
+            ),
             "IDM_EDIT_COLUMNMODE" => primary(
                 &s.shortcut_column_editor,
                 crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -11665,6 +11705,11 @@ impl EditorApp {
             tab_colour_5_chord.display(),
             tab_colour_5_chord.flipped_shift().display()
         );
+        let clipboard_history_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_clipboard_history,
+            crate::shortcut_chord::DEFAULT_CLIPBOARD_HISTORY,
+        )
+        .display();
         let column_editor_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_column_editor,
             crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -12357,7 +12402,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 182] = [
+        let rows: [(&str, &str); 183] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -12554,6 +12599,7 @@ impl EditorApp {
             (tab_colour_3_keys.as_str(), "Tab colour 3 / clear"),
             (tab_colour_4_keys.as_str(), "Tab colour 4 / clear"),
             (tab_colour_5_keys.as_str(), "Tab colour 5 / clear"),
+            (clipboard_history_keys.as_str(), "Clipboard History"),
             (column_editor_keys.as_str(), "Column Editor"),
             (
                 sort_lines_keys.as_str(),
@@ -16169,6 +16215,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+;. Sets View → Apply Color 5 on the active tab. Shift + that chord removes the tab colour. Does not collide with Sort tabs by modified (Cmd+Alt+;), Preferences (Cmd+,), or Tab colour 4 (Cmd+M).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Clipboard History shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_clipboard_history,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Shift+C"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_clipboard_history
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_clipboard_history =
+                                        crate::shortcut_chord::DEFAULT_CLIPBOARD_HISTORY.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CLIPBOARD_HISTORY
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_clipboard_history = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+C, Ctrl+Shift+C. Runs Edit → Clipboard History (shows the last copied entry in the status line; 1-entry MVP). Does not collide with Copy (Cmd+C), Column Editor (Cmd+Alt+C), or Copy Compare Diff (Alt+C).",
                             )
                             .small()
                             .weak(),

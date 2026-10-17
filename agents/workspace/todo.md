@@ -1,3 +1,5 @@
+009 keep: remappable Clipboard History (shortcut_clipboard_history, Cmd+Shift+C default, v0.3.376)
+
 009 keep: remappable Tab colour 5 / clear (shortcut_tab_colour_5, Cmd+; default; Shift=clear, v0.3.375)
 009 keep: remappable Tab colour 4 / clear (shortcut_tab_colour_4, Cmd+M default; Shift=clear, v0.3.374)
 009 keep: remappable Tab colour 3 / clear (shortcut_tab_colour_3, Cmd+K default; Shift=clear, v0.3.373)
