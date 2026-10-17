@@ -845,8 +845,14 @@ pub const DEFAULT_REMOVE_EMPTY_LINES: &str = "Cmd+Alt+E";
 pub const DEFAULT_REMOVE_DUP_LINES: &str = "Cmd+Alt+D";
 
 /// Default Date Time (short) binding (Edit → Insert; N++ F5 family).
-/// Shift flips to Date Time (long). Customized stays menu-only.
+/// Shift flips to Date Time (long). Customized uses `DEFAULT_INSERT_DATETIME_CUSTOM`.
 pub const DEFAULT_INSERT_DATETIME: &str = "F5";
+
+/// Default Date Time (customized) binding (Edit → Insert).
+/// Uses Cmd+Alt+= so it does not collide with Date Time short/long (`F5` / `Shift+F5`),
+/// Zoom in (`Cmd+=`), Find Copy lines (`Alt+F5`), Tab colour 1 (`Cmd+F5`),
+/// or Sort Lines Integer (`Cmd+Alt+F5`).
+pub const DEFAULT_INSERT_DATETIME_CUSTOM: &str = "Cmd+Alt+=";
 
 /// Default Copy Full Path to Clipboard binding (Edit → Copy to Clipboard).
 /// Uses Cmd+Alt+P so it does not collide with Print (Cmd+P), Project Panel (Alt+P),
@@ -4322,6 +4328,36 @@ mod tests {
         let long = c.flipped_shift();
         assert!(long.shift);
         assert_eq!(long.display(), "Shift+F5");
+    }
+
+    #[test]
+    fn parse_cmd_alt_equals_default_insert_datetime_custom() {
+        let c = parse_chord(DEFAULT_INSERT_DATETIME_CUSTOM).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Equals);
+        assert_eq!(c.display(), "Cmd+Alt+=");
+        let both = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(both, Key::Equals));
+        // Must not steal Zoom in (Cmd+=).
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::Equals));
+        // Must not steal Date Time short (F5) or long (Shift+F5).
+        let none = Modifiers::default();
+        assert!(!c.matches(none, Key::F5));
+        let shift = Modifiers {
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(shift, Key::F5));
     }
 
     #[test]

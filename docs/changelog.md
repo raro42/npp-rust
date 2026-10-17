@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.385] — 2026-10-17
+
+Edit:
+
+- **Date Time (customized)** is remappable: Preferences → Date Time customized shortcut, or `shortcut_insert_datetime_custom` in `npp-rs/settings.json` (default `Cmd+Alt+=`). Inserts the ISO-style local timestamp (Edit → Insert). Does not collide with Date Time short/long (`F5` / `Shift+F5`) or Zoom in (`Cmd+=`). Shortcut Mapper and About show the binding.
+
 ## [0.3.384] — 2026-10-17
 
 View:

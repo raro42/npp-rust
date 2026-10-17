@@ -6081,7 +6081,7 @@ impl EditorApp {
             }
         }
         // Remappable Date Time short (default F5; settings.shortcut_insert_datetime).
-        // Shift flips to Date Time (long). Customized stays menu-only.
+        // Shift flips to Date Time (long).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_INSERT_DATETIME};
             let dt_chord = resolve_chord(
@@ -6120,6 +6120,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_INSERT_DATETIME_LONG");
             } else if remapped_short {
                 self.run_shortcut_cmd("IDM_EDIT_INSERT_DATETIME_SHORT");
+            }
+        }
+        // Remappable Date Time customized (default Cmd+Alt+=; settings.shortcut_insert_datetime_custom).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_INSERT_DATETIME_CUSTOM};
+            let custom_chord = resolve_chord(
+                &self.state.settings.shortcut_insert_datetime_custom,
+                DEFAULT_INSERT_DATETIME_CUSTOM,
+            );
+            let custom_key_pressed = match custom_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if custom_key_pressed && custom_chord.matches(mods, custom_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_INSERT_DATETIME_CUSTOMIZED");
             }
         }
         // Remappable Copy Full Path (default Cmd+Alt+P; settings.shortcut_copy_path).
@@ -10772,6 +10808,10 @@ impl EditorApp {
                 &s.shortcut_insert_datetime,
                 crate::shortcut_chord::DEFAULT_INSERT_DATETIME,
             ),
+            "IDM_EDIT_INSERT_DATETIME_CUSTOMIZED" => primary(
+                &s.shortcut_insert_datetime_custom,
+                crate::shortcut_chord::DEFAULT_INSERT_DATETIME_CUSTOM,
+            ),
             "IDM_EDIT_FULLPATHTOCLIP" => primary(
                 &s.shortcut_copy_path,
                 crate::shortcut_chord::DEFAULT_COPY_PATH,
@@ -12185,6 +12225,11 @@ impl EditorApp {
             insert_datetime_chord.display(),
             insert_datetime_chord.flipped_shift().display()
         );
+        let insert_datetime_custom_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_insert_datetime_custom,
+            crate::shortcut_chord::DEFAULT_INSERT_DATETIME_CUSTOM,
+        )
+        .display();
         let copy_path_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_copy_path,
             crate::shortcut_chord::DEFAULT_COPY_PATH,
@@ -12802,7 +12847,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 191] = [
+        let rows: [(&str, &str); 192] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13051,6 +13096,7 @@ impl EditorApp {
                 "Remove Consecutive / Any Duplicate Lines",
             ),
             (insert_datetime_keys.as_str(), "Date Time short / long"),
+            (insert_datetime_custom_keys.as_str(), "Date Time customized"),
             (copy_path_keys.as_str(), "Copy Full Path / File Name"),
             (copy_dir_keys.as_str(), "Copy Current Directory Path"),
             (
@@ -17202,7 +17248,44 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: F5, Ctrl+F5. Inserts Date Time (short) (Edit → Insert). Shift + that chord inserts Date Time (long). Customized format stays menu-only.",
+                                "Example: F5, Ctrl+F5. Inserts Date Time (short) (Edit → Insert). Shift + that chord inserts Date Time (long).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Date Time customized shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_insert_datetime_custom,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+="),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_insert_datetime_custom
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_insert_datetime_custom =
+                                        crate::shortcut_chord::DEFAULT_INSERT_DATETIME_CUSTOM
+                                            .into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_INSERT_DATETIME_CUSTOM
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_insert_datetime_custom = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+=, Ctrl+Alt+=. Inserts Date Time (customized) (Edit → Insert). Does not collide with Date Time short/long (F5 / Shift+F5) or Zoom in (Cmd+=).",
                             )
                             .small()
                             .weak(),

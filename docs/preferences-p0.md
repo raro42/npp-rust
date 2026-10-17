@@ -157,6 +157,7 @@ New keys:
 | `shortcut_remove_empty_lines` | Remove Empty Lines chord (`Cmd+Alt+E` default; Shift flips to Containing Blank Characters) |
 | `shortcut_remove_dup_lines` | Remove Consecutive Duplicate Lines chord (`Cmd+Alt+D` default; Shift flips to any duplicates) |
 | `shortcut_insert_datetime` | Date Time (short) chord (`F5` default; Shift flips to long) |
+| `shortcut_insert_datetime_custom` | Date Time (customized) chord (`Cmd+Alt+=` default) |
 | `shortcut_copy_path` | Copy Full Path chord (`Cmd+Alt+P` default; Shift flips to File Name) |
 | `shortcut_copy_dir` | Copy Current Directory Path chord (`Cmd+Alt+K` default) |
 | `shortcut_copy_all_paths` | Copy All File Paths chord (`Cmd+Alt+M` default; Shift flips to All Filenames) |
