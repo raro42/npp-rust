@@ -2330,6 +2330,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EXECUTE");
             }
         }
+        // Remappable Open in Default Viewer (default Cmd+Shift+O; settings.shortcut_open_viewer).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_OPEN_VIEWER};
+            let open_viewer_chord = resolve_chord(
+                &self.state.settings.shortcut_open_viewer,
+                DEFAULT_OPEN_VIEWER,
+            );
+            let open_viewer_key_pressed = match open_viewer_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if open_viewer_key_pressed && open_viewer_chord.matches(mods, open_viewer_chord.key) {
+                self.run_shortcut_cmd("IDM_FILE_OPEN_DEFAULT_VIEWER");
+            }
+        }
         // Remappable save (default Cmd+S; settings.shortcut_save).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_SAVE};
@@ -9971,6 +10007,10 @@ impl EditorApp {
             ),
             "IDM_FILE_RELOAD" => primary(&s.shortcut_reload, crate::shortcut_chord::DEFAULT_RELOAD),
             "IDM_EXECUTE" => primary(&s.shortcut_run, crate::shortcut_chord::DEFAULT_RUN),
+            "IDM_FILE_OPEN_DEFAULT_VIEWER" => primary(
+                &s.shortcut_open_viewer,
+                crate::shortcut_chord::DEFAULT_OPEN_VIEWER,
+            ),
             "IDM_FILE_SAVE" => primary(&s.shortcut_save, crate::shortcut_chord::DEFAULT_SAVE),
             "IDM_FILE_SAVEAS" => {
                 primary(&s.shortcut_save_as, crate::shortcut_chord::DEFAULT_SAVE_AS)
@@ -12440,12 +12480,18 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_RUN,
         )
         .display();
+        let open_viewer_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_open_viewer,
+            crate::shortcut_chord::DEFAULT_OPEN_VIEWER,
+        )
+        .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 184] = [
+        let rows: [(&str, &str); 185] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
             (run_keys.as_str(), "Run…"),
+            (open_viewer_keys.as_str(), "Open in Default Viewer"),
             (save_keys.as_str(), "Save"),
             (save_as_keys.as_str(), "Save As"),
             (save_copy_keys.as_str(), "Save a Copy As / Rename"),
@@ -17801,6 +17847,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Shift+R, Ctrl+Shift+R. Runs Run → Run… (pick a program to spawn; cancel opens a shell in the active file’s folder). Does not collide with Reload (Cmd+R), Toggle Read-Only (Cmd+Alt+R), or RTL (Alt+R).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Open in Default Viewer shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_open_viewer,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Shift+O"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_open_viewer.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_open_viewer =
+                                        crate::shortcut_chord::DEFAULT_OPEN_VIEWER.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_OPEN_VIEWER
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_open_viewer = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+O, Ctrl+Shift+O. Opens the active file in the OS default viewer (File → Open in Default Viewer). Does not collide with Open (Cmd+O), Move/Clone Other View (Alt+O), or Sort Lines (Cmd+Alt+O).",
                             )
                             .small()
                             .weak(),

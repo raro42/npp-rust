@@ -844,6 +844,10 @@ fn default_shortcut_run() -> String {
     crate::shortcut_chord::DEFAULT_RUN.into()
 }
 
+fn default_shortcut_open_viewer() -> String {
+    crate::shortcut_chord::DEFAULT_OPEN_VIEWER.into()
+}
+
 fn default_ollama_host() -> String {
     crate::ollama::DEFAULT_OLLAMA_HOST.into()
 }
@@ -1575,6 +1579,9 @@ pub struct AppSettings {
     /// Run chord (`Cmd+Shift+R` default; `IDM_EXECUTE`).
     #[serde(default = "default_shortcut_run")]
     pub shortcut_run: String,
+    /// Open in Default Viewer chord (`Cmd+Shift+O` default; `IDM_FILE_OPEN_DEFAULT_VIEWER`).
+    #[serde(default = "default_shortcut_open_viewer")]
+    pub shortcut_open_viewer: String,
     /// Local Ollama base URL (loopback only). Empty → `http://127.0.0.1:11434`.
     #[serde(default = "default_ollama_host")]
     pub ollama_host: String,
@@ -1822,6 +1829,7 @@ impl Default for AppSettings {
             shortcut_find_in_files: default_shortcut_find_in_files(),
             shortcut_reload: default_shortcut_reload(),
             shortcut_run: default_shortcut_run(),
+            shortcut_open_viewer: default_shortcut_open_viewer(),
             ollama_host: default_ollama_host(),
             ollama_model: default_ollama_model(),
             extra: serde_json::Map::new(),
@@ -2361,6 +2369,7 @@ mod tests {
             shortcut_space_to_tab_all: "Ctrl+Alt+X".into(),
             shortcut_find_in_files: "Alt+Shift+F".into(),
             shortcut_run: "Ctrl+Alt+Shift+R".into(),
+            shortcut_open_viewer: "Ctrl+Alt+Shift+O".into(),
             ..Default::default()
         };
         let text = serde_json::to_string_pretty(&original).expect("serialize");
@@ -2578,6 +2587,7 @@ mod tests {
         assert_eq!(back.shortcut_space_to_tab_all, "Ctrl+Alt+X");
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
         assert_eq!(back.shortcut_run, "Ctrl+Alt+Shift+R");
+        assert_eq!(back.shortcut_open_viewer, "Ctrl+Alt+Shift+O");
     }
 
     #[test]

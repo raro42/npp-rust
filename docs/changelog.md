@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.378] — 2026-10-17
+
+File:
+
+- **Open in Default Viewer** is remappable: Preferences → Open in Default Viewer shortcut, or `shortcut_open_viewer` in `npp-rs/settings.json` (default `Cmd+Shift+O`). Opens the active file in the OS default viewer. Does not collide with Open (`Cmd+O`), Move/Clone Other View (`Alt+O`), or Sort Lines (`Cmd+Alt+O`). Shortcut Mapper and About show the binding.
+
 ## [0.3.377] — 2026-10-17
 
 Run:

@@ -558,3 +558,5 @@
 009 keep: remappable Trim Leading Space (shortcut_trim_leading, Alt+Shift+T default, v0.3.347)
 009 keep: remappable Convert EOL Macintosh (shortcut_convert_eol_mac, Alt+Shift+F12 default, v0.3.349)
 009 keep: remappable Run (shortcut_run, Cmd+Shift+R default, v0.3.377)
+
+009 keep: remappable Open in Default Viewer (shortcut_open_viewer, Cmd+Shift+O default, v0.3.378)

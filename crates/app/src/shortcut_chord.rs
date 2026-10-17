@@ -470,6 +470,11 @@ pub const DEFAULT_RELOAD: &str = "Cmd+R";
 /// without taking that chord, Toggle Read-Only (`Cmd+Alt+R`), or RTL (`Alt+R`).
 pub const DEFAULT_RUN: &str = "Cmd+Shift+R";
 
+/// Default Open in Default Viewer binding (File → Open in Default Viewer).
+/// Uses `Cmd+Shift+O` so it stays near Open (`Cmd+O`) without taking that chord,
+/// Move/Clone Other View (`Alt+O`), or Sort Lines (`Cmd+Alt+O`).
+pub const DEFAULT_OPEN_VIEWER: &str = "Cmd+Shift+O";
+
 /// Default next-tab binding (new remappable chord). Shift flips to previous tab.
 pub const DEFAULT_NEXT_TAB: &str = "Cmd+Tab";
 
@@ -4367,5 +4372,40 @@ mod tests {
             ..Modifiers::default()
         };
         assert!(!c.matches(alt, Key::R));
+    }
+
+    #[test]
+    fn parse_cmd_shift_o_default_open_viewer() {
+        let c = parse_chord(DEFAULT_OPEN_VIEWER).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::O);
+        assert_eq!(c.display(), "Cmd+Shift+O");
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd_shift, Key::O));
+        // Must not steal Open (Cmd+O).
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::O));
+        // Must not steal Move/Clone Other View (Alt+O).
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::O));
+        // Must not steal Sort Lines (Cmd+Alt+O).
+        let sort = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(sort, Key::O));
     }
 }
