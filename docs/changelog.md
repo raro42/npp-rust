@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.393] — 2026-10-18
+
+Edit:
+
+- **Multi-select Next (Whole Word)** is remappable: Preferences → Multi-select next whole word shortcut, or `shortcut_multi_select_next_word` in `npp-rs/settings.json` (default `Cmd+Shift+W`). Adds the next whole-word match as a caret (Edit → Multi-select Next → Whole Word). Shift is part of the chord so it does not steal Close tab (`Cmd+W`), Close All (`Cmd+Alt+W`), or Ignore whitespace (`Alt+W`). Shortcut Mapper and About show the binding.
+
 ## [0.3.392] — 2026-10-18
 
 Edit:

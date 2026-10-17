@@ -5078,6 +5078,44 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_MULTISELECTNEXTMATCHCASE");
             }
         }
+        // Remappable multi-select next whole word (default Cmd+Shift+W;
+        // settings.shortcut_multi_select_next_word). Shift is part of the chord so it
+        // does not steal Close tab (Cmd+W), Close All (Cmd+Alt+W), or Ignore whitespace (Alt+W).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_MULTI_SELECT_NEXT_WORD};
+            let multi_word_chord = resolve_chord(
+                &self.state.settings.shortcut_multi_select_next_word,
+                DEFAULT_MULTI_SELECT_NEXT_WORD,
+            );
+            let multi_word_key_pressed = match multi_word_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if multi_word_key_pressed && multi_word_chord.matches(mods, multi_word_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_MULTISELECTNEXTWHOLEWORD");
+            }
+        }
         // Remappable multi-select all (default Cmd+Alt+A; settings.shortcut_multi_select_all).
         // Shift flips to Multi-select All (Whole Word).
         {
@@ -10940,6 +10978,10 @@ impl EditorApp {
                 &s.shortcut_multi_select_next_case,
                 crate::shortcut_chord::DEFAULT_MULTI_SELECT_NEXT_CASE,
             ),
+            "IDM_EDIT_MULTISELECTNEXTWHOLEWORD" => primary(
+                &s.shortcut_multi_select_next_word,
+                crate::shortcut_chord::DEFAULT_MULTI_SELECT_NEXT_WORD,
+            ),
             "IDM_EDIT_MULTISELECTALL" => primary(
                 &s.shortcut_multi_select_all,
                 crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL,
@@ -12348,6 +12390,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_MULTI_SELECT_NEXT_CASE,
         )
         .display();
+        let multi_select_word_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_multi_select_next_word,
+            crate::shortcut_chord::DEFAULT_MULTI_SELECT_NEXT_WORD,
+        )
+        .display();
         let multi_select_all_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_multi_select_all,
             crate::shortcut_chord::DEFAULT_MULTI_SELECT_ALL,
@@ -13209,7 +13256,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 199] = [
+        let rows: [(&str, &str); 200] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13397,6 +13444,10 @@ impl EditorApp {
             (
                 multi_select_case_keys.as_str(),
                 "Multi-select next match case",
+            ),
+            (
+                multi_select_word_keys.as_str(),
+                "Multi-select next whole word",
             ),
             (
                 multi_select_all_keys.as_str(),
@@ -16807,6 +16858,43 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+Shift+N. Adds the next match with case. Shift is part of the chord so it does not steal Show NPC (Alt+N) or Multi-select next (Cmd+Alt+N).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Multi-select next whole word shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_multi_select_next_word,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Shift+W"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_multi_select_next_word
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_multi_select_next_word =
+                                        crate::shortcut_chord::DEFAULT_MULTI_SELECT_NEXT_WORD
+                                            .into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MULTI_SELECT_NEXT_WORD
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_multi_select_next_word = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+W. Adds the next whole-word match as a multi-caret. Shift is part of the chord so it does not steal Close tab (Cmd+W), Close All (Cmd+Alt+W), or Ignore whitespace (Alt+W).",
                             )
                             .small()
                             .weak(),

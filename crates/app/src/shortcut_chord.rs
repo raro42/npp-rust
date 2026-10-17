@@ -666,6 +666,11 @@ pub const DEFAULT_MULTI_SELECT_NEXT: &str = "Cmd+Alt+N";
 /// does not steal Show NPC (`Alt+N`) or Multi-select next / skip (`Cmd+Alt+N`).
 pub const DEFAULT_MULTI_SELECT_NEXT_CASE: &str = "Alt+Shift+N";
 
+/// Multi-select next, whole word (`Cmd+Shift+W`). Shift is part of the chord so it
+/// does not steal Close tab (`Cmd+W`), Close All (`Cmd+Alt+W`; Shift = Close All but
+/// Current), or Ignore whitespace / Ignore case (`Alt+W` / `Alt+Shift+W`).
+pub const DEFAULT_MULTI_SELECT_NEXT_WORD: &str = "Cmd+Shift+W";
+
 /// Default multi-select-all binding (Edit → Multi-select All).
 /// Shift flips to Multi-select All (Whole Word).
 pub const DEFAULT_MULTI_SELECT_ALL: &str = "Cmd+Alt+A";
@@ -3448,6 +3453,39 @@ mod tests {
             ..Modifiers::default()
         };
         assert!(!c.matches(cmd_alt, Key::N));
+    }
+
+    #[test]
+    fn parse_cmd_shift_w_default_multi_select_next_word() {
+        let c = parse_chord(DEFAULT_MULTI_SELECT_NEXT_WORD).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::W);
+        assert_eq!(c.display(), "Cmd+Shift+W");
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd_shift, Key::W));
+        // Must not steal Close tab (Cmd+W), Close All (Cmd+Alt+W), or Ignore whitespace (Alt+W).
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::W));
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt, Key::W));
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::W));
     }
 
     #[test]
