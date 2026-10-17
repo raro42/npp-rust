@@ -852,6 +852,10 @@ fn default_shortcut_about() -> String {
     crate::shortcut_chord::DEFAULT_ABOUT.into()
 }
 
+fn default_shortcut_delete_file() -> String {
+    crate::shortcut_chord::DEFAULT_DELETE_FILE.into()
+}
+
 fn default_ollama_host() -> String {
     crate::ollama::DEFAULT_OLLAMA_HOST.into()
 }
@@ -1589,6 +1593,9 @@ pub struct AppSettings {
     /// About chord (`F1` default; `IDM_ABOUT`).
     #[serde(default = "default_shortcut_about")]
     pub shortcut_about: String,
+    /// Move to Recycle Bin chord (`Cmd+Shift+Delete` default; `IDM_FILE_DELETE`).
+    #[serde(default = "default_shortcut_delete_file")]
+    pub shortcut_delete_file: String,
     /// Local Ollama base URL (loopback only). Empty → `http://127.0.0.1:11434`.
     #[serde(default = "default_ollama_host")]
     pub ollama_host: String,
@@ -1838,6 +1845,7 @@ impl Default for AppSettings {
             shortcut_run: default_shortcut_run(),
             shortcut_open_viewer: default_shortcut_open_viewer(),
             shortcut_about: default_shortcut_about(),
+            shortcut_delete_file: default_shortcut_delete_file(),
             ollama_host: default_ollama_host(),
             ollama_model: default_ollama_model(),
             extra: serde_json::Map::new(),
@@ -2379,6 +2387,7 @@ mod tests {
             shortcut_run: "Ctrl+Alt+Shift+R".into(),
             shortcut_open_viewer: "Ctrl+Alt+Shift+O".into(),
             shortcut_about: "Ctrl+Alt+Shift+F1".into(),
+            shortcut_delete_file: "Ctrl+Alt+Shift+Delete".into(),
             ..Default::default()
         };
         let text = serde_json::to_string_pretty(&original).expect("serialize");
@@ -2598,6 +2607,7 @@ mod tests {
         assert_eq!(back.shortcut_run, "Ctrl+Alt+Shift+R");
         assert_eq!(back.shortcut_open_viewer, "Ctrl+Alt+Shift+O");
         assert_eq!(back.shortcut_about, "Ctrl+Alt+Shift+F1");
+        assert_eq!(back.shortcut_delete_file, "Ctrl+Alt+Shift+Delete");
     }
 
     #[test]

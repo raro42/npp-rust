@@ -480,6 +480,11 @@ pub const DEFAULT_OPEN_VIEWER: &str = "Cmd+Shift+O";
 /// Load Session (`Cmd+F1`), or Sort tabs by name (`Cmd+Alt+F1`).
 pub const DEFAULT_ABOUT: &str = "F1";
 
+/// Default Move to Recycle Bin binding (File → Move to Recycle Bin).
+/// Uses `Cmd+Shift+Delete` so it stays near forward Delete without taking that
+/// bare key.
+pub const DEFAULT_DELETE_FILE: &str = "Cmd+Shift+Delete";
+
 /// Default next-tab binding (new remappable chord). Shift flips to previous tab.
 pub const DEFAULT_NEXT_TAB: &str = "Cmd+Tab";
 
@@ -4401,6 +4406,27 @@ mod tests {
             ..Modifiers::default()
         };
         assert!(!c.matches(cmd, Key::F1));
+    }
+
+    #[test]
+    fn parse_cmd_shift_delete_default_delete_file() {
+        let c = parse_chord(DEFAULT_DELETE_FILE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::Delete);
+        assert_eq!(c.display(), "Cmd+Shift+Delete");
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd_shift, Key::Delete));
+        // Must not steal forward Delete.
+        let none = Modifiers::default();
+        assert!(!c.matches(none, Key::Delete));
+        // Must not steal Delete line (Cmd+Shift+L).
+        assert!(!c.matches(cmd_shift, Key::L));
     }
 
     #[test]

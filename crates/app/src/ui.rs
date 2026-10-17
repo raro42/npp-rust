@@ -2366,6 +2366,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_FILE_OPEN_DEFAULT_VIEWER");
             }
         }
+        // Remappable Move to Recycle Bin (default Cmd+Shift+Delete; settings.shortcut_delete_file).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_DELETE_FILE};
+            let delete_file_chord = resolve_chord(
+                &self.state.settings.shortcut_delete_file,
+                DEFAULT_DELETE_FILE,
+            );
+            let delete_file_key_pressed = match delete_file_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if delete_file_key_pressed && delete_file_chord.matches(mods, delete_file_chord.key) {
+                self.run_shortcut_cmd("IDM_FILE_DELETE");
+            }
+        }
         // Remappable save (default Cmd+S; settings.shortcut_save).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_SAVE};
@@ -10044,6 +10080,10 @@ impl EditorApp {
                 &s.shortcut_open_viewer,
                 crate::shortcut_chord::DEFAULT_OPEN_VIEWER,
             ),
+            "IDM_FILE_DELETE" => primary(
+                &s.shortcut_delete_file,
+                crate::shortcut_chord::DEFAULT_DELETE_FILE,
+            ),
             "IDM_FILE_SAVE" => primary(&s.shortcut_save, crate::shortcut_chord::DEFAULT_SAVE),
             "IDM_FILE_SAVEAS" => {
                 primary(&s.shortcut_save_as, crate::shortcut_chord::DEFAULT_SAVE_AS)
@@ -12524,13 +12564,19 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_OPEN_VIEWER,
         )
         .display();
+        let delete_file_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_delete_file,
+            crate::shortcut_chord::DEFAULT_DELETE_FILE,
+        )
+        .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 186] = [
+        let rows: [(&str, &str); 187] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
             (run_keys.as_str(), "Run…"),
             (open_viewer_keys.as_str(), "Open in Default Viewer"),
+            (delete_file_keys.as_str(), "Move to Recycle Bin"),
             (save_keys.as_str(), "Save"),
             (save_as_keys.as_str(), "Save As"),
             (save_copy_keys.as_str(), "Save a Copy As / Rename"),
@@ -17950,6 +17996,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Shift+O, Ctrl+Shift+O. Opens the active file in the OS default viewer (File → Open in Default Viewer). Does not collide with Open (Cmd+O), Move/Clone Other View (Alt+O), or Sort Lines (Cmd+Alt+O).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Move to Recycle Bin shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_delete_file,
+                                )
+                                .desired_width(160.0)
+                                .hint_text("Cmd+Shift+Delete"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_delete_file.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_delete_file =
+                                        crate::shortcut_chord::DEFAULT_DELETE_FILE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_DELETE_FILE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_delete_file = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+Delete, Ctrl+Shift+Delete. Moves the saved active file to the user Trash and closes the tab (File → Move to Recycle Bin). Does not collide with forward Delete.",
                             )
                             .small()
                             .weak(),
@@ -27202,6 +27280,17 @@ impl EditorApp {
                     pressed: true,
                     ..
                 } => {
+                    // Move to Recycle Bin (default Cmd+Shift+Delete) must not also delete a character.
+                    {
+                        use crate::shortcut_chord::{resolve_chord, DEFAULT_DELETE_FILE};
+                        let trash_chord = resolve_chord(
+                            &self.state.settings.shortcut_delete_file,
+                            DEFAULT_DELETE_FILE,
+                        );
+                        if trash_chord.matches(mods, Key::Delete) {
+                            continue;
+                        }
+                    }
                     // Remappable forward Delete (default Delete). When remapped away from
                     // default, ignore Delete; remapped chord is handled in handle_shortcuts.
                     {

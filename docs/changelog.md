@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.380] — 2026-10-17
+
+File:
+
+- **Move to Recycle Bin** is remappable: Preferences → Move to Recycle Bin shortcut, or `shortcut_delete_file` in `npp-rs/settings.json` (default `Cmd+Shift+Delete`). Moves the saved active file to the user Trash and closes the tab. Does not also delete a character, and does not collide with forward Delete. Shortcut Mapper and About show the binding.
+
 ## [0.3.379] — 2026-10-17
 
 Help:
