@@ -642,6 +642,12 @@ pub const DEFAULT_PREFERENCES: &str = "Cmd+,";
 /// Copy Current Directory Path (`Cmd+Alt+K`), or Preferences (`Cmd+,`).
 pub const DEFAULT_SHORTCUT_MAPPER: &str = "Alt+Shift+K";
 
+/// Default Tab colour 1 binding (View → Apply Color 1).
+/// Shift clears the colour. Uses Cmd+F5 so it does not collide with Date Time
+/// (`F5` / `Shift+F5`), Sort Lines Integer (`Cmd+Alt+F5`), or Find Copy
+/// (`Alt+Shift+F5`).
+pub const DEFAULT_TAB_COLOUR: &str = "Cmd+F5";
+
 /// Default Column Editor binding (Edit → Column Editor).
 /// Uses Cmd+Alt+C so it does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).
 pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
@@ -3196,6 +3202,54 @@ mod tests {
         assert!(!c.matches(cmd_shift, Key::Comma));
         assert!(c.flipped_shift().matches(cmd_shift, Key::Comma));
         assert_eq!(parse_chord("Ctrl+comma").unwrap().key, Key::Comma);
+    }
+
+    #[test]
+    fn parse_cmd_f5_default_tab_colour() {
+        let c = parse_chord(DEFAULT_TAB_COLOUR).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F5);
+        assert_eq!(c.display(), "Cmd+F5");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+F5");
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd, Key::F5));
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_shift, Key::F5));
+        assert!(c.flipped_shift().matches(cmd_shift, Key::F5));
+        // Must not steal Date Time (F5 / Shift+F5).
+        let bare = Modifiers::default();
+        assert!(!c.matches(bare, Key::F5));
+        assert!(!c.flipped_shift().matches(bare, Key::F5));
+        let shift = Modifiers {
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(shift, Key::F5));
+        assert!(!c.flipped_shift().matches(shift, Key::F5));
+        // Must not steal Sort Lines Integer (Cmd+Alt+F5) or Find Copy (Alt+Shift+F5).
+        let sort = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(sort, Key::F5));
+        assert!(!c.flipped_shift().matches(sort, Key::F5));
+        let find_copy = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(find_copy, Key::F5));
+        assert!(!c.flipped_shift().matches(find_copy, Key::F5));
     }
 
     #[test]

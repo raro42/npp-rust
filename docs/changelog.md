@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.371] — 2026-10-17
+
+View:
+
+- **Tab colour 1 / clear** is remappable: Preferences → Tab colour shortcut, or `shortcut_tab_colour` in `npp-rs/settings.json` (default `Cmd+F5`). Sets View → Apply Color 1 on the active tab. Shift + that chord removes the tab colour. Does not collide with Date Time (`F5`), Sort Lines Integer (`Cmd+Alt+F5`), or Find Copy (`Alt+Shift+F5`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.370] — 2026-10-17
 
 Settings:
