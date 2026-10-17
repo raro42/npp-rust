@@ -648,6 +648,13 @@ pub const DEFAULT_SHORTCUT_MAPPER: &str = "Alt+Shift+K";
 /// (`Alt+Shift+F5`).
 pub const DEFAULT_TAB_COLOUR: &str = "Cmd+F5";
 
+/// Default Tab colour 2 binding (View → Apply Color 2).
+/// Shift clears the colour. Uses Cmd+F4 so it stays next to Tab colour 1
+/// (`Cmd+F5` / `Cmd+Shift+F5`) without taking Next/Prev Search Result
+/// (`F4` / `Shift+F4`), Find All (`Cmd+Alt+F4` / `Cmd+Alt+Shift+F4`), or
+/// Find Bookmark (`Alt+Shift+F4` / `Alt+F4`).
+pub const DEFAULT_TAB_COLOUR_2: &str = "Cmd+F4";
+
 /// Default Column Editor binding (Edit → Column Editor).
 /// Uses Cmd+Alt+C so it does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).
 pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
@@ -3250,6 +3257,54 @@ mod tests {
         };
         assert!(!c.matches(find_copy, Key::F5));
         assert!(!c.flipped_shift().matches(find_copy, Key::F5));
+    }
+
+    #[test]
+    fn parse_cmd_f4_default_tab_colour_2() {
+        let c = parse_chord(DEFAULT_TAB_COLOUR_2).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F4);
+        assert_eq!(c.display(), "Cmd+F4");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+F4");
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd, Key::F4));
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_shift, Key::F4));
+        assert!(c.flipped_shift().matches(cmd_shift, Key::F4));
+        // Must not steal Next/Prev Search Result (F4 / Shift+F4).
+        let bare = Modifiers::default();
+        assert!(!c.matches(bare, Key::F4));
+        assert!(!c.flipped_shift().matches(bare, Key::F4));
+        let shift = Modifiers {
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(shift, Key::F4));
+        assert!(!c.flipped_shift().matches(shift, Key::F4));
+        // Must not steal Find All (Cmd+Alt+F4) or Find Bookmark (Alt+Shift+F4).
+        let find_all = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(find_all, Key::F4));
+        assert!(!c.flipped_shift().matches(find_all, Key::F4));
+        let bookmark = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(bookmark, Key::F4));
+        assert!(!c.flipped_shift().matches(bookmark, Key::F4));
     }
 
     #[test]

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.372] — 2026-10-17
+
+View:
+
+- **Tab colour 2 / clear** is remappable: Preferences → Tab colour 2 shortcut, or `shortcut_tab_colour_2` in `npp-rs/settings.json` (default `Cmd+F4`). Sets View → Apply Color 2 on the active tab. Shift + that chord removes the tab colour. Does not collide with Next/Prev Search Result (`F4`), Find All (`Cmd+Alt+F4`), or Find Bookmark (`Alt+Shift+F4`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.371] — 2026-10-17
 
 View:

@@ -139,6 +139,7 @@ New keys:
 | `shortcut_readonly_all` | Read-only for all documents chord (`F10` default; Shift clears all; `IDM_EDIT_SETREADONLYFORALLDOCS`) |
 | `shortcut_summary` | Summary chord (`Alt+F1` default; Shift opens Document List; `IDM_VIEW_SUMMARY`) |
 | `shortcut_tab_colour` | Tab colour 1 chord (`Cmd+F5` default; Shift clears; `IDM_VIEW_TAB_COLOUR_1`) |
+| `shortcut_tab_colour_2` | Tab colour 2 chord (`Cmd+F4` default; Shift clears; `IDM_VIEW_TAB_COLOUR_2`) |
 | `shortcut_preferences` | Preferences chord (`Cmd+,` default; Shift opens Style Configurator; `IDM_SETTING_PREFERENCE`) |
 | `shortcut_column_editor` | Column Editor chord (`Cmd+Alt+C` default; `IDM_EDIT_COLUMNMODE`) |
 | `shortcut_sort_lines` | Sort Lines Lexicographic Ascending chord (`Cmd+Alt+O` default; Shift flips to Descending) |

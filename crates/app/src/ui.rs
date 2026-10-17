@@ -5091,6 +5091,48 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_TAB_COLOUR_1");
             }
         }
+        // Remappable Tab colour 2 (default Cmd+F4; settings.shortcut_tab_colour_2).
+        // Shift clears the active tab colour.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_TAB_COLOUR_2};
+            let colour_chord = resolve_chord(
+                &self.state.settings.shortcut_tab_colour_2,
+                DEFAULT_TAB_COLOUR_2,
+            );
+            let colour_key_pressed = match colour_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_clear =
+                colour_key_pressed && colour_chord.flipped_shift().matches(mods, colour_chord.key);
+            let remapped_set = colour_key_pressed && colour_chord.matches(mods, colour_chord.key);
+            if remapped_clear {
+                self.run_shortcut_cmd("IDM_VIEW_TAB_COLOUR_NONE");
+            } else if remapped_set {
+                self.run_shortcut_cmd("IDM_VIEW_TAB_COLOUR_2");
+            }
+        }
         // Remappable Column Editor (default Cmd+Alt+C; settings.shortcut_column_editor).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_COLUMN_EDITOR};
@@ -10122,6 +10164,10 @@ impl EditorApp {
                 &s.shortcut_tab_colour,
                 crate::shortcut_chord::DEFAULT_TAB_COLOUR,
             ),
+            "IDM_VIEW_TAB_COLOUR_2" => primary(
+                &s.shortcut_tab_colour_2,
+                crate::shortcut_chord::DEFAULT_TAB_COLOUR_2,
+            ),
             "IDM_EDIT_COLUMNMODE" => primary(
                 &s.shortcut_column_editor,
                 crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -11445,6 +11491,15 @@ impl EditorApp {
             tab_colour_chord.display(),
             tab_colour_chord.flipped_shift().display()
         );
+        let tab_colour_2_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_tab_colour_2,
+            crate::shortcut_chord::DEFAULT_TAB_COLOUR_2,
+        );
+        let tab_colour_2_keys = format!(
+            "{} / {}",
+            tab_colour_2_chord.display(),
+            tab_colour_2_chord.flipped_shift().display()
+        );
         let column_editor_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_column_editor,
             crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -12137,7 +12192,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 178] = [
+        let rows: [(&str, &str); 179] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -12330,6 +12385,7 @@ impl EditorApp {
             ),
             (shortcut_mapper_keys.as_str(), "Shortcut Mapper"),
             (tab_colour_keys.as_str(), "Tab colour 1 / clear"),
+            (tab_colour_2_keys.as_str(), "Tab colour 2 / clear"),
             (column_editor_keys.as_str(), "Column Editor"),
             (
                 sort_lines_keys.as_str(),
@@ -15821,6 +15877,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+F5. Sets View → Apply Color 1 on the active tab. Shift + that chord removes the tab colour. Does not collide with Date Time (F5), Sort Lines Integer (Cmd+Alt+F5), or Find Copy (Alt+Shift+F5).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Tab colour 2 shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_tab_colour_2,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+F4"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_tab_colour_2.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_tab_colour_2 =
+                                        crate::shortcut_chord::DEFAULT_TAB_COLOUR_2.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_TAB_COLOUR_2
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_tab_colour_2 = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+F4. Sets View → Apply Color 2 on the active tab. Shift + that chord removes the tab colour. Does not collide with Next/Prev Search Result (F4), Find All (Cmd+Alt+F4), or Find Bookmark (Alt+Shift+F4).",
                             )
                             .small()
                             .weak(),

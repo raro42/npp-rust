@@ -1,3 +1,4 @@
+009 keep: remappable Tab colour 2 / clear (shortcut_tab_colour_2, Cmd+F4 default; Shift=clear, v0.3.372)
 009 keep: remappable Tab colour 1 / clear (shortcut_tab_colour, Cmd+F5 default; Shift=clear, v0.3.371)
 009 keep: remappable Shortcut Mapper (shortcut_mapper, Alt+Shift+K default, v0.3.370)
 009 keep: remappable SHA-512 generate / clipboard (shortcut_sha512, Cmd+F6 default; Shift=clipboard, v0.3.369)
