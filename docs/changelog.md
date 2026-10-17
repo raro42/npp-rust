@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.386] — 2026-10-17
+
+Macro:
+
+- **Playback** is remappable: Preferences → Macro Playback shortcut, or `shortcut_macro_playback` in `npp-rs/settings.json` (default `Cmd+Shift+P`). Plays the recorded macro (Macro → Playback). Shift is part of the chord so it does not steal Print (`Cmd+P`). Shortcut Mapper and About show the binding.
+
 ## [0.3.385] — 2026-10-17
 
 Edit:

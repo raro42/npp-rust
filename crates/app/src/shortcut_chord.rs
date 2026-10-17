@@ -854,6 +854,12 @@ pub const DEFAULT_INSERT_DATETIME: &str = "F5";
 /// or Sort Lines Integer (`Cmd+Alt+F5`).
 pub const DEFAULT_INSERT_DATETIME_CUSTOM: &str = "Cmd+Alt+=";
 
+/// Default Macro Playback binding (Macro → Playback).
+/// Uses Cmd+Shift+P (N++ playback) so it does not collide with Print (`Cmd+P`),
+/// Copy Full Path (`Cmd+Alt+P`), Project Panel (`Alt+P`), or Pin tab (`Alt+Shift+P`).
+/// Shift is part of the chord, not a flip (a flip would be Print).
+pub const DEFAULT_MACRO_PLAYBACK: &str = "Cmd+Shift+P";
+
 /// Default Copy Full Path to Clipboard binding (Edit → Copy to Clipboard).
 /// Uses Cmd+Alt+P so it does not collide with Print (Cmd+P), Project Panel (Alt+P),
 /// or Pin tab (Alt+Shift+P). Shift flips to Copy File Name.
@@ -4358,6 +4364,35 @@ mod tests {
             ..Modifiers::default()
         };
         assert!(!c.matches(shift, Key::F5));
+    }
+
+    #[test]
+    fn parse_cmd_shift_p_default_macro_playback() {
+        let c = parse_chord(DEFAULT_MACRO_PLAYBACK).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::P);
+        assert_eq!(c.display(), "Cmd+Shift+P");
+        let both = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(both, Key::P));
+        // Must not steal Print (Cmd+P).
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::P));
+        // Must not steal Copy Full Path (Cmd+Alt+P).
+        let alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::P));
     }
 
     #[test]

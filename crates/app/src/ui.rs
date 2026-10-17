@@ -6158,6 +6158,43 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_INSERT_DATETIME_CUSTOMIZED");
             }
         }
+        // Remappable Macro Playback (default Cmd+Shift+P; settings.shortcut_macro_playback).
+        // Shift is part of the chord so it does not steal Print (Cmd+P).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_MACRO_PLAYBACK};
+            let macro_chord = resolve_chord(
+                &self.state.settings.shortcut_macro_playback,
+                DEFAULT_MACRO_PLAYBACK,
+            );
+            let macro_key_pressed = match macro_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if macro_key_pressed && macro_chord.matches(mods, macro_chord.key) {
+                self.run_shortcut_cmd("IDM_MACRO_PLAYBACKRECORDEDMACRO");
+            }
+        }
         // Remappable Copy Full Path (default Cmd+Alt+P; settings.shortcut_copy_path).
         // Shift flips to Copy File Name.
         {
@@ -10812,6 +10849,10 @@ impl EditorApp {
                 &s.shortcut_insert_datetime_custom,
                 crate::shortcut_chord::DEFAULT_INSERT_DATETIME_CUSTOM,
             ),
+            "IDM_MACRO_PLAYBACKRECORDEDMACRO" => primary(
+                &s.shortcut_macro_playback,
+                crate::shortcut_chord::DEFAULT_MACRO_PLAYBACK,
+            ),
             "IDM_EDIT_FULLPATHTOCLIP" => primary(
                 &s.shortcut_copy_path,
                 crate::shortcut_chord::DEFAULT_COPY_PATH,
@@ -12230,6 +12271,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_INSERT_DATETIME_CUSTOM,
         )
         .display();
+        let macro_playback_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_macro_playback,
+            crate::shortcut_chord::DEFAULT_MACRO_PLAYBACK,
+        )
+        .display();
         let copy_path_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_copy_path,
             crate::shortcut_chord::DEFAULT_COPY_PATH,
@@ -12847,7 +12893,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 192] = [
+        let rows: [(&str, &str); 193] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13097,6 +13143,7 @@ impl EditorApp {
             ),
             (insert_datetime_keys.as_str(), "Date Time short / long"),
             (insert_datetime_custom_keys.as_str(), "Date Time customized"),
+            (macro_playback_keys.as_str(), "Macro Playback"),
             (copy_path_keys.as_str(), "Copy Full Path / File Name"),
             (copy_dir_keys.as_str(), "Copy Current Directory Path"),
             (
@@ -17286,6 +17333,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+=, Ctrl+Alt+=. Inserts Date Time (customized) (Edit → Insert). Does not collide with Date Time short/long (F5 / Shift+F5) or Zoom in (Cmd+=).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Macro Playback shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_macro_playback,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Shift+P"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_macro_playback
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_macro_playback =
+                                        crate::shortcut_chord::DEFAULT_MACRO_PLAYBACK.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MACRO_PLAYBACK
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_macro_playback = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+P, Ctrl+Shift+P. Plays the recorded macro (Macro → Playback). Shift is part of the chord so it does not steal Print (Cmd+P).",
                             )
                             .small()
                             .weak(),

@@ -1,3 +1,4 @@
+009 keep: remappable Macro Playback (shortcut_macro_playback, Cmd+Shift+P default, v0.3.386)
 009 keep: remappable Date Time customized (shortcut_insert_datetime_custom, Cmd+Alt+= default, v0.3.385)
 009 keep: remappable 1st–9th Tab (shortcut_goto_tab, Cmd+Shift+1…9 default, v0.3.384)
 009 keep: remappable Move to New Instance / Open in New Instance (shortcut_new_instance, F9 default; Shift=keep tab, v0.3.383)
