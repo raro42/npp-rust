@@ -1,3 +1,4 @@
+009 keep: remappable Multi-select Next match case whole word (shortcut_multi_select_next_case_word, Cmd+Shift+N default, v0.3.394)
 009 keep: remappable Multi-select Next whole word (shortcut_multi_select_next_word, Cmd+Shift+W default, v0.3.393)
 009 keep: remappable Multi-select Next match case (shortcut_multi_select_next_case, Alt+Shift+N default, v0.3.392)
 009 keep: remappable Block Comment / Block Uncomment (shortcut_stream_comment, Alt+, default; Shift=uncomment, v0.3.391)

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.394] — 2026-10-18
+
+Edit:
+
+- **Multi-select Next (Match Case + Whole Word)** is remappable: Preferences → Multi-select next match case whole word shortcut, or `shortcut_multi_select_next_case_word` in `npp-rs/settings.json` (default `Cmd+Shift+N`). Adds the next case-sensitive whole-word match as a caret (Edit → Multi-select Next → Match Case Whole Word). Shift is part of the chord so it does not steal New (`Cmd+N`), Show NPC (`Alt+N`), Multi-select next / skip (`Cmd+Alt+N` / `Cmd+Alt+Shift+N`), or Match Case Only (`Alt+Shift+N`). Shortcut Mapper and About show the binding.
+
 ## [0.3.393] — 2026-10-18
 
 Edit:

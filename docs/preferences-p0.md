@@ -173,6 +173,7 @@ New keys:
 | `shortcut_multi_select_next` | Multi-select next chord (`Cmd+Alt+N` default; Shift flips to skip current / go to next) |
 | `shortcut_multi_select_next_case` | Multi-select next match-case chord (`Alt+Shift+N` default; Shift is part of the chord) |
 | `shortcut_multi_select_next_word` | Multi-select next whole-word chord (`Cmd+Shift+W` default; Shift is part of the chord) |
+| `shortcut_multi_select_next_case_word` | Multi-select next match-case whole-word chord (`Cmd+Shift+N` default; Shift is part of the chord) |
 | `shortcut_find` | Find-bar chord (`Cmd+F` default) |
 | `shortcut_find_in_files` | Find in Files chord (`Cmd+Alt+F` default) |
 | `shortcut_close_find` | Close Find/Replace chord (`Escape` default) |

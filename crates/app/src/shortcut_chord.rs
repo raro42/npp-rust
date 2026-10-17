@@ -671,6 +671,11 @@ pub const DEFAULT_MULTI_SELECT_NEXT_CASE: &str = "Alt+Shift+N";
 /// Current), or Ignore whitespace / Ignore case (`Alt+W` / `Alt+Shift+W`).
 pub const DEFAULT_MULTI_SELECT_NEXT_WORD: &str = "Cmd+Shift+W";
 
+/// Multi-select next, match case and whole word (`Cmd+Shift+N`). Shift is part of
+/// the chord so it does not steal New (`Cmd+N`), Show NPC (`Alt+N`), Multi-select
+/// next / skip (`Cmd+Alt+N` / `Cmd+Alt+Shift+N`), or Match Case Only (`Alt+Shift+N`).
+pub const DEFAULT_MULTI_SELECT_NEXT_CASE_WORD: &str = "Cmd+Shift+N";
+
 /// Default multi-select-all binding (Edit → Multi-select All).
 /// Shift flips to Multi-select All (Whole Word).
 pub const DEFAULT_MULTI_SELECT_ALL: &str = "Cmd+Alt+A";
@@ -3486,6 +3491,46 @@ mod tests {
             ..Modifiers::default()
         };
         assert!(!c.matches(alt, Key::W));
+    }
+
+    #[test]
+    fn parse_cmd_shift_n_default_multi_select_next_case_word() {
+        let c = parse_chord(DEFAULT_MULTI_SELECT_NEXT_CASE_WORD).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::N);
+        assert_eq!(c.display(), "Cmd+Shift+N");
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd_shift, Key::N));
+        // Must not steal New (Cmd+N), Show NPC (Alt+N), Multi-select next (Cmd+Alt+N),
+        // or Match Case Only (Alt+Shift+N).
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::N));
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::N));
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt, Key::N));
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt_shift, Key::N));
     }
 
     #[test]
