@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.377] — 2026-10-17
+
+Run:
+
+- **Run…** is remappable: Preferences → Run shortcut, or `shortcut_run` in `npp-rs/settings.json` (default `Cmd+Shift+R`). Runs Run → Run… (pick a program to spawn; cancel opens a shell in the active file’s folder). Does not collide with Reload (`Cmd+R`), Toggle Read-Only (`Cmd+Alt+R`), or RTL (`Alt+R`). Shortcut Mapper and About show the binding.
+
 ## [0.3.376] — 2026-10-17
 
 Edit:

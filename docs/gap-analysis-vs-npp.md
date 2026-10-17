@@ -121,6 +121,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+M (remappable) | Tab colour 4; Shift clears (`shortcut_tab_colour_4`) |
 | Cmd/Ctrl+; (remappable) | Tab colour 5; Shift clears (`shortcut_tab_colour_5`) |
 | Cmd/Ctrl+Shift+C (remappable) | Clipboard History (`shortcut_clipboard_history`) |
+| Cmd/Ctrl+Shift+R (remappable) | Run… (`shortcut_run`) |
 | Alt+Shift+L (remappable) | Hide Lines (`shortcut_hide_lines`; current line or selection) |
 | Cmd/Ctrl+Alt+E (remappable) | Remove Empty Lines (`shortcut_remove_empty_lines`; Shift = Containing Blank) |
 | Cmd/Ctrl+Alt+D (remappable) | Remove Consecutive Duplicate Lines (`shortcut_remove_dup_lines`; Shift = any) |
@@ -195,7 +196,7 @@ Legend: **Done** usable core · **Partial** real code, shallower than N++ · **M
 | Autosave / backup | MVP: prefs + `npp-rs/backup/` + interval autosave (`docs/autosave-backup.md`) | |
 | Print | Partial | `lp` on saved path; no preview |
 | Clipboard history | Partial | One entry, not a panel |
-| Run / external tools | Partial | Pick+spawn / shell; no saved Run list |
+| Run / external tools | Partial | Remappable Run… (`shortcut_run`, Cmd+Shift+R); pick+spawn / shell; no saved Run list |
 | Updater | Partial | Opens GitHub Releases |
 | Doc map / function list | Partial | Density strip; Compare paints delete/insert + hunk-start ticks + hide-equal ···N gap bands on focused pane; cyan bookmark ticks + slate fold-header ticks + click toggle + amber/green change-history ticks + Find match ticks + click park; selection wash + white caret tick + orange multi-caret ticks + click park; click parks hunk / Equal / hidden-equal gap; drag syncs partner when sync scroll on |
 | RTL | Partial | Line anchors + status + `text_rtl` persist + remappable Alt+R / Shift=LTR (`shortcut_rtl`); chrome not mirrored |

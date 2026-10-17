@@ -2297,6 +2297,39 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_FILE_RELOAD");
             }
         }
+        // Remappable Run (default Cmd+Shift+R; settings.shortcut_run).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_RUN};
+            let run_chord = resolve_chord(&self.state.settings.shortcut_run, DEFAULT_RUN);
+            let run_key_pressed = match run_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if run_key_pressed && run_chord.matches(mods, run_chord.key) {
+                self.run_shortcut_cmd("IDM_EXECUTE");
+            }
+        }
         // Remappable save (default Cmd+S; settings.shortcut_save).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_SAVE};
@@ -9937,6 +9970,7 @@ impl EditorApp {
                 crate::shortcut_chord::DEFAULT_OPEN_WORKSPACE,
             ),
             "IDM_FILE_RELOAD" => primary(&s.shortcut_reload, crate::shortcut_chord::DEFAULT_RELOAD),
+            "IDM_EXECUTE" => primary(&s.shortcut_run, crate::shortcut_chord::DEFAULT_RUN),
             "IDM_FILE_SAVE" => primary(&s.shortcut_save, crate::shortcut_chord::DEFAULT_SAVE),
             "IDM_FILE_SAVEAS" => {
                 primary(&s.shortcut_save_as, crate::shortcut_chord::DEFAULT_SAVE_AS)
@@ -12401,11 +12435,17 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_RELOAD,
         )
         .display();
+        let run_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_run,
+            crate::shortcut_chord::DEFAULT_RUN,
+        )
+        .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 183] = [
+        let rows: [(&str, &str); 184] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
+            (run_keys.as_str(), "Run…"),
             (save_keys.as_str(), "Save"),
             (save_as_keys.as_str(), "Save As"),
             (save_copy_keys.as_str(), "Save a Copy As / Rename"),
@@ -17730,9 +17770,40 @@ impl EditorApp {
                             }
                         });
                         ui.label(
-                            RichText::new("Example: Cmd+R, Ctrl+Shift+R. Reloads the active file from disk.")
-                                .small()
-                                .weak(),
+                            RichText::new(
+                                "Example: Cmd+R, Ctrl+R. Reloads the active file from disk. Does not collide with Run (Cmd+Shift+R).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Run shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(&mut self.state.settings.shortcut_run)
+                                    .desired_width(120.0)
+                                    .hint_text("Cmd+Shift+R"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_run.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_run =
+                                        crate::shortcut_chord::DEFAULT_RUN.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_RUN
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_run = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+R, Ctrl+Shift+R. Runs Run → Run… (pick a program to spawn; cancel opens a shell in the active file’s folder). Does not collide with Reload (Cmd+R), Toggle Read-Only (Cmd+Alt+R), or RTL (Alt+R).",
+                            )
+                            .small()
+                            .weak(),
                         );
                         ui.horizontal(|ui| {
                             ui.label("Select all shortcut");

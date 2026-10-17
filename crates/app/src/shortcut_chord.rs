@@ -464,6 +464,12 @@ pub const DEFAULT_PIN_TAB: &str = "Alt+Shift+P";
 /// Default reload-from-disk binding (new remappable chord; File → Reload).
 pub const DEFAULT_RELOAD: &str = "Cmd+R";
 
+/// Default Run binding (Run → Run…).
+/// Opens a file picker to spawn a program, or opens a shell in the active file’s
+/// folder when cancelled. Uses `Cmd+Shift+R` so it stays near Reload (`Cmd+R`)
+/// without taking that chord, Toggle Read-Only (`Cmd+Alt+R`), or RTL (`Alt+R`).
+pub const DEFAULT_RUN: &str = "Cmd+Shift+R";
+
 /// Default next-tab binding (new remappable chord). Shift flips to previous tab.
 pub const DEFAULT_NEXT_TAB: &str = "Cmd+Tab";
 
@@ -4326,5 +4332,40 @@ mod tests {
         assert!(!c.shift);
         assert_eq!(c.key, Key::R);
         assert_eq!(c.display(), "Cmd+R");
+    }
+
+    #[test]
+    fn parse_cmd_shift_r_default_run() {
+        let c = parse_chord(DEFAULT_RUN).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::R);
+        assert_eq!(c.display(), "Cmd+Shift+R");
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd_shift, Key::R));
+        // Must not steal Reload (Cmd+R).
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::R));
+        // Must not steal Toggle Read-Only (Cmd+Alt+R).
+        let readonly = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(readonly, Key::R));
+        // Must not steal RTL (Alt+R).
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::R));
     }
 }
