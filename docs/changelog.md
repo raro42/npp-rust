@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.391] — 2026-10-18
+
+Edit:
+
+- **Block Comment / Block Uncomment** is remappable: Preferences → Block comment shortcut, or `shortcut_stream_comment` in `npp-rs/settings.json` (default `Alt+,`). Wraps the selection in a block comment (Edit → Comment/Uncomment → Block Comment). Shift flips to Block Uncomment. Does not steal Toggle comment (`Cmd+/` / `Cmd+Shift+/`), Single Line Comment (`Alt+/`), Preferences (`Cmd+,`), or Sort tabs by path (`Cmd+Alt+,`). Shortcut Mapper and About show the binding.
+
 ## [0.3.390] — 2026-10-17
 
 Edit:

@@ -1,3 +1,4 @@
+009 keep: remappable Block Comment / Block Uncomment (shortcut_stream_comment, Alt+, default; Shift=uncomment, v0.3.391)
 009 keep: remappable Single Line Comment / Uncomment (shortcut_line_comment, Alt+/ default; Shift=uncomment, v0.3.390)
 009 keep: remappable Run a Macro Multiple Times (shortcut_macro_repeat, Cmd+Alt+Shift+K default, v0.3.389)
 009 keep: remappable Save Current Recorded Macro (shortcut_macro_save, Cmd+Alt+Shift+S default, v0.3.388)

@@ -4455,6 +4455,52 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_BLOCK_COMMENT_SET");
             }
         }
+        // Remappable Block Comment (default Alt+,; settings.shortcut_stream_comment).
+        // Shift flips to Block Uncomment. Does not steal Toggle (Cmd+/ / Cmd+Shift+/),
+        // Single Line Comment (Alt+/), Preferences (Cmd+,), or Sort tabs by path (Cmd+Alt+,).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_STREAM_COMMENT};
+            let stream_comment_chord = resolve_chord(
+                &self.state.settings.shortcut_stream_comment,
+                DEFAULT_STREAM_COMMENT,
+            );
+            let stream_comment_key_pressed = match stream_comment_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if stream_comment_key_pressed
+                && stream_comment_chord
+                    .flipped_shift()
+                    .matches(mods, stream_comment_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_EDIT_STREAM_UNCOMMENT");
+            } else if stream_comment_key_pressed
+                && stream_comment_chord.matches(mods, stream_comment_chord.key)
+            {
+                self.run_shortcut_cmd("IDM_EDIT_STREAM_COMMENT");
+            }
+        }
         // Remappable lowercase (default Cmd+U; settings.shortcut_lowercase).
         // Shift flips to UPPERCASE (N++ Ctrl+U / Ctrl+Shift+U family).
         {
@@ -10743,9 +10789,17 @@ impl EditorApp {
                 );
                 c.goto_document_end_chord().display()
             }
-            "IDM_EDIT_BLOCK_COMMENT" | "IDM_EDIT_STREAM_COMMENT" => primary(
+            "IDM_EDIT_BLOCK_COMMENT" => primary(
                 &s.shortcut_toggle_comment,
                 crate::shortcut_chord::DEFAULT_TOGGLE_COMMENT,
+            ),
+            "IDM_EDIT_STREAM_COMMENT" => primary(
+                &s.shortcut_stream_comment,
+                crate::shortcut_chord::DEFAULT_STREAM_COMMENT,
+            ),
+            "IDM_EDIT_STREAM_UNCOMMENT" => shifted(
+                &s.shortcut_stream_comment,
+                crate::shortcut_chord::DEFAULT_STREAM_COMMENT,
             ),
             "IDM_EDIT_BLOCK_COMMENT_SET" => primary(
                 &s.shortcut_line_comment,
@@ -12129,6 +12183,15 @@ impl EditorApp {
             line_comment_chord.display(),
             line_comment_chord.flipped_shift().display()
         );
+        let stream_comment_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_stream_comment,
+            crate::shortcut_chord::DEFAULT_STREAM_COMMENT,
+        );
+        let stream_comment_keys = format!(
+            "{} / {}",
+            stream_comment_chord.display(),
+            stream_comment_chord.flipped_shift().display()
+        );
         let case_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_lowercase,
             crate::shortcut_chord::DEFAULT_LOWERCASE,
@@ -13099,7 +13162,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 197] = [
+        let rows: [(&str, &str); 198] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13257,6 +13320,10 @@ impl EditorApp {
             (
                 line_comment_keys.as_str(),
                 "Single Line Comment / Uncomment",
+            ),
+            (
+                stream_comment_keys.as_str(),
+                "Block Comment / Block Uncomment",
             ),
             (case_keys.as_str(), "lowercase / UPPERCASE"),
             (
@@ -16168,6 +16235,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+/, Ctrl+Alt+/. Forces a line comment (Edit → Single Line Comment). Shift + that chord uncomments. Does not steal Toggle comment (Cmd+/), Block Comment (Cmd+Shift+/), or Sort tabs by size (Cmd+Alt+/).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Block comment shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_stream_comment,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+,"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_stream_comment
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_stream_comment =
+                                        crate::shortcut_chord::DEFAULT_STREAM_COMMENT.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_STREAM_COMMENT
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_stream_comment = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+,, Ctrl+Alt+,. Wraps the selection in a block comment (Edit → Block Comment). Shift + that chord removes it. Does not steal Toggle comment (Cmd+/ / Cmd+Shift+/), Single Line Comment (Alt+/), Preferences (Cmd+,), or Sort tabs by path (Cmd+Alt+,).",
                             )
                             .small()
                             .weak(),

@@ -123,6 +123,7 @@ New keys:
 | `shortcut_move_line` | Move-line-up chord (`Cmd+Shift+Up` default; opposite Down moves down; letter remaps use Shift for down) |
 | `shortcut_toggle_comment` | Toggle line-comment chord (`Cmd+/` default; Shift flips to Block Comment) |
 | `shortcut_line_comment` | Single Line Comment chord (`Alt+/` default; Shift flips to Single Line Uncomment) |
+| `shortcut_stream_comment` | Block Comment chord (`Alt+,` default; Shift flips to Block Uncomment) |
 | `shortcut_lowercase` | Lowercase chord (`Cmd+U` default; Shift flips to UPPERCASE) |
 | `shortcut_autocomplete` | Autocomplete chord (`Cmd+Space` default; Shift flips to Function Call Tip) |
 | `shortcut_autocomplete_path` | Path autocomplete chord (`Cmd+Alt+Space` default; `IDM_EDIT_AUTOCOMPLETE_PATH`) |
