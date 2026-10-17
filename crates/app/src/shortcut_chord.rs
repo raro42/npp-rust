@@ -590,6 +590,12 @@ pub const DEFAULT_GOTO_DOCUMENT_START: &str = "Cmd+Up";
 /// Shift flips to Block Comment. Uses `/` (not `Q`) so macOS Cmd+Q quit stays free.
 pub const DEFAULT_TOGGLE_COMMENT: &str = "Cmd+/";
 
+/// Default force single-line comment binding (Edit → Single Line Comment).
+/// Shift flips to Single Line Uncomment. Uses Alt+/ so it does not collide with
+/// Toggle / Block Comment (`Cmd+/` / `Cmd+Shift+/`) or Sort tabs by size
+/// (`Cmd+Alt+/` / `Cmd+Alt+Shift+/`).
+pub const DEFAULT_LINE_COMMENT: &str = "Alt+/";
+
 /// Default lowercase binding (Edit → lowercase). Shift flips to UPPERCASE (N++ Ctrl+U family).
 pub const DEFAULT_LOWERCASE: &str = "Cmd+U";
 
@@ -3034,6 +3040,38 @@ mod tests {
         assert_eq!(stream.display(), "Cmd+Shift+/");
         let alias = parse_chord("Ctrl+Slash").unwrap();
         assert_eq!(alias.key, Key::Slash);
+    }
+
+    #[test]
+    fn parse_alt_slash_default_line_comment() {
+        let c = parse_chord(DEFAULT_LINE_COMMENT).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Slash);
+        assert_eq!(c.display(), "Alt+/");
+        let uncomment = c.flipped_shift();
+        assert!(uncomment.shift);
+        assert_eq!(uncomment.display(), "Alt+Shift+/");
+        let toggle = parse_chord(DEFAULT_TOGGLE_COMMENT).unwrap();
+        let sort_size = parse_chord(DEFAULT_SORT_TABS_SIZE).unwrap();
+        assert_ne!(c.display(), toggle.display());
+        assert_ne!(c.display(), toggle.flipped_shift().display());
+        assert_ne!(c.display(), sort_size.display());
+        assert_ne!(uncomment.display(), sort_size.flipped_shift().display());
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(alt, Key::Slash));
+        assert!(!toggle.matches(alt, Key::Slash));
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(uncomment.matches(alt_shift, Key::Slash));
+        assert!(!c.matches(alt_shift, Key::Slash));
     }
 
     #[test]

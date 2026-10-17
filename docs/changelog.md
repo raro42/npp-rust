@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.390] — 2026-10-17
+
+Edit:
+
+- **Single Line Comment / Uncomment** is remappable: Preferences → Single line comment shortcut, or `shortcut_line_comment` in `npp-rs/settings.json` (default `Alt+/`). Forces a line comment (Edit → Comment/Uncomment → Single Line Comment). Shift flips to Single Line Uncomment. Does not steal Toggle comment (`Cmd+/`), Block Comment (`Cmd+Shift+/`), or Sort tabs by size (`Cmd+Alt+/`). Shortcut Mapper and About show the binding.
+
 ## [0.3.389] — 2026-10-17
 
 Macro:

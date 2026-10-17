@@ -688,6 +688,10 @@ fn default_shortcut_toggle_comment() -> String {
     crate::shortcut_chord::DEFAULT_TOGGLE_COMMENT.into()
 }
 
+fn default_shortcut_line_comment() -> String {
+    crate::shortcut_chord::DEFAULT_LINE_COMMENT.into()
+}
+
 fn default_shortcut_find() -> String {
     crate::shortcut_chord::DEFAULT_FIND.into()
 }
@@ -1306,6 +1310,9 @@ pub struct AppSettings {
     /// Toggle line-comment chord (`Cmd+/` default; Shift flips to Block Comment).
     #[serde(default = "default_shortcut_toggle_comment")]
     pub shortcut_toggle_comment: String,
+    /// Force single-line comment chord (`Alt+/` default; Shift flips to uncomment).
+    #[serde(default = "default_shortcut_line_comment")]
+    pub shortcut_line_comment: String,
     /// Find-bar chord (`Cmd+F` default).
     #[serde(default = "default_shortcut_find")]
     pub shortcut_find: String,
@@ -1804,6 +1811,7 @@ impl Default for AppSettings {
             shortcut_move_line: default_shortcut_move_line(),
             shortcut_goto_document_start: default_shortcut_goto_document_start(),
             shortcut_toggle_comment: default_shortcut_toggle_comment(),
+            shortcut_line_comment: default_shortcut_line_comment(),
             shortcut_find: default_shortcut_find(),
             shortcut_close_find: default_shortcut_close_find(),
             shortcut_replace: default_shortcut_replace(),
@@ -2356,6 +2364,7 @@ mod tests {
             shortcut_move_line: "Ctrl+Alt+Up".into(),
             shortcut_goto_document_start: "Ctrl+Alt+Shift+Up".into(),
             shortcut_toggle_comment: "Ctrl+Alt+/".into(),
+            shortcut_line_comment: "Ctrl+Alt+Shift+/".into(),
             shortcut_find: "Ctrl+Alt+G".into(),
             shortcut_close_find: "Ctrl+Alt+Escape".into(),
             shortcut_replace: "Ctrl+Alt+H".into(),
@@ -2582,6 +2591,7 @@ mod tests {
         assert_eq!(back.shortcut_move_line, "Ctrl+Alt+Up");
         assert_eq!(back.shortcut_goto_document_start, "Ctrl+Alt+Shift+Up");
         assert_eq!(back.shortcut_toggle_comment, "Ctrl+Alt+/");
+        assert_eq!(back.shortcut_line_comment, "Ctrl+Alt+Shift+/");
         assert_eq!(back.shortcut_find, "Ctrl+Alt+G");
         assert_eq!(back.shortcut_close_find, "Ctrl+Alt+Escape");
         assert_eq!(back.shortcut_replace, "Ctrl+Alt+H");
