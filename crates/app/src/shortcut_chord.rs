@@ -668,6 +668,12 @@ pub const DEFAULT_TAB_COLOUR_3: &str = "Cmd+K";
 /// or Tab colour 1/2/3 (`Cmd+F5` / `Cmd+F4` / `Cmd+K`).
 pub const DEFAULT_TAB_COLOUR_4: &str = "Cmd+M";
 
+/// Default Tab colour 5 binding (View → Apply Color 5).
+/// Shift clears the colour. Uses `Cmd+;` so it stays near Sort tabs by modified
+/// (`Cmd+Alt+;`) without taking that chord, Tab colour 4 (`Cmd+M`), or
+/// Preferences (`Cmd+,`).
+pub const DEFAULT_TAB_COLOUR_5: &str = "Cmd+;";
+
 /// Default Column Editor binding (Edit → Column Editor).
 /// Uses Cmd+Alt+C so it does not collide with Copy (Cmd+C) or Copy Compare Diff (Alt+C).
 pub const DEFAULT_COLUMN_EDITOR: &str = "Cmd+Alt+C";
@@ -3401,6 +3407,39 @@ mod tests {
         };
         assert!(!c.matches(copy_all, Key::M));
         assert!(!c.flipped_shift().matches(copy_all, Key::M));
+    }
+
+    #[test]
+    fn parse_cmd_semicolon_default_tab_colour_5() {
+        let c = parse_chord(DEFAULT_TAB_COLOUR_5).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Semicolon);
+        assert_eq!(c.display(), "Cmd+;");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Shift+;");
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd, Key::Semicolon));
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_shift, Key::Semicolon));
+        assert!(c.flipped_shift().matches(cmd_shift, Key::Semicolon));
+        // Must not steal Sort tabs by modified (Cmd+Alt+;).
+        let sort_mod = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(sort_mod, Key::Semicolon));
+        assert!(!c.flipped_shift().matches(sort_mod, Key::Semicolon));
+        // Must not steal Preferences (Cmd+,).
+        assert!(!c.matches(cmd, Key::Comma));
     }
 
     #[test]

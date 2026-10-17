@@ -5217,6 +5217,48 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_TAB_COLOUR_4");
             }
         }
+        // Remappable Tab colour 5 (default "Cmd+;"; settings.shortcut_tab_colour_5).
+        // Shift clears the active tab colour.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_TAB_COLOUR_5};
+            let colour_chord = resolve_chord(
+                &self.state.settings.shortcut_tab_colour_5,
+                DEFAULT_TAB_COLOUR_5,
+            );
+            let colour_key_pressed = match colour_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_clear =
+                colour_key_pressed && colour_chord.flipped_shift().matches(mods, colour_chord.key);
+            let remapped_set = colour_key_pressed && colour_chord.matches(mods, colour_chord.key);
+            if remapped_clear {
+                self.run_shortcut_cmd("IDM_VIEW_TAB_COLOUR_NONE");
+            } else if remapped_set {
+                self.run_shortcut_cmd("IDM_VIEW_TAB_COLOUR_5");
+            }
+        }
         // Remappable Column Editor (default Cmd+Alt+C; settings.shortcut_column_editor).
         {
             use crate::shortcut_chord::{resolve_chord, DEFAULT_COLUMN_EDITOR};
@@ -10260,6 +10302,10 @@ impl EditorApp {
                 &s.shortcut_tab_colour_4,
                 crate::shortcut_chord::DEFAULT_TAB_COLOUR_4,
             ),
+            "IDM_VIEW_TAB_COLOUR_5" => primary(
+                &s.shortcut_tab_colour_5,
+                crate::shortcut_chord::DEFAULT_TAB_COLOUR_5,
+            ),
             "IDM_EDIT_COLUMNMODE" => primary(
                 &s.shortcut_column_editor,
                 crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -11610,6 +11656,15 @@ impl EditorApp {
             tab_colour_4_chord.display(),
             tab_colour_4_chord.flipped_shift().display()
         );
+        let tab_colour_5_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_tab_colour_5,
+            crate::shortcut_chord::DEFAULT_TAB_COLOUR_5,
+        );
+        let tab_colour_5_keys = format!(
+            "{} / {}",
+            tab_colour_5_chord.display(),
+            tab_colour_5_chord.flipped_shift().display()
+        );
         let column_editor_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_column_editor,
             crate::shortcut_chord::DEFAULT_COLUMN_EDITOR,
@@ -12302,7 +12357,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 181] = [
+        let rows: [(&str, &str); 182] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -12498,6 +12553,7 @@ impl EditorApp {
             (tab_colour_2_keys.as_str(), "Tab colour 2 / clear"),
             (tab_colour_3_keys.as_str(), "Tab colour 3 / clear"),
             (tab_colour_4_keys.as_str(), "Tab colour 4 / clear"),
+            (tab_colour_5_keys.as_str(), "Tab colour 5 / clear"),
             (column_editor_keys.as_str(), "Column Editor"),
             (
                 sort_lines_keys.as_str(),
@@ -16082,6 +16138,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+M. Sets View → Apply Color 4 on the active tab. Shift + that chord removes the tab colour. Does not collide with Bookmark Compare Diffs (Alt+M), Copy All Paths (Cmd+Alt+M), or Tab colour 3 (Cmd+K).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Tab colour 5 shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_tab_colour_5,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+;"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_tab_colour_5.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_tab_colour_5 =
+                                        crate::shortcut_chord::DEFAULT_TAB_COLOUR_5.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_TAB_COLOUR_5
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_tab_colour_5 = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+;. Sets View → Apply Color 5 on the active tab. Shift + that chord removes the tab colour. Does not collide with Sort tabs by modified (Cmd+Alt+;), Preferences (Cmd+,), or Tab colour 4 (Cmd+M).",
                             )
                             .small()
                             .weak(),

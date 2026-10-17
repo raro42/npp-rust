@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.375] — 2026-10-17
+
+View:
+
+- **Tab colour 5 / clear** is remappable: Preferences → Tab colour 5 shortcut, or `shortcut_tab_colour_5` in `npp-rs/settings.json` (default `Cmd+;`). Sets View → Apply Color 5 on the active tab. Shift + that chord removes the tab colour. Does not collide with Sort tabs by modified (`Cmd+Alt+;`), Preferences (`Cmd+,`), or Tab colour 4 (`Cmd+M`). Shortcut Mapper and About show both bindings.
+
 ## [0.3.374] — 2026-10-17
 
 View:
