@@ -867,6 +867,12 @@ pub const DEFAULT_MACRO_PLAYBACK: &str = "Cmd+Shift+P";
 /// Shift is part of the chord, not a flip.
 pub const DEFAULT_MACRO_RECORD: &str = "Cmd+Alt+Shift+R";
 
+/// Default Save Current Recorded Macro binding (Macro → Save Current Recorded Macro).
+/// Uses Cmd+Alt+Shift+S so it does not collide with Save (`Cmd+S`), Save As
+/// (`Cmd+Shift+S`), Save All (`Cmd+Alt+S`), Swap Compare (`Alt+S`), or Compare
+/// to Saved (`Alt+Shift+S`). Shift is part of the chord, not a flip.
+pub const DEFAULT_MACRO_SAVE: &str = "Cmd+Alt+Shift+S";
+
 /// Default Copy Full Path to Clipboard binding (Edit → Copy to Clipboard).
 /// Uses Cmd+Alt+P so it does not collide with Print (Cmd+P), Project Panel (Alt+P),
 /// or Pin tab (Alt+Shift+P). Shift flips to Copy File Name.
@@ -4449,6 +4455,55 @@ mod tests {
             ..Modifiers::default()
         };
         assert!(!c.matches(alt_shift, Key::R));
+    }
+
+    #[test]
+    fn parse_cmd_alt_shift_s_default_macro_save() {
+        let c = parse_chord(DEFAULT_MACRO_SAVE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::S);
+        assert_eq!(c.display(), "Cmd+Alt+Shift+S");
+        let all = Modifiers {
+            command: true,
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(all, Key::S));
+        // Must not steal Save (Cmd+S).
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::S));
+        // Must not steal Save As (Cmd+Shift+S).
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_shift, Key::S));
+        // Must not steal Save All (Cmd+Alt+S).
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt, Key::S));
+        // Must not steal Swap Compare (Alt+S) or Compare to Saved (Alt+Shift+S).
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::S));
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt_shift, Key::S));
     }
 
     #[test]

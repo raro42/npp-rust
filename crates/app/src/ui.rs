@@ -6237,6 +6237,41 @@ impl EditorApp {
                 }
             }
         }
+        // Remappable Save Current Recorded Macro (default Cmd+Alt+Shift+S; settings.shortcut_macro_save).
+        // Shift is part of the chord so it does not steal Save, Save As, Save All, or compare S chords.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_MACRO_SAVE};
+            let save_macro_chord =
+                resolve_chord(&self.state.settings.shortcut_macro_save, DEFAULT_MACRO_SAVE);
+            let save_macro_key_pressed = match save_macro_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if save_macro_key_pressed && save_macro_chord.matches(mods, save_macro_chord.key) {
+                self.run_shortcut_cmd("IDM_MACRO_SAVECURRENTMACRO");
+            }
+        }
         // Remappable Copy Full Path (default Cmd+Alt+P; settings.shortcut_copy_path).
         // Shift flips to Copy File Name.
         {
@@ -10899,6 +10934,10 @@ impl EditorApp {
                 &s.shortcut_macro_record,
                 crate::shortcut_chord::DEFAULT_MACRO_RECORD,
             ),
+            "IDM_MACRO_SAVECURRENTMACRO" => primary(
+                &s.shortcut_macro_save,
+                crate::shortcut_chord::DEFAULT_MACRO_SAVE,
+            ),
             "IDM_EDIT_FULLPATHTOCLIP" => primary(
                 &s.shortcut_copy_path,
                 crate::shortcut_chord::DEFAULT_COPY_PATH,
@@ -12327,6 +12366,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_MACRO_RECORD,
         )
         .display();
+        let macro_save_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_macro_save,
+            crate::shortcut_chord::DEFAULT_MACRO_SAVE,
+        )
+        .display();
         let copy_path_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_copy_path,
             crate::shortcut_chord::DEFAULT_COPY_PATH,
@@ -12944,7 +12988,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 194] = [
+        let rows: [(&str, &str); 195] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13196,6 +13240,7 @@ impl EditorApp {
             (insert_datetime_custom_keys.as_str(), "Date Time customized"),
             (macro_playback_keys.as_str(), "Macro Playback"),
             (macro_record_keys.as_str(), "Start/Stop Recording"),
+            (macro_save_keys.as_str(), "Save Current Recorded Macro"),
             (copy_path_keys.as_str(), "Copy Full Path / File Name"),
             (copy_dir_keys.as_str(), "Copy Current Directory Path"),
             (
@@ -17457,6 +17502,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+Shift+R, Ctrl+Alt+Shift+R. Toggles Macro → Start Recording / Stop Recording. Shift is part of the chord so it does not steal Reload (Cmd+R), Run (Cmd+Shift+R), Toggle Read-Only (Cmd+Alt+R), or RTL/LTR (Alt+R / Alt+Shift+R).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Save recorded macro shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_macro_save,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Cmd+Alt+Shift+S"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_macro_save
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_macro_save =
+                                        crate::shortcut_chord::DEFAULT_MACRO_SAVE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_MACRO_SAVE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_macro_save = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+Shift+S, Ctrl+Alt+Shift+S. Saves the recorded macro (Macro → Save Current Recorded Macro). Shift is part of the chord so it does not steal Save (Cmd+S), Save As (Cmd+Shift+S), Save All (Cmd+Alt+S), Swap Compare (Alt+S), or Compare to Saved (Alt+Shift+S).",
                             )
                             .small()
                             .weak(),

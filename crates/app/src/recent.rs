@@ -416,6 +416,10 @@ fn default_shortcut_macro_record() -> String {
     crate::shortcut_chord::DEFAULT_MACRO_RECORD.into()
 }
 
+fn default_shortcut_macro_save() -> String {
+    crate::shortcut_chord::DEFAULT_MACRO_SAVE.into()
+}
+
 fn default_shortcut_copy_path() -> String {
     crate::shortcut_chord::DEFAULT_COPY_PATH.into()
 }
@@ -1603,6 +1607,9 @@ pub struct AppSettings {
     /// Start/Stop Recording chord (`Cmd+Alt+Shift+R` default). Same chord toggles.
     #[serde(default = "default_shortcut_macro_record")]
     pub shortcut_macro_record: String,
+    /// Save Current Recorded Macro chord (`Cmd+Alt+Shift+S` default). Shift is part of the chord.
+    #[serde(default = "default_shortcut_macro_save")]
+    pub shortcut_macro_save: String,
     /// Copy Full Path chord (`Cmd+Alt+P` default; Shift flips to File Name).
     #[serde(default = "default_shortcut_copy_path")]
     pub shortcut_copy_path: String,
@@ -1888,6 +1895,7 @@ impl Default for AppSettings {
             shortcut_insert_datetime_custom: default_shortcut_insert_datetime_custom(),
             shortcut_macro_playback: default_shortcut_macro_playback(),
             shortcut_macro_record: default_shortcut_macro_record(),
+            shortcut_macro_save: default_shortcut_macro_save(),
             shortcut_copy_path: default_shortcut_copy_path(),
             shortcut_copy_dir: default_shortcut_copy_dir(),
             shortcut_copy_all_paths: default_shortcut_copy_all_paths(),
@@ -2438,6 +2446,7 @@ mod tests {
             shortcut_insert_datetime_custom: "Ctrl+Alt+=".into(),
             shortcut_macro_playback: "Ctrl+Shift+P".into(),
             shortcut_macro_record: "Ctrl+Alt+B".into(),
+            shortcut_macro_save: "Ctrl+Alt+Shift+S".into(),
             shortcut_copy_path: "Ctrl+Alt+Shift+P".into(),
             shortcut_copy_dir: "Ctrl+Alt+Shift+K".into(),
             shortcut_copy_all_paths: "Ctrl+Alt+Shift+M".into(),
@@ -2664,6 +2673,7 @@ mod tests {
         assert_eq!(back.shortcut_insert_datetime_custom, "Ctrl+Alt+=");
         assert_eq!(back.shortcut_macro_playback, "Ctrl+Shift+P");
         assert_eq!(back.shortcut_macro_record, "Ctrl+Alt+B");
+        assert_eq!(back.shortcut_macro_save, "Ctrl+Alt+Shift+S");
         assert_eq!(back.shortcut_copy_path, "Ctrl+Alt+Shift+P");
         assert_eq!(back.shortcut_copy_dir, "Ctrl+Alt+Shift+K");
         assert_eq!(back.shortcut_copy_all_paths, "Ctrl+Alt+Shift+M");

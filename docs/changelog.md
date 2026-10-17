@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.388] — 2026-10-17
+
+Macro:
+
+- **Save Current Recorded Macro** is remappable: Preferences → Save recorded macro shortcut, or `shortcut_macro_save` in `npp-rs/settings.json` (default `Cmd+Alt+Shift+S`). Writes the recorded steps (Macro → Save Current Recorded Macro). Shift is part of the chord so it does not steal Save (`Cmd+S`), Save As (`Cmd+Shift+S`), Save All (`Cmd+Alt+S`), Swap Compare (`Alt+S`), or Compare to Saved (`Alt+Shift+S`). Shortcut Mapper and About show the binding.
+
 ## [0.3.387] — 2026-10-17
 
 Macro:
