@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.404] — 2026-10-18
+
+Edit:
+
+- **Copy / Cut / Paste Binary** uses hex of the selection’s UTF-8 bytes (`48 69` for `Hi`). Paste binary decodes that hex back into text. HTML and RTF paste stay a plain-text fallback. A non-hex clipboard is left unchanged.
+
 ## [0.3.403] — 2026-10-18
 
 Edit:

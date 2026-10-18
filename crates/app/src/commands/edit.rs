@@ -780,31 +780,20 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             state.status = "Text direction: LTR (persisted)".into();
             CmdResult::Handled
         }
-        "IDM_EDIT_PASTE_AS_HTML" | "IDM_EDIT_PASTE_AS_RTF" | "IDM_EDIT_PASTE_BINARY" => {
+        "IDM_EDIT_PASTE_AS_HTML" | "IDM_EDIT_PASTE_AS_RTF" => {
             paste_plain_fallback(state, ui, cmd);
             CmdResult::Handled
         }
+        "IDM_EDIT_PASTE_BINARY" => {
+            paste_binary(state, ui);
+            CmdResult::Handled
+        }
         "IDM_EDIT_COPY_BINARY" => {
-            copy_selection(state, ui);
-            if ui.pending_clipboard.is_some() {
-                state.status = "Binary copy (plain text to clipboard)".into();
-            }
+            copy_binary(state, ui);
             CmdResult::Handled
         }
         "IDM_EDIT_CUT_BINARY" => {
-            if state.tabs.active().read_only {
-                state.status = "Document is read-only".into();
-                return Some(CmdResult::Handled);
-            }
-            if let Some((s, e)) = state.tabs.active().buffer.selection() {
-                let text = state.tabs.active().buffer.slice(s, e);
-                ui.pending_clipboard = Some(text);
-                state.tabs.active_mut().buffer.delete_backward();
-                state.mark_text_changed();
-                state.status = "Binary cut (plain text to clipboard)".into();
-            } else {
-                state.status = "Binary cut: select text first".into();
-            }
+            cut_binary(state, ui);
             CmdResult::Handled
         }
         "IDM_EDIT_MULTISELECTALL" => {
@@ -923,6 +912,112 @@ fn redact_selection(state: &mut EditorState, fill: &str) -> CmdResult {
         state.status = "Redact: select text first".into();
     }
     CmdResult::Handled
+}
+
+fn selection_text(state: &EditorState) -> Option<String> {
+    if let Some(text) = state.tabs.active().multi_sels_clipboard_text() {
+        if !text.is_empty() {
+            return Some(text);
+        }
+    }
+    let (s, e) = state.tabs.active().buffer.selection()?;
+    let text = state.tabs.active().buffer.slice(s, e);
+    if text.is_empty() {
+        None
+    } else {
+        Some(text)
+    }
+}
+
+fn bytes_to_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len().saturating_mul(3).saturating_sub(1));
+    for (i, b) in bytes.iter().enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        out.push(HEX[(b >> 4) as usize] as char);
+        out.push(HEX[(b & 0x0f) as usize] as char);
+    }
+    out
+}
+
+/// Whitespace-separated or packed hex (`48 69`, `4869`). Odd length or junk is `None`.
+fn hex_to_bytes(text: &str) -> Option<Vec<u8>> {
+    let compact: Vec<u8> = text.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
+    if compact.is_empty() || !compact.len().is_multiple_of(2) {
+        return None;
+    }
+    let mut out = Vec::with_capacity(compact.len() / 2);
+    for pair in compact.as_chunks::<2>().0 {
+        let hi = hex_nibble(pair[0])?;
+        let lo = hex_nibble(pair[1])?;
+        out.push((hi << 4) | lo);
+    }
+    Some(out)
+}
+
+fn hex_nibble(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn stash_hex(ui: &mut UiFlags, text: &str) -> usize {
+    let hex = bytes_to_hex(text.as_bytes());
+    ui.pending_clipboard = Some(hex.clone());
+    ui.last_copied = Some(hex);
+    text.len()
+}
+
+fn copy_binary(state: &mut EditorState, ui: &mut UiFlags) {
+    let Some(text) = selection_text(state) else {
+        state.status = "Binary copy: select text first".into();
+        return;
+    };
+    let n = stash_hex(ui, &text);
+    state.status = format!("Binary copy: {n} bytes");
+}
+
+fn cut_binary(state: &mut EditorState, ui: &mut UiFlags) {
+    if !ensure_editable(state) {
+        return;
+    }
+    let Some(text) = selection_text(state) else {
+        state.status = "Binary cut: select text first".into();
+        return;
+    };
+    let multi = state.tabs.active().multi_sels_clipboard_text().is_some();
+    let n = stash_hex(ui, &text);
+    if multi {
+        let _ = state.tabs.active_mut().delete_backward_multi();
+    } else {
+        state.tabs.active_mut().buffer.delete_backward();
+    }
+    state.mark_text_changed();
+    state.status = format!("Binary cut: {n} bytes");
+}
+
+fn paste_binary(state: &mut EditorState, ui: &mut UiFlags) {
+    if !ensure_editable(state) {
+        return;
+    }
+    let Some(text) = ui.last_copied.clone() else {
+        state.status = "Paste binary: copy hex first".into();
+        return;
+    };
+    let Some(bytes) = hex_to_bytes(&text) else {
+        state.status = "Paste binary: clipboard is not hex".into();
+        return;
+    };
+    let decoded = String::from_utf8_lossy(&bytes);
+    let _ = state.tabs.active_mut().insert_plain(&decoded);
+    state.mark_text_changed();
+    ui.follow_caret = true;
+    state.status = format!("Pasted binary: {} bytes", bytes.len());
 }
 
 fn paste_plain_fallback(state: &mut EditorState, ui: &mut UiFlags, cmd: &str) {
@@ -1587,5 +1682,74 @@ fn path_complete(state: &mut EditorState) {
             names.len(),
             preview.join(", ")
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::{dispatch, CmdResult};
+
+    fn selected(text: &str) -> (EditorState, UiFlags) {
+        let mut state = EditorState::new();
+        {
+            let doc = state.tabs.active_mut();
+            doc.buffer = buffer::TextBuffer::from_str(text);
+            let n = doc.buffer.len_chars();
+            doc.buffer.set_selection(0, n);
+        }
+        (state, UiFlags::default())
+    }
+
+    #[test]
+    fn copy_binary_writes_utf8_hex() {
+        let (mut state, mut ui) = selected("Hi");
+        assert_eq!(
+            dispatch("IDM_EDIT_COPY_BINARY", &mut state, &mut ui),
+            CmdResult::Handled
+        );
+        assert_eq!(ui.last_copied.as_deref(), Some("48 69"));
+        assert_eq!(ui.pending_clipboard.as_deref(), Some("48 69"));
+        assert_eq!(state.tabs.active().buffer.to_string(), "Hi");
+        assert!(state.status.contains("2 bytes"));
+    }
+
+    #[test]
+    fn cut_binary_removes_selection() {
+        let (mut state, mut ui) = selected("A");
+        assert_eq!(
+            dispatch("IDM_EDIT_CUT_BINARY", &mut state, &mut ui),
+            CmdResult::Handled
+        );
+        assert_eq!(ui.last_copied.as_deref(), Some("41"));
+        assert_eq!(state.tabs.active().buffer.to_string(), "");
+    }
+
+    #[test]
+    fn paste_binary_round_trips_hex() {
+        let (mut state, mut ui) = selected("é");
+        dispatch("IDM_EDIT_COPY_BINARY", &mut state, &mut ui);
+        assert_eq!(ui.last_copied.as_deref(), Some("c3 a9"));
+        {
+            let doc = state.tabs.active_mut();
+            doc.buffer = buffer::TextBuffer::from_str("");
+        }
+        assert_eq!(
+            dispatch("IDM_EDIT_PASTE_BINARY", &mut state, &mut ui),
+            CmdResult::Handled
+        );
+        assert_eq!(state.tabs.active().buffer.to_string(), "é");
+    }
+
+    #[test]
+    fn paste_binary_rejects_non_hex() {
+        let (mut state, mut ui) = selected("");
+        ui.last_copied = Some("zz".into());
+        assert_eq!(
+            dispatch("IDM_EDIT_PASTE_BINARY", &mut state, &mut ui),
+            CmdResult::Handled
+        );
+        assert!(state.status.contains("not hex"));
+        assert_eq!(state.tabs.active().buffer.to_string(), "");
     }
 }

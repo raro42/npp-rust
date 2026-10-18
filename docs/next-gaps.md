@@ -174,6 +174,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.401 | Remappable SHA-1 generate from file (`shortcut_sha1_file`; Alt+F12 default) |
 | v0.3.402 | Remappable SHA-512 generate from file (`shortcut_sha512_file`; Cmd+Shift+F11 default) |
 | v0.3.403 | Remappable system read-only attribute (`shortcut_system_readonly`; Cmd+Alt+Shift+F default) |
+| v0.3.404 | Copy / Cut / Paste Binary uses hex of the selection UTF-8 bytes |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 
