@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.401] — 2026-10-18
+
+Tools:
+
+- **SHA-1 generate from file** is remappable: Preferences → SHA-1 from file shortcut, or `shortcut_sha1_file` in `npp-rs/settings.json` (default `Alt+F12`). Hashes the saved file and copies the digest (Tools → SHA-1 → Generate from files). Does not steal Post-It (`F12`), SHA-1 generate (`Cmd+F12` / `Cmd+Shift+F12`), Convert EOL Macintosh (`Alt+Shift+F12`), or Convert EOL Unix/Windows (`Cmd+Alt+F12`). Shortcut Mapper and About show the binding.
+
 ## [0.3.400] — 2026-10-18
 
 Tools:

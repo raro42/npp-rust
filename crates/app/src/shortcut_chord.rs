@@ -876,6 +876,12 @@ pub const DEFAULT_SHA256_FILE: &str = "Alt+Shift+H";
 /// Macintosh (`Alt+Shift+F12`), or Convert EOL Unix/Windows (`Cmd+Alt+F12`).
 pub const DEFAULT_SHA1: &str = "Cmd+F12";
 
+/// Default SHA-1-from-file binding (Tools → SHA-1 → Generate from files).
+/// Uses Alt+F12 so Shift stays free. Does not steal Post-It (`F12`), SHA-1
+/// generate (`Cmd+F12` / `Cmd+Shift+F12`), Convert EOL Macintosh
+/// (`Alt+Shift+F12`), or Convert EOL Unix/Windows (`Cmd+Alt+F12`).
+pub const DEFAULT_SHA1_FILE: &str = "Alt+F12";
+
 /// Default SHA-512 generate binding (Tools → SHA-512 → Generate).
 /// Shift flips to Generate from selection into clipboard. Uses Cmd+F6 so it
 /// stays off Focus on Another View (`F6` / Shift+F6), Find Cut
@@ -4527,6 +4533,33 @@ mod tests {
         };
         assert!(!c.matches(alt_shift, Key::F12));
         assert!(!clip.matches(alt_shift, Key::F12));
+    }
+
+    #[test]
+    fn parse_alt_f12_default_sha1_file() {
+        let c = parse_chord(DEFAULT_SHA1_FILE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F12);
+        assert_eq!(c.display(), "Alt+F12");
+        let postit = parse_chord(DEFAULT_POSTIT).unwrap();
+        let sha1 = parse_chord(DEFAULT_SHA1).unwrap();
+        let mac = parse_chord(DEFAULT_CONVERT_EOL_MAC).unwrap();
+        let unix = parse_chord(DEFAULT_CONVERT_EOL).unwrap();
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(alt, Key::F12));
+        assert!(!postit.matches(alt, Key::F12));
+        assert!(!sha1.matches(alt, Key::F12));
+        assert!(!sha1.flipped_shift().matches(alt, Key::F12));
+        assert!(!mac.matches(alt, Key::F12));
+        assert!(!unix.matches(alt, Key::F12));
+        assert!(!unix.flipped_shift().matches(alt, Key::F12));
+        let bare = Modifiers::default();
+        assert!(!c.matches(bare, Key::F12));
     }
 
     #[test]

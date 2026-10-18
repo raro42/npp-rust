@@ -7645,6 +7645,41 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_TOOL_SHA1_GENERATE");
             }
         }
+        // Remappable SHA-1 from file (default Alt+F12; settings.shortcut_sha1_file).
+        // Alt is part of the chord so it does not steal Post-It (F12) or SHA-1 (Cmd+F12).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SHA1_FILE};
+            let sha1_file_chord =
+                resolve_chord(&self.state.settings.shortcut_sha1_file, DEFAULT_SHA1_FILE);
+            let sha1_file_key_pressed = match sha1_file_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if sha1_file_key_pressed && sha1_file_chord.matches(mods, sha1_file_chord.key) {
+                self.run_shortcut_cmd("IDM_TOOL_SHA1_GENERATEFROMFILE");
+            }
+        }
         // Remappable SHA-512 (default Cmd+F6; settings.shortcut_sha512).
         // Shift flips to Generate into clipboard.
         {
@@ -11028,6 +11063,10 @@ impl EditorApp {
             "IDM_TOOL_SHA1_GENERATEINTOCLIPBOARD" => {
                 shifted(&s.shortcut_sha1, crate::shortcut_chord::DEFAULT_SHA1)
             }
+            "IDM_TOOL_SHA1_GENERATEFROMFILE" => primary(
+                &s.shortcut_sha1_file,
+                crate::shortcut_chord::DEFAULT_SHA1_FILE,
+            ),
             "IDM_TOOL_SHA512_GENERATE" => {
                 primary(&s.shortcut_sha512, crate::shortcut_chord::DEFAULT_SHA512)
             }
@@ -13124,6 +13163,11 @@ impl EditorApp {
             sha1_chord.display(),
             sha1_chord.flipped_shift().display()
         );
+        let sha1_file_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_sha1_file,
+            crate::shortcut_chord::DEFAULT_SHA1_FILE,
+        )
+        .display();
         let sha512_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_sha512,
             crate::shortcut_chord::DEFAULT_SHA512,
@@ -13567,7 +13611,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 205] = [
+        let rows: [(&str, &str); 206] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13947,6 +13991,7 @@ impl EditorApp {
             (sha256_keys.as_str(), "SHA-256 generate / clipboard"),
             (sha256_file_keys.as_str(), "SHA-256 generate from file"),
             (sha1_keys.as_str(), "SHA-1 generate / clipboard"),
+            (sha1_file_keys.as_str(), "SHA-1 generate from file"),
             (sha512_keys.as_str(), "SHA-512 generate / clipboard"),
             (
                 tab_to_space_keys.as_str(),
@@ -19245,6 +19290,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+F12, Ctrl+F12. Hashes the selection, or the whole document, and inserts the digest (Tools → SHA-1 → Generate). Shift + that chord copies the digest instead. Does not collide with Post-It (F12), Convert EOL Macintosh (Alt+Shift+F12), or Convert EOL Unix/Windows (Cmd+Alt+F12).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("SHA-1 from file shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_sha1_file,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+F12"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_sha1_file.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_sha1_file =
+                                        crate::shortcut_chord::DEFAULT_SHA1_FILE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SHA1_FILE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_sha1_file = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+F12. Hashes the saved file and copies the digest (Tools → SHA-1 → Generate from files). Does not steal Post-It (F12), SHA-1 generate (Cmd+F12 / Cmd+Shift+F12), Convert EOL Macintosh (Alt+Shift+F12), or Convert EOL Unix/Windows (Cmd+Alt+F12).",
                             )
                             .small()
                             .weak(),
