@@ -109,6 +109,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+Alt+Shift+X (remappable) | Cut Binary (`shortcut_cut_binary`) |
 | Cmd/Ctrl+Shift+V (remappable) | Paste Binary (`shortcut_paste_binary`) |
 | Cmd/Ctrl+Alt+- (remappable; Shift = RTF) | Paste HTML / Paste RTF (`shortcut_paste_html`) |
+| Cmd/Ctrl+Shift+Y (remappable) | View current file in Firefox (`shortcut_view_in_browser`) |
 | Cmd/Ctrl+Alt+C (remappable) | Column Editor (`shortcut_column_editor`) |
 | Cmd/Ctrl+Alt+O (remappable) | Sort Lines Lexicographic Asc (`shortcut_sort_lines`; Shift = Desc) |
 | Cmd/Ctrl+Alt+F5 (remappable) | Sort Lines Integer Asc (`shortcut_sort_lines_integer`; Shift = Desc) |

@@ -745,6 +745,12 @@ pub const DEFAULT_PASTE_BINARY: &str = "Cmd+Shift+V";
 /// (`Cmd+Shift+V`), Zoom out (`Cmd+-`), or Date Time customized (`Cmd+Alt+=`).
 pub const DEFAULT_PASTE_HTML: &str = "Cmd+Alt+-";
 
+/// Default View current file in Firefox binding (View → View Current File in Firefox).
+/// Uses Cmd+Shift+Y so Shift is part of the chord: it does not steal Redo
+/// (`Cmd+Y`), Copy Compare Summary (`Alt+Y`; Shift opens the summary tab),
+/// or Save a Copy As / Rename (`Cmd+Alt+Y` / `Cmd+Alt+Shift+Y`).
+pub const DEFAULT_VIEW_IN_BROWSER: &str = "Cmd+Shift+Y";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -4786,6 +4792,34 @@ mod tests {
         assert!(c.flipped_shift().matches(shifted, Key::Minus));
         assert!(!c.matches(shifted, Key::Minus));
         assert!(!zoom.matches(shifted, Key::Minus));
+    }
+
+    #[test]
+    fn parse_cmd_shift_y_default_view_in_browser() {
+        let c = parse_chord(DEFAULT_VIEW_IN_BROWSER).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::Y);
+        assert_eq!(c.display(), "Cmd+Shift+Y");
+        let redo = parse_chord(DEFAULT_REDO).unwrap();
+        let summary = parse_chord(DEFAULT_COPY_COMPARE_SUMMARY).unwrap();
+        let save_copy = parse_chord(DEFAULT_SAVE_COPY).unwrap();
+        let mods = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(mods, Key::Y));
+        assert!(!redo.matches(mods, Key::Y));
+        assert!(!summary.matches(mods, Key::Y));
+        assert!(!save_copy.matches(mods, Key::Y));
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::Y));
+        assert!(redo.matches(cmd, Key::Y));
     }
 
     #[test]

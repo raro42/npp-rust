@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.410] — 2026-10-18
+
+View:
+
+- **View current file in Firefox** is remappable: Preferences → View in Firefox shortcut, or `shortcut_view_in_browser` in `npp-rs/settings.json` (default `Cmd+Shift+Y`). Opens the saved file in Firefox (View → View Current File in Firefox). Shift is part of the chord so it does not steal Redo (`Cmd+Y`), Copy Compare Summary (`Alt+Y`), or Save a Copy As / Rename (`Cmd+Alt+Y` / `Cmd+Alt+Shift+Y`). Shortcut Mapper and About show the binding.
+
 ## [0.3.409] — 2026-10-18
 
 Edit:

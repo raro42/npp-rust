@@ -1,3 +1,4 @@
+009 keep: remappable View current file in Firefox (shortcut_view_in_browser, Cmd+Shift+Y default, v0.3.410)
 009 keep: remappable Paste HTML / Paste RTF (shortcut_paste_html, Cmd+Alt+- default, Shift=RTF, v0.3.409)
 009 keep: remappable Paste Binary (shortcut_paste_binary, Cmd+Shift+V default, v0.3.408)
 009 keep: remappable Cut Binary (shortcut_cut_binary, Cmd+Alt+Shift+X default, v0.3.406)
