@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.423] — 2026-10-19
+
+View:
+
+- **Function List** lists Go and Swift `func` declarations and Kotlin `fun` declarations, including lines that start with `internal`, `override`, or `open`. `function` (JavaScript) still matches. Words such as `functionally` stay out.
+
 ## [0.3.422] — 2026-10-19
 
 View:

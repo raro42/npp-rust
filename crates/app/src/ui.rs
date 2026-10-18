@@ -31498,6 +31498,8 @@ const FUNC_LIKE_KEYS: &[&str] = &[
     "type ",
     "macro ",
     "macro_rules!",
+    "func ",
+    "fun ",
 ];
 
 const FUNC_LIKE_MODS: &[&str] = &[
@@ -31511,13 +31513,17 @@ const FUNC_LIKE_MODS: &[&str] = &[
     "public ",
     "crate ",
     "super ",
+    "internal ",
+    "override ",
+    "open ",
 ];
 
 /// True when `line` looks like a function, class, or similar declaration.
 ///
 /// Skips comments. Strips a short run of visibility and qualifiers first, including
 /// Rust `pub`, `pub(crate)`, `pub(super)`, and `pub(in …)`, plus `unsafe` / `const`
-/// and `extern "ABI"`. Also matches `macro_rules!` and `macro` items.
+/// and `extern "ABI"`. Also matches `macro_rules!` and `macro` items, and Go / Swift
+/// `func` plus Kotlin `fun` (including `internal` / `override` / `open`).
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with('#') || s.starts_with("/*") {
@@ -31718,6 +31724,13 @@ mod func_like_line_tests {
         ));
         assert!(line_is_func_like("extern \"system\" fn callback() {}"));
         assert!(!line_is_func_like("extern crate serde;"));
+        assert!(line_is_func_like("func main() {"));
+        assert!(line_is_func_like("public func greet() {"));
+        assert!(line_is_func_like("override func draw() {"));
+        assert!(line_is_func_like("fun main() {"));
+        assert!(line_is_func_like("internal open fun load() {"));
+        assert!(!line_is_func_like("functionally not a decl"));
+        assert!(line_is_func_like("function greet() {"));
     }
 
     #[test]
