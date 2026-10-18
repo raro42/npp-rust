@@ -1,7 +1,8 @@
 # Local Ollama helper (vs a Cursor / VS Code plugin)
 
 Date: 2026-10-09  
-Issue: https://github.com/raro42/npp-rust/issues/18
+Issue: https://github.com/raro42/npp-rust/issues/18  
+Follow-up: https://github.com/raro42/npp-rust/issues/21
 
 ## Product take
 
@@ -15,18 +16,20 @@ What *does* fit:
 
 Cursor’s value is agent + codebase context + apply-patch loops. Porting that whole stack is a large product. A thin Ollama bridge is a useful first step and matches npp-rs privacy goals.
 
-## What shipped (v0.3.165 + v0.3.242)
+## What shipped (v0.3.165 + v0.3.242 + v0.3.407)
 
 | Piece | Behavior |
 |-------|----------|
-| **Plugins → Ask Ollama** | Sends selection, or whole buffer if nothing selected, to local Ollama. Reply opens in a read-only tab. |
-| **Editor right-click → Ask Ollama** | Same as the Plugins item (v0.3.242). |
-| **Plugins → Ollama Status** | Pings `/api/tags` and lists installed models. |
-| **Background HTTP** | Ask / Status run on a worker thread so the window stays responsive (v0.3.242). One request at a time. |
+| **Plugins → Ollama Chat** | Chat panel: transcript, exact prompt text, Thinking… while the worker runs, follow-ups. |
+| **Plugins → Ask Ollama** | Opens the chat panel, sends selection (or whole buffer) via `/api/chat`, shows the prompt before the reply. |
+| **Editor right-click → Ask Ollama** | Same as the Plugins item. |
+| **Plugins → Ollama Status** | Pings `/api/tags` and lists installed models in a tab. |
+| **Open reply in tab** | Optional: copy the last assistant reply into a read-only markdown tab. |
+| **Background HTTP** | Ask / Status / chat Send run on a worker thread (one request at a time). |
 | **Preferences** | `ollama_host`, `ollama_model` (also `npp-rs/settings.json`). |
 | **Host rule** | **Loopback only** (`127.0.0.1`, `localhost`, `::1`). Remote URLs are rejected. |
 
-Defaults: host `http://127.0.0.1:11434`, model `llama3.2`. Prompt body soft-capped (~12k chars).
+Defaults: host `http://127.0.0.1:11434`, model `llama3.2`. Prompt / transcript soft-capped (~12k chars).
 
 ## How to try it
 
@@ -34,8 +37,9 @@ Defaults: host `http://127.0.0.1:11434`, model `llama3.2`. Prompt body soft-capp
 2. `ollama pull llama3.2` (or set Preferences → Model to a model you have).
 3. Open a file, select a snippet (optional).
 4. **Plugins → Ask Ollama**, or right-click the editor → **Ask Ollama**.
+5. Watch the **Ollama Chat** panel: your prompt is listed under **You**, then **Thinking…**, then **Ollama**.
 
-If Ollama is down, the status bar shows a connect error. Use **Ollama Status** to confirm models. While a call is in flight, the status bar says it is running in the background and you can keep editing.
+If Ollama is down, the chat shows an error line and the status bar shows a connect error. Use **Ollama Status** to confirm models. While a call is in flight you can keep editing.
 
 ## Why not a Cursor plugin?
 
@@ -51,10 +55,12 @@ If Ollama is down, the status bar shows a connect error. Use **Ollama Status** t
 - Sending buffers to non-loopback hosts from the core app
 - Drop-in Notepad++ plugin ABI for AI DLLs
 - Shipping or bundling model weights
+- Token streaming into the chat bubble (Thinking… covers “working”)
 
 ## Later (optional)
 
 - Cancellable in-flight requests
+- Streamed assistant tokens
 - Insert-at-caret / replace-selection apply modes
-- Remappable Ask Ollama shortcut
+- Remappable Ask Ollama / Ollama Chat shortcut
 - Optional OpenAI-compatible local servers still bound to loopback

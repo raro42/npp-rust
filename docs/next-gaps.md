@@ -210,7 +210,7 @@ None. When the issue queue is empty, 009 picks the first non-struck item in `doc
 17. **Run / external tools** — pick+spawn / shell; no saved Run list.
 18. **Themes** — JSON + N++ XML subset; full stylers / multi-lexer import parity open.
 19. **Tree-sitter languages** — small subset vs N++ 80+ lexers.
-20. **Ollama helper** — Ask/Status (background, loopback); deeper agent / apply-edit later (`docs/ollama-helper.md`).
+20. **Ollama helper** — Chat panel + Ask/Status (background, loopback, Thinking…); deeper agent / apply-edit later (`docs/ollama-helper.md`).
 
 ### P2 — large / ecosystem
 

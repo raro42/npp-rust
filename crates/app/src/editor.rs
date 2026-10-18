@@ -36,6 +36,10 @@ pub struct EditorState {
     pub ollama_channel: crate::ollama::OllamaChannel,
     /// True while an Ollama worker is in flight (one at a time).
     pub ollama_busy: bool,
+    /// When the current Ollama request started (for Thinking… elapsed).
+    pub ollama_busy_since: Option<Instant>,
+    /// In-app Ollama chat panel (transcript + draft).
+    pub ollama_chat: OllamaChatState,
     /// Background tail polls (GUI only applies [`TailMsg`]).
     pub tail_channel: TailChannel,
     /// Paths with an in-flight tail worker (one poll per path).
@@ -159,6 +163,50 @@ pub struct EditorState {
     pub session_compare_partner: Option<PathBuf>,
 }
 
+/// Role in the Ollama chat transcript (UI).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OllamaChatRole {
+    User,
+    Assistant,
+    Meta,
+}
+
+/// One bubble in the Ollama chat panel.
+#[derive(Debug, Clone)]
+pub struct OllamaChatEntry {
+    pub role: OllamaChatRole,
+    pub text: String,
+}
+
+/// Session UI for Plugins → Ollama Chat / Ask Ollama.
+#[derive(Debug, Clone)]
+pub struct OllamaChatState {
+    pub open: bool,
+    pub entries: Vec<OllamaChatEntry>,
+    pub input: String,
+    /// Attach selection (or whole buffer) when sending a free-form chat line.
+    pub attach_editor: bool,
+    /// Last scope label (selection / whole buffer…).
+    pub last_scope: String,
+    /// Last assistant reply (for Open in tab).
+    pub last_reply: Option<String>,
+    pub last_model: Option<String>,
+}
+
+impl Default for OllamaChatState {
+    fn default() -> Self {
+        Self {
+            open: false,
+            entries: Vec::new(),
+            input: String::new(),
+            attach_editor: true,
+            last_scope: String::new(),
+            last_reply: None,
+            last_model: None,
+        }
+    }
+}
+
 /// Bulk close mode after a dirty-tab confirm.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BulkClose {
@@ -216,6 +264,8 @@ impl EditorState {
             cancelled_loads: HashSet::new(),
             ollama_channel: crate::ollama::OllamaChannel::new(),
             ollama_busy: false,
+            ollama_busy_since: None,
+            ollama_chat: OllamaChatState::default(),
             tail_channel: TailChannel::new(),
             tail_inflight: HashSet::new(),
             highlight_cache: Vec::new(),
@@ -1445,13 +1495,109 @@ impl EditorState {
         self.run_plugin("format.document");
     }
 
-    /// Ask local Ollama about the selection (or whole buffer). Runs in the background;
-    /// reply opens in a tab when ready (UI stays responsive).
+    /// Ask local Ollama about the selection (or whole buffer). Opens the chat panel,
+    /// shows the exact prompt, and runs in the background (Thinking… until done).
     pub fn ask_ollama(&mut self) {
+        self.ollama_chat.open = true;
         if self.ollama_busy {
             self.status = "Ask Ollama: already running in background…".into();
             return;
         }
+        let Some((prompt, scope, cut)) = self.ollama_editor_prompt() else {
+            return;
+        };
+        self.ollama_chat.last_scope = scope.clone();
+        self.ollama_chat.entries.push(OllamaChatEntry {
+            role: OllamaChatRole::User,
+            text: prompt,
+        });
+        self.start_ollama_chat_request(scope, cut);
+    }
+
+    /// Send the draft line from the Ollama chat panel (optional editor attach).
+    pub fn send_ollama_chat(&mut self) {
+        self.ollama_chat.open = true;
+        if self.ollama_busy {
+            self.status = "Ollama Chat: already running in background…".into();
+            return;
+        }
+        let draft = self.ollama_chat.input.trim().to_string();
+        if draft.is_empty() && !self.ollama_chat.attach_editor {
+            self.status = "Ollama Chat: type a message or attach the editor".into();
+            return;
+        }
+        let (prompt, scope, cut) = if self.ollama_chat.attach_editor {
+            let Some((editor_prompt, scope, cut)) = self.ollama_editor_prompt() else {
+                return;
+            };
+            if draft.is_empty() {
+                (editor_prompt, scope, cut)
+            } else {
+                (format!("{draft}\n\n---\n\n{editor_prompt}"), scope, cut)
+            }
+        } else {
+            if draft.is_empty() {
+                self.status = "Ollama Chat: type a message".into();
+                return;
+            }
+            if let Err(e) = crate::ollama::parse_loopback_host(&self.settings.ollama_host) {
+                self.status = format!("Ollama Chat: {e}");
+                return;
+            }
+            if let Err(e) = crate::ollama::effective_model(&self.settings.ollama_model) {
+                self.status = format!("Ollama Chat: {e}");
+                return;
+            }
+            (draft, "chat".to_string(), false)
+        };
+        self.ollama_chat.input.clear();
+        self.ollama_chat.last_scope = scope.clone();
+        self.ollama_chat.entries.push(OllamaChatEntry {
+            role: OllamaChatRole::User,
+            text: prompt,
+        });
+        self.start_ollama_chat_request(scope, cut);
+    }
+
+    /// Clear the chat transcript (does not cancel an in-flight request).
+    pub fn clear_ollama_chat(&mut self) {
+        self.ollama_chat.entries.clear();
+        self.ollama_chat.last_reply = None;
+        self.ollama_chat.last_model = None;
+        self.ollama_chat.last_scope.clear();
+        self.status = "Ollama Chat cleared".into();
+    }
+
+    /// Open the last assistant reply in a read-only tab.
+    pub fn open_ollama_reply_tab(&mut self) {
+        let Some(reply) = self.ollama_chat.last_reply.clone() else {
+            self.status = "Ollama Chat: no reply to open yet".into();
+            return;
+        };
+        let model = self
+            .ollama_chat
+            .last_model
+            .clone()
+            .unwrap_or_else(|| self.settings.ollama_model.trim().to_string());
+        let scope = if self.ollama_chat.last_scope.is_empty() {
+            "chat".to_string()
+        } else {
+            self.ollama_chat.last_scope.clone()
+        };
+        let text = format!(
+            "Ollama reply ({model})\n\
+             =====================\n\
+             Host: {}\n\
+             Scope: {scope}\n\
+             \n\
+             {reply}\n",
+            self.settings.ollama_host.trim()
+        );
+        self.open_ollama_tab("Ollama reply", &text);
+        self.status = format!("Ask Ollama: opened reply tab ({model})");
+    }
+
+    fn ollama_editor_prompt(&mut self) -> Option<(String, String, bool)> {
         let lang = self.tabs.active().language.clone();
         let (body, used_selection) = if let Some((s, e)) = self.tabs.active().buffer.selection() {
             let slice = self.tabs.active().buffer.slice(s, e);
@@ -1465,16 +1611,15 @@ impl EditorState {
         };
         if body.trim().is_empty() {
             self.status = "Ask Ollama: buffer is empty".into();
-            return;
+            return None;
         }
-        // Validate host/model on the UI thread so bad prefs fail instantly.
         if let Err(e) = crate::ollama::parse_loopback_host(&self.settings.ollama_host) {
             self.status = format!("Ask Ollama: {e}");
-            return;
+            return None;
         }
         if let Err(e) = crate::ollama::effective_model(&self.settings.ollama_model) {
             self.status = format!("Ask Ollama: {e}");
-            return;
+            return None;
         }
         let (truncated, cut) =
             crate::ollama::truncate_prompt(&body, crate::ollama::MAX_PROMPT_CHARS);
@@ -1486,15 +1631,36 @@ impl EditorState {
             (false, false) => "whole buffer",
         }
         .to_string();
+        Some((prompt, scope, cut))
+    }
+
+    fn start_ollama_chat_request(&mut self, scope: String, cut: bool) {
+        let transcript: Vec<(String, String)> = self
+            .ollama_chat
+            .entries
+            .iter()
+            .filter_map(|e| {
+                let role = match e.role {
+                    OllamaChatRole::User => "user",
+                    OllamaChatRole::Assistant => "assistant",
+                    OllamaChatRole::Meta => return None,
+                };
+                Some((role.to_string(), e.text.clone()))
+            })
+            .collect();
+        let messages =
+            crate::ollama::transcript_to_api_messages(&transcript, crate::ollama::MAX_PROMPT_CHARS);
         self.status = format!(
-            "Ask Ollama: calling {} ({}) in background…",
-            self.settings.ollama_model, self.settings.ollama_host
+            "Ask Ollama: Thinking… {} ({})",
+            self.settings.ollama_model.trim(),
+            self.settings.ollama_host.trim()
         );
         self.ollama_busy = true;
-        crate::ollama::generate_async(
+        self.ollama_busy_since = Some(Instant::now());
+        crate::ollama::chat_async(
             self.settings.ollama_host.clone(),
             self.settings.ollama_model.clone(),
-            prompt,
+            messages,
             scope,
             cut,
             self.ollama_channel.tx.clone(),
@@ -1515,6 +1681,7 @@ impl EditorState {
         let preferred = self.settings.ollama_model.trim().to_string();
         self.status = format!("Ollama status: pinging {} in background…", host.trim());
         self.ollama_busy = true;
+        self.ollama_busy_since = Some(Instant::now());
         crate::ollama::list_models_async(host, preferred, self.ollama_channel.tx.clone());
     }
 
@@ -1524,6 +1691,7 @@ impl EditorState {
         while let Ok(msg) = self.ollama_channel.rx.try_recv() {
             got = true;
             self.ollama_busy = false;
+            self.ollama_busy_since = None;
             match msg {
                 crate::ollama::OllamaMsg::AskDone {
                     model,
@@ -1532,21 +1700,28 @@ impl EditorState {
                     cut,
                     reply,
                 } => {
-                    let mut text = format!(
-                        "Ollama reply ({model})\n\
-                         =====================\n\
-                         Host: {host}\n\
-                         Scope: {scope}\n\
-                         \n\
-                         {reply}\n"
-                    );
+                    self.ollama_chat.open = true;
+                    self.ollama_chat.last_scope = scope;
+                    self.ollama_chat.last_model = Some(model.clone());
+                    self.ollama_chat.last_reply = Some(reply.clone());
+                    self.ollama_chat.entries.push(OllamaChatEntry {
+                        role: OllamaChatRole::Assistant,
+                        text: reply,
+                    });
                     if cut {
-                        text.push_str("\n(Note: input was truncated before send.)\n");
+                        self.ollama_chat.entries.push(OllamaChatEntry {
+                            role: OllamaChatRole::Meta,
+                            text: "(Note: editor input was truncated before send.)".into(),
+                        });
                     }
-                    self.open_ollama_tab("Ollama reply", &text);
-                    self.status = format!("Ask Ollama: reply from {model}");
+                    self.status = format!("Ask Ollama: reply from {model} ({})", host.trim());
                 }
                 crate::ollama::OllamaMsg::AskFailed { error } => {
+                    self.ollama_chat.open = true;
+                    self.ollama_chat.entries.push(OllamaChatEntry {
+                        role: OllamaChatRole::Meta,
+                        text: format!("Error: {error}"),
+                    });
                     self.status = format!("Ask Ollama: {error}");
                 }
                 crate::ollama::OllamaMsg::StatusDone {
@@ -1565,7 +1740,7 @@ impl EditorState {
                         n = models.len(),
                     );
                     if models.is_empty() {
-                        text.push_str("(none — run `ollama pull llama3.2` in a terminal)\n");
+                        text.push_str("(none - run `ollama pull llama3.2` in a terminal)\n");
                     } else {
                         for m in &models {
                             text.push_str("- ");
@@ -1578,7 +1753,7 @@ impl EditorState {
                          Notes\n\
                          -----\n\
                          - npp-rs talks to loopback only (127.0.0.1 / localhost / ::1).\n\
-                         - Plugins → Ask Ollama (or editor right-click) sends locally.\n\
+                         - Plugins → Ask Ollama opens the chat panel and shows the prompt.\n\
                          - Requests run in the background so the window stays responsive.\n\
                          - See docs/ollama-helper.md.\n",
                     );
@@ -4952,6 +5127,11 @@ mod tests {
     fn poll_ollama_applies_ask_done() {
         let mut state = EditorState::new();
         state.ollama_busy = true;
+        state.ollama_busy_since = Some(Instant::now());
+        state.ollama_chat.entries.push(OllamaChatEntry {
+            role: OllamaChatRole::User,
+            text: "prompt preview".into(),
+        });
         state
             .ollama_channel
             .tx
@@ -4965,10 +5145,30 @@ mod tests {
             .expect("send");
         assert!(state.poll_ollama());
         assert!(!state.ollama_busy);
+        assert!(state.ollama_busy_since.is_none());
         assert!(state.status.contains("test-model"));
+        assert!(state.ollama_chat.open);
+        assert_eq!(state.ollama_chat.entries.len(), 2);
+        assert_eq!(state.ollama_chat.entries[1].role, OllamaChatRole::Assistant);
+        assert!(state.ollama_chat.entries[1]
+            .text
+            .contains("hello from worker"));
+        assert_eq!(
+            state.ollama_chat.last_reply.as_deref(),
+            Some("hello from worker")
+        );
+    }
+
+    #[test]
+    fn open_ollama_reply_tab_from_chat() {
+        let mut state = EditorState::new();
+        state.ollama_chat.last_reply = Some("tab body".into());
+        state.ollama_chat.last_model = Some("m".into());
+        state.ollama_chat.last_scope = "selection".into();
+        state.open_ollama_reply_tab();
         let active = state.tabs.active();
         assert_eq!(active.title, "Ollama reply");
-        assert!(active.buffer.to_string().contains("hello from worker"));
+        assert!(active.buffer.to_string().contains("tab body"));
         assert!(active.read_only);
     }
 }

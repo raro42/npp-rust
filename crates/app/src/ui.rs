@@ -1201,6 +1201,7 @@ impl eframe::App for EditorApp {
         self.doc_map_window(ctx);
         self.func_list_window(ctx);
         self.char_panel_window(ctx);
+        self.ollama_chat_window(ctx);
     }
 }
 
@@ -10952,9 +10953,24 @@ impl EditorApp {
                             ui.separator();
                             ui.label(RichText::new("Local AI (Ollama)").small().weak());
                             if ui
+                                .button(RichText::new("Ollama Chat").color(MENU_READY))
+                                .on_hover_text(
+                                    "Open the Ollama chat panel (see prompt, Thinking…, replies)",
+                                )
+                                .clicked()
+                            {
+                                self.state.ollama_chat.open = !self.state.ollama_chat.open;
+                                self.state.status = if self.state.ollama_chat.open {
+                                    "Ollama Chat".into()
+                                } else {
+                                    "Ollama Chat closed".into()
+                                };
+                                ui.close_menu();
+                            }
+                            if ui
                                 .button(RichText::new("Ask Ollama").color(MENU_READY))
                                 .on_hover_text(
-                                    "Send selection (or whole buffer) to local Ollama; reply opens in a tab",
+                                    "Send selection (or whole buffer) to local Ollama; chat shows the prompt and Thinking…",
                                 )
                                 .clicked()
                             {
@@ -21965,7 +21981,7 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Plugins → Ask Ollama / Ollama Status. See docs/ollama-helper.md.",
+                                "Plugins → Ollama Chat / Ask Ollama / Ollama Status. See docs/ollama-helper.md.",
                             )
                             .small()
                             .weak(),
@@ -23553,6 +23569,147 @@ impl EditorApp {
         self.show_func_list = open;
     }
 
+    fn ollama_chat_window(&mut self, ctx: &egui::Context) {
+        if !self.state.ollama_chat.open {
+            return;
+        }
+        let mut open = self.state.ollama_chat.open;
+        let mut send = false;
+        let mut ask_editor = false;
+        let mut clear = false;
+        let mut open_tab = false;
+        let busy = self.state.ollama_busy;
+        let model = self.state.settings.ollama_model.trim().to_string();
+        let host = self.state.settings.ollama_host.trim().to_string();
+        let scope = self.state.ollama_chat.last_scope.clone();
+        let thinking_secs = self.state.ollama_busy_since.map(|t| t.elapsed().as_secs());
+        let entries = self.state.ollama_chat.entries.clone();
+
+        egui::Window::new("Ollama Chat")
+            .open(&mut open)
+            .default_width(420.0)
+            .default_height(480.0)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(format!("Model: {model}")).small().weak());
+                    ui.label(RichText::new(format!("· {host}")).small().weak());
+                    if !scope.is_empty() {
+                        ui.label(RichText::new(format!("· {scope}")).small().weak());
+                    }
+                });
+                ui.label(
+                    RichText::new(
+                        "You see the exact text sent below. Loopback only. Keep editing while it thinks.",
+                    )
+                    .small()
+                    .weak(),
+                );
+                ui.separator();
+                egui::ScrollArea::vertical()
+                    .stick_to_bottom(true)
+                    .max_height(280.0)
+                    .show(ui, |ui| {
+                        if entries.is_empty() && !busy {
+                            ui.label(
+                                RichText::new(
+                                    "Ask Ollama sends the selection (or whole buffer). Or type a message below.",
+                                )
+                                .weak(),
+                            );
+                        }
+                        for e in &entries {
+                            match e.role {
+                                crate::editor::OllamaChatRole::User => {
+                                    ui.label(RichText::new("You").strong().color(MENU_READY));
+                                    ui.label(&e.text);
+                                    ui.add_space(8.0);
+                                }
+                                crate::editor::OllamaChatRole::Assistant => {
+                                    ui.label(
+                                        RichText::new("Ollama")
+                                            .strong()
+                                            .color(Color32::from_rgb(120, 160, 220)),
+                                    );
+                                    ui.label(&e.text);
+                                    ui.add_space(8.0);
+                                }
+                                crate::editor::OllamaChatRole::Meta => {
+                                    ui.label(RichText::new(&e.text).small().weak());
+                                    ui.add_space(4.0);
+                                }
+                            }
+                        }
+                        if busy {
+                            ui.horizontal(|ui| {
+                                ui.spinner();
+                                let secs = thinking_secs.unwrap_or(0);
+                                ui.label(
+                                    RichText::new(format!("Thinking… {secs}s"))
+                                        .strong()
+                                        .color(Color32::from_rgb(220, 180, 100)),
+                                );
+                            });
+                        }
+                    });
+                ui.separator();
+                ui.checkbox(
+                    &mut self.state.ollama_chat.attach_editor,
+                    "Attach selection / buffer with Send",
+                );
+                ui.add(
+                    egui::TextEdit::multiline(&mut self.state.ollama_chat.input)
+                        .desired_width(f32::INFINITY)
+                        .desired_rows(3)
+                        .hint_text("Ask a follow-up, or leave empty and use Ask editor…"),
+                );
+                ui.horizontal(|ui| {
+                    if ui
+                        .add_enabled(!busy, egui::Button::new("Send"))
+                        .on_hover_text("Send the chat line (and optional editor attach)")
+                        .clicked()
+                    {
+                        send = true;
+                    }
+                    if ui
+                        .add_enabled(!busy, egui::Button::new("Ask editor…"))
+                        .on_hover_text("Send selection or whole buffer (same as Ask Ollama)")
+                        .clicked()
+                    {
+                        ask_editor = true;
+                    }
+                    if ui.button("Clear").clicked() {
+                        clear = true;
+                    }
+                    if ui
+                        .add_enabled(
+                            self.state.ollama_chat.last_reply.is_some(),
+                            egui::Button::new("Open reply in tab"),
+                        )
+                        .clicked()
+                    {
+                        open_tab = true;
+                    }
+                });
+            });
+
+        self.state.ollama_chat.open = open;
+        if send {
+            self.state.send_ollama_chat();
+        }
+        if ask_editor {
+            self.state.ask_ollama();
+        }
+        if clear {
+            self.state.clear_ollama_chat();
+        }
+        if open_tab {
+            self.state.open_ollama_reply_tab();
+        }
+        if self.state.ollama_busy {
+            ctx.request_repaint_after(std::time::Duration::from_millis(200));
+        }
+    }
+
     fn char_panel_window(&mut self, ctx: &egui::Context) {
         if !self.show_char_panel {
             return;
@@ -24481,7 +24638,7 @@ impl EditorApp {
                 if ui
                     .button("Ask Ollama")
                     .on_hover_text(
-                        "Send selection (or whole buffer) to local Ollama; reply opens in a tab",
+                        "Send selection (or whole buffer) to local Ollama; chat shows the prompt and Thinking…",
                     )
                     .clicked()
                 {

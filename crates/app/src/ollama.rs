@@ -132,19 +132,33 @@ pub fn truncate_prompt(text: &str, max_chars: usize) -> (String, bool) {
     (truncated, true)
 }
 
+/// One message for Ollama `/api/chat` (and the in-app chat transcript).
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
 #[derive(Debug, Serialize)]
-struct GenerateRequest<'a> {
+struct ChatRequest<'a> {
     model: &'a str,
-    prompt: &'a str,
+    messages: &'a [ChatMessage],
     stream: bool,
-    system: &'a str,
 }
 
 #[derive(Debug, Deserialize)]
-struct GenerateResponse {
-    response: Option<String>,
+struct ChatResponse {
+    message: Option<ChatReplyMessage>,
     error: Option<String>,
 }
+
+#[derive(Debug, Deserialize)]
+struct ChatReplyMessage {
+    content: Option<String>,
+}
+
+const CHAT_SYSTEM: &str =
+    "You help inside a local text editor. Stay concise. Do not invent file paths or secrets.";
 
 #[derive(Debug, Deserialize)]
 struct TagsResponse {
@@ -287,31 +301,71 @@ fn decode_chunked(body: &str) -> Result<String, OllamaError> {
     Ok(out)
 }
 
-/// POST `/api/generate` (non-streaming) and return the model text.
-pub fn generate(host_raw: &str, model_raw: &str, prompt: &str) -> Result<String, OllamaError> {
-    if prompt.trim().is_empty() {
+/// POST `/api/chat` (non-streaming) with a message list; return assistant text.
+pub fn chat(
+    host_raw: &str,
+    model_raw: &str,
+    messages: &[ChatMessage],
+) -> Result<String, OllamaError> {
+    if messages
+        .iter()
+        .all(|m| m.role != "user" || m.content.trim().is_empty())
+    {
         return Err(OllamaError::EmptyPrompt);
     }
     let ep = parse_loopback_host(host_raw)?;
     let model = effective_model(model_raw)?;
-    let req = GenerateRequest {
+    let mut full = Vec::with_capacity(messages.len() + 1);
+    full.push(ChatMessage {
+        role: "system".into(),
+        content: CHAT_SYSTEM.into(),
+    });
+    full.extend(messages.iter().cloned());
+    let req = ChatRequest {
         model: &model,
-        prompt,
+        messages: &full,
         stream: false,
-        system: "You help inside a local text editor. Stay concise. Do not invent file paths or secrets.",
     };
     let body = serde_json::to_string(&req).map_err(|e| OllamaError::Parse(e.to_string()))?;
-    let resp_body = http_post_json(&ep, "/api/generate", &body)?;
-    let parsed: GenerateResponse = serde_json::from_str(&resp_body)
+    let resp_body = http_post_json(&ep, "/api/chat", &body)?;
+    let parsed: ChatResponse = serde_json::from_str(&resp_body)
         .map_err(|e| OllamaError::Parse(format!("{e}; body={}", trunc_err(&resp_body))))?;
     if let Some(err) = parsed.error.filter(|e| !e.is_empty()) {
         return Err(OllamaError::Http(err));
     }
-    let text = parsed.response.unwrap_or_default();
+    let text = parsed.message.and_then(|m| m.content).unwrap_or_default();
     if text.trim().is_empty() {
         return Err(OllamaError::Http("empty model response".into()));
     }
     Ok(text)
+}
+
+/// Build `/api/chat` messages from a visible transcript (user + assistant only).
+pub fn transcript_to_api_messages(
+    entries: &[(String, String)],
+    max_chars: usize,
+) -> Vec<ChatMessage> {
+    let mut out: Vec<ChatMessage> = entries
+        .iter()
+        .filter(|(role, _)| role == "user" || role == "assistant")
+        .map(|(role, content)| ChatMessage {
+            role: role.clone(),
+            content: content.clone(),
+        })
+        .collect();
+    // Soft-trim from the front so the latest turns fit under the char budget.
+    let mut total: usize = out.iter().map(|m| m.content.chars().count()).sum();
+    while total > max_chars && out.len() > 1 {
+        let removed = out.remove(0);
+        total = total.saturating_sub(removed.content.chars().count());
+    }
+    if let Some(first) = out.first_mut() {
+        if first.content.chars().count() > max_chars {
+            let (cut, _) = truncate_prompt(&first.content, max_chars);
+            first.content = cut;
+        }
+    }
+    out
 }
 
 /// GET `/api/tags` — list installed model names (empty vec if none).
@@ -373,17 +427,17 @@ impl Default for OllamaChannel {
     }
 }
 
-/// Run [`generate`] on a worker thread; send [`OllamaMsg`] when done.
-pub fn generate_async(
+/// Run [`chat`] on a worker thread; send [`OllamaMsg`] when done.
+pub fn chat_async(
     host: String,
     model: String,
-    prompt: String,
+    messages: Vec<ChatMessage>,
     scope: String,
     cut: bool,
     tx: Sender<OllamaMsg>,
 ) {
     thread::spawn(move || {
-        let msg = match generate(&host, &model, &prompt) {
+        let msg = match chat(&host, &model, &messages) {
             Ok(reply) => OllamaMsg::AskDone {
                 model: model.trim().to_string(),
                 host: host.trim().to_string(),
@@ -460,6 +514,20 @@ mod tests {
         assert!(p.contains("Language hint: rust"));
         assert!(p.contains("fn main() {}"));
         assert!(!p.contains("truncated"));
+    }
+
+    #[test]
+    fn transcript_keeps_latest_under_budget() {
+        let entries = vec![
+            ("user".into(), "aaaa".into()),
+            ("assistant".into(), "bbbb".into()),
+            ("user".into(), "cccc".into()),
+        ];
+        let msgs = transcript_to_api_messages(&entries, 8);
+        assert!(!msgs.is_empty());
+        let joined: usize = msgs.iter().map(|m| m.content.chars().count()).sum();
+        assert!(joined <= 8 + 4); // may keep one oversized last turn after front trim
+        assert_eq!(msgs.last().map(|m| m.content.as_str()), Some("cccc"));
     }
 
     #[test]

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.407] — 2026-10-18
+
+Plugins / Ollama (issue #21):
+
+- **Ollama Chat** panel: shows the exact prompt sent, a **Thinking…** indicator with elapsed seconds while the worker runs, and the reply in a chat transcript. Follow-up messages via Send; optional attach of selection/buffer. **Open reply in tab** is optional.
+- **Ask Ollama** (Plugins and editor right-click) opens that panel and uses Ollama `/api/chat` so multi-turn context stays in the panel. Status still lists models in a tab.
+
 ## [0.3.406] — 2026-10-18
 
 Edit:
