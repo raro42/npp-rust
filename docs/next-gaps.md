@@ -191,6 +191,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.419 | Remappable Command Line Arguments (`shortcut_cmdline`; Shift+F1) |
 | v0.3.420 | Syntax language cycle (`shortcut_language`; Alt+=; Shift = previous) |
 | v0.3.421 | Function List sees Rust `pub(crate)` / `unsafe` / `const` declarations |
+| v0.3.422 | Function List sees Rust `macro_rules!`, `macro`, and `extern "ABI" fn` |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 
@@ -217,7 +218,7 @@ None. When the issue queue is empty, 009 picks the first non-struck item in `doc
 10. **Project panel** — folder list + refresh/reveal + persist open; not N++ project files / workspace trees.
 11. **Session** — rich opt-in `session.txt` meta; not full N++ session XML.
 12. **Dual view layout** — writable panes + sync + compare; no docking / multi-panel shell.
-13. **Document Map / Function list** — density strip + compare/find/fold/bookmark/CH/selection ticks. Function List is a line scan (`fn` / `class` / `struct` / `impl`, including Rust `pub(crate)` / `pub(super)` / `pub(in …)` / `unsafe` / `const`); not a full N++ function-list panel.
+13. **Document Map / Function list** — density strip + compare/find/fold/bookmark/CH/selection ticks. Function List is a line scan (`fn` / `class` / `struct` / `impl`, including Rust `pub(crate)` / `pub(super)` / `pub(in …)` / `unsafe` / `const` / `extern "ABI"` / `macro_rules!` / `macro`); not a full N++ function-list panel.
 14. **RTL** — line anchors + status + persist + remap; full bidi / UI chrome mirror still open.
 15. **Print** — `lp` on saved path; no preview.
 16. **Clipboard history** — last 10 session copies; the remappable chord cycles which one is on the paste clipboard (status `i/n`). Not a panel.

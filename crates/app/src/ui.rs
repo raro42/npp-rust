@@ -31496,6 +31496,8 @@ const FUNC_LIKE_KEYS: &[&str] = &[
     "enum ",
     "mod ",
     "type ",
+    "macro ",
+    "macro_rules!",
 ];
 
 const FUNC_LIKE_MODS: &[&str] = &[
@@ -31514,7 +31516,8 @@ const FUNC_LIKE_MODS: &[&str] = &[
 /// True when `line` looks like a function, class, or similar declaration.
 ///
 /// Skips comments. Strips a short run of visibility and qualifiers first, including
-/// Rust `pub`, `pub(crate)`, `pub(super)`, and `pub(in …)`, plus `unsafe` / `const`.
+/// Rust `pub`, `pub(crate)`, `pub(super)`, and `pub(in …)`, plus `unsafe` / `const`
+/// and `extern "ABI"`. Also matches `macro_rules!` and `macro` items.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with('#') || s.starts_with("/*") {
@@ -31536,6 +31539,9 @@ fn strip_func_like_prefix(s: &str) -> &str {
     if let Some(rest) = strip_pub_visibility(s) {
         return rest;
     }
+    if let Some(rest) = strip_extern_abi(s) {
+        return rest;
+    }
     for m in FUNC_LIKE_MODS {
         if let Some(rest) = s.strip_prefix(m) {
             return rest.trim_start();
@@ -31553,6 +31559,20 @@ fn strip_pub_visibility(s: &str) -> Option<&str> {
     }
     if rest.is_empty() || rest.starts_with(char::is_whitespace) {
         return Some(rest.trim_start());
+    }
+    None
+}
+
+/// `extern`, `extern "C"`, or `extern "system"`. Not a mid-line `extern`.
+fn strip_extern_abi(s: &str) -> Option<&str> {
+    let rest = s.strip_prefix("extern")?;
+    let rest = rest.trim_start();
+    if let Some(after_quote) = rest.strip_prefix('"') {
+        let end = after_quote.find('"')?;
+        return Some(after_quote[end + 1..].trim_start());
+    }
+    if rest.is_empty() || rest.starts_with(char::is_whitespace) {
+        return Some(rest);
     }
     None
 }
@@ -31691,6 +31711,13 @@ mod func_like_line_tests {
         assert!(line_is_func_like("unsafe fn raw() {}"));
         assert!(line_is_func_like("pub(crate) struct Row {"));
         assert!(line_is_func_like("impl Foo {"));
+        assert!(line_is_func_like("macro_rules! paint {"));
+        assert!(line_is_func_like("pub macro exported {"));
+        assert!(line_is_func_like(
+            "pub unsafe extern \"C\" fn raw_entry() {}"
+        ));
+        assert!(line_is_func_like("extern \"system\" fn callback() {}"));
+        assert!(!line_is_func_like("extern crate serde;"));
     }
 
     #[test]

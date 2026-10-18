@@ -1,3 +1,4 @@
+009 keep: Function List sees Rust macro_rules, macro, and extern ABI fn (v0.3.422)
 009 keep: Function List sees Rust pub(crate) / unsafe / const declarations (v0.3.421)
 009 keep: syntax language cycle (shortcut_language, Alt+= default, Shift=previous, v0.3.420)
 009 keep: remappable Command Line Arguments (shortcut_cmdline, Shift+F1 default, v0.3.419)

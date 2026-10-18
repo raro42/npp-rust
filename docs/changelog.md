@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.422] — 2026-10-19
+
+View:
+
+- **Function List** lists Rust `macro_rules!` and `macro` items, and `fn` items behind `extern "ABI"` (including `pub unsafe extern "C" fn`). `extern crate` stays out.
+
 ## [0.3.421] — 2026-10-19
 
 View:
