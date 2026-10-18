@@ -5923,6 +5923,47 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_OPEN_NPP_LOGS");
             }
         }
+        // Remappable npp-rust on GitHub (default Alt+;; settings.shortcut_github).
+        // Shift flips to Issues. Semicolon stays off Tab colour 5 (Cmd+;) and
+        // Sort tabs by modified time (Cmd+Alt+;).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_GITHUB};
+            let github_chord = resolve_chord(&self.state.settings.shortcut_github, DEFAULT_GITHUB);
+            let github_key_pressed = match github_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_issues =
+                github_key_pressed && github_chord.flipped_shift().matches(mods, github_chord.key);
+            let remapped_github =
+                github_key_pressed && github_chord.matches(mods, github_chord.key);
+            if remapped_issues {
+                self.run_shortcut_cmd("IDM_PROJECTPAGE");
+            } else if remapped_github {
+                self.run_shortcut_cmd("IDM_HOMESWEETHOME");
+            }
+        }
         // Remappable Summary (default Alt+F1; settings.shortcut_summary).
         // Shift flips to Document List.
         {
@@ -11856,6 +11897,10 @@ impl EditorApp {
                 &s.shortcut_open_logs,
                 crate::shortcut_chord::DEFAULT_OPEN_LOGS,
             ),
+            "IDM_HOMESWEETHOME" => {
+                primary(&s.shortcut_github, crate::shortcut_chord::DEFAULT_GITHUB)
+            }
+            "IDM_PROJECTPAGE" => shifted(&s.shortcut_github, crate::shortcut_chord::DEFAULT_GITHUB),
             "IDM_ABOUT" => primary(&s.shortcut_about, crate::shortcut_chord::DEFAULT_ABOUT),
             "IDM_VIEW_TAB_COLOUR_1" => primary(
                 &s.shortcut_tab_colour,
@@ -13374,6 +13419,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_OPEN_LOGS,
         )
         .display();
+        let github_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_github,
+            crate::shortcut_chord::DEFAULT_GITHUB,
+        );
+        let github_keys = format!(
+            "{} / {}",
+            github_chord.display(),
+            github_chord.flipped_shift().display()
+        );
         let about_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_about,
             crate::shortcut_chord::DEFAULT_ABOUT,
@@ -14195,7 +14249,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 218] = [
+        let rows: [(&str, &str); 219] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -14431,6 +14485,7 @@ impl EditorApp {
             (view_in_ie_keys.as_str(), "View current file in IE"),
             (debug_info_keys.as_str(), "Debug Info"),
             (open_logs_keys.as_str(), "Open npp-rust Logs"),
+            (github_keys.as_str(), "npp-rust on GitHub / Issues"),
             (summary_keys.as_str(), "Summary / Document List"),
             (
                 preferences_keys.as_str(),
@@ -18667,6 +18722,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+F2. Opens ? → Open npp-rust Logs (logs/*.log from the process cwd). Alt is part of the chord so it does not steal Next bookmark (F2), Toggle bookmark (Cmd+F2), Clear bookmarks (Cmd+Shift+F2), Inverse bookmarks (Alt+Shift+F2), or Copy bookmarked lines (Cmd+Alt+F2).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("GitHub shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_github,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+;"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_github.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_github =
+                                        crate::shortcut_chord::DEFAULT_GITHUB.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_GITHUB
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_github = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+;. Opens ? → npp-rust on GitHub. Shift + that chord opens Issues. Does not steal Tab colour 5 (Cmd+; / Cmd+Shift+;) or Sort tabs by modified time (Cmd+Alt+; / Cmd+Alt+Shift+;).",
                             )
                             .small()
                             .weak(),

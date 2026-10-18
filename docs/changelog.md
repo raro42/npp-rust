@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.416] — 2026-10-18
+
+Help:
+
+- **npp-rust on GitHub** is remappable: Preferences → GitHub shortcut, or `shortcut_github` in `npp-rs/settings.json` (default `Alt+;`). Opens the project repository (? → npp-rust on GitHub). Shift + that chord opens Issues. Semicolon stays off Tab colour 5 (`Cmd+;` / `Cmd+Shift+;`) and Sort tabs by modified time (`Cmd+Alt+;` / `Cmd+Alt+Shift+;`). Shortcut Mapper and About show the binding.
+
 ## [0.3.415] — 2026-10-18
 
 Help:

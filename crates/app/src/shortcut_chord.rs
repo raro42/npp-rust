@@ -780,6 +780,12 @@ pub const DEFAULT_DEBUG_INFO: &str = "Cmd+Alt+Shift+Space";
 /// (`Alt+Shift+F2`), or Copy bookmarked lines (`Cmd+Alt+F2`).
 pub const DEFAULT_OPEN_LOGS: &str = "Alt+F2";
 
+/// Default npp-rust on GitHub binding (? → npp-rust on GitHub).
+/// Shift flips to Issues. Uses Alt+; so it does not steal Tab colour 5
+/// (`Cmd+;` / `Cmd+Shift+;`) or Sort tabs by modified time
+/// (`Cmd+Alt+;` / `Cmd+Alt+Shift+;`).
+pub const DEFAULT_GITHUB: &str = "Alt+;";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -4991,6 +4997,35 @@ mod tests {
         let plain = Modifiers::default();
         assert!(!c.matches(plain, Key::F2));
         assert!(next.matches(plain, Key::F2));
+    }
+
+    #[test]
+    fn parse_alt_semicolon_default_github() {
+        let c = parse_chord(DEFAULT_GITHUB).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Semicolon);
+        assert_eq!(c.display(), "Alt+;");
+        assert_eq!(c.flipped_shift().display(), "Alt+Shift+;");
+        let tab = parse_chord(DEFAULT_TAB_COLOUR_5).unwrap();
+        let sort = parse_chord(DEFAULT_SORT_TABS_MODIFIED).unwrap();
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(alt, Key::Semicolon));
+        assert!(!c.matches(alt_shift, Key::Semicolon));
+        assert!(c.flipped_shift().matches(alt_shift, Key::Semicolon));
+        assert!(!tab.matches(alt, Key::Semicolon));
+        assert!(!tab.flipped_shift().matches(alt_shift, Key::Semicolon));
+        assert!(!sort.matches(alt, Key::Semicolon));
+        assert!(!sort.flipped_shift().matches(alt_shift, Key::Semicolon));
     }
 
     #[test]
