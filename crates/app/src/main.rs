@@ -1,6 +1,7 @@
 //! npp-rs — Notepad++-inspired OS-agnostic text editor (MVP).
 
 mod backup;
+mod clipboard_history;
 mod commands;
 mod diff;
 mod editor;

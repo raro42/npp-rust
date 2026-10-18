@@ -31,6 +31,7 @@ When the issue queue is idle, overnight 009 **must** pull from this list (top fi
 12. Macro record + named macros.
 13. Drop-in plugins, UDL, hex, UI i18n, full RTL chrome.
 14. ~~Local Ollama Ask / Status (loopback; `docs/ollama-helper.md`)~~ — deeper agent/apply later.
+15. ~~Clipboard history ring~~ — last 10 session copies; the chord cycles the paste clipboard (status i/n). Panel later.
 
 ## How to pick
 

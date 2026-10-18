@@ -168,6 +168,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.395 | Remappable Multi-select All match case (`shortcut_multi_select_all_case`; Cmd+Shift+A) |
 | v0.3.396 | Remappable Multi-select All match case whole word (`shortcut_multi_select_all_case_word`; Alt+Shift+A) |
 | v0.3.397 | Find Mark Style next/prev/copy uses style 1 (Find-bar Mark), not bookmarks |
+| v0.3.398 | Clipboard History keeps the last 10 copies and the chord cycles the paste clipboard |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 
@@ -197,7 +198,7 @@ None. When the issue queue is empty, 009 picks the first non-struck item in `doc
 13. **Document Map / Function list** — density strip + compare/find/fold/bookmark/CH/selection ticks; no Function List panel.
 14. **RTL** — line anchors + status + persist + remap; full bidi / UI chrome mirror still open.
 15. **Print** — `lp` on saved path; no preview.
-16. **Clipboard history** — one entry, not a panel.
+16. **Clipboard history** — last 10 session copies; the remappable chord cycles which one is on the paste clipboard (status `i/n`). Not a panel.
 17. **Run / external tools** — pick+spawn / shell; no saved Run list.
 18. **Themes** — JSON + N++ XML subset; full stylers / multi-lexer import parity open.
 19. **Tree-sitter languages** — small subset vs N++ 80+ lexers.

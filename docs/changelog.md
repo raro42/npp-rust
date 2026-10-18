@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.398] — 2026-10-18
+
+Edit:
+
+- **Clipboard History** keeps the last 10 copies from this session. Edit → Clipboard History (default `Cmd+Shift+C`, Preferences `shortcut_clipboard_history`) cycles them into the paste clipboard. The status line shows the slot (`2/10`) and a short preview. There is still no history panel.
+
 ## [0.3.397] — 2026-10-18
 
 Search:

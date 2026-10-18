@@ -876,16 +876,7 @@ Type/Backspace/Paste hit all carets; short lines pad with spaces. Column Editor 
             CmdResult::Handled
         }
         "IDM_EDIT_CLIPBOARDHISTORY_PANEL" => {
-            if let Some(t) = ui.last_copied.as_ref() {
-                let preview: String = t.chars().take(40).collect();
-                let more = if t.chars().count() > 40 { "…" } else { "" };
-                state.status = format!(
-                    "Clipboard history (1 entry): \"{preview}{more}\" ({} chars)",
-                    t.chars().count()
-                );
-            } else {
-                state.status = "Clipboard history: empty (copy text first)".into();
-            }
+            ui.pick_clipboard_history = true;
             CmdResult::Handled
         }
         "IDM_EDIT_TOGGLESYSTEMREADONLY" => {

@@ -882,6 +882,12 @@ pub struct EditorApp {
     show_char_panel: bool,
     /// Last text copied via menu (`pending_clipboard`).
     last_app_clipboard: Option<String>,
+    /// Newest-first copies this session (Clipboard History).
+    clipboard_history: Vec<String>,
+    /// Next Clipboard History slot (0 = newest).
+    clipboard_history_cursor: usize,
+    /// Shortcut chord asked to walk the clipboard ring; applied once `ctx` exists.
+    pending_clipboard_history_pick: bool,
     /// Next Paste replaces bookmarked lines.
     await_paste_bookmarks: bool,
     /// Second editor pane (writable).
@@ -966,6 +972,9 @@ impl EditorApp {
             show_func_list: false,
             show_char_panel: false,
             last_app_clipboard: None,
+            clipboard_history: Vec::new(),
+            clipboard_history_cursor: 0,
+            pending_clipboard_history_pick: false,
             await_paste_bookmarks: false,
             dual_view: false,
             other_view_tab: 0,
@@ -9753,6 +9762,9 @@ impl EditorApp {
         }
         self.apply_dual_view_flags(&mut flags);
         self.queue_viewport_toggles(&mut flags);
+        if flags.pick_clipboard_history {
+            self.pending_clipboard_history_pick = true;
+        }
     }
 
     /// Queue WindowLevel / fullscreen toggles for `flush_pending_viewport_cmds`.
@@ -9794,6 +9806,38 @@ impl EditorApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(
                 !ctx.input(|i| i.viewport().fullscreen.unwrap_or(false)),
             ));
+        }
+        if self.pending_clipboard_history_pick {
+            self.pending_clipboard_history_pick = false;
+            self.cycle_clipboard_history(ctx);
+        }
+    }
+
+    fn remember_clipboard(&mut self, text: &str) {
+        crate::clipboard_history::push(
+            &mut self.clipboard_history,
+            &mut self.clipboard_history_cursor,
+            text,
+        );
+        if !text.is_empty() {
+            self.last_app_clipboard = Some(text.to_string());
+        }
+    }
+
+    fn cycle_clipboard_history(&mut self, ctx: &egui::Context) {
+        match crate::clipboard_history::pick(
+            &self.clipboard_history,
+            &mut self.clipboard_history_cursor,
+        ) {
+            None => {
+                self.state.status = "Clipboard history: empty (copy text first)".into();
+            }
+            Some((index, text)) => {
+                let total = self.clipboard_history.len();
+                self.state.status = crate::clipboard_history::status_line(index, total, &text);
+                self.last_app_clipboard = Some(text.clone());
+                ctx.copy_text(text);
+            }
         }
     }
 
@@ -9914,11 +9958,17 @@ impl EditorApp {
             self.apply_dual_view_flags(&mut flags);
             self.queue_viewport_toggles(&mut flags);
             self.flush_pending_viewport_cmds(ctx);
-            if let Some(t) = flags.pending_clipboard.take() {
-                self.last_app_clipboard = Some(t.clone());
+            if flags.pick_clipboard_history {
+                let _ = flags.pending_clipboard.take();
+                let _ = flags.last_copied.take();
+                self.cycle_clipboard_history(ctx);
+            } else if let Some(t) = flags.pending_clipboard.take() {
+                self.remember_clipboard(&t);
                 ctx.copy_text(t);
             } else if let Some(t) = flags.last_copied.take() {
-                self.last_app_clipboard = Some(t);
+                if self.last_app_clipboard.as_deref() != Some(t.as_str()) {
+                    self.remember_clipboard(&t);
+                }
             }
             if flags.await_paste_bookmarks {
                 self.await_paste_bookmarks = true;
@@ -17688,7 +17738,7 @@ impl EditorApp {
                         });
                         ui.label(
                             RichText::new(
-                                "Example: Cmd+Shift+C, Ctrl+Shift+C. Runs Edit → Clipboard History (shows the last copied entry in the status line; 1-entry MVP). Does not collide with Copy (Cmd+C), Column Editor (Cmd+Alt+C), or Copy Compare Diff (Alt+C).",
+                                "Example: Cmd+Shift+C, Ctrl+Shift+C. Runs Edit → Clipboard History (cycles the last 10 copies into the paste clipboard; status shows i/n). Does not collide with Copy (Cmd+C), Column Editor (Cmd+Alt+C), or Copy Compare Diff (Alt+C).",
                             )
                             .small()
                             .weak(),
@@ -23429,7 +23479,7 @@ impl EditorApp {
                 {
                     if let Some(text) = self.state.copy_find_matches() {
                         if !text.is_empty() {
-                            self.last_app_clipboard = Some(text.clone());
+                            self.remember_clipboard(&text);
                             ctx.copy_text(text);
                         }
                     }
@@ -23450,7 +23500,7 @@ impl EditorApp {
                 {
                     if let Some(text) = self.state.copy_find_match_lines() {
                         if !text.is_empty() {
-                            self.last_app_clipboard = Some(text.clone());
+                            self.remember_clipboard(&text);
                             ctx.copy_text(text);
                         }
                     }
@@ -23474,13 +23524,13 @@ impl EditorApp {
                     if cut_lines {
                         if let Some(text) = self.state.cut_find_match_lines() {
                             if !text.is_empty() {
-                                self.last_app_clipboard = Some(text.clone());
+                                self.remember_clipboard(&text);
                                 ctx.copy_text(text);
                             }
                         }
                     } else if let Some(text) = self.state.cut_find_matches() {
                         if !text.is_empty() {
-                            self.last_app_clipboard = Some(text.clone());
+                            self.remember_clipboard(&text);
                             ctx.copy_text(text);
                         }
                     }
@@ -28547,7 +28597,7 @@ impl EditorApp {
                     }
                     if self.await_paste_bookmarks && tab == self.state.tabs.active_index() {
                         self.await_paste_bookmarks = false;
-                        self.last_app_clipboard = Some(t.clone());
+                        self.remember_clipboard(&t);
                         crate::commands::paste_over_bookmarked_lines(&mut self.state, &t);
                         changed = true;
                     } else {
@@ -29587,7 +29637,7 @@ impl EditorApp {
             }
         }
         if let Some(t) = copy_text {
-            self.last_app_clipboard = Some(t.clone());
+            self.remember_clipboard(&t);
             ui.ctx().copy_text(t);
         }
         if changed {

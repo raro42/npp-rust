@@ -54,6 +54,8 @@ pub struct UiFlags {
     pub pending_clipboard: Option<String>,
     /// Last text this session copied via menu (for Paste Bookmarked Lines).
     pub last_copied: Option<String>,
+    /// Walk the session clipboard ring and make that entry the paste source.
+    pub pick_clipboard_history: bool,
     /// Next editor Paste replaces bookmarked lines instead of inserting.
     pub await_paste_bookmarks: bool,
     pub highlight_dirty_scroll_reset: bool,

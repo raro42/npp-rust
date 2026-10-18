@@ -1,3 +1,4 @@
+009 keep: Clipboard History cycles the last 10 session copies into the paste clipboard (v0.3.398)
 009 keep: Find Mark Style next/prev/copy uses style 1 (Find-bar Mark), not bookmarks (v0.3.397)
 009 keep: remappable Multi-select All match case whole word (shortcut_multi_select_all_case_word, Alt+Shift+A default, v0.3.396)
 009 keep: remappable Multi-select All match case (shortcut_multi_select_all_case, Cmd+Shift+A default, v0.3.395)
