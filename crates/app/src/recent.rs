@@ -408,6 +408,10 @@ fn default_shortcut_sha256() -> String {
     crate::shortcut_chord::DEFAULT_SHA256.into()
 }
 
+fn default_shortcut_sha256_file() -> String {
+    crate::shortcut_chord::DEFAULT_SHA256_FILE.into()
+}
+
 fn default_shortcut_sha1() -> String {
     crate::shortcut_chord::DEFAULT_SHA1.into()
 }
@@ -1643,6 +1647,9 @@ pub struct AppSettings {
     /// SHA-256 generate chord (`Alt+F11` default; Shift flips to clipboard).
     #[serde(default = "default_shortcut_sha256")]
     pub shortcut_sha256: String,
+    /// SHA-256 from file chord (`Alt+Shift+H` default; `IDM_TOOL_SHA256_GENERATEFROMFILE`).
+    #[serde(default = "default_shortcut_sha256_file")]
+    pub shortcut_sha256_file: String,
     /// SHA-1 generate chord (`Cmd+F12` default; Shift flips to clipboard).
     #[serde(default = "default_shortcut_sha1")]
     pub shortcut_sha1: String,
@@ -1958,6 +1965,7 @@ impl Default for AppSettings {
             shortcut_md5: default_shortcut_md5(),
             shortcut_hash_file: default_shortcut_hash_file(),
             shortcut_sha256: default_shortcut_sha256(),
+            shortcut_sha256_file: default_shortcut_sha256_file(),
             shortcut_sha1: default_shortcut_sha1(),
             shortcut_sha512: default_shortcut_sha512(),
             shortcut_remove_empty_lines: default_shortcut_remove_empty_lines(),
@@ -2518,6 +2526,7 @@ mod tests {
             shortcut_md5: "Ctrl+Alt+Shift+F1".into(),
             shortcut_hash_file: "Ctrl+Alt+H".into(),
             shortcut_sha256: "Ctrl+Alt+Shift+F11".into(),
+            shortcut_sha256_file: "Ctrl+Alt+Shift+H".into(),
             shortcut_sha1: "Ctrl+Alt+F12".into(),
             shortcut_sha512: "Ctrl+Shift+F6".into(),
             shortcut_remove_empty_lines: "Ctrl+Alt+Shift+E".into(),
@@ -2754,6 +2763,7 @@ mod tests {
         assert_eq!(back.shortcut_md5, "Ctrl+Alt+Shift+F1");
         assert_eq!(back.shortcut_hash_file, "Ctrl+Alt+H");
         assert_eq!(back.shortcut_sha256, "Ctrl+Alt+Shift+F11");
+        assert_eq!(back.shortcut_sha256_file, "Ctrl+Alt+Shift+H");
         assert_eq!(back.shortcut_sha1, "Ctrl+Alt+F12");
         assert_eq!(back.shortcut_sha512, "Ctrl+Shift+F6");
         assert_eq!(back.shortcut_remove_empty_lines, "Ctrl+Alt+Shift+E");

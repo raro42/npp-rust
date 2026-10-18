@@ -1,3 +1,4 @@
+009 keep: remappable SHA-256 generate from file (shortcut_sha256_file, Alt+Shift+H default, v0.3.400)
 009 keep: remappable MD5 generate from file (shortcut_hash_file, Cmd+Shift+H default, v0.3.399)
 009 keep: Clipboard History cycles the last 10 session copies into the paste clipboard (v0.3.398)
 009 keep: Find Mark Style next/prev/copy uses style 1 (Find-bar Mark), not bookmarks (v0.3.397)

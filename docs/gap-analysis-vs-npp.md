@@ -121,6 +121,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+F11 (remappable) | ANSI (`shortcut_encoding_ansi`) |
 | Alt+F10 (remappable) | MD5 generate; Shift = clipboard (`shortcut_md5`) |
 | Cmd/Ctrl+Shift+H (remappable) | MD5 generate from file (`shortcut_hash_file`) |
+| Alt+Shift+H (remappable) | SHA-256 generate from file (`shortcut_sha256_file`) |
 | Alt+F11 (remappable) | SHA-256 generate; Shift = clipboard (`shortcut_sha256`) |
 | Cmd/Ctrl+F12 (remappable) | SHA-1 generate; Shift = clipboard (`shortcut_sha1`) |
 | Cmd/Ctrl+F6 (remappable) | SHA-512 generate; Shift = clipboard (`shortcut_sha512`) |

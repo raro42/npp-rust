@@ -864,6 +864,12 @@ pub const DEFAULT_HASH_FILE: &str = "Cmd+Shift+H";
 /// (`Cmd+F11`), or EOL to Space (`Cmd+Alt+F11`).
 pub const DEFAULT_SHA256: &str = "Alt+F11";
 
+/// Default SHA-256-from-file binding (Tools → SHA-256 → Generate from files).
+/// Shift is part of the chord so it does not steal Hide unchanged lines
+/// (`Alt+H`), SHA-256 generate (`Alt+F11` / `Alt+Shift+F11`), MD5 from file
+/// (`Cmd+Shift+H`), or Close All but Pinned (`Cmd+Alt+H` / `Cmd+Alt+Shift+H`).
+pub const DEFAULT_SHA256_FILE: &str = "Alt+Shift+H";
+
 /// Default SHA-1 generate binding (Tools → SHA-1 → Generate).
 /// Shift flips to Generate from selection into clipboard. Uses Cmd+F12 so it
 /// stays next to the hash family without taking Post-It (`F12`), Convert EOL
@@ -4461,6 +4467,35 @@ mod tests {
         };
         assert!(!c.matches(cmd_alt, Key::F11));
         assert!(!clip.matches(cmd_alt, Key::F11));
+    }
+
+    #[test]
+    fn parse_alt_shift_h_default_sha256_file() {
+        let c = parse_chord(DEFAULT_SHA256_FILE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::H);
+        assert_eq!(c.display(), "Alt+Shift+H");
+        let hide = parse_chord(DEFAULT_HIDE_EQUAL).unwrap();
+        let hash_file = parse_chord(DEFAULT_HASH_FILE).unwrap();
+        let sha256 = parse_chord(DEFAULT_SHA256).unwrap();
+        let close_pinned = parse_chord(DEFAULT_CLOSE_BUT_PINNED).unwrap();
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(alt_shift, Key::H));
+        assert!(!hide.matches(alt_shift, Key::H));
+        assert!(!hash_file.matches(alt_shift, Key::H));
+        assert!(!sha256.flipped_shift().matches(alt_shift, Key::H));
+        assert!(!close_pinned.flipped_shift().matches(alt_shift, Key::H));
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::H));
     }
 
     #[test]

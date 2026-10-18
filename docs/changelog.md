@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.400] — 2026-10-18
+
+Tools:
+
+- **SHA-256 generate from file** is remappable: Preferences → SHA-256 from file shortcut, or `shortcut_sha256_file` in `npp-rs/settings.json` (default `Alt+Shift+H`). Hashes the saved file and copies the digest (Tools → SHA-256 → Generate from files). Shift is part of the chord so it does not steal Hide unchanged lines (`Alt+H`) or SHA-256 generate (`Alt+F11` / `Alt+Shift+F11`). Shortcut Mapper and About show the binding.
+
 ## [0.3.399] — 2026-10-18
 
 Tools:
