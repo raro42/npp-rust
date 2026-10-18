@@ -7501,6 +7501,41 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_TOOL_MD5_GENERATE");
             }
         }
+        // Remappable MD5 from file (default Cmd+Shift+H; settings.shortcut_hash_file).
+        // Shift is part of the chord so it does not steal Replace (Cmd+H) or Hide unchanged (Alt+H).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_HASH_FILE};
+            let hash_file_chord =
+                resolve_chord(&self.state.settings.shortcut_hash_file, DEFAULT_HASH_FILE);
+            let hash_file_key_pressed = match hash_file_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if hash_file_key_pressed && hash_file_chord.matches(mods, hash_file_chord.key) {
+                self.run_shortcut_cmd("IDM_TOOL_MD5_GENERATEFROMFILE");
+            }
+        }
         // Remappable SHA-256 (default Alt+F11; settings.shortcut_sha256).
         // Shift flips to Generate into clipboard.
         {
@@ -10936,6 +10971,10 @@ impl EditorApp {
             "IDM_TOOL_MD5_GENERATEINTOCLIPBOARD" => {
                 shifted(&s.shortcut_md5, crate::shortcut_chord::DEFAULT_MD5)
             }
+            "IDM_TOOL_MD5_GENERATEFROMFILE" => primary(
+                &s.shortcut_hash_file,
+                crate::shortcut_chord::DEFAULT_HASH_FILE,
+            ),
             "IDM_TOOL_SHA256_GENERATE" => {
                 primary(&s.shortcut_sha256, crate::shortcut_chord::DEFAULT_SHA256)
             }
@@ -13016,6 +13055,11 @@ impl EditorApp {
             md5_chord.display(),
             md5_chord.flipped_shift().display()
         );
+        let hash_file_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_hash_file,
+            crate::shortcut_chord::DEFAULT_HASH_FILE,
+        )
+        .display();
         let sha256_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_sha256,
             crate::shortcut_chord::DEFAULT_SHA256,
@@ -13477,7 +13521,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 203] = [
+        let rows: [(&str, &str); 204] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13853,6 +13897,7 @@ impl EditorApp {
             (encoding_utf16_keys.as_str(), "UTF-16 LE / UTF-16 BE"),
             (encoding_ansi_keys.as_str(), "ANSI"),
             (md5_keys.as_str(), "MD5 generate / clipboard"),
+            (hash_file_keys.as_str(), "MD5 generate from file"),
             (sha256_keys.as_str(), "SHA-256 generate / clipboard"),
             (sha1_keys.as_str(), "SHA-1 generate / clipboard"),
             (sha512_keys.as_str(), "SHA-512 generate / clipboard"),
@@ -19030,6 +19075,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+F10. Hashes the selection, or the whole document, and inserts the digest (Tools → MD5 → Generate). Shift + that chord copies the digest instead. Does not collide with Read-only for all documents (F10 / Shift+F10), UTF-16 (Cmd+F10), or Sort Lines by Length (Cmd+Alt+F10).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("MD5 from file shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_hash_file,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Shift+H"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_hash_file.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_hash_file =
+                                        crate::shortcut_chord::DEFAULT_HASH_FILE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_HASH_FILE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_hash_file = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+H, Ctrl+Shift+H. Hashes the saved file and copies the digest (Tools → MD5 → Generate from files). Shift is part of the chord so it does not steal Replace (Cmd+H) or Hide unchanged lines (Alt+H).",
                             )
                             .small()
                             .weak(),

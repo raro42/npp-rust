@@ -852,6 +852,12 @@ pub const DEFAULT_ENCODING_ANSI: &str = "Cmd+F11";
 /// `Cmd+Shift+F10`), and Sort Lines by Length (`Cmd+Alt+F10` / `Cmd+Alt+Shift+F10`).
 pub const DEFAULT_MD5: &str = "Alt+F10";
 
+/// Default MD5-from-file binding (Tools → MD5 → Generate from files).
+/// Shift is part of the chord so it does not steal Replace (`Cmd+H`), Hide
+/// unchanged lines (`Alt+H`), or Close All but Pinned (`Cmd+Alt+H` /
+/// `Cmd+Alt+Shift+H`).
+pub const DEFAULT_HASH_FILE: &str = "Cmd+Shift+H";
+
 /// Default SHA-256 generate binding (Tools → SHA-256 → Generate).
 /// Shift flips to Generate from selection into clipboard. Uses Alt+F11 so it
 /// stays next to MD5 (`Alt+F10`) without taking Fullscreen (`F11`), ANSI
@@ -4391,6 +4397,33 @@ mod tests {
         };
         assert!(!c.matches(cmd_alt, Key::F10));
         assert!(!clip.matches(cmd_alt, Key::F10));
+    }
+
+    #[test]
+    fn parse_cmd_shift_h_default_hash_file() {
+        let c = parse_chord(DEFAULT_HASH_FILE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::H);
+        assert_eq!(c.display(), "Cmd+Shift+H");
+        let replace = parse_chord(DEFAULT_REPLACE).unwrap();
+        let hide = parse_chord(DEFAULT_HIDE_EQUAL).unwrap();
+        let close_pinned = parse_chord(DEFAULT_CLOSE_BUT_PINNED).unwrap();
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd_shift, Key::H));
+        assert!(!replace.matches(cmd_shift, Key::H));
+        assert!(!hide.matches(cmd_shift, Key::H));
+        assert!(!close_pinned.flipped_shift().matches(cmd_shift, Key::H));
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::H));
     }
 
     #[test]

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.399] — 2026-10-18
+
+Tools:
+
+- **MD5 generate from file** is remappable: Preferences → MD5 from file shortcut, or `shortcut_hash_file` in `npp-rs/settings.json` (default `Cmd+Shift+H`). Hashes the saved file and copies the digest (Tools → MD5 → Generate from files). Shift is part of the chord so it does not steal Replace (`Cmd+H`) or Hide unchanged lines (`Alt+H`). Shortcut Mapper and About show the binding.
+
 ## [0.3.398] — 2026-10-18
 
 Edit:

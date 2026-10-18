@@ -400,6 +400,10 @@ fn default_shortcut_md5() -> String {
     crate::shortcut_chord::DEFAULT_MD5.into()
 }
 
+fn default_shortcut_hash_file() -> String {
+    crate::shortcut_chord::DEFAULT_HASH_FILE.into()
+}
+
 fn default_shortcut_sha256() -> String {
     crate::shortcut_chord::DEFAULT_SHA256.into()
 }
@@ -1633,6 +1637,9 @@ pub struct AppSettings {
     /// MD5 generate chord (`Alt+F10` default; Shift flips to clipboard).
     #[serde(default = "default_shortcut_md5")]
     pub shortcut_md5: String,
+    /// MD5 from file chord (`Cmd+Shift+H` default; `IDM_TOOL_MD5_GENERATEFROMFILE`).
+    #[serde(default = "default_shortcut_hash_file")]
+    pub shortcut_hash_file: String,
     /// SHA-256 generate chord (`Alt+F11` default; Shift flips to clipboard).
     #[serde(default = "default_shortcut_sha256")]
     pub shortcut_sha256: String,
@@ -1949,6 +1956,7 @@ impl Default for AppSettings {
             shortcut_encoding_utf16: default_shortcut_encoding_utf16(),
             shortcut_encoding_ansi: default_shortcut_encoding_ansi(),
             shortcut_md5: default_shortcut_md5(),
+            shortcut_hash_file: default_shortcut_hash_file(),
             shortcut_sha256: default_shortcut_sha256(),
             shortcut_sha1: default_shortcut_sha1(),
             shortcut_sha512: default_shortcut_sha512(),
@@ -2508,6 +2516,7 @@ mod tests {
             shortcut_encoding_utf16: "Ctrl+Alt+F10".into(),
             shortcut_encoding_ansi: "Ctrl+F11".into(),
             shortcut_md5: "Ctrl+Alt+Shift+F1".into(),
+            shortcut_hash_file: "Ctrl+Alt+H".into(),
             shortcut_sha256: "Ctrl+Alt+Shift+F11".into(),
             shortcut_sha1: "Ctrl+Alt+F12".into(),
             shortcut_sha512: "Ctrl+Shift+F6".into(),
@@ -2743,6 +2752,7 @@ mod tests {
         assert_eq!(back.shortcut_encoding_utf16, "Ctrl+Alt+F10");
         assert_eq!(back.shortcut_encoding_ansi, "Ctrl+F11");
         assert_eq!(back.shortcut_md5, "Ctrl+Alt+Shift+F1");
+        assert_eq!(back.shortcut_hash_file, "Ctrl+Alt+H");
         assert_eq!(back.shortcut_sha256, "Ctrl+Alt+Shift+F11");
         assert_eq!(back.shortcut_sha1, "Ctrl+Alt+F12");
         assert_eq!(back.shortcut_sha512, "Ctrl+Shift+F6");
