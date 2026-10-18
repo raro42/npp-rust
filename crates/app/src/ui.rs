@@ -31471,59 +31471,90 @@ impl EditorApp {
 
 /// Lines that look like fn / class / struct / def declarations (simple prefix match).
 fn collect_func_like_lines(buf: &buffer::TextBuffer) -> Vec<(usize, String)> {
-    const KEYS: &[&str] = &[
-        "fn ",
-        "def ",
-        "function ",
-        "class ",
-        "struct ",
-        "impl ",
-        "impl<",
-        "trait ",
-        "interface ",
-        "enum ",
-        "mod ",
-        "type ",
-    ];
-    const MODS: &[&str] = &[
-        "pub ",
-        "async ",
-        "static ",
-        "export ",
-        "private ",
-        "protected ",
-        "public ",
-        "crate ",
-        "super ",
-    ];
     let mut out = Vec::new();
     for i in 0..buf.line_count() {
         let raw = buf.line(i);
         let trimmed = raw.trim_end_matches(['\n', '\r']);
-        let mut s = trimmed.trim_start();
-        if s.is_empty() || s.starts_with("//") || s.starts_with('#') || s.starts_with("/*") {
-            continue;
-        }
-        for _ in 0..4 {
-            let mut hit = false;
-            for m in MODS {
-                if let Some(rest) = s.strip_prefix(m) {
-                    s = rest.trim_start();
-                    hit = true;
-                    break;
-                }
-            }
-            if !hit {
-                break;
-            }
-        }
-        let lower = s.to_ascii_lowercase();
-        if KEYS.iter().any(|k| lower.starts_with(k)) {
+        if line_is_func_like(trimmed) {
             let preview: String = trimmed.chars().take(72).collect();
             out.push((i, preview));
         }
     }
     out
+}
+
+const FUNC_LIKE_KEYS: &[&str] = &[
+    "fn ",
+    "def ",
+    "function ",
+    "class ",
+    "struct ",
+    "impl ",
+    "impl<",
+    "trait ",
+    "interface ",
+    "enum ",
+    "mod ",
+    "type ",
+];
+
+const FUNC_LIKE_MODS: &[&str] = &[
+    "async ",
+    "unsafe ",
+    "const ",
+    "static ",
+    "export ",
+    "private ",
+    "protected ",
+    "public ",
+    "crate ",
+    "super ",
+];
+
+/// True when `line` looks like a function, class, or similar declaration.
+///
+/// Skips comments. Strips a short run of visibility and qualifiers first, including
+/// Rust `pub`, `pub(crate)`, `pub(super)`, and `pub(in …)`, plus `unsafe` / `const`.
+fn line_is_func_like(line: &str) -> bool {
+    let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
+    if s.is_empty() || s.starts_with("//") || s.starts_with('#') || s.starts_with("/*") {
+        return false;
+    }
+    for _ in 0..8 {
+        let next = strip_func_like_prefix(s);
+        if next.len() == s.len() {
+            break;
+        }
+        s = next;
+    }
+    let lower = s.to_ascii_lowercase();
+    FUNC_LIKE_KEYS.iter().any(|k| lower.starts_with(k))
+}
+
+/// Drop one leading qualifier. Returns `s` when nothing matches.
+fn strip_func_like_prefix(s: &str) -> &str {
+    if let Some(rest) = strip_pub_visibility(s) {
+        return rest;
+    }
+    for m in FUNC_LIKE_MODS {
+        if let Some(rest) = s.strip_prefix(m) {
+            return rest.trim_start();
+        }
+    }
+    s
+}
+
+/// `pub`, `pub(crate)`, `pub(super)`, or `pub(in path)`. Not the word `public`.
+fn strip_pub_visibility(s: &str) -> Option<&str> {
+    let rest = s.strip_prefix("pub")?;
+    if rest.starts_with('(') {
+        let end = rest.find(')')?;
+        return Some(rest[end + 1..].trim_start());
+    }
+    if rest.is_empty() || rest.starts_with(char::is_whitespace) {
+        return Some(rest.trim_start());
+    }
+    None
 }
 
 fn move_caret_vert(state: &mut EditorState, tab: usize, delta: i32, select: bool) {
@@ -31641,6 +31672,37 @@ fn compare_saved_snapshot_title(file_name: &str) -> String {
 /// True for the untitled read-only tab created by Compare to Saved.
 fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
     doc.read_only && doc.path.is_none() && doc.title.ends_with(" (saved)")
+}
+
+#[cfg(test)]
+mod func_like_line_tests {
+    use super::line_is_func_like;
+
+    #[test]
+    fn rust_visibility_and_qualifiers_count() {
+        assert!(line_is_func_like("fn plain() {}"));
+        assert!(line_is_func_like("pub fn exported() {}"));
+        assert!(line_is_func_like("    pub(crate) fn hidden() {}"));
+        assert!(line_is_func_like("pub(super) async unsafe fn nested() {}"));
+        assert!(line_is_func_like(
+            "pub(in crate::inner) const fn local() {}"
+        ));
+        assert!(line_is_func_like("const fn helper() -> i32 {"));
+        assert!(line_is_func_like("unsafe fn raw() {}"));
+        assert!(line_is_func_like("pub(crate) struct Row {"));
+        assert!(line_is_func_like("impl Foo {"));
+    }
+
+    #[test]
+    fn comments_and_non_decls_stay_out() {
+        assert!(!line_is_func_like("// fn commented()"));
+        assert!(!line_is_func_like("/// pub(crate) fn docs()"));
+        assert!(!line_is_func_like("# fn not_python"));
+        assert!(!line_is_func_like("let value = 1;"));
+        assert!(!line_is_func_like("public int field;"));
+        assert!(line_is_func_like("public class Widget {"));
+        assert!(line_is_func_like("def greet():"));
+    }
 }
 
 #[cfg(test)]

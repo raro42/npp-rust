@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.421] — 2026-10-19
+
+View:
+
+- **Function List** lists Rust items that start with `pub(crate)`, `pub(super)`, `pub(in …)`, `unsafe`, or `const` (and the same stack on `struct` / `impl` / `enum` / `trait`). Comments and plain `let` lines stay out.
+
 ## [0.3.420] — 2026-10-19
 
 Language:
