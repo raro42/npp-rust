@@ -685,6 +685,12 @@ pub const DEFAULT_MULTI_SELECT_ALL: &str = "Cmd+Alt+A";
 /// all / whole word (`Cmd+Alt+A` / `Cmd+Alt+Shift+A`).
 pub const DEFAULT_MULTI_SELECT_ALL_CASE: &str = "Cmd+Shift+A";
 
+/// Multi-select all, match case and whole word (`Alt+Shift+A`). Shift is part of
+/// the chord so it does not steal Show All Characters (`Alt+A`), Select All (`Cmd+A`),
+/// Multi-select all match case (`Cmd+Shift+A`), or Multi-select all / whole word
+/// (`Cmd+Alt+A` / `Cmd+Alt+Shift+A`).
+pub const DEFAULT_MULTI_SELECT_ALL_CASE_WORD: &str = "Alt+Shift+A";
+
 /// Default undo-latest-multi-select binding (Edit → Undo the Latest Added Multi-Select).
 /// Uses Cmd+Alt+Backspace so it stays on the multi-caret family without colliding with
 /// Undo (`Cmd+Z`), Multi-select next (`Cmd+Alt+N`), Multi-select all (`Cmd+Alt+A`),
@@ -3564,6 +3570,46 @@ mod tests {
             ..Modifiers::default()
         };
         assert!(!c.matches(alt, Key::A));
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt, Key::A));
+    }
+
+    #[test]
+    fn parse_alt_shift_a_default_multi_select_all_case_word() {
+        let c = parse_chord(DEFAULT_MULTI_SELECT_ALL_CASE_WORD).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::A);
+        assert_eq!(c.display(), "Alt+Shift+A");
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(alt_shift, Key::A));
+        // Must not steal Show All Characters (Alt+A), Select All (Cmd+A),
+        // Multi-select all match case (Cmd+Shift+A), or Multi-select all (Cmd+Alt+A).
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::A));
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::A));
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_shift, Key::A));
         let cmd_alt = Modifiers {
             command: true,
             alt: true,

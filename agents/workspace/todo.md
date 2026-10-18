@@ -1,3 +1,4 @@
+009 keep: remappable Multi-select All match case whole word (shortcut_multi_select_all_case_word, Alt+Shift+A default, v0.3.396)
 009 keep: remappable Multi-select All match case (shortcut_multi_select_all_case, Cmd+Shift+A default, v0.3.395)
 009 keep: remappable Multi-select Next match case whole word (shortcut_multi_select_next_case_word, Cmd+Shift+N default, v0.3.394)
 009 keep: remappable Multi-select Next whole word (shortcut_multi_select_next_word, Cmd+Shift+W default, v0.3.393)
