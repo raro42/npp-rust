@@ -16,6 +16,11 @@ mod view;
 
 use crate::editor::EditorState;
 
+/// Cycle the active tab through highlight languages (Language menu order).
+pub(crate) fn cycle_syntax_language(state: &mut EditorState, forward: bool) {
+    lang::cycle_language(state, forward);
+}
+
 /// Compare hunk navigation requested by the View menu / shortcuts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompareNav {

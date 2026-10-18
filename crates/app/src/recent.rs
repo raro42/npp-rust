@@ -988,6 +988,10 @@ fn default_shortcut_cmdline() -> String {
     crate::shortcut_chord::DEFAULT_CMDLINE.into()
 }
 
+fn default_shortcut_language() -> String {
+    crate::shortcut_chord::DEFAULT_LANGUAGE.into()
+}
+
 fn default_shortcut_about() -> String {
     crate::shortcut_chord::DEFAULT_ABOUT.into()
 }
@@ -1835,6 +1839,9 @@ pub struct AppSettings {
     /// Command Line Arguments chord (`Shift+F1` default; `IDM_CMDLINEARGUMENTS`).
     #[serde(default = "default_shortcut_cmdline")]
     pub shortcut_cmdline: String,
+    /// Syntax language cycle (`Alt+=` default; Shift = previous).
+    #[serde(default = "default_shortcut_language")]
+    pub shortcut_language: String,
     /// About chord (`F1` default; `IDM_ABOUT`).
     #[serde(default = "default_shortcut_about")]
     pub shortcut_about: String,
@@ -2124,6 +2131,7 @@ impl Default for AppSettings {
             shortcut_discussions: default_shortcut_discussions(),
             shortcut_releases: default_shortcut_releases(),
             shortcut_cmdline: default_shortcut_cmdline(),
+            shortcut_language: default_shortcut_language(),
             shortcut_about: default_shortcut_about(),
             shortcut_delete_file: default_shortcut_delete_file(),
             ollama_host: default_ollama_host(),
@@ -2701,6 +2709,7 @@ mod tests {
             shortcut_discussions: "Ctrl+Alt+[".into(),
             shortcut_releases: "Ctrl+Alt+]".into(),
             shortcut_cmdline: "Ctrl+Shift+F1".into(),
+            shortcut_language: "Ctrl+Alt+=".into(),
             shortcut_about: "Ctrl+Alt+Shift+F1".into(),
             shortcut_delete_file: "Ctrl+Alt+Shift+Delete".into(),
             ..Default::default()
@@ -2955,6 +2964,7 @@ mod tests {
         assert_eq!(back.shortcut_discussions, "Ctrl+Alt+[");
         assert_eq!(back.shortcut_releases, "Ctrl+Alt+]");
         assert_eq!(back.shortcut_cmdline, "Ctrl+Shift+F1");
+        assert_eq!(back.shortcut_language, "Ctrl+Alt+=");
         assert_eq!(back.shortcut_about, "Ctrl+Alt+Shift+F1");
         assert_eq!(back.shortcut_delete_file, "Ctrl+Alt+Shift+Delete");
         assert_eq!(back.shortcut_calltip_nav, "Ctrl+Alt+Down");

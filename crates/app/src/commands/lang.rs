@@ -63,3 +63,54 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, _ui: &mut UiFlags) -> Op
         _ => CmdResult::Stub,
     })
 }
+
+/// Syntax languages the editor can highlight, in Language-menu order.
+const SYNTAX_LANGUAGES: &[&str] = &[
+    "plain",
+    "c",
+    "cpp",
+    "html",
+    "java",
+    "javascript",
+    "json",
+    "python",
+    "rust",
+    "sql",
+    "xml",
+];
+
+/// Next or previous highlight language id. Unknown current ids wrap to an end.
+pub(crate) fn next_language_id(current: &str, forward: bool) -> &'static str {
+    let len = SYNTAX_LANGUAGES.len();
+    let idx = SYNTAX_LANGUAGES.iter().position(|id| *id == current);
+    let next = match (idx, forward) {
+        (Some(i), true) => (i + 1) % len,
+        (Some(i), false) => (i + len - 1) % len,
+        (None, true) => 0,
+        (None, false) => len - 1,
+    };
+    SYNTAX_LANGUAGES[next]
+}
+
+/// Cycle the active tab's syntax language. `forward` is next; otherwise previous.
+pub(crate) fn cycle_language(state: &mut EditorState, forward: bool) {
+    let next = next_language_id(&state.tabs.active().language, forward);
+    state.set_language(next);
+    let dir = if forward { "next" } else { "previous" };
+    state.status = format!("Language: {next} ({dir})");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::next_language_id;
+
+    #[test]
+    fn language_cycle_wraps_known_ids() {
+        assert_eq!(next_language_id("plain", true), "c");
+        assert_eq!(next_language_id("xml", true), "plain");
+        assert_eq!(next_language_id("plain", false), "xml");
+        assert_eq!(next_language_id("rust", false), "python");
+        assert_eq!(next_language_id("not-a-lexer", true), "plain");
+        assert_eq!(next_language_id("not-a-lexer", false), "xml");
+    }
+}

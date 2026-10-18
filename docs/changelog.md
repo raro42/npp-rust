@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.420] — 2026-10-19
+
+Language:
+
+- **Syntax language cycle** is remappable: Preferences → Language shortcut, or `shortcut_language` in `npp-rs/settings.json` (default `Alt+=`). Cycles the active tab through the highlight languages (plain, C, C++, HTML, Java, JavaScript, JSON, Python, Rust, SQL, XML). Shift + that chord cycles backward. Equals stays off Zoom in (`Cmd+=`) and Date Time customized (`Cmd+Alt+=`). Shortcut Mapper and About show the binding.
+
 ## [0.3.419] — 2026-10-19
 
 Help:

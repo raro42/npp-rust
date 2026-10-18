@@ -804,6 +804,12 @@ pub const DEFAULT_RELEASES: &str = "Cmd+Alt+]";
 /// or Sort tabs by name (`Cmd+Alt+F1` / `Cmd+Alt+Shift+F1`).
 pub const DEFAULT_CMDLINE: &str = "Shift+F1";
 
+/// Default syntax-language cycle (Language menu).
+/// Shift flips to the previous language. Uses Alt+= so it does not steal
+/// Zoom in (`Cmd+=` / `Cmd+Shift+=`) or Date Time customized
+/// (`Cmd+Alt+=` / `Cmd+Alt+Shift+=`).
+pub const DEFAULT_LANGUAGE: &str = "Alt+=";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -5170,6 +5176,46 @@ mod tests {
         assert!(!c.matches(cmd, Key::F1));
         assert!(sort.matches(cmd_alt, Key::F1));
         assert!(!c.matches(cmd_alt, Key::F1));
+    }
+
+    #[test]
+    fn parse_alt_equals_default_language() {
+        let c = parse_chord(DEFAULT_LANGUAGE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Equals);
+        assert_eq!(c.display(), "Alt+=");
+        assert_eq!(c.flipped_shift().display(), "Alt+Shift+=");
+        let zoom = parse_chord(DEFAULT_ZOOM_IN).unwrap();
+        let custom = parse_chord(DEFAULT_INSERT_DATETIME_CUSTOM).unwrap();
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        let alt_shift = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(alt, Key::Equals));
+        assert!(!c.matches(alt_shift, Key::Equals));
+        assert!(c.flipped_shift().matches(alt_shift, Key::Equals));
+        assert!(zoom.matches(cmd, Key::Equals));
+        assert!(!c.matches(cmd, Key::Equals));
+        assert!(custom.matches(cmd_alt, Key::Equals));
+        assert!(!c.matches(cmd_alt, Key::Equals));
+        assert!(!zoom.matches(alt, Key::Equals));
+        assert!(!custom.matches(alt, Key::Equals));
     }
 
     #[test]

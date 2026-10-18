@@ -7041,6 +7041,50 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_INSERT_DATETIME_CUSTOMIZED");
             }
         }
+        // Remappable syntax language cycle (default Alt+=; settings.shortcut_language).
+        // Shift flips to the previous language. Equals stays off Zoom in (Cmd+=)
+        // and Date Time customized (Cmd+Alt+=).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_LANGUAGE};
+            let language_chord =
+                resolve_chord(&self.state.settings.shortcut_language, DEFAULT_LANGUAGE);
+            let language_key_pressed = match language_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_language_prev = language_key_pressed
+                && language_chord
+                    .flipped_shift()
+                    .matches(mods, language_chord.key);
+            let remapped_language_next =
+                language_key_pressed && language_chord.matches(mods, language_chord.key);
+            if remapped_language_prev {
+                crate::commands::cycle_syntax_language(&mut self.state, false);
+            } else if remapped_language_next {
+                crate::commands::cycle_syntax_language(&mut self.state, true);
+            }
+        }
         // Remappable Macro Playback (default Cmd+Shift+P; settings.shortcut_macro_playback).
         // Shift is part of the chord so it does not steal Print (Cmd+P).
         {
@@ -13760,6 +13804,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_INSERT_DATETIME_CUSTOM,
         )
         .display();
+        let language_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_language,
+            crate::shortcut_chord::DEFAULT_LANGUAGE,
+        );
+        let language_keys = format!(
+            "{} / {}",
+            language_chord.display(),
+            language_chord.flipped_shift().display()
+        );
         let macro_playback_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_macro_playback,
             crate::shortcut_chord::DEFAULT_MACRO_PLAYBACK,
@@ -14417,7 +14470,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 222] = [
+        let rows: [(&str, &str); 223] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -14713,6 +14766,7 @@ impl EditorApp {
             ),
             (insert_datetime_keys.as_str(), "Date Time short / long"),
             (insert_datetime_custom_keys.as_str(), "Date Time customized"),
+            (language_keys.as_str(), "Syntax language next / previous"),
             (macro_playback_keys.as_str(), "Macro Playback"),
             (macro_record_keys.as_str(), "Start/Stop Recording"),
             (macro_save_keys.as_str(), "Save Current Recorded Macro"),
@@ -19681,6 +19735,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+=, Ctrl+Alt+=. Inserts Date Time (customized) (Edit → Insert). Does not collide with Date Time short/long (F5 / Shift+F5) or Zoom in (Cmd+=).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Language shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_language,
+                                )
+                                .desired_width(120.0)
+                                .hint_text("Alt+="),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_language.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_language =
+                                        crate::shortcut_chord::DEFAULT_LANGUAGE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_LANGUAGE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_language = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+=. Cycles the active tab through highlight languages (plain, C, C++, HTML, Java, JavaScript, JSON, Python, Rust, SQL, XML). Shift + that chord cycles backward. Does not steal Zoom in (Cmd+=) or Date Time customized (Cmd+Alt+=).",
                             )
                             .small()
                             .weak(),

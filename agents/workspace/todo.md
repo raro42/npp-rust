@@ -1,3 +1,4 @@
+009 keep: syntax language cycle (shortcut_language, Alt+= default, Shift=previous, v0.3.420)
 009 keep: remappable Command Line Arguments (shortcut_cmdline, Shift+F1 default, v0.3.419)
 009 keep: remappable Releases / Changelog (shortcut_releases, Cmd+Alt+] default, Shift=Changelog, v0.3.418)
 009 keep: remappable Discussions / Wiki (shortcut_discussions, Cmd+Alt+[ default, Shift=Wiki, v0.3.417)
