@@ -5886,6 +5886,43 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_DEBUGINFO");
             }
         }
+        // Remappable Open npp-rust Logs (default Alt+F2; settings.shortcut_open_logs).
+        // Alt is part of the chord so it does not steal Next bookmark (F2),
+        // Toggle bookmark (Cmd+F2), Clear bookmarks (Cmd+Shift+F2),
+        // Inverse bookmarks (Alt+Shift+F2), or Copy bookmarked lines (Cmd+Alt+F2).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_OPEN_LOGS};
+            let logs_chord =
+                resolve_chord(&self.state.settings.shortcut_open_logs, DEFAULT_OPEN_LOGS);
+            let logs_key_pressed = match logs_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if logs_key_pressed && logs_chord.matches(mods, logs_chord.key) {
+                self.run_shortcut_cmd("IDM_OPEN_NPP_LOGS");
+            }
+        }
         // Remappable Summary (default Alt+F1; settings.shortcut_summary).
         // Shift flips to Document List.
         {
@@ -11815,6 +11852,10 @@ impl EditorApp {
                 &s.shortcut_debug_info,
                 crate::shortcut_chord::DEFAULT_DEBUG_INFO,
             ),
+            "IDM_OPEN_NPP_LOGS" => primary(
+                &s.shortcut_open_logs,
+                crate::shortcut_chord::DEFAULT_OPEN_LOGS,
+            ),
             "IDM_ABOUT" => primary(&s.shortcut_about, crate::shortcut_chord::DEFAULT_ABOUT),
             "IDM_VIEW_TAB_COLOUR_1" => primary(
                 &s.shortcut_tab_colour,
@@ -13328,6 +13369,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_DEBUG_INFO,
         )
         .display();
+        let open_logs_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_open_logs,
+            crate::shortcut_chord::DEFAULT_OPEN_LOGS,
+        )
+        .display();
         let about_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_about,
             crate::shortcut_chord::DEFAULT_ABOUT,
@@ -14149,7 +14195,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 217] = [
+        let rows: [(&str, &str); 218] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -14384,6 +14430,7 @@ impl EditorApp {
             (view_in_edge_keys.as_str(), "View current file in Edge"),
             (view_in_ie_keys.as_str(), "View current file in IE"),
             (debug_info_keys.as_str(), "Debug Info"),
+            (open_logs_keys.as_str(), "Open npp-rust Logs"),
             (summary_keys.as_str(), "Summary / Document List"),
             (
                 preferences_keys.as_str(),
@@ -18589,6 +18636,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+Shift+Space. Opens ? → Debug Info (read-only tab). Shift is part of the chord so it does not steal Path autocomplete (Cmd+Alt+Space) or Function Call Tip (Cmd+Shift+Space).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Open Logs shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_open_logs,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+F2"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_open_logs.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_open_logs =
+                                        crate::shortcut_chord::DEFAULT_OPEN_LOGS.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_OPEN_LOGS
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_open_logs = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+F2. Opens ? → Open npp-rust Logs (logs/*.log from the process cwd). Alt is part of the chord so it does not steal Next bookmark (F2), Toggle bookmark (Cmd+F2), Clear bookmarks (Cmd+Shift+F2), Inverse bookmarks (Alt+Shift+F2), or Copy bookmarked lines (Cmd+Alt+F2).",
                             )
                             .small()
                             .weak(),

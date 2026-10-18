@@ -656,6 +656,7 @@ impl EditorState {
              Logs\n\
              ----\n\
              Use ? → Open npp-rust Logs to load logs/*.log from the cwd.\n\
+             That command is remappable (default Alt+F2; shortcut_open_logs).\n\
              The panic hook appends to logs/panic.log when the process panics.\n\
              Opening any *.log file offers a Monitoring (tail) prompt.\n\
              Remember stores ask/always/never in {}.\n\

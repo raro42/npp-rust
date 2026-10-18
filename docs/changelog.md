@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.415] — 2026-10-18
+
+Help:
+
+- **Open npp-rust Logs** is remappable: Preferences → Open Logs shortcut, or `shortcut_open_logs` in `npp-rs/settings.json` (default `Alt+F2`). Opens `logs/*.log` from the process working directory (? → Open npp-rust Logs). Alt is part of the chord so it does not steal Next bookmark (`F2`), Toggle bookmark (`Cmd+F2`), Clear bookmarks (`Cmd+Shift+F2`), Inverse bookmarks (`Alt+Shift+F2`), or Copy bookmarked lines (`Cmd+Alt+F2`). Shortcut Mapper and About show the binding.
+
 ## [0.3.414] — 2026-10-18
 
 Help:

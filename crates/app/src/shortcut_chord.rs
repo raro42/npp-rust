@@ -774,6 +774,12 @@ pub const DEFAULT_VIEW_IN_IE: &str = "Alt+Shift+9";
 /// Autocomplete (`Cmd+Space`).
 pub const DEFAULT_DEBUG_INFO: &str = "Cmd+Alt+Shift+Space";
 
+/// Default Open npp-rust Logs binding (? → Open npp-rust Logs).
+/// Uses Alt+F2 so it does not steal Next bookmark (`F2`), Toggle bookmark
+/// (`Cmd+F2`), Clear all bookmarks (`Cmd+Shift+F2`), Inverse bookmarks
+/// (`Alt+Shift+F2`), or Copy bookmarked lines (`Cmd+Alt+F2`).
+pub const DEFAULT_OPEN_LOGS: &str = "Alt+F2";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -4957,6 +4963,34 @@ mod tests {
         };
         assert!(!c.matches(path_mods, Key::Space));
         assert!(path.matches(path_mods, Key::Space));
+    }
+
+    #[test]
+    fn parse_alt_f2_default_open_logs() {
+        let c = parse_chord(DEFAULT_OPEN_LOGS).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::F2);
+        assert_eq!(c.display(), "Alt+F2");
+        let next = parse_chord(DEFAULT_NEXT_BOOKMARK).unwrap();
+        let toggle = parse_chord(DEFAULT_TOGGLE_BOOKMARK).unwrap();
+        let clear = parse_chord(DEFAULT_CLEAR_BOOKMARKS).unwrap();
+        let inverse = parse_chord(DEFAULT_INVERSE_BOOKMARKS).unwrap();
+        let copy = parse_chord(DEFAULT_COPY_MARKED_LINES).unwrap();
+        let mods = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(mods, Key::F2));
+        assert!(!next.matches(mods, Key::F2));
+        assert!(!toggle.matches(mods, Key::F2));
+        assert!(!clear.matches(mods, Key::F2));
+        assert!(!inverse.matches(mods, Key::F2));
+        assert!(!copy.matches(mods, Key::F2));
+        let plain = Modifiers::default();
+        assert!(!c.matches(plain, Key::F2));
+        assert!(next.matches(plain, Key::F2));
     }
 
     #[test]
