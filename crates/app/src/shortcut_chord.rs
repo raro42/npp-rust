@@ -762,6 +762,12 @@ pub const DEFAULT_VIEW_IN_CHROME: &str = "Alt+Shift+B";
 /// by type (`Cmd+Alt+.`; Shift = descending) or Open (`Cmd+O`).
 pub const DEFAULT_VIEW_IN_EDGE: &str = "Alt+Shift+.";
 
+/// Default View current file in IE binding (View → View Current File in IE).
+/// Uses Alt+Shift+9 so Shift is part of the chord: it does not steal Proper Case
+/// (`Cmd+Alt+9`; Shift = blend), 1st–9th Tab (`Cmd+Shift+1`…`9`), or Fold Level
+/// (`Alt+1`…`8`; Shift unfolds).
+pub const DEFAULT_VIEW_IN_IE: &str = "Alt+Shift+9";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -4887,6 +4893,36 @@ mod tests {
         };
         assert!(!c.matches(cmd_alt, Key::Period));
         assert!(sort_type.matches(cmd_alt, Key::Period));
+    }
+
+    #[test]
+    fn parse_alt_shift_9_default_view_in_ie() {
+        let c = parse_chord(DEFAULT_VIEW_IN_IE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::Num9);
+        assert_eq!(c.display(), "Alt+Shift+9");
+        let proper = parse_chord(DEFAULT_PROPER_CASE).unwrap();
+        let tab = parse_chord(DEFAULT_GOTO_TAB).unwrap();
+        let fold = parse_chord(DEFAULT_FOLD_LEVEL).unwrap();
+        let mods = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(mods, Key::Num9));
+        assert!(!proper.matches(mods, Key::Num9));
+        assert!(!proper.flipped_shift().matches(mods, Key::Num9));
+        assert!(!tab.matches(mods, Key::Num9));
+        assert!(fold.fold_level_action(mods, Key::Num9).is_none());
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt, Key::Num9));
+        assert!(proper.matches(cmd_alt, Key::Num9));
     }
 
     #[test]

@@ -1,3 +1,4 @@
+009 keep: remappable View current file in IE (shortcut_view_in_ie, Alt+Shift+9 default, v0.3.413)
 009 keep: remappable View current file in Edge (shortcut_view_in_edge, Alt+Shift+. default, v0.3.412)
 009 keep: remappable View current file in Chrome (shortcut_view_in_chrome, Alt+Shift+B default, v0.3.411)
 009 keep: remappable View current file in Firefox (shortcut_view_in_browser, Cmd+Shift+Y default, v0.3.410)

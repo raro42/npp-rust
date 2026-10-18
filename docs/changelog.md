@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.413] — 2026-10-18
+
+View:
+
+- **View current file in IE** is remappable: Preferences → View in IE shortcut, or `shortcut_view_in_ie` in `npp-rs/settings.json` (default `Alt+Shift+9`). Opens the saved file in IE (View → View Current File in IE). Shift is part of the chord so it does not steal Proper Case (`Cmd+Alt+9`; Shift = blend), 1st–9th Tab (`Cmd+Shift+1`…`9`), or Fold Level (`Alt+1`…`8`). Shortcut Mapper and About show the binding.
+
 ## [0.3.412] — 2026-10-18
 
 View:

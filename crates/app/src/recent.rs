@@ -332,6 +332,10 @@ fn default_shortcut_view_in_edge() -> String {
     crate::shortcut_chord::DEFAULT_VIEW_IN_EDGE.into()
 }
 
+fn default_shortcut_view_in_ie() -> String {
+    crate::shortcut_chord::DEFAULT_VIEW_IN_IE.into()
+}
+
 fn default_shortcut_summary() -> String {
     crate::shortcut_chord::DEFAULT_SUMMARY.into()
 }
@@ -1630,6 +1634,9 @@ pub struct AppSettings {
     /// View current file in Edge chord. Empty uses `Alt+Shift+.`.
     #[serde(default = "default_shortcut_view_in_edge")]
     pub shortcut_view_in_edge: String,
+    /// View current file in IE chord. Empty uses `Alt+Shift+9`.
+    #[serde(default = "default_shortcut_view_in_ie")]
+    pub shortcut_view_in_ie: String,
     /// Summary chord (`Alt+F1` default; Shift flips to Document List).
     #[serde(default = "default_shortcut_summary")]
     pub shortcut_summary: String,
@@ -2016,6 +2023,7 @@ impl Default for AppSettings {
             shortcut_view_in_browser: default_shortcut_view_in_browser(),
             shortcut_view_in_chrome: default_shortcut_view_in_chrome(),
             shortcut_view_in_edge: default_shortcut_view_in_edge(),
+            shortcut_view_in_ie: default_shortcut_view_in_ie(),
             shortcut_summary: default_shortcut_summary(),
             shortcut_preferences: default_shortcut_preferences(),
             shortcut_mapper: default_shortcut_mapper(),
@@ -2587,6 +2595,7 @@ mod tests {
             shortcut_view_in_browser: "Ctrl+Shift+Y".into(),
             shortcut_view_in_chrome: "Ctrl+Alt+Shift+B".into(),
             shortcut_view_in_edge: "Ctrl+Alt+Shift+.".into(),
+            shortcut_view_in_ie: "Ctrl+Alt+Shift+9".into(),
             shortcut_summary: "Ctrl+Alt+F1".into(),
             shortcut_preferences: "Ctrl+,".into(),
             shortcut_mapper: "Ctrl+Alt+Shift+K".into(),
@@ -2831,6 +2840,7 @@ mod tests {
         assert_eq!(back.shortcut_view_in_browser, "Ctrl+Shift+Y");
         assert_eq!(back.shortcut_view_in_chrome, "Ctrl+Alt+Shift+B");
         assert_eq!(back.shortcut_view_in_edge, "Ctrl+Alt+Shift+.");
+        assert_eq!(back.shortcut_view_in_ie, "Ctrl+Alt+Shift+9");
         assert_eq!(back.shortcut_summary, "Ctrl+Alt+F1");
         assert_eq!(back.shortcut_preferences, "Ctrl+,");
         assert_eq!(back.shortcut_mapper, "Ctrl+Alt+Shift+K");

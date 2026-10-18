@@ -61,6 +61,7 @@ pub(crate) fn open_active_in_browser(state: &mut EditorState, cmd: &str) {
         "IDM_VIEW_IN_FIREFOX" => Some("Firefox"),
         "IDM_VIEW_IN_CHROME" => Some("Google Chrome"),
         "IDM_VIEW_IN_EDGE" => Some("Microsoft Edge"),
+        "IDM_VIEW_IN_IE" => Some("Internet Explorer"),
         _ => None,
     };
     #[cfg(target_os = "macos")]
