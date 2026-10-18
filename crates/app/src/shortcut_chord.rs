@@ -792,6 +792,12 @@ pub const DEFAULT_GITHUB: &str = "Alt+;";
 /// context increase (`Alt+]`).
 pub const DEFAULT_DISCUSSIONS: &str = "Cmd+Alt+[";
 
+/// Default Releases binding (? → Releases).
+/// Shift flips to Changelog. Uses Cmd+Alt+] so it does not steal Indent (`Cmd+]`),
+/// Hide-equal context increase (`Alt+]`), Outdent (`Cmd+[`), or Hide-equal
+/// context decrease (`Alt+[`).
+pub const DEFAULT_RELEASES: &str = "Cmd+Alt+]";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -5074,6 +5080,48 @@ mod tests {
         assert!(context.matches(alt, Key::CloseBracket));
         assert!(!context.matches(cmd_alt, Key::CloseBracket));
         assert!(!c.matches(alt, Key::OpenBracket));
+    }
+
+    #[test]
+    fn parse_cmd_alt_close_bracket_default_releases() {
+        let c = parse_chord(DEFAULT_RELEASES).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::CloseBracket);
+        assert_eq!(c.display(), "Cmd+Alt+]");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+]");
+        let indent = parse_chord(DEFAULT_INDENT).unwrap();
+        let outdent = parse_chord(DEFAULT_OUTDENT).unwrap();
+        let context = parse_chord(DEFAULT_HIDE_EQUAL_CONTEXT).unwrap();
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        let cmd_alt_shift = Modifiers {
+            command: true,
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd_alt, Key::CloseBracket));
+        assert!(!c.matches(cmd_alt_shift, Key::CloseBracket));
+        assert!(c.flipped_shift().matches(cmd_alt_shift, Key::CloseBracket));
+        assert!(!indent.matches(cmd_alt, Key::CloseBracket));
+        assert!(indent.matches(cmd, Key::CloseBracket));
+        assert!(context.matches(alt, Key::CloseBracket));
+        assert!(!context.matches(cmd_alt, Key::CloseBracket));
+        assert!(!outdent.matches(cmd_alt, Key::CloseBracket));
+        assert!(!c.matches(alt, Key::CloseBracket));
     }
 
     #[test]

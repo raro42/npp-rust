@@ -6010,6 +6010,50 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_FORUM");
             }
         }
+        // Remappable Releases (default Cmd+Alt+]; settings.shortcut_releases).
+        // Shift flips to Changelog. Bracket stays off Indent (Cmd+]) and
+        // Hide-equal context increase (Alt+]).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_RELEASES};
+            let releases_chord =
+                resolve_chord(&self.state.settings.shortcut_releases, DEFAULT_RELEASES);
+            let releases_key_pressed = match releases_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_changelog = releases_key_pressed
+                && releases_chord
+                    .flipped_shift()
+                    .matches(mods, releases_chord.key);
+            let remapped_releases =
+                releases_key_pressed && releases_chord.matches(mods, releases_chord.key);
+            if remapped_changelog {
+                self.run_shortcut_cmd("IDM_CHANGELOG");
+            } else if remapped_releases {
+                self.run_shortcut_cmd("IDM_UPDATE_NPP");
+            }
+        }
         // Remappable Summary (default Alt+F1; settings.shortcut_summary).
         // Shift flips to Document List.
         {
@@ -11955,6 +11999,14 @@ impl EditorApp {
                 &s.shortcut_discussions,
                 crate::shortcut_chord::DEFAULT_DISCUSSIONS,
             ),
+            "IDM_UPDATE_NPP" => primary(
+                &s.shortcut_releases,
+                crate::shortcut_chord::DEFAULT_RELEASES,
+            ),
+            "IDM_CHANGELOG" => shifted(
+                &s.shortcut_releases,
+                crate::shortcut_chord::DEFAULT_RELEASES,
+            ),
             "IDM_ABOUT" => primary(&s.shortcut_about, crate::shortcut_chord::DEFAULT_ABOUT),
             "IDM_VIEW_TAB_COLOUR_1" => primary(
                 &s.shortcut_tab_colour,
@@ -13491,6 +13543,15 @@ impl EditorApp {
             discussions_chord.display(),
             discussions_chord.flipped_shift().display()
         );
+        let releases_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_releases,
+            crate::shortcut_chord::DEFAULT_RELEASES,
+        );
+        let releases_keys = format!(
+            "{} / {}",
+            releases_chord.display(),
+            releases_chord.flipped_shift().display()
+        );
         let about_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_about,
             crate::shortcut_chord::DEFAULT_ABOUT,
@@ -14312,7 +14373,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 220] = [
+        let rows: [(&str, &str); 221] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -14550,6 +14611,7 @@ impl EditorApp {
             (open_logs_keys.as_str(), "Open npp-rust Logs"),
             (github_keys.as_str(), "npp-rust on GitHub / Issues"),
             (discussions_keys.as_str(), "Discussions / Wiki"),
+            (releases_keys.as_str(), "Releases / Changelog"),
             (summary_keys.as_str(), "Summary / Document List"),
             (
                 preferences_keys.as_str(),
@@ -18849,6 +18911,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+[. Opens ? → Discussions. Shift + that chord opens Wiki. Does not steal Outdent (Cmd+[), Hide-equal context decrease (Alt+[), Indent (Cmd+]), or Hide-equal context increase (Alt+]).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Releases shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_releases,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+]"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_releases.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_releases =
+                                        crate::shortcut_chord::DEFAULT_RELEASES.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_RELEASES
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_releases = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+]. Opens ? → Releases. Shift + that chord opens Changelog. Does not steal Indent (Cmd+]), Hide-equal context increase (Alt+]), Outdent (Cmd+[), or Hide-equal context decrease (Alt+[).",
                             )
                             .small()
                             .weak(),

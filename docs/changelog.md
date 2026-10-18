@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.418] — 2026-10-18
+
+Help:
+
+- **Releases** is remappable: Preferences → Releases shortcut, or `shortcut_releases` in `npp-rs/settings.json` (default `Cmd+Alt+]`). Opens GitHub Releases (? → Releases). Shift + that chord opens the changelog. The bracket stays off Indent (`Cmd+]`), Hide-equal context increase (`Alt+]`), Outdent (`Cmd+[`), and Hide-equal context decrease (`Alt+[`). Shortcut Mapper and About show the binding.
+
 ## [0.3.417] — 2026-10-18
 
 Help:
