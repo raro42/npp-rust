@@ -155,6 +155,7 @@ New keys:
 | `shortcut_github` | npp-rust on GitHub chord (`Alt+;` default; Shift opens Issues; `IDM_HOMESWEETHOME`) |
 | `shortcut_discussions` | Discussions chord (`Cmd+Alt+[` default; Shift opens Wiki; `IDM_FORUM`) |
 | `shortcut_releases` | Releases chord (`Cmd+Alt+]` default; Shift opens Changelog; `IDM_UPDATE_NPP`) |
+| `shortcut_cmdline` | Command Line Arguments chord (`Shift+F1` default; `IDM_CMDLINEARGUMENTS`) |
 | `shortcut_summary` | Summary chord (`Alt+F1` default; Shift opens Document List; `IDM_VIEW_SUMMARY`) |
 | `shortcut_tab_colour` | Tab colour 1 chord (`Cmd+F5` default; Shift clears; `IDM_VIEW_TAB_COLOUR_1`) |
 | `shortcut_tab_colour_2` | Tab colour 2 chord (`Cmd+F4` default; Shift clears; `IDM_VIEW_TAB_COLOUR_2`) |

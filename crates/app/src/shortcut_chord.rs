@@ -798,6 +798,12 @@ pub const DEFAULT_DISCUSSIONS: &str = "Cmd+Alt+[";
 /// context decrease (`Alt+[`).
 pub const DEFAULT_RELEASES: &str = "Cmd+Alt+]";
 
+/// Default Command Line Arguments binding (? → Command Line Arguments).
+/// Uses Shift+F1 so it stays next to About (`F1`) without taking Summary
+/// (`Alt+F1` / `Alt+Shift+F1`), Load Session (`Cmd+F1` / `Cmd+Shift+F1`),
+/// or Sort tabs by name (`Cmd+Alt+F1` / `Cmd+Alt+Shift+F1`).
+pub const DEFAULT_CMDLINE: &str = "Shift+F1";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -5122,6 +5128,48 @@ mod tests {
         assert!(!context.matches(cmd_alt, Key::CloseBracket));
         assert!(!outdent.matches(cmd_alt, Key::CloseBracket));
         assert!(!c.matches(alt, Key::CloseBracket));
+    }
+
+    #[test]
+    fn parse_shift_f1_default_cmdline() {
+        let c = parse_chord(DEFAULT_CMDLINE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::F1);
+        assert_eq!(c.display(), "Shift+F1");
+        let about = parse_chord(DEFAULT_ABOUT).unwrap();
+        let summary = parse_chord(DEFAULT_SUMMARY).unwrap();
+        let session = parse_chord(DEFAULT_LOAD_SESSION).unwrap();
+        let sort = parse_chord(DEFAULT_SORT_TABS).unwrap();
+        let shift = Modifiers {
+            shift: true,
+            ..Modifiers::default()
+        };
+        let plain = Modifiers::default();
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(shift, Key::F1));
+        assert!(!about.matches(shift, Key::F1));
+        assert!(about.matches(plain, Key::F1));
+        assert!(!c.matches(plain, Key::F1));
+        assert!(summary.matches(alt, Key::F1));
+        assert!(!c.matches(alt, Key::F1));
+        assert!(session.matches(cmd, Key::F1));
+        assert!(!c.matches(cmd, Key::F1));
+        assert!(sort.matches(cmd_alt, Key::F1));
+        assert!(!c.matches(cmd_alt, Key::F1));
     }
 
     #[test]

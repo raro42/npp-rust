@@ -112,6 +112,9 @@ fn show_cmdline_arguments(state: &mut EditorState) {
          \n\
          Binary name: npp-rs\n\
          \n\
+         The chord is remappable (default Shift+F1; shortcut_cmdline).\n\
+         Shift is part of the chord so it does not steal About (F1).\n\
+         \n\
          More\n\
          ----\n\
          See README for build and run notes:\n\

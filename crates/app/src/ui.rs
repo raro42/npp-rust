@@ -6054,6 +6054,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_UPDATE_NPP");
             }
         }
+        // Remappable Command Line Arguments (default Shift+F1; settings.shortcut_cmdline).
+        // Shift is part of the chord so it does not steal About (F1),
+        // Summary (Alt+F1), Load Session (Cmd+F1), or Sort tabs (Cmd+Alt+F1).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_CMDLINE};
+            let cmdline_chord =
+                resolve_chord(&self.state.settings.shortcut_cmdline, DEFAULT_CMDLINE);
+            let cmdline_key_pressed = match cmdline_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if cmdline_key_pressed && cmdline_chord.matches(mods, cmdline_chord.key) {
+                self.run_shortcut_cmd("IDM_CMDLINEARGUMENTS");
+            }
+        }
         // Remappable Summary (default Alt+F1; settings.shortcut_summary).
         // Shift flips to Document List.
         {
@@ -12007,6 +12043,9 @@ impl EditorApp {
                 &s.shortcut_releases,
                 crate::shortcut_chord::DEFAULT_RELEASES,
             ),
+            "IDM_CMDLINEARGUMENTS" => {
+                primary(&s.shortcut_cmdline, crate::shortcut_chord::DEFAULT_CMDLINE)
+            }
             "IDM_ABOUT" => primary(&s.shortcut_about, crate::shortcut_chord::DEFAULT_ABOUT),
             "IDM_VIEW_TAB_COLOUR_1" => primary(
                 &s.shortcut_tab_colour,
@@ -13552,6 +13591,11 @@ impl EditorApp {
             releases_chord.display(),
             releases_chord.flipped_shift().display()
         );
+        let cmdline_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_cmdline,
+            crate::shortcut_chord::DEFAULT_CMDLINE,
+        )
+        .display();
         let about_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_about,
             crate::shortcut_chord::DEFAULT_ABOUT,
@@ -14373,7 +14417,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 221] = [
+        let rows: [(&str, &str); 222] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -14612,6 +14656,7 @@ impl EditorApp {
             (github_keys.as_str(), "npp-rust on GitHub / Issues"),
             (discussions_keys.as_str(), "Discussions / Wiki"),
             (releases_keys.as_str(), "Releases / Changelog"),
+            (cmdline_keys.as_str(), "Command Line Arguments"),
             (summary_keys.as_str(), "Summary / Document List"),
             (
                 preferences_keys.as_str(),
@@ -18942,6 +18987,37 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Alt+]. Opens ? → Releases. Shift + that chord opens Changelog. Does not steal Indent (Cmd+]), Hide-equal context increase (Alt+]), Outdent (Cmd+[), or Hide-equal context decrease (Alt+[).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Command Line shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_cmdline,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Shift+F1"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self.state.settings.shortcut_cmdline.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_cmdline =
+                                        crate::shortcut_chord::DEFAULT_CMDLINE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CMDLINE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_cmdline = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Shift+F1. Opens ? → Command Line Arguments (read-only tab). Shift is part of the chord so it does not steal About (F1), Summary (Alt+F1), Load Session (Cmd+F1), or Sort tabs by name (Cmd+Alt+F1).",
                             )
                             .small()
                             .weak(),

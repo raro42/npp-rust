@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.419] — 2026-10-19
+
+Help:
+
+- **Command Line Arguments** is remappable: Preferences → Command Line shortcut, or `shortcut_cmdline` in `npp-rs/settings.json` (default `Shift+F1`). Opens a read-only tab (? → Command Line Arguments). Shift is part of the chord so it does not steal About (`F1`), Summary (`Alt+F1`), Load Session (`Cmd+F1`), or Sort tabs by name (`Cmd+Alt+F1`). Shortcut Mapper and About show the binding.
+
 ## [0.3.418] — 2026-10-18
 
 Help:

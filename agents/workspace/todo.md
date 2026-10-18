@@ -1,3 +1,4 @@
+009 keep: remappable Command Line Arguments (shortcut_cmdline, Shift+F1 default, v0.3.419)
 009 keep: remappable Releases / Changelog (shortcut_releases, Cmd+Alt+] default, Shift=Changelog, v0.3.418)
 009 keep: remappable Discussions / Wiki (shortcut_discussions, Cmd+Alt+[ default, Shift=Wiki, v0.3.417)
 009 keep: remappable npp-rust on GitHub / Issues (shortcut_github, Alt+; default, Shift=Issues, v0.3.416)
