@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.414] — 2026-10-18
+
+Help:
+
+- **Debug Info** is remappable: Preferences → Debug Info shortcut, or `shortcut_debug_info` in `npp-rs/settings.json` (default `Cmd+Alt+Shift+Space`). Opens a read-only tab (? → Debug Info). Shift is part of the chord so it does not steal Path autocomplete (`Cmd+Alt+Space`) or Function Call Tip (`Cmd+Shift+Space`). Shortcut Mapper and About show the binding.
+
 ## [0.3.413] — 2026-10-18
 
 View:

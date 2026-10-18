@@ -768,6 +768,12 @@ pub const DEFAULT_VIEW_IN_EDGE: &str = "Alt+Shift+.";
 /// (`Alt+1`…`8`; Shift unfolds).
 pub const DEFAULT_VIEW_IN_IE: &str = "Alt+Shift+9";
 
+/// Default Debug Info binding (? → Debug Info).
+/// Uses Cmd+Alt+Shift+Space so it does not steal Path autocomplete
+/// (`Cmd+Alt+Space`), Function Call Tip (`Cmd+Shift+Space`), or
+/// Autocomplete (`Cmd+Space`).
+pub const DEFAULT_DEBUG_INFO: &str = "Cmd+Alt+Shift+Space";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -4923,6 +4929,34 @@ mod tests {
         };
         assert!(!c.matches(cmd_alt, Key::Num9));
         assert!(proper.matches(cmd_alt, Key::Num9));
+    }
+
+    #[test]
+    fn parse_cmd_alt_shift_space_default_debug_info() {
+        let c = parse_chord(DEFAULT_DEBUG_INFO).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::Space);
+        assert_eq!(c.display(), "Cmd+Alt+Shift+Space");
+        let path = parse_chord(DEFAULT_AUTOCOMPLETE_PATH).unwrap();
+        let tip = parse_chord(DEFAULT_AUTOCOMPLETE).unwrap().flipped_shift();
+        let mods = Modifiers {
+            command: true,
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(mods, Key::Space));
+        assert!(!path.matches(mods, Key::Space));
+        assert!(!tip.matches(mods, Key::Space));
+        let path_mods = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(path_mods, Key::Space));
+        assert!(path.matches(path_mods, Key::Space));
     }
 
     #[test]

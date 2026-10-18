@@ -651,6 +651,7 @@ impl EditorState {
              ----------------------\n\
              Debug Info opens this tab. It shows build and runtime facts.\n\
              It does not send data anywhere.\n\
+             The chord is remappable (default Cmd+Alt+Shift+Space; shortcut_debug_info).\n\
              \n\
              Logs\n\
              ----\n\

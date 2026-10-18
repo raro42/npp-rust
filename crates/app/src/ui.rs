@@ -5850,6 +5850,42 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_IN_IE");
             }
         }
+        // Remappable Debug Info (default Cmd+Alt+Shift+Space; settings.shortcut_debug_info).
+        // Shift is part of the chord so it does not steal Path autocomplete
+        // (Cmd+Alt+Space) or Function Call Tip (Cmd+Shift+Space).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_DEBUG_INFO};
+            let debug_chord =
+                resolve_chord(&self.state.settings.shortcut_debug_info, DEFAULT_DEBUG_INFO);
+            let debug_key_pressed = match debug_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if debug_key_pressed && debug_chord.matches(mods, debug_chord.key) {
+                self.run_shortcut_cmd("IDM_DEBUGINFO");
+            }
+        }
         // Remappable Summary (default Alt+F1; settings.shortcut_summary).
         // Shift flips to Document List.
         {
@@ -11775,6 +11811,10 @@ impl EditorApp {
                 &s.shortcut_mapper,
                 crate::shortcut_chord::DEFAULT_SHORTCUT_MAPPER,
             ),
+            "IDM_DEBUGINFO" => primary(
+                &s.shortcut_debug_info,
+                crate::shortcut_chord::DEFAULT_DEBUG_INFO,
+            ),
             "IDM_ABOUT" => primary(&s.shortcut_about, crate::shortcut_chord::DEFAULT_ABOUT),
             "IDM_VIEW_TAB_COLOUR_1" => primary(
                 &s.shortcut_tab_colour,
@@ -13283,6 +13323,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_SHORTCUT_MAPPER,
         )
         .display();
+        let debug_info_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_debug_info,
+            crate::shortcut_chord::DEFAULT_DEBUG_INFO,
+        )
+        .display();
         let about_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_about,
             crate::shortcut_chord::DEFAULT_ABOUT,
@@ -14104,7 +14149,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 216] = [
+        let rows: [(&str, &str); 217] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -14338,6 +14383,7 @@ impl EditorApp {
             (view_in_chrome_keys.as_str(), "View current file in Chrome"),
             (view_in_edge_keys.as_str(), "View current file in Edge"),
             (view_in_ie_keys.as_str(), "View current file in IE"),
+            (debug_info_keys.as_str(), "Debug Info"),
             (summary_keys.as_str(), "Summary / Document List"),
             (
                 preferences_keys.as_str(),
@@ -18511,6 +18557,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: F1. Opens ? → About npp-rs. Does not collide with Summary (Alt+F1), Load Session (Cmd+F1), or Sort tabs by name (Cmd+Alt+F1).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Debug Info shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_debug_info,
+                                )
+                                .desired_width(180.0)
+                                .hint_text("Cmd+Alt+Shift+Space"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_debug_info.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_debug_info =
+                                        crate::shortcut_chord::DEFAULT_DEBUG_INFO.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_DEBUG_INFO
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_debug_info = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+Shift+Space. Opens ? → Debug Info (read-only tab). Shift is part of the chord so it does not steal Path autocomplete (Cmd+Alt+Space) or Function Call Tip (Cmd+Shift+Space).",
                             )
                             .small()
                             .weak(),

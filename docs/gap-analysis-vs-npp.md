@@ -113,6 +113,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Alt+Shift+B (remappable) | View current file in Chrome (`shortcut_view_in_chrome`) |
 | Alt+Shift+. (remappable) | View current file in Edge (`shortcut_view_in_edge`) |
 | Alt+Shift+9 (remappable) | View current file in IE (`shortcut_view_in_ie`) |
+| Cmd/Ctrl+Alt+Shift+Space (remappable) | Debug Info (`shortcut_debug_info`) |
 | Cmd/Ctrl+Alt+C (remappable) | Column Editor (`shortcut_column_editor`) |
 | Cmd/Ctrl+Alt+O (remappable) | Sort Lines Lexicographic Asc (`shortcut_sort_lines`; Shift = Desc) |
 | Cmd/Ctrl+Alt+F5 (remappable) | Sort Lines Integer Asc (`shortcut_sort_lines_integer`; Shift = Desc) |

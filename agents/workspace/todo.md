@@ -1,3 +1,4 @@
+009 keep: remappable Debug Info (shortcut_debug_info, Cmd+Alt+Shift+Space default, v0.3.414)
 009 keep: remappable View current file in IE (shortcut_view_in_ie, Alt+Shift+9 default, v0.3.413)
 009 keep: remappable View current file in Edge (shortcut_view_in_edge, Alt+Shift+. default, v0.3.412)
 009 keep: remappable View current file in Chrome (shortcut_view_in_chrome, Alt+Shift+B default, v0.3.411)

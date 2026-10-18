@@ -964,6 +964,10 @@ fn default_shortcut_open_viewer() -> String {
     crate::shortcut_chord::DEFAULT_OPEN_VIEWER.into()
 }
 
+fn default_shortcut_debug_info() -> String {
+    crate::shortcut_chord::DEFAULT_DEBUG_INFO.into()
+}
+
 fn default_shortcut_about() -> String {
     crate::shortcut_chord::DEFAULT_ABOUT.into()
 }
@@ -1793,6 +1797,9 @@ pub struct AppSettings {
     /// Open in Default Viewer chord (`Cmd+Shift+O` default; `IDM_FILE_OPEN_DEFAULT_VIEWER`).
     #[serde(default = "default_shortcut_open_viewer")]
     pub shortcut_open_viewer: String,
+    /// Debug Info chord (`Cmd+Alt+Shift+Space` default; `IDM_DEBUGINFO`).
+    #[serde(default = "default_shortcut_debug_info")]
+    pub shortcut_debug_info: String,
     /// About chord (`F1` default; `IDM_ABOUT`).
     #[serde(default = "default_shortcut_about")]
     pub shortcut_about: String,
@@ -2076,6 +2083,7 @@ impl Default for AppSettings {
             shortcut_reload: default_shortcut_reload(),
             shortcut_run: default_shortcut_run(),
             shortcut_open_viewer: default_shortcut_open_viewer(),
+            shortcut_debug_info: default_shortcut_debug_info(),
             shortcut_about: default_shortcut_about(),
             shortcut_delete_file: default_shortcut_delete_file(),
             ollama_host: default_ollama_host(),
@@ -2647,6 +2655,7 @@ mod tests {
             shortcut_find_in_files: "Alt+Shift+F".into(),
             shortcut_run: "Ctrl+Alt+Shift+R".into(),
             shortcut_open_viewer: "Ctrl+Alt+Shift+O".into(),
+            shortcut_debug_info: "Ctrl+Alt+Shift+F7".into(),
             shortcut_about: "Ctrl+Alt+Shift+F1".into(),
             shortcut_delete_file: "Ctrl+Alt+Shift+Delete".into(),
             ..Default::default()
@@ -2895,6 +2904,7 @@ mod tests {
         assert_eq!(back.shortcut_find_in_files, "Alt+Shift+F");
         assert_eq!(back.shortcut_run, "Ctrl+Alt+Shift+R");
         assert_eq!(back.shortcut_open_viewer, "Ctrl+Alt+Shift+O");
+        assert_eq!(back.shortcut_debug_info, "Ctrl+Alt+Shift+F7");
         assert_eq!(back.shortcut_about, "Ctrl+Alt+Shift+F1");
         assert_eq!(back.shortcut_delete_file, "Ctrl+Alt+Shift+Delete");
         assert_eq!(back.shortcut_calltip_nav, "Ctrl+Alt+Down");
