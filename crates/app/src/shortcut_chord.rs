@@ -725,6 +725,13 @@ pub const DEFAULT_SYSTEM_READONLY: &str = "Cmd+Alt+Shift+F";
 /// (`Alt+Shift+X`).
 pub const DEFAULT_COPY_BINARY: &str = "Cmd+Shift+X";
 
+/// Default Cut Binary binding (Edit → Cut Binary Content).
+/// Cuts the selection as hex of its UTF-8 bytes.
+/// Uses Cmd+Alt+Shift+X so it does not steal Cut (`Cmd+X`), Copy Binary
+/// (`Cmd+Shift+X`), Space to TAB (All) (`Cmd+Alt+X`), or Collapse unchanged
+/// at caret (`Alt+Shift+X`).
+pub const DEFAULT_CUT_BINARY: &str = "Cmd+Alt+Shift+X";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -4675,6 +4682,33 @@ mod tests {
         };
         assert!(!c.matches(cmd_only, Key::X));
         assert!(cut.matches(cmd_only, Key::X));
+    }
+
+    #[test]
+    fn parse_cmd_alt_shift_x_default_cut_binary() {
+        let c = parse_chord(DEFAULT_CUT_BINARY).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::X);
+        assert_eq!(c.display(), "Cmd+Alt+Shift+X");
+        let cut = parse_chord(DEFAULT_CUT).unwrap();
+        let copy_bin = parse_chord(DEFAULT_COPY_BINARY).unwrap();
+        let space_all = parse_chord(DEFAULT_SPACE_TO_TAB_ALL).unwrap();
+        let collapse = parse_chord(DEFAULT_EXPAND_UNCHANGED_AT_CARET)
+            .unwrap()
+            .flipped_shift();
+        let mods = Modifiers {
+            command: true,
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(mods, Key::X));
+        assert!(!cut.matches(mods, Key::X));
+        assert!(!copy_bin.matches(mods, Key::X));
+        assert!(!space_all.matches(mods, Key::X));
+        assert!(!collapse.matches(mods, Key::X));
     }
 
     #[test]

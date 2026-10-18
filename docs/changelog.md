@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.406] — 2026-10-18
+
+Edit:
+
+- **Cut Binary** is remappable: Preferences → Cut Binary shortcut, or `shortcut_cut_binary` in `npp-rs/settings.json` (default `Cmd+Alt+Shift+X`). Cuts the selection as hex of its UTF-8 bytes (Edit → Cut Binary Content). Does not steal Cut (`Cmd+X`), Copy Binary (`Cmd+Shift+X`), Space to TAB (All) (`Cmd+Alt+X`), or Collapse unchanged at caret (`Alt+Shift+X`). Shortcut Mapper and About show the binding.
+
 ## [0.3.405] — 2026-10-18
 
 Edit:

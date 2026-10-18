@@ -143,6 +143,7 @@ New keys:
 | `shortcut_readonly_all` | Read-only for all documents chord (`F10` default; Shift clears all; `IDM_EDIT_SETREADONLYFORALLDOCS`) |
 | `shortcut_system_readonly` | System read-only attribute chord (`Cmd+Alt+Shift+F` default; `IDM_EDIT_TOGGLESYSTEMREADONLY`) |
 | `shortcut_copy_binary` | Copy Binary chord (`Cmd+Shift+X` default; `IDM_EDIT_COPY_BINARY`) |
+| `shortcut_cut_binary` | Cut Binary chord (`Cmd+Alt+Shift+X` default; `IDM_EDIT_CUT_BINARY`) |
 | `shortcut_summary` | Summary chord (`Alt+F1` default; Shift opens Document List; `IDM_VIEW_SUMMARY`) |
 | `shortcut_tab_colour` | Tab colour 1 chord (`Cmd+F5` default; Shift clears; `IDM_VIEW_TAB_COLOUR_1`) |
 | `shortcut_tab_colour_2` | Tab colour 2 chord (`Cmd+F4` default; Shift clears; `IDM_VIEW_TAB_COLOUR_2`) |

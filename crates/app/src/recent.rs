@@ -308,6 +308,10 @@ fn default_shortcut_copy_binary() -> String {
     crate::shortcut_chord::DEFAULT_COPY_BINARY.into()
 }
 
+fn default_shortcut_cut_binary() -> String {
+    crate::shortcut_chord::DEFAULT_CUT_BINARY.into()
+}
+
 fn default_shortcut_summary() -> String {
     crate::shortcut_chord::DEFAULT_SUMMARY.into()
 }
@@ -1588,6 +1592,9 @@ pub struct AppSettings {
     /// Copy Binary chord (`Cmd+Shift+X` default; `IDM_EDIT_COPY_BINARY`).
     #[serde(default = "default_shortcut_copy_binary")]
     pub shortcut_copy_binary: String,
+    /// Cut Binary chord (`Cmd+Alt+Shift+X` default; `IDM_EDIT_CUT_BINARY`).
+    #[serde(default = "default_shortcut_cut_binary")]
+    pub shortcut_cut_binary: String,
     /// Summary chord (`Alt+F1` default; Shift flips to Document List).
     #[serde(default = "default_shortcut_summary")]
     pub shortcut_summary: String,
@@ -1968,6 +1975,7 @@ impl Default for AppSettings {
             shortcut_readonly_all: default_shortcut_readonly_all(),
             shortcut_system_readonly: default_shortcut_system_readonly(),
             shortcut_copy_binary: default_shortcut_copy_binary(),
+            shortcut_cut_binary: default_shortcut_cut_binary(),
             shortcut_summary: default_shortcut_summary(),
             shortcut_preferences: default_shortcut_preferences(),
             shortcut_mapper: default_shortcut_mapper(),
@@ -2533,6 +2541,7 @@ mod tests {
             shortcut_readonly_all: "Ctrl+Shift+F10".into(),
             shortcut_system_readonly: "Alt+Shift+F10".into(),
             shortcut_copy_binary: "Ctrl+Shift+X".into(),
+            shortcut_cut_binary: "Ctrl+Alt+Shift+X".into(),
             shortcut_summary: "Ctrl+Alt+F1".into(),
             shortcut_preferences: "Ctrl+,".into(),
             shortcut_mapper: "Ctrl+Alt+Shift+K".into(),
@@ -2771,6 +2780,7 @@ mod tests {
         assert_eq!(back.shortcut_readonly_all, "Ctrl+Shift+F10");
         assert_eq!(back.shortcut_system_readonly, "Alt+Shift+F10");
         assert_eq!(back.shortcut_copy_binary, "Ctrl+Shift+X");
+        assert_eq!(back.shortcut_cut_binary, "Ctrl+Alt+Shift+X");
         assert_eq!(back.shortcut_summary, "Ctrl+Alt+F1");
         assert_eq!(back.shortcut_preferences, "Ctrl+,");
         assert_eq!(back.shortcut_mapper, "Ctrl+Alt+Shift+K");

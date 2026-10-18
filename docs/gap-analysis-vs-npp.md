@@ -106,6 +106,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+Alt+R (remappable) | Toggle Read-Only (`shortcut_toggle_readonly`) |
 | Cmd/Ctrl+Alt+Shift+F (remappable) | System read-only attribute (`shortcut_system_readonly`) |
 | Cmd/Ctrl+Shift+X (remappable) | Copy Binary (`shortcut_copy_binary`) |
+| Cmd/Ctrl+Alt+Shift+X (remappable) | Cut Binary (`shortcut_cut_binary`) |
 | Cmd/Ctrl+Alt+C (remappable) | Column Editor (`shortcut_column_editor`) |
 | Cmd/Ctrl+Alt+O (remappable) | Sort Lines Lexicographic Asc (`shortcut_sort_lines`; Shift = Desc) |
 | Cmd/Ctrl+Alt+F5 (remappable) | Sort Lines Integer Asc (`shortcut_sort_lines_integer`; Shift = Desc) |

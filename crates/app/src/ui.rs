@@ -5583,6 +5583,41 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_COPY_BINARY");
             }
         }
+        // Remappable Cut Binary (default Cmd+Alt+Shift+X; settings.shortcut_cut_binary).
+        // Does not steal Cut, Copy Binary, Space to TAB (All), or Collapse unchanged at caret.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_CUT_BINARY};
+            let cut_bin_chord =
+                resolve_chord(&self.state.settings.shortcut_cut_binary, DEFAULT_CUT_BINARY);
+            let cut_bin_key_pressed = match cut_bin_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if cut_bin_key_pressed && cut_bin_chord.matches(mods, cut_bin_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_CUT_BINARY");
+            }
+        }
         // Remappable Summary (default Alt+F1; settings.shortcut_summary).
         // Shift flips to Document List.
         {
@@ -11443,6 +11478,10 @@ impl EditorApp {
                 &s.shortcut_copy_binary,
                 crate::shortcut_chord::DEFAULT_COPY_BINARY,
             ),
+            "IDM_EDIT_CUT_BINARY" => primary(
+                &s.shortcut_cut_binary,
+                crate::shortcut_chord::DEFAULT_CUT_BINARY,
+            ),
             "IDM_VIEW_SUMMARY" => {
                 primary(&s.shortcut_summary, crate::shortcut_chord::DEFAULT_SUMMARY)
             }
@@ -12907,6 +12946,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_COPY_BINARY,
         )
         .display();
+        let cut_binary_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_cut_binary,
+            crate::shortcut_chord::DEFAULT_CUT_BINARY,
+        )
+        .display();
         let summary_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_summary,
             crate::shortcut_chord::DEFAULT_SUMMARY,
@@ -13751,7 +13795,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 209] = [
+        let rows: [(&str, &str); 210] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13975,6 +14019,7 @@ impl EditorApp {
             ),
             (system_readonly_keys.as_str(), "System read-only attribute"),
             (copy_binary_keys.as_str(), "Copy Binary"),
+            (cut_binary_keys.as_str(), "Cut Binary"),
             (summary_keys.as_str(), "Summary / Document List"),
             (
                 preferences_keys.as_str(),
@@ -17777,6 +17822,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Shift+X, Ctrl+Shift+X. Copies the selection as hex of its UTF-8 bytes (Edit → Copy Binary Content). Shift is part of the chord so it does not steal Cut (Cmd+X), Space to TAB (All) (Cmd+Alt+X), or Collapse unchanged at caret (Alt+Shift+X).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Cut Binary shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_cut_binary,
+                                )
+                                .desired_width(160.0)
+                                .hint_text("Cmd+Alt+Shift+X"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_cut_binary
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_cut_binary =
+                                        crate::shortcut_chord::DEFAULT_CUT_BINARY.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_CUT_BINARY
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_cut_binary = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+Shift+X, Ctrl+Alt+Shift+X. Cuts the selection as hex of its UTF-8 bytes (Edit → Cut Binary Content). Does not steal Cut (Cmd+X), Copy Binary (Cmd+Shift+X), Space to TAB (All) (Cmd+Alt+X), or Collapse unchanged at caret (Alt+Shift+X).",
                             )
                             .small()
                             .weak(),
