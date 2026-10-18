@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.408] — 2026-10-18
+
+Edit:
+
+- **Paste Binary** is remappable: Preferences → Paste Binary shortcut, or `shortcut_paste_binary` in `npp-rs/settings.json` (default `Cmd+Shift+V`). Pastes hex of UTF-8 bytes as text (Edit → Paste Binary Content). Shift is part of the chord so it does not steal Paste (`Cmd+V`), Show White Space / Show EOL (`Alt+V` / `Alt+Shift+V`), or TAB to Space / Space to TAB Leading (`Cmd+Alt+V` / `Cmd+Alt+Shift+V`). Shortcut Mapper and About show the binding.
+
 ## [0.3.407] — 2026-10-18
 
 Plugins / Ollama (issue #21):

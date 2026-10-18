@@ -732,6 +732,13 @@ pub const DEFAULT_COPY_BINARY: &str = "Cmd+Shift+X";
 /// at caret (`Alt+Shift+X`).
 pub const DEFAULT_CUT_BINARY: &str = "Cmd+Alt+Shift+X";
 
+/// Default Paste Binary binding (Edit → Paste Binary Content).
+/// Decodes hex of UTF-8 bytes from the clipboard into text.
+/// Uses Cmd+Shift+V so Shift is part of the chord: it does not steal Paste
+/// (`Cmd+V`), Show White Space / Show EOL (`Alt+V` / `Alt+Shift+V`), or
+/// TAB to Space / Space to TAB Leading (`Cmd+Alt+V` / `Cmd+Alt+Shift+V`).
+pub const DEFAULT_PASTE_BINARY: &str = "Cmd+Shift+V";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -4709,6 +4716,36 @@ mod tests {
         assert!(!copy_bin.matches(mods, Key::X));
         assert!(!space_all.matches(mods, Key::X));
         assert!(!collapse.matches(mods, Key::X));
+    }
+
+    #[test]
+    fn parse_cmd_shift_v_default_paste_binary() {
+        let c = parse_chord(DEFAULT_PASTE_BINARY).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::V);
+        assert_eq!(c.display(), "Cmd+Shift+V");
+        let paste = parse_chord(DEFAULT_PASTE).unwrap();
+        let ws = parse_chord(DEFAULT_SHOW_WHITESPACE).unwrap();
+        let tab = parse_chord(DEFAULT_TAB_TO_SPACE).unwrap();
+        let mods = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(mods, Key::V));
+        assert!(!paste.matches(mods, Key::V));
+        assert!(!ws.matches(mods, Key::V));
+        assert!(!ws.flipped_shift().matches(mods, Key::V));
+        assert!(!tab.matches(mods, Key::V));
+        assert!(!tab.flipped_shift().matches(mods, Key::V));
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::V));
+        assert!(paste.matches(cmd, Key::V));
     }
 
     #[test]

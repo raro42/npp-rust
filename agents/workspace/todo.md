@@ -1,3 +1,4 @@
+009 keep: remappable Paste Binary (shortcut_paste_binary, Cmd+Shift+V default, v0.3.408)
 009 keep: remappable Cut Binary (shortcut_cut_binary, Cmd+Alt+Shift+X default, v0.3.406)
 009 keep: remappable Copy Binary (shortcut_copy_binary, Cmd+Shift+X default, v0.3.405)
 009 keep: Copy/Cut/Paste Binary uses hex of the selection UTF-8 bytes (v0.3.404)
