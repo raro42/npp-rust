@@ -1,3 +1,4 @@
+009 keep: remappable Discussions / Wiki (shortcut_discussions, Cmd+Alt+[ default, Shift=Wiki, v0.3.417)
 009 keep: remappable npp-rust on GitHub / Issues (shortcut_github, Alt+; default, Shift=Issues, v0.3.416)
 009 keep: remappable Open npp-rust Logs (shortcut_open_logs, Alt+F2 default, v0.3.415)
 009 keep: remappable Debug Info (shortcut_debug_info, Cmd+Alt+Shift+Space default, v0.3.414)

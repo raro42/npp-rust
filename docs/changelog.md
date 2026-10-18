@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.417] — 2026-10-18
+
+Help:
+
+- **Discussions** is remappable: Preferences → Discussions shortcut, or `shortcut_discussions` in `npp-rs/settings.json` (default `Cmd+Alt+[`). Opens GitHub Discussions (? → Discussions). Shift + that chord opens the Wiki. The bracket stays off Outdent (`Cmd+[`), Hide-equal context decrease (`Alt+[`), Indent (`Cmd+]`), and Hide-equal context increase (`Alt+]`). Shortcut Mapper and About show the binding.
+
 ## [0.3.416] — 2026-10-18
 
 Help:

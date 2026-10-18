@@ -5964,6 +5964,52 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_HOMESWEETHOME");
             }
         }
+        // Remappable Discussions (default Cmd+Alt+[; settings.shortcut_discussions).
+        // Shift flips to Wiki. Bracket stays off Outdent (Cmd+[) and Hide-equal
+        // context decrease (Alt+[).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_DISCUSSIONS};
+            let discussions_chord = resolve_chord(
+                &self.state.settings.shortcut_discussions,
+                DEFAULT_DISCUSSIONS,
+            );
+            let discussions_key_pressed = match discussions_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_wiki = discussions_key_pressed
+                && discussions_chord
+                    .flipped_shift()
+                    .matches(mods, discussions_chord.key);
+            let remapped_discussions =
+                discussions_key_pressed && discussions_chord.matches(mods, discussions_chord.key);
+            if remapped_wiki {
+                self.run_shortcut_cmd("IDM_ONLINEDOCUMENT");
+            } else if remapped_discussions {
+                self.run_shortcut_cmd("IDM_FORUM");
+            }
+        }
         // Remappable Summary (default Alt+F1; settings.shortcut_summary).
         // Shift flips to Document List.
         {
@@ -11901,6 +11947,14 @@ impl EditorApp {
                 primary(&s.shortcut_github, crate::shortcut_chord::DEFAULT_GITHUB)
             }
             "IDM_PROJECTPAGE" => shifted(&s.shortcut_github, crate::shortcut_chord::DEFAULT_GITHUB),
+            "IDM_FORUM" => primary(
+                &s.shortcut_discussions,
+                crate::shortcut_chord::DEFAULT_DISCUSSIONS,
+            ),
+            "IDM_ONLINEDOCUMENT" => shifted(
+                &s.shortcut_discussions,
+                crate::shortcut_chord::DEFAULT_DISCUSSIONS,
+            ),
             "IDM_ABOUT" => primary(&s.shortcut_about, crate::shortcut_chord::DEFAULT_ABOUT),
             "IDM_VIEW_TAB_COLOUR_1" => primary(
                 &s.shortcut_tab_colour,
@@ -13428,6 +13482,15 @@ impl EditorApp {
             github_chord.display(),
             github_chord.flipped_shift().display()
         );
+        let discussions_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_discussions,
+            crate::shortcut_chord::DEFAULT_DISCUSSIONS,
+        );
+        let discussions_keys = format!(
+            "{} / {}",
+            discussions_chord.display(),
+            discussions_chord.flipped_shift().display()
+        );
         let about_keys = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_about,
             crate::shortcut_chord::DEFAULT_ABOUT,
@@ -14249,7 +14312,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 219] = [
+        let rows: [(&str, &str); 220] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -14486,6 +14549,7 @@ impl EditorApp {
             (debug_info_keys.as_str(), "Debug Info"),
             (open_logs_keys.as_str(), "Open npp-rust Logs"),
             (github_keys.as_str(), "npp-rust on GitHub / Issues"),
+            (discussions_keys.as_str(), "Discussions / Wiki"),
             (summary_keys.as_str(), "Summary / Document List"),
             (
                 preferences_keys.as_str(),
@@ -18753,6 +18817,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Alt+;. Opens ? → npp-rust on GitHub. Shift + that chord opens Issues. Does not steal Tab colour 5 (Cmd+; / Cmd+Shift+;) or Sort tabs by modified time (Cmd+Alt+; / Cmd+Alt+Shift+;).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Discussions shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_discussions,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+["),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_discussions.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_discussions =
+                                        crate::shortcut_chord::DEFAULT_DISCUSSIONS.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_DISCUSSIONS
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_discussions = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+[. Opens ? → Discussions. Shift + that chord opens Wiki. Does not steal Outdent (Cmd+[), Hide-equal context decrease (Alt+[), Indent (Cmd+]), or Hide-equal context increase (Alt+]).",
                             )
                             .small()
                             .weak(),
