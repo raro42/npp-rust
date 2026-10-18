@@ -751,6 +751,12 @@ pub const DEFAULT_PASTE_HTML: &str = "Cmd+Alt+-";
 /// or Save a Copy As / Rename (`Cmd+Alt+Y` / `Cmd+Alt+Shift+Y`).
 pub const DEFAULT_VIEW_IN_BROWSER: &str = "Cmd+Shift+Y";
 
+/// Default View current file in Chrome binding (View → View Current File in Chrome).
+/// Uses Alt+Shift+B so Shift is part of the chord: it does not steal Ignore Blank
+/// Lines (`Alt+B`), Begin/End Select (`Cmd+Alt+B`; Shift = column mode), or
+/// Matching brace select (`Cmd+Shift+B`).
+pub const DEFAULT_VIEW_IN_CHROME: &str = "Alt+Shift+B";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -4820,6 +4826,34 @@ mod tests {
         };
         assert!(!c.matches(cmd, Key::Y));
         assert!(redo.matches(cmd, Key::Y));
+    }
+
+    #[test]
+    fn parse_alt_shift_b_default_view_in_chrome() {
+        let c = parse_chord(DEFAULT_VIEW_IN_CHROME).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::B);
+        assert_eq!(c.display(), "Alt+Shift+B");
+        let blank = parse_chord(DEFAULT_COMPARE_IGNORE_BLANK).unwrap();
+        let begin = parse_chord(DEFAULT_BEGIN_END_SELECT).unwrap();
+        let brace = parse_chord(DEFAULT_MATCHING_BRACE).unwrap();
+        let mods = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(mods, Key::B));
+        assert!(!blank.matches(mods, Key::B));
+        assert!(!begin.matches(mods, Key::B));
+        assert!(!brace.flipped_shift().matches(mods, Key::B));
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(alt, Key::B));
+        assert!(blank.matches(alt, Key::B));
     }
 
     #[test]

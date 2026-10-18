@@ -5738,6 +5738,44 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_VIEW_IN_FIREFOX");
             }
         }
+        // Remappable View in Chrome (default Alt+Shift+B; settings.shortcut_view_in_chrome).
+        // Shift is part of the chord so it does not steal Ignore Blank Lines (Alt+B),
+        // Begin/End Select (Cmd+Alt+B), or Matching brace select (Cmd+Shift+B).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_VIEW_IN_CHROME};
+            let chrome_chord = resolve_chord(
+                &self.state.settings.shortcut_view_in_chrome,
+                DEFAULT_VIEW_IN_CHROME,
+            );
+            let chrome_key_pressed = match chrome_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if chrome_key_pressed && chrome_chord.matches(mods, chrome_chord.key) {
+                self.run_shortcut_cmd("IDM_VIEW_IN_CHROME");
+            }
+        }
         // Remappable Summary (default Alt+F1; settings.shortcut_summary).
         // Shift flips to Document List.
         {
@@ -11633,6 +11671,10 @@ impl EditorApp {
                 &s.shortcut_view_in_browser,
                 crate::shortcut_chord::DEFAULT_VIEW_IN_BROWSER,
             ),
+            "IDM_VIEW_IN_CHROME" => primary(
+                &s.shortcut_view_in_chrome,
+                crate::shortcut_chord::DEFAULT_VIEW_IN_CHROME,
+            ),
             "IDM_VIEW_SUMMARY" => {
                 primary(&s.shortcut_summary, crate::shortcut_chord::DEFAULT_SUMMARY)
             }
@@ -13121,6 +13163,11 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_VIEW_IN_BROWSER,
         )
         .display();
+        let view_in_chrome_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_view_in_chrome,
+            crate::shortcut_chord::DEFAULT_VIEW_IN_CHROME,
+        )
+        .display();
         let summary_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_summary,
             crate::shortcut_chord::DEFAULT_SUMMARY,
@@ -13965,7 +14012,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 213] = [
+        let rows: [(&str, &str); 214] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -14196,6 +14243,7 @@ impl EditorApp {
                 view_in_browser_keys.as_str(),
                 "View current file in Firefox",
             ),
+            (view_in_chrome_keys.as_str(), "View current file in Chrome"),
             (summary_keys.as_str(), "Summary / Document List"),
             (
                 preferences_keys.as_str(),
@@ -18142,6 +18190,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Shift+Y, Ctrl+Shift+Y. Opens the current file in Firefox (View → View Current File in Firefox). Shift is part of the chord so it does not steal Redo (Cmd+Y), Copy Compare Summary (Alt+Y), or Save a Copy As / Rename (Cmd+Alt+Y / Cmd+Alt+Shift+Y).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("View in Chrome shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_view_in_chrome,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Alt+Shift+B"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_view_in_chrome
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_view_in_chrome =
+                                        crate::shortcut_chord::DEFAULT_VIEW_IN_CHROME.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_VIEW_IN_CHROME
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_view_in_chrome = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Alt+Shift+B. Opens the current file in Chrome (View → View Current File in Chrome). Shift is part of the chord so it does not steal Ignore Blank Lines (Alt+B), Begin/End Select (Cmd+Alt+B), or Matching brace select (Cmd+Shift+B).",
                             )
                             .small()
                             .weak(),

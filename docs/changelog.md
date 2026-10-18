@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.411] — 2026-10-18
+
+View:
+
+- **View current file in Chrome** is remappable: Preferences → View in Chrome shortcut, or `shortcut_view_in_chrome` in `npp-rs/settings.json` (default `Alt+Shift+B`). Opens the saved file in Chrome (View → View Current File in Chrome). Shift is part of the chord so it does not steal Ignore Blank Lines (`Alt+B`), Begin/End Select (`Cmd+Alt+B`), or Matching brace select (`Cmd+Shift+B`). Shortcut Mapper and About show the binding.
+
 ## [0.3.410] — 2026-10-18
 
 View:
