@@ -104,6 +104,7 @@ Hard-wired list lives in `crates/app/src/ui.rs` → `handle_shortcuts` (plus car
 | Cmd/Ctrl+Shift+1…9 (remappable) | 1st–9th Tab (`shortcut_goto_tab`; letter remap = 1st tab only) |
 | Cmd/Ctrl+Alt+B (remappable) | Begin/End Select (`shortcut_begin_end_select`; Shift = column mode rect) |
 | Cmd/Ctrl+Alt+R (remappable) | Toggle Read-Only (`shortcut_toggle_readonly`) |
+| Cmd/Ctrl+Alt+Shift+F (remappable) | System read-only attribute (`shortcut_system_readonly`) |
 | Cmd/Ctrl+Alt+C (remappable) | Column Editor (`shortcut_column_editor`) |
 | Cmd/Ctrl+Alt+O (remappable) | Sort Lines Lexicographic Asc (`shortcut_sort_lines`; Shift = Desc) |
 | Cmd/Ctrl+Alt+F5 (remappable) | Sort Lines Integer Asc (`shortcut_sort_lines_integer`; Shift = Desc) |

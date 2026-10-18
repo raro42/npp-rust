@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.403] — 2026-10-18
+
+Edit:
+
+- **System read-only attribute** is remappable: Preferences → System read-only attribute shortcut, or `shortcut_system_readonly` in `npp-rs/settings.json` (default `Cmd+Alt+Shift+F`). Toggles the OS read-only bit on the saved file and the app read-only flag (Edit → Read-Only Attribute in Windows). Shift is part of the chord so it does not steal Find (`Cmd+F`), Replace alternate (`Cmd+Shift+F`), Find in Files (`Cmd+Alt+F`), or Fold current (`Alt+F` / `Alt+Shift+F`). Shortcut Mapper and About show the binding.
+
 ## [0.3.402] — 2026-10-18
 
 Tools:

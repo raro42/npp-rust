@@ -5507,6 +5507,44 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_SETREADONLYFORALLDOCS");
             }
         }
+        // Remappable system read-only attribute (default Cmd+Alt+Shift+F;
+        // settings.shortcut_system_readonly). Shift is part of the chord so it
+        // does not steal Find, Replace alternate, Find in Files, or Fold current.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SYSTEM_READONLY};
+            let sys_ro_chord = resolve_chord(
+                &self.state.settings.shortcut_system_readonly,
+                DEFAULT_SYSTEM_READONLY,
+            );
+            let sys_ro_key_pressed = match sys_ro_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if sys_ro_key_pressed && sys_ro_chord.matches(mods, sys_ro_chord.key) {
+                self.run_shortcut_cmd("IDM_EDIT_TOGGLESYSTEMREADONLY");
+            }
+        }
         // Remappable Summary (default Alt+F1; settings.shortcut_summary).
         // Shift flips to Document List.
         {
@@ -11359,6 +11397,10 @@ impl EditorApp {
                 &s.shortcut_readonly_all,
                 crate::shortcut_chord::DEFAULT_READONLY_ALL,
             ),
+            "IDM_EDIT_TOGGLESYSTEMREADONLY" => primary(
+                &s.shortcut_system_readonly,
+                crate::shortcut_chord::DEFAULT_SYSTEM_READONLY,
+            ),
             "IDM_VIEW_SUMMARY" => {
                 primary(&s.shortcut_summary, crate::shortcut_chord::DEFAULT_SUMMARY)
             }
@@ -12813,6 +12855,11 @@ impl EditorApp {
             readonly_all_chord.display(),
             readonly_all_chord.flipped_shift().display()
         );
+        let system_readonly_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_system_readonly,
+            crate::shortcut_chord::DEFAULT_SYSTEM_READONLY,
+        )
+        .display();
         let summary_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_summary,
             crate::shortcut_chord::DEFAULT_SUMMARY,
@@ -13657,7 +13704,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 207] = [
+        let rows: [(&str, &str); 208] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13879,6 +13926,7 @@ impl EditorApp {
                 readonly_all_keys.as_str(),
                 "Read-only for all documents / clear all",
             ),
+            (system_readonly_keys.as_str(), "System read-only attribute"),
             (summary_keys.as_str(), "Summary / Document List"),
             (
                 preferences_keys.as_str(),
@@ -17609,6 +17657,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: F10. Sets read-only on every open document (Edit → Set Read-Only for All Documents). Shift + that chord clears read-only on every open document. Does not collide with Toggle Read-Only (Cmd+Alt+R), RTL (Alt+R), Reload (Cmd+R), or Sort Lines by Length (Cmd+Alt+F10).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("System read-only attribute shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_system_readonly,
+                                )
+                                .desired_width(160.0)
+                                .hint_text("Cmd+Alt+Shift+F"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_system_readonly
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_system_readonly =
+                                        crate::shortcut_chord::DEFAULT_SYSTEM_READONLY.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SYSTEM_READONLY
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_system_readonly = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+Shift+F, Ctrl+Alt+Shift+F. Toggles the OS read-only bit on the saved file and the app read-only flag (Edit → Read-Only Attribute in Windows). Shift is part of the chord so it does not steal Find (Cmd+F), Replace alternate (Cmd+Shift+F), Find in Files (Cmd+Alt+F), or Fold current (Alt+F / Alt+Shift+F).",
                             )
                             .small()
                             .weak(),

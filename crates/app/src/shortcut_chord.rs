@@ -711,6 +711,13 @@ pub const DEFAULT_TOGGLE_READONLY: &str = "Cmd+Alt+R";
 /// (`Cmd+R`), or Sort Lines by Length (`Cmd+Alt+F10` / `Cmd+Alt+Shift+F10`).
 pub const DEFAULT_READONLY_ALL: &str = "F10";
 
+/// Default system read-only attribute binding (Edit → Read-Only Attribute in Windows).
+/// Toggles the file's OS read-only bit and the app read-only flag together.
+/// Uses Cmd+Alt+Shift+F so Shift is part of the chord: it does not steal Find
+/// (`Cmd+F`), Replace alternate (`Cmd+Shift+F`), Find in Files (`Cmd+Alt+F`),
+/// or Fold / Unfold current (`Alt+F` / `Alt+Shift+F`).
+pub const DEFAULT_SYSTEM_READONLY: &str = "Cmd+Alt+Shift+F";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -4605,6 +4612,32 @@ mod tests {
         };
         assert!(!c.matches(cmd_alt, Key::F6));
         assert!(!clip.matches(cmd_alt, Key::F6));
+    }
+
+    #[test]
+    fn parse_cmd_alt_shift_f_default_system_readonly() {
+        let c = parse_chord(DEFAULT_SYSTEM_READONLY).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::F);
+        assert_eq!(c.display(), "Cmd+Alt+Shift+F");
+        let find = parse_chord(DEFAULT_FIND).unwrap();
+        let replace_alt = parse_chord(DEFAULT_REPLACE_ALT).unwrap();
+        let fif = parse_chord(DEFAULT_FIND_IN_FILES).unwrap();
+        let fold = parse_chord(DEFAULT_FOLD_CURRENT).unwrap();
+        let mods = Modifiers {
+            command: true,
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(mods, Key::F));
+        assert!(!find.matches(mods, Key::F));
+        assert!(!replace_alt.matches(mods, Key::F));
+        assert!(!fif.matches(mods, Key::F));
+        assert!(!fold.matches(mods, Key::F));
+        assert!(!fold.flipped_shift().matches(mods, Key::F));
     }
 
     #[test]

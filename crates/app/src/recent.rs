@@ -300,6 +300,10 @@ fn default_shortcut_readonly_all() -> String {
     crate::shortcut_chord::DEFAULT_READONLY_ALL.into()
 }
 
+fn default_shortcut_system_readonly() -> String {
+    crate::shortcut_chord::DEFAULT_SYSTEM_READONLY.into()
+}
+
 fn default_shortcut_summary() -> String {
     crate::shortcut_chord::DEFAULT_SUMMARY.into()
 }
@@ -1574,6 +1578,9 @@ pub struct AppSettings {
     /// Read-only for all documents chord (`F10` default; Shift clears all).
     #[serde(default = "default_shortcut_readonly_all")]
     pub shortcut_readonly_all: String,
+    /// System read-only attribute chord (`Cmd+Alt+Shift+F` default; `IDM_EDIT_TOGGLESYSTEMREADONLY`).
+    #[serde(default = "default_shortcut_system_readonly")]
+    pub shortcut_system_readonly: String,
     /// Summary chord (`Alt+F1` default; Shift flips to Document List).
     #[serde(default = "default_shortcut_summary")]
     pub shortcut_summary: String,
@@ -1952,6 +1959,7 @@ impl Default for AppSettings {
             shortcut_begin_end_select: default_shortcut_begin_end_select(),
             shortcut_toggle_readonly: default_shortcut_toggle_readonly(),
             shortcut_readonly_all: default_shortcut_readonly_all(),
+            shortcut_system_readonly: default_shortcut_system_readonly(),
             shortcut_summary: default_shortcut_summary(),
             shortcut_preferences: default_shortcut_preferences(),
             shortcut_mapper: default_shortcut_mapper(),
@@ -2515,6 +2523,7 @@ mod tests {
             shortcut_begin_end_select: "Ctrl+Alt+Shift+B".into(),
             shortcut_toggle_readonly: "Ctrl+Alt+Shift+R".into(),
             shortcut_readonly_all: "Ctrl+Shift+F10".into(),
+            shortcut_system_readonly: "Alt+Shift+F10".into(),
             shortcut_summary: "Ctrl+Alt+F1".into(),
             shortcut_preferences: "Ctrl+,".into(),
             shortcut_mapper: "Ctrl+Alt+Shift+K".into(),
@@ -2751,6 +2760,7 @@ mod tests {
         assert_eq!(back.shortcut_begin_end_select, "Ctrl+Alt+Shift+B");
         assert_eq!(back.shortcut_toggle_readonly, "Ctrl+Alt+Shift+R");
         assert_eq!(back.shortcut_readonly_all, "Ctrl+Shift+F10");
+        assert_eq!(back.shortcut_system_readonly, "Alt+Shift+F10");
         assert_eq!(back.shortcut_summary, "Ctrl+Alt+F1");
         assert_eq!(back.shortcut_preferences, "Ctrl+,");
         assert_eq!(back.shortcut_mapper, "Ctrl+Alt+Shift+K");

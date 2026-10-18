@@ -1,3 +1,4 @@
+009 keep: remappable system read-only attribute (shortcut_system_readonly, Cmd+Alt+Shift+F default, v0.3.403)
 009 keep: remappable SHA-512 generate from file (shortcut_sha512_file, Cmd+Shift+F11 default, v0.3.402)
 009 keep: remappable SHA-1 generate from file (shortcut_sha1_file, Alt+F12 default, v0.3.401)
 009 keep: remappable SHA-256 generate from file (shortcut_sha256_file, Alt+Shift+H default, v0.3.400)
