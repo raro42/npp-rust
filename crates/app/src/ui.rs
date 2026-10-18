@@ -11472,6 +11472,20 @@ impl EditorApp {
                 &s.shortcut_clear_all_styles,
                 crate::shortcut_chord::DEFAULT_CLEAR_ALL_STYLES,
             ),
+            "IDM_SEARCH_GONEXTMARKER_DEF" => {
+                return crate::shortcut_chord::resolve_chord(
+                    &s.shortcut_next_style,
+                    crate::shortcut_chord::DEFAULT_NEXT_STYLE,
+                )
+                .style_marker_display_for(1, false);
+            }
+            "IDM_SEARCH_GOPREVMARKER_DEF" => {
+                return crate::shortcut_chord::resolve_chord(
+                    &s.shortcut_next_style,
+                    crate::shortcut_chord::DEFAULT_NEXT_STYLE,
+                )
+                .style_marker_display_for(1, true);
+            }
             "IDM_SEARCH_GONEXTMARKER1"
             | "IDM_SEARCH_GONEXTMARKER2"
             | "IDM_SEARCH_GONEXTMARKER3"
@@ -11511,6 +11525,13 @@ impl EditorApp {
                     crate::shortcut_chord::DEFAULT_STYLE_TO_CLIP,
                 )
                 .style_to_clip_display_for(style);
+            }
+            "IDM_SEARCH_MARKEDTOCLIP" => {
+                return crate::shortcut_chord::resolve_chord(
+                    &s.shortcut_style_to_clip,
+                    crate::shortcut_chord::DEFAULT_STYLE_TO_CLIP,
+                )
+                .style_to_clip_display_for(1);
             }
             "IDM_SEARCH_ALLSTYLESTOCLIP" => {
                 return Some(

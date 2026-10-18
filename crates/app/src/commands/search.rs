@@ -458,11 +458,11 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
             CmdResult::Handled
         }
         "IDM_SEARCH_GOPREVMARKER_DEF" => {
-            jump_bookmarks(state, ui, false);
+            jump_find_mark_style(state, ui, false);
             CmdResult::Handled
         }
         "IDM_SEARCH_GONEXTMARKER_DEF" => {
-            jump_bookmarks(state, ui, true);
+            jump_find_mark_style(state, ui, true);
             CmdResult::Handled
         }
         "IDM_SEARCH_GOPREVMARKER1"
@@ -489,26 +489,15 @@ pub fn try_dispatch(cmd: &str, state: &mut EditorState, ui: &mut UiFlags) -> Opt
         | "IDM_SEARCH_STYLE4TOCLIP"
         | "IDM_SEARCH_STYLE5TOCLIP" => {
             let style = style_from_cmd(cmd).unwrap_or(1);
-            copy_style_lines(state, ui, Some(style));
+            copy_style_lines(state, ui, Some(style), "styled");
             CmdResult::Handled
         }
         "IDM_SEARCH_ALLSTYLESTOCLIP" => {
-            copy_style_lines(state, ui, None);
+            copy_style_lines(state, ui, None, "styled");
             CmdResult::Handled
         }
         "IDM_SEARCH_MARKEDTOCLIP" => {
-            // Find-mark style → bookmarked lines for now.
-            let text = state.tabs.active().buffer.to_string();
-            let lines: Vec<&str> = text.lines().collect();
-            let marked: Vec<&str> = state
-                .tabs
-                .active()
-                .bookmarks
-                .iter()
-                .filter_map(|&i| lines.get(i).copied())
-                .collect();
-            ui.pending_clipboard = Some(marked.join("\n"));
-            state.status = format!("Copied {} find-mark line(s)", marked.len());
+            copy_style_lines(state, ui, Some(1), "find-mark");
             CmdResult::Handled
         }
 
@@ -600,24 +589,33 @@ fn jump_marks(
 }
 
 fn jump_style(state: &mut EditorState, ui: &mut UiFlags, style: u8, forward: bool) {
+    let hit = format!("Style {style}");
+    let miss = format!("No marks for style {style}");
+    jump_style_named(state, ui, style, forward, &hit, &miss);
+}
+
+/// Find-bar Mark writes style 1. Search → Find Mark Style walks that slot, not bookmarks.
+fn jump_find_mark_style(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
+    jump_style_named(state, ui, 1, forward, "Find mark", "No find-mark lines");
+}
+
+fn jump_style_named(
+    state: &mut EditorState,
+    ui: &mut UiFlags,
+    style: u8,
+    forward: bool,
+    hit: &str,
+    miss: &str,
+) {
     let marks = state.tabs.active().style_marks[(style as usize) - 1].clone();
     if let Some(l) = jump_marks(state, ui, &marks, forward) {
-        state.status = format!("Style {style} → line {}", l + 1);
+        state.status = format!("{hit} → line {}", l + 1);
     } else {
-        state.status = format!("No marks for style {style}");
+        state.status = miss.to_string();
     }
 }
 
-fn jump_bookmarks(state: &mut EditorState, ui: &mut UiFlags, forward: bool) {
-    let marks = state.tabs.active().bookmarks.clone();
-    if let Some(l) = jump_marks(state, ui, &marks, forward) {
-        state.status = format!("Find mark → line {}", l + 1);
-    } else {
-        state.status = "No find marks (bookmarks)".into();
-    }
-}
-
-fn copy_style_lines(state: &mut EditorState, ui: &mut UiFlags, style: Option<u8>) {
+fn copy_style_lines(state: &mut EditorState, ui: &mut UiFlags, style: Option<u8>, kind: &str) {
     let text = state.tabs.active().buffer.to_string();
     let lines: Vec<&str> = text.lines().collect();
     let mut idxs: Vec<usize> = Vec::new();
@@ -637,7 +635,7 @@ fn copy_style_lines(state: &mut EditorState, ui: &mut UiFlags, style: Option<u8>
     let marked: Vec<&str> = idxs.iter().filter_map(|&i| lines.get(i).copied()).collect();
     let n = marked.len();
     ui.pending_clipboard = Some(marked.join("\n"));
-    state.status = format!("Copied {n} styled line(s)");
+    state.status = format!("Copied {n} {kind} line(s)");
 }
 
 /// Parse Find text as a code-point range: `ascii`, `non-ascii`, or `start-end` (decimal).
@@ -1344,6 +1342,41 @@ mod tests {
     use super::*;
     use crate::commands::UiFlags;
     use crate::editor::EditorState;
+
+    #[test]
+    fn find_mark_style_uses_style_1_not_bookmarks() {
+        let mut state = EditorState::new();
+        state.tabs.active_mut().buffer = buffer::TextBuffer::from_str("alpha\nbeta\ngamma");
+        state.tabs.active_mut().bookmarks.insert(2);
+        state.tabs.active_mut().style_marks[0].insert(1);
+        state.tabs.active_mut().buffer.set_caret(0);
+        let mut ui = UiFlags::default();
+
+        let r = try_dispatch("IDM_SEARCH_GONEXTMARKER_DEF", &mut state, &mut ui).unwrap();
+        assert!(matches!(r, CmdResult::Handled));
+        let caret = state.tabs.active().buffer.caret();
+        assert_eq!(state.tabs.active().buffer.char_to_line(caret), 1);
+        assert_eq!(state.status, "Find mark → line 2");
+        assert!(ui.follow_caret);
+
+        let r = try_dispatch("IDM_SEARCH_GOPREVMARKER_DEF", &mut state, &mut ui).unwrap();
+        assert!(matches!(r, CmdResult::Handled));
+        let caret = state.tabs.active().buffer.caret();
+        assert_eq!(state.tabs.active().buffer.char_to_line(caret), 1);
+
+        state.tabs.active_mut().buffer.set_caret(0);
+        state.tabs.active_mut().style_marks[0].clear();
+        let r = try_dispatch("IDM_SEARCH_GONEXTMARKER_DEF", &mut state, &mut ui).unwrap();
+        assert!(matches!(r, CmdResult::Handled));
+        assert_eq!(state.status, "No find-mark lines");
+        assert_eq!(state.tabs.active().buffer.caret(), 0);
+
+        state.tabs.active_mut().style_marks[0].insert(1);
+        let r = try_dispatch("IDM_SEARCH_MARKEDTOCLIP", &mut state, &mut ui).unwrap();
+        assert!(matches!(r, CmdResult::Handled));
+        assert_eq!(ui.pending_clipboard.as_deref(), Some("beta"));
+        assert_eq!(state.status, "Copied 1 find-mark line(s)");
+    }
 
     #[test]
     fn find_char_in_range_next_and_prev() {

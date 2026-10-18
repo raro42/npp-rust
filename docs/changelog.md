@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.397] — 2026-10-18
+
+Search:
+
+- **Find Mark Style** next, previous, and copy use style 1 (the slot Find-bar Mark writes). They no longer walk or copy bookmarks. Menu rows show the style 1 chords from Next Style and Copy Styled Text.
+
 ## [0.3.396] — 2026-10-18
 
 Edit:
