@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.409] — 2026-10-18
+
+Edit:
+
+- **Paste HTML** is remappable: Preferences → Paste HTML shortcut, or `shortcut_paste_html` in `npp-rs/settings.json` (default `Cmd+Alt+-`). Pastes clipboard text (Edit → Paste HTML Content). **Shift** flips to Paste RTF Content (`Cmd+Alt+Shift+-`). Does not steal Paste (`Cmd+V`), Paste Binary (`Cmd+Shift+V`), Zoom out (`Cmd+-`), or Date Time customized (`Cmd+Alt+=`). HTML and RTF paste stay a plain-text fallback. Shortcut Mapper and About show the binding.
+
 ## [0.3.408] — 2026-10-18
 
 Edit:

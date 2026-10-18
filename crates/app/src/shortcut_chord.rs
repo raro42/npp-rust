@@ -739,6 +739,12 @@ pub const DEFAULT_CUT_BINARY: &str = "Cmd+Alt+Shift+X";
 /// TAB to Space / Space to TAB Leading (`Cmd+Alt+V` / `Cmd+Alt+Shift+V`).
 pub const DEFAULT_PASTE_BINARY: &str = "Cmd+Shift+V";
 
+/// Default Paste HTML binding (Edit → Paste HTML Content).
+/// Shift flips to Paste RTF Content.
+/// Uses Cmd+Alt+- so it does not steal Paste (`Cmd+V`), Paste Binary
+/// (`Cmd+Shift+V`), Zoom out (`Cmd+-`), or Date Time customized (`Cmd+Alt+=`).
+pub const DEFAULT_PASTE_HTML: &str = "Cmd+Alt+-";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -4746,6 +4752,40 @@ mod tests {
         };
         assert!(!c.matches(cmd, Key::V));
         assert!(paste.matches(cmd, Key::V));
+    }
+
+    #[test]
+    fn parse_cmd_alt_minus_default_paste_html() {
+        let c = parse_chord(DEFAULT_PASTE_HTML).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(!c.shift);
+        assert_eq!(c.key, Key::Minus);
+        assert_eq!(c.display(), "Cmd+Alt+-");
+        assert_eq!(c.flipped_shift().display(), "Cmd+Alt+Shift+-");
+        let zoom = parse_chord(DEFAULT_ZOOM_OUT).unwrap();
+        let paste = parse_chord(DEFAULT_PASTE).unwrap();
+        let paste_bin = parse_chord(DEFAULT_PASTE_BINARY).unwrap();
+        let dt = parse_chord(DEFAULT_INSERT_DATETIME_CUSTOM).unwrap();
+        let mods = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(mods, Key::Minus));
+        assert!(!zoom.matches(mods, Key::Minus));
+        assert!(!paste.matches(mods, Key::Minus));
+        assert!(!paste_bin.matches(mods, Key::Minus));
+        assert!(!dt.matches(mods, Key::Minus));
+        let shifted = Modifiers {
+            command: true,
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.flipped_shift().matches(shifted, Key::Minus));
+        assert!(!c.matches(shifted, Key::Minus));
+        assert!(!zoom.matches(shifted, Key::Minus));
     }
 
     #[test]

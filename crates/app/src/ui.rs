@@ -5657,6 +5657,49 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_EDIT_PASTE_BINARY");
             }
         }
+        // Remappable Paste HTML (default Cmd+Alt+-; settings.shortcut_paste_html).
+        // Shift flips to Paste RTF. Does not steal Paste, Paste Binary, or Zoom out.
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_PASTE_HTML};
+            let paste_html_chord =
+                resolve_chord(&self.state.settings.shortcut_paste_html, DEFAULT_PASTE_HTML);
+            let paste_html_key_pressed = match paste_html_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            let remapped_rtf = paste_html_key_pressed
+                && paste_html_chord
+                    .flipped_shift()
+                    .matches(mods, paste_html_chord.key);
+            let remapped_html =
+                paste_html_key_pressed && paste_html_chord.matches(mods, paste_html_chord.key);
+            if remapped_rtf {
+                self.run_shortcut_cmd("IDM_EDIT_PASTE_AS_RTF");
+            } else if remapped_html {
+                self.run_shortcut_cmd("IDM_EDIT_PASTE_AS_HTML");
+            }
+        }
         // Remappable Summary (default Alt+F1; settings.shortcut_summary).
         // Shift flips to Document List.
         {
@@ -11540,6 +11583,14 @@ impl EditorApp {
                 &s.shortcut_paste_binary,
                 crate::shortcut_chord::DEFAULT_PASTE_BINARY,
             ),
+            "IDM_EDIT_PASTE_AS_HTML" => primary(
+                &s.shortcut_paste_html,
+                crate::shortcut_chord::DEFAULT_PASTE_HTML,
+            ),
+            "IDM_EDIT_PASTE_AS_RTF" => shifted(
+                &s.shortcut_paste_html,
+                crate::shortcut_chord::DEFAULT_PASTE_HTML,
+            ),
             "IDM_VIEW_SUMMARY" => {
                 primary(&s.shortcut_summary, crate::shortcut_chord::DEFAULT_SUMMARY)
             }
@@ -13014,6 +13065,15 @@ impl EditorApp {
             crate::shortcut_chord::DEFAULT_PASTE_BINARY,
         )
         .display();
+        let paste_html_chord = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_paste_html,
+            crate::shortcut_chord::DEFAULT_PASTE_HTML,
+        );
+        let paste_html_keys = format!(
+            "{} / {}",
+            paste_html_chord.display(),
+            paste_html_chord.flipped_shift().display()
+        );
         let summary_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_summary,
             crate::shortcut_chord::DEFAULT_SUMMARY,
@@ -13858,7 +13918,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 211] = [
+        let rows: [(&str, &str); 212] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -14084,6 +14144,7 @@ impl EditorApp {
             (copy_binary_keys.as_str(), "Copy Binary"),
             (cut_binary_keys.as_str(), "Cut Binary"),
             (paste_binary_keys.as_str(), "Paste Binary"),
+            (paste_html_keys.as_str(), "Paste HTML / Paste RTF"),
             (summary_keys.as_str(), "Summary / Document List"),
             (
                 preferences_keys.as_str(),
@@ -17958,6 +18019,42 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+Shift+V, Ctrl+Shift+V. Pastes hex of UTF-8 bytes as text (Edit → Paste Binary Content). Shift is part of the chord so it does not steal Paste (Cmd+V), Show White Space / Show EOL (Alt+V / Alt+Shift+V), or TAB to Space / Space to TAB Leading (Cmd+Alt+V / Cmd+Alt+Shift+V).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("Paste HTML shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_paste_html,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Alt+-"),
+                            );
+                            if edit.lost_focus() {
+                                let raw = self
+                                    .state
+                                    .settings
+                                    .shortcut_paste_html
+                                    .trim()
+                                    .to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_paste_html =
+                                        crate::shortcut_chord::DEFAULT_PASTE_HTML.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_PASTE_HTML
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_paste_html = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Alt+-, Ctrl+Alt+-. Pastes clipboard text (Edit → Paste HTML Content). Shift flips to Paste RTF Content. Does not steal Paste (Cmd+V), Paste Binary (Cmd+Shift+V), Zoom out (Cmd+-), or Date Time customized (Cmd+Alt+=).",
                             )
                             .small()
                             .weak(),
