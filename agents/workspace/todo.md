@@ -1,3 +1,4 @@
+009 keep: remappable Copy Binary (shortcut_copy_binary, Cmd+Shift+X default, v0.3.405)
 009 keep: Copy/Cut/Paste Binary uses hex of the selection UTF-8 bytes (v0.3.404)
 009 keep: remappable system read-only attribute (shortcut_system_readonly, Cmd+Alt+Shift+F default, v0.3.403)
 009 keep: remappable SHA-512 generate from file (shortcut_sha512_file, Cmd+Shift+F11 default, v0.3.402)

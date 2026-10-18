@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.405] — 2026-10-18
+
+Edit:
+
+- **Copy Binary** is remappable: Preferences → Copy Binary shortcut, or `shortcut_copy_binary` in `npp-rs/settings.json` (default `Cmd+Shift+X`). Copies the selection as hex of its UTF-8 bytes (Edit → Copy Binary Content). Shift is part of the chord so it does not steal Cut (`Cmd+X`), Space to TAB (All) (`Cmd+Alt+X`), or Collapse unchanged at caret (`Alt+Shift+X`). Shortcut Mapper and About show the binding.
+
 ## [0.3.404] — 2026-10-18
 
 Edit:

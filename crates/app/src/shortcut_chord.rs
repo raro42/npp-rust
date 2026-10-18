@@ -718,6 +718,13 @@ pub const DEFAULT_READONLY_ALL: &str = "F10";
 /// or Fold / Unfold current (`Alt+F` / `Alt+Shift+F`).
 pub const DEFAULT_SYSTEM_READONLY: &str = "Cmd+Alt+Shift+F";
 
+/// Default Copy Binary binding (Edit → Copy Binary Content).
+/// Copies the selection as hex of its UTF-8 bytes.
+/// Uses Cmd+Shift+X so Shift is part of the chord: it does not steal Cut
+/// (`Cmd+X`), Space to TAB (All) (`Cmd+Alt+X`), or Collapse unchanged at caret
+/// (`Alt+Shift+X`).
+pub const DEFAULT_COPY_BINARY: &str = "Cmd+Shift+X";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -4638,6 +4645,36 @@ mod tests {
         assert!(!fif.matches(mods, Key::F));
         assert!(!fold.matches(mods, Key::F));
         assert!(!fold.flipped_shift().matches(mods, Key::F));
+    }
+
+    #[test]
+    fn parse_cmd_shift_x_default_copy_binary() {
+        let c = parse_chord(DEFAULT_COPY_BINARY).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::X);
+        assert_eq!(c.display(), "Cmd+Shift+X");
+        let cut = parse_chord(DEFAULT_CUT).unwrap();
+        let space_all = parse_chord(DEFAULT_SPACE_TO_TAB_ALL).unwrap();
+        let collapse = parse_chord(DEFAULT_EXPAND_UNCHANGED_AT_CARET)
+            .unwrap()
+            .flipped_shift();
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd_shift, Key::X));
+        assert!(!cut.matches(cmd_shift, Key::X));
+        assert!(!space_all.matches(cmd_shift, Key::X));
+        assert!(!collapse.matches(cmd_shift, Key::X));
+        let cmd_only = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_only, Key::X));
+        assert!(cut.matches(cmd_only, Key::X));
     }
 
     #[test]
