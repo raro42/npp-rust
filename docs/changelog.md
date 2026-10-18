@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.412] — 2026-10-18
+
+View:
+
+- **View current file in Edge** is remappable: Preferences → View in Edge shortcut, or `shortcut_view_in_edge` in `npp-rs/settings.json` (default `Alt+Shift+.`). Opens the saved file in Edge (View → View Current File in Edge). Shift is part of the chord so it does not steal Sort tabs by type (`Cmd+Alt+.`; Shift = descending) or Open (`Cmd+O`). Shortcut Mapper and About show the binding.
+
 ## [0.3.411] — 2026-10-18
 
 View:

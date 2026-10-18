@@ -148,6 +148,7 @@ New keys:
 | `shortcut_paste_html` | Paste HTML chord (`Cmd+Alt+-` default; Shift = Paste RTF; `IDM_EDIT_PASTE_AS_HTML`) |
 | `shortcut_view_in_browser` | View current file in Firefox chord (`Cmd+Shift+Y` default; `IDM_VIEW_IN_FIREFOX`) |
 | `shortcut_view_in_chrome` | View current file in Chrome chord (`Alt+Shift+B` default; `IDM_VIEW_IN_CHROME`) |
+| `shortcut_view_in_edge` | View current file in Edge chord (`Alt+Shift+.` default; `IDM_VIEW_IN_EDGE`) |
 | `shortcut_summary` | Summary chord (`Alt+F1` default; Shift opens Document List; `IDM_VIEW_SUMMARY`) |
 | `shortcut_tab_colour` | Tab colour 1 chord (`Cmd+F5` default; Shift clears; `IDM_VIEW_TAB_COLOUR_1`) |
 | `shortcut_tab_colour_2` | Tab colour 2 chord (`Cmd+F4` default; Shift clears; `IDM_VIEW_TAB_COLOUR_2`) |

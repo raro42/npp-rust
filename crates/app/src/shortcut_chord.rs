@@ -757,6 +757,11 @@ pub const DEFAULT_VIEW_IN_BROWSER: &str = "Cmd+Shift+Y";
 /// Matching brace select (`Cmd+Shift+B`).
 pub const DEFAULT_VIEW_IN_CHROME: &str = "Alt+Shift+B";
 
+/// Default View current file in Edge binding (View → View Current File in Edge).
+/// Uses Alt+Shift+. so Shift is part of the chord: it does not steal Sort tabs
+/// by type (`Cmd+Alt+.`; Shift = descending) or Open (`Cmd+O`).
+pub const DEFAULT_VIEW_IN_EDGE: &str = "Alt+Shift+.";
+
 /// Default Summary binding (View → Summary).
 /// Shift flips to Document List. Uses Alt+F1 so it does not collide with
 /// About (`F1`), Find characters in range (`Alt+F9`), Read-only for all documents
@@ -4854,6 +4859,34 @@ mod tests {
         };
         assert!(!c.matches(alt, Key::B));
         assert!(blank.matches(alt, Key::B));
+    }
+
+    #[test]
+    fn parse_alt_shift_period_default_view_in_edge() {
+        let c = parse_chord(DEFAULT_VIEW_IN_EDGE).unwrap();
+        assert!(!c.ctrl_or_cmd);
+        assert!(c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::Period);
+        assert_eq!(c.display(), "Alt+Shift+.");
+        let sort_type = parse_chord(DEFAULT_SORT_TABS_TYPE).unwrap();
+        let open = parse_chord(DEFAULT_OPEN).unwrap();
+        let mods = Modifiers {
+            alt: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(mods, Key::Period));
+        assert!(!sort_type.matches(mods, Key::Period));
+        assert!(!sort_type.flipped_shift().matches(mods, Key::Period));
+        assert!(!open.matches(mods, Key::Period));
+        let cmd_alt = Modifiers {
+            command: true,
+            alt: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd_alt, Key::Period));
+        assert!(sort_type.matches(cmd_alt, Key::Period));
     }
 
     #[test]
