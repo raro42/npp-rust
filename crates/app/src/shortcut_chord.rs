@@ -889,6 +889,13 @@ pub const DEFAULT_SHA1_FILE: &str = "Alt+F12";
 /// (`Cmd+Alt+F6` / `Cmd+Alt+Shift+F6`).
 pub const DEFAULT_SHA512: &str = "Cmd+F6";
 
+/// Default SHA-512-from-file binding (Tools → SHA-512 → Generate from files).
+/// Shift is part of the chord so it does not steal SHA-512 generate
+/// (`Cmd+F6` / `Cmd+Shift+F6`), ANSI (`Cmd+F11`), Fullscreen (`F11`),
+/// SHA-256 generate (`Alt+F11` / `Alt+Shift+F11`), or EOL to Space
+/// (`Cmd+Alt+F11` / `Cmd+Alt+Shift+F11`).
+pub const DEFAULT_SHA512_FILE: &str = "Cmd+Shift+F11";
+
 /// Default Remove Empty Lines binding (Edit → Line Operations → Remove Empty Lines).
 /// Uses Cmd+Alt+E so it does not collide with Expand All Unchanged (Alt+E).
 /// Shift flips to Remove Empty Lines (Containing Blank Characters).
@@ -4598,6 +4605,40 @@ mod tests {
         };
         assert!(!c.matches(cmd_alt, Key::F6));
         assert!(!clip.matches(cmd_alt, Key::F6));
+    }
+
+    #[test]
+    fn parse_cmd_shift_f11_default_sha512_file() {
+        let c = parse_chord(DEFAULT_SHA512_FILE).unwrap();
+        assert!(c.ctrl_or_cmd);
+        assert!(!c.alt);
+        assert!(c.shift);
+        assert_eq!(c.key, Key::F11);
+        assert_eq!(c.display(), "Cmd+Shift+F11");
+        let ansi = parse_chord(DEFAULT_ENCODING_ANSI).unwrap();
+        let fullscreen = parse_chord(DEFAULT_FULLSCREEN).unwrap();
+        let sha256 = parse_chord(DEFAULT_SHA256).unwrap();
+        let eol = parse_chord(DEFAULT_EOL_TO_SPACE).unwrap();
+        let sha512 = parse_chord(DEFAULT_SHA512).unwrap();
+        let cmd_shift = Modifiers {
+            command: true,
+            shift: true,
+            ..Modifiers::default()
+        };
+        assert!(c.matches(cmd_shift, Key::F11));
+        assert!(!ansi.matches(cmd_shift, Key::F11));
+        assert!(!fullscreen.matches(cmd_shift, Key::F11));
+        assert!(!sha256.matches(cmd_shift, Key::F11));
+        assert!(!sha256.flipped_shift().matches(cmd_shift, Key::F11));
+        assert!(!eol.matches(cmd_shift, Key::F11));
+        assert!(!eol.flipped_shift().matches(cmd_shift, Key::F11));
+        assert!(!sha512.matches(cmd_shift, Key::F11));
+        assert!(!sha512.flipped_shift().matches(cmd_shift, Key::F11));
+        let cmd = Modifiers {
+            command: true,
+            ..Modifiers::default()
+        };
+        assert!(!c.matches(cmd, Key::F11));
     }
 
     #[test]

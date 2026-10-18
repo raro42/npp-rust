@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.402] — 2026-10-18
+
+Tools:
+
+- **SHA-512 generate from file** is remappable: Preferences → SHA-512 from file shortcut, or `shortcut_sha512_file` in `npp-rs/settings.json` (default `Cmd+Shift+F11`). Hashes the saved file and copies the digest (Tools → SHA-512 → Generate from files). Shift is part of the chord so it does not steal SHA-512 generate (`Cmd+F6` / `Cmd+Shift+F6`) or ANSI (`Cmd+F11`). Shortcut Mapper and About show the binding.
+
 ## [0.3.401] — 2026-10-18
 
 Tools:

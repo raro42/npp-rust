@@ -7716,6 +7716,43 @@ impl EditorApp {
                 self.run_shortcut_cmd("IDM_TOOL_SHA512_GENERATE");
             }
         }
+        // Remappable SHA-512 from file (default Cmd+Shift+F11; settings.shortcut_sha512_file).
+        // Shift is part of the chord so it does not steal SHA-512 (Cmd+F6) or ANSI (Cmd+F11).
+        {
+            use crate::shortcut_chord::{resolve_chord, DEFAULT_SHA512_FILE};
+            let sha512_file_chord = resolve_chord(
+                &self.state.settings.shortcut_sha512_file,
+                DEFAULT_SHA512_FILE,
+            );
+            let sha512_file_key_pressed = match sha512_file_chord.key {
+                Key::Z => z,
+                Key::N => n,
+                Key::O => o,
+                Key::S => s,
+                Key::F => f,
+                Key::Y => y,
+                Key::W => w,
+                Key::G => g,
+                Key::A => a,
+                Key::D => d,
+                Key::L => l,
+                Key::I => i_key,
+                Key::T => t,
+                Key::H => h,
+                Key::F2 => f2,
+                Key::F3 => f3,
+                Key::F7 => f7,
+                Key::Equals => equals,
+                Key::Minus => minus,
+                Key::Num0 => num0,
+                Key::CloseBracket => close_br,
+                Key::OpenBracket => open_br,
+                other => ctx.input(|i| i.key_pressed(other)),
+            };
+            if sha512_file_key_pressed && sha512_file_chord.matches(mods, sha512_file_chord.key) {
+                self.run_shortcut_cmd("IDM_TOOL_SHA512_GENERATEFROMFILE");
+            }
+        }
 
         // Remappable TAB → Space (default Cmd+Alt+V; settings.shortcut_tab_to_space).
         // Shift flips to Space → TAB (Leading).
@@ -11073,6 +11110,10 @@ impl EditorApp {
             "IDM_TOOL_SHA512_GENERATEINTOCLIPBOARD" => {
                 shifted(&s.shortcut_sha512, crate::shortcut_chord::DEFAULT_SHA512)
             }
+            "IDM_TOOL_SHA512_GENERATEFROMFILE" => primary(
+                &s.shortcut_sha512_file,
+                crate::shortcut_chord::DEFAULT_SHA512_FILE,
+            ),
             "IDM_EDIT_TAB2SW" => primary(
                 &s.shortcut_tab_to_space,
                 crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -13177,6 +13218,11 @@ impl EditorApp {
             sha512_chord.display(),
             sha512_chord.flipped_shift().display()
         );
+        let sha512_file_keys = crate::shortcut_chord::resolve_chord(
+            &self.state.settings.shortcut_sha512_file,
+            crate::shortcut_chord::DEFAULT_SHA512_FILE,
+        )
+        .display();
         let tab_to_space_chord = crate::shortcut_chord::resolve_chord(
             &self.state.settings.shortcut_tab_to_space,
             crate::shortcut_chord::DEFAULT_TAB_TO_SPACE,
@@ -13611,7 +13657,7 @@ impl EditorApp {
         )
         .display();
         let replace_row = format!("{replace_keys} · {replace_alt_keys}");
-        let rows: [(&str, &str); 206] = [
+        let rows: [(&str, &str); 207] = [
             (new_keys.as_str(), "New file"),
             (open_keys.as_str(), "Open"),
             (reload_keys.as_str(), "Reload from disk"),
@@ -13993,6 +14039,7 @@ impl EditorApp {
             (sha1_keys.as_str(), "SHA-1 generate / clipboard"),
             (sha1_file_keys.as_str(), "SHA-1 generate from file"),
             (sha512_keys.as_str(), "SHA-512 generate / clipboard"),
+            (sha512_file_keys.as_str(), "SHA-512 generate from file"),
             (
                 tab_to_space_keys.as_str(),
                 "TAB to Space / Space to TAB (Leading)",
@@ -19350,6 +19397,38 @@ impl EditorApp {
                         ui.label(
                             RichText::new(
                                 "Example: Cmd+F6, Ctrl+F6. Hashes the selection, or the whole document, and inserts the digest (Tools → SHA-512 → Generate). Shift + that chord copies the digest instead. Does not collide with Focus on Another View (F6), Find Cut (Alt+Shift+F6), or Sort Lines Lex Ignoring Case (Cmd+Alt+F6).",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.horizontal(|ui| {
+                            ui.label("SHA-512 from file shortcut");
+                            let edit = ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut self.state.settings.shortcut_sha512_file,
+                                )
+                                .desired_width(140.0)
+                                .hint_text("Cmd+Shift+F11"),
+                            );
+                            if edit.lost_focus() {
+                                let raw =
+                                    self.state.settings.shortcut_sha512_file.trim().to_string();
+                                if crate::shortcut_chord::parse_chord(&raw).is_none() {
+                                    self.state.settings.shortcut_sha512_file =
+                                        crate::shortcut_chord::DEFAULT_SHA512_FILE.into();
+                                    self.state.status = format!(
+                                        "Invalid shortcut; reset to {}",
+                                        crate::shortcut_chord::DEFAULT_SHA512_FILE
+                                    );
+                                } else {
+                                    self.state.settings.shortcut_sha512_file = raw;
+                                }
+                                changed = true;
+                            }
+                        });
+                        ui.label(
+                            RichText::new(
+                                "Example: Cmd+Shift+F11, Ctrl+Shift+F11. Hashes the saved file and copies the digest (Tools → SHA-512 → Generate from files). Shift is part of the chord so it does not steal SHA-512 generate (Cmd+F6 / Cmd+Shift+F6) or ANSI (Cmd+F11).",
                             )
                             .small()
                             .weak(),

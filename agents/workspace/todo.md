@@ -1,3 +1,4 @@
+009 keep: remappable SHA-512 generate from file (shortcut_sha512_file, Cmd+Shift+F11 default, v0.3.402)
 009 keep: remappable SHA-1 generate from file (shortcut_sha1_file, Alt+F12 default, v0.3.401)
 009 keep: remappable SHA-256 generate from file (shortcut_sha256_file, Alt+Shift+H default, v0.3.400)
 009 keep: remappable MD5 generate from file (shortcut_hash_file, Cmd+Shift+H default, v0.3.399)

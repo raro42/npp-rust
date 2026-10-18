@@ -424,6 +424,10 @@ fn default_shortcut_sha512() -> String {
     crate::shortcut_chord::DEFAULT_SHA512.into()
 }
 
+fn default_shortcut_sha512_file() -> String {
+    crate::shortcut_chord::DEFAULT_SHA512_FILE.into()
+}
+
 fn default_shortcut_remove_empty_lines() -> String {
     crate::shortcut_chord::DEFAULT_REMOVE_EMPTY_LINES.into()
 }
@@ -1663,6 +1667,9 @@ pub struct AppSettings {
     /// SHA-512 generate chord (`Cmd+F6` default; Shift flips to clipboard).
     #[serde(default = "default_shortcut_sha512")]
     pub shortcut_sha512: String,
+    /// SHA-512 from file chord (`Cmd+Shift+F11` default; `IDM_TOOL_SHA512_GENERATEFROMFILE`).
+    #[serde(default = "default_shortcut_sha512_file")]
+    pub shortcut_sha512_file: String,
     /// Remove Empty Lines chord (`Cmd+Alt+E` default; Shift flips to Containing Blank Characters).
     #[serde(default = "default_shortcut_remove_empty_lines")]
     pub shortcut_remove_empty_lines: String,
@@ -1976,6 +1983,7 @@ impl Default for AppSettings {
             shortcut_sha1: default_shortcut_sha1(),
             shortcut_sha1_file: default_shortcut_sha1_file(),
             shortcut_sha512: default_shortcut_sha512(),
+            shortcut_sha512_file: default_shortcut_sha512_file(),
             shortcut_remove_empty_lines: default_shortcut_remove_empty_lines(),
             shortcut_remove_dup_lines: default_shortcut_remove_dup_lines(),
             shortcut_insert_datetime: default_shortcut_insert_datetime(),
@@ -2538,6 +2546,7 @@ mod tests {
             shortcut_sha1: "Ctrl+Alt+F12".into(),
             shortcut_sha1_file: "Ctrl+Alt+Shift+F2".into(),
             shortcut_sha512: "Ctrl+Shift+F6".into(),
+            shortcut_sha512_file: "Ctrl+Alt+F11".into(),
             shortcut_remove_empty_lines: "Ctrl+Alt+Shift+E".into(),
             shortcut_remove_dup_lines: "Ctrl+Alt+Shift+D".into(),
             shortcut_insert_datetime: "Ctrl+F5".into(),
@@ -2776,6 +2785,7 @@ mod tests {
         assert_eq!(back.shortcut_sha1, "Ctrl+Alt+F12");
         assert_eq!(back.shortcut_sha1_file, "Ctrl+Alt+Shift+F2");
         assert_eq!(back.shortcut_sha512, "Ctrl+Shift+F6");
+        assert_eq!(back.shortcut_sha512_file, "Ctrl+Alt+F11");
         assert_eq!(back.shortcut_remove_empty_lines, "Ctrl+Alt+Shift+E");
         assert_eq!(back.shortcut_remove_dup_lines, "Ctrl+Alt+Shift+D");
         assert_eq!(back.shortcut_insert_datetime, "Ctrl+F5");
