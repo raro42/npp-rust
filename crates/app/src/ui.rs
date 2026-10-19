@@ -31671,7 +31671,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `variable "region" {`, `output "ip" {`, `provider "aws" {`, `locals {`,
 /// `terraform {`). `resource the team`, `variable names`, `output the log`,
 /// `data class`, and a bare `locals` stay out (`data class` still counts as
-/// a class). Bare arrows
+/// a class). Objective-C instance and class methods count
+/// (`- (void)viewDidLoad`, `+ (instancetype)shared`, `- (NSString *)title`,
+/// `- (void)initWithFrame:(NSRect)frame`). The return type is a known C or
+/// Objective-C type or an uppercase name. Markdown `- (optional) note`,
+/// `- (void) more words`, and a bare `- (void)` stay out. Bare arrows
 /// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
 /// control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31706,6 +31710,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_proto_decl(s)
             || is_graphql_decl(s)
             || is_hcl_block(s)
+            || is_objc_method(s)
         {
             return true;
         }
@@ -31736,6 +31741,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_proto_decl(s)
         || is_graphql_decl(s)
         || is_hcl_block(s)
+        || is_objc_method(s)
     {
         return true;
     }
@@ -31906,6 +31912,136 @@ fn hcl_tail_ok(rest: &str) -> bool {
         || rest.starts_with('#')
         || rest.starts_with("//")
         || rest.starts_with("/*")
+}
+
+/// Objective-C `- (void)viewDidLoad`, `-(void)viewDidLoad;`,
+/// `+ (instancetype)shared`, `- (NSString *)title`,
+/// `- (void)initWithFrame:(NSRect)frame`. Return type is a known C / ObjC
+/// type or an uppercase name. Prose `- (optional) note` and a bare
+/// `- (void)` stay out.
+fn is_objc_method(s: &str) -> bool {
+    let s = s.trim_start();
+    let mut chars = s.chars();
+    let Some(sign) = chars.next() else {
+        return false;
+    };
+    if sign != '+' && sign != '-' {
+        return false;
+    }
+    let rest = chars.as_str();
+    if rest.starts_with('+') || rest.starts_with('-') {
+        return false;
+    }
+    let Some((ty, after)) = objc_paren_type(rest) else {
+        return false;
+    };
+    if !objc_type_ok(ty) {
+        return false;
+    }
+    let Some((_, tail)) = graphql_ident(after.trim_start()) else {
+        return false;
+    };
+    objc_method_tail(tail)
+}
+
+fn objc_paren_type(s: &str) -> Option<(&str, &str)> {
+    let body = s.trim_start().strip_prefix('(')?;
+    let mut depth = 1i32;
+    for (i, b) in body.bytes().enumerate() {
+        match b {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    if i == 0 {
+                        return None;
+                    }
+                    return Some((&body[..i], &body[i + 1..]));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn objc_type_ok(ty: &str) -> bool {
+    let mut rest = ty.trim_start();
+    if rest.is_empty() {
+        return false;
+    }
+    let mut saw_word = false;
+    for _ in 0..6 {
+        rest = rest.trim_start_matches(['*', '&']).trim_start();
+        if rest.is_empty()
+            || rest.starts_with('<')
+            || rest.starts_with('^')
+            || rest.starts_with('(')
+        {
+            return saw_word;
+        }
+        let Some((word, next)) = graphql_ident(rest) else {
+            return false;
+        };
+        if word.eq_ignore_ascii_case("struct") || word.eq_ignore_ascii_case("enum") {
+            let tagged = next.trim_start();
+            let Some((tag, _)) = graphql_ident(tagged) else {
+                return false;
+            };
+            return !tag.is_empty();
+        }
+        if objc_type_qualifier(word) {
+            saw_word = true;
+            rest = next;
+            continue;
+        }
+        return objc_type_word(word);
+    }
+    false
+}
+
+fn objc_type_qualifier(word: &str) -> bool {
+    const QUAL: &[&str] = &[
+        "const", "unsigned", "signed", "long", "short", "volatile", "__kindof",
+    ];
+    QUAL.iter().any(|q| word.eq_ignore_ascii_case(q))
+}
+
+fn objc_type_word(word: &str) -> bool {
+    const KNOWN: &[&str] = &[
+        "void",
+        "id",
+        "instancetype",
+        "bool",
+        "sel",
+        "class",
+        "ibaction",
+        "iboutlet",
+        "int",
+        "char",
+        "float",
+        "double",
+        "nsinteger",
+        "nsuinteger",
+        "cgfloat",
+        "size_t",
+        "unichar",
+        "imp",
+    ];
+    if KNOWN.iter().any(|k| word.eq_ignore_ascii_case(k)) {
+        return true;
+    }
+    matches!(word.as_bytes().first(), Some(b'A'..=b'Z') | Some(b'_'))
+}
+
+fn objc_method_tail(tail: &str) -> bool {
+    let tail = tail.trim_start();
+    tail.is_empty()
+        || tail.starts_with(':')
+        || tail.starts_with('{')
+        || tail.starts_with(';')
+        || tail.starts_with("//")
+        || tail.starts_with("/*")
 }
 
 fn graphql_tail_ok(rest: &str) -> bool {
@@ -33888,6 +34024,30 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("terraform"));
         assert!(!line_is_func_like("data \"has space\" \"name\" {"));
         assert!(!line_is_func_like("database \"x\" \"y\" {"));
+    }
+
+    #[test]
+    fn objc_instance_and_class_methods_count() {
+        assert!(line_is_func_like("- (void)viewDidLoad"));
+        assert!(line_is_func_like("- (void)viewDidLoad {"));
+        assert!(line_is_func_like("-(void)viewDidLoad;"));
+        assert!(line_is_func_like("+ (instancetype)sharedInstance"));
+        assert!(line_is_func_like("- (NSString *)title"));
+        assert!(line_is_func_like("- (BOOL)isReady;"));
+        assert!(line_is_func_like("  - (void)initWithFrame:(NSRect)frame"));
+        assert!(line_is_func_like("- (id<NSCopying>)copy"));
+        assert!(line_is_func_like("- (void (^)(void))handler"));
+        assert!(line_is_func_like("+ (void)load // note"));
+        assert!(line_is_func_like("- (const int)flags"));
+        assert!(line_is_func_like("- (struct tm)now"));
+        assert!(!line_is_func_like("- (optional) note"));
+        assert!(!line_is_func_like("- (void)"));
+        assert!(!line_is_func_like("- note"));
+        assert!(!line_is_func_like("- (void) more words"));
+        assert!(!line_is_func_like("+ (note) this"));
+        assert!(!line_is_func_like("-- (void)foo"));
+        assert!(!line_is_func_like("- (int) this is prose"));
+        assert!(!line_is_func_like("- ()missing"));
     }
 
     #[test]

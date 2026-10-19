@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.448] — 2026-10-20
+
+View:
+
+- **Function List** lists Objective-C instance and class methods (`- (void)viewDidLoad`, `+ (instancetype)shared`, `- (NSString *)title`, `- (void)initWithFrame:(NSRect)frame`). The return type is a known C or Objective-C type or an uppercase name. Markdown `- (optional) note`, `- (void) more words`, and a bare `- (void)` stay out.
+
 ## [0.3.447] — 2026-10-20
 
 View:
