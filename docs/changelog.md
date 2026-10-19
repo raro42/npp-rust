@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.425] — 2026-10-19
+
+View:
+
+- **Function List** lists C, C++, Java, and C# declarations that start with a return type (`void main(`, `String name(`, `unsigned long parse(`), including `virtual` / `inline` / `constexpr`. Calls (`foo(`), assignments (`int x = f(`), and control-flow (`if`, `return`, `new`) stay out.
+
 ## [0.3.424] — 2026-10-19
 
 View:

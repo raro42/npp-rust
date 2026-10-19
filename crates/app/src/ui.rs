@@ -31526,6 +31526,23 @@ const FUNC_LIKE_MODS: &[&str] = &[
     "companion ",
     "suspend ",
     "lateinit ",
+    "virtual ",
+    "inline ",
+    "explicit ",
+    "friend ",
+    "constexpr ",
+    "volatile ",
+    "mutable ",
+    "synchronized ",
+    "native ",
+];
+
+/// Words that are not a C/Java/C# return type or function name.
+const NOT_TYPED_FN: &[&str] = &[
+    "if", "for", "while", "switch", "catch", "return", "else", "elif", "do", "new", "throw",
+    "assert", "require", "import", "from", "using", "include", "with", "try", "case", "goto",
+    "sizeof", "typeof", "delete", "and", "or", "not", "in", "is", "as", "match", "loop", "when",
+    "where", "yield", "await", "break", "continue", "echo", "print", "var", "let", "val", "mut",
 ];
 
 /// True when `line` looks like a function, class, or similar declaration.
@@ -31536,6 +31553,8 @@ const FUNC_LIKE_MODS: &[&str] = &[
 /// `func`, Kotlin `fun`, Swift `protocol` / `extension` / `actor`, and a Kotlin or
 /// Scala `object` whose next token is `{`, `:`, or an uppercase name. Qualifiers
 /// include `final`, `abstract`, `sealed`, `data`, `companion`, and `suspend`.
+/// C, C++, Java, and C# lines with a return type (`void main(`, `String name(`)
+/// count too. Calls, assignments, and control-flow stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with('#') || s.starts_with("/*") {
@@ -31549,7 +31568,65 @@ fn line_is_func_like(line: &str) -> bool {
         s = next;
     }
     let lower = s.to_ascii_lowercase();
-    FUNC_LIKE_KEYS.iter().any(|k| lower.starts_with(k)) || is_object_decl(s)
+    FUNC_LIKE_KEYS.iter().any(|k| lower.starts_with(k)) || is_object_decl(s) || is_typed_fn_decl(s)
+}
+
+/// `void main(`, `int count(`, `String name(`, `unsigned long parse(`.
+/// Needs a type token and a name before `(`. Rejects `foo(`, `obj.method(`,
+/// `int x = f(`, and control-flow heads (`if`, `return`, `new`).
+fn is_typed_fn_decl(s: &str) -> bool {
+    let Some(paren) = s.find('(') else {
+        return false;
+    };
+    let head = s[..paren].trim();
+    if head.is_empty() || head.bytes().any(|b| matches!(b, b'=' | b';')) {
+        return false;
+    }
+    let mut parts = head.split_whitespace();
+    let Some(first) = parts.next() else {
+        return false;
+    };
+    let Some(mut name) = parts.next() else {
+        return false;
+    };
+    if !is_type_token(first) || is_control_word(first) {
+        return false;
+    }
+    for tok in parts {
+        if !is_type_token(name) || is_control_word(name) {
+            return false;
+        }
+        name = tok;
+    }
+    is_fn_name(name) && !is_control_word(name)
+}
+
+fn is_control_word(tok: &str) -> bool {
+    let bare = tok.trim_matches(['*', '&']);
+    let key = bare.split([':', '<', '.']).next().unwrap_or(bare);
+    NOT_TYPED_FN.iter().any(|w| key.eq_ignore_ascii_case(w))
+}
+
+fn is_type_token(tok: &str) -> bool {
+    let t = tok.trim_matches(['*', '&']);
+    let mut chars = t.chars();
+    match chars.next() {
+        Some(c) if c == '_' || c.is_ascii_alphabetic() => {}
+        _ => return false,
+    }
+    chars.all(|c| {
+        c.is_ascii_alphanumeric() || matches!(c, '_' | ':' | '.' | '<' | '>' | ',' | '[' | ']')
+    })
+}
+
+fn is_fn_name(tok: &str) -> bool {
+    let t = tok.trim_start_matches(['*', '&']);
+    let mut chars = t.chars();
+    match chars.next() {
+        Some(c) if c == '_' || c.is_ascii_alphabetic() => {}
+        _ => return false,
+    }
+    chars.all(|c| c == '_' || c.is_ascii_alphanumeric())
 }
 
 /// Kotlin / Scala `object Name`, `object {`, or `object :`. Not the word `objective`
@@ -31776,6 +31853,26 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("objective leftover"));
         assert!(!line_is_func_like("final answer here"));
         assert!(!line_is_func_like("data stored locally"));
+        assert!(line_is_func_like("void main(int argc) {"));
+        assert!(line_is_func_like("int count(int n) {"));
+        assert!(line_is_func_like(
+            "public static void main(String[] args) {"
+        ));
+        assert!(line_is_func_like("private int tally(int n) {"));
+        assert!(line_is_func_like("static void helper(void) {"));
+        assert!(line_is_func_like("const char *name(void) {"));
+        assert!(line_is_func_like("virtual void draw();"));
+        assert!(line_is_func_like("unsigned long parse(char *s) {"));
+        assert!(line_is_func_like("std::string label() const {"));
+        assert!(line_is_func_like("Map.Entry find(int key) {"));
+        assert!(!line_is_func_like("if (ready) {"));
+        assert!(!line_is_func_like("for (int i = 0; i < n; i++) {"));
+        assert!(!line_is_func_like("return count(n);"));
+        assert!(!line_is_func_like("foo(1);"));
+        assert!(!line_is_func_like("obj.method();"));
+        assert!(!line_is_func_like("int x = count(1);"));
+        assert!(!line_is_func_like("while (true) {"));
+        assert!(!line_is_func_like("new Foo();"));
     }
 
     #[test]

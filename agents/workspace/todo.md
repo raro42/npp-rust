@@ -1,3 +1,4 @@
+009 keep: Function List sees C/C++/Java/C# return-type declarations (v0.3.425)
 009 keep: Function List sees Swift protocol/extension/actor and Kotlin object/data/suspend (v0.3.424)
 009 keep: Function List sees Go/Swift func and Kotlin fun (v0.3.423)
 009 keep: Function List sees Rust macro_rules, macro, and extern ABI fn (v0.3.422)
