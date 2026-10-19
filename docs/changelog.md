@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.450] — 2026-10-20
+
+View:
+
+- **Function List** lists Zig `const Name = struct` / `enum` / `union` / `opaque` / `error` (optional `pub`, `packed`, `extern`) and `test` blocks (`const Point = struct {`, `pub const E = enum(u8) {`, `const U = packed union {`, `test "add" {`, `test {`). `const x = 1`, `const Foo = i32`, `test the waters`, and a bare `test` stay out.
+
 ## [0.3.449] — 2026-10-20
 
 View:

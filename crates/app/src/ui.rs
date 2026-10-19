@@ -31680,8 +31680,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// (`contract Token is IERC20 {`, `library Math {`, `modifier onlyOwner()`,
 /// `error InsufficientBalance(uint256)`, `constructor(uint256 x)`).
 /// `contract the team`, `library of tools`, `modifier of state`,
-/// `error rate`, and a bare `constructor` stay out. Bare arrows
-/// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
+/// `error rate`, and a bare `constructor` stay out. Zig `const Name =
+/// struct` / `enum` / `union` / `opaque` / `error` and `test` blocks count
+/// (`const Point = struct {`, `pub const E = enum(u8) {`,
+/// `const U = packed union {`, `test "add" {`, `test {`). `const x = 1`,
+/// `const Foo = i32`, `test the waters`, and a bare `test` stay out. Bare
+/// arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
 /// control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
 fn line_is_func_like(line: &str) -> bool {
@@ -31717,6 +31721,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_hcl_block(s)
             || is_objc_method(s)
             || is_solidity_decl(s)
+            || is_zig_decl(s)
         {
             return true;
         }
@@ -31749,6 +31754,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_hcl_block(s)
         || is_objc_method(s)
         || is_solidity_decl(s)
+        || is_zig_decl(s)
     {
         return true;
     }
@@ -32126,6 +32132,121 @@ fn solidity_is_clause(rest: &str) -> bool {
         return false;
     };
     after.is_empty() || after.starts_with(char::is_whitespace) || after.starts_with('{')
+}
+
+/// Zig `const Point = struct {`, `pub const E = enum(u8)`,
+/// `const U = packed union {`, `const O = opaque {}`, `const Err = error{`,
+/// `test "add" {`, `test add {`, `test {`. Prose and plain consts stay out.
+fn is_zig_decl(s: &str) -> bool {
+    let s = match strip_pub_visibility(s) {
+        Some(rest) => rest,
+        None => s,
+    };
+    if is_zig_test(s) {
+        return true;
+    }
+    is_zig_const_type(s)
+}
+
+fn is_zig_test(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "test") else {
+        return false;
+    };
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{')) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if rest.is_empty() {
+        return false;
+    }
+    if rest.starts_with('{') || rest.starts_with("//") || rest.starts_with("/*") {
+        return true;
+    }
+    if let Some(after_q) = rest.strip_prefix('"') {
+        let Some(end) = after_q.find('"') else {
+            return false;
+        };
+        let after = after_q[end + 1..].trim_start();
+        return after.is_empty()
+            || after.starts_with('{')
+            || after.starts_with("//")
+            || after.starts_with("/*");
+    }
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    let after = after.trim_start();
+    let stopped = after.is_empty()
+        || after.starts_with('{')
+        || after.starts_with("//")
+        || after.starts_with("/*");
+    if !stopped {
+        return false;
+    }
+    if name.as_bytes()[0].is_ascii_lowercase() {
+        return after.starts_with('{');
+    }
+    true
+}
+
+fn is_zig_const_type(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "const") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_, after_name)) = graphql_ident(rest) else {
+        return false;
+    };
+    let rest = after_name.trim_start();
+    let Some(after_eq) = rest.strip_prefix('=') else {
+        return false;
+    };
+    let mut rest = after_eq.trim_start();
+    for _ in 0..2 {
+        if let Some(next) = zig_type_mod(rest) {
+            rest = next;
+            continue;
+        }
+        break;
+    }
+    zig_type_keyword(rest)
+}
+
+fn zig_type_mod(s: &str) -> Option<&str> {
+    for key in ["packed", "extern"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn zig_type_keyword(s: &str) -> bool {
+    for key in ["struct", "enum", "union", "opaque", "error"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if !(rest.is_empty()
+            || rest.starts_with(char::is_whitespace)
+            || rest.starts_with('{')
+            || rest.starts_with('('))
+        {
+            continue;
+        }
+        let rest = rest.trim_start();
+        return rest.is_empty()
+            || rest.starts_with('{')
+            || rest.starts_with('(')
+            || rest.starts_with("//")
+            || rest.starts_with("/*");
+    }
+    false
 }
 
 fn graphql_tail_ok(rest: &str) -> bool {
@@ -34169,6 +34290,40 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("constructor"));
         assert!(!line_is_func_like("constructor of a bridge"));
         assert!(!line_is_func_like("constructors stay out"));
+    }
+
+    #[test]
+    fn zig_const_type_and_test_count() {
+        assert!(line_is_func_like("const Point = struct {"));
+        assert!(line_is_func_like("const Point = struct"));
+        assert!(line_is_func_like("pub const Point = struct {"));
+        assert!(line_is_func_like("  const E = enum(u8) {"));
+        assert!(line_is_func_like("const E = enum // note"));
+        assert!(line_is_func_like("const U = packed union {"));
+        assert!(line_is_func_like("const U = extern struct {"));
+        assert!(line_is_func_like("const O = opaque {}"));
+        assert!(line_is_func_like("const O = opaque"));
+        assert!(line_is_func_like("const Err = error{ OutOfMemory }"));
+        assert!(line_is_func_like("const Err = error {"));
+        assert!(line_is_func_like("const Err = error"));
+        assert!(line_is_func_like("test \"add\" {"));
+        assert!(line_is_func_like("test \"add\""));
+        assert!(line_is_func_like("test {"));
+        assert!(line_is_func_like("test Add {"));
+        assert!(line_is_func_like("test add {"));
+        assert!(line_is_func_like("TEST \"add\" {"));
+        assert!(line_is_func_like("CONST Point = struct {"));
+        assert!(!line_is_func_like("const x = 1"));
+        assert!(!line_is_func_like("const Foo = i32"));
+        assert!(!line_is_func_like("const Foo = bar"));
+        assert!(!line_is_func_like("const Point"));
+        assert!(!line_is_func_like("const = struct {"));
+        assert!(!line_is_func_like("constants stay out"));
+        assert!(!line_is_func_like("test"));
+        assert!(!line_is_func_like("test the waters"));
+        assert!(!line_is_func_like("test add"));
+        assert!(!line_is_func_like("testing stays out"));
+        assert!(!line_is_func_like("test \"unterminated"));
     }
 
     #[test]
