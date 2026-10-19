@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.442] — 2026-10-19
+
+View:
+
+- **Function List** lists a declaration that starts with a Rust attribute on the same line (`#[inline] pub fn`, `#[test] fn`, `#[derive(Debug)] struct`, `#[must_use] #[inline] fn`, `#[doc = "see ]"] fn`). A bare `#[derive(Debug)]`, an inner `#![no_std]`, and `#` comments stay out.
+
 ## [0.3.441] — 2026-10-19
 
 View:

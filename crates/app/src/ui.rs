@@ -31645,7 +31645,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `static member Create()`, `abstract member Draw : unit -> unit`,
 /// `override this.ToString()`). `member of`, `members`, and
 /// `override ToString()` stay out. Kotlin `override fun` still counts as
-/// `fun`. Bare arrows
+/// `fun`. A leading Rust attribute is skipped (`#[inline] pub fn`,
+/// `#[test] fn`, `#[derive(Debug)] struct`, `#[doc = "see ]"] fn`).
+/// A bare `#[derive(Debug)]`, an inner `#![no_std]`, and `#` comments
+/// stay out. Bare arrows
 /// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
 /// control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31653,6 +31656,12 @@ fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
         return false;
+    }
+    if let Some(rest) = strip_leading_rust_attrs(s) {
+        s = rest;
+        if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
+            return false;
+        }
     }
     if is_sql_create(s) {
         return true;
@@ -31755,6 +31764,110 @@ fn operator_suffix_ok(rest: &str) -> bool {
     }
     rest.chars()
         .all(|c| !c.is_ascii_alphanumeric() && c != '_' && !c.is_whitespace())
+}
+
+/// Drop one or more leading Rust outer attributes (`#[inline]`,
+/// `#[cfg(all(unix, feature = "x"))]`, `#[doc = "see ]"]`).
+/// Returns the declaration that follows, which may be empty.
+/// Inner attributes (`#![no_std]`) and other `#` lines stay untouched.
+fn strip_leading_rust_attrs(s: &str) -> Option<&str> {
+    if !s.starts_with("#[") {
+        return None;
+    }
+    let mut rest = s;
+    while rest.starts_with("#[") {
+        let after = skip_balanced_rust_group(&rest[1..])?;
+        rest = after.trim_start();
+    }
+    Some(rest)
+}
+
+/// `s` starts at `[`. Returns the slice after the matching `]`.
+/// Quoted and raw strings do not change the bracket depth.
+fn skip_balanced_rust_group(s: &str) -> Option<&str> {
+    let bytes = s.as_bytes();
+    if bytes.first() != Some(&b'[') {
+        return None;
+    }
+    let mut i = 0usize;
+    let mut depth = 0i32;
+    while i < bytes.len() {
+        if let Some(next) = skip_rust_lit(bytes, i) {
+            i = next;
+            continue;
+        }
+        match bytes[i] {
+            b'[' => {
+                depth += 1;
+                i += 1;
+            }
+            b']' => {
+                depth -= 1;
+                i += 1;
+                if depth == 0 {
+                    return Some(&s[i..]);
+                }
+            }
+            _ => i += 1,
+        }
+    }
+    None
+}
+
+/// When `bytes[i..]` is a Rust char or string literal, the index after it.
+fn skip_rust_lit(bytes: &[u8], i: usize) -> Option<usize> {
+    if i >= bytes.len() {
+        return None;
+    }
+    let mut j = i;
+    if matches!(bytes[j], b'b' | b'c') {
+        let n = j + 1;
+        if n < bytes.len() && matches!(bytes[n], b'"' | b'\'' | b'r') {
+            j = n;
+        } else {
+            return None;
+        }
+    }
+    if j < bytes.len() && bytes[j] == b'r' {
+        let mut k = j + 1;
+        let mut hashes = 0usize;
+        while k < bytes.len() && bytes[k] == b'#' {
+            hashes += 1;
+            k += 1;
+        }
+        if k >= bytes.len() || bytes[k] != b'"' {
+            return None;
+        }
+        k += 1;
+        while k < bytes.len() {
+            if bytes[k] == b'"' {
+                let tail = k + 1;
+                if tail + hashes <= bytes.len()
+                    && bytes[tail..tail + hashes].iter().all(|c| *c == b'#')
+                {
+                    return Some(tail + hashes);
+                }
+            }
+            k += 1;
+        }
+        return None;
+    }
+    if j >= bytes.len() || (bytes[j] != b'"' && bytes[j] != b'\'') {
+        return None;
+    }
+    let quote = bytes[j];
+    j += 1;
+    while j < bytes.len() {
+        if bytes[j] == b'\\' {
+            j += 2;
+            continue;
+        }
+        if bytes[j] == quote {
+            return Some(j + 1);
+        }
+        j += 1;
+    }
+    None
 }
 
 /// `#define MAX(a, b) …` or `# define SQUARE(x) …`. Object-like `#define FOO 1`
@@ -33159,6 +33272,21 @@ mod func_like_line_tests {
         assert!(line_is_func_like("override fun foo()"));
         assert!(!line_is_func_like("override ToString()"));
         assert!(!line_is_func_like("static this.Foo"));
+        assert!(line_is_func_like("#[inline] pub fn fast()"));
+        assert!(line_is_func_like("#[test] fn it_works()"));
+        assert!(line_is_func_like("#[derive(Debug, Clone)] struct Point"));
+        assert!(line_is_func_like("#[cfg(test)] mod tests {"));
+        assert!(line_is_func_like(
+            "#[cfg(all(unix, feature = \"x\"))] pub(crate) fn go()"
+        ));
+        assert!(line_is_func_like(
+            "#[must_use] #[inline] fn id(x: i32) -> i32"
+        ));
+        assert!(line_is_func_like("#[doc = \"see ]\"] fn documented()"));
+        assert!(line_is_func_like("#[doc = r#\"bracket ]\"#] fn raw_doc()"));
+        assert!(!line_is_func_like("#[derive(Debug)]"));
+        assert!(!line_is_func_like("#![no_std]"));
+        assert!(!line_is_func_like("#[inline] // not a decl"));
     }
 
     #[test]
