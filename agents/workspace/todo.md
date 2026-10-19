@@ -1,3 +1,4 @@
+009 keep: Function List skips a leading C++ template<…> and lists concept (v0.3.444)
 009 keep: Function List skips a leading @Annotation / [Attribute] and lists Java @interface (v0.3.443)
 009 keep: Function List skips a leading Rust #[attr] on the same line (v0.3.442)
 009 keep: Function List sees F# member / override / default (v0.3.441)

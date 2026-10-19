@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.444] — 2026-10-19
+
+View:
+
+- **Function List** lists a declaration that starts with a C++ `template<…>` header on the same line (`template<typename T> void id(`, `template<> struct Foo`, `export template<class T> class Box`, `template<typename T> concept C`). A bare `concept C =` counts. `templates`, a bare `template`, and `template<…>` with no declaration stay out.
+
 ## [0.3.443] — 2026-10-19
 
 View:

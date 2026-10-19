@@ -31489,6 +31489,7 @@ const FUNC_LIKE_KEYS: &[&str] = &[
     "function ",
     "function*",
     "class ",
+    "concept ",
     "struct ",
     "impl ",
     "impl<",
@@ -31653,7 +31654,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// (`@Override public void`, `@Composable fun`, `@Component class`,
 /// `[Fact] public void`, `[[nodiscard]] int`). Java `@interface Name`
 /// counts. A bare `@Override`, `@media`, `[section]`, and `[1, 2]` stay
-/// out. Bare arrows
+/// out. A leading C++ `template<…>` header is skipped
+/// (`template<typename T> void id(`, `template<> struct Foo`,
+/// `export template<class T> class Box`,
+/// `template<typename T> concept C`). A bare `concept C =` counts.
+/// `templates`, a bare `template`, and `template<…>` with no
+/// declaration stay out. Bare arrows
 /// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
 /// control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31689,6 +31695,13 @@ fn line_is_func_like(line: &str) -> bool {
             return true;
         }
         if let Some(rest) = strip_leading_annots(s) {
+            if rest.is_empty() || rest.starts_with("//") || rest.starts_with("/*") {
+                return false;
+            }
+            s = rest;
+            continue;
+        }
+        if let Some(rest) = strip_template_prefix(s) {
             if rest.is_empty() || rest.starts_with("//") || rest.starts_with("/*") {
                 return false;
             }
@@ -31924,6 +31937,22 @@ fn strip_leading_annots(s: &str) -> Option<&str> {
         break;
     }
     any.then_some(rest)
+}
+
+/// Drop one leading C++ `template<…>` / `template <…>` header.
+/// Nested `template<template<class> class C>` is one header.
+/// `templates`, a bare `template`, and an unclosed `<` stay untouched.
+fn strip_template_prefix(s: &str) -> Option<&str> {
+    let rest = s.strip_prefix("template")?;
+    if rest.starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_') {
+        return None;
+    }
+    let rest = rest.trim_start();
+    if !rest.starts_with('<') {
+        return None;
+    }
+    let end = skip_balanced_delim(rest.as_bytes(), 0, b'<', b'>')?;
+    Some(rest[end..].trim_start())
 }
 
 fn at_interface_word(s: &str) -> bool {
@@ -33505,6 +33534,31 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("@interface"));
         assert!(!line_is_func_like("public @interface"));
         assert!(!line_is_func_like("@interfaceName Foo"));
+        assert!(line_is_func_like("template<typename T> void id(T x)"));
+        assert!(line_is_func_like("template <class T> class Box"));
+        assert!(line_is_func_like("template<> struct Foo"));
+        assert!(line_is_func_like("export template<class T> class Box"));
+        assert!(line_is_func_like(
+            "template<template<typename> class C> struct Wrap"
+        ));
+        assert!(line_is_func_like("template<typename T> T make()"));
+        assert!(line_is_func_like("template<typename T> concept C = true"));
+        assert!(line_is_func_like(
+            "    template<int N> constexpr int sq(int x)"
+        ));
+        assert!(line_is_func_like("template<char C = '>'> void quoted()"));
+        assert!(line_is_func_like(
+            "[[nodiscard]] template<typename T> int run()"
+        ));
+        assert!(line_is_func_like(
+            "template<typename T> [[nodiscard]] int run()"
+        ));
+        assert!(line_is_func_like("concept Equality ="));
+        assert!(!line_is_func_like("template"));
+        assert!(!line_is_func_like("template<typename T>"));
+        assert!(!line_is_func_like("template <"));
+        assert!(!line_is_func_like("templates of animals"));
+        assert!(!line_is_func_like("concepts stay out"));
     }
 
     #[test]
