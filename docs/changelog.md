@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.443] — 2026-10-19
+
+View:
+
+- **Function List** lists a declaration that starts with a Java, Kotlin, or TypeScript annotation or a C# / C++ attribute on the same line (`@Override public void`, `@Composable fun`, `@Component class`, `[Fact] public void`, `[[nodiscard]] int`). Java `@interface Name` counts. A bare `@Override`, `@media`, `[section]`, and `[1, 2]` stay out.
+
 ## [0.3.442] — 2026-10-19
 
 View:

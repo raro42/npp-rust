@@ -31648,7 +31648,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `fun`. A leading Rust attribute is skipped (`#[inline] pub fn`,
 /// `#[test] fn`, `#[derive(Debug)] struct`, `#[doc = "see ]"] fn`).
 /// A bare `#[derive(Debug)]`, an inner `#![no_std]`, and `#` comments
-/// stay out. Bare arrows
+/// stay out. A leading Java, Kotlin, or TypeScript `@Annotation` and a
+/// leading C# or C++ `[Attribute]` are skipped the same way
+/// (`@Override public void`, `@Composable fun`, `@Component class`,
+/// `[Fact] public void`, `[[nodiscard]] int`). Java `@interface Name`
+/// counts. A bare `@Override`, `@media`, `[section]`, and `[1, 2]` stay
+/// out. Bare arrows
 /// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
 /// control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31676,8 +31681,19 @@ fn line_is_func_like(line: &str) -> bool {
         return is_define_macro(s);
     }
     for _ in 0..8 {
-        if is_haskell_decl(s) || is_scala_case_decl(s) || is_fsharp_member(s) {
+        if is_haskell_decl(s)
+            || is_scala_case_decl(s)
+            || is_fsharp_member(s)
+            || is_java_annotation_type(s)
+        {
             return true;
+        }
+        if let Some(rest) = strip_leading_annots(s) {
+            if rest.is_empty() || rest.starts_with("//") || rest.starts_with("/*") {
+                return false;
+            }
+            s = rest;
+            continue;
         }
         let next = strip_func_like_prefix(s);
         if next.len() == s.len() {
@@ -31685,7 +31701,11 @@ fn line_is_func_like(line: &str) -> bool {
         }
         s = next;
     }
-    if is_haskell_decl(s) || is_scala_case_decl(s) || is_fsharp_member(s) {
+    if is_haskell_decl(s)
+        || is_scala_case_decl(s)
+        || is_fsharp_member(s)
+        || is_java_annotation_type(s)
+    {
         return true;
     }
     let lower = s.to_ascii_lowercase();
@@ -31860,6 +31880,180 @@ fn skip_rust_lit(bytes: &[u8], i: usize) -> Option<usize> {
     while j < bytes.len() {
         if bytes[j] == b'\\' {
             j += 2;
+            continue;
+        }
+        if bytes[j] == quote {
+            return Some(j + 1);
+        }
+        j += 1;
+    }
+    None
+}
+
+/// Drop one or more leading Java / Kotlin / TypeScript `@Name` annotations
+/// or C# / C++ `[Name]` / `[[name]]` attributes. Returns the declaration
+/// that follows, which may be empty. `@interface` stays (Java annotation
+/// type). `@media`, `[section]`, and `[1, 2]` stay untouched.
+fn strip_leading_annots(s: &str) -> Option<&str> {
+    let mut rest = s;
+    let mut any = false;
+    loop {
+        if rest.starts_with("@interface") && at_interface_word(rest) {
+            break;
+        }
+        if rest.starts_with('@') {
+            let Some(next) = skip_at_annotation(rest) else {
+                break;
+            };
+            rest = next.trim_start();
+            any = true;
+            continue;
+        }
+        if rest.starts_with('[') {
+            let Some(after) = skip_balanced_rust_group(rest) else {
+                break;
+            };
+            let group_len = rest.len() - after.len();
+            if !bracket_looks_like_attr(&rest[..group_len]) {
+                break;
+            }
+            rest = after.trim_start();
+            any = true;
+            continue;
+        }
+        break;
+    }
+    any.then_some(rest)
+}
+
+fn at_interface_word(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("@interface") else {
+        return false;
+    };
+    rest.is_empty()
+        || !rest.starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$')
+}
+
+/// Java `@interface Name`. Not `@interfaceName` and not a bare `@interface`.
+fn is_java_annotation_type(s: &str) -> bool {
+    if !at_interface_word(s) {
+        return false;
+    }
+    let name = s["@interface".len()..].trim_start();
+    let name_len = name
+        .chars()
+        .take_while(|c| *c == '_' || *c == '$' || c.is_ascii_alphanumeric())
+        .count();
+    if name_len == 0 {
+        return false;
+    }
+    let name = &name[..name_len];
+    is_fn_name(name) && !is_control_word(name)
+}
+
+fn bracket_looks_like_attr(group: &str) -> bool {
+    let mut inner = group.trim_start();
+    let Some(rest) = inner.strip_prefix('[') else {
+        return false;
+    };
+    inner = rest.trim_start();
+    if inner.starts_with('[') {
+        return bracket_looks_like_attr(inner);
+    }
+    matches!(
+        inner.chars().next(),
+        Some(c) if c == '_' || c.is_ascii_alphabetic()
+    )
+}
+
+/// `@Override`, `@org.junit.Test`, `@GetMapping("/x")`, `@get:JvmName("x")`.
+fn skip_at_annotation(s: &str) -> Option<&str> {
+    let bytes = s.as_bytes();
+    if bytes.first() != Some(&b'@') {
+        return None;
+    }
+    let mut i = skip_annot_name(bytes, 1)?;
+    if i < bytes.len() && bytes[i] == b'<' {
+        i = skip_balanced_delim(bytes, i, b'<', b'>')?;
+    }
+    i = skip_ascii_ws(bytes, i);
+    if i < bytes.len() && bytes[i] == b'(' {
+        i = skip_balanced_delim(bytes, i, b'(', b')')?;
+    }
+    Some(&s[i..])
+}
+
+fn skip_annot_name(bytes: &[u8], i: usize) -> Option<usize> {
+    let mut j = skip_annot_ident(bytes, i)?;
+    while j < bytes.len() && (bytes[j] == b'.' || bytes[j] == b':') {
+        j = skip_annot_ident(bytes, j + 1)?;
+    }
+    Some(j)
+}
+
+fn skip_annot_ident(bytes: &[u8], i: usize) -> Option<usize> {
+    if i >= bytes.len() {
+        return None;
+    }
+    let b = bytes[i];
+    if !(b == b'_' || b == b'$' || b.is_ascii_alphabetic()) {
+        return None;
+    }
+    let mut j = i + 1;
+    while j < bytes.len() {
+        let c = bytes[j];
+        if c == b'_' || c == b'$' || c.is_ascii_alphanumeric() {
+            j += 1;
+        } else {
+            break;
+        }
+    }
+    Some(j)
+}
+
+fn skip_ascii_ws(bytes: &[u8], mut i: usize) -> usize {
+    while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+        i += 1;
+    }
+    i
+}
+
+fn skip_balanced_delim(bytes: &[u8], i: usize, open: u8, close: u8) -> Option<usize> {
+    if i >= bytes.len() || bytes[i] != open {
+        return None;
+    }
+    let mut depth = 0i32;
+    let mut j = i;
+    while j < bytes.len() {
+        if let Some(next) = skip_annot_lit(bytes, j) {
+            j = next;
+            continue;
+        }
+        if bytes[j] == open {
+            depth += 1;
+            j += 1;
+        } else if bytes[j] == close {
+            depth -= 1;
+            j += 1;
+            if depth == 0 {
+                return Some(j);
+            }
+        } else {
+            j += 1;
+        }
+    }
+    None
+}
+
+fn skip_annot_lit(bytes: &[u8], i: usize) -> Option<usize> {
+    if i >= bytes.len() || (bytes[i] != b'"' && bytes[i] != b'\'') {
+        return None;
+    }
+    let quote = bytes[i];
+    let mut j = i + 1;
+    while j < bytes.len() {
+        if bytes[j] == b'\\' {
+            j = j.saturating_add(2);
             continue;
         }
         if bytes[j] == quote {
@@ -33287,6 +33481,30 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("#[derive(Debug)]"));
         assert!(!line_is_func_like("#![no_std]"));
         assert!(!line_is_func_like("#[inline] // not a decl"));
+        assert!(line_is_func_like("@Override public void run()"));
+        assert!(line_is_func_like("@Test void name()"));
+        assert!(line_is_func_like(
+            "@GetMapping(\"/users/{id}\") public User get()"
+        ));
+        assert!(line_is_func_like("@Query(\"select (x)\") List<Row> rows()"));
+        assert!(line_is_func_like("@Composable fun Greeting()"));
+        assert!(line_is_func_like("@get:JvmName(\"x\") fun hidden()"));
+        assert!(line_is_func_like("@Component class App"));
+        assert!(line_is_func_like("public @interface Marker"));
+        assert!(line_is_func_like("@interface Bean {"));
+        assert!(line_is_func_like("[Fact] public void Test()"));
+        assert!(line_is_func_like("[Obsolete(\"old\")] public void Old()"));
+        assert!(line_is_func_like("[A] [B] public class Foo"));
+        assert!(line_is_func_like("[[nodiscard]] int run()"));
+        assert!(line_is_func_like("@Entity public class User"));
+        assert!(!line_is_func_like("@Override"));
+        assert!(!line_is_func_like("@media screen {"));
+        assert!(!line_is_func_like("@import \"x.css\""));
+        assert!(!line_is_func_like("[section]"));
+        assert!(!line_is_func_like("[1, 2, 3]"));
+        assert!(!line_is_func_like("@interface"));
+        assert!(!line_is_func_like("public @interface"));
+        assert!(!line_is_func_like("@interfaceName Foo"));
     }
 
     #[test]
