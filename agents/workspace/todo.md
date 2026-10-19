@@ -611,3 +611,7 @@
 009 keep: remappable Open in Default Viewer (shortcut_open_viewer, Cmd+Shift+O default, v0.3.378)
 
 009 keep: remappable About (shortcut_about, F1 default, v0.3.379)
+
+009 keep: Function List classic function-expression assignments (v0.3.429)
+
+009 keep: Function List record/namespace/module/union (v0.3.430)

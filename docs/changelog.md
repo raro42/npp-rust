@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.430] — 2026-10-19
+
+View:
+
+- **Function List** lists Java / C# `record` declarations, TypeScript / C# `namespace` / `module` (including `export` / `declare`), and Rust / C `union`. Words such as `recording`, `modules`, `namespaced`, and `unions` stay out.
+
 ## [0.3.429] — 2026-10-19
 
 View:

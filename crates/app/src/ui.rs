@@ -31496,6 +31496,10 @@ const FUNC_LIKE_KEYS: &[&str] = &[
     "interface ",
     "enum ",
     "mod ",
+    "module ",
+    "namespace ",
+    "record ",
+    "union ",
     "type ",
     "macro ",
     "macro_rules!",
@@ -31569,8 +31573,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// assignments count (`const greet = function(name) {`,
 /// `let load = async function(id) {`, `var gen = function*() {`).
 /// Function-like C preprocessor macros count (`#define MAX(a, b) …`);
-/// object-like `#define FOO 1` stays out. Bare arrows (`(x) =>`, `Ok(v) =>`),
-/// calls (`foo();`), other assignments, and control-flow stay out.
+/// object-like `#define FOO 1` stays out. Java / C# `record`, TypeScript / C#
+/// `namespace` / `module`, and Rust / C `union` count. Bare arrows (`(x) =>`,
+/// `Ok(v) =>`), calls (`foo();`), other assignments, and control-flow stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
@@ -32178,6 +32183,18 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("#define BAR"));
         assert!(!line_is_func_like("#include <stdio.h>"));
         assert!(!line_is_func_like("#ifdef MAX"));
+        assert!(line_is_func_like("record Person(String name) {"));
+        assert!(line_is_func_like("public record class User {"));
+        assert!(line_is_func_like("namespace Foo {"));
+        assert!(line_is_func_like("export namespace App {"));
+        assert!(line_is_func_like("module Bar {"));
+        assert!(line_is_func_like("declare module \"x\" {"));
+        assert!(line_is_func_like("union Data {"));
+        assert!(line_is_func_like("pub union Bits {"));
+        assert!(!line_is_func_like("recording session"));
+        assert!(!line_is_func_like("modules loaded"));
+        assert!(!line_is_func_like("namespaced path"));
+        assert!(!line_is_func_like("unions stay out"));
     }
 
     #[test]

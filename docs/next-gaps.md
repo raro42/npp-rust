@@ -199,6 +199,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.427 | Function List sees named arrow bindings (`const greet = (name) =>`, `async` params) |
 | v0.3.428 | Function List sees function-like `#define` macros (`#define MAX(a, b)`) |
 | v0.3.429 | Function List sees classic `const name = function(...)` / `function*` assignments |
+| v0.3.430 | Function List sees Java/C# `record`, TypeScript/C# `namespace`/`module`, Rust/C `union` |
 
 Honest partials (still shallower than N++) live in `docs/whats-missing.md`. Compare detail: `docs/compare.md`.
 
@@ -225,7 +226,7 @@ None. When the issue queue is empty, 009 picks the first non-struck item in `doc
 10. **Project panel** — folder list + refresh/reveal + persist open; not N++ project files / workspace trees.
 11. **Session** — rich opt-in `session.txt` meta; not full N++ session XML.
 12. **Dual view layout** — writable panes + sync + compare; no docking / multi-panel shell.
-13. **Document Map / Function list** — density strip + compare/find/fold/bookmark/CH/selection ticks. Function List is a line scan (`fn` / `class` / `struct` / `impl` / Go-Swift `func` / Kotlin `fun` / Swift `protocol` / `extension` / `actor` / Kotlin-Scala `object`, including Rust `pub(crate)` / `pub(super)` / `pub(in …)` / `unsafe` / `const` / `extern "ABI"` / `macro_rules!` / `macro`, plus `final` / `abstract` / `sealed` / `data` / `companion` / `suspend`, plus C/C++/Java/C# return-type lines such as `void name(`, plus same-line method bodies (`name() {`, `get` / `set`, `Foo::bar() {`, `function*`, `export default` / `declare`), plus named arrow bindings (`const greet = (name) =>`, `async` params; bare `(x) =>` and match arms stay out), plus classic function-expression assignments (`const greet = function(name) {`, `async function`, `function*`; `list.map(function…)` stays out), plus function-like `#define MAX(a, b)` (object-like `#define FOO 1` stays out); not a full N++ function-list panel.
+13. **Document Map / Function list** — density strip + compare/find/fold/bookmark/CH/selection ticks. Function List is a line scan (`fn` / `class` / `struct` / `impl` / Go-Swift `func` / Kotlin `fun` / Swift `protocol` / `extension` / `actor` / Kotlin-Scala `object`, including Rust `pub(crate)` / `pub(super)` / `pub(in …)` / `unsafe` / `const` / `extern "ABI"` / `macro_rules!` / `macro`, plus `final` / `abstract` / `sealed` / `data` / `companion` / `suspend`, plus C/C++/Java/C# return-type lines such as `void name(`, plus same-line method bodies (`name() {`, `get` / `set`, `Foo::bar() {`, `function*`, `export default` / `declare`), plus named arrow bindings (`const greet = (name) =>`, `async` params; bare `(x) =>` and match arms stay out), plus classic function-expression assignments (`const greet = function(name) {`, `async function`, `function*`; `list.map(function…)` stays out), plus function-like `#define MAX(a, b)` (object-like `#define FOO 1` stays out), plus Java/C# `record` / TypeScript-C# `namespace`/`module` / Rust-C `union`; not a full N++ function-list panel.
 14. **RTL** — line anchors + status + persist + remap; full bidi / UI chrome mirror still open.
 15. **Print** — `lp` on saved path; no preview.
 16. **Clipboard history** — last 10 session copies; the remappable chord cycles which one is on the paste clipboard (status `i/n`). Not a panel.
