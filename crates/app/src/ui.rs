@@ -31631,15 +31631,21 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `SCHEMA` / `TYPE` count (optional `OR REPLACE`, temp, `IF NOT EXISTS`).
 /// R bindings count (`mean <- function(x)`, `mean <<- function(x)`,
 /// `read.csv <- \(file)`). `x <- 1`, `x <- functional`, and a spaced
-/// `x < - function` stay out. Bare arrows (`(x) =>`, `Ok(v) =>`), calls
-/// (`foo();`), other assignments, and control-flow stay out. Kotlin
-/// `data class` still counts as a class. `created` and `create a note` stay out.
+/// `x < - function` stay out. F# / OCaml `let` / `let rec` bindings with
+/// parameters (`let greet name =`, `let add = fun x ->`) count; plain
+/// `let x = 1` and Rust `let f = |x| x` stay out. Bare arrows (`(x) =>`,
+/// `Ok(v) =>`), calls (`foo();`), other assignments, and control-flow stay
+/// out. Kotlin `data class` still counts as a class. `created` and
+/// `create a note` stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
         return false;
     }
     if is_sql_create(s) {
+        return true;
+    }
+    if is_ml_let_fn(s) {
         return true;
     }
     if s.starts_with('#') {
@@ -31821,6 +31827,72 @@ fn is_function_expr_assign(s: &str) -> bool {
         rest[name_len..].trim_start()
     };
     rest.starts_with('(')
+}
+
+/// F# / OCaml `let greet name =`, `let rec fact n =`, `let add = fun x ->`,
+/// `let parse = function | …`. Optional `rec` and one access word
+/// (`private` / `internal` / `public` / `inline`) after `let`. Plain
+/// `let x = 1`, bare `let x = function`, `let!`, Rust `let f = |x| x`, and
+/// `lettuce` stay out.
+fn is_ml_let_fn(s: &str) -> bool {
+    let Some(after_let) = sql_word(s, "let") else {
+        return false;
+    };
+    // `let!` (F# computation) and glued words (`lettuce`) stay out.
+    if after_let.starts_with('!') || !after_let.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = after_let.trim_start();
+    if let Some(after_rec) = sql_word(rest, "rec") {
+        if after_rec.starts_with(char::is_whitespace) {
+            rest = after_rec.trim_start();
+        }
+    }
+    for mod_word in ["private", "internal", "public", "inline"] {
+        if let Some(after_mod) = sql_word(rest, mod_word) {
+            if after_mod.starts_with(char::is_whitespace) {
+                rest = after_mod.trim_start();
+                break;
+            }
+        }
+    }
+    let name_end = rest
+        .find(|c: char| c.is_whitespace() || c == '(' || c == '=')
+        .unwrap_or(rest.len());
+    let name = &rest[..name_end];
+    if !is_binding_name(name) {
+        return false;
+    }
+    let after_name = rest[name_end..].trim_start();
+    if let Some(rhs) = after_name.strip_prefix('=') {
+        return is_ml_fun_rhs(rhs.trim_start());
+    }
+    let Some(eq) = after_name.find('=') else {
+        return false;
+    };
+    let bytes = after_name.as_bytes();
+    if bytes.get(eq + 1) == Some(&b'=') || bytes.get(eq + 1) == Some(&b'>') {
+        return false;
+    }
+    if eq > 0 && matches!(bytes[eq - 1], b'=' | b'!' | b'<' | b'>') {
+        return false;
+    }
+    !after_name[..eq].trim().is_empty()
+}
+
+fn is_ml_fun_rhs(rhs: &str) -> bool {
+    if let Some(rest) = sql_word(rhs, "function") {
+        // Same-line pattern or paren; bare `let x = function` (incomplete JS)
+        // stays out so Function List does not treat it as an OCaml match.
+        let rest = rest.trim_start();
+        return rest.starts_with('|') || rest.starts_with('(');
+    }
+    if let Some(rest) = sql_word(rhs, "fun") {
+        return rest.starts_with(char::is_whitespace)
+            || rest.starts_with('(')
+            || rest.starts_with('|');
+    }
+    false
 }
 
 /// R `mean <- function(x)`, `mean <<- function(x)`, `read.csv <- \(file)`.
@@ -32692,6 +32764,25 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("x < - function(y)"));
         assert!(!line_is_func_like("<- function(y)"));
         assert!(!line_is_func_like("if (ok) y <- function(z) z"));
+        assert!(line_is_func_like("let greet name = name"));
+        assert!(line_is_func_like("let greet (name: string) = name"));
+        assert!(line_is_func_like("let rec fact n = if n = 0 then 1 else n"));
+        assert!(line_is_func_like("let private helper x = x"));
+        assert!(line_is_func_like("let inline add a b = a + b"));
+        assert!(line_is_func_like("let add = fun x y -> x + y"));
+        assert!(line_is_func_like("let add = fun(x) -> x + 1"));
+        assert!(line_is_func_like("let parse = function | [] -> 0"));
+        assert!(line_is_func_like("let parse = function()"));
+        assert!(line_is_func_like("    let helper x = x"));
+        assert!(!line_is_func_like("let x = 1"));
+        assert!(!line_is_func_like("let x = y"));
+        assert!(!line_is_func_like("let mut x = 1"));
+        assert!(!line_is_func_like("let f = |x| x"));
+        assert!(!line_is_func_like("let! x = async {"));
+        assert!(!line_is_func_like("lettuce = 1"));
+        assert!(!line_is_func_like("let x = funky(y)"));
+        assert!(!line_is_func_like("let x = functional(y)"));
+        assert!(!line_is_func_like("let x = function"));
     }
 
     #[test]

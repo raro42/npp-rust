@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.438] — 2026-10-19
+
+View:
+
+- **Function List** lists F# / OCaml `let` / `let rec` bindings with parameters (`let greet name =`, `let private helper x =`) and `let name = fun …` / `let name = function | …`. Plain `let x = 1`, bare `let x = function`, `let!`, Rust `let f = |x| x`, and `lettuce` stay out.
+
 ## [0.3.437] — 2026-10-19
 
 View:

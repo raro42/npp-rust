@@ -624,3 +624,5 @@
 009 keep: Function List event/typealias/mixin/init/operator (v0.3.432)
 
 009 keep: Function List Lua/Perl/Nim/Elixir decls (v0.3.433)
+
+009 keep: Function List F#/OCaml let/let rec bindings (v0.3.438)
