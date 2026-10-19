@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.439] — 2026-10-19
+
+View:
+
+- **Function List** lists parenthesized Lisp, Scheme, and Clojure definitions: `(defun …)`, `(defmacro …)`, `(defmethod …)`, `(defclass …)`, `(defn …)` / `(defn- …)`, `(define (name …)`, `(define name (lambda …)`, `(def name (fn …)`, and `(ns …)`. `(def x 1)`, `(define x 1)`, `(let …)`, `(defunct`, and `(definition` stay out.
+
 ## [0.3.438] — 2026-10-19
 
 View:

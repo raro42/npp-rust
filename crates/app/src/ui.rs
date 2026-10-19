@@ -31633,10 +31633,14 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `read.csv <- \(file)`). `x <- 1`, `x <- functional`, and a spaced
 /// `x < - function` stay out. F# / OCaml `let` / `let rec` bindings with
 /// parameters (`let greet name =`, `let add = fun x ->`) count; plain
-/// `let x = 1` and Rust `let f = |x| x` stay out. Bare arrows (`(x) =>`,
-/// `Ok(v) =>`), calls (`foo();`), other assignments, and control-flow stay
-/// out. Kotlin `data class` still counts as a class. `created` and
-/// `create a note` stay out.
+/// `let x = 1` and Rust `let f = |x| x` stay out. Parenthesized Lisp,
+/// Scheme, and Clojure definitions count (`(defun greet (name)`,
+/// `(defn greet [name]`, `(define (fact n)`, `(define fact (lambda (n)`,
+/// `(def foo (fn [x]`, `(ns my.app`). `(def x 1)`, `(define x 1)`,
+/// `(let …)`, `(defunct`, and `(definition` stay out. Bare arrows
+/// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
+/// control-flow stay out. Kotlin `data class` still counts as a class.
+/// `created` and `create a note` stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
@@ -31646,6 +31650,9 @@ fn line_is_func_like(line: &str) -> bool {
         return true;
     }
     if is_ml_let_fn(s) {
+        return true;
+    }
+    if is_lisp_defn(s) {
         return true;
     }
     if s.starts_with('#') {
@@ -31893,6 +31900,164 @@ fn is_ml_fun_rhs(rhs: &str) -> bool {
             || rest.starts_with('|');
     }
     false
+}
+
+/// `(defun greet (name)`, `(defn ^String greet [name]`, `(defn- helper [x]`,
+/// `(define (fact n)`, `(define fact (lambda (n)`, `(def foo (fn [x]`,
+/// `(defmacro unless`, `(defclass widget`, `(ns my.app)`.
+/// `(def x 1)`, `(define x 1)`, `(define x (+ 1 2))`, `(let [x 1]`,
+/// `(defunct`, `(definition`, and a bare `(defun` stay out.
+fn is_lisp_defn(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.starts_with(';') {
+        return false;
+    }
+    let Some(rest) = s.strip_prefix('(') else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    const FORMS: &[&str] = &[
+        "define-syntax-rule",
+        "define-syntax",
+        "defmethod",
+        "defgeneric",
+        "defmacro",
+        "defsubst",
+        "defclass",
+        "defstruct",
+        "defprotocol",
+        "defrecord",
+        "defmulti",
+        "defonce",
+        "deftype",
+        "defun",
+        "defn-",
+        "defn",
+        "in-ns",
+        "ns",
+    ];
+    for form in FORMS {
+        if let Some(after) = lisp_form_word(rest, form) {
+            return lisp_has_name(after);
+        }
+    }
+    if let Some(after) = lisp_form_word(rest, "define") {
+        return lisp_define_is_fn(after);
+    }
+    if let Some(after) = lisp_form_word(rest, "def") {
+        return lisp_def_is_fn(after);
+    }
+    false
+}
+
+fn lisp_form_word<'a>(s: &'a str, word: &str) -> Option<&'a str> {
+    let rest = sql_word(s, word)?;
+    match rest.as_bytes().first() {
+        Some(b) if b.is_ascii_whitespace() || *b == b'(' => Some(rest),
+        _ => None,
+    }
+}
+
+fn lisp_has_name(after: &str) -> bool {
+    let after = after.trim_start().trim_start_matches(['\'', '`']);
+    if let Some(inner) = after.strip_prefix('(') {
+        return lisp_symbol_len(skip_lisp_meta(inner.trim_start())) > 0;
+    }
+    lisp_symbol_len(skip_lisp_meta(after)) > 0
+}
+
+fn skip_lisp_meta(s: &str) -> &str {
+    let mut s = s.trim_start();
+    while let Some(rest) = s.strip_prefix('^') {
+        let rest = rest.trim_start();
+        let n = rest
+            .bytes()
+            .take_while(|b| !b.is_ascii_whitespace() && *b != b'(' && *b != b'[')
+            .count();
+        if n == 0 {
+            break;
+        }
+        s = rest[n..].trim_start();
+    }
+    s
+}
+
+fn lisp_symbol_len(s: &str) -> usize {
+    let bytes = s.as_bytes();
+    let Some(&first) = bytes.first() else {
+        return 0;
+    };
+    if !(first.is_ascii_alphabetic()
+        || matches!(
+            first,
+            b'_' | b'*' | b'+' | b'-' | b'/' | b'<' | b'>' | b'=' | b'!'
+        ))
+    {
+        return 0;
+    }
+    bytes
+        .iter()
+        .take_while(|b| {
+            b.is_ascii_alphanumeric()
+                || matches!(
+                    **b,
+                    b'_' | b'-' | b'*' | b'+' | b'!' | b'?' | b'/' | b'<' | b'>' | b'=' | b'.'
+                )
+        })
+        .count()
+}
+
+fn lisp_define_is_fn(after: &str) -> bool {
+    let after = after.trim_start();
+    if after.starts_with('(') {
+        return lisp_has_name(after);
+    }
+    let after = skip_lisp_meta(after);
+    let n = lisp_symbol_len(after);
+    if n == 0 {
+        return false;
+    }
+    lisp_lambda_or_fn(after[n..].trim_start())
+}
+
+fn lisp_def_is_fn(after: &str) -> bool {
+    let after = skip_lisp_meta(after.trim_start());
+    let n = lisp_symbol_len(after);
+    if n == 0 {
+        return false;
+    }
+    let Some(inner) = after[n..].trim_start().strip_prefix('(') else {
+        return false;
+    };
+    lisp_fn_head(inner.trim_start())
+}
+
+fn lisp_lambda_or_fn(rest: &str) -> bool {
+    let Some(inner) = rest.strip_prefix('(') else {
+        return false;
+    };
+    let inner = inner.trim_start();
+    if inner.starts_with('λ') {
+        return true;
+    }
+    if let Some(after) = sql_word(inner, "lambda") {
+        return after.is_empty()
+            || after.starts_with(char::is_whitespace)
+            || after.starts_with('(')
+            || after.starts_with('[');
+    }
+    lisp_fn_head(inner)
+}
+
+fn lisp_fn_head(inner: &str) -> bool {
+    let Some(after_fn) = sql_word(inner, "fn") else {
+        return false;
+    };
+    let after_fn = after_fn.strip_prefix('*').unwrap_or(after_fn);
+    after_fn.is_empty()
+        || after_fn.starts_with(char::is_whitespace)
+        || after_fn.starts_with('[')
+        || after_fn.starts_with('(')
 }
 
 /// R `mean <- function(x)`, `mean <<- function(x)`, `read.csv <- \(file)`.
@@ -32783,6 +32948,34 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("let x = funky(y)"));
         assert!(!line_is_func_like("let x = functional(y)"));
         assert!(!line_is_func_like("let x = function"));
+        assert!(line_is_func_like("(defun greet (name)"));
+        assert!(line_is_func_like("    (DEFUN fact (n)"));
+        assert!(line_is_func_like("(defmacro unless (clause)"));
+        assert!(line_is_func_like("(defmethod area :rect (w)"));
+        assert!(line_is_func_like("(defclass widget ()"));
+        assert!(line_is_func_like("(defstruct (point (:conc-name p-))"));
+        assert!(line_is_func_like("(defn greet [name]"));
+        assert!(line_is_func_like("(defn ^String greet [name]"));
+        assert!(line_is_func_like("(defn- helper [x]"));
+        assert!(line_is_func_like("(defprotocol Drawable"));
+        assert!(line_is_func_like("(ns my.app"));
+        assert!(line_is_func_like("(in-ns 'user)"));
+        assert!(line_is_func_like("(define (fact n)"));
+        assert!(line_is_func_like("(define fact (lambda (n)"));
+        assert!(line_is_func_like("(define fact (λ (n) n))"));
+        assert!(line_is_func_like("(define-syntax unless"));
+        assert!(line_is_func_like("(def foo (fn [x] x))"));
+        assert!(line_is_func_like("(def foo (fn* [x] x))"));
+        assert!(!line_is_func_like("(def x 1)"));
+        assert!(!line_is_func_like("(define x 1)"));
+        assert!(!line_is_func_like("(define x (+ 1 2))"));
+        assert!(!line_is_func_like("(let [x 1]"));
+        assert!(!line_is_func_like("(if flag (recur))"));
+        assert!(!line_is_func_like("(defunct thing)"));
+        assert!(!line_is_func_like("(definition of the term)"));
+        assert!(!line_is_func_like("(default 1)"));
+        assert!(!line_is_func_like("(defun)"));
+        assert!(!line_is_func_like(";; (defun hidden ())"));
     }
 
     #[test]

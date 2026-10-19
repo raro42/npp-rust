@@ -1,3 +1,4 @@
+009 keep: Function List sees parenthesized Lisp/Scheme/Clojure defun/defn/define (v0.3.439)
 009 keep: Function List sees R name <- function / <<- / name <- \(...) (v0.3.437)
 009 keep: Function List sees SQL CREATE TABLE/VIEW/FUNCTION/PROCEDURE/TRIGGER/INDEX/SCHEMA/TYPE (v0.3.436)
 009 keep: Function List sees Elixir defdelegate/defmacrop, Clojure defn/defn-/defonce/ns, Haskell data/newtype/instance (v0.3.435)
