@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.440] — 2026-10-19
+
+View:
+
+- **Function List** lists Scala `case class` and `case object` (`case class User(name: String)`, `sealed abstract case class Expr`, `case object Empty`). Python `case Point(x):`, `case 1:`, bare `case class`, and `case classes` stay out.
+
 ## [0.3.439] — 2026-10-19
 
 View:

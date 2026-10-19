@@ -31637,7 +31637,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Scheme, and Clojure definitions count (`(defun greet (name)`,
 /// `(defn greet [name]`, `(define (fact n)`, `(define fact (lambda (n)`,
 /// `(def foo (fn [x]`, `(ns my.app`). `(def x 1)`, `(define x 1)`,
-/// `(let …)`, `(defunct`, and `(definition` stay out. Bare arrows
+/// `(let …)`, `(defunct`, and `(definition` stay out. Scala `case class`
+/// and `case object` count (`case class User(name: String)`,
+/// `sealed abstract case class Expr`, `case object Empty`). Python
+/// `case Point(x):`, `case 1:`, bare `case class`, and `case classes`
+/// stay out. Bare arrows
 /// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
 /// control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31659,7 +31663,7 @@ fn line_is_func_like(line: &str) -> bool {
         return is_define_macro(s);
     }
     for _ in 0..8 {
-        if is_haskell_decl(s) {
+        if is_haskell_decl(s) || is_scala_case_decl(s) {
             return true;
         }
         let next = strip_func_like_prefix(s);
@@ -31668,7 +31672,7 @@ fn line_is_func_like(line: &str) -> bool {
         }
         s = next;
     }
-    if is_haskell_decl(s) {
+    if is_haskell_decl(s) || is_scala_case_decl(s) {
         return true;
     }
     let lower = s.to_ascii_lowercase();
@@ -32484,6 +32488,63 @@ fn is_haskell_decl(s: &str) -> bool {
     false
 }
 
+/// Scala `case class User(name: String)` and `case object Empty`.
+/// `sealed` / `abstract` / `final` are stripped earlier. Python match arms
+/// (`case Point(x):`, `case 1:`), bare `case class`, `case classes`, and
+/// `case object oriented` stay out.
+fn is_scala_case_decl(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "case") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if let Some(after) = sql_word(rest, "class") {
+        if scala_kind_boundary(after) {
+            return scala_type_name(after.trim_start());
+        }
+    }
+    if let Some(after) = sql_word(rest, "object") {
+        if scala_kind_boundary(after) {
+            return scala_object_name(after.trim_start());
+        }
+    }
+    false
+}
+
+fn scala_kind_boundary(after: &str) -> bool {
+    after.is_empty()
+        || after.starts_with(char::is_whitespace)
+        || matches!(after.as_bytes().first(), Some(b'(' | b'[' | b'{'))
+}
+
+fn scala_type_name(s: &str) -> bool {
+    let s = s.trim_start();
+    if let Some(inner) = s.strip_prefix('`') {
+        return inner.find('`').is_some_and(|end| end > 0);
+    }
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = s.as_bytes()[0];
+    first == b'_' || first.is_ascii_alphabetic()
+}
+
+fn scala_object_name(s: &str) -> bool {
+    let s = s.trim_start();
+    match s.chars().next() {
+        Some('{') | Some(':') => true,
+        Some('`') => scala_type_name(s),
+        Some(c) if c.is_ascii_uppercase() || c == '_' => scala_type_name(s),
+        _ => false,
+    }
+}
+
 /// Kotlin / Scala `object Name`, `object {`, or `object :`. Not the word `objective`
 /// and not prose such as `object oriented`.
 fn is_object_decl(s: &str) -> bool {
@@ -32976,6 +33037,22 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("(default 1)"));
         assert!(!line_is_func_like("(defun)"));
         assert!(!line_is_func_like(";; (defun hidden ())"));
+        assert!(line_is_func_like("case class User(name: String)"));
+        assert!(line_is_func_like("case class Box[A](value: A)"));
+        assert!(line_is_func_like("final case class Point(x: Int, y: Int)"));
+        assert!(line_is_func_like("sealed abstract case class Expr"));
+        assert!(line_is_func_like("    case class Node[T]"));
+        assert!(line_is_func_like("case object Empty"));
+        assert!(line_is_func_like("case object Empty extends Foo"));
+        assert!(line_is_func_like("case object {"));
+        assert!(line_is_func_like("case class `yield`(n: Int)"));
+        assert!(!line_is_func_like("case 1:"));
+        assert!(!line_is_func_like("case Point(x, y):"));
+        assert!(!line_is_func_like("case class"));
+        assert!(!line_is_func_like("case classes of animals"));
+        assert!(!line_is_func_like("caseclass Foo"));
+        assert!(!line_is_func_like("case object oriented"));
+        assert!(!line_is_func_like("case objects stay out"));
     }
 
     #[test]
