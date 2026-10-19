@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.434] — 2026-10-19
+
+View:
+
+- **Function List** lists Elixir `defprotocol` / `defimpl` / `defstruct` / `defguard` / `defguardp`, Pascal / Delphi / Ada `procedure`, and Fortran `subroutine`. Words such as `defprotocols`, `defimpls`, `defstructs`, `defguards`, `defguardps`, `procedures`, and `subroutines` stay out.
+
 ## [0.3.433] — 2026-10-19
 
 View:

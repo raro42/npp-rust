@@ -31529,6 +31529,13 @@ const FUNC_LIKE_KEYS: &[&str] = &[
     "defmodule ",
     "defp ",
     "defmacro ",
+    "defprotocol ",
+    "defimpl ",
+    "defstruct ",
+    "defguard ",
+    "defguardp ",
+    "procedure ",
+    "subroutine ",
 ];
 
 const FUNC_LIKE_MODS: &[&str] = &[
@@ -31609,7 +31616,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `mixin`, Swift `init` / `deinit` / `subscript` (plus `convenience` /
 /// `required` / `fileprivate`), and C++ `operator` overloads count. Lua
 /// `local function`, Perl `sub`, Nim `proc` / `method` / `iterator`, and
-/// Elixir `defmodule` / `defp` / `defmacro` count. Bare arrows (`(x) =>`,
+/// Elixir `defmodule` / `defp` / `defmacro` / `defprotocol` / `defimpl` /
+/// `defstruct` / `defguard` / `defguardp` count. Pascal / Delphi / Ada
+/// `procedure` and Fortran `subroutine` count. Bare arrows (`(x) =>`,
 /// `Ok(v) =>`), calls (`foo();`), other assignments, and control-flow stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
@@ -32351,6 +32360,17 @@ mod func_like_line_tests {
         assert!(line_is_func_like(
             "defmacro unless(clause, do: expression) do"
         ));
+        assert!(line_is_func_like("defprotocol Drawable do"));
+        assert!(line_is_func_like("defimpl Drawable, for: Circle do"));
+        assert!(line_is_func_like("defstruct [:name, :age]"));
+        assert!(line_is_func_like("defguard is_ok(x) when is_integer(x)"));
+        assert!(line_is_func_like(
+            "defguardp is_even(x) when rem(x, 2) == 0"
+        ));
+        assert!(line_is_func_like("procedure Greet(Name: string);"));
+        assert!(line_is_func_like("    procedure Draw;"));
+        assert!(line_is_func_like("subroutine compute(n)"));
+        assert!(line_is_func_like("SUBROUTINE INIT()"));
         assert!(!line_is_func_like("local x = 1"));
         assert!(!line_is_func_like("substitute stay out"));
         assert!(!line_is_func_like("process stay out"));
@@ -32359,6 +32379,13 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("defmodules stay out"));
         assert!(!line_is_func_like("defps stay out"));
         assert!(!line_is_func_like("defmacros stay out"));
+        assert!(!line_is_func_like("defprotocols stay out"));
+        assert!(!line_is_func_like("defimpls stay out"));
+        assert!(!line_is_func_like("defstructs stay out"));
+        assert!(!line_is_func_like("defguards stay out"));
+        assert!(!line_is_func_like("defguardps stay out"));
+        assert!(!line_is_func_like("procedures stay out"));
+        assert!(!line_is_func_like("subroutines stay out"));
     }
 
     #[test]
