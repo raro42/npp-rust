@@ -1,3 +1,4 @@
+009 keep: Function List sees GraphQL input / scalar / extend / fragment and named operations (v0.3.446)
 009 keep: Function List sees protobuf message / service / rpc (v0.3.445)
 009 keep: Function List skips a leading C++ template<…> and lists concept (v0.3.444)
 009 keep: Function List skips a leading @Annotation / [Attribute] and lists Java @interface (v0.3.443)

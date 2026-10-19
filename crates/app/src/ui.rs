@@ -31661,7 +31661,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `templates`, a bare `template`, and `template<…>` with no
 /// declaration stay out. Protobuf `message` / `service` / `rpc` count
 /// (`message HelloRequest {`, `service Greeter {`, `rpc SayHello (`).
-/// `messages`, `message the team`, and `service workers` stay out. Bare arrows
+/// `messages`, `message the team`, and `service workers` stay out.
+/// GraphQL `input` / `scalar` / `extend` / `fragment` and named
+/// `query` / `mutation` / `subscription` count (`input UserInput {`,
+/// `scalar DateTime`, `extend type User {`, `fragment UserFields on User {`,
+/// `query GetUser {`). `input the name`, `query the logs`, `extend the buffer`,
+/// and `fragment of text` stay out. Bare arrows
 /// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
 /// control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31694,6 +31699,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_fsharp_member(s)
             || is_java_annotation_type(s)
             || is_proto_decl(s)
+            || is_graphql_decl(s)
         {
             return true;
         }
@@ -31722,6 +31728,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_fsharp_member(s)
         || is_java_annotation_type(s)
         || is_proto_decl(s)
+        || is_graphql_decl(s)
     {
         return true;
     }
@@ -31734,6 +31741,115 @@ fn line_is_func_like(line: &str) -> bool {
         || is_function_expr_assign(s)
         || is_r_function_assign(s)
         || is_operator_decl(s)
+}
+
+/// GraphQL `input UserInput {`, `scalar DateTime`, `extend type User {`,
+/// `fragment UserFields on User {`, `query GetUser {`, `mutation Create(`,
+/// `subscription OnMessage {`. One name. `extend` must name a schema kind.
+/// A lowercase name needs `{` or `(` (`fragment` may use `on`). Prose stays out.
+fn is_graphql_decl(s: &str) -> bool {
+    if let Some(rest) = graphql_extend_body(s) {
+        return graphql_decl_name(rest);
+    }
+    if let Some(rest) =
+        graphql_keyword_rest(s, &["input", "scalar", "query", "mutation", "subscription"])
+    {
+        return graphql_decl_name(rest);
+    }
+    if let Some(rest) = graphql_keyword_rest(s, &["fragment"]) {
+        return graphql_fragment(rest);
+    }
+    false
+}
+
+fn graphql_extend_body(s: &str) -> Option<&str> {
+    let rest = graphql_keyword_rest(s, &["extend"])?;
+    graphql_keyword_rest(
+        rest,
+        &["type", "interface", "enum", "union", "input", "scalar"],
+    )
+}
+
+fn graphql_keyword_rest<'a>(s: &'a str, keys: &[&str]) -> Option<&'a str> {
+    for key in keys {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn graphql_fragment(s: &str) -> bool {
+    let Some((name, rest)) = graphql_ident(s) else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    let Some(after_on) = sql_word(rest, "on") else {
+        return graphql_name_stops(name, rest);
+    };
+    if !after_on.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some((_, after_type)) = graphql_ident(after_on.trim_start()) else {
+        return false;
+    };
+    graphql_tail_ok(after_type.trim_start())
+}
+
+fn graphql_decl_name(s: &str) -> bool {
+    let Some((name, rest)) = graphql_ident(s) else {
+        return false;
+    };
+    graphql_name_stops(name, rest.trim_start())
+}
+
+fn graphql_ident(s: &str) -> Option<(&str, &str)> {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        .count();
+    if n == 0 {
+        return None;
+    }
+    let first = s.as_bytes()[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return None;
+    }
+    Some((&s[..n], &s[n..]))
+}
+
+fn graphql_name_stops(name: &str, rest: &str) -> bool {
+    if !graphql_tail_ok(rest) {
+        return false;
+    }
+    let first = name.as_bytes()[0];
+    if first.is_ascii_lowercase() {
+        return rest.starts_with('{') || rest.starts_with('(');
+    }
+    true
+}
+
+fn graphql_tail_ok(rest: &str) -> bool {
+    if rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with('(')
+        || rest.starts_with('@')
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
+    {
+        return true;
+    }
+    let Some(after) = sql_word(rest, "implements") else {
+        return false;
+    };
+    after.is_empty()
+        || after.starts_with(char::is_whitespace)
+        || after.starts_with('{')
+        || after.starts_with('(')
+        || after.starts_with('@')
 }
 
 /// Protobuf `message HelloRequest {`, `service Greeter`, `rpc SayHello (`.
@@ -33637,6 +33753,35 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("service."));
         assert!(!line_is_func_like("rpc"));
         assert!(!line_is_func_like("rpc call me later"));
+    }
+
+    #[test]
+    fn graphql_schema_and_operations_count() {
+        assert!(line_is_func_like("input UserInput {"));
+        assert!(line_is_func_like("input UserInput"));
+        assert!(line_is_func_like("  scalar DateTime"));
+        assert!(line_is_func_like(
+            "scalar DateTime @specifiedBy(url: \"u\")"
+        ));
+        assert!(line_is_func_like("extend type User {"));
+        assert!(line_is_func_like("extend interface Node"));
+        assert!(line_is_func_like("extend type User implements Node {"));
+        assert!(line_is_func_like("fragment UserFields on User {"));
+        assert!(line_is_func_like("fragment userFields on User"));
+        assert!(line_is_func_like("query GetUser($id: ID!) {"));
+        assert!(line_is_func_like("mutation CreateUser("));
+        assert!(line_is_func_like("subscription OnMessage {"));
+        assert!(line_is_func_like("query getUser {"));
+        assert!(!line_is_func_like("input the name"));
+        assert!(!line_is_func_like("input"));
+        assert!(!line_is_func_like("scalar product"));
+        assert!(!line_is_func_like("extend the buffer"));
+        assert!(!line_is_func_like("extend type"));
+        assert!(!line_is_func_like("fragment of text"));
+        assert!(!line_is_func_like("query the logs"));
+        assert!(!line_is_func_like("mutation of state"));
+        assert!(!line_is_func_like("subscription to events"));
+        assert!(!line_is_func_like("fragments stay out"));
     }
 
     #[test]

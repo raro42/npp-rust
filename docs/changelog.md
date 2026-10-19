@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.446] — 2026-10-20
+
+View:
+
+- **Function List** lists GraphQL `input`, `scalar`, `extend`, `fragment`, and named `query` / `mutation` / `subscription` (`input UserInput {`, `scalar DateTime`, `extend type User {`, `fragment UserFields on User {`, `query GetUser {`). `input the name`, `query the logs`, `extend the buffer`, and `fragment of text` stay out.
+
 ## [0.3.445] — 2026-10-19
 
 View:
