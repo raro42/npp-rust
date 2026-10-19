@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.445] — 2026-10-19
+
+View:
+
+- **Function List** lists protobuf `message`, `service`, and `rpc` declarations (`message HelloRequest {`, `service Greeter {`, `rpc SayHello (`). `messages`, `message the team`, and `service workers` stay out.
+
 ## [0.3.444] — 2026-10-19
 
 View:

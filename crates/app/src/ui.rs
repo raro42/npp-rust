@@ -31659,7 +31659,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `export template<class T> class Box`,
 /// `template<typename T> concept C`). A bare `concept C =` counts.
 /// `templates`, a bare `template`, and `template<…>` with no
-/// declaration stay out. Bare arrows
+/// declaration stay out. Protobuf `message` / `service` / `rpc` count
+/// (`message HelloRequest {`, `service Greeter {`, `rpc SayHello (`).
+/// `messages`, `message the team`, and `service workers` stay out. Bare arrows
 /// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
 /// control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31691,6 +31693,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_scala_case_decl(s)
             || is_fsharp_member(s)
             || is_java_annotation_type(s)
+            || is_proto_decl(s)
         {
             return true;
         }
@@ -31718,6 +31721,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_scala_case_decl(s)
         || is_fsharp_member(s)
         || is_java_annotation_type(s)
+        || is_proto_decl(s)
     {
         return true;
     }
@@ -31730,6 +31734,55 @@ fn line_is_func_like(line: &str) -> bool {
         || is_function_expr_assign(s)
         || is_r_function_assign(s)
         || is_operator_decl(s)
+}
+
+/// Protobuf `message HelloRequest {`, `service Greeter`, `rpc SayHello (`.
+/// One identifier, then `{`, `(`, end of line, or a comment. Extra words stay out.
+/// A lowercase name needs `{` or `(` so `service workers` stays out.
+fn is_proto_decl(s: &str) -> bool {
+    let Some(rest) = proto_keyword_rest(s) else {
+        return false;
+    };
+    proto_decl_name(rest)
+}
+
+fn proto_keyword_rest(s: &str) -> Option<&str> {
+    for key in ["message", "service", "rpc"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn proto_decl_name(s: &str) -> bool {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = s.as_bytes()[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    let rest = s[n..].trim_start();
+    let stopped = rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with('(')
+        || rest.starts_with("//")
+        || rest.starts_with("/*");
+    if !stopped {
+        return false;
+    }
+    if first.is_ascii_lowercase() {
+        return rest.starts_with('{') || rest.starts_with('(');
+    }
+    true
 }
 
 /// C++ `operator+(` / `bool operator==(` / `operator new(` / `Foo::operator()(`.
@@ -33559,6 +33612,31 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("template <"));
         assert!(!line_is_func_like("templates of animals"));
         assert!(!line_is_func_like("concepts stay out"));
+    }
+
+    #[test]
+    fn proto_message_service_rpc_count() {
+        assert!(line_is_func_like("message HelloRequest {"));
+        assert!(line_is_func_like("message HelloRequest"));
+        assert!(line_is_func_like("  message Foo{"));
+        assert!(line_is_func_like("message foo {"));
+        assert!(line_is_func_like("message Foo // note"));
+        assert!(line_is_func_like("service Greeter {"));
+        assert!(line_is_func_like("service Greeter"));
+        assert!(line_is_func_like(
+            "rpc SayHello (HelloRequest) returns (HelloReply);"
+        ));
+        assert!(line_is_func_like(
+            "rpc SayHello(HelloRequest) returns (HelloReply);"
+        ));
+        assert!(line_is_func_like("RPC SayHello (Req) returns (Resp);"));
+        assert!(!line_is_func_like("messages stay out"));
+        assert!(!line_is_func_like("message"));
+        assert!(!line_is_func_like("message the team"));
+        assert!(!line_is_func_like("service workers"));
+        assert!(!line_is_func_like("service."));
+        assert!(!line_is_func_like("rpc"));
+        assert!(!line_is_func_like("rpc call me later"));
     }
 
     #[test]
