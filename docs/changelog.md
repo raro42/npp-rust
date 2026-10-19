@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.426] — 2026-10-19
+
+View:
+
+- **Function List** lists same-line method and constructor bodies (`greet() {`, `get` / `set`, `Foo::bar() {`, `~Widget() {`, `void Foo::bar() {`), `function*` generators, and `export default` / `declare` function or class lines. Calls (`foo();`), member calls, and arrows (`foo() =>`) stay out.
+
 ## [0.3.425] — 2026-10-19
 
 View:

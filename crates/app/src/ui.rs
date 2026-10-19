@@ -31487,6 +31487,7 @@ const FUNC_LIKE_KEYS: &[&str] = &[
     "fn ",
     "def ",
     "function ",
+    "function*",
     "class ",
     "struct ",
     "impl ",
@@ -31535,6 +31536,10 @@ const FUNC_LIKE_MODS: &[&str] = &[
     "mutable ",
     "synchronized ",
     "native ",
+    "default ",
+    "declare ",
+    "get ",
+    "set ",
 ];
 
 /// Words that are not a C/Java/C# return type or function name.
@@ -31554,7 +31559,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Scala `object` whose next token is `{`, `:`, or an uppercase name. Qualifiers
 /// include `final`, `abstract`, `sealed`, `data`, `companion`, and `suspend`.
 /// C, C++, Java, and C# lines with a return type (`void main(`, `String name(`)
-/// count too. Calls, assignments, and control-flow stay out.
+/// count too. Same-line method and constructor bodies (`name() {`, `get name() {`,
+/// `Foo::bar() {`, `~Widget() {`) count, including `function*` and `export default`
+/// / `declare`. Calls (`foo();`), assignments, and control-flow stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with('#') || s.starts_with("/*") {
@@ -31568,7 +31575,95 @@ fn line_is_func_like(line: &str) -> bool {
         s = next;
     }
     let lower = s.to_ascii_lowercase();
-    FUNC_LIKE_KEYS.iter().any(|k| lower.starts_with(k)) || is_object_decl(s) || is_typed_fn_decl(s)
+    FUNC_LIKE_KEYS.iter().any(|k| lower.starts_with(k))
+        || is_object_decl(s)
+        || is_typed_fn_decl(s)
+        || is_brace_method_decl(s)
+}
+
+/// `greet(name) {`, `get count() {`, `Foo::bar() {`, `Widget() :`.
+/// The parameter list must be followed by `{` or `:` (optional `const` /
+/// `override` / `final`). `foo();` and `obj.method()` stay out.
+fn is_brace_method_decl(s: &str) -> bool {
+    let Some(open) = s.find('(') else {
+        return false;
+    };
+    if !is_method_head(s[..open].trim()) {
+        return false;
+    }
+    let Some(after) = after_balanced_paren(s, open) else {
+        return false;
+    };
+    opens_method_body(after)
+}
+
+fn is_method_head(head: &str) -> bool {
+    if head.is_empty()
+        || head
+            .bytes()
+            .any(|b| matches!(b, b'=' | b';' | b'.' | b' ' | b'\t'))
+    {
+        return false;
+    }
+    let head = head.strip_prefix('#').unwrap_or(head);
+    let mut rest = head;
+    let mut saw = false;
+    while !saw || !rest.is_empty() {
+        let (piece, next) = match rest.split_once("::") {
+            Some((piece, next)) => (piece, next),
+            None => (rest, ""),
+        };
+        if piece.is_empty() {
+            return false;
+        }
+        let piece = if next.is_empty() {
+            piece.strip_prefix('~').unwrap_or(piece)
+        } else {
+            piece
+        };
+        if !is_fn_name(piece) || is_control_word(piece) {
+            return false;
+        }
+        saw = true;
+        if next.is_empty() {
+            break;
+        }
+        rest = next;
+    }
+    saw
+}
+
+fn after_balanced_paren(s: &str, open: usize) -> Option<&str> {
+    let bytes = s.as_bytes();
+    if bytes.get(open) != Some(&b'(') {
+        return None;
+    }
+    let mut depth = 0i32;
+    for (i, b) in bytes.iter().enumerate().skip(open) {
+        match b {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&s[i + 1..]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn opens_method_body(after: &str) -> bool {
+    let rest = after.trim_start();
+    let rest = ["const", "override", "final"]
+        .iter()
+        .find_map(|qual| {
+            let next = rest.strip_prefix(qual)?;
+            (next.is_empty() || next.starts_with(char::is_whitespace)).then(|| next.trim_start())
+        })
+        .unwrap_or(rest);
+    rest.starts_with('{') || rest.starts_with(':')
 }
 
 /// `void main(`, `int count(`, `String name(`, `unsigned long parse(`.
@@ -31598,7 +31693,18 @@ fn is_typed_fn_decl(s: &str) -> bool {
         }
         name = tok;
     }
-    is_fn_name(name) && !is_control_word(name)
+    is_qualified_fn_name(name)
+}
+
+/// `bar`, `Foo::bar`, or `Foo::~Foo`. Not `obj.method` (dot stays out).
+fn is_qualified_fn_name(tok: &str) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    tok.split("::").all(|piece| {
+        let piece = piece.strip_prefix('~').unwrap_or(piece);
+        !piece.is_empty() && is_fn_name(piece) && !is_control_word(piece)
+    })
 }
 
 fn is_control_word(tok: &str) -> bool {
@@ -31873,6 +31979,25 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("int x = count(1);"));
         assert!(!line_is_func_like("while (true) {"));
         assert!(!line_is_func_like("new Foo();"));
+        assert!(line_is_func_like("greet(name) {"));
+        assert!(line_is_func_like("    async load() {"));
+        assert!(line_is_func_like("get count() {"));
+        assert!(line_is_func_like("set name(value) {"));
+        assert!(line_is_func_like("export default function main() {"));
+        assert!(line_is_func_like("export default class App {"));
+        assert!(line_is_func_like("declare function ping(): void;"));
+        assert!(line_is_func_like("function* gen() {"));
+        assert!(line_is_func_like("Foo::bar() {"));
+        assert!(line_is_func_like("Widget() {"));
+        assert!(line_is_func_like("~Widget() {"));
+        assert!(line_is_func_like("void Foo::bar() {"));
+        assert!(line_is_func_like("int Foo::~Foo() {"));
+        assert!(line_is_func_like("draw() const {"));
+        assert!(line_is_func_like("label(): string {"));
+        assert!(!line_is_func_like("foo();"));
+        assert!(!line_is_func_like("obj.method() {"));
+        assert!(!line_is_func_like("foo() => {"));
+        assert!(!line_is_func_like("int x = count() {"));
     }
 
     #[test]
