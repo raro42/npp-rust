@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.427] — 2026-10-19
+
+View:
+
+- **Function List** lists named arrow bindings (`const greet = (name) =>`, `let load = async (id) =>`, `paint = x => x`, including a `: return` type). Bare arrows (`(x) =>`), match arms (`Ok(v) =>`), and calls stay out.
+
 ## [0.3.426] — 2026-10-19
 
 View:

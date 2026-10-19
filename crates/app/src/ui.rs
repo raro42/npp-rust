@@ -31527,6 +31527,9 @@ const FUNC_LIKE_MODS: &[&str] = &[
     "companion ",
     "suspend ",
     "lateinit ",
+    "let ",
+    "var ",
+    "val ",
     "virtual ",
     "inline ",
     "explicit ",
@@ -31561,7 +31564,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// C, C++, Java, and C# lines with a return type (`void main(`, `String name(`)
 /// count too. Same-line method and constructor bodies (`name() {`, `get name() {`,
 /// `Foo::bar() {`, `~Widget() {`) count, including `function*` and `export default`
-/// / `declare`. Calls (`foo();`), assignments, and control-flow stay out.
+/// / `declare`. Named arrow bindings count (`const greet = (name) =>`,
+/// `let load = async (id) =>`, `paint = x => x`). Bare arrows (`(x) =>`, `Ok(v) =>`),
+/// calls (`foo();`), other assignments, and control-flow stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with('#') || s.starts_with("/*") {
@@ -31579,6 +31584,71 @@ fn line_is_func_like(line: &str) -> bool {
         || is_object_decl(s)
         || is_typed_fn_decl(s)
         || is_brace_method_decl(s)
+        || is_arrow_fn_decl(s)
+}
+
+/// `const greet = (name) =>`, `let load = async (id) =>`, `paint = x => x`.
+/// The left side is one binding name. The right side is an arrow with a
+/// parameter list or a single parameter. Bare `(x) =>` and match arms stay out.
+fn is_arrow_fn_decl(s: &str) -> bool {
+    let Some((lhs, rhs)) = split_single_assign(s) else {
+        return false;
+    };
+    if !is_binding_name(lhs.trim()) {
+        return false;
+    }
+    let rhs = strip_async_word(rhs.trim_start());
+    let Some(arrow_at) = rhs.find("=>") else {
+        return false;
+    };
+    arrow_params_ok(rhs[..arrow_at].trim())
+}
+
+fn split_single_assign(s: &str) -> Option<(&str, &str)> {
+    let idx = s.find('=')?;
+    let bytes = s.as_bytes();
+    if bytes.get(idx + 1) == Some(&b'=') || bytes.get(idx + 1) == Some(&b'>') {
+        return None;
+    }
+    if idx > 0 && matches!(bytes[idx - 1], b'=' | b'!' | b'<' | b'>') {
+        return None;
+    }
+    Some((&s[..idx], &s[idx + 1..]))
+}
+
+fn is_binding_name(name: &str) -> bool {
+    let name = name.strip_prefix('#').unwrap_or(name);
+    !name.is_empty() && is_fn_name(name) && !is_control_word(name)
+}
+
+fn strip_async_word(rhs: &str) -> &str {
+    let Some(rest) = rhs.strip_prefix("async") else {
+        return rhs;
+    };
+    if rest.starts_with('(') || rest.starts_with(char::is_whitespace) {
+        rest.trim_start()
+    } else {
+        rhs
+    }
+}
+
+fn arrow_params_ok(before: &str) -> bool {
+    if before.is_empty() {
+        return false;
+    }
+    if before.starts_with('(') {
+        let Some(after) = after_balanced_paren(before, 0) else {
+            return false;
+        };
+        let after = after.trim_start();
+        return after.is_empty() || after.starts_with(':');
+    }
+    let name = before.split(':').next().unwrap_or("").trim();
+    if name.is_empty() || !is_fn_name(name) || is_control_word(name) {
+        return false;
+    }
+    let rest = before[name.len()..].trim_start();
+    rest.is_empty() || rest.starts_with(':')
 }
 
 /// `greet(name) {`, `get count() {`, `Foo::bar() {`, `Widget() :`.
@@ -31996,7 +32066,21 @@ mod func_like_line_tests {
         assert!(line_is_func_like("label(): string {"));
         assert!(!line_is_func_like("foo();"));
         assert!(!line_is_func_like("obj.method() {"));
+        assert!(line_is_func_like("const greet = (name) => {"));
+        assert!(line_is_func_like("let load = async (id) => {"));
+        assert!(line_is_func_like("var paint = x => x"));
+        assert!(line_is_func_like(
+            "export const label = (name: string): void => {"
+        ));
+        assert!(line_is_func_like("public const draw = () => {"));
+        assert!(line_is_func_like("greet = async name => name"));
         assert!(!line_is_func_like("foo() => {"));
+        assert!(!line_is_func_like("Ok(v) => v"));
+        assert!(!line_is_func_like("(x) => x"));
+        assert!(!line_is_func_like("const x = 1;"));
+        assert!(!line_is_func_like("const msg = \"a => b\";"));
+        assert!(!line_is_func_like("items = list.map(x => x);"));
+        assert!(!line_is_func_like("const eq = a == b;"));
         assert!(!line_is_func_like("int x = count() {"));
     }
 
