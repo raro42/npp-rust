@@ -31565,10 +31565,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// count too. Same-line method and constructor bodies (`name() {`, `get name() {`,
 /// `Foo::bar() {`, `~Widget() {`) count, including `function*` and `export default`
 /// / `declare`. Named arrow bindings count (`const greet = (name) =>`,
-/// `let load = async (id) =>`, `paint = x => x`). Function-like C preprocessor
-/// macros count (`#define MAX(a, b) …`); object-like `#define FOO 1` stays out.
-/// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
-/// control-flow stay out.
+/// `let load = async (id) =>`, `paint = x => x`). Classic function-expression
+/// assignments count (`const greet = function(name) {`,
+/// `let load = async function(id) {`, `var gen = function*() {`).
+/// Function-like C preprocessor macros count (`#define MAX(a, b) …`);
+/// object-like `#define FOO 1` stays out. Bare arrows (`(x) =>`, `Ok(v) =>`),
+/// calls (`foo();`), other assignments, and control-flow stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
@@ -31590,6 +31592,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_typed_fn_decl(s)
         || is_brace_method_decl(s)
         || is_arrow_fn_decl(s)
+        || is_function_expr_assign(s)
 }
 
 /// `#define MAX(a, b) …` or `# define SQUARE(x) …`. Object-like `#define FOO 1`
@@ -31635,6 +31638,48 @@ fn is_arrow_fn_decl(s: &str) -> bool {
         return false;
     };
     arrow_params_ok(rhs[..arrow_at].trim())
+}
+
+/// `const greet = function(name) {`, `let load = async function(id) {`,
+/// `var gen = function*() {`, `paint = function named(x) {`.
+/// The left side is one binding name. The right side is a `function` /
+/// `function*` expression (optional name). Calls and `functional` stay out.
+fn is_function_expr_assign(s: &str) -> bool {
+    let Some((lhs, rhs)) = split_single_assign(s) else {
+        return false;
+    };
+    if !is_binding_name(lhs.trim()) {
+        return false;
+    }
+    let rhs = strip_async_word(rhs.trim_start());
+    let rest = if let Some(rest) = rhs.strip_prefix("function*") {
+        rest
+    } else if let Some(rest) = rhs.strip_prefix("function") {
+        if !rest.is_empty() && !rest.starts_with('(') && !rest.starts_with(char::is_whitespace) {
+            return false;
+        }
+        rest
+    } else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    let rest = if rest.starts_with('(') {
+        rest
+    } else {
+        let name_len = rest
+            .chars()
+            .take_while(|c| *c == '_' || c.is_ascii_alphanumeric())
+            .count();
+        if name_len == 0 {
+            return false;
+        }
+        let name = &rest[..name_len];
+        if !is_fn_name(name) || is_control_word(name) {
+            return false;
+        }
+        rest[name_len..].trim_start()
+    };
+    rest.starts_with('(')
 }
 
 fn split_single_assign(s: &str) -> Option<(&str, &str)> {
@@ -32115,6 +32160,17 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("items = list.map(x => x);"));
         assert!(!line_is_func_like("const eq = a == b;"));
         assert!(!line_is_func_like("int x = count() {"));
+        assert!(line_is_func_like("const greet = function(name) {"));
+        assert!(line_is_func_like("let load = async function(id) {"));
+        assert!(line_is_func_like("var gen = function*() {"));
+        assert!(line_is_func_like(
+            "export const label = function(name: string) {"
+        ));
+        assert!(line_is_func_like("paint = function named(x) {"));
+        assert!(!line_is_func_like("const x = functional() {"));
+        assert!(!line_is_func_like("items = list.map(function(x) {"));
+        assert!(!line_is_func_like("const x = function;"));
+        assert!(!line_is_func_like("let x = function"));
         assert!(line_is_func_like("#define MAX(a, b) ((a)>(b)?(a):(b))"));
         assert!(line_is_func_like("# define SQUARE(x) ((x)*(x))"));
         assert!(line_is_func_like("#define get_item(i) (items[(i)])"));

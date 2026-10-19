@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.429] — 2026-10-19
+
+View:
+
+- **Function List** lists classic JavaScript / TypeScript function-expression assignments (`const greet = function(name) {`, `let load = async function(id) {`, `var gen = function*() {`, optional expression name). `functional`, bare `function` without `(`, and `list.map(function…)` stay out.
+
 ## [0.3.428] — 2026-10-19
 
 View:
