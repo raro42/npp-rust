@@ -31629,9 +31629,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `data` / `newtype` / `instance` (uppercase name or `(`) count. SQL
 /// `CREATE TABLE` / `VIEW` / `FUNCTION` / `PROCEDURE` / `TRIGGER` / `INDEX` /
 /// `SCHEMA` / `TYPE` count (optional `OR REPLACE`, temp, `IF NOT EXISTS`).
-/// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
-/// control-flow stay out. Kotlin `data class` still counts as a class.
-/// `created` and `create a note` stay out.
+/// R bindings count (`mean <- function(x)`, `mean <<- function(x)`,
+/// `read.csv <- \(file)`). `x <- 1`, `x <- functional`, and a spaced
+/// `x < - function` stay out. Bare arrows (`(x) =>`, `Ok(v) =>`), calls
+/// (`foo();`), other assignments, and control-flow stay out. Kotlin
+/// `data class` still counts as a class. `created` and `create a note` stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
@@ -31663,6 +31665,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_brace_method_decl(s)
         || is_arrow_fn_decl(s)
         || is_function_expr_assign(s)
+        || is_r_function_assign(s)
         || is_operator_decl(s)
 }
 
@@ -31818,6 +31821,60 @@ fn is_function_expr_assign(s: &str) -> bool {
         rest[name_len..].trim_start()
     };
     rest.starts_with('(')
+}
+
+/// R `mean <- function(x)`, `mean <<- function(x)`, `read.csv <- \(file)`.
+/// The left side is one name (dots allowed). The right side is `function(`
+/// or the R 4.1 `\(` form. `x <- 1`, `x <- functional(y)`, and `x < - function`
+/// stay out.
+fn is_r_function_assign(s: &str) -> bool {
+    let Some((lhs, rhs)) = split_r_assign(s) else {
+        return false;
+    };
+    if !is_r_binding_name(lhs) {
+        return false;
+    }
+    let rhs = rhs.trim_start();
+    if let Some(rest) = rhs.strip_prefix('\\') {
+        return rest.trim_start().starts_with('(');
+    }
+    let Some(rest) = rhs.strip_prefix("function") else {
+        return false;
+    };
+    if !rest.is_empty() && !rest.starts_with('(') && !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    rest.trim_start().starts_with('(')
+}
+
+fn split_r_assign(s: &str) -> Option<(&str, &str)> {
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i + 1 < bytes.len() {
+        if bytes[i] == b'<' && bytes[i + 1] == b'-' {
+            let lhs_end = if i > 0 && bytes[i - 1] == b'<' {
+                i - 1
+            } else {
+                i
+            };
+            return Some((&s[..lhs_end], &s[i + 2..]));
+        }
+        i += 1;
+    }
+    None
+}
+
+fn is_r_binding_name(name: &str) -> bool {
+    let name = name.trim();
+    if name.is_empty() || is_control_word(name) {
+        return false;
+    }
+    let mut chars = name.chars();
+    match chars.next() {
+        Some(c) if c == '_' || c == '.' || c.is_ascii_alphabetic() => {}
+        _ => return false,
+    }
+    chars.all(|c| c == '_' || c == '.' || c.is_ascii_alphanumeric())
 }
 
 fn split_single_assign(s: &str) -> Option<(&str, &str)> {
@@ -32621,6 +32678,20 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("CREATE TABLE"));
         assert!(!line_is_func_like("create tables users"));
         assert!(!line_is_func_like("CREATE OR REPLACE"));
+        assert!(line_is_func_like(
+            "mean <- function(x) mean(x, na.rm = TRUE)"
+        ));
+        assert!(line_is_func_like("read.csv <- function(file) {"));
+        assert!(line_is_func_like("plot<-function(x, y)"));
+        assert!(line_is_func_like("mean <<- function(x) x"));
+        assert!(line_is_func_like("add <- \\(x, y) x + y"));
+        assert!(line_is_func_like(".hidden <- function(x) x"));
+        assert!(!line_is_func_like("x <- 1"));
+        assert!(!line_is_func_like("x <- function"));
+        assert!(!line_is_func_like("x <- functional(y)"));
+        assert!(!line_is_func_like("x < - function(y)"));
+        assert!(!line_is_func_like("<- function(y)"));
+        assert!(!line_is_func_like("if (ok) y <- function(z) z"));
     }
 
     #[test]

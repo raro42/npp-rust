@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.437] — 2026-10-19
+
+View:
+
+- **Function List** lists R assignments `name <- function(...)`, `name <<- function(...)`, and the R 4.1 form `name <- \(...)`. Dotted names such as `read.csv` count. `x <- 1`, `x <- functional`, a bare `<- function`, and a spaced `x < - function` stay out.
+
 ## [0.3.436] — 2026-10-19
 
 View:
