@@ -31534,6 +31534,12 @@ const FUNC_LIKE_KEYS: &[&str] = &[
     "defstruct ",
     "defguard ",
     "defguardp ",
+    "defdelegate ",
+    "defmacrop ",
+    "defn ",
+    "defn-",
+    "defonce ",
+    "ns ",
     "procedure ",
     "subroutine ",
 ];
@@ -31618,8 +31624,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `local function`, Perl `sub`, Nim `proc` / `method` / `iterator`, and
 /// Elixir `defmodule` / `defp` / `defmacro` / `defprotocol` / `defimpl` /
 /// `defstruct` / `defguard` / `defguardp` count. Pascal / Delphi / Ada
-/// `procedure` and Fortran `subroutine` count. Bare arrows (`(x) =>`,
-/// `Ok(v) =>`), calls (`foo();`), other assignments, and control-flow stay out.
+/// `procedure` and Fortran `subroutine` count. Elixir `defdelegate` /
+/// `defmacrop`, Clojure `defn` / `defn-` / `defonce` / `ns`, and Haskell
+/// `data` / `newtype` / `instance` (uppercase name or `(`) count. Bare arrows
+/// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
+/// control-flow stay out. Kotlin `data class` still counts as a class.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
@@ -31629,11 +31638,17 @@ fn line_is_func_like(line: &str) -> bool {
         return is_define_macro(s);
     }
     for _ in 0..8 {
+        if is_haskell_decl(s) {
+            return true;
+        }
         let next = strip_func_like_prefix(s);
         if next.len() == s.len() {
             break;
         }
         s = next;
+    }
+    if is_haskell_decl(s) {
+        return true;
     }
     let lower = s.to_ascii_lowercase();
     FUNC_LIKE_KEYS.iter().any(|k| lower.starts_with(k))
@@ -31998,6 +32013,29 @@ fn is_fn_name(tok: &str) -> bool {
         _ => return false,
     }
     chars.all(|c| c == '_' || c.is_ascii_alphanumeric())
+}
+
+/// Haskell `data Tree`, `newtype Name`, `instance Show Foo`, `instance (Eq a)`.
+/// The next token must start with an uppercase letter or `(`. `data class`
+/// (Kotlin) and prose (`data stays`, `instance of`) stay out so `data` can
+/// still be stripped as a qualifier.
+fn is_haskell_decl(s: &str) -> bool {
+    let lower = s.to_ascii_lowercase();
+    for key in ["newtype", "instance", "data"] {
+        let Some(rest) = lower.strip_prefix(key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let orig = s[key.len()..].trim_start();
+        return match orig.chars().next() {
+            Some('(') => true,
+            Some(c) if c.is_ascii_uppercase() => true,
+            _ => false,
+        };
+    }
+    false
 }
 
 /// Kotlin / Scala `object Name`, `object {`, or `object :`. Not the word `objective`
@@ -32371,6 +32409,20 @@ mod func_like_line_tests {
         assert!(line_is_func_like("    procedure Draw;"));
         assert!(line_is_func_like("subroutine compute(n)"));
         assert!(line_is_func_like("SUBROUTINE INIT()"));
+        assert!(line_is_func_like("defdelegate draw to: Canvas"));
+        assert!(line_is_func_like("defmacrop debug(ast) do"));
+        assert!(line_is_func_like("defn greet [name]"));
+        assert!(line_is_func_like("defn- helper [x]"));
+        assert!(line_is_func_like("defonce state (atom nil)"));
+        assert!(line_is_func_like("ns my.app"));
+        assert!(line_is_func_like("data Tree a = Leaf | Node a (Tree a)"));
+        assert!(line_is_func_like("newtype Name = Name String"));
+        assert!(line_is_func_like("instance Show Foo where"));
+        assert!(line_is_func_like("instance (Eq a) => Ord (Box a) where"));
+        assert!(line_is_func_like("DATA Tree = Leaf"));
+        assert!(line_is_func_like(
+            "public data class User(val name: String)"
+        ));
         assert!(!line_is_func_like("local x = 1"));
         assert!(!line_is_func_like("substitute stay out"));
         assert!(!line_is_func_like("process stay out"));
@@ -32386,6 +32438,16 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("defguardps stay out"));
         assert!(!line_is_func_like("procedures stay out"));
         assert!(!line_is_func_like("subroutines stay out"));
+        assert!(!line_is_func_like("defdelegates stay out"));
+        assert!(!line_is_func_like("defmacrops stay out"));
+        assert!(!line_is_func_like("defns stay out"));
+        assert!(!line_is_func_like("defonces stay out"));
+        assert!(!line_is_func_like("nspace stay out"));
+        assert!(!line_is_func_like("database column"));
+        assert!(!line_is_func_like("data stays out"));
+        assert!(!line_is_func_like("instance of the rule"));
+        assert!(!line_is_func_like("newtypes stay out"));
+        assert!(!line_is_func_like("instances stay out"));
     }
 
     #[test]

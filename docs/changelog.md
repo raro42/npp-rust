@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.435] — 2026-10-19
+
+View:
+
+- **Function List** lists Elixir `defdelegate` / `defmacrop`, Clojure `defn` / `defn-` / `defonce` / `ns`, and Haskell `data` / `newtype` / `instance` when the next token is an uppercase name or `(`. Words such as `defdelegates`, `defns`, `defonces`, `nspace`, `database`, `data stays`, and `instance of` stay out. Kotlin `data class` still lists as a class.
+
 ## [0.3.434] — 2026-10-19
 
 View:

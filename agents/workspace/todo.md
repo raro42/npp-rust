@@ -1,3 +1,4 @@
+009 keep: Function List sees Elixir defdelegate/defmacrop, Clojure defn/defn-/defonce/ns, Haskell data/newtype/instance (v0.3.435)
 009 keep: Function List sees Elixir defprotocol/defimpl/defstruct/defguard, Pascal procedure, Fortran subroutine (v0.3.434)
 009 keep: Function List sees C# partial/readonly/ref/new/delegate, C typedef, Go/Java package (v0.3.431)
 009 keep: Function List sees function-like #define macros (v0.3.428)
