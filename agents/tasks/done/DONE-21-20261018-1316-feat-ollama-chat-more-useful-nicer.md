@@ -29,3 +29,5 @@ Can we make the Ollama ask feature more useful + nicer? Right now it asks whatev
 - User-facing notes already in `docs/changelog.md` under **[0.3.407]**.
 - Task goal met: Ollama Chat panel shows the exact prompt, Thinking… with elapsed seconds, replies, and follow-ups via `/api/chat`; Ask Ollama opens the panel; optional Open reply in tab. Docs: `docs/ollama-helper.md`. Commit `d59c2f4`.
 - Close issue #21 with `agent:done`.
+Handoff: complete
+GitHub: closed
