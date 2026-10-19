@@ -618,3 +618,5 @@
 009 keep: Function List record/namespace/module/union (v0.3.430)
 
 009 keep: Function List event/typealias/mixin/init/operator (v0.3.432)
+
+009 keep: Function List Lua/Perl/Nim/Elixir decls (v0.3.433)
