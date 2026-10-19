@@ -31565,12 +31565,17 @@ const NOT_TYPED_FN: &[&str] = &[
 /// count too. Same-line method and constructor bodies (`name() {`, `get name() {`,
 /// `Foo::bar() {`, `~Widget() {`) count, including `function*` and `export default`
 /// / `declare`. Named arrow bindings count (`const greet = (name) =>`,
-/// `let load = async (id) =>`, `paint = x => x`). Bare arrows (`(x) =>`, `Ok(v) =>`),
-/// calls (`foo();`), other assignments, and control-flow stay out.
+/// `let load = async (id) =>`, `paint = x => x`). Function-like C preprocessor
+/// macros count (`#define MAX(a, b) …`); object-like `#define FOO 1` stays out.
+/// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
+/// control-flow stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
-    if s.is_empty() || s.starts_with("//") || s.starts_with('#') || s.starts_with("/*") {
+    if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
         return false;
+    }
+    if s.starts_with('#') {
+        return is_define_macro(s);
     }
     for _ in 0..8 {
         let next = strip_func_like_prefix(s);
@@ -31585,6 +31590,34 @@ fn line_is_func_like(line: &str) -> bool {
         || is_typed_fn_decl(s)
         || is_brace_method_decl(s)
         || is_arrow_fn_decl(s)
+}
+
+/// `#define MAX(a, b) …` or `# define SQUARE(x) …`. Object-like `#define FOO 1`
+/// and other `#` lines (Python comments, `#include`) stay out.
+fn is_define_macro(s: &str) -> bool {
+    let rest = s.strip_prefix('#').unwrap_or(s).trim_start();
+    let Some(rest) = rest.strip_prefix("define") else {
+        return false;
+    };
+    if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if rest.is_empty() {
+        return false;
+    }
+    let name_len = rest
+        .chars()
+        .take_while(|c| *c == '_' || c.is_ascii_alphanumeric())
+        .count();
+    if name_len == 0 {
+        return false;
+    }
+    let name = &rest[..name_len];
+    if !is_fn_name(name) {
+        return false;
+    }
+    rest[name_len..].trim_start().starts_with('(')
 }
 
 /// `const greet = (name) =>`, `let load = async (id) =>`, `paint = x => x`.
@@ -32082,6 +32115,13 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("items = list.map(x => x);"));
         assert!(!line_is_func_like("const eq = a == b;"));
         assert!(!line_is_func_like("int x = count() {"));
+        assert!(line_is_func_like("#define MAX(a, b) ((a)>(b)?(a):(b))"));
+        assert!(line_is_func_like("# define SQUARE(x) ((x)*(x))"));
+        assert!(line_is_func_like("#define get_item(i) (items[(i)])"));
+        assert!(!line_is_func_like("#define FOO 1"));
+        assert!(!line_is_func_like("#define BAR"));
+        assert!(!line_is_func_like("#include <stdio.h>"));
+        assert!(!line_is_func_like("#ifdef MAX"));
     }
 
     #[test]

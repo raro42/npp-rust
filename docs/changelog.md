@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.428] — 2026-10-19
+
+View:
+
+- **Function List** lists function-like C preprocessor macros (`#define MAX(a, b) …`, `# define SQUARE(x) …`). Object-like `#define FOO 1`, `#include`, and `#ifdef` stay out.
+
 ## [0.3.427] — 2026-10-19
 
 View:

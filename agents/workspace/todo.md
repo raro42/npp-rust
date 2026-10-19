@@ -1,3 +1,4 @@
+009 keep: Function List sees function-like #define macros (v0.3.428)
 009 keep: Function List sees named arrow bindings (const greet = () =>, async params, v0.3.427)
 009 keep: Function List sees same-line methods, constructors, function*, export default (v0.3.426)
 009 keep: Function List sees C/C++/Java/C# return-type declarations (v0.3.425)
