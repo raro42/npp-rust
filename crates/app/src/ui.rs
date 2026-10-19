@@ -31666,7 +31666,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `query` / `mutation` / `subscription` count (`input UserInput {`,
 /// `scalar DateTime`, `extend type User {`, `fragment UserFields on User {`,
 /// `query GetUser {`). `input the name`, `query the logs`, `extend the buffer`,
-/// and `fragment of text` stay out. Bare arrows
+/// and `fragment of text` stay out. Terraform / HCL blocks count
+/// (`resource "aws_instance" "web" {`, `data "aws_ami" "ubuntu" {`,
+/// `variable "region" {`, `output "ip" {`, `provider "aws" {`, `locals {`,
+/// `terraform {`). `resource the team`, `variable names`, `output the log`,
+/// `data class`, and a bare `locals` stay out (`data class` still counts as
+/// a class). Bare arrows
 /// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
 /// control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31700,6 +31705,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_java_annotation_type(s)
             || is_proto_decl(s)
             || is_graphql_decl(s)
+            || is_hcl_block(s)
         {
             return true;
         }
@@ -31729,6 +31735,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_java_annotation_type(s)
         || is_proto_decl(s)
         || is_graphql_decl(s)
+        || is_hcl_block(s)
     {
         return true;
     }
@@ -31830,6 +31837,75 @@ fn graphql_name_stops(name: &str, rest: &str) -> bool {
         return rest.starts_with('{') || rest.starts_with('(');
     }
     true
+}
+
+/// Terraform / HCL `resource "type" "name"`, `data "type" "name"`,
+/// `variable "name"`, `output "name"`, `provider "name"`, `locals {`,
+/// `terraform {`. Labels are quoted identifiers. Prose and a lone keyword
+/// stay out. `data class` is not a block (Kotlin still lists it as a class).
+fn is_hcl_block(s: &str) -> bool {
+    if let Some(rest) = hcl_keyword_rest(s, &["resource", "data"]) {
+        return hcl_labeled(rest, 2);
+    }
+    if let Some(rest) = hcl_keyword_rest(s, &["variable", "output", "provider"]) {
+        return hcl_labeled(rest, 1);
+    }
+    if let Some(rest) = hcl_keyword_rest(s, &["locals", "terraform"]) {
+        return rest.starts_with('{');
+    }
+    false
+}
+
+fn hcl_keyword_rest<'a>(s: &'a str, keys: &[&str]) -> Option<&'a str> {
+    for key in keys {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{') {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn hcl_labeled(s: &str, labels: usize) -> bool {
+    let mut rest = s;
+    for _ in 0..labels {
+        let Some(next) = hcl_quoted(rest) else {
+            return false;
+        };
+        rest = next;
+    }
+    hcl_tail_ok(rest)
+}
+
+fn hcl_quoted(s: &str) -> Option<&str> {
+    let body = s.trim_start().strip_prefix('"')?;
+    let end = body.find('"')?;
+    if end == 0 {
+        return None;
+    }
+    let name = &body[..end];
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+        return None;
+    }
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-'))
+    {
+        return None;
+    }
+    Some(&body[end + 1..])
+}
+
+fn hcl_tail_ok(rest: &str) -> bool {
+    let rest = rest.trim_start();
+    rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with('#')
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
 }
 
 fn graphql_tail_ok(rest: &str) -> bool {
@@ -33782,6 +33858,36 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("mutation of state"));
         assert!(!line_is_func_like("subscription to events"));
         assert!(!line_is_func_like("fragments stay out"));
+    }
+
+    #[test]
+    fn hcl_terraform_blocks_count() {
+        assert!(line_is_func_like("resource \"aws_instance\" \"web\" {"));
+        assert!(line_is_func_like("resource \"aws_instance\" \"web\""));
+        assert!(line_is_func_like("  data \"aws_ami\" \"ubuntu\" {"));
+        assert!(line_is_func_like("variable \"region\" {"));
+        assert!(line_is_func_like("variable \"web-1\""));
+        assert!(line_is_func_like("output \"ip\" {"));
+        assert!(line_is_func_like("output \"ip\" # note"));
+        assert!(line_is_func_like("provider \"aws\" {"));
+        assert!(line_is_func_like("locals {"));
+        assert!(line_is_func_like("terraform {"));
+        assert!(line_is_func_like("locals{"));
+        assert!(line_is_func_like("RESOURCE \"aws_s3_bucket\" \"logs\" {"));
+        assert!(line_is_func_like("data class User"));
+        assert!(line_is_func_like("data class User("));
+        assert!(!line_is_func_like("resource the team"));
+        assert!(!line_is_func_like("resources stay out"));
+        assert!(!line_is_func_like("resource"));
+        assert!(!line_is_func_like("resource \"only-one\""));
+        assert!(!line_is_func_like("variable names"));
+        assert!(!line_is_func_like("variables"));
+        assert!(!line_is_func_like("output the log"));
+        assert!(!line_is_func_like("provider of services"));
+        assert!(!line_is_func_like("locals"));
+        assert!(!line_is_func_like("terraform"));
+        assert!(!line_is_func_like("data \"has space\" \"name\" {"));
+        assert!(!line_is_func_like("database \"x\" \"y\" {"));
     }
 
     #[test]

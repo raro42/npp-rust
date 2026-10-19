@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.447] — 2026-10-20
+
+View:
+
+- **Function List** lists Terraform / HCL blocks (`resource "aws_instance" "web" {`, `data "aws_ami" "ubuntu" {`, `variable "region" {`, `output "ip" {`, `provider "aws" {`, `locals {`, `terraform {`). `resource the team`, `variable names`, `output the log`, and a bare `locals` stay out. `data class` still lists as a class.
+
 ## [0.3.446] — 2026-10-20
 
 View:
