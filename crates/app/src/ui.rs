@@ -31508,6 +31508,9 @@ const FUNC_LIKE_KEYS: &[&str] = &[
     "protocol ",
     "extension ",
     "actor ",
+    "delegate ",
+    "typedef ",
+    "package ",
 ];
 
 const FUNC_LIKE_MODS: &[&str] = &[
@@ -31547,6 +31550,10 @@ const FUNC_LIKE_MODS: &[&str] = &[
     "declare ",
     "get ",
     "set ",
+    "partial ",
+    "readonly ",
+    "ref ",
+    "new ",
 ];
 
 /// Words that are not a C/Java/C# return type or function name.
@@ -31574,8 +31581,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `let load = async function(id) {`, `var gen = function*() {`).
 /// Function-like C preprocessor macros count (`#define MAX(a, b) …`);
 /// object-like `#define FOO 1` stays out. Java / C# `record`, TypeScript / C#
-/// `namespace` / `module`, and Rust / C `union` count. Bare arrows (`(x) =>`,
-/// `Ok(v) =>`), calls (`foo();`), other assignments, and control-flow stay out.
+/// `namespace` / `module`, and Rust / C `union` count. C# `partial` /
+/// `readonly` / `ref` / `new` qualifiers, `delegate`, C `typedef`, and
+/// Go / Java `package` count. Bare arrows (`(x) =>`, `Ok(v) =>`), calls
+/// (`foo();`), other assignments, and control-flow stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
@@ -32195,6 +32204,24 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("modules loaded"));
         assert!(!line_is_func_like("namespaced path"));
         assert!(!line_is_func_like("unions stay out"));
+        assert!(line_is_func_like("partial class Widget {"));
+        assert!(line_is_func_like("public partial struct Point {"));
+        assert!(line_is_func_like("readonly struct Span {"));
+        assert!(line_is_func_like("ref struct Buffer {"));
+        assert!(line_is_func_like("ref readonly struct Cell {"));
+        assert!(line_is_func_like("public new void Draw() {"));
+        assert!(line_is_func_like("delegate int Compare(int a, int b);"));
+        assert!(line_is_func_like("public delegate void Handler();"));
+        assert!(line_is_func_like("typedef struct Node {"));
+        assert!(line_is_func_like("typedef int (*Callback)(int);"));
+        assert!(line_is_func_like("package main"));
+        assert!(line_is_func_like("package com.example;"));
+        assert!(!line_is_func_like("partially done"));
+        assert!(!line_is_func_like("readonly value here"));
+        assert!(!line_is_func_like("delegates stay out"));
+        assert!(!line_is_func_like("typedefs stay out"));
+        assert!(!line_is_func_like("packaged goods"));
+        assert!(!line_is_func_like("new Foo();"));
     }
 
     #[test]

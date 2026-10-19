@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.431] — 2026-10-19
+
+View:
+
+- **Function List** lists C# `partial` / `readonly` / `ref` / `new` qualifiers, `delegate` declarations, C `typedef`, and Go / Java `package` lines. Words such as `partially`, `delegates`, `typedefs`, and `packaged` stay out. Bare `new Foo();` stays out.
+
 ## [0.3.430] — 2026-10-19
 
 View:
