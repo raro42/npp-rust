@@ -31511,6 +31511,17 @@ const FUNC_LIKE_KEYS: &[&str] = &[
     "delegate ",
     "typedef ",
     "package ",
+    "event ",
+    "typealias ",
+    "mixin ",
+    "init ",
+    "init(",
+    "init?(",
+    "init!(",
+    "deinit ",
+    "deinit{",
+    "subscript ",
+    "subscript(",
 ];
 
 const FUNC_LIKE_MODS: &[&str] = &[
@@ -31554,6 +31565,9 @@ const FUNC_LIKE_MODS: &[&str] = &[
     "readonly ",
     "ref ",
     "new ",
+    "convenience ",
+    "required ",
+    "fileprivate ",
 ];
 
 /// Words that are not a C/Java/C# return type or function name.
@@ -31583,8 +31597,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// object-like `#define FOO 1` stays out. Java / C# `record`, TypeScript / C#
 /// `namespace` / `module`, and Rust / C `union` count. C# `partial` /
 /// `readonly` / `ref` / `new` qualifiers, `delegate`, C `typedef`, and
-/// Go / Java `package` count. Bare arrows (`(x) =>`, `Ok(v) =>`), calls
-/// (`foo();`), other assignments, and control-flow stay out.
+/// Go / Java `package` count. C# `event`, Kotlin `typealias`, Dart / Kotlin
+/// `mixin`, Swift `init` / `deinit` / `subscript` (plus `convenience` /
+/// `required` / `fileprivate`), and C++ `operator` overloads count. Bare
+/// arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
+/// control-flow stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
@@ -31607,6 +31624,74 @@ fn line_is_func_like(line: &str) -> bool {
         || is_brace_method_decl(s)
         || is_arrow_fn_decl(s)
         || is_function_expr_assign(s)
+        || is_operator_decl(s)
+}
+
+/// C++ `operator+(` / `bool operator==(` / `operator new(` / `Foo::operator()(`.
+/// The word `operators` and prose without `(` stay out.
+fn is_operator_decl(s: &str) -> bool {
+    let Some(paren) = s.find('(') else {
+        return false;
+    };
+    let head = s[..paren].trim();
+    if head.is_empty() || head.bytes().any(|b| b == b';') {
+        return false;
+    }
+    let bytes = head.as_bytes();
+    let mut i = 0usize;
+    while i + 8 <= head.len() {
+        if &head[i..i + 8] != "operator" {
+            i += 1;
+            continue;
+        }
+        let before_ok = i == 0 || !bytes[i - 1].is_ascii_alphanumeric();
+        let after = i + 8;
+        let after_ok =
+            after >= head.len() || (!bytes[after].is_ascii_alphanumeric() && bytes[after] != b'_');
+        if !(before_ok && after_ok) {
+            i += 1;
+            continue;
+        }
+        let before = head[..i].trim();
+        if !before.is_empty() {
+            if before.contains('=') {
+                return false;
+            }
+            let mut parts = before.split_whitespace();
+            let Some(first) = parts.next() else {
+                return false;
+            };
+            if !is_type_token(first) && !is_qualified_fn_name(first.trim_end_matches(['*', '&'])) {
+                return false;
+            }
+            for tok in parts {
+                if !is_type_token(tok) && !is_qualified_fn_name(tok.trim_end_matches(['*', '&'])) {
+                    return false;
+                }
+            }
+        }
+        let rest = head[after..].trim_start();
+        return operator_suffix_ok(rest);
+    }
+    false
+}
+
+fn operator_suffix_ok(rest: &str) -> bool {
+    if rest.is_empty() {
+        return true;
+    }
+    if let Some(after) = rest.strip_prefix("new") {
+        return after.is_empty()
+            || after.starts_with(char::is_whitespace)
+            || after.starts_with('[');
+    }
+    if let Some(after) = rest.strip_prefix("delete") {
+        return after.is_empty()
+            || after.starts_with(char::is_whitespace)
+            || after.starts_with('[');
+    }
+    rest.chars()
+        .all(|c| !c.is_ascii_alphanumeric() && c != '_' && !c.is_whitespace())
 }
 
 /// `#define MAX(a, b) …` or `# define SQUARE(x) …`. Object-like `#define FOO 1`
@@ -32222,6 +32307,29 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("typedefs stay out"));
         assert!(!line_is_func_like("packaged goods"));
         assert!(!line_is_func_like("new Foo();"));
+        assert!(line_is_func_like("event EventHandler Click;"));
+        assert!(line_is_func_like("public event Action Changed;"));
+        assert!(line_is_func_like("typealias Predicate = (Int) -> Bool"));
+        assert!(line_is_func_like("mixin Logger {"));
+        assert!(line_is_func_like("abstract mixin class Tracked {"));
+        assert!(line_is_func_like("init() {"));
+        assert!(line_is_func_like("convenience init(name: String) {"));
+        assert!(line_is_func_like("required init?(coder: NSCoder) {"));
+        assert!(line_is_func_like("deinit {"));
+        assert!(line_is_func_like("subscript(index: Int) -> Int {"));
+        assert!(line_is_func_like("operator+(const Foo& other) const;"));
+        assert!(line_is_func_like(
+            "bool operator==(const Foo& other) const;"
+        ));
+        assert!(line_is_func_like("Foo::operator()(int x) {"));
+        assert!(line_is_func_like("void* operator new(size_t n);"));
+        assert!(line_is_func_like("void operator delete[](void* p);"));
+        assert!(!line_is_func_like("events stay out"));
+        assert!(!line_is_func_like("typealiases stay out"));
+        assert!(!line_is_func_like("mixing paint"));
+        assert!(!line_is_func_like("initial value"));
+        assert!(!line_is_func_like("operators stay out"));
+        assert!(!line_is_func_like("operator without paren"));
     }
 
     #[test]

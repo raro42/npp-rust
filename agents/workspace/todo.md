@@ -616,3 +616,5 @@
 009 keep: Function List classic function-expression assignments (v0.3.429)
 
 009 keep: Function List record/namespace/module/union (v0.3.430)
+
+009 keep: Function List event/typealias/mixin/init/operator (v0.3.432)

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.432] — 2026-10-19
+
+View:
+
+- **Function List** lists C# `event`, Kotlin `typealias`, Dart / Kotlin `mixin`, Swift `init` / `init?` / `init!` / `deinit` / `subscript` (with `convenience` / `required` / `fileprivate`), and C++ `operator` overloads (`operator+`, `bool operator==`, `operator new` / `delete[]`, `Foo::operator()`). Words such as `events`, `typealiases`, `mixing`, `initial`, and `operators` stay out.
+
 ## [0.3.431] — 2026-10-19
 
 View:
