@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.433] — 2026-10-19
+
+View:
+
+- **Function List** lists Lua `local function`, Perl `sub`, Nim `proc` / `method` / `iterator`, and Elixir `defmodule` / `defp` / `defmacro`. Words such as `substitute`, `process`, `methods`, `iterators`, `defmodules`, `defps`, and `defmacros` stay out. Bare `local x = 1` stays out.
+
 ## [0.3.432] — 2026-10-19
 
 View:

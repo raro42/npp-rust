@@ -31522,6 +31522,13 @@ const FUNC_LIKE_KEYS: &[&str] = &[
     "deinit{",
     "subscript ",
     "subscript(",
+    "sub ",
+    "proc ",
+    "method ",
+    "iterator ",
+    "defmodule ",
+    "defp ",
+    "defmacro ",
 ];
 
 const FUNC_LIKE_MODS: &[&str] = &[
@@ -31568,6 +31575,7 @@ const FUNC_LIKE_MODS: &[&str] = &[
     "convenience ",
     "required ",
     "fileprivate ",
+    "local ",
 ];
 
 /// Words that are not a C/Java/C# return type or function name.
@@ -31599,9 +31607,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `readonly` / `ref` / `new` qualifiers, `delegate`, C `typedef`, and
 /// Go / Java `package` count. C# `event`, Kotlin `typealias`, Dart / Kotlin
 /// `mixin`, Swift `init` / `deinit` / `subscript` (plus `convenience` /
-/// `required` / `fileprivate`), and C++ `operator` overloads count. Bare
-/// arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
-/// control-flow stay out.
+/// `required` / `fileprivate`), and C++ `operator` overloads count. Lua
+/// `local function`, Perl `sub`, Nim `proc` / `method` / `iterator`, and
+/// Elixir `defmodule` / `defp` / `defmacro` count. Bare arrows (`(x) =>`,
+/// `Ok(v) =>`), calls (`foo();`), other assignments, and control-flow stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
@@ -32330,6 +32339,26 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("initial value"));
         assert!(!line_is_func_like("operators stay out"));
         assert!(!line_is_func_like("operator without paren"));
+        assert!(line_is_func_like("local function greet(name)"));
+        assert!(line_is_func_like("    local function helper()"));
+        assert!(line_is_func_like("sub greet {"));
+        assert!(line_is_func_like("sub greet($$) {"));
+        assert!(line_is_func_like("proc greet(name: string) ="));
+        assert!(line_is_func_like("method draw(self: Widget) ="));
+        assert!(line_is_func_like("iterator items(n: int): int ="));
+        assert!(line_is_func_like("defmodule MyApp do"));
+        assert!(line_is_func_like("defp helper(x), do: x"));
+        assert!(line_is_func_like(
+            "defmacro unless(clause, do: expression) do"
+        ));
+        assert!(!line_is_func_like("local x = 1"));
+        assert!(!line_is_func_like("substitute stay out"));
+        assert!(!line_is_func_like("process stay out"));
+        assert!(!line_is_func_like("methods stay out"));
+        assert!(!line_is_func_like("iterators stay out"));
+        assert!(!line_is_func_like("defmodules stay out"));
+        assert!(!line_is_func_like("defps stay out"));
+        assert!(!line_is_func_like("defmacros stay out"));
     }
 
     #[test]
