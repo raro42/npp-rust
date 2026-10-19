@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.441] — 2026-10-19
+
+View:
+
+- **Function List** lists F# members (`member this.Greet(name)`, `static member Create()`, `abstract member Draw : unit -> unit`, `override this.ToString()`, `default this.Add(x)`). `member of`, `members`, and `override ToString()` stay out. Kotlin `override fun` still lists as a function.
+
 ## [0.3.440] — 2026-10-19
 
 View:

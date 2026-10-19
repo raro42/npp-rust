@@ -1,3 +1,4 @@
+009 keep: Function List sees F# member / override / default (v0.3.441)
 009 keep: Function List sees Scala case class / case object (v0.3.440)
 009 keep: Function List sees parenthesized Lisp/Scheme/Clojure defun/defn/define (v0.3.439)
 009 keep: Function List sees R name <- function / <<- / name <- \(...) (v0.3.437)

@@ -31641,7 +31641,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// and `case object` count (`case class User(name: String)`,
 /// `sealed abstract case class Expr`, `case object Empty`). Python
 /// `case Point(x):`, `case 1:`, bare `case class`, and `case classes`
-/// stay out. Bare arrows
+/// stay out. F# members count (`member this.Greet(name)`,
+/// `static member Create()`, `abstract member Draw : unit -> unit`,
+/// `override this.ToString()`). `member of`, `members`, and
+/// `override ToString()` stay out. Kotlin `override fun` still counts as
+/// `fun`. Bare arrows
 /// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
 /// control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31663,7 +31667,7 @@ fn line_is_func_like(line: &str) -> bool {
         return is_define_macro(s);
     }
     for _ in 0..8 {
-        if is_haskell_decl(s) || is_scala_case_decl(s) {
+        if is_haskell_decl(s) || is_scala_case_decl(s) || is_fsharp_member(s) {
             return true;
         }
         let next = strip_func_like_prefix(s);
@@ -31672,7 +31676,7 @@ fn line_is_func_like(line: &str) -> bool {
         }
         s = next;
     }
-    if is_haskell_decl(s) || is_scala_case_decl(s) {
+    if is_haskell_decl(s) || is_scala_case_decl(s) || is_fsharp_member(s) {
         return true;
     }
     let lower = s.to_ascii_lowercase();
@@ -32545,6 +32549,92 @@ fn scala_object_name(s: &str) -> bool {
     }
 }
 
+/// F# `member this.Greet(name)`, `static member Create()`,
+/// `abstract member Draw : unit -> unit`, `override this.ToString()`,
+/// `default this.Add(x)`. `member of`, `members`, `membership`, and a C#
+/// `override ToString()` stay out. Kotlin `override fun` still counts as `fun`.
+fn is_fsharp_member(s: &str) -> bool {
+    let mut rest = s.trim_start();
+    let mut saw_member = false;
+    let mut saw_override = false;
+    for _ in 0..6 {
+        if let Some(after) = fsharp_kw(rest, "member") {
+            saw_member = true;
+            rest = after.trim_start();
+            continue;
+        }
+        let mut peeled = false;
+        for word in [
+            "static", "abstract", "inline", "private", "internal", "public",
+        ] {
+            if let Some(after) = fsharp_kw(rest, word) {
+                rest = after.trim_start();
+                peeled = true;
+                break;
+            }
+        }
+        if peeled {
+            continue;
+        }
+        for word in ["override", "default"] {
+            if let Some(after) = fsharp_kw(rest, word) {
+                saw_override = true;
+                rest = after.trim_start();
+                peeled = true;
+                break;
+            }
+        }
+        if !peeled {
+            break;
+        }
+    }
+    if !saw_member && !saw_override {
+        return false;
+    }
+    fsharp_member_tail(rest, saw_member)
+}
+
+fn fsharp_kw<'a>(s: &'a str, word: &str) -> Option<&'a str> {
+    let after = sql_word(s, word)?;
+    if after.is_empty() || after.starts_with(char::is_whitespace) {
+        Some(after)
+    } else {
+        None
+    }
+}
+
+fn fsharp_member_tail(s: &str, allow_colon: bool) -> bool {
+    let n = fsharp_ident_len(s);
+    if n == 0 || is_control_word(&s[..n]) {
+        return false;
+    }
+    let after = s[n..].trim_start();
+    if let Some(after_dot) = after.strip_prefix('.') {
+        let after_dot = after_dot.trim_start();
+        let m = fsharp_ident_len(after_dot);
+        return m > 0 && !is_control_word(&after_dot[..m]);
+    }
+    if allow_colon && after.starts_with(':') {
+        let first = s.as_bytes()[0];
+        return first.is_ascii_uppercase() || first == b'_';
+    }
+    false
+}
+
+fn fsharp_ident_len(s: &str) -> usize {
+    let bytes = s.as_bytes();
+    let Some(&first) = bytes.first() else {
+        return 0;
+    };
+    if !(first.is_ascii_alphabetic() || first == b'_') {
+        return 0;
+    }
+    bytes
+        .iter()
+        .take_while(|b| b.is_ascii_alphanumeric() || **b == b'_')
+        .count()
+}
+
 /// Kotlin / Scala `object Name`, `object {`, or `object :`. Not the word `objective`
 /// and not prose such as `object oriented`.
 fn is_object_decl(s: &str) -> bool {
@@ -33053,6 +33143,22 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("caseclass Foo"));
         assert!(!line_is_func_like("case object oriented"));
         assert!(!line_is_func_like("case objects stay out"));
+        assert!(line_is_func_like("member this.Greet(name)"));
+        assert!(line_is_func_like("member this.Name = name"));
+        assert!(line_is_func_like("static member Create() ="));
+        assert!(line_is_func_like("abstract member Draw : unit -> unit"));
+        assert!(line_is_func_like("override this.ToString() ="));
+        assert!(line_is_func_like("member inline x.Add a b ="));
+        assert!(line_is_func_like("member private x.Hidden() = ()"));
+        assert!(line_is_func_like("    member _.Item with get()"));
+        assert!(line_is_func_like("default this.Add(x) = x"));
+        assert!(!line_is_func_like("member of the group"));
+        assert!(!line_is_func_like("members.Count"));
+        assert!(!line_is_func_like("membership.Name"));
+        assert!(!line_is_func_like("member"));
+        assert!(line_is_func_like("override fun foo()"));
+        assert!(!line_is_func_like("override ToString()"));
+        assert!(!line_is_func_like("static this.Foo"));
     }
 
     #[test]
