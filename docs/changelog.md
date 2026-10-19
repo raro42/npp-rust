@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.424] — 2026-10-19
+
+View:
+
+- **Function List** lists Swift `protocol`, `extension`, and `actor` declarations, Kotlin `suspend fun` / `data class` / `sealed` / `companion object`, and Java `final` / `abstract` class lines. A bare `object` counts only when the next token is `{`, `:`, or an uppercase name, so `object oriented` stays out.
+
 ## [0.3.423] — 2026-10-19
 
 View:

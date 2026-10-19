@@ -31500,6 +31500,9 @@ const FUNC_LIKE_KEYS: &[&str] = &[
     "macro_rules!",
     "func ",
     "fun ",
+    "protocol ",
+    "extension ",
+    "actor ",
 ];
 
 const FUNC_LIKE_MODS: &[&str] = &[
@@ -31516,14 +31519,23 @@ const FUNC_LIKE_MODS: &[&str] = &[
     "internal ",
     "override ",
     "open ",
+    "final ",
+    "abstract ",
+    "sealed ",
+    "data ",
+    "companion ",
+    "suspend ",
+    "lateinit ",
 ];
 
 /// True when `line` looks like a function, class, or similar declaration.
 ///
 /// Skips comments. Strips a short run of visibility and qualifiers first, including
 /// Rust `pub`, `pub(crate)`, `pub(super)`, and `pub(in …)`, plus `unsafe` / `const`
-/// and `extern "ABI"`. Also matches `macro_rules!` and `macro` items, and Go / Swift
-/// `func` plus Kotlin `fun` (including `internal` / `override` / `open`).
+/// and `extern "ABI"`. Also matches `macro_rules!` and `macro` items, Go / Swift
+/// `func`, Kotlin `fun`, Swift `protocol` / `extension` / `actor`, and a Kotlin or
+/// Scala `object` whose next token is `{`, `:`, or an uppercase name. Qualifiers
+/// include `final`, `abstract`, `sealed`, `data`, `companion`, and `suspend`.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with('#') || s.starts_with("/*") {
@@ -31537,7 +31549,24 @@ fn line_is_func_like(line: &str) -> bool {
         s = next;
     }
     let lower = s.to_ascii_lowercase();
-    FUNC_LIKE_KEYS.iter().any(|k| lower.starts_with(k))
+    FUNC_LIKE_KEYS.iter().any(|k| lower.starts_with(k)) || is_object_decl(s)
+}
+
+/// Kotlin / Scala `object Name`, `object {`, or `object :`. Not the word `objective`
+/// and not prose such as `object oriented`.
+fn is_object_decl(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("object") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    match rest.chars().next() {
+        Some('{') | Some(':') => true,
+        Some(c) if c.is_uppercase() => true,
+        _ => false,
+    }
 }
 
 /// Drop one leading qualifier. Returns `s` when nothing matches.
@@ -31731,6 +31760,22 @@ mod func_like_line_tests {
         assert!(line_is_func_like("internal open fun load() {"));
         assert!(!line_is_func_like("functionally not a decl"));
         assert!(line_is_func_like("function greet() {"));
+        assert!(line_is_func_like("protocol Drawable {"));
+        assert!(line_is_func_like("public protocol View {"));
+        assert!(line_is_func_like("extension String {"));
+        assert!(line_is_func_like("actor Counter {"));
+        assert!(line_is_func_like("suspend fun load() {"));
+        assert!(line_is_func_like("data class User("));
+        assert!(line_is_func_like("sealed interface Gate"));
+        assert!(line_is_func_like("public final class Widget {"));
+        assert!(line_is_func_like("abstract class Base {"));
+        assert!(line_is_func_like("companion object Factory {"));
+        assert!(line_is_func_like("object Main {"));
+        assert!(line_is_func_like("object : Base"));
+        assert!(!line_is_func_like("object oriented notes"));
+        assert!(!line_is_func_like("objective leftover"));
+        assert!(!line_is_func_like("final answer here"));
+        assert!(!line_is_func_like("data stored locally"));
     }
 
     #[test]
