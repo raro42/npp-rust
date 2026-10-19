@@ -31675,7 +31675,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// (`- (void)viewDidLoad`, `+ (instancetype)shared`, `- (NSString *)title`,
 /// `- (void)initWithFrame:(NSRect)frame`). The return type is a known C or
 /// Objective-C type or an uppercase name. Markdown `- (optional) note`,
-/// `- (void) more words`, and a bare `- (void)` stay out. Bare arrows
+/// `- (void) more words`, and a bare `- (void)` stay out. Solidity
+/// `contract` / `library` / `modifier` / `error` / `constructor` count
+/// (`contract Token is IERC20 {`, `library Math {`, `modifier onlyOwner()`,
+/// `error InsufficientBalance(uint256)`, `constructor(uint256 x)`).
+/// `contract the team`, `library of tools`, `modifier of state`,
+/// `error rate`, and a bare `constructor` stay out. Bare arrows
 /// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
 /// control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31711,6 +31716,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_graphql_decl(s)
             || is_hcl_block(s)
             || is_objc_method(s)
+            || is_solidity_decl(s)
         {
             return true;
         }
@@ -31742,6 +31748,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_graphql_decl(s)
         || is_hcl_block(s)
         || is_objc_method(s)
+        || is_solidity_decl(s)
     {
         return true;
     }
@@ -32042,6 +32049,83 @@ fn objc_method_tail(tail: &str) -> bool {
         || tail.starts_with(';')
         || tail.starts_with("//")
         || tail.starts_with("/*")
+}
+
+/// Solidity `contract Token is IERC20 {`, `library Math {`,
+/// `modifier onlyOwner()`, `error InsufficientBalance(uint256)`,
+/// `constructor(uint256 x)`. Prose and a bare `constructor` stay out.
+fn is_solidity_decl(s: &str) -> bool {
+    if let Some(rest) = sql_word(s, "constructor") {
+        if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
+            return false;
+        }
+        let rest = rest.trim_start();
+        return rest.starts_with('(') || rest.starts_with('{');
+    }
+    if let Some(rest) = solidity_keyword_rest(s, &["contract", "library"]) {
+        return solidity_type_name(rest);
+    }
+    if let Some(rest) = solidity_keyword_rest(s, &["modifier", "error"]) {
+        return solidity_callable_name(rest);
+    }
+    false
+}
+
+fn solidity_keyword_rest<'a>(s: &'a str, keys: &[&str]) -> Option<&'a str> {
+    for key in keys {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn solidity_type_name(s: &str) -> bool {
+    let Some((name, after)) = graphql_ident(s) else {
+        return false;
+    };
+    let rest = after.trim_start();
+    let stopped = rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with('(')
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
+        || solidity_is_clause(rest);
+    if !stopped {
+        return false;
+    }
+    if name.as_bytes()[0].is_ascii_lowercase() {
+        return rest.starts_with('{') || rest.starts_with('(') || solidity_is_clause(rest);
+    }
+    true
+}
+
+fn solidity_callable_name(s: &str) -> bool {
+    let Some((name, after)) = graphql_ident(s) else {
+        return false;
+    };
+    let rest = after.trim_start();
+    let stopped = rest.starts_with('(')
+        || rest.starts_with('{')
+        || rest.starts_with("//")
+        || rest.starts_with("/*");
+    if !stopped {
+        return false;
+    }
+    if name.as_bytes()[0].is_ascii_lowercase() {
+        return rest.starts_with('(') || rest.starts_with('{');
+    }
+    true
+}
+
+fn solidity_is_clause(rest: &str) -> bool {
+    let Some(after) = sql_word(rest, "is") else {
+        return false;
+    };
+    after.is_empty() || after.starts_with(char::is_whitespace) || after.starts_with('{')
 }
 
 fn graphql_tail_ok(rest: &str) -> bool {
@@ -34048,6 +34132,43 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("-- (void)foo"));
         assert!(!line_is_func_like("- (int) this is prose"));
         assert!(!line_is_func_like("- ()missing"));
+    }
+
+    #[test]
+    fn solidity_contract_library_modifier_error_constructor_count() {
+        assert!(line_is_func_like("contract Token {"));
+        assert!(line_is_func_like("contract Token"));
+        assert!(line_is_func_like("contract Token is IERC20 {"));
+        assert!(line_is_func_like("contract Token is IERC20, Ownable"));
+        assert!(line_is_func_like("abstract contract Vault {"));
+        assert!(line_is_func_like("  library Math {"));
+        assert!(line_is_func_like("library Math // note"));
+        assert!(line_is_func_like("modifier onlyOwner() {"));
+        assert!(line_is_func_like("modifier onlyOwner {"));
+        assert!(line_is_func_like("modifier onlyOwner()"));
+        assert!(line_is_func_like(
+            "error InsufficientBalance(uint256 available);"
+        ));
+        assert!(line_is_func_like("error InsufficientBalance("));
+        assert!(line_is_func_like("constructor() {"));
+        assert!(line_is_func_like("constructor(uint256 x) public {"));
+        assert!(line_is_func_like("constructor("));
+        assert!(line_is_func_like("CONTRACT Token {"));
+        assert!(line_is_func_like("contract token {"));
+        assert!(line_is_func_like("modifier OnlyOwner()"));
+        assert!(!line_is_func_like("modifier OnlyOwner"));
+        assert!(!line_is_func_like("contract the team"));
+        assert!(!line_is_func_like("contracts stay out"));
+        assert!(!line_is_func_like("contract"));
+        assert!(!line_is_func_like("library of tools"));
+        assert!(!line_is_func_like("library"));
+        assert!(!line_is_func_like("modifier of state"));
+        assert!(!line_is_func_like("modifier"));
+        assert!(!line_is_func_like("error rate"));
+        assert!(!line_is_func_like("error"));
+        assert!(!line_is_func_like("constructor"));
+        assert!(!line_is_func_like("constructor of a bridge"));
+        assert!(!line_is_func_like("constructors stay out"));
     }
 
     #[test]

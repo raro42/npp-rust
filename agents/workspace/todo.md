@@ -636,3 +636,5 @@
 009 keep: Function List Lua/Perl/Nim/Elixir decls (v0.3.433)
 
 009 keep: Function List F#/OCaml let/let rec bindings (v0.3.438)
+
+009 keep: Function List Solidity contract/library/modifier/error/constructor (v0.3.449)

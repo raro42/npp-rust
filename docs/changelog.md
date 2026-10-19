@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.449] — 2026-10-20
+
+View:
+
+- **Function List** lists Solidity `contract`, `library`, `modifier`, `error`, and `constructor` (`contract Token is IERC20 {`, `library Math {`, `modifier onlyOwner()`, `error InsufficientBalance(uint256)`, `constructor(uint256 x)`). `contract the team`, `library of tools`, `modifier of state`, `error rate`, and a bare `constructor` stay out.
+
 ## [0.3.448] — 2026-10-20
 
 View:
