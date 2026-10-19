@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.436] — 2026-10-19
+
+View:
+
+- **Function List** lists SQL `CREATE TABLE` / `VIEW` / `FUNCTION` / `PROCEDURE` / `TRIGGER` / `INDEX` / `SCHEMA` / `TYPE`, including `OR REPLACE`, `TEMP` / `TEMPORARY`, `MATERIALIZED`, `UNIQUE`, and `IF NOT EXISTS`. The name may be dotted or quoted. `created`, `create a note`, a bare `CREATE TABLE`, and plural `create tables` stay out.
+
 ## [0.3.435] — 2026-10-19
 
 View:

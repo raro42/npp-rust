@@ -31626,13 +31626,19 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `defstruct` / `defguard` / `defguardp` count. Pascal / Delphi / Ada
 /// `procedure` and Fortran `subroutine` count. Elixir `defdelegate` /
 /// `defmacrop`, Clojure `defn` / `defn-` / `defonce` / `ns`, and Haskell
-/// `data` / `newtype` / `instance` (uppercase name or `(`) count. Bare arrows
-/// (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
+/// `data` / `newtype` / `instance` (uppercase name or `(`) count. SQL
+/// `CREATE TABLE` / `VIEW` / `FUNCTION` / `PROCEDURE` / `TRIGGER` / `INDEX` /
+/// `SCHEMA` / `TYPE` count (optional `OR REPLACE`, temp, `IF NOT EXISTS`).
+/// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
 /// control-flow stay out. Kotlin `data class` still counts as a class.
+/// `created` and `create a note` stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
     if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
         return false;
+    }
+    if is_sql_create(s) {
+        return true;
     }
     if s.starts_with('#') {
         return is_define_macro(s);
@@ -32013,6 +32019,152 @@ fn is_fn_name(tok: &str) -> bool {
         _ => return false,
     }
     chars.all(|c| c == '_' || c.is_ascii_alphanumeric())
+}
+
+/// SQL `CREATE TABLE users`, `create or replace function public.foo(`,
+/// `CREATE TEMPORARY VIEW v AS`, `CREATE UNIQUE INDEX IF NOT EXISTS idx`.
+/// The object name may be dotted or quoted. `created`, `create a note`,
+/// `CREATE` with no name, and `create tables` (plural) stay out.
+fn is_sql_create(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "create") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    for _ in 0..6 {
+        if let Some(after_or) = sql_word(rest, "or") {
+            if after_or.starts_with(char::is_whitespace) {
+                let after_or = after_or.trim_start();
+                let Some(after_replace) = sql_word(after_or, "replace") else {
+                    break;
+                };
+                if !after_replace.starts_with(char::is_whitespace) {
+                    return false;
+                }
+                rest = after_replace.trim_start();
+                continue;
+            }
+        }
+        let mut advanced = false;
+        for qual in [
+            "unique",
+            "temp",
+            "temporary",
+            "materialized",
+            "global",
+            "local",
+            "unlogged",
+        ] {
+            if let Some(after) = sql_word(rest, qual) {
+                if after.starts_with(char::is_whitespace) {
+                    rest = after.trim_start();
+                    advanced = true;
+                    break;
+                }
+            }
+        }
+        if !advanced {
+            break;
+        }
+    }
+    const KINDS: &[&str] = &[
+        "table",
+        "view",
+        "function",
+        "procedure",
+        "trigger",
+        "index",
+        "schema",
+        "type",
+    ];
+    let mut after_kind = None;
+    for kind in KINDS {
+        if let Some(after) = sql_word(rest, kind) {
+            if after.is_empty() || after.starts_with(char::is_whitespace) || after.starts_with('(')
+            {
+                after_kind = Some(after);
+                break;
+            }
+        }
+    }
+    let Some(after) = after_kind else {
+        return false;
+    };
+    sql_object_name(strip_if_not_exists(after.trim_start()))
+}
+
+fn sql_word<'a>(s: &'a str, word: &str) -> Option<&'a str> {
+    let bytes = s.as_bytes();
+    if bytes.len() < word.len() {
+        return None;
+    }
+    if !s[..word.len()].eq_ignore_ascii_case(word) {
+        return None;
+    }
+    Some(&s[word.len()..])
+}
+
+fn strip_if_not_exists(s: &str) -> &str {
+    let Some(after_if) = sql_word(s, "if") else {
+        return s;
+    };
+    if !after_if.starts_with(char::is_whitespace) {
+        return s;
+    }
+    let after_if = after_if.trim_start();
+    let Some(after_not) = sql_word(after_if, "not") else {
+        return s;
+    };
+    if !after_not.starts_with(char::is_whitespace) {
+        return s;
+    }
+    let after_not = after_not.trim_start();
+    let Some(after_exists) = sql_word(after_not, "exists") else {
+        return s;
+    };
+    if after_exists.is_empty() || after_exists.starts_with(char::is_whitespace) {
+        after_exists.trim_start()
+    } else {
+        s
+    }
+}
+
+fn sql_object_name(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() {
+        return false;
+    }
+    let bytes = s.as_bytes();
+    if matches!(bytes[0], b'"' | b'`' | b'[') {
+        let close = if bytes[0] == b'[' { b']' } else { bytes[0] };
+        let inner = &bytes[1..];
+        return inner
+            .iter()
+            .position(|b| *b == close)
+            .is_some_and(|end| end > 0);
+    }
+    let mut rest = s;
+    loop {
+        let n = rest
+            .bytes()
+            .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+            .count();
+        if n == 0 {
+            return false;
+        }
+        let first = rest.as_bytes()[0];
+        if !(first == b'_' || first.is_ascii_alphabetic()) {
+            return false;
+        }
+        rest = &rest[n..];
+        if let Some(next) = rest.strip_prefix('.') {
+            rest = next;
+            continue;
+        }
+        return true;
+    }
 }
 
 /// Haskell `data Tree`, `newtype Name`, `instance Show Foo`, `instance (Eq a)`.
@@ -32448,6 +32600,27 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("instance of the rule"));
         assert!(!line_is_func_like("newtypes stay out"));
         assert!(!line_is_func_like("instances stay out"));
+        assert!(line_is_func_like("CREATE TABLE users ("));
+        assert!(line_is_func_like(
+            "create or replace function public.foo(id int)"
+        ));
+        assert!(line_is_func_like("CREATE TEMPORARY VIEW v AS"));
+        assert!(line_is_func_like(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_name ON users(id)"
+        ));
+        assert!(line_is_func_like("CREATE TRIGGER trg BEFORE INSERT"));
+        assert!(line_is_func_like("create procedure app.sync();"));
+        assert!(line_is_func_like("CREATE SCHEMA reporting"));
+        assert!(line_is_func_like("CREATE TYPE mood AS ENUM"));
+        assert!(line_is_func_like("CREATE MATERIALIZED VIEW daily AS"));
+        assert!(line_is_func_like(
+            "CREATE TABLE IF NOT EXISTS \"My Table\" ("
+        ));
+        assert!(!line_is_func_like("created table users"));
+        assert!(!line_is_func_like("create a note"));
+        assert!(!line_is_func_like("CREATE TABLE"));
+        assert!(!line_is_func_like("create tables users"));
+        assert!(!line_is_func_like("CREATE OR REPLACE"));
     }
 
     #[test]
