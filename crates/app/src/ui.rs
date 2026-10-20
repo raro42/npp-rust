@@ -31725,6 +31725,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `@mixin flex-center($dir)`, `@function rem($px)`, `@keyframes fade-in`).
 /// `@mixin the team`, `@include`, `@media`, and a bare `@mixin` / `@function`
 /// stay out.
+/// CSS `@property` / `@layer` / `@counter-style` count (`@property --accent`,
+/// `@layer utilities`, `@layer theme, layout`, `@layer framework.layout`,
+/// `@counter-style thumbs`). `@property color`, `@layer {`, `@layer;`,
+/// `@counter-style the list`, and bare keywords stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31772,6 +31776,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_ruby_attr_decl(s)
             || is_erlang_decl(s)
             || is_sass_decl(s)
+            || is_css_at_decl(s)
         {
             return true;
         }
@@ -31815,6 +31820,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_ruby_attr_decl(s)
         || is_erlang_decl(s)
         || is_sass_decl(s)
+        || is_css_at_decl(s)
     {
         return true;
     }
@@ -32697,7 +32703,105 @@ fn sass_at_keyword(s: &str) -> bool {
             return true;
         }
     }
+    css_at_keyword(s)
+}
+
+/// CSS `@property --accent`, `@layer utilities`, `@layer theme, layout`,
+/// `@layer framework.layout`, `@counter-style thumbs`. Custom properties
+/// need `--`. Layer lists and dotted names ok. Prose and bare keywords stay out.
+fn is_css_at_decl(s: &str) -> bool {
+    is_css_property_at(s) || is_css_layer_at(s) || is_css_counter_style_at(s)
+}
+
+fn css_at_keyword(s: &str) -> bool {
+    for key in ["@property", "@layer", "@counter-style"] {
+        if sass_at_key_rest(s, key).is_some() {
+            return true;
+        }
+    }
     false
+}
+
+fn is_css_property_at(s: &str) -> bool {
+    let Some(rest) = sass_at_key_rest(s, "@property") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_, after)) = css_custom_prop(rest) else {
+        return false;
+    };
+    css_at_tail_ok(after.trim_start())
+}
+
+fn is_css_layer_at(s: &str) -> bool {
+    let Some(rest) = sass_at_key_rest(s, "@layer") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_, after)) = css_layer_name(rest) else {
+        return false;
+    };
+    let mut rest = after.trim_start();
+    while rest.starts_with(',') {
+        rest = rest[1..].trim_start();
+        let Some((_, after_name)) = css_layer_name(rest) else {
+            return false;
+        };
+        rest = after_name.trim_start();
+    }
+    css_at_tail_ok(rest) || rest.starts_with(';')
+}
+
+fn is_css_counter_style_at(s: &str) -> bool {
+    let Some(rest) = sass_at_key_rest(s, "@counter-style") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_, after)) = sass_ident(rest) else {
+        return false;
+    };
+    css_at_tail_ok(after.trim_start())
+}
+
+fn css_custom_prop(s: &str) -> Option<(&str, &str)> {
+    let rest = s.strip_prefix("--")?;
+    if rest.is_empty() {
+        return None;
+    }
+    let bytes = rest.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_' || bytes[0] == b'-') {
+        return None;
+    }
+    let n = bytes
+        .iter()
+        .take_while(|b| b.is_ascii_alphanumeric() || **b == b'_' || **b == b'-')
+        .count();
+    Some((&s[..2 + n], &s[2 + n..]))
+}
+
+fn css_layer_name(s: &str) -> Option<(&str, &str)> {
+    let (first, mut rest) = sass_ident(s)?;
+    let mut end = first.len();
+    while rest.starts_with('.') {
+        let after_dot = &rest[1..];
+        let (piece, next) = sass_ident(after_dot)?;
+        end += 1 + piece.len();
+        rest = next;
+    }
+    Some((&s[..end], rest))
+}
+
+fn css_at_tail_ok(rest: &str) -> bool {
+    rest.is_empty() || rest.starts_with('{') || rest.starts_with("//") || rest.starts_with("/*")
 }
 
 fn is_ruby_attr_kind(s: &str, kind: &str) -> bool {
@@ -35424,6 +35528,52 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("@mixin flex-center more"));
         assert!(!line_is_func_like("@mixin 1bad"));
         assert!(!line_is_func_like("@mixin -bad"));
+    }
+
+    #[test]
+    fn css_property_layer_counter_style_count() {
+        assert!(line_is_func_like("@property --accent"));
+        assert!(line_is_func_like("@property --accent {"));
+        assert!(line_is_func_like("@property --my-color {"));
+        assert!(line_is_func_like("@property --_private // note"));
+        assert!(line_is_func_like("  @property --foo"));
+        assert!(line_is_func_like("@PROPERTY --accent"));
+        assert!(line_is_func_like("@layer utilities"));
+        assert!(line_is_func_like("@layer utilities {"));
+        assert!(line_is_func_like("@layer utilities;"));
+        assert!(line_is_func_like("@layer theme, layout"));
+        assert!(line_is_func_like("@layer theme, layout {"));
+        assert!(line_is_func_like("@layer framework.layout"));
+        assert!(line_is_func_like("@layer framework.layout, theme"));
+        assert!(line_is_func_like("@LAYER utilities"));
+        assert!(line_is_func_like("@counter-style thumbs"));
+        assert!(line_is_func_like("@counter-style thumbs {"));
+        assert!(line_is_func_like("@counter-style thumbs // list"));
+        assert!(line_is_func_like("@COUNTER-STYLE thumbs"));
+        // Sass / ObjC at-forms stay on their own paths.
+        assert!(line_is_func_like("@mixin flex-center"));
+        assert!(line_is_func_like("@keyframes fade-in"));
+        assert!(line_is_func_like("@implementation MyClass"));
+        assert!(!line_is_func_like("@property"));
+        assert!(!line_is_func_like("@layer"));
+        assert!(!line_is_func_like("@counter-style"));
+        assert!(!line_is_func_like("@property accent"));
+        assert!(!line_is_func_like("@property --"));
+        assert!(!line_is_func_like("@property -- accent"));
+        assert!(!line_is_func_like("@property the color"));
+        assert!(!line_is_func_like("@layer {"));
+        assert!(!line_is_func_like("@layer;"));
+        assert!(!line_is_func_like("@layer the utilities"));
+        assert!(!line_is_func_like("@layer theme,"));
+        assert!(!line_is_func_like("@layer theme, {"));
+        assert!(!line_is_func_like("@layer framework."));
+        assert!(!line_is_func_like("@counter-style the list"));
+        assert!(!line_is_func_like("@counter-style"));
+        assert!(!line_is_func_like("@counter-styles thumbs"));
+        assert!(!line_is_func_like("@propertyExtra --accent"));
+        assert!(!line_is_func_like("@media screen"));
+        assert!(!line_is_func_like("@include flex-center"));
+        assert!(!line_is_func_like("@container (min-width: 40rem)"));
     }
 
     #[test]

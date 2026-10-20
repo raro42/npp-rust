@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.461] — 2026-10-20
+
+View:
+
+- **Function List** lists CSS `@property` / `@layer` / `@counter-style` (`@property --accent`, `@layer utilities`, `@layer theme, layout`, `@layer framework.layout`, `@counter-style thumbs`). `@property color`, `@layer {`, `@layer;`, `@counter-style the list`, and bare keywords stay out.
+
 ## [0.3.460] — 2026-10-20
 
 View:
