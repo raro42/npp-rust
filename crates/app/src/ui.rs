@@ -31675,7 +31675,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// (`- (void)viewDidLoad`, `+ (instancetype)shared`, `- (NSString *)title`,
 /// `- (void)initWithFrame:(NSRect)frame`). The return type is a known C or
 /// Objective-C type or an uppercase name. Markdown `- (optional) note`,
-/// `- (void) more words`, and a bare `- (void)` stay out. Solidity
+/// `- (void) more words`, and a bare `- (void)` stay out. Objective-C
+/// `@implementation` / `@protocol` count (`@implementation MyClass`,
+/// `@implementation MyClass (Cat)`, `@protocol MyDelegate`,
+/// `@protocol MyDelegate <NSObject>`). `@interface` stays on the Java
+/// annotation-type path. Bare keywords and prose stay out. Solidity
 /// `contract` / `library` / `modifier` / `error` / `constructor` count
 /// (`contract Token is IERC20 {`, `library Math {`, `modifier onlyOwner()`,
 /// `error InsufficientBalance(uint256)`, `constructor(uint256 x)`).
@@ -31740,6 +31744,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_graphql_decl(s)
             || is_hcl_block(s)
             || is_objc_method(s)
+            || is_objc_type_decl(s)
             || is_solidity_decl(s)
             || is_zig_decl(s)
             || is_matlab_classdef(s)
@@ -31778,6 +31783,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_graphql_decl(s)
         || is_hcl_block(s)
         || is_objc_method(s)
+        || is_objc_type_decl(s)
         || is_solidity_decl(s)
         || is_zig_decl(s)
         || is_matlab_classdef(s)
@@ -32075,6 +32081,67 @@ fn objc_type_word(word: &str) -> bool {
         return true;
     }
     matches!(word.as_bytes().first(), Some(b'A'..=b'Z') | Some(b'_'))
+}
+
+/// Objective-C `@implementation MyClass`, `@implementation MyClass (Cat)`,
+/// `@protocol MyDelegate`, `@protocol MyDelegate <NSObject>`.
+/// `@interface Name` stays with `is_java_annotation_type`. Prose and bare
+/// keywords stay out.
+fn is_objc_type_decl(s: &str) -> bool {
+    is_objc_at_named(s, "@implementation") || is_objc_at_named(s, "@protocol")
+}
+
+fn is_objc_at_named(s: &str, key: &str) -> bool {
+    let Some(rest) = s.strip_prefix(key) else {
+        return false;
+    };
+    if !rest.is_empty()
+        && rest.starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$')
+    {
+        return false;
+    }
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    if !is_fn_name(name) || is_control_word(name) {
+        return false;
+    }
+    let mut rest = after.trim_start();
+    if rest.starts_with('(') {
+        let Some(after_cat) = objc_category_parens(rest) else {
+            return false;
+        };
+        rest = after_cat.trim_start();
+    }
+    if rest.starts_with('<') {
+        let Some(end) = skip_balanced_delim(rest.as_bytes(), 0, b'<', b'>') else {
+            return false;
+        };
+        rest = rest[end..].trim_start();
+    }
+    rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with(';')
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
+}
+
+fn objc_category_parens(s: &str) -> Option<&str> {
+    let after = after_balanced_paren(s, 0)?;
+    let inner_end = s.len().checked_sub(after.len() + 1)?;
+    if inner_end <= 1 {
+        return None;
+    }
+    let inner = s[1..inner_end].trim();
+    let (name, rest) = graphql_ident(inner)?;
+    if !rest.trim().is_empty() || !is_fn_name(name) || is_control_word(name) {
+        return None;
+    }
+    Some(after)
 }
 
 fn objc_method_tail(tail: &str) -> bool {
@@ -32820,12 +32887,16 @@ fn skip_rust_lit(bytes: &[u8], i: usize) -> Option<usize> {
 /// Drop one or more leading Java / Kotlin / TypeScript `@Name` annotations
 /// or C# / C++ `[Name]` / `[[name]]` attributes. Returns the declaration
 /// that follows, which may be empty. `@interface` stays (Java annotation
-/// type). `@media`, `[section]`, and `[1, 2]` stay untouched.
+/// type). `@implementation` / `@protocol` stay (Objective-C types).
+/// `@media`, `[section]`, and `[1, 2]` stay untouched.
 fn strip_leading_annots(s: &str) -> Option<&str> {
     let mut rest = s;
     let mut any = false;
     loop {
         if rest.starts_with("@interface") && at_interface_word(rest) {
+            break;
+        }
+        if objc_at_type_keyword(rest) {
             break;
         }
         if rest.starts_with('@') {
@@ -32875,6 +32946,20 @@ fn at_interface_word(s: &str) -> bool {
     };
     rest.is_empty()
         || !rest.starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$')
+}
+
+fn objc_at_type_keyword(s: &str) -> bool {
+    for key in ["@implementation", "@protocol"] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        if rest.is_empty()
+            || !rest.starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$')
+        {
+            return true;
+        }
+    }
+    false
 }
 
 /// Java `@interface Name`. Not `@interfaceName` and not a bare `@interface`.
@@ -34581,6 +34666,39 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("-- (void)foo"));
         assert!(!line_is_func_like("- (int) this is prose"));
         assert!(!line_is_func_like("- ()missing"));
+    }
+
+    #[test]
+    fn objc_implementation_and_protocol_count() {
+        assert!(line_is_func_like("@implementation MyClass"));
+        assert!(line_is_func_like("@implementation MyClass {"));
+        assert!(line_is_func_like("@implementation MyClass // note"));
+        assert!(line_is_func_like("@implementation MyClass (Private)"));
+        assert!(line_is_func_like("@implementation MyClass(Private)"));
+        assert!(line_is_func_like("@implementation MyClass (Private) {"));
+        assert!(line_is_func_like("  @implementation MyClass"));
+        assert!(line_is_func_like("@implementation foo"));
+        assert!(line_is_func_like("@protocol MyDelegate"));
+        assert!(line_is_func_like("@protocol MyDelegate;"));
+        assert!(line_is_func_like("@protocol MyDelegate <NSObject>"));
+        assert!(line_is_func_like("@protocol MyDelegate <NSObject, Foo>"));
+        assert!(line_is_func_like("@protocol MyDelegate <NSObject> {"));
+        assert!(line_is_func_like("@protocol MyDelegate // note"));
+        // @interface still lists via the Java annotation-type path.
+        assert!(line_is_func_like("@interface MyClass"));
+        assert!(line_is_func_like("@interface MyClass : NSObject"));
+        assert!(line_is_func_like("@interface MyClass (Private)"));
+        assert!(!line_is_func_like("@implementation"));
+        assert!(!line_is_func_like("@protocol"));
+        assert!(!line_is_func_like("@implementation the class"));
+        assert!(!line_is_func_like("@protocol the protocol"));
+        assert!(!line_is_func_like("@implementationFoo"));
+        assert!(!line_is_func_like("@protocolBar"));
+        assert!(!line_is_func_like("@implementation ()"));
+        assert!(!line_is_func_like("@implementation MyClass ()"));
+        assert!(!line_is_func_like("@implementation MyClass ("));
+        assert!(!line_is_func_like("@protocol MyDelegate <NSObject"));
+        assert!(!line_is_func_like("@implementation MyClass extra"));
     }
 
     #[test]

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.456] — 2026-10-20
+
+View:
+
+- **Function List** lists Objective-C `@implementation` / `@protocol` (`@implementation MyClass`, `@implementation MyClass (Cat)`, `@protocol MyDelegate`, `@protocol MyDelegate <NSObject>`). `@interface` stays on the Java annotation-type path. Bare keywords and prose stay out.
+
 ## [0.3.455] — 2026-10-20
 
 View:
