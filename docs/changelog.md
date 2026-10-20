@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.458] — 2026-10-20
+
+View:
+
+- **Function List** lists Ruby `attr_reader` / `attr_writer` / `attr_accessor` (`attr_reader :name`, `attr_accessor :x, :y`, `attr_writer(:z)`, `attr_reader :ready?`, `attr_writer :save!`). `attr_reader the name`, `attr_reader :`, and a bare `attr_reader` stay out. `def` stays on the generic prefix keys.
+
 ## [0.3.457] — 2026-10-20
 
 View:

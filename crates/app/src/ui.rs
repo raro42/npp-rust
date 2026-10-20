@@ -31712,6 +31712,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// (`class_name Player`, `class_name Player extends Node2D`, `signal hit`,
 /// `signal hit(amount)`, `signal hit(amount: int)`). `class_name the player`,
 /// `signal the alarm`, and a bare `class_name` / `signal` stay out.
+/// Ruby `attr_reader` / `attr_writer` / `attr_accessor` count
+/// (`attr_reader :name`, `attr_accessor :x, :y`, `attr_writer(:z)`,
+/// `attr_reader :ready?`, `attr_writer :save!`). `attr_reader the name`,
+/// `attr_reader :`, and a bare `attr_reader` stay out. `def` stays on the
+/// generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31756,6 +31761,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_verilog_decl(s)
             || is_julia_decl(s)
             || is_gdscript_decl(s)
+            || is_ruby_attr_decl(s)
         {
             return true;
         }
@@ -31796,6 +31802,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_verilog_decl(s)
         || is_julia_decl(s)
         || is_gdscript_decl(s)
+        || is_ruby_attr_decl(s)
     {
         return true;
     }
@@ -32465,6 +32472,67 @@ fn is_julia_decl(s: &str) -> bool {
 /// Prose and bare keywords stay out. `func` stays on the generic prefix keys.
 fn is_gdscript_decl(s: &str) -> bool {
     is_gdscript_class_name(s) || is_gdscript_signal(s)
+}
+
+/// Ruby `attr_reader :name`, `attr_writer :x`, `attr_accessor :a, :b`,
+/// `attr_reader(:ready?)`, `attr_writer(:save!)`. One or more `:ident`
+/// symbols (optional trailing `?` / `!`). Parentheses optional. Prose and
+/// bare keywords stay out. `def` stays on the generic prefix keys.
+fn is_ruby_attr_decl(s: &str) -> bool {
+    is_ruby_attr_kind(s, "attr_reader")
+        || is_ruby_attr_kind(s, "attr_writer")
+        || is_ruby_attr_kind(s, "attr_accessor")
+}
+
+fn is_ruby_attr_kind(s: &str, kind: &str) -> bool {
+    let Some(rest) = sql_word(s, kind) else {
+        return false;
+    };
+    if !(rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if let Some(inner) = rest.strip_prefix('(') {
+        return ruby_attr_list(inner, true);
+    }
+    ruby_attr_list(rest, false)
+}
+
+fn ruby_attr_list(s: &str, paren: bool) -> bool {
+    let mut rest = s.trim_start();
+    loop {
+        let Some(after_sym) = ruby_attr_symbol(rest) else {
+            return false;
+        };
+        rest = after_sym.trim_start();
+        if paren {
+            if let Some(after_close) = rest.strip_prefix(')') {
+                let rest = after_close.trim_start();
+                return rest.is_empty() || rest.starts_with('#');
+            }
+        } else if rest.is_empty() || rest.starts_with('#') {
+            return true;
+        }
+        let Some(after_comma) = rest.strip_prefix(',') else {
+            return false;
+        };
+        rest = after_comma.trim_start();
+        if rest.is_empty() {
+            return false;
+        }
+    }
+}
+
+fn ruby_attr_symbol(s: &str) -> Option<&str> {
+    let rest = s.strip_prefix(':')?;
+    let (_, after) = graphql_ident(rest)?;
+    if let Some(after_bang) = after.strip_prefix('!') {
+        return Some(after_bang);
+    }
+    if let Some(after_q) = after.strip_prefix('?') {
+        return Some(after_q);
+    }
+    Some(after)
 }
 
 fn is_gdscript_class_name(s: &str) -> bool {
@@ -35022,6 +35090,40 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("class_name Player extends"));
         assert!(!line_is_func_like("class_name Player extends the node"));
         assert!(!line_is_func_like("signal hit amount"));
+    }
+
+    #[test]
+    fn ruby_attr_reader_writer_accessor_count() {
+        assert!(line_is_func_like("attr_reader :name"));
+        assert!(line_is_func_like("attr_reader :name # note"));
+        assert!(line_is_func_like("attr_reader :first, :last"));
+        assert!(line_is_func_like("attr_reader :ready?"));
+        assert!(line_is_func_like("attr_writer :save!"));
+        assert!(line_is_func_like("attr_accessor :x, :y"));
+        assert!(line_is_func_like("attr_accessor :x, :y # ui"));
+        assert!(line_is_func_like("  attr_reader :id"));
+        assert!(line_is_func_like("ATTR_READER :Name"));
+        assert!(line_is_func_like("attr_reader(:name)"));
+        assert!(line_is_func_like("attr_reader(:first, :last)"));
+        assert!(line_is_func_like("attr_writer(:save!)"));
+        assert!(line_is_func_like("attr_accessor(:ready?)"));
+        assert!(line_is_func_like("attr_reader(:name) # note"));
+        // Generic keys still cover Ruby defs / classes.
+        assert!(line_is_func_like("def greet"));
+        assert!(line_is_func_like("class User"));
+        assert!(!line_is_func_like("attr_reader"));
+        assert!(!line_is_func_like("attr_writer"));
+        assert!(!line_is_func_like("attr_accessor"));
+        assert!(!line_is_func_like("attr_reader the name"));
+        assert!(!line_is_func_like("attr_reader :"));
+        assert!(!line_is_func_like("attr_reader :name,"));
+        assert!(!line_is_func_like("attr_reader()"));
+        assert!(!line_is_func_like("attr_readers :name"));
+        assert!(!line_is_func_like("attr_reader:name"));
+        assert!(!line_is_func_like("attr_reader name"));
+        assert!(!line_is_func_like("attr_reader :name if true"));
+        assert!(!line_is_func_like("attr_reader(:name"));
+        assert!(!line_is_func_like("attr_reader(:name,"));
     }
 
     #[test]
