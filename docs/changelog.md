@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.463] — 2026-10-20
+
+View:
+
+- **Function List** lists FlatBuffers `table` / `rpc_service` (`table Monster {`, `rpc_service MonsterStorage {`). `table of contents`, `table the schema`, `rpc_service the storage`, and bare keywords stay out. `struct` / `enum` / `union` / `namespace` stay on the generic prefix keys.
+
 ## [0.3.462] — 2026-10-20
 
 View:

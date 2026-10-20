@@ -31734,6 +31734,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `configuration WebSite {`). `filter the team`, `workflow the job`,
 /// `configuration the site`, and bare keywords stay out. `function` /
 /// `class` / `enum` stay on the generic prefix keys.
+/// FlatBuffers `table` / `rpc_service` count (`table Monster {`,
+/// `rpc_service MonsterStorage {`). `table of contents`, `table the schema`,
+/// `rpc_service the storage`, and bare keywords stay out. `struct` / `enum` /
+/// `union` / `namespace` stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31783,6 +31787,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_sass_decl(s)
             || is_css_at_decl(s)
             || is_powershell_decl(s)
+            || is_flatbuffers_decl(s)
         {
             return true;
         }
@@ -31828,6 +31833,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_sass_decl(s)
         || is_css_at_decl(s)
         || is_powershell_decl(s)
+        || is_flatbuffers_decl(s)
     {
         return true;
     }
@@ -32856,6 +32862,54 @@ fn powershell_ident(s: &str) -> Option<(&str, &str)> {
 
 fn powershell_tail_ok(rest: &str) -> bool {
     rest.is_empty() || rest.starts_with('{') || rest.starts_with('#')
+}
+
+/// FlatBuffers `table Monster {`, `rpc_service MonsterStorage {`.
+/// One name. Lowercase names need `{`. Prose and bare keywords stay out.
+/// `struct` / `enum` / `union` / `namespace` stay on the generic prefix keys.
+fn is_flatbuffers_decl(s: &str) -> bool {
+    let Some(rest) = flatbuffers_keyword_rest(s) else {
+        return false;
+    };
+    flatbuffers_decl_name(rest)
+}
+
+fn flatbuffers_keyword_rest(s: &str) -> Option<&str> {
+    for key in ["table", "rpc_service"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn flatbuffers_decl_name(s: &str) -> bool {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = s.as_bytes()[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    let rest = s[n..].trim_start();
+    let stopped = rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with("//")
+        || rest.starts_with("/*");
+    if !stopped {
+        return false;
+    }
+    if first.is_ascii_lowercase() {
+        return rest.starts_with('{');
+    }
+    true
 }
 
 fn is_ruby_attr_kind(s: &str, kind: &str) -> bool {
@@ -35667,6 +35721,38 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("filter Get-Odd more"));
         assert!(!line_is_func_like("filter Get-Odd("));
         assert!(!line_is_func_like("filter Get-Odd() more"));
+    }
+
+    #[test]
+    fn flatbuffers_table_rpc_service_count() {
+        assert!(line_is_func_like("table Monster {"));
+        assert!(line_is_func_like("table Monster"));
+        assert!(line_is_func_like("  table Foo{"));
+        assert!(line_is_func_like("table monster {"));
+        assert!(line_is_func_like("table Monster // note"));
+        assert!(line_is_func_like("TABLE Monster"));
+        assert!(line_is_func_like("rpc_service MonsterStorage {"));
+        assert!(line_is_func_like("rpc_service MonsterStorage"));
+        assert!(line_is_func_like("rpc_service MonsterStorage // rpc"));
+        assert!(line_is_func_like("RPC_SERVICE MonsterStorage"));
+        // Generic keys still cover FlatBuffers struct / enum / union / namespace.
+        assert!(line_is_func_like("struct Vec3 {"));
+        assert!(line_is_func_like("enum Color:byte { Red = 0 }"));
+        assert!(line_is_func_like("union Any { Monster, Weapon }"));
+        assert!(line_is_func_like("namespace MyGame.Sample;"));
+        assert!(!line_is_func_like("table"));
+        assert!(!line_is_func_like("rpc_service"));
+        assert!(!line_is_func_like("table of contents"));
+        assert!(!line_is_func_like("table the schema"));
+        assert!(!line_is_func_like("rpc_service the storage"));
+        assert!(!line_is_func_like("tables Monster"));
+        assert!(!line_is_func_like("rpc_services MonsterStorage"));
+        assert!(!line_is_func_like("tableMonster"));
+        assert!(!line_is_func_like("table 1bad"));
+        assert!(!line_is_func_like("table monster"));
+        assert!(!line_is_func_like("rpc_service storage"));
+        assert!(!line_is_func_like("table Monster more"));
+        assert!(!line_is_func_like("rpc_service MonsterStorage more"));
     }
 
     #[test]
