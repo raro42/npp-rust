@@ -31747,6 +31747,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `intEnum Severity {`). `operation the request`, `structure the city`,
 /// `resource the forecast`, `intEnum the severity`, and bare keywords stay out.
 /// `service` / `enum` / `union` / `list` / `map` stay on protobuf or generic keys.
+/// WASM WIT `world` / `variant` / `flags` count (`world imports {`,
+/// `variant error-code {`, `flags descriptor-flags {`). Kebab-case names ok.
+/// `world the imports`, `variant the error`, `flags the bits`, and bare
+/// keywords stay out. `interface` / `record` / `func` / `package` stay on
+/// generic keys; `resource` stays on Smithy.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31799,6 +31804,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_flatbuffers_decl(s)
             || is_prisma_decl(s)
             || is_smithy_decl(s)
+            || is_wit_decl(s)
         {
             return true;
         }
@@ -31847,6 +31853,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_flatbuffers_decl(s)
         || is_prisma_decl(s)
         || is_smithy_decl(s)
+        || is_wit_decl(s)
     {
         return true;
     }
@@ -32976,6 +32983,64 @@ fn smithy_keyword_rest(s: &str) -> Option<&str> {
 
 fn smithy_decl_name(s: &str) -> bool {
     flatbuffers_decl_name(s)
+}
+
+/// WASM WIT `world imports {`, `variant error-code {`,
+/// `flags descriptor-flags {`. One name; kebab-case allowed. Lowercase names
+/// need `{`. Prose and bare keywords stay out. `interface` / `record` /
+/// `func` / `package` stay on generic keys; `resource` stays on Smithy.
+fn is_wit_decl(s: &str) -> bool {
+    let Some(rest) = wit_keyword_rest(s) else {
+        return false;
+    };
+    wit_decl_name(rest)
+}
+
+fn wit_keyword_rest(s: &str) -> Option<&str> {
+    for key in ["world", "variant", "flags"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn wit_decl_name(s: &str) -> bool {
+    let bytes = s.as_bytes();
+    if bytes.is_empty() {
+        return false;
+    }
+    let first = bytes[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    let mut n = 1usize;
+    while n < bytes.len() {
+        let b = bytes[n];
+        if b.is_ascii_alphanumeric() || b == b'_' || b == b'-' {
+            n += 1;
+        } else {
+            break;
+        }
+    }
+    if bytes[n - 1] == b'-' {
+        return false;
+    }
+    let rest = s[n..].trim_start();
+    let stopped = rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with("//")
+        || rest.starts_with("/*");
+    if !stopped {
+        return false;
+    }
+    if first.is_ascii_lowercase() {
+        return rest.starts_with('{');
+    }
+    true
 }
 
 fn is_ruby_attr_kind(s: &str, kind: &str) -> bool {
@@ -35918,6 +35983,45 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("intEnum Severity more"));
         // HCL quoted resource stays on the HCL path (still counts).
         assert!(line_is_func_like("resource \"aws_instance\" \"web\" {"));
+    }
+
+    #[test]
+    fn wit_world_variant_flags_count() {
+        assert!(line_is_func_like("world imports {"));
+        assert!(line_is_func_like("  world proxy{"));
+        assert!(line_is_func_like("world Imports"));
+        assert!(line_is_func_like("world Imports // note"));
+        assert!(line_is_func_like("WORLD Imports"));
+        assert!(line_is_func_like("variant error-code {"));
+        assert!(line_is_func_like("variant Method {"));
+        assert!(line_is_func_like("VARIANT Method"));
+        assert!(line_is_func_like("flags descriptor-flags {"));
+        assert!(line_is_func_like("flags Permissions {"));
+        assert!(line_is_func_like("FLAGS Permissions"));
+        // Generic keys still cover WIT interface / record / func / package.
+        assert!(line_is_func_like("interface types {"));
+        assert!(line_is_func_like("record fields {"));
+        assert!(line_is_func_like("func handle-request("));
+        assert!(line_is_func_like("package wasi:http@0.2.0;"));
+        assert!(!line_is_func_like("world"));
+        assert!(!line_is_func_like("variant"));
+        assert!(!line_is_func_like("flags"));
+        assert!(!line_is_func_like("world the imports"));
+        assert!(!line_is_func_like("variant the error"));
+        assert!(!line_is_func_like("flags the bits"));
+        assert!(!line_is_func_like("worlds imports {"));
+        assert!(!line_is_func_like("variants error-code {"));
+        assert!(!line_is_func_like("flag Permissions {"));
+        assert!(!line_is_func_like("worldimports {"));
+        assert!(!line_is_func_like("world 1bad {"));
+        assert!(!line_is_func_like("world imports"));
+        assert!(!line_is_func_like("variant error-code"));
+        assert!(!line_is_func_like("flags descriptor-flags"));
+        assert!(!line_is_func_like("world imports more"));
+        assert!(!line_is_func_like("variant Method more"));
+        assert!(!line_is_func_like("flags Permissions more"));
+        assert!(!line_is_func_like("world foo- {"));
+        assert!(!line_is_func_like("variant -bad {"));
     }
 
     #[test]

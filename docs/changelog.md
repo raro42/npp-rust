@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.466] — 2026-10-20
+
+View:
+
+- **Function List** lists WASM WIT `world` / `variant` / `flags` (`world imports {`, `variant error-code {`, `flags descriptor-flags {`). Kebab-case names ok. `world the imports`, `variant the error`, `flags the bits`, and bare keywords stay out. `interface` / `record` / `func` / `package` stay on generic keys; `resource` stays on Smithy.
+
 ## [0.3.465] — 2026-10-20
 
 View:
