@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.457] — 2026-10-20
+
+View:
+
+- **Function List** lists GDScript `class_name` / `signal` (`class_name Player`, `class_name Player extends Node2D`, `signal hit`, `signal hit(amount)`, `signal hit(amount: int)`). `class_name the player`, `signal the alarm`, and a bare `class_name` / `signal` stay out. `func` stays on the generic prefix keys.
+
 ## [0.3.456] — 2026-10-20
 
 View:

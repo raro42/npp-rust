@@ -31708,7 +31708,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `primitive type Float16 16 end`, `primitive type Float16 <: AbstractFloat 16`).
 /// `baremodule the team`, `primitive type`, and a bare `baremodule` stay out.
 /// `function` / `macro` / `struct` / `mutable struct` / `module` / `abstract type`
-/// stay on the generic prefix keys.
+/// stay on the generic prefix keys. GDScript `class_name` / `signal` count
+/// (`class_name Player`, `class_name Player extends Node2D`, `signal hit`,
+/// `signal hit(amount)`, `signal hit(amount: int)`). `class_name the player`,
+/// `signal the alarm`, and a bare `class_name` / `signal` stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31752,6 +31755,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_vhdl_decl(s)
             || is_verilog_decl(s)
             || is_julia_decl(s)
+            || is_gdscript_decl(s)
         {
             return true;
         }
@@ -31791,6 +31795,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_vhdl_decl(s)
         || is_verilog_decl(s)
         || is_julia_decl(s)
+        || is_gdscript_decl(s)
     {
         return true;
     }
@@ -32453,6 +32458,72 @@ fn verilog_named_tail(s: &str) -> bool {
 /// stay on the generic prefix keys.
 fn is_julia_decl(s: &str) -> bool {
     is_julia_baremodule(s) || is_julia_primitive_type(s)
+}
+
+/// GDScript `class_name Player`, `class_name Player extends Node2D`,
+/// `signal hit`, `signal hit(amount)`, `signal hit(amount: int)`.
+/// Prose and bare keywords stay out. `func` stays on the generic prefix keys.
+fn is_gdscript_decl(s: &str) -> bool {
+    is_gdscript_class_name(s) || is_gdscript_signal(s)
+}
+
+fn is_gdscript_class_name(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "class_name") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    let rest = after.trim_start();
+    let stopped = rest.is_empty() || rest.starts_with('#') || gdscript_extends(rest);
+    if !stopped {
+        return false;
+    }
+    if name.as_bytes()[0].is_ascii_lowercase() {
+        return rest.is_empty() || rest.starts_with('#') || gdscript_extends(rest);
+    }
+    true
+}
+
+fn gdscript_extends(s: &str) -> bool {
+    let Some(after) = sql_word(s, "extends") else {
+        return false;
+    };
+    if !after.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = after.trim_start();
+    let Some((_, after_type)) = graphql_ident(rest) else {
+        return false;
+    };
+    let rest = after_type.trim_start();
+    rest.is_empty() || rest.starts_with('#')
+}
+
+fn is_gdscript_signal(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "signal") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    let rest = after.trim_start();
+    let stopped = rest.is_empty() || rest.starts_with('(') || rest.starts_with('#');
+    if !stopped {
+        return false;
+    }
+    if name.as_bytes()[0].is_ascii_lowercase() {
+        return rest.is_empty() || rest.starts_with('(') || rest.starts_with('#');
+    }
+    true
 }
 
 fn is_julia_baremodule(s: &str) -> bool {
@@ -34914,6 +34985,43 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("primitive type the bits 16"));
         // Verilog `primitive Name` must not be swallowed as Julia.
         assert!(line_is_func_like("primitive udp_and ("));
+    }
+
+    #[test]
+    fn gdscript_class_name_and_signal_count() {
+        assert!(line_is_func_like("class_name Player"));
+        assert!(line_is_func_like("class_name Player # note"));
+        assert!(line_is_func_like("class_name Player extends Node"));
+        assert!(line_is_func_like("class_name Player extends Node2D"));
+        assert!(line_is_func_like("class_name Player extends Node2D # ui"));
+        assert!(line_is_func_like("  class_name Player"));
+        assert!(line_is_func_like("CLASS_NAME Player"));
+        assert!(line_is_func_like("class_name player"));
+        assert!(line_is_func_like("class_name player extends Node"));
+        assert!(line_is_func_like("signal hit"));
+        assert!(line_is_func_like("signal hit()"));
+        assert!(line_is_func_like("signal hit(amount)"));
+        assert!(line_is_func_like("signal hit(amount: int)"));
+        assert!(line_is_func_like("signal hit(old_value, new_value)"));
+        assert!(line_is_func_like("signal hit # note"));
+        assert!(line_is_func_like("  signal health_changed"));
+        assert!(line_is_func_like("SIGNAL Hit"));
+        assert!(line_is_func_like("signal HealthChanged"));
+        // Generic keys still cover GDScript funcs.
+        assert!(line_is_func_like("func _ready():"));
+        assert!(line_is_func_like("func take_damage(amount):"));
+        assert!(!line_is_func_like("class_name"));
+        assert!(!line_is_func_like("signal"));
+        assert!(!line_is_func_like("class_name the player"));
+        assert!(!line_is_func_like("signal the alarm"));
+        assert!(!line_is_func_like("classname Player"));
+        assert!(!line_is_func_like("class_names Player"));
+        assert!(!line_is_func_like("signals hit"));
+        assert!(!line_is_func_like("class_namePlayer"));
+        assert!(!line_is_func_like("signalhit"));
+        assert!(!line_is_func_like("class_name Player extends"));
+        assert!(!line_is_func_like("class_name Player extends the node"));
+        assert!(!line_is_func_like("signal hit amount"));
     }
 
     #[test]

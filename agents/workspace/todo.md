@@ -647,3 +647,5 @@
 009 keep: Function List MATLAB/Octave classdef (v0.3.451)
 
 009 keep: Function List Julia baremodule/primitive type (v0.3.455)
+
+009 keep: Function List GDScript class_name/signal (v0.3.457)
