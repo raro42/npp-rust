@@ -31790,6 +31790,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `some` / `var` before `sig`. Lowercase names need `{` / `[` / `(` /
 /// `extends` / `,`. Prose and bare keywords stay out. `fun` / `enum` stay
 /// on the generic prefix keys.
+/// TLA+ `---- MODULE Spec ----` / `MODULE Spec`, `THEOREM Name ==`,
+/// `LEMMA Name ==`, `ASSUME Name` count. Lowercase names need `==` / `=>` /
+/// `\` / a non-identifier start. Prose and bare keywords stay out. Plain
+/// `module Name` still matches the generic prefix key.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31848,6 +31852,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_coq_decl(s)
             || is_lean_decl(s)
             || is_alloy_decl(s)
+            || is_tla_decl(s)
         {
             return true;
         }
@@ -31902,6 +31907,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_coq_decl(s)
         || is_lean_decl(s)
         || is_alloy_decl(s)
+        || is_tla_decl(s)
     {
         return true;
     }
@@ -32700,6 +32706,7 @@ fn is_erlang_fun_clause(s: &str) -> bool {
     };
     let after = after.trim_start();
     let after = if after.len() >= 4
+        && after.is_char_boundary(4)
         && after[..4].eq_ignore_ascii_case("when")
         && after[4..].starts_with(char::is_whitespace)
     {
@@ -32769,7 +32776,11 @@ fn is_sass_at_named(s: &str, key: &str) -> bool {
 }
 
 fn sass_at_key_rest<'a>(s: &'a str, key: &str) -> Option<&'a str> {
-    if s.len() < key.len() || !s[..key.len()].eq_ignore_ascii_case(key) {
+    // `key` is ASCII; reject mid-codepoint cuts so unicode source lines do not panic.
+    if s.len() < key.len() || !s.is_char_boundary(key.len()) {
+        return None;
+    }
+    if !s[..key.len()].eq_ignore_ascii_case(key) {
         return None;
     }
     let rest = &s[key.len()..];
@@ -33610,6 +33621,115 @@ fn alloy_pred_name(s: &str) -> bool {
     }
     if first.is_ascii_lowercase() {
         return rest.starts_with('{') || rest.starts_with('[') || rest.starts_with('(');
+    }
+    true
+}
+
+/// TLA+ `---- MODULE Spec ----`, `MODULE Spec`, `THEOREM TypeOK ==`,
+/// `LEMMA Inv ==`, `ASSUME N \\in Nat`. Dashed module banners strip leading
+/// `-`. Lowercase names need `==` / `=>` / `\` / a non-identifier start.
+/// Prose and bare keywords stay out. Plain `module Name` still matches the
+/// generic prefix key.
+fn is_tla_decl(s: &str) -> bool {
+    if is_tla_module(s) {
+        return true;
+    }
+    for key in ["theorem", "lemma", "assume", "corollary"] {
+        if is_tla_named(s, key) {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_tla_module(s: &str) -> bool {
+    let s = s.trim_start_matches(|c: char| c == '-' || c.is_ascii_whitespace());
+    let Some(rest) = sql_word(s, "module") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    tla_module_name(rest.trim_start())
+}
+
+fn tla_module_name(s: &str) -> bool {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = s.as_bytes()[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    let rest = s[n..].trim_start();
+    let after_dashes = rest.trim_start_matches(|c: char| c == '-' || c.is_ascii_whitespace());
+    let stopped = after_dashes.is_empty()
+        || after_dashes.starts_with("\\*")
+        || after_dashes.starts_with("(*")
+        || after_dashes.starts_with("//")
+        || after_dashes.starts_with("/*")
+        || after_dashes.starts_with('#');
+    if !stopped {
+        return false;
+    }
+    if first.is_ascii_lowercase() {
+        return after_dashes.is_empty()
+            || rest.starts_with('-')
+            || after_dashes.starts_with("\\*")
+            || after_dashes.starts_with("(*");
+    }
+    true
+}
+
+fn is_tla_named(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    tla_theorem_name(rest.trim_start())
+}
+
+fn tla_theorem_name(s: &str) -> bool {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = s.as_bytes()[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    let rest = s[n..].trim_start();
+    let op_stop = rest
+        .chars()
+        .next()
+        .is_some_and(|c| !c.is_ascii_alphanumeric() && c != '_');
+    let stopped = rest.is_empty()
+        || rest.starts_with("==")
+        || rest.starts_with("=>")
+        || rest.starts_with('\\')
+        || rest.starts_with("\\*")
+        || rest.starts_with("(*")
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
+        || rest.starts_with('#')
+        || op_stop;
+    if !stopped {
+        return false;
+    }
+    if first.is_ascii_lowercase() {
+        return rest.starts_with("==")
+            || rest.starts_with("=>")
+            || rest.starts_with('\\')
+            || op_stop;
     }
     true
 }
@@ -36941,6 +37061,50 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("var x = 1"));
         // `abstract class` still lists via generic mod + class keys.
         assert!(line_is_func_like("abstract class Foo"));
+    }
+
+    #[test]
+    fn tla_module_theorem_lemma_assume_count() {
+        assert!(line_is_func_like("---- MODULE Spec ----"));
+        assert!(line_is_func_like(
+            "---------------- MODULE Spec ----------------"
+        ));
+        assert!(line_is_func_like("MODULE Spec"));
+        assert!(line_is_func_like("MODULE Spec ----"));
+        assert!(line_is_func_like("  ---- MODULE Spec ----"));
+        assert!(line_is_func_like("module hop ----"));
+        assert!(line_is_func_like("THEOREM TypeOK == x \\in Nat"));
+        assert!(line_is_func_like("THEOREM SpecCorrectness"));
+        assert!(line_is_func_like("THEOREM Spec => []TypeOK"));
+        assert!(line_is_func_like("LEMMA Inv == TypeOK"));
+        assert!(line_is_func_like("LEMMA Helper"));
+        assert!(line_is_func_like("ASSUME N \\in Nat"));
+        assert!(line_is_func_like("ASSUME Hypothesis == N \\in Nat"));
+        assert!(line_is_func_like("ASSUME N ∈ Nat"));
+        assert!(line_is_func_like("COROLLARY Done == TRUE"));
+        assert!(line_is_func_like("theorem ok == TRUE"));
+        assert!(line_is_func_like("lemma ok => TRUE"));
+        // Generic key still covers plain module.
+        assert!(line_is_func_like("module helpers"));
+        assert!(!line_is_func_like("MODULE"));
+        assert!(!line_is_func_like("THEOREM"));
+        assert!(!line_is_func_like("LEMMA"));
+        assert!(!line_is_func_like("ASSUME"));
+        assert!(!line_is_func_like("---- MODULE ----"));
+        // Dashed banners skip the generic `module ` key; prose stays out.
+        assert!(!line_is_func_like("---- MODULE the spec ----"));
+        assert!(!line_is_func_like("THEOREM the proof"));
+        assert!(!line_is_func_like("LEMMA the invariant"));
+        assert!(!line_is_func_like("ASSUME the hypothesis"));
+        assert!(!line_is_func_like("modules Spec"));
+        assert!(!line_is_func_like("MODULESpec"));
+        assert!(!line_is_func_like("---- MODULESpec ----"));
+        assert!(!line_is_func_like("---- MODULE 1bad ----"));
+        assert!(!line_is_func_like("theorem ok"));
+        assert!(!line_is_func_like("lemma ok"));
+        assert!(!line_is_func_like("assume n"));
+        assert!(!line_is_func_like("THEOREM TypeOK more words"));
+        assert!(!line_is_func_like("---- MODULE Spec more ----"));
     }
 
     #[test]

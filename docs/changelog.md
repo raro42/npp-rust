@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.473] — 2026-10-21
+
+View:
+
+- **Function List** lists TLA+ `---- MODULE Spec ----` / `MODULE Spec`, `THEOREM Name ==`, `LEMMA Name ==`, `ASSUME Name`, and `COROLLARY Name ==` (`THEOREM TypeOK == x \\in Nat`, `THEOREM Spec => []TypeOK`, `LEMMA Inv == TypeOK`, `ASSUME N \\in Nat`, `ASSUME N ∈ Nat`). Lowercase names need `==` / `=>` / `\\` / a non-identifier start. Dashed-banner prose and bare keywords stay out. Plain `module Name` still matches the generic prefix key. Sass/CSS `@…` keyword probes no longer panic on mid-line unicode.
+
 ## [0.3.472] — 2026-10-20
 
 View:
