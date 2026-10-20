@@ -644,3 +644,5 @@
 009 keep: Function List Solidity contract/library/modifier/error/constructor (v0.3.449)
 
 009 keep: Function List MATLAB/Octave classdef (v0.3.451)
+
+009 keep: Function List Julia baremodule/primitive type (v0.3.455)

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.455] — 2026-10-20
+
+View:
+
+- **Function List** lists Julia `baremodule` / `primitive type` (`baremodule Foo`, `primitive type Float16 16 end`, `primitive type Float16 <: AbstractFloat 16`). `baremodule the team`, `primitive type` without bits, and a bare `baremodule` stay out. `function` / `macro` / `struct` / `mutable struct` / `module` / `abstract type` stay on the generic prefix keys.
+
 ## [0.3.454] — 2026-10-20
 
 View:

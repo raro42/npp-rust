@@ -31700,6 +31700,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `program test;`, `primitive udp_and (`, `checker c1;`). `task the team`,
 /// `tasks`, and a bare `task` / `program` stay out. `module` / `interface` /
 /// `package` stay on the generic prefix keys.
+/// Julia `baremodule` / `primitive type` count (`baremodule Foo`,
+/// `primitive type Float16 16 end`, `primitive type Float16 <: AbstractFloat 16`).
+/// `baremodule the team`, `primitive type`, and a bare `baremodule` stay out.
+/// `function` / `macro` / `struct` / `mutable struct` / `module` / `abstract type`
+/// stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31741,6 +31746,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_cmake_decl(s)
             || is_vhdl_decl(s)
             || is_verilog_decl(s)
+            || is_julia_decl(s)
         {
             return true;
         }
@@ -31778,6 +31784,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_cmake_decl(s)
         || is_vhdl_decl(s)
         || is_verilog_decl(s)
+        || is_julia_decl(s)
     {
         return true;
     }
@@ -32371,6 +32378,88 @@ fn verilog_named_tail(s: &str) -> bool {
             || rest.is_empty();
     }
     true
+}
+
+/// Julia `baremodule Foo`, `primitive type Float16 16 end`,
+/// `primitive type Float16 <: AbstractFloat 16`. Prose and bare keywords stay out.
+/// `function` / `macro` / `struct` / `mutable struct` / `module` / `abstract type`
+/// stay on the generic prefix keys.
+fn is_julia_decl(s: &str) -> bool {
+    is_julia_baremodule(s) || is_julia_primitive_type(s)
+}
+
+fn is_julia_baremodule(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "baremodule") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    julia_named_tail(rest.trim_start())
+}
+
+fn is_julia_primitive_type(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "primitive") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(after_type) = sql_word(rest, "type") else {
+        return false;
+    };
+    if !after_type.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = after_type.trim_start();
+    let Some((_, after_name)) = graphql_ident(rest) else {
+        return false;
+    };
+    let mut rest = after_name.trim_start();
+    if let Some(after_lt) = rest.strip_prefix("<:") {
+        rest = after_lt.trim_start();
+        let Some((_, after_super)) = graphql_ident(rest) else {
+            return false;
+        };
+        rest = after_super.trim_start();
+    }
+    let Some(after_bits) = julia_bits(rest) else {
+        return false;
+    };
+    let rest = after_bits.trim_start();
+    rest.is_empty()
+        || rest.starts_with('#')
+        || sql_word(rest, "end").is_some_and(|after| {
+            after.is_empty() || after.starts_with(char::is_whitespace) || after.starts_with('#')
+        })
+}
+
+fn julia_named_tail(s: &str) -> bool {
+    let Some((name, after)) = graphql_ident(s) else {
+        return false;
+    };
+    let rest = after.trim_start();
+    let stopped = rest.is_empty()
+        || rest.starts_with('#')
+        || sql_word(rest, "end").is_some_and(|after| {
+            after.is_empty() || after.starts_with(char::is_whitespace) || after.starts_with('#')
+        });
+    if !stopped {
+        return false;
+    }
+    if name.as_bytes()[0].is_ascii_lowercase() {
+        return rest.is_empty() || rest.starts_with('#') || sql_word(rest, "end").is_some();
+    }
+    true
+}
+
+fn julia_bits(s: &str) -> Option<&str> {
+    let n = s.bytes().take_while(u8::is_ascii_digit).count();
+    if n == 0 {
+        return None;
+    }
+    Some(&s[n..])
 }
 
 /// Zig `const Point = struct {`, `pub const E = enum(u8)`,
@@ -34669,6 +34758,44 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("macromodule"));
         assert!(!line_is_func_like("endtask"));
         assert!(!line_is_func_like("endmodule"));
+    }
+
+    #[test]
+    fn julia_baremodule_primitive_type_counts() {
+        assert!(line_is_func_like("baremodule Foo"));
+        assert!(line_is_func_like("baremodule Foo end"));
+        assert!(line_is_func_like("baremodule Foo # note"));
+        assert!(line_is_func_like("BAREMODULE Utils"));
+        assert!(line_is_func_like("  baremodule Foo"));
+        assert!(line_is_func_like("baremodule foo"));
+        assert!(line_is_func_like("baremodule foo end"));
+        assert!(line_is_func_like("primitive type Float16 16 end"));
+        assert!(line_is_func_like("primitive type Float16 16"));
+        assert!(line_is_func_like(
+            "primitive type Float16 <: AbstractFloat 16 end"
+        ));
+        assert!(line_is_func_like(
+            "primitive type Float16 <: AbstractFloat 16"
+        ));
+        assert!(line_is_func_like("PRIMITIVE TYPE MyBits 8 end"));
+        assert!(line_is_func_like("  primitive type UInt4 4 # nibble"));
+        // Generic keys still cover the common Julia forms.
+        assert!(line_is_func_like("function foo(x)"));
+        assert!(line_is_func_like("mutable struct Point"));
+        assert!(line_is_func_like("abstract type Animal end"));
+        assert!(line_is_func_like("module Foo"));
+        assert!(!line_is_func_like("baremodule"));
+        assert!(!line_is_func_like("baremodule the team"));
+        assert!(!line_is_func_like("baremodules"));
+        assert!(!line_is_func_like("baremoduleFoo"));
+        // Incomplete Julia (bits required). `primitive type Name` alone may still
+        // match the Verilog `primitive Name` path; that is fine for Function List.
+        assert!(!line_is_func_like("primitive type Float16 end"));
+        assert!(!line_is_func_like("primitive type <: AbstractFloat 16"));
+        assert!(!line_is_func_like("primitive Float16 16"));
+        assert!(!line_is_func_like("primitive type the bits 16"));
+        // Verilog `primitive Name` must not be swallowed as Julia.
+        assert!(line_is_func_like("primitive udp_and ("));
     }
 
     #[test]
