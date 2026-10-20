@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.471] — 2026-10-20
+
+View:
+
+- **Function List** lists Lean 4 `theorem` / `lemma` / `example` / `axiom` / `abbrev` / `opaque` / `inductive` / `structure` and `instance` (`theorem add_comm (…) :`, `structure Point where`, `inductive List where`, `axiom em :`, `abbrev Id :=`, `opaque mystery : Nat`, `instance : Add Nat where`, `instance [Monad m] : …`, `example : 1 + 1 = 2 :=`; optional leading `noncomputable` / `partial` / `private` / `protected` / `public` / `unsafe`; names may include `'`). Lowercase names need `:` / `(` / `{` / `[` / `where`. Prose and bare keywords stay out. `def` / `class` stay on the generic prefix keys. Function List keyword scan no longer panics on mid-line unicode when probing ASCII keywords.
+
 ## [0.3.470] — 2026-10-20
 
 View:

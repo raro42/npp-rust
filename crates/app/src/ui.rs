@@ -31775,6 +31775,14 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `Local` / `Global`. Names may include `'`. Lowercase names need `:` / `(` /
 /// `{`. Prose and bare keywords stay out. `Record` / `Module` / `Class` stay
 /// on the generic prefix keys.
+/// Lean 4 `theorem` / `lemma` / `example` / `axiom` / `abbrev` / `opaque` /
+/// `inductive` / `structure` and `instance` count (`theorem add_comm (…) :`,
+/// `structure Point where`, `inductive List where`, `axiom em :`,
+/// `abbrev ℕ := Nat`, `opaque mystery : Nat`, `instance : Add Nat where`,
+/// `instance [Monad m] : …`). Optional leading `noncomputable` / `partial` /
+/// `private` / `protected` / `public` / `unsafe`. Names may include `'`.
+/// Lowercase names need `:` / `(` / `{` / `[` / `where`. Prose and bare
+/// keywords stay out. `def` / `class` stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31831,6 +31839,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_raku_decl(s)
             || is_dafny_decl(s)
             || is_coq_decl(s)
+            || is_lean_decl(s)
         {
             return true;
         }
@@ -31883,6 +31892,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_raku_decl(s)
         || is_dafny_decl(s)
         || is_coq_decl(s)
+        || is_lean_decl(s)
     {
         return true;
     }
@@ -33286,6 +33296,159 @@ fn coq_decl_name(s: &str) -> bool {
     true
 }
 
+/// Lean 4 `theorem add_comm (…) :`, `structure Point where`,
+/// `inductive List where`, `axiom em :`, `abbrev Id :=`, `opaque mystery :`,
+/// `instance : Add Nat where`, `instance [Monad m] : …`, `example : 1 + 1 =
+/// 2 :=`. Optional `noncomputable` / `partial` / `private` / `protected` /
+/// `public` / `unsafe`. Names may include `'`. Prose and bare keywords stay
+/// out. `def` / `class` stay on the generic prefix keys (also after a Lean
+/// mod strip).
+fn is_lean_decl(s: &str) -> bool {
+    let stripped = lean_strip_mods(s);
+    if is_lean_instance(stripped) {
+        return true;
+    }
+    if let Some(rest) = lean_keyword_rest(stripped) {
+        // Anonymous `example : …` / `axiom : …`.
+        if rest.starts_with(':') || rest.starts_with('(') || rest.starts_with('[') {
+            return true;
+        }
+        return lean_decl_name(rest);
+    }
+    // `noncomputable def` / `private class` after mod strip.
+    if stripped.len() != s.len() {
+        let lower = stripped.to_ascii_lowercase();
+        return FUNC_LIKE_KEYS.iter().any(|k| lower.starts_with(k));
+    }
+    false
+}
+
+fn lean_strip_mods(s: &str) -> &str {
+    let mut s = s;
+    for _ in 0..6 {
+        let mut stripped = false;
+        for key in [
+            "noncomputable",
+            "protected",
+            "private",
+            "partial",
+            "public",
+            "unsafe",
+        ] {
+            let Some(rest) = sql_word(s, key) else {
+                continue;
+            };
+            if rest.starts_with(char::is_whitespace) {
+                s = rest.trim_start();
+                stripped = true;
+                break;
+            }
+        }
+        if !stripped {
+            break;
+        }
+    }
+    s
+}
+
+fn lean_keyword_rest(s: &str) -> Option<&str> {
+    // Longer keys first so structure / inductive / theorem win over shorter.
+    for key in [
+        "structure",
+        "inductive",
+        "theorem",
+        "example",
+        "abbrev",
+        "opaque",
+        "axiom",
+        "lemma",
+    ] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn is_lean_instance(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "instance") else {
+        return false;
+    };
+    if !(rest.starts_with(char::is_whitespace)
+        || rest.starts_with(':')
+        || rest.starts_with('[')
+        || rest.starts_with('('))
+    {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if rest.starts_with(':') || rest.starts_with('[') || rest.starts_with('(') {
+        return true;
+    }
+    lean_decl_name(rest)
+}
+
+fn lean_decl_name(s: &str) -> bool {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'\'')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = s.as_bytes()[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    let rest = s[n..].trim_start();
+    let stopped = rest.is_empty()
+        || rest.starts_with(':')
+        || rest.starts_with('{')
+        || rest.starts_with('(')
+        || rest.starts_with('[')
+        || rest.starts_with("where")
+        || rest.starts_with('.')
+        || rest.starts_with("--")
+        || rest.starts_with("/-")
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
+        || rest.starts_with('#');
+    if !stopped {
+        return false;
+    }
+    // `where` must be a word boundary (`wherever` stays out).
+    let where_ok = if let Some(after) = rest.strip_prefix("where") {
+        after.is_empty()
+            || after.starts_with(char::is_whitespace)
+            || after.starts_with(':')
+            || after.starts_with('{')
+            || after.starts_with('(')
+            || after.starts_with('[')
+            || after.starts_with('.')
+            || after.starts_with("--")
+            || after.starts_with("/-")
+            || after.starts_with("//")
+            || after.starts_with("/*")
+            || after.starts_with('#')
+    } else {
+        false
+    };
+    if rest.starts_with("where") && !where_ok {
+        return false;
+    }
+    if first.is_ascii_lowercase() {
+        return rest.starts_with(':')
+            || rest.starts_with('{')
+            || rest.starts_with('(')
+            || rest.starts_with('[')
+            || where_ok;
+    }
+    true
+}
+
 fn is_ruby_attr_kind(s: &str, kind: &str) -> bool {
     let Some(rest) = sql_word(s, kind) else {
         return false;
@@ -34677,8 +34840,8 @@ fn is_sql_create(s: &str) -> bool {
 }
 
 fn sql_word<'a>(s: &'a str, word: &str) -> Option<&'a str> {
-    let bytes = s.as_bytes();
-    if bytes.len() < word.len() {
+    // `word` is ASCII; reject mid-codepoint cuts so unicode source lines do not panic.
+    if s.len() < word.len() || !s.is_char_boundary(word.len()) {
         return None;
     }
     if !s[..word.len()].eq_ignore_ascii_case(word) {
@@ -36478,6 +36641,84 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("Fact the matter"));
         assert!(!line_is_func_like("Remark the note"));
         assert!(!line_is_func_like("Corollary the result"));
+    }
+
+    #[test]
+    fn lean_theorem_structure_instance_count() {
+        assert!(line_is_func_like(
+            "theorem add_comm (n m : Nat) : n + m = m + n :="
+        ));
+        assert!(line_is_func_like("theorem add_comm :"));
+        assert!(line_is_func_like("THEOREM Add_comm :"));
+        assert!(line_is_func_like("  theorem Add_comm"));
+        assert!(line_is_func_like("lemma foo : True :="));
+        assert!(line_is_func_like("LEMMA Foo"));
+        assert!(line_is_func_like("example : 1 + 1 = 2 :="));
+        assert!(line_is_func_like("example ex1 : 1 + 1 = 2 :="));
+        assert!(line_is_func_like("axiom em : ∀ p, p ∨ ¬p"));
+        assert!(line_is_func_like("AXIOM Em :"));
+        assert!(line_is_func_like("abbrev Id (α : Type) := α"));
+        assert!(line_is_func_like("abbrev Id :="));
+        assert!(line_is_func_like("ABBREV Id"));
+        assert!(line_is_func_like("opaque mystery : Nat"));
+        assert!(line_is_func_like("OPAQUE Mystery"));
+        assert!(line_is_func_like("structure Point where"));
+        assert!(line_is_func_like("structure Point (n : Nat) where"));
+        assert!(line_is_func_like("STRUCTURE Point where"));
+        assert!(line_is_func_like("inductive List where"));
+        assert!(line_is_func_like("inductive List (α : Type u) where"));
+        assert!(line_is_func_like("INDUCTIVE List where"));
+        assert!(line_is_func_like("instance : Add Nat where"));
+        assert!(line_is_func_like("instance [Monad m] : Foo m where"));
+        assert!(line_is_func_like("instance (n : Nat) : Bar n where"));
+        assert!(line_is_func_like("instance instAdd : Add Nat where"));
+        assert!(line_is_func_like("INSTANCE InstAdd :"));
+        assert!(line_is_func_like("noncomputable def mystery : Nat :="));
+        assert!(line_is_func_like("private theorem helper :"));
+        assert!(line_is_func_like("protected opaque secret : Nat"));
+        assert!(line_is_func_like("partial def go :"));
+        assert!(line_is_func_like("unsafe def hack :"));
+        assert!(line_is_func_like("structure point where"));
+        assert!(line_is_func_like("inductive list where"));
+        assert!(line_is_func_like("axiom helper :"));
+        assert!(line_is_func_like("abbrev id :="));
+        // Generic keys still cover def / class.
+        assert!(line_is_func_like("def hello : String := \"hi\""));
+        assert!(line_is_func_like("class Add (α : Type) where"));
+        assert!(!line_is_func_like("theorem"));
+        assert!(!line_is_func_like("structure"));
+        assert!(!line_is_func_like("inductive"));
+        assert!(!line_is_func_like("axiom"));
+        assert!(!line_is_func_like("abbrev"));
+        assert!(!line_is_func_like("opaque"));
+        assert!(!line_is_func_like("instance"));
+        assert!(!line_is_func_like("theorem the proof"));
+        assert!(!line_is_func_like("structure the point"));
+        assert!(!line_is_func_like("inductive the list"));
+        assert!(!line_is_func_like("axiom the law"));
+        assert!(!line_is_func_like("abbrev the alias"));
+        assert!(!line_is_func_like("opaque the secret"));
+        assert!(!line_is_func_like("instance of"));
+        assert!(!line_is_func_like("theorems add_comm"));
+        assert!(!line_is_func_like("structures Point"));
+        assert!(!line_is_func_like("inductives List"));
+        assert!(!line_is_func_like("axioms em"));
+        assert!(!line_is_func_like("abbrevs Id"));
+        assert!(!line_is_func_like("opaques mystery"));
+        assert!(!line_is_func_like("instances InstAdd"));
+        assert!(!line_is_func_like("theoremadd_comm"));
+        assert!(!line_is_func_like("theorem 1bad"));
+        assert!(!line_is_func_like("theorem helper"));
+        assert!(!line_is_func_like("structure point"));
+        assert!(!line_is_func_like("inductive list"));
+        assert!(!line_is_func_like("axiom helper"));
+        assert!(!line_is_func_like("abbrev id"));
+        assert!(!line_is_func_like("opaque mystery"));
+        assert!(!line_is_func_like("structure Point wherever"));
+        assert!(!line_is_func_like("theorem Add_comm more"));
+        assert!(!line_is_func_like("structure Point more"));
+        assert!(!line_is_func_like("noncomputabletheorem helper"));
+        assert!(!line_is_func_like("noncomputabley theorem helper"));
     }
 
     #[test]
