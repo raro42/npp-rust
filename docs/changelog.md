@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.475] — 2026-10-21
+
+View:
+
+- **Function List** lists Agda `postulate` / `primitive` / `variable` / `infix` / `infixl` / `infixr`, plus Agda-style `data Name : Set where` for names Haskell `data` misses (lowercase / mixfix operators / non-ASCII) (`postulate foo : Nat`, `postulate ∞ : Set`, `primitive primFloat`, `variable A : Set`, `variable {A : Set}`, `infix 4 _≡_`, `infixl 6 _+_`, `infixr 5 _∷_`, `data nat : Set where`, `data ℕ : Set where`, `data _≡_ {A : Set} (x : A) : A → Set where`). Prose and bare keywords stay out. `module` / `record` / `macro` stay on the generic prefix keys. Kotlin `data class` still lists as a class.
+
 ## [0.3.474] — 2026-10-21
 
 View:

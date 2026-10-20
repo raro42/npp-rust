@@ -31801,6 +31801,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `:`). Optional leading type vars (`datatype 'a list =`). Lowercase names
 /// need `where` / `::` / `=` / `[` / `:`. Prose and bare keywords stay out.
 /// `fun` / `function` / `record` stay on the generic prefix keys.
+/// Agda `postulate` / `primitive` / `variable` / `infix` / `infixl` /
+/// `infixr`, plus Agda-style `data Name : Set where` (lowercase / operator /
+/// non-ASCII names Haskell misses). `module` / `record` / `macro` stay on
+/// the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31861,6 +31865,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_alloy_decl(s)
             || is_tla_decl(s)
             || is_isabelle_decl(s)
+            || is_agda_decl(s)
         {
             return true;
         }
@@ -31917,6 +31922,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_alloy_decl(s)
         || is_tla_decl(s)
         || is_isabelle_decl(s)
+        || is_agda_decl(s)
     {
         return true;
     }
@@ -33892,6 +33898,214 @@ fn isabelle_decl_name(s: &str) -> bool {
             || where_ok;
     }
     true
+}
+
+/// Agda `postulate foo : Nat`, `primitive primFloat`, `variable A : Set`,
+/// `infix 4 _≡_`, `infixl 6 _+_`, `infixr 5 _∷_`, and Agda-style
+/// `data nat : Set where` / `data _≡_ {A : Set} (x : A) : A → Set where`
+/// (names Haskell `data` misses). `module` / `record` / `macro` stay on the
+/// generic prefix keys. Prose and bare keywords stay out.
+fn is_agda_decl(s: &str) -> bool {
+    is_agda_postulate(s)
+        || is_agda_primitive(s)
+        || is_agda_variable(s)
+        || is_agda_infix(s)
+        || is_agda_data(s)
+}
+
+fn is_agda_postulate(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "postulate") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_, after)) = agda_name(rest) else {
+        return false;
+    };
+    let rest = after.trim_start();
+    rest.starts_with(':')
+}
+
+fn is_agda_primitive(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "primitive") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_, after)) = agda_name(rest) else {
+        return false;
+    };
+    let rest = after.trim_start();
+    rest.is_empty() || rest.starts_with(':') || rest.starts_with("--") || rest.starts_with("{-")
+}
+
+fn is_agda_variable(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "variable") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if rest.starts_with('{') || rest.starts_with('(') {
+        return true;
+    }
+    let Some((_, after)) = agda_name(rest) else {
+        return false;
+    };
+    after.trim_start().starts_with(':')
+}
+
+fn is_agda_infix(s: &str) -> bool {
+    for key in ["infixl", "infixr", "infix"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        let prec = rest.bytes().take_while(|b| b.is_ascii_digit()).count();
+        if prec == 0 {
+            continue;
+        }
+        let rest = rest[prec..].trim_start();
+        if agda_name(rest).is_some() {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_agda_data(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "data") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    // Do not steal Kotlin/Scala `data class …`.
+    if sql_word(rest, "class").is_some_and(|after| {
+        after.is_empty()
+            || after.starts_with(char::is_whitespace)
+            || matches!(after.as_bytes().first(), Some(b'(' | b'[' | b'{'))
+    }) {
+        return false;
+    }
+    let Some((_, after)) = agda_name(rest) else {
+        return false;
+    };
+    let mut rest = after.trim_start();
+    // Optional telescopes: `{A : Set}` / `(A : Set)`.
+    for _ in 0..8 {
+        if rest.starts_with('{') || rest.starts_with('(') {
+            let Some(after_tel) = after_balanced_paren_or_brace(rest) else {
+                return false;
+            };
+            rest = after_tel.trim_start();
+            continue;
+        }
+        break;
+    }
+    if let Some(after) = rest.strip_prefix(':') {
+        return agda_has_where_word(after);
+    }
+    // Immediate `where` after name / telescopes (`data Foo where`).
+    let Some(after) = rest.strip_prefix("where") else {
+        return false;
+    };
+    after.is_empty()
+        || after.starts_with(char::is_whitespace)
+        || after.starts_with("--")
+        || after.starts_with("{-")
+}
+
+fn agda_has_where_word(s: &str) -> bool {
+    let bytes = s.as_bytes();
+    let mut i = 0usize;
+    while i + 5 <= bytes.len() {
+        if &bytes[i..i + 5] == b"where" {
+            let before_ok = i == 0 || !bytes[i - 1].is_ascii_alphanumeric();
+            let after_i = i + 5;
+            let after_ok = after_i == bytes.len() || !bytes[after_i].is_ascii_alphanumeric();
+            if before_ok && after_ok {
+                return true;
+            }
+        }
+        i += 1;
+    }
+    false
+}
+
+fn agda_name(s: &str) -> Option<(&str, &str)> {
+    let mut chars = s.char_indices();
+    let Some((0, first)) = chars.next() else {
+        return None;
+    };
+    // Mixfix operators: `_≡_`, `_∷_`, `_+_`.
+    if first == '_' {
+        let mut end = first.len_utf8();
+        for (i, c) in chars {
+            if c.is_whitespace() || c == ':' || c == '{' || c == '(' || c == '=' {
+                break;
+            }
+            end = i + c.len_utf8();
+        }
+        if end <= first.len_utf8() {
+            return None;
+        }
+        return Some((&s[..end], &s[end..]));
+    }
+    // Unicode symbol names: `∞`.
+    if !first.is_alphabetic() && first != '_' {
+        if first.is_ascii() || first.is_whitespace() {
+            return None;
+        }
+        let mut end = first.len_utf8();
+        for (i, c) in chars {
+            if c.is_whitespace() || c == ':' || c == '{' || c == '(' || c.is_ascii() {
+                break;
+            }
+            end = i + c.len_utf8();
+        }
+        return Some((&s[..end], &s[end..]));
+    }
+    let mut end = first.len_utf8();
+    for (i, c) in chars {
+        if c.is_alphanumeric() || c == '_' || c == '\'' {
+            end = i + c.len_utf8();
+        } else {
+            break;
+        }
+    }
+    Some((&s[..end], &s[end..]))
+}
+
+fn after_balanced_paren_or_brace(s: &str) -> Option<&str> {
+    let bytes = s.as_bytes();
+    let open = *bytes.first()?;
+    let close = match open {
+        b'(' => b')',
+        b'{' => b'}',
+        _ => return None,
+    };
+    let mut depth = 0i32;
+    for (i, &b) in bytes.iter().enumerate() {
+        if b == open {
+            depth += 1;
+        } else if b == close {
+            depth -= 1;
+            if depth == 0 {
+                return Some(&s[i + 1..]);
+            }
+        }
+    }
+    None
 }
 
 fn is_ruby_attr_kind(s: &str, kind: &str) -> bool {
@@ -37312,6 +37526,45 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("definition id"));
         assert!(!line_is_func_like("theorem app_nil more words"));
         assert!(!line_is_func_like("datatype ' list ="));
+    }
+
+    #[test]
+    fn agda_postulate_primitive_variable_infix_data_count() {
+        assert!(line_is_func_like("postulate foo : Nat"));
+        assert!(line_is_func_like("postulate ∞ : Set"));
+        assert!(line_is_func_like("primitive primFloat"));
+        assert!(line_is_func_like("primitive primNatPlus : Nat → Nat → Nat"));
+        assert!(line_is_func_like("variable A : Set"));
+        assert!(line_is_func_like("variable {A : Set}"));
+        assert!(line_is_func_like("variable (ℓ : Level)"));
+        assert!(line_is_func_like("infix 4 _≡_"));
+        assert!(line_is_func_like("infixl 6 _+_"));
+        assert!(line_is_func_like("infixr 5 _∷_"));
+        assert!(line_is_func_like("data nat : Set where"));
+        assert!(line_is_func_like("data ℕ : Set where"));
+        assert!(line_is_func_like(
+            "data _≡_ {A : Set} (x : A) : A → Set where"
+        ));
+        assert!(line_is_func_like("data List (A : Set) : Set where"));
+        // Generic keys still cover module / record / macro.
+        assert!(line_is_func_like("module Data.List where"));
+        assert!(line_is_func_like("record Point : Set where"));
+        assert!(line_is_func_like("macro mac"));
+        assert!(!line_is_func_like("postulate"));
+        assert!(!line_is_func_like("primitive"));
+        assert!(!line_is_func_like("variable"));
+        assert!(!line_is_func_like("infix"));
+        assert!(!line_is_func_like("infixl"));
+        assert!(!line_is_func_like("postulate the axiom : Nat"));
+        assert!(!line_is_func_like("primitive the float"));
+        assert!(!line_is_func_like("variable the set : Set"));
+        assert!(!line_is_func_like("infix 4"));
+        assert!(!line_is_func_like("infix level _≡_"));
+        assert!(!line_is_func_like("data the list : Set where"));
+        // Kotlin `data class` still counts via the generic `class` key.
+        assert!(line_is_func_like("data class Foo"));
+        assert!(!line_is_func_like("postulatefoo : Nat"));
+        assert!(!line_is_func_like("data nat : nowhere"));
     }
 
     #[test]
