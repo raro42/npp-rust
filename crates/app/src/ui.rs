@@ -31716,7 +31716,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// (`attr_reader :name`, `attr_accessor :x, :y`, `attr_writer(:z)`,
 /// `attr_reader :ready?`, `attr_writer :save!`). `attr_reader the name`,
 /// `attr_reader :`, and a bare `attr_reader` stay out. `def` stays on the
-/// generic prefix keys.
+/// generic prefix keys. Erlang `-module` / `-export` / `-export_type` /
+/// `-record` / `-spec` / `-callback` / `-type` / `-opaque` and `name(...) ->`
+/// clauses count (`-module(foo).`, `-export([hello/0]).`,
+/// `-record(person, {name})`, `hello() -> ok.`, `inc(X) when is_integer(X) -> X.`).
+/// Bare `-module`, prose, and uppercase heads stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31762,6 +31766,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_julia_decl(s)
             || is_gdscript_decl(s)
             || is_ruby_attr_decl(s)
+            || is_erlang_decl(s)
         {
             return true;
         }
@@ -31803,6 +31808,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_julia_decl(s)
         || is_gdscript_decl(s)
         || is_ruby_attr_decl(s)
+        || is_erlang_decl(s)
     {
         return true;
     }
@@ -32482,6 +32488,150 @@ fn is_ruby_attr_decl(s: &str) -> bool {
     is_ruby_attr_kind(s, "attr_reader")
         || is_ruby_attr_kind(s, "attr_writer")
         || is_ruby_attr_kind(s, "attr_accessor")
+}
+
+/// Erlang `-module(foo).`, `-export([hello/0]).`, `-export_type([t/0]).`,
+/// `-record(person, {name})`, `-spec hello() -> ok.`, `-callback handle(term()) -> ok.`,
+/// `-type opt() :: ok | error.`, `-opaque id() :: integer()`, and function
+/// clauses `hello() -> ok.`, `inc(X) when is_integer(X) -> X.`. Prose, bare
+/// attributes, and uppercase heads stay out.
+fn is_erlang_decl(s: &str) -> bool {
+    is_erlang_attribute(s) || is_erlang_fun_clause(s)
+}
+
+fn is_erlang_attribute(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix('-') else {
+        return false;
+    };
+    if let Some(after) = sql_word(rest, "module") {
+        return erlang_paren_atom(after);
+    }
+    if let Some(after) = sql_word(rest, "export_type") {
+        return erlang_paren_list_start(after);
+    }
+    if let Some(after) = sql_word(rest, "export") {
+        return erlang_paren_list_start(after);
+    }
+    if let Some(after) = sql_word(rest, "record") {
+        return erlang_record(after);
+    }
+    for key in ["spec", "callback", "type", "opaque"] {
+        let Some(after) = sql_word(rest, key) else {
+            continue;
+        };
+        if !(after.starts_with(char::is_whitespace) || after.starts_with('(')) {
+            continue;
+        }
+        return erlang_named_paren(after.trim_start());
+    }
+    false
+}
+
+fn erlang_paren_atom(s: &str) -> bool {
+    let Some(inner) = s.trim_start().strip_prefix('(') else {
+        return false;
+    };
+    let Some((name, after)) = graphql_ident(inner.trim_start()) else {
+        return false;
+    };
+    if !erlang_atom_name(name) {
+        return false;
+    }
+    after.trim_start().starts_with(')')
+}
+
+fn erlang_paren_list_start(s: &str) -> bool {
+    let Some(inner) = s.trim_start().strip_prefix('(') else {
+        return false;
+    };
+    inner.trim_start().starts_with('[')
+}
+
+fn erlang_record(s: &str) -> bool {
+    let Some(inner) = s.trim_start().strip_prefix('(') else {
+        return false;
+    };
+    let Some((name, after)) = graphql_ident(inner.trim_start()) else {
+        return false;
+    };
+    if !erlang_atom_name(name) {
+        return false;
+    }
+    after.trim_start().starts_with(',')
+}
+
+fn erlang_named_paren(s: &str) -> bool {
+    let Some((name, after)) = graphql_ident(s) else {
+        return false;
+    };
+    if !erlang_atom_name(name) {
+        return false;
+    }
+    after.trim_start().starts_with('(')
+}
+
+fn erlang_atom_name(name: &str) -> bool {
+    matches!(name.as_bytes().first(), Some(b) if b.is_ascii_lowercase() || *b == b'_')
+}
+
+fn is_erlang_fun_clause(s: &str) -> bool {
+    let Some(open) = s.find('(') else {
+        return false;
+    };
+    let head = s[..open].trim();
+    if head.is_empty()
+        || head
+            .bytes()
+            .any(|b| matches!(b, b' ' | b'\t' | b'=' | b';' | b'.'))
+        || !erlang_atom_name(head)
+        || !head.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        || is_erlang_reserved(head)
+    {
+        return false;
+    }
+    let Some(after) = after_balanced_paren(s, open) else {
+        return false;
+    };
+    let after = after.trim_start();
+    let after = if after.len() >= 4
+        && after[..4].eq_ignore_ascii_case("when")
+        && after[4..].starts_with(char::is_whitespace)
+    {
+        let Some(idx) = after.find("->") else {
+            return false;
+        };
+        &after[idx..]
+    } else {
+        after
+    };
+    after.starts_with("->")
+}
+
+fn is_erlang_reserved(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "if" | "case"
+            | "receive"
+            | "try"
+            | "catch"
+            | "begin"
+            | "fun"
+            | "when"
+            | "end"
+            | "of"
+            | "after"
+            | "andalso"
+            | "orelse"
+            | "not"
+            | "bnot"
+            | "div"
+            | "rem"
+            | "band"
+            | "bor"
+            | "bxor"
+            | "bsl"
+            | "bsr"
+    )
 }
 
 fn is_ruby_attr_kind(s: &str, kind: &str) -> bool {
@@ -35124,6 +35274,48 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("attr_reader :name if true"));
         assert!(!line_is_func_like("attr_reader(:name"));
         assert!(!line_is_func_like("attr_reader(:name,"));
+    }
+
+    #[test]
+    fn erlang_module_export_record_spec_and_clauses_count() {
+        assert!(line_is_func_like("-module(foo)."));
+        assert!(line_is_func_like("-module(foo). % note"));
+        assert!(line_is_func_like("  -module(lists)."));
+        assert!(line_is_func_like("-MODULE(foo)."));
+        assert!(line_is_func_like("-export([hello/0])."));
+        assert!(line_is_func_like("-export([hello/0, world/1])."));
+        assert!(line_is_func_like("-export_type([opt/0])."));
+        assert!(line_is_func_like("-record(person, {name, age = 0})."));
+        assert!(line_is_func_like("-record(person, {name})."));
+        assert!(line_is_func_like("-spec hello() -> ok."));
+        assert!(line_is_func_like("-callback handle(term()) -> ok."));
+        assert!(line_is_func_like("-type opt() :: ok | error."));
+        assert!(line_is_func_like("-opaque id() :: integer()."));
+        assert!(line_is_func_like("hello() -> ok."));
+        assert!(line_is_func_like("hello() ->"));
+        assert!(line_is_func_like("inc(X) -> X + 1."));
+        assert!(line_is_func_like("inc(X) when is_integer(X) -> X."));
+        assert!(line_is_func_like("  greet(Name) -> Name."));
+        assert!(!line_is_func_like("-module"));
+        assert!(!line_is_func_like("-module."));
+        assert!(!line_is_func_like("-module()"));
+        assert!(!line_is_func_like("-module(Foo)."));
+        assert!(!line_is_func_like("-export"));
+        assert!(!line_is_func_like("-export()"));
+        assert!(!line_is_func_like("-export(hello/0)."));
+        assert!(!line_is_func_like("-record"));
+        assert!(!line_is_func_like("-record(person)"));
+        assert!(!line_is_func_like("-record(Person, {name})."));
+        assert!(!line_is_func_like("-spec"));
+        assert!(!line_is_func_like("-type"));
+        assert!(!line_is_func_like("hello()"));
+        assert!(!line_is_func_like("hello();"));
+        assert!(!line_is_func_like("Hello() -> ok."));
+        assert!(!line_is_func_like("case(X) -> X."));
+        assert!(!line_is_func_like("if(X) -> X."));
+        assert!(!line_is_func_like("fun() -> ok."));
+        assert!(!line_is_func_like("hello() when"));
+        assert!(!line_is_func_like("hello() when is_integer(X)"));
     }
 
     #[test]

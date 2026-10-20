@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.459] — 2026-10-20
+
+View:
+
+- **Function List** lists Erlang `-module` / `-export` / `-export_type` / `-record` / `-spec` / `-callback` / `-type` / `-opaque` and `name(...) ->` clauses (`-module(foo).`, `-export([hello/0]).`, `-record(person, {name})`, `hello() -> ok.`, `inc(X) when is_integer(X) -> X.`). Bare attributes, prose, and uppercase heads stay out.
+
 ## [0.3.458] — 2026-10-20
 
 View:

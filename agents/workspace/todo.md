@@ -650,3 +650,5 @@
 009 keep: Function List Julia baremodule/primitive type (v0.3.455)
 
 009 keep: Function List GDScript class_name/signal (v0.3.457)
+
+009 keep: Function List Erlang -module/-export/-record/-spec and name() -> (v0.3.459)
