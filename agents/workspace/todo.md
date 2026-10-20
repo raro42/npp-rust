@@ -1,3 +1,4 @@
+009 keep: Function List sees Dafny lemma / predicate / datatype / codatatype (v0.3.469)
 009 keep: Function List sees Raku grammar / token / rule / regex / role (v0.3.467)
 009 keep: Function List sees WASM WIT world / variant / flags (v0.3.466)
 009 keep: Function List sees Smithy operation / structure / resource / intEnum (v0.3.465)

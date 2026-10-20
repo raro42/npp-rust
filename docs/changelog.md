@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.469] — 2026-10-20
+
+View:
+
+- **Function List** lists Dafny `lemma` / `predicate` / `datatype` / `codatatype` (`lemma LemmaAppend`, `predicate Sorted(s: seq<int>)`, `datatype List = Nil | Cons(...)`, `codatatype Stream = Cons(...)`; optional leading `ghost`). Lowercase names need `(` / `<` / `=` / `{`. `lemma the proof`, `predicate the property`, `datatype the list`, and bare keywords stay out. `method` / `function` / `class` / `trait` / `iterator` stay on the generic prefix keys.
+
 ## [0.3.468] — 2026-10-20
 
 View:

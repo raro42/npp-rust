@@ -31761,6 +31761,13 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `role Mixable {`, `role Mixable[::T]`). Lowercase names need `{` or `[`.
 /// `grammar the json`, `token the number`, `rule the object`, `regex the
 /// ident`, `role the mixin`, and bare keywords stay out.
+/// Dafny `lemma` / `predicate` / `datatype` / `codatatype` count
+/// (`lemma LemmaAppend`, `predicate Sorted(s: seq<int>)`,
+/// `datatype List = Nil | Cons(...)`, `codatatype Stream = Cons(...)`,
+/// optional leading `ghost`). Lowercase names need `(` / `<` / `=` / `{`.
+/// `lemma the proof`, `predicate the property`, `datatype the list`, and bare
+/// keywords stay out. `method` / `function` / `class` / `trait` / `iterator`
+/// stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31815,6 +31822,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_smithy_decl(s)
             || is_wit_decl(s)
             || is_raku_decl(s)
+            || is_dafny_decl(s)
         {
             return true;
         }
@@ -31865,6 +31873,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_smithy_decl(s)
         || is_wit_decl(s)
         || is_raku_decl(s)
+        || is_dafny_decl(s)
     {
         return true;
     }
@@ -33114,6 +33123,74 @@ fn raku_decl_name(s: &str) -> bool {
     }
     if first.is_ascii_lowercase() {
         return rest.starts_with('{') || rest.starts_with('[');
+    }
+    true
+}
+
+/// Dafny `lemma LemmaAppend`, `predicate Sorted(s: seq<int>)`,
+/// `datatype List = Nil | Cons(...)`, `codatatype Stream = Cons(...)`.
+/// Optional leading `ghost`. Lowercase names need `(` / `<` / `=` / `{`.
+/// Prose and bare keywords stay out. `method` / `function` / `class` /
+/// `trait` / `iterator` stay on the generic prefix keys.
+fn is_dafny_decl(s: &str) -> bool {
+    let s = dafny_strip_ghost(s);
+    let Some(rest) = dafny_keyword_rest(s) else {
+        return false;
+    };
+    dafny_decl_name(rest)
+}
+
+fn dafny_strip_ghost(s: &str) -> &str {
+    let Some(rest) = sql_word(s, "ghost") else {
+        return s;
+    };
+    if rest.starts_with(char::is_whitespace) {
+        return rest.trim_start();
+    }
+    s
+}
+
+fn dafny_keyword_rest(s: &str) -> Option<&str> {
+    for key in ["codatatype", "datatype", "predicate", "lemma"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn dafny_decl_name(s: &str) -> bool {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = s.as_bytes()[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    let rest = s[n..].trim_start();
+    let stopped = rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with('(')
+        || rest.starts_with('<')
+        || rest.starts_with('=')
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
+        || rest.starts_with('#');
+    if !stopped {
+        return false;
+    }
+    if first.is_ascii_lowercase() {
+        return rest.starts_with('{')
+            || rest.starts_with('(')
+            || rest.starts_with('<')
+            || rest.starts_with('=');
     }
     true
 }
@@ -36174,6 +36251,69 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("grammar JSON more"));
         assert!(!line_is_func_like("token Number more"));
         assert!(!line_is_func_like("role Mixable does Foo {"));
+    }
+
+    #[test]
+    fn dafny_lemma_predicate_datatype_count() {
+        assert!(line_is_func_like("lemma LemmaAppend"));
+        assert!(line_is_func_like("lemma LemmaAppend()"));
+        assert!(line_is_func_like("lemma LemmaAppend<T>"));
+        assert!(line_is_func_like("lemma LemmaAppend // note"));
+        assert!(line_is_func_like("LEMMA LemmaAppend"));
+        assert!(line_is_func_like("  lemma LemmaAppend"));
+        assert!(line_is_func_like("ghost lemma LemmaAppend"));
+        assert!(line_is_func_like("GHOST lemma LemmaAppend"));
+        assert!(line_is_func_like("predicate Sorted"));
+        assert!(line_is_func_like("predicate Sorted(s: seq<int>)"));
+        assert!(line_is_func_like("predicate Sorted<T>(s: seq<T>)"));
+        assert!(line_is_func_like("PREDICATE Sorted"));
+        assert!(line_is_func_like("ghost predicate Sorted(s: seq<int>)"));
+        assert!(line_is_func_like(
+            "datatype List = Nil | Cons(head: int, tail: List)"
+        ));
+        assert!(line_is_func_like("datatype List"));
+        assert!(line_is_func_like(
+            "datatype List<T> = Nil | Cons(T, List<T>)"
+        ));
+        assert!(line_is_func_like("DATATYPE List"));
+        assert!(line_is_func_like(
+            "codatatype Stream = Cons(head: int, tail: Stream)"
+        ));
+        assert!(line_is_func_like("codatatype Stream"));
+        assert!(line_is_func_like("CODATATYPE Stream"));
+        assert!(line_is_func_like("lemma helper("));
+        assert!(line_is_func_like("predicate sorted(s: seq<int>)"));
+        assert!(line_is_func_like("datatype list = Nil"));
+        assert!(line_is_func_like("codatatype stream = Cons(0, stream)"));
+        // Generic keys still cover Dafny method / function / class / trait / iterator.
+        assert!(line_is_func_like("method Main()"));
+        assert!(line_is_func_like("function Fib(n: nat): nat"));
+        assert!(line_is_func_like("class Cell"));
+        assert!(line_is_func_like("trait Drawable"));
+        assert!(line_is_func_like("iterator Gen()"));
+        assert!(!line_is_func_like("lemma"));
+        assert!(!line_is_func_like("predicate"));
+        assert!(!line_is_func_like("datatype"));
+        assert!(!line_is_func_like("codatatype"));
+        assert!(!line_is_func_like("lemma the proof"));
+        assert!(!line_is_func_like("predicate the property"));
+        assert!(!line_is_func_like("datatype the list"));
+        assert!(!line_is_func_like("codatatype the stream"));
+        assert!(!line_is_func_like("lemmas LemmaAppend"));
+        assert!(!line_is_func_like("predicates Sorted"));
+        assert!(!line_is_func_like("datatypes List"));
+        assert!(!line_is_func_like("codatatypes Stream"));
+        assert!(!line_is_func_like("lemmaLemmaAppend"));
+        assert!(!line_is_func_like("lemma 1bad"));
+        assert!(!line_is_func_like("lemma helper"));
+        assert!(!line_is_func_like("predicate sorted"));
+        assert!(!line_is_func_like("datatype list"));
+        assert!(!line_is_func_like("codatatype stream"));
+        assert!(!line_is_func_like("lemma LemmaAppend more"));
+        assert!(!line_is_func_like("predicate Sorted more"));
+        assert!(!line_is_func_like("datatype List more"));
+        assert!(!line_is_func_like("ghostlemma LemmaAppend"));
+        assert!(!line_is_func_like("ghosty lemma LemmaAppend"));
     }
 
     #[test]
