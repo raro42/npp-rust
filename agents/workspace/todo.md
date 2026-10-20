@@ -1,3 +1,4 @@
+009 keep: Function List sees Isabelle locale / abbreviation / primrec / typedef (v0.3.474)
 009 keep: Function List sees TLA+ MODULE / THEOREM / LEMMA / ASSUME (v0.3.473)
 009 keep: Function List sees Lean 4 theorem / structure / inductive / instance (v0.3.471)
 009 keep: Function List sees Dafny lemma / predicate / datatype / codatatype (v0.3.469)

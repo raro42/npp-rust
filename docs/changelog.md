@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.474] — 2026-10-21
+
+View:
+
+- **Function List** lists Isabelle/HOL `locale` / `abbreviation` / `primrec` / `typedef` / `axiomatization` / `interpretation`, plus `theorem` / `lemma` / `corollary` / `proposition` / `definition` / `datatype` / `inductive` / `coinductive` with Isabelle tails (`where` / `::` / `=` / `[simp]` / `:`) (`locale Group =`, `abbreviation id where`, `primrec fact where`, `typedef name =`, `axiomatization where`, `interpretation L =`, `theorem app_nil[simp]:`, `definition id where`, `datatype 'a list =`, `inductive even where`). Optional leading type vars. Lowercase names need `where` / `::` / `=` / `[` / `:`. Prose and bare keywords stay out. `fun` / `function` / `record` stay on the generic prefix keys.
+
 ## [0.3.473] — 2026-10-21
 
 View:

@@ -31794,6 +31794,13 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `LEMMA Name ==`, `ASSUME Name` count. Lowercase names need `==` / `=>` /
 /// `\` / a non-identifier start. Prose and bare keywords stay out. Plain
 /// `module Name` still matches the generic prefix key.
+/// Isabelle/HOL `locale` / `abbreviation` / `primrec` / `typedef` /
+/// `axiomatization` / `interpretation`, plus `theorem` / `lemma` /
+/// `corollary` / `proposition` / `definition` / `datatype` / `inductive` /
+/// `coinductive` with Isabelle tails (`where` / `::` / `=` / `[simp]` /
+/// `:`). Optional leading type vars (`datatype 'a list =`). Lowercase names
+/// need `where` / `::` / `=` / `[` / `:`. Prose and bare keywords stay out.
+/// `fun` / `function` / `record` stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31853,6 +31860,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_lean_decl(s)
             || is_alloy_decl(s)
             || is_tla_decl(s)
+            || is_isabelle_decl(s)
         {
             return true;
         }
@@ -31908,6 +31916,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_lean_decl(s)
         || is_alloy_decl(s)
         || is_tla_decl(s)
+        || is_isabelle_decl(s)
     {
         return true;
     }
@@ -33730,6 +33739,157 @@ fn tla_theorem_name(s: &str) -> bool {
             || rest.starts_with("=>")
             || rest.starts_with('\\')
             || op_stop;
+    }
+    true
+}
+
+/// Isabelle/HOL `locale Group =`, `abbreviation id where`, `primrec fact where`,
+/// `typedef name =`, `axiomatization where`, `interpretation L =`,
+/// `theorem app_nil[simp]:`, `definition id where`, `datatype 'a list =`,
+/// `inductive even where`. Lowercase names need `where` / `::` / `=` / `[` /
+/// `:`. Prose and bare keywords stay out. `fun` / `function` / `record` stay
+/// on the generic prefix keys.
+fn is_isabelle_decl(s: &str) -> bool {
+    if is_isabelle_axiomatization(s) {
+        return true;
+    }
+    if is_isabelle_datatype(s) {
+        return true;
+    }
+    for key in [
+        "interpretation",
+        "abbreviation",
+        "proposition",
+        "coinductive",
+        "definition",
+        "corollary",
+        "inductive",
+        "primrec",
+        "typedef",
+        "theorem",
+        "locale",
+        "lemma",
+    ] {
+        if is_isabelle_named(s, key) {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_isabelle_axiomatization(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "axiomatization") else {
+        return false;
+    };
+    if rest.starts_with(char::is_whitespace) {
+        let rest = rest.trim_start();
+        if let Some(after) = rest.strip_prefix("where") {
+            return after.is_empty()
+                || after.starts_with(char::is_whitespace)
+                || after.starts_with(':')
+                || after.starts_with('[')
+                || after.starts_with("(*")
+                || after.starts_with("//")
+                || after.starts_with("/*")
+                || after.starts_with('#');
+        }
+        return isabelle_decl_name(rest);
+    }
+    false
+}
+
+fn is_isabelle_datatype(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "datatype") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    // `datatype 'a list =` / `datatype ('a, 'b) foo =`
+    let rest = isabelle_skip_type_vars(rest);
+    isabelle_decl_name(rest)
+}
+
+fn isabelle_skip_type_vars(s: &str) -> &str {
+    let mut s = s;
+    for _ in 0..6 {
+        if let Some(rest) = s.strip_prefix('(') {
+            // `('a, 'b)` — require a closing `)` then continue.
+            let Some(end) = rest.find(')') else {
+                return s;
+            };
+            s = rest[end + 1..].trim_start();
+            continue;
+        }
+        if let Some(rest) = s.strip_prefix('\'') {
+            let n = rest
+                .bytes()
+                .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+                .count();
+            if n == 0 {
+                return s;
+            }
+            s = rest[n..].trim_start();
+            continue;
+        }
+        break;
+    }
+    s
+}
+
+fn is_isabelle_named(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    isabelle_decl_name(rest.trim_start())
+}
+
+fn isabelle_decl_name(s: &str) -> bool {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'\'')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = s.as_bytes()[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    let rest = s[n..].trim_start();
+    let where_ok = rest.strip_prefix("where").is_some_and(|after| {
+        after.is_empty()
+            || after.starts_with(char::is_whitespace)
+            || after.starts_with(':')
+            || after.starts_with('[')
+            || after.starts_with("(*")
+            || after.starts_with("//")
+            || after.starts_with("/*")
+            || after.starts_with('#')
+    });
+    let stopped = rest.is_empty()
+        || rest.starts_with("::")
+        || rest.starts_with(':')
+        || rest.starts_with('=')
+        || rest.starts_with('[')
+        || where_ok
+        || rest.starts_with("(*")
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
+        || rest.starts_with('#');
+    if !stopped {
+        return false;
+    }
+    if first.is_ascii_lowercase() {
+        return rest.starts_with("::")
+            || rest.starts_with(':')
+            || rest.starts_with('=')
+            || rest.starts_with('[')
+            || where_ok;
     }
     true
 }
@@ -37105,6 +37265,53 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("assume n"));
         assert!(!line_is_func_like("THEOREM TypeOK more words"));
         assert!(!line_is_func_like("---- MODULE Spec more ----"));
+    }
+
+    #[test]
+    fn isabelle_locale_definition_datatype_count() {
+        assert!(line_is_func_like("locale Group ="));
+        assert!(line_is_func_like("locale semigroup:"));
+        assert!(line_is_func_like("abbreviation id where"));
+        assert!(line_is_func_like("abbreviation id :: \"'a ⇒ 'a\""));
+        assert!(line_is_func_like("primrec fact where"));
+        assert!(line_is_func_like("typedef name ="));
+        assert!(line_is_func_like("axiomatization where"));
+        assert!(line_is_func_like("axiomatization foo where"));
+        assert!(line_is_func_like("interpretation L ="));
+        assert!(line_is_func_like("theorem app_nil[simp]:"));
+        assert!(line_is_func_like(
+            "lemma rev_rev[simp]: \"rev (rev xs) = xs\""
+        ));
+        assert!(line_is_func_like("definition id where"));
+        assert!(line_is_func_like("definition Id"));
+        assert!(line_is_func_like("datatype 'a list ="));
+        assert!(line_is_func_like("datatype ('a, 'b) tree ="));
+        assert!(line_is_func_like("datatype List = Nil | Cons"));
+        assert!(line_is_func_like("inductive even where"));
+        assert!(line_is_func_like("coinductive stream where"));
+        assert!(line_is_func_like("corollary done:"));
+        assert!(line_is_func_like("proposition P:"));
+        // Generic keys still cover fun / function / record.
+        assert!(line_is_func_like("fun fact :: \"nat ⇒ nat\" where"));
+        assert!(line_is_func_like("function f where"));
+        assert!(line_is_func_like("record point ="));
+        assert!(!line_is_func_like("locale"));
+        assert!(!line_is_func_like("abbreviation"));
+        assert!(!line_is_func_like("primrec"));
+        assert!(!line_is_func_like("typedef"));
+        assert!(!line_is_func_like("axiomatization"));
+        assert!(!line_is_func_like("interpretation"));
+        assert!(!line_is_func_like("locale the group ="));
+        assert!(!line_is_func_like("abbreviation the id where"));
+        assert!(!line_is_func_like("definition the id where"));
+        assert!(!line_is_func_like("datatype the list ="));
+        assert!(!line_is_func_like("theorem the proof"));
+        assert!(!line_is_func_like("lemma the invariant"));
+        assert!(!line_is_func_like("locales Group ="));
+        assert!(!line_is_func_like("localeGroup ="));
+        assert!(!line_is_func_like("definition id"));
+        assert!(!line_is_func_like("theorem app_nil more words"));
+        assert!(!line_is_func_like("datatype ' list ="));
     }
 
     #[test]
