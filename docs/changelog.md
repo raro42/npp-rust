@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.460] — 2026-10-20
+
+View:
+
+- **Function List** lists Sass / SCSS `@mixin` / `@function` / `@keyframes` (`@mixin flex-center`, `@mixin flex-center($dir)`, `@function rem($px)`, `@keyframes fade-in`). `@mixin the team`, `@include`, `@media`, and a bare `@mixin` / `@function` stay out.
+
 ## [0.3.459] — 2026-10-20
 
 View:

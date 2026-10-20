@@ -31721,6 +31721,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// clauses count (`-module(foo).`, `-export([hello/0]).`,
 /// `-record(person, {name})`, `hello() -> ok.`, `inc(X) when is_integer(X) -> X.`).
 /// Bare `-module`, prose, and uppercase heads stay out.
+/// Sass / SCSS `@mixin` / `@function` / `@keyframes` count (`@mixin flex-center`,
+/// `@mixin flex-center($dir)`, `@function rem($px)`, `@keyframes fade-in`).
+/// `@mixin the team`, `@include`, `@media`, and a bare `@mixin` / `@function`
+/// stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31767,6 +31771,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_gdscript_decl(s)
             || is_ruby_attr_decl(s)
             || is_erlang_decl(s)
+            || is_sass_decl(s)
         {
             return true;
         }
@@ -31809,6 +31814,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_gdscript_decl(s)
         || is_ruby_attr_decl(s)
         || is_erlang_decl(s)
+        || is_sass_decl(s)
     {
         return true;
     }
@@ -32634,6 +32640,66 @@ fn is_erlang_reserved(name: &str) -> bool {
     )
 }
 
+/// Sass / SCSS `@mixin flex-center`, `@mixin flex-center($dir)`,
+/// `@function rem($px)`, `@keyframes fade-in`. Hyphenated names ok.
+/// `@include`, `@media`, prose, and bare keywords stay out.
+fn is_sass_decl(s: &str) -> bool {
+    is_sass_at_named(s, "@mixin")
+        || is_sass_at_named(s, "@function")
+        || is_sass_at_named(s, "@keyframes")
+}
+
+fn is_sass_at_named(s: &str, key: &str) -> bool {
+    let Some(rest) = sass_at_key_rest(s, key) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_, after)) = sass_ident(rest) else {
+        return false;
+    };
+    let rest = after.trim_start();
+    rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with('(')
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
+}
+
+fn sass_at_key_rest<'a>(s: &'a str, key: &str) -> Option<&'a str> {
+    if s.len() < key.len() || !s[..key.len()].eq_ignore_ascii_case(key) {
+        return None;
+    }
+    let rest = &s[key.len()..];
+    if rest.starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+        return None;
+    }
+    Some(rest)
+}
+
+fn sass_ident(s: &str) -> Option<(&str, &str)> {
+    let bytes = s.as_bytes();
+    if bytes.is_empty() || !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+        return None;
+    }
+    let n = bytes
+        .iter()
+        .take_while(|b| b.is_ascii_alphanumeric() || **b == b'_' || **b == b'-')
+        .count();
+    Some((&s[..n], &s[n..]))
+}
+
+fn sass_at_keyword(s: &str) -> bool {
+    for key in ["@mixin", "@function", "@keyframes"] {
+        if sass_at_key_rest(s, key).is_some() {
+            return true;
+        }
+    }
+    false
+}
+
 fn is_ruby_attr_kind(s: &str, kind: &str) -> bool {
     let Some(rest) = sql_word(s, kind) else {
         return false;
@@ -33186,6 +33252,9 @@ fn strip_leading_annots(s: &str) -> Option<&str> {
             break;
         }
         if objc_at_type_keyword(rest) {
+            break;
+        }
+        if sass_at_keyword(rest) {
             break;
         }
         if rest.starts_with('@') {
@@ -35316,6 +35385,45 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("fun() -> ok."));
         assert!(!line_is_func_like("hello() when"));
         assert!(!line_is_func_like("hello() when is_integer(X)"));
+    }
+
+    #[test]
+    fn sass_mixin_function_keyframes_count() {
+        assert!(line_is_func_like("@mixin flex-center"));
+        assert!(line_is_func_like("@mixin flex-center {"));
+        assert!(line_is_func_like("@mixin flex-center($dir)"));
+        assert!(line_is_func_like("@mixin flex-center($dir) {"));
+        assert!(line_is_func_like("@mixin flex-center // note"));
+        assert!(line_is_func_like("@mixin _private"));
+        assert!(line_is_func_like("  @mixin card"));
+        assert!(line_is_func_like("@MIXIN FlexCenter"));
+        assert!(line_is_func_like("@function rem($px)"));
+        assert!(line_is_func_like("@function rem($px) {"));
+        assert!(line_is_func_like("@function strip-unit($value)"));
+        assert!(line_is_func_like("@FUNCTION rem($px)"));
+        assert!(line_is_func_like("@keyframes fade-in"));
+        assert!(line_is_func_like("@keyframes fade-in {"));
+        assert!(line_is_func_like("@keyframes slide_up // anim"));
+        assert!(line_is_func_like("@KEYFRAMES fade-in"));
+        // Other @ forms stay on their own paths / stay out.
+        assert!(line_is_func_like("@implementation MyClass"));
+        assert!(line_is_func_like("@protocol MyDelegate"));
+        assert!(!line_is_func_like("@mixin"));
+        assert!(!line_is_func_like("@function"));
+        assert!(!line_is_func_like("@keyframes"));
+        assert!(!line_is_func_like("@mixin the team"));
+        assert!(!line_is_func_like("@function the math"));
+        assert!(!line_is_func_like("@keyframes the fade"));
+        assert!(!line_is_func_like("@mixinExtra"));
+        assert!(!line_is_func_like("@mixins flex-center"));
+        assert!(!line_is_func_like("@include flex-center"));
+        assert!(!line_is_func_like("@media screen"));
+        assert!(!line_is_func_like("@use \"sass:math\""));
+        assert!(!line_is_func_like("@mixin()"));
+        assert!(!line_is_func_like("@mixin {"));
+        assert!(!line_is_func_like("@mixin flex-center more"));
+        assert!(!line_is_func_like("@mixin 1bad"));
+        assert!(!line_is_func_like("@mixin -bad"));
     }
 
     #[test]
