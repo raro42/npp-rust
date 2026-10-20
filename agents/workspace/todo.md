@@ -1,3 +1,4 @@
+009 keep: Function List sees Verilog/SystemVerilog task / macromodule / program / primitive / checker (v0.3.454)
 009 keep: Function List sees VHDL entity / architecture / component / package / package body (v0.3.453)
 009 keep: Function List sees CMake function(name) / macro(name) (v0.3.452)
 009 keep: Function List sees Zig const type aliases and test blocks (v0.3.450)

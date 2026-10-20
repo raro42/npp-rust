@@ -31695,6 +31695,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// count (`entity Foo is`, `architecture RTL of Foo is`, `component Bar is`,
 /// `package Utils is`, `package body Utils is`). `entity the team`,
 /// `architecture of Foo`, `entities`, and a bare `entity` / `package` stay out.
+/// Verilog / SystemVerilog `task` / `macromodule` / `program` / `primitive` /
+/// `checker` count (`task do_reset;`, `task automatic foo(`, `macromodule M;`,
+/// `program test;`, `primitive udp_and (`, `checker c1;`). `task the team`,
+/// `tasks`, and a bare `task` / `program` stay out. `module` / `interface` /
+/// `package` stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31735,6 +31740,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_matlab_classdef(s)
             || is_cmake_decl(s)
             || is_vhdl_decl(s)
+            || is_verilog_decl(s)
         {
             return true;
         }
@@ -31771,6 +31777,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_matlab_classdef(s)
         || is_cmake_decl(s)
         || is_vhdl_decl(s)
+        || is_verilog_decl(s)
     {
         return true;
     }
@@ -32288,6 +32295,82 @@ fn vhdl_ends_with_is(rest: &str) -> bool {
         || after_is.starts_with("--")
         || after_is.starts_with("//")
         || after_is.starts_with("/*")
+}
+
+/// Verilog / SystemVerilog `task do_reset;`, `task automatic foo(`,
+/// `macromodule M;`, `program test;`, `primitive udp_and (`, `checker c1;`.
+/// Optional leading `extern` / `export`, and `automatic` / `static` after `task`.
+/// Prose and bare keywords stay out.
+fn is_verilog_decl(s: &str) -> bool {
+    let s = verilog_strip_extern_export(s);
+    if is_verilog_task(s) {
+        return true;
+    }
+    for key in ["macromodule", "program", "primitive", "checker"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        return verilog_named_tail(rest.trim_start());
+    }
+    false
+}
+
+fn verilog_strip_extern_export(s: &str) -> &str {
+    for key in ["extern", "export"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return rest.trim_start();
+        }
+    }
+    s
+}
+
+fn is_verilog_task(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "task") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    for life in ["automatic", "static"] {
+        if let Some(after) = sql_word(rest, life) {
+            if after.starts_with(char::is_whitespace) {
+                rest = after.trim_start();
+                break;
+            }
+        }
+    }
+    verilog_named_tail(rest)
+}
+
+fn verilog_named_tail(s: &str) -> bool {
+    let Some((name, after)) = graphql_ident(s) else {
+        return false;
+    };
+    let rest = after.trim_start();
+    let stopped = rest.is_empty()
+        || rest.starts_with('(')
+        || rest.starts_with('#')
+        || rest.starts_with(';')
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
+        || rest.starts_with("--");
+    if !stopped {
+        return false;
+    }
+    if name.as_bytes()[0].is_ascii_lowercase() {
+        return rest.starts_with('(')
+            || rest.starts_with('#')
+            || rest.starts_with(';')
+            || rest.is_empty();
+    }
+    true
 }
 
 /// Zig `const Point = struct {`, `pub const E = enum(u8)`,
@@ -34553,6 +34636,39 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("package"));
         // Lines that start with `package ` still match the generic prefix key.
         assert!(!line_is_func_like("packagebody Utils is"));
+    }
+
+    #[test]
+    fn verilog_task_program_primitive_counts() {
+        assert!(line_is_func_like("task do_reset;"));
+        assert!(line_is_func_like("task foo();"));
+        assert!(line_is_func_like("task automatic pulse;"));
+        assert!(line_is_func_like("task static init("));
+        assert!(line_is_func_like("TASK Drive;"));
+        assert!(line_is_func_like("  task do_reset; // ports"));
+        assert!(line_is_func_like("macromodule Mac;"));
+        assert!(line_is_func_like("macromodule Mac ("));
+        assert!(line_is_func_like("program test;"));
+        assert!(line_is_func_like("program tb #("));
+        assert!(line_is_func_like("primitive udp_and ("));
+        assert!(line_is_func_like("primitive And2;"));
+        assert!(line_is_func_like("checker c1;"));
+        assert!(line_is_func_like("checker Protocol ("));
+        assert!(line_is_func_like("extern task foo;"));
+        assert!(line_is_func_like("virtual task bar();"));
+        assert!(!line_is_func_like("task"));
+        assert!(!line_is_func_like("task the team"));
+        assert!(!line_is_func_like("tasks"));
+        assert!(!line_is_func_like("taskFoo;"));
+        assert!(!line_is_func_like("automatic task foo;"));
+        assert!(!line_is_func_like("program"));
+        assert!(!line_is_func_like("program the suite"));
+        assert!(!line_is_func_like("programs"));
+        assert!(!line_is_func_like("primitive"));
+        assert!(!line_is_func_like("checker"));
+        assert!(!line_is_func_like("macromodule"));
+        assert!(!line_is_func_like("endtask"));
+        assert!(!line_is_func_like("endmodule"));
     }
 
     #[test]

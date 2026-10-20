@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.454] — 2026-10-20
+
+View:
+
+- **Function List** lists Verilog / SystemVerilog `task` / `macromodule` / `program` / `primitive` / `checker` (`task do_reset;`, `task automatic foo(`, `macromodule M;`, `program test;`, `primitive udp_and (`, `checker c1;`; optional `extern` / `export`). `task the team`, `tasks`, and a bare `task` / `program` stay out.
+
 ## [0.3.453] — 2026-10-20
 
 View:
