@@ -31738,6 +31738,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `rpc_service MonsterStorage {`). `table of contents`, `table the schema`,
 /// `rpc_service the storage`, and bare keywords stay out. `struct` / `enum` /
 /// `union` / `namespace` stay on the generic prefix keys.
+/// Prisma `model` / `datasource` / `generator` / `view` count (`model User {`,
+/// `datasource db {`, `generator client {`, `view UserInfo {`). `model the user`,
+/// `datasource the database`, `generator of code`, `view the mountains`, and bare
+/// keywords stay out. `enum` / `type` stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31788,6 +31792,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_css_at_decl(s)
             || is_powershell_decl(s)
             || is_flatbuffers_decl(s)
+            || is_prisma_decl(s)
         {
             return true;
         }
@@ -31834,6 +31839,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_css_at_decl(s)
         || is_powershell_decl(s)
         || is_flatbuffers_decl(s)
+        || is_prisma_decl(s)
     {
         return true;
     }
@@ -32910,6 +32916,32 @@ fn flatbuffers_decl_name(s: &str) -> bool {
         return rest.starts_with('{');
     }
     true
+}
+
+/// Prisma `model User {`, `datasource db {`, `generator client {`,
+/// `view UserInfo {`. One name. Lowercase names need `{`. Prose and bare
+/// keywords stay out. `enum` / `type` stay on the generic prefix keys.
+fn is_prisma_decl(s: &str) -> bool {
+    let Some(rest) = prisma_keyword_rest(s) else {
+        return false;
+    };
+    prisma_decl_name(rest)
+}
+
+fn prisma_keyword_rest(s: &str) -> Option<&str> {
+    for key in ["model", "datasource", "generator", "view"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn prisma_decl_name(s: &str) -> bool {
+    flatbuffers_decl_name(s)
 }
 
 fn is_ruby_attr_kind(s: &str, kind: &str) -> bool {
@@ -35753,6 +35785,55 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("rpc_service storage"));
         assert!(!line_is_func_like("table Monster more"));
         assert!(!line_is_func_like("rpc_service MonsterStorage more"));
+    }
+
+    #[test]
+    fn prisma_model_datasource_generator_view_count() {
+        assert!(line_is_func_like("model User {"));
+        assert!(line_is_func_like("model User"));
+        assert!(line_is_func_like("  model Foo{"));
+        assert!(line_is_func_like("model user {"));
+        assert!(line_is_func_like("model User // note"));
+        assert!(line_is_func_like("MODEL User"));
+        assert!(line_is_func_like("datasource db {"));
+        assert!(line_is_func_like("datasource Db"));
+        assert!(line_is_func_like("datasource db{"));
+        assert!(line_is_func_like("DATASOURCE db {"));
+        assert!(line_is_func_like("generator client {"));
+        assert!(line_is_func_like("generator Client"));
+        assert!(line_is_func_like("generator client{"));
+        assert!(line_is_func_like("GENERATOR client {"));
+        assert!(line_is_func_like("view UserInfo {"));
+        assert!(line_is_func_like("view UserInfo"));
+        assert!(line_is_func_like("view user_info {"));
+        assert!(line_is_func_like("VIEW UserInfo"));
+        // Generic keys still cover Prisma enum / type.
+        assert!(line_is_func_like("enum Role {"));
+        assert!(line_is_func_like("type Profile {"));
+        assert!(!line_is_func_like("model"));
+        assert!(!line_is_func_like("datasource"));
+        assert!(!line_is_func_like("generator"));
+        assert!(!line_is_func_like("view"));
+        assert!(!line_is_func_like("model the user"));
+        assert!(!line_is_func_like("datasource the database"));
+        assert!(!line_is_func_like("generator of code"));
+        assert!(!line_is_func_like("view the mountains"));
+        assert!(!line_is_func_like("models User"));
+        assert!(!line_is_func_like("datasources db"));
+        assert!(!line_is_func_like("generators client"));
+        assert!(!line_is_func_like("views UserInfo"));
+        assert!(!line_is_func_like("modelUser"));
+        assert!(!line_is_func_like("model 1bad"));
+        assert!(!line_is_func_like("model user"));
+        assert!(!line_is_func_like("datasource db"));
+        assert!(!line_is_func_like("datasource database"));
+        assert!(!line_is_func_like("generator client"));
+        assert!(!line_is_func_like("generator code"));
+        assert!(!line_is_func_like("view info"));
+        assert!(!line_is_func_like("model User more"));
+        assert!(!line_is_func_like("datasource db more"));
+        assert!(!line_is_func_like("generator client more"));
+        assert!(!line_is_func_like("view UserInfo more"));
     }
 
     #[test]

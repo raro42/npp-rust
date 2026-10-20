@@ -1,3 +1,4 @@
+009 keep: Function List sees Prisma model / datasource / generator / view (v0.3.464)
 009 keep: Function List sees FlatBuffers table / rpc_service (v0.3.463)
 009 keep: Function List sees Sass/SCSS @mixin / @function / @keyframes (v0.3.460)
 009 keep: Function List sees Erlang module attrs and clauses (v0.3.459)

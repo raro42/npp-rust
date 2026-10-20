@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.464] — 2026-10-20
+
+View:
+
+- **Function List** lists Prisma `model` / `datasource` / `generator` / `view` (`model User {`, `datasource db {`, `generator client {`, `view UserInfo {`). `model the user`, `datasource the database`, `generator of code`, `view the mountains`, and bare keywords stay out. `enum` / `type` stay on the generic prefix keys.
+
 ## [0.3.463] — 2026-10-20
 
 View:
