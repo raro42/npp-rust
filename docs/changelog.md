@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.477] — 2026-10-21
+
+View:
+
+- **Function List** lists Mercury / Prolog `:-` directives (`:- module foo.`, `:- module(foo, [bar/1]).`, `:- interface.`, `:- implementation.`, `:- type list(T) --->`, `:- pred append(`, `:- func length(`, `:- mode append(`, `:- inst list_skel ==`, `:- pragma foreign_decl(`, `:- import_module list.`, `:- use_module require.`, `:- include_module helpers.`, `:- typeclass foo(T)`, `:- instance foo(int)`, `:- initialise init/0.` / `:- initialize`, `:- finalise` / `:- finalize`, `:- mutable(counter, …)`, `:- dynamic foo/1.`, `:- multifile bar/2.`, `:- discontiguous baz/1.`, `:- meta_predicate map(2, +, -).`). Lowercase names need `.` / `(` / `=` / `-` / `:` / `%` / `--` / `/` soon after. Bare `:-`, prose such as `:- type the list`, glued `:-module`, and unknown words after `:-` stay out. Idris `implementation` without `:-` stays on the Idris path.
+
 ## [0.3.476] — 2026-10-21
 
 View:

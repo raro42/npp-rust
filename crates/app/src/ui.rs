@@ -31808,6 +31808,8 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Idris `implementation` / `parameters`, plus optional `public export` /
 /// `export` / `private` before those or a generic key (`export implementation
 /// Show Nat where`, `public export interface Eq a where`).
+/// Mercury / Prolog `:-` directives (`:- module foo.`, `:- interface.`,
+/// `:- type …`, `:- pred …`, `:- func …`, `:- pragma …`, …).
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31870,6 +31872,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_isabelle_decl(s)
             || is_agda_decl(s)
             || is_idris_decl(s)
+            || is_mercury_decl(s)
         {
             return true;
         }
@@ -31928,6 +31931,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_isabelle_decl(s)
         || is_agda_decl(s)
         || is_idris_decl(s)
+        || is_mercury_decl(s)
     {
         return true;
     }
@@ -34203,6 +34207,111 @@ fn is_idris_parameters(s: &str) -> bool {
     }
     let rest = rest.trim_start();
     rest.starts_with('(') || rest.starts_with('{')
+}
+
+/// Mercury / Prolog `:-` directives: `:- module foo.`, `:- module(foo, […]).`,
+/// `:- interface.`, `:- implementation.`, `:- type …`, `:- pred …`,
+/// `:- func …`, `:- mode …`, `:- inst …`, `:- pragma …`, `:- import_module …`,
+/// `:- use_module …`, `:- include_module …`, `:- typeclass …`, `:- instance …`,
+/// `:- initialise …` / `:- initialize …`, `:- finalise …` / `:- finalize …`,
+/// `:- mutable …`, and Prolog `:- dynamic …` / `:- multifile …` /
+/// `:- discontiguous …` / `:- meta_predicate …`.
+/// Lowercase names need `.` / `(` / `=` / `-` / `:` / `%` / `--` soon after.
+/// Bare `:-`, unknown words after `:-`, and clause bodies (`foo(X) :- …`) stay out.
+fn is_mercury_decl(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix(":-") else {
+        return false;
+    };
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace)) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if rest.is_empty() {
+        return false;
+    }
+    // Longer keys first so typeclass / import_module / meta_predicate win.
+    for key in [
+        "meta_predicate",
+        "discontiguous",
+        "import_module",
+        "include_module",
+        "implementation",
+        "initialise",
+        "initialize",
+        "finalise",
+        "finalize",
+        "use_module",
+        "typeclass",
+        "interface",
+        "multifile",
+        "instance",
+        "mutable",
+        "dynamic",
+        "pragma",
+        "module",
+        "mode",
+        "inst",
+        "type",
+        "pred",
+        "func",
+    ] {
+        let Some(after) = sql_word(rest, key) else {
+            continue;
+        };
+        if key == "interface" || key == "implementation" {
+            if mercury_section_end(after) {
+                return true;
+            }
+            continue;
+        }
+        if mercury_directive_body(after) {
+            return true;
+        }
+    }
+    false
+}
+
+fn mercury_section_end(after: &str) -> bool {
+    let after = after.trim_start();
+    after.is_empty() || after.starts_with('.') || after.starts_with('%') || after.starts_with("--")
+}
+
+fn mercury_directive_body(after: &str) -> bool {
+    if !(after.starts_with(char::is_whitespace) || after.starts_with('(')) {
+        return false;
+    }
+    let after = after.trim_start();
+    if after.is_empty() {
+        return false;
+    }
+    if after.starts_with('(') {
+        return true;
+    }
+    let n = after
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = after.as_bytes()[0];
+    if !(first.is_ascii_alphabetic() || first == b'_') {
+        return false;
+    }
+    let rest = after[n..].trim_start();
+    if !first.is_ascii_lowercase() {
+        return true;
+    }
+    // `:- type the list` stays out; `:- type foo.`, `:- pred append(` count.
+    rest.is_empty()
+        || rest.starts_with('.')
+        || rest.starts_with('(')
+        || rest.starts_with('=')
+        || rest.starts_with('-')
+        || rest.starts_with(':')
+        || rest.starts_with('%')
+        || rest.starts_with("--")
+        || rest.starts_with('/')
 }
 
 fn after_balanced_paren_or_brace(s: &str) -> Option<&str> {
@@ -37719,6 +37828,63 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("public export"));
         // Objective-C @implementation stays on the ObjC path.
         assert!(line_is_func_like("@implementation MyClass"));
+    }
+
+    #[test]
+    fn mercury_prolog_directives_count() {
+        assert!(line_is_func_like(":- module foo."));
+        assert!(line_is_func_like(":- module(foo, [bar/1])."));
+        assert!(line_is_func_like(":- interface."));
+        assert!(line_is_func_like(":- implementation."));
+        assert!(line_is_func_like(":- interface"));
+        assert!(line_is_func_like(":- implementation % body"));
+        assert!(line_is_func_like(
+            ":- type list(T) ---> [] ; [T | list(T)]."
+        ));
+        assert!(line_is_func_like(":- type foo == int."));
+        assert!(line_is_func_like(
+            ":- pred append(list(T), list(T), list(T))."
+        ));
+        assert!(line_is_func_like(
+            ":- func length(list(T)::in) = (int::out) is det."
+        ));
+        assert!(line_is_func_like(":- mode append(in, in, out) is det."));
+        assert!(line_is_func_like(
+            ":- inst list_skel == bound([] ; [ground | list_skel])."
+        ));
+        assert!(line_is_func_like(
+            ":- pragma foreign_decl(\"C\", \"#include <stdio.h>\")."
+        ));
+        assert!(line_is_func_like(":- import_module list."));
+        assert!(line_is_func_like(":- use_module require."));
+        assert!(line_is_func_like(":- include_module helpers."));
+        assert!(line_is_func_like(":- typeclass foo(T) where []."));
+        assert!(line_is_func_like(":- instance foo(int) where []."));
+        assert!(line_is_func_like(":- initialise init/0."));
+        assert!(line_is_func_like(":- initialize init/0."));
+        assert!(line_is_func_like(":- finalise final/0."));
+        assert!(line_is_func_like(":- finalize final/0."));
+        assert!(line_is_func_like(
+            ":- mutable(counter, int, 0, ground, [untrailed])."
+        ));
+        assert!(line_is_func_like(":- dynamic foo/1."));
+        assert!(line_is_func_like(":- multifile bar/2."));
+        assert!(line_is_func_like(":- discontiguous baz/1."));
+        assert!(line_is_func_like(":- meta_predicate map(2, +, -)."));
+        assert!(line_is_func_like("  :- module Nested."));
+        // Directives must start with `:-` (clause bodies are a separate shape).
+        assert!(!line_is_func_like(":-"));
+        assert!(!line_is_func_like(":- "));
+        assert!(!line_is_func_like(":- type"));
+        assert!(!line_is_func_like(":- type the list"));
+        assert!(!line_is_func_like(":- module"));
+        assert!(!line_is_func_like(":- unknown_directive foo."));
+        assert!(!line_is_func_like(":-module foo."));
+        assert!(!line_is_func_like(":- types foo."));
+        assert!(!line_is_func_like(":- predicates append."));
+        assert!(!line_is_func_like(":- interface something"));
+        // Idris `implementation` without `:-` stays on the Idris path.
+        assert!(line_is_func_like("implementation Show Nat where"));
     }
 
     #[test]

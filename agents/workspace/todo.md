@@ -675,3 +675,4 @@
 009 keep: Function List Coq Theorem/Lemma/Definition/Inductive/Fixpoint (v0.3.470)
 
 009 keep: Function List Alloy sig/pred/fact/assert (v0.3.472)
+009 keep: Function List Mercury/Prolog :- directives (v0.3.477)
