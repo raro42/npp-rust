@@ -31742,6 +31742,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `datasource db {`, `generator client {`, `view UserInfo {`). `model the user`,
 /// `datasource the database`, `generator of code`, `view the mountains`, and bare
 /// keywords stay out. `enum` / `type` stay on the generic prefix keys.
+/// Smithy `operation` / `structure` / `resource` / `intEnum` count
+/// (`operation GetCurrentTime {`, `structure City {`, `resource Forecast {`,
+/// `intEnum Severity {`). `operation the request`, `structure the city`,
+/// `resource the forecast`, `intEnum the severity`, and bare keywords stay out.
+/// `service` / `enum` / `union` / `list` / `map` stay on protobuf or generic keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31793,6 +31798,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_powershell_decl(s)
             || is_flatbuffers_decl(s)
             || is_prisma_decl(s)
+            || is_smithy_decl(s)
         {
             return true;
         }
@@ -31840,6 +31846,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_powershell_decl(s)
         || is_flatbuffers_decl(s)
         || is_prisma_decl(s)
+        || is_smithy_decl(s)
     {
         return true;
     }
@@ -32941,6 +32948,33 @@ fn prisma_keyword_rest(s: &str) -> Option<&str> {
 }
 
 fn prisma_decl_name(s: &str) -> bool {
+    flatbuffers_decl_name(s)
+}
+
+/// Smithy `operation GetCurrentTime {`, `structure City {`,
+/// `resource Forecast {`, `intEnum Severity {`. One name. Lowercase names
+/// need `{`. Prose and bare keywords stay out. `service` / `enum` / `union`
+/// stay on protobuf or generic keys. HCL `resource "…"` stays on HCL.
+fn is_smithy_decl(s: &str) -> bool {
+    let Some(rest) = smithy_keyword_rest(s) else {
+        return false;
+    };
+    smithy_decl_name(rest)
+}
+
+fn smithy_keyword_rest(s: &str) -> Option<&str> {
+    for key in ["operation", "structure", "resource", "intEnum"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn smithy_decl_name(s: &str) -> bool {
     flatbuffers_decl_name(s)
 }
 
@@ -35834,6 +35868,56 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("datasource db more"));
         assert!(!line_is_func_like("generator client more"));
         assert!(!line_is_func_like("view UserInfo more"));
+    }
+
+    #[test]
+    fn smithy_operation_structure_resource_int_enum_count() {
+        assert!(line_is_func_like("operation GetCurrentTime {"));
+        assert!(line_is_func_like("operation GetCurrentTime"));
+        assert!(line_is_func_like("  operation Foo{"));
+        assert!(line_is_func_like("operation getCurrentTime {"));
+        assert!(line_is_func_like("operation GetCurrentTime // note"));
+        assert!(line_is_func_like("OPERATION GetCurrentTime"));
+        assert!(line_is_func_like("structure City {"));
+        assert!(line_is_func_like("structure City"));
+        assert!(line_is_func_like("structure city {"));
+        assert!(line_is_func_like("STRUCTURE City"));
+        assert!(line_is_func_like("resource Forecast {"));
+        assert!(line_is_func_like("resource Forecast"));
+        assert!(line_is_func_like("resource forecast {"));
+        assert!(line_is_func_like("RESOURCE Forecast"));
+        assert!(line_is_func_like("intEnum Severity {"));
+        assert!(line_is_func_like("intEnum Severity"));
+        assert!(line_is_func_like("intEnum severity {"));
+        assert!(line_is_func_like("INTENUM Severity"));
+        // Generic / protobuf keys still cover Smithy service / enum / union.
+        assert!(line_is_func_like("service Weather {"));
+        assert!(line_is_func_like("enum Suit {"));
+        assert!(line_is_func_like("union MyUnion {"));
+        assert!(!line_is_func_like("operation"));
+        assert!(!line_is_func_like("structure"));
+        assert!(!line_is_func_like("resource"));
+        assert!(!line_is_func_like("intEnum"));
+        assert!(!line_is_func_like("operation the request"));
+        assert!(!line_is_func_like("structure the city"));
+        assert!(!line_is_func_like("resource the forecast"));
+        assert!(!line_is_func_like("intEnum the severity"));
+        assert!(!line_is_func_like("operations GetCurrentTime"));
+        assert!(!line_is_func_like("structures City"));
+        assert!(!line_is_func_like("resources Forecast"));
+        assert!(!line_is_func_like("intEnums Severity"));
+        assert!(!line_is_func_like("operationGetCurrentTime"));
+        assert!(!line_is_func_like("operation 1bad"));
+        assert!(!line_is_func_like("operation getCurrentTime"));
+        assert!(!line_is_func_like("structure city"));
+        assert!(!line_is_func_like("resource forecast"));
+        assert!(!line_is_func_like("intEnum severity"));
+        assert!(!line_is_func_like("operation GetCurrentTime more"));
+        assert!(!line_is_func_like("structure City more"));
+        assert!(!line_is_func_like("resource Forecast more"));
+        assert!(!line_is_func_like("intEnum Severity more"));
+        // HCL quoted resource stays on the HCL path (still counts).
+        assert!(line_is_func_like("resource \"aws_instance\" \"web\" {"));
     }
 
     #[test]

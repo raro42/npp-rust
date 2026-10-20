@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.465] — 2026-10-20
+
+View:
+
+- **Function List** lists Smithy `operation` / `structure` / `resource` / `intEnum` (`operation GetCurrentTime {`, `structure City {`, `resource Forecast {`, `intEnum Severity {`). `operation the request`, `structure the city`, `resource the forecast`, `intEnum the severity`, and bare keywords stay out. `service` / `enum` / `union` stay on protobuf or generic keys. HCL quoted `resource "…"` stays on the HCL path.
+
 ## [0.3.464] — 2026-10-20
 
 View:
