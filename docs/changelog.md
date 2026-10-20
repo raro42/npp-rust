@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.467] — 2026-10-20
+
+View:
+
+- **Function List** lists Raku / Perl 6 `grammar` / `token` / `rule` / `regex` / `role` (`grammar JSON {`, `token number {`, `rule object {`, `regex ident {`, `role Mixable {`, `role Mixable[::T]`). Lowercase names need `{` or `[`. `grammar the json`, `token the number`, `rule the object`, `regex the ident`, `role the mixin`, and bare keywords stay out.
+
 ## [0.3.466] — 2026-10-20
 
 View:

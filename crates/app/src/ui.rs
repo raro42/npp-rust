@@ -31752,6 +31752,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `world the imports`, `variant the error`, `flags the bits`, and bare
 /// keywords stay out. `interface` / `record` / `func` / `package` stay on
 /// generic keys; `resource` stays on Smithy.
+/// Raku / Perl 6 `grammar` / `token` / `rule` / `regex` / `role` count
+/// (`grammar JSON {`, `token number {`, `rule object {`, `regex ident {`,
+/// `role Mixable {`, `role Mixable[::T]`). Lowercase names need `{` or `[`.
+/// `grammar the json`, `token the number`, `rule the object`, `regex the
+/// ident`, `role the mixin`, and bare keywords stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31805,6 +31810,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_prisma_decl(s)
             || is_smithy_decl(s)
             || is_wit_decl(s)
+            || is_raku_decl(s)
         {
             return true;
         }
@@ -31854,6 +31860,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_prisma_decl(s)
         || is_smithy_decl(s)
         || is_wit_decl(s)
+        || is_raku_decl(s)
     {
         return true;
     }
@@ -33039,6 +33046,57 @@ fn wit_decl_name(s: &str) -> bool {
     }
     if first.is_ascii_lowercase() {
         return rest.starts_with('{');
+    }
+    true
+}
+
+/// Raku / Perl 6 `grammar JSON {`, `token number {`, `rule object {`,
+/// `regex ident {`, `role Mixable {`, `role Mixable[::T]`. One name;
+/// `[` type params ok. Lowercase names need `{` or `[`. Prose and bare
+/// keywords stay out.
+fn is_raku_decl(s: &str) -> bool {
+    let Some(rest) = raku_keyword_rest(s) else {
+        return false;
+    };
+    raku_decl_name(rest)
+}
+
+fn raku_keyword_rest(s: &str) -> Option<&str> {
+    for key in ["grammar", "token", "rule", "regex", "role"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn raku_decl_name(s: &str) -> bool {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = s.as_bytes()[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    let rest = s[n..].trim_start();
+    let stopped = rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with('[')
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
+        || rest.starts_with('#');
+    if !stopped {
+        return false;
+    }
+    if first.is_ascii_lowercase() {
+        return rest.starts_with('{') || rest.starts_with('[');
     }
     true
 }
@@ -36022,6 +36080,54 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("flags Permissions more"));
         assert!(!line_is_func_like("world foo- {"));
         assert!(!line_is_func_like("variant -bad {"));
+    }
+
+    #[test]
+    fn raku_grammar_token_rule_regex_role_count() {
+        assert!(line_is_func_like("grammar JSON {"));
+        assert!(line_is_func_like("  grammar JSON{"));
+        assert!(line_is_func_like("grammar JSON"));
+        assert!(line_is_func_like("grammar JSON // note"));
+        assert!(line_is_func_like("grammar JSON # comment"));
+        assert!(line_is_func_like("GRAMMAR JSON"));
+        assert!(line_is_func_like("token number {"));
+        assert!(line_is_func_like("token number{"));
+        assert!(line_is_func_like("TOKEN Number"));
+        assert!(line_is_func_like("rule object {"));
+        assert!(line_is_func_like("rule object{"));
+        assert!(line_is_func_like("RULE Object"));
+        assert!(line_is_func_like("regex ident {"));
+        assert!(line_is_func_like("regex ident{"));
+        assert!(line_is_func_like("REGEX Ident"));
+        assert!(line_is_func_like("role Mixable {"));
+        assert!(line_is_func_like("role Mixable[::T]"));
+        assert!(line_is_func_like("role Mixable[::T] {"));
+        assert!(line_is_func_like("role mixable[::T]"));
+        assert!(line_is_func_like("ROLE Mixable"));
+        assert!(!line_is_func_like("grammar"));
+        assert!(!line_is_func_like("token"));
+        assert!(!line_is_func_like("rule"));
+        assert!(!line_is_func_like("regex"));
+        assert!(!line_is_func_like("role"));
+        assert!(!line_is_func_like("grammar the json"));
+        assert!(!line_is_func_like("token the number"));
+        assert!(!line_is_func_like("rule the object"));
+        assert!(!line_is_func_like("regex the ident"));
+        assert!(!line_is_func_like("role the mixin"));
+        assert!(!line_is_func_like("grammars JSON {"));
+        assert!(!line_is_func_like("tokens number {"));
+        assert!(!line_is_func_like("rules object {"));
+        assert!(!line_is_func_like("regexes ident {"));
+        assert!(!line_is_func_like("roles Mixable {"));
+        assert!(!line_is_func_like("grammarJSON {"));
+        assert!(!line_is_func_like("grammar 1bad {"));
+        assert!(!line_is_func_like("token number"));
+        assert!(!line_is_func_like("rule object"));
+        assert!(!line_is_func_like("regex ident"));
+        assert!(!line_is_func_like("role mixable"));
+        assert!(!line_is_func_like("grammar JSON more"));
+        assert!(!line_is_func_like("token Number more"));
+        assert!(!line_is_func_like("role Mixable does Foo {"));
     }
 
     #[test]
