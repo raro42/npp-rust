@@ -31691,6 +31691,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// CMake `function(name)` / `macro(name)` count (`function(my_func)`,
 /// `macro(my_macro arg)`, optional space before `(`). `function()`,
 /// `functions(…)`, `endfunction()`, and a bare `function` / `macro` stay out.
+/// VHDL `entity` / `architecture` / `component` / `package` / `package body`
+/// count (`entity Foo is`, `architecture RTL of Foo is`, `component Bar is`,
+/// `package Utils is`, `package body Utils is`). `entity the team`,
+/// `architecture of Foo`, `entities`, and a bare `entity` / `package` stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31730,6 +31734,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_zig_decl(s)
             || is_matlab_classdef(s)
             || is_cmake_decl(s)
+            || is_vhdl_decl(s)
         {
             return true;
         }
@@ -31765,6 +31770,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_zig_decl(s)
         || is_matlab_classdef(s)
         || is_cmake_decl(s)
+        || is_vhdl_decl(s)
     {
         return true;
     }
@@ -32204,6 +32210,84 @@ fn is_cmake_decl(s: &str) -> bool {
             || after.starts_with('#');
     }
     false
+}
+
+/// VHDL `entity Foo is`, `architecture RTL of Foo is`, `component Bar is`,
+/// `package Utils is`, `package body Utils is`. `--` comments after `is` count.
+/// Prose and bare keywords stay out.
+fn is_vhdl_decl(s: &str) -> bool {
+    if is_vhdl_architecture(s) || is_vhdl_package(s) {
+        return true;
+    }
+    for key in ["entity", "component"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        let Some((_, after)) = graphql_ident(rest) else {
+            return false;
+        };
+        return vhdl_ends_with_is(after.trim_start());
+    }
+    false
+}
+
+fn is_vhdl_architecture(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "architecture") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_, after_arch)) = graphql_ident(rest) else {
+        return false;
+    };
+    let after_arch = after_arch.trim_start();
+    let Some(after_of) = sql_word(after_arch, "of") else {
+        return false;
+    };
+    if !after_of.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some((_, after_ent)) = graphql_ident(after_of.trim_start()) else {
+        return false;
+    };
+    vhdl_ends_with_is(after_ent.trim_start())
+}
+
+fn is_vhdl_package(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "package") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    if let Some(after_body) = sql_word(rest, "body") {
+        if !after_body.starts_with(char::is_whitespace) {
+            return false;
+        }
+        rest = after_body.trim_start();
+    }
+    let Some((_, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    vhdl_ends_with_is(after.trim_start())
+}
+
+fn vhdl_ends_with_is(rest: &str) -> bool {
+    let Some(after_is) = sql_word(rest, "is") else {
+        return false;
+    };
+    after_is.is_empty()
+        || after_is.starts_with(char::is_whitespace)
+        || after_is.starts_with("--")
+        || after_is.starts_with("//")
+        || after_is.starts_with("/*")
 }
 
 /// Zig `const Point = struct {`, `pub const E = enum(u8)`,
@@ -34440,6 +34524,35 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("endmacro()"));
         assert!(!line_is_func_like("endfunction(my_func)"));
         assert!(!line_is_func_like("macros(foo)"));
+    }
+
+    #[test]
+    fn vhdl_entity_architecture_package_counts() {
+        assert!(line_is_func_like("entity Foo is"));
+        assert!(line_is_func_like("entity counter is"));
+        assert!(line_is_func_like("ENTITY ALU is"));
+        assert!(line_is_func_like("  entity Foo is -- ports"));
+        assert!(line_is_func_like("architecture RTL of Foo is"));
+        assert!(line_is_func_like("architecture behavioral of alu is"));
+        assert!(line_is_func_like("ARCHITECTURE rtl OF counter IS"));
+        assert!(line_is_func_like("component Bar is"));
+        assert!(line_is_func_like("component adder is"));
+        assert!(line_is_func_like("package Utils is"));
+        assert!(line_is_func_like("package body Utils is"));
+        assert!(line_is_func_like("PACKAGE BODY math IS"));
+        assert!(!line_is_func_like("entity"));
+        assert!(!line_is_func_like("entity is"));
+        assert!(!line_is_func_like("entity the team"));
+        assert!(!line_is_func_like("entities"));
+        assert!(!line_is_func_like("entityFoo is"));
+        assert!(!line_is_func_like("architecture of Foo is"));
+        assert!(!line_is_func_like("architecture RTL is"));
+        assert!(!line_is_func_like("architecture RTL of is"));
+        assert!(!line_is_func_like("component"));
+        assert!(!line_is_func_like("component is"));
+        assert!(!line_is_func_like("package"));
+        // Lines that start with `package ` still match the generic prefix key.
+        assert!(!line_is_func_like("packagebody Utils is"));
     }
 
     #[test]

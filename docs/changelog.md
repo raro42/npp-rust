@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.453] — 2026-10-20
+
+View:
+
+- **Function List** lists VHDL `entity` / `architecture` / `component` / `package` / `package body` (`entity Foo is`, `architecture RTL of Foo is`, `component Bar is`, `package Utils is`, `package body Utils is`). `entity the team`, `architecture of Foo`, `entities`, and a bare `entity` / `package` stay out.
+
 ## [0.3.452] — 2026-10-20
 
 View:
