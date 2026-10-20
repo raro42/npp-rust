@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.470] — 2026-10-20
+
+View:
+
+- **Function List** lists Coq `Theorem` / `Lemma` / `Definition` / `Inductive` / `CoInductive` / `Fixpoint` / `CoFixpoint` / `Corollary` / `Example` / `Fact` / `Remark` / `Proposition` (`Theorem app_nil_r :`, `Definition length :=`, `Inductive nat : Type :=`, `Fixpoint map {A} (…)`; optional leading `Local` / `Global`; names may include `'`). Lowercase names need `:` / `(` / `{`. Prose and bare keywords stay out. `Record` / `Module` / `Class` stay on the generic prefix keys.
+
 ## [0.3.469] — 2026-10-20
 
 View:

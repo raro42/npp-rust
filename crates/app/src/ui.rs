@@ -31768,6 +31768,13 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `lemma the proof`, `predicate the property`, `datatype the list`, and bare
 /// keywords stay out. `method` / `function` / `class` / `trait` / `iterator`
 /// stay on the generic prefix keys.
+/// Coq `Theorem` / `Lemma` / `Definition` / `Inductive` / `CoInductive` /
+/// `Fixpoint` / `CoFixpoint` / `Corollary` / `Example` / `Fact` / `Remark` /
+/// `Proposition` count (`Theorem app_nil_r :`, `Definition length :=`,
+/// `Inductive nat : Type :=`, `Fixpoint map {A} (…)`). Optional leading
+/// `Local` / `Global`. Names may include `'`. Lowercase names need `:` / `(` /
+/// `{`. Prose and bare keywords stay out. `Record` / `Module` / `Class` stay
+/// on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31823,6 +31830,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_wit_decl(s)
             || is_raku_decl(s)
             || is_dafny_decl(s)
+            || is_coq_decl(s)
         {
             return true;
         }
@@ -31874,6 +31882,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_wit_decl(s)
         || is_raku_decl(s)
         || is_dafny_decl(s)
+        || is_coq_decl(s)
     {
         return true;
     }
@@ -33191,6 +33200,88 @@ fn dafny_decl_name(s: &str) -> bool {
             || rest.starts_with('(')
             || rest.starts_with('<')
             || rest.starts_with('=');
+    }
+    true
+}
+
+/// Coq `Theorem app_nil_r :`, `Definition length :=`, `Inductive nat : Type :=`,
+/// `Fixpoint map {A} (…)`, `CoInductive stream`, … Optional `Local` / `Global`.
+/// Names may include `'`. Prose and bare keywords stay out. `Record` /
+/// `Module` / `Class` stay on the generic prefix keys.
+fn is_coq_decl(s: &str) -> bool {
+    let s = coq_strip_scope(s);
+    let Some(rest) = coq_keyword_rest(s) else {
+        return false;
+    };
+    coq_decl_name(rest)
+}
+
+fn coq_strip_scope(s: &str) -> &str {
+    for key in ["local", "global"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return rest.trim_start();
+        }
+    }
+    s
+}
+
+fn coq_keyword_rest(s: &str) -> Option<&str> {
+    // Longer keys first so CoInductive / CoFixpoint win over Inductive / Fixpoint.
+    for key in [
+        "coinductive",
+        "proposition",
+        "definition",
+        "cofixpoint",
+        "corollary",
+        "inductive",
+        "fixpoint",
+        "theorem",
+        "example",
+        "remark",
+        "lemma",
+        "fact",
+    ] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn coq_decl_name(s: &str) -> bool {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'\'')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = s.as_bytes()[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    let rest = s[n..].trim_start();
+    // `:` also covers `:=`. `(*` is a Coq comment.
+    let stopped = rest.is_empty()
+        || rest.starts_with(':')
+        || rest.starts_with('{')
+        || rest.starts_with('(')
+        || rest.starts_with('.')
+        || rest.starts_with("(*")
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
+        || rest.starts_with('#');
+    if !stopped {
+        return false;
+    }
+    if first.is_ascii_lowercase() {
+        return rest.starts_with(':') || rest.starts_with('{') || rest.starts_with('(');
     }
     true
 }
@@ -36314,6 +36405,79 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("datatype List more"));
         assert!(!line_is_func_like("ghostlemma LemmaAppend"));
         assert!(!line_is_func_like("ghosty lemma LemmaAppend"));
+    }
+
+    #[test]
+    fn coq_theorem_definition_inductive_count() {
+        assert!(line_is_func_like("Theorem app_nil_r :"));
+        assert!(line_is_func_like(
+            "Theorem app_nil_r : forall l, l ++ [] = l."
+        ));
+        assert!(line_is_func_like("THEOREM App_nil_r :"));
+        assert!(line_is_func_like("  Theorem App_nil_r"));
+        assert!(line_is_func_like("Lemma app_nil_r :"));
+        assert!(line_is_func_like("LEMMA AppNil"));
+        assert!(line_is_func_like("Definition length := fun l => 0."));
+        assert!(line_is_func_like("Definition length : nat := 0."));
+        assert!(line_is_func_like("Definition length' : nat := 0."));
+        assert!(line_is_func_like("DEFINITION Length"));
+        assert!(line_is_func_like("Inductive nat : Type :="));
+        assert!(line_is_func_like("Inductive list (A : Type) : Type :="));
+        assert!(line_is_func_like("INDUCTIVE Nat"));
+        assert!(line_is_func_like("CoInductive stream : Type :="));
+        assert!(line_is_func_like("COINDUCTIVE Stream"));
+        assert!(line_is_func_like(
+            "Fixpoint map {A B} (f : A -> B) (l : list A) : list B :="
+        ));
+        assert!(line_is_func_like("Fixpoint map (f : nat -> nat) :="));
+        assert!(line_is_func_like("FIXPOINT Map"));
+        assert!(line_is_func_like("CoFixpoint from (n : nat) : stream :="));
+        assert!(line_is_func_like("COFIXPOINT From"));
+        assert!(line_is_func_like("Corollary app_nil_r_cor :"));
+        assert!(line_is_func_like("Example ex1 : 1 + 1 = 2."));
+        assert!(line_is_func_like("Fact fact1 : True."));
+        assert!(line_is_func_like("Remark rem1 : True."));
+        assert!(line_is_func_like("Proposition prop1 : True."));
+        assert!(line_is_func_like("Local Definition helper :="));
+        assert!(line_is_func_like("Global Theorem Main :"));
+        assert!(line_is_func_like("LOCAL Definition helper :="));
+        assert!(line_is_func_like("Definition helper :="));
+        assert!(line_is_func_like("Definition helper :"));
+        assert!(line_is_func_like("Definition helper("));
+        assert!(line_is_func_like("Fixpoint helper{"));
+        // Generic keys still cover Record / Module / Class.
+        assert!(line_is_func_like("Record point := { x : nat; y : nat }."));
+        assert!(line_is_func_like("Module M."));
+        assert!(line_is_func_like(
+            "Class Eq (A : Type) := { eqb : A -> A -> bool }."
+        ));
+        assert!(!line_is_func_like("Theorem"));
+        assert!(!line_is_func_like("Definition"));
+        assert!(!line_is_func_like("Inductive"));
+        assert!(!line_is_func_like("Fixpoint"));
+        assert!(!line_is_func_like("CoInductive"));
+        assert!(!line_is_func_like("CoFixpoint"));
+        assert!(!line_is_func_like("Theorem the proof"));
+        assert!(!line_is_func_like("Definition of map"));
+        assert!(!line_is_func_like("Inductive the type"));
+        assert!(!line_is_func_like("Fixpoint the list"));
+        assert!(!line_is_func_like("Theorems app_nil_r"));
+        assert!(!line_is_func_like("Definitions length"));
+        assert!(!line_is_func_like("Inductives nat"));
+        assert!(!line_is_func_like("Fixpoints map"));
+        assert!(!line_is_func_like("Theoremapp_nil_r"));
+        assert!(!line_is_func_like("Theorem 1bad"));
+        assert!(!line_is_func_like("Definition helper"));
+        assert!(!line_is_func_like("Fixpoint helper"));
+        assert!(!line_is_func_like("Theorem App_nil_r more"));
+        assert!(!line_is_func_like("Definition Length more"));
+        assert!(!line_is_func_like("localtheorem Main"));
+        assert!(!line_is_func_like("localy Theorem Main"));
+        assert!(!line_is_func_like("Proposition"));
+        assert!(!line_is_func_like("Example the demo"));
+        assert!(!line_is_func_like("Fact the matter"));
+        assert!(!line_is_func_like("Remark the note"));
+        assert!(!line_is_func_like("Corollary the result"));
     }
 
     #[test]

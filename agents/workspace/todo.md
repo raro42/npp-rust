@@ -666,3 +666,5 @@
 009 keep: Function List PowerShell filter/workflow/configuration (v0.3.462)
 
 009 keep: Function List SystemVerilog covergroup/property/sequence/clocking (v0.3.468)
+
+009 keep: Function List Coq Theorem/Lemma/Definition/Inductive/Fixpoint (v0.3.470)
