@@ -31783,6 +31783,13 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `private` / `protected` / `public` / `unsafe`. Names may include `'`.
 /// Lowercase names need `:` / `(` / `{` / `[` / `where`. Prose and bare
 /// keywords stay out. `def` / `class` stay on the generic prefix keys.
+/// Alloy `sig` / `pred` / `fact` / `assert` count (`sig Person {`,
+/// `abstract sig Node extends Object {`, `lone sig Root {`,
+/// `pred connected[p: Person] {`, `fact Acyclic {`, `fact {`,
+/// `assert NoOrphans {`). Optional leading `abstract` / `lone` / `one` /
+/// `some` / `var` before `sig`. Lowercase names need `{` / `[` / `(` /
+/// `extends` / `,`. Prose and bare keywords stay out. `fun` / `enum` stay
+/// on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31840,6 +31847,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_dafny_decl(s)
             || is_coq_decl(s)
             || is_lean_decl(s)
+            || is_alloy_decl(s)
         {
             return true;
         }
@@ -31893,6 +31901,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_dafny_decl(s)
         || is_coq_decl(s)
         || is_lean_decl(s)
+        || is_alloy_decl(s)
     {
         return true;
     }
@@ -33445,6 +33454,162 @@ fn lean_decl_name(s: &str) -> bool {
             || rest.starts_with('(')
             || rest.starts_with('[')
             || where_ok;
+    }
+    true
+}
+
+/// Alloy `sig Person {`, `pred connected[p: Person] {`, `fact Acyclic {`,
+/// `assert NoOrphans {`. Optional `abstract` / `lone` / `one` / `some` /
+/// `var` before `sig`. Anonymous `fact {` / `fact [` count. Lowercase names
+/// need `{` / `[` / `(` / `extends` / `,`. Prose and bare keywords stay out.
+/// `fun` / `enum` stay on the generic prefix keys.
+fn is_alloy_decl(s: &str) -> bool {
+    let s = alloy_strip_sig_mods(s);
+    if is_alloy_sig(s) {
+        return true;
+    }
+    if is_alloy_named(s, "pred") || is_alloy_named(s, "assert") {
+        return true;
+    }
+    is_alloy_fact(s)
+}
+
+fn alloy_strip_sig_mods(s: &str) -> &str {
+    let mut s = s;
+    for _ in 0..4 {
+        let mut stripped = false;
+        for key in ["abstract", "lone", "one", "some", "var"] {
+            let Some(rest) = sql_word(s, key) else {
+                continue;
+            };
+            if !rest.starts_with(char::is_whitespace) {
+                continue;
+            }
+            let next = rest.trim_start();
+            if alloy_is_sig_mod_or_sig(next) {
+                s = next;
+                stripped = true;
+                break;
+            }
+        }
+        if !stripped {
+            break;
+        }
+    }
+    s
+}
+
+fn alloy_is_sig_mod_or_sig(s: &str) -> bool {
+    for key in ["abstract", "lone", "one", "some", "var", "sig"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.is_empty() || rest.starts_with(char::is_whitespace) {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_alloy_sig(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "sig") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    alloy_sig_name(rest.trim_start())
+}
+
+fn is_alloy_named(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    alloy_pred_name(rest.trim_start())
+}
+
+fn is_alloy_fact(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "fact") else {
+        return false;
+    };
+    if rest.starts_with('{') || rest.starts_with('[') {
+        return true;
+    }
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if rest.starts_with('{') || rest.starts_with('[') {
+        return true;
+    }
+    alloy_pred_name(rest)
+}
+
+fn alloy_sig_name(s: &str) -> bool {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = s.as_bytes()[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    let rest = s[n..].trim_start();
+    let extends_ok = if let Some(after) = rest.strip_prefix("extends") {
+        after.is_empty()
+            || after.starts_with(char::is_whitespace)
+            || after.starts_with('{')
+            || after.starts_with(',')
+            || after.starts_with("//")
+            || after.starts_with("/*")
+    } else {
+        false
+    };
+    let stopped = rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with(',')
+        || extends_ok
+        || rest.starts_with("//")
+        || rest.starts_with("/*");
+    if !stopped {
+        return false;
+    }
+    if first.is_ascii_lowercase() {
+        return rest.starts_with('{') || rest.starts_with(',') || extends_ok;
+    }
+    true
+}
+
+fn alloy_pred_name(s: &str) -> bool {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = s.as_bytes()[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    let rest = s[n..].trim_start();
+    let stopped = rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with('[')
+        || rest.starts_with('(')
+        || rest.starts_with("//")
+        || rest.starts_with("/*");
+    if !stopped {
+        return false;
+    }
+    if first.is_ascii_lowercase() {
+        return rest.starts_with('{') || rest.starts_with('[') || rest.starts_with('(');
     }
     true
 }
@@ -36719,6 +36884,63 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("structure Point more"));
         assert!(!line_is_func_like("noncomputabletheorem helper"));
         assert!(!line_is_func_like("noncomputabley theorem helper"));
+    }
+
+    #[test]
+    fn alloy_sig_pred_fact_assert_count() {
+        assert!(line_is_func_like("sig Person {"));
+        assert!(line_is_func_like("sig Person extends Object {"));
+        assert!(line_is_func_like("SIG Person"));
+        assert!(line_is_func_like("  sig Person {"));
+        assert!(line_is_func_like("abstract sig Node {"));
+        assert!(line_is_func_like("abstract sig Node extends Object {"));
+        assert!(line_is_func_like("lone sig Root extends Node {"));
+        assert!(line_is_func_like("one sig A, B {"));
+        assert!(line_is_func_like("some sig Group {"));
+        assert!(line_is_func_like("var sig Node {"));
+        assert!(line_is_func_like("one abstract sig Color {"));
+        assert!(line_is_func_like("sig person {"));
+        assert!(line_is_func_like("sig person extends Object {"));
+        assert!(line_is_func_like("pred connected[p: Person] {"));
+        assert!(line_is_func_like("pred connected {"));
+        assert!(line_is_func_like("pred connected(p: Person) {"));
+        assert!(line_is_func_like("PRED Connected"));
+        assert!(line_is_func_like("pred hop {"));
+        assert!(line_is_func_like("fact Acyclic {"));
+        assert!(line_is_func_like("fact {"));
+        assert!(line_is_func_like("fact[time] {"));
+        assert!(line_is_func_like("fact { no iden & ^adj }"));
+        assert!(line_is_func_like("FACT Acyclic"));
+        assert!(line_is_func_like("assert NoOrphans {"));
+        assert!(line_is_func_like("ASSERT NoOrphans"));
+        assert!(line_is_func_like("assert ok {"));
+        // Generic keys still cover fun / enum.
+        assert!(line_is_func_like("fun parents[p: Person]: set Person {"));
+        assert!(line_is_func_like("enum Color { Red, Green, Blue }"));
+        assert!(!line_is_func_like("sig"));
+        assert!(!line_is_func_like("pred"));
+        assert!(!line_is_func_like("fact"));
+        assert!(!line_is_func_like("assert"));
+        assert!(!line_is_func_like("sig the person"));
+        assert!(!line_is_func_like("pred the relation"));
+        assert!(!line_is_func_like("fact the constraint"));
+        assert!(!line_is_func_like("assert the property"));
+        assert!(!line_is_func_like("sigs Person"));
+        assert!(!line_is_func_like("preds connected"));
+        assert!(!line_is_func_like("facts Acyclic"));
+        assert!(!line_is_func_like("asserts NoOrphans"));
+        assert!(!line_is_func_like("sigPerson"));
+        assert!(!line_is_func_like("sig 1bad"));
+        assert!(!line_is_func_like("sig person"));
+        assert!(!line_is_func_like("pred hop"));
+        assert!(!line_is_func_like("assert ok"));
+        assert!(!line_is_func_like("sig Person more"));
+        assert!(!line_is_func_like("pred connected more"));
+        assert!(!line_is_func_like("lone wolf"));
+        assert!(!line_is_func_like("one of them"));
+        assert!(!line_is_func_like("var x = 1"));
+        // `abstract class` still lists via generic mod + class keys.
+        assert!(line_is_func_like("abstract class Foo"));
     }
 
     #[test]

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.472] — 2026-10-20
+
+View:
+
+- **Function List** lists Alloy `sig` / `pred` / `fact` / `assert` (`sig Person {`, `abstract sig Node extends Object {`, `lone sig Root {`, `pred connected[p: Person] {`, `fact Acyclic {`, `fact {`, `assert NoOrphans {`; optional leading `abstract` / `lone` / `one` / `some` / `var` before `sig`). Lowercase names need `{` / `[` / `(` / `extends` / `,`. Prose and bare keywords stay out. `fun` / `enum` stay on the generic prefix keys.
+
 ## [0.3.471] — 2026-10-20
 
 View:
