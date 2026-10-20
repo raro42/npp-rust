@@ -663,3 +663,5 @@
 009 keep: Function List CSS @property/@layer/@counter-style (v0.3.461)
 
 009 keep: Function List PowerShell filter/workflow/configuration (v0.3.462)
+
+009 keep: Function List SystemVerilog covergroup/property/sequence/clocking (v0.3.468)

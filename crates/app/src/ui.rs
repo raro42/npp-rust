@@ -31700,10 +31700,14 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `package Utils is`, `package body Utils is`). `entity the team`,
 /// `architecture of Foo`, `entities`, and a bare `entity` / `package` stay out.
 /// Verilog / SystemVerilog `task` / `macromodule` / `program` / `primitive` /
-/// `checker` count (`task do_reset;`, `task automatic foo(`, `macromodule M;`,
-/// `program test;`, `primitive udp_and (`, `checker c1;`). `task the team`,
-/// `tasks`, and a bare `task` / `program` stay out. `module` / `interface` /
-/// `package` stay on the generic prefix keys.
+/// `checker` / `covergroup` / `property` / `sequence` / `clocking` count
+/// (`task do_reset;`, `task automatic foo(`, `macromodule M;`, `program test;`,
+/// `primitive udp_and (`, `checker c1;`, `covergroup cg;`, `covergroup cg @(`,
+/// `property p_req;`, `sequence s_req;`, `clocking cb @(posedge clk);`).
+/// `task the team`, `tasks`, `covergroup the bins`, `property the house`,
+/// `sequence the events`, `clocking the bus`, and a bare `task` / `program` /
+/// `covergroup` / `property` / `sequence` / `clocking` stay out. `module` /
+/// `interface` / `package` stay on the generic prefix keys.
 /// Julia `baremodule` / `primitive type` count (`baremodule Foo`,
 /// `primitive type Float16 16 end`, `primitive type Float16 <: AbstractFloat 16`).
 /// `baremodule the team`, `primitive type`, and a bare `baremodule` stay out.
@@ -32450,7 +32454,16 @@ fn is_verilog_decl(s: &str) -> bool {
     if is_verilog_task(s) {
         return true;
     }
-    for key in ["macromodule", "program", "primitive", "checker"] {
+    for key in [
+        "macromodule",
+        "program",
+        "primitive",
+        "checker",
+        "covergroup",
+        "property",
+        "sequence",
+        "clocking",
+    ] {
         let Some(rest) = sql_word(s, key) else {
             continue;
         };
@@ -32500,7 +32513,9 @@ fn verilog_named_tail(s: &str) -> bool {
     let rest = after.trim_start();
     let stopped = rest.is_empty()
         || rest.starts_with('(')
+        || rest.starts_with('{')
         || rest.starts_with('#')
+        || rest.starts_with('@')
         || rest.starts_with(';')
         || rest.starts_with("//")
         || rest.starts_with("/*")
@@ -32510,7 +32525,9 @@ fn verilog_named_tail(s: &str) -> bool {
     }
     if name.as_bytes()[0].is_ascii_lowercase() {
         return rest.starts_with('(')
+            || rest.starts_with('{')
             || rest.starts_with('#')
+            || rest.starts_with('@')
             || rest.starts_with(';')
             || rest.is_empty();
     }
@@ -35622,6 +35639,19 @@ mod func_like_line_tests {
         assert!(line_is_func_like("checker Protocol ("));
         assert!(line_is_func_like("extern task foo;"));
         assert!(line_is_func_like("virtual task bar();"));
+        assert!(line_is_func_like("covergroup cg;"));
+        assert!(line_is_func_like("covergroup cg @(posedge clk);"));
+        assert!(line_is_func_like("covergroup cg {"));
+        assert!(line_is_func_like("COVERGROUP Bins;"));
+        assert!(line_is_func_like("property p_req;"));
+        assert!(line_is_func_like("property p_req ("));
+        assert!(line_is_func_like("PROPERTY Ready;"));
+        assert!(line_is_func_like("sequence s_req;"));
+        assert!(line_is_func_like("sequence s_req ("));
+        assert!(line_is_func_like("SEQUENCE Handshake;"));
+        assert!(line_is_func_like("clocking cb @(posedge clk);"));
+        assert!(line_is_func_like("clocking cb;"));
+        assert!(line_is_func_like("CLOCKING Bus;"));
         assert!(!line_is_func_like("task"));
         assert!(!line_is_func_like("task the team"));
         assert!(!line_is_func_like("tasks"));
@@ -35633,8 +35663,24 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("primitive"));
         assert!(!line_is_func_like("checker"));
         assert!(!line_is_func_like("macromodule"));
+        assert!(!line_is_func_like("covergroup"));
+        assert!(!line_is_func_like("covergroup the bins"));
+        assert!(!line_is_func_like("covergroups"));
+        assert!(!line_is_func_like("property"));
+        assert!(!line_is_func_like("property the house"));
+        assert!(!line_is_func_like("properties"));
+        assert!(!line_is_func_like("sequence"));
+        assert!(!line_is_func_like("sequence the events"));
+        assert!(!line_is_func_like("sequences"));
+        assert!(!line_is_func_like("clocking"));
+        assert!(!line_is_func_like("clocking the bus"));
+        assert!(!line_is_func_like("clockings"));
         assert!(!line_is_func_like("endtask"));
         assert!(!line_is_func_like("endmodule"));
+        assert!(!line_is_func_like("endproperty"));
+        assert!(!line_is_func_like("endsequence"));
+        assert!(!line_is_func_like("endclocking"));
+        assert!(!line_is_func_like("endgroup"));
     }
 
     #[test]

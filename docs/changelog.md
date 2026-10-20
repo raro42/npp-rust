@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.468] — 2026-10-20
+
+View:
+
+- **Function List** lists SystemVerilog `covergroup` / `property` / `sequence` / `clocking` (`covergroup cg;`, `covergroup cg @(posedge clk);`, `property p_req;`, `sequence s_req;`, `clocking cb @(posedge clk);`). Builds on the existing Verilog `task` / `macromodule` / `program` / `primitive` / `checker` scan. `covergroup the bins`, `property the house`, `sequence the events`, `clocking the bus`, and bare keywords stay out.
+
 ## [0.3.467] — 2026-10-20
 
 View:
