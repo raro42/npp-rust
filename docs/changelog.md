@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.452] — 2026-10-20
+
+View:
+
+- **Function List** lists CMake `function(name)` / `macro(name)` (`function(my_func)`, `macro(my_macro arg)`, optional space before `(`). `function()`, `functions(…)`, `endfunction()`, and a bare `function` / `macro` stay out.
+
 ## [0.3.451] — 2026-10-20
 
 View:

@@ -1,3 +1,4 @@
+009 keep: Function List sees CMake function(name) / macro(name) (v0.3.452)
 009 keep: Function List sees Zig const type aliases and test blocks (v0.3.450)
 009 keep: Function List sees Objective-C instance and class methods (v0.3.448)
 009 keep: Function List sees Terraform / HCL resource, data, variable, output, provider, locals, terraform (v0.3.447)

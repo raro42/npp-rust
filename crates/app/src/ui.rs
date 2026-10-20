@@ -31688,6 +31688,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// MATLAB / Octave `classdef` counts (`classdef MyClass`,
 /// `classdef MyClass < handle`, `classdef (Sealed) MyClass`).
 /// `classdef the team`, `classdefinitions`, and a bare `classdef` stay out.
+/// CMake `function(name)` / `macro(name)` count (`function(my_func)`,
+/// `macro(my_macro arg)`, optional space before `(`). `function()`,
+/// `functions(…)`, `endfunction()`, and a bare `function` / `macro` stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31726,6 +31729,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_solidity_decl(s)
             || is_zig_decl(s)
             || is_matlab_classdef(s)
+            || is_cmake_decl(s)
         {
             return true;
         }
@@ -31760,6 +31764,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_solidity_decl(s)
         || is_zig_decl(s)
         || is_matlab_classdef(s)
+        || is_cmake_decl(s)
     {
         return true;
     }
@@ -32166,6 +32171,39 @@ fn is_matlab_classdef(s: &str) -> bool {
         || rest.starts_with('%')
         || rest.starts_with("//")
         || rest.starts_with("/*")
+}
+
+/// CMake `function(name …)` / `macro(name …)` (optional space before `(`).
+/// The first paren argument is the command name. Spaced forms like
+/// `function name` / `macro name` stay with `FUNC_LIKE_KEYS`.
+/// `function()`, `functions(…)`, prose, and a bare `function` / `macro` stay out.
+fn is_cmake_decl(s: &str) -> bool {
+    for key in ["function", "macro"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        if !rest.starts_with('(') {
+            continue;
+        }
+        let Some(inner) = rest.strip_prefix('(') else {
+            continue;
+        };
+        let inner = inner.trim_start();
+        let Some((_, after)) = graphql_ident(inner) else {
+            return false;
+        };
+        // Keep leading whitespace: `function(name arg)` separates args with space.
+        return after.is_empty()
+            || after.starts_with(')')
+            || after.starts_with(',')
+            || after.starts_with(char::is_whitespace)
+            || after.starts_with('#');
+    }
+    false
 }
 
 /// Zig `const Point = struct {`, `pub const E = enum(u8)`,
@@ -34379,6 +34417,29 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("classdefMyClass"));
         assert!(!line_is_func_like("classdef (Sealed)"));
         assert!(!line_is_func_like("classdef (unterminated MyClass"));
+    }
+
+    #[test]
+    fn cmake_function_macro_counts() {
+        assert!(line_is_func_like("function(my_func)"));
+        assert!(line_is_func_like("function(my_func arg1 arg2)"));
+        assert!(line_is_func_like("function (my_func)"));
+        assert!(line_is_func_like("FUNCTION(MyFunc)"));
+        assert!(line_is_func_like("  function(foo) # note"));
+        assert!(line_is_func_like("macro(my_macro)"));
+        assert!(line_is_func_like("macro(my_macro arg)"));
+        assert!(line_is_func_like("macro (my_macro)"));
+        assert!(line_is_func_like("MACRO(MyMacro)"));
+        assert!(line_is_func_like("function(foo"));
+        assert!(!line_is_func_like("function()"));
+        assert!(!line_is_func_like("function( )"));
+        assert!(!line_is_func_like("functions(foo)"));
+        assert!(!line_is_func_like("function"));
+        assert!(!line_is_func_like("macro"));
+        assert!(!line_is_func_like("endfunction()"));
+        assert!(!line_is_func_like("endmacro()"));
+        assert!(!line_is_func_like("endfunction(my_func)"));
+        assert!(!line_is_func_like("macros(foo)"));
     }
 
     #[test]
