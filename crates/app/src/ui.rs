@@ -31805,6 +31805,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `infixr`, plus Agda-style `data Name : Set where` (lowercase / operator /
 /// non-ASCII names Haskell misses). `module` / `record` / `macro` stay on
 /// the generic prefix keys.
+/// Idris `implementation` / `parameters`, plus optional `public export` /
+/// `export` / `private` before those or a generic key (`export implementation
+/// Show Nat where`, `public export interface Eq a where`).
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31866,6 +31869,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_tla_decl(s)
             || is_isabelle_decl(s)
             || is_agda_decl(s)
+            || is_idris_decl(s)
         {
             return true;
         }
@@ -31923,6 +31927,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_tla_decl(s)
         || is_isabelle_decl(s)
         || is_agda_decl(s)
+        || is_idris_decl(s)
     {
         return true;
     }
@@ -34086,12 +34091,127 @@ fn agda_name(s: &str) -> Option<(&str, &str)> {
     Some((&s[..end], &s[end..]))
 }
 
+/// Idris `implementation Show Nat where`, `implementation [myShow] Show Nat
+/// where`, `parameters (n : Nat)`, `parameters {n : Nat}`, and optional
+/// `public export` / `export` / `private` before those or a generic key
+/// (`export implementation Show Nat where`, `public export interface Eq a
+/// where`). Lowercase interface names need `where` / `(` / `{` / `[` soon, or
+/// a single-letter / uppercase next token (`implementation eq a where`).
+/// Prose and bare keywords stay out. `interface` / `data` / `record` /
+/// `namespace` stay on the generic prefix keys (also after a vis strip).
+fn is_idris_decl(s: &str) -> bool {
+    let stripped = idris_strip_vis(s);
+    if is_idris_implementation(stripped) || is_idris_parameters(stripped) {
+        return true;
+    }
+    if stripped.len() != s.len() {
+        let lower = stripped.to_ascii_lowercase();
+        if FUNC_LIKE_KEYS.iter().any(|k| lower.starts_with(k)) {
+            return true;
+        }
+        if is_agda_decl(stripped) || is_haskell_decl(stripped) {
+            return true;
+        }
+    }
+    false
+}
+
+fn idris_strip_vis(s: &str) -> &str {
+    if let Some(after_public) = sql_word(s, "public") {
+        if after_public.starts_with(char::is_whitespace) {
+            let after_public = after_public.trim_start();
+            if let Some(after_export) = sql_word(after_public, "export") {
+                if after_export.starts_with(char::is_whitespace) {
+                    return after_export.trim_start();
+                }
+            }
+        }
+    }
+    for key in ["export", "private"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return rest.trim_start();
+        }
+    }
+    s
+}
+
+fn is_idris_implementation(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "implementation") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    if rest.starts_with('[') {
+        let Some(after) = after_balanced_paren_or_brace(rest) else {
+            return false;
+        };
+        rest = after.trim_start();
+    }
+    if rest.is_empty() || !agda_has_where_word(rest) {
+        return false;
+    }
+    if rest.starts_with('(') || rest.starts_with('{') {
+        return true;
+    }
+    let n = rest
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'\'')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let first = rest.as_bytes()[0];
+    if !(first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    if !first.is_ascii_lowercase() {
+        return true;
+    }
+    let after = rest[n..].trim_start();
+    if let Some(after_where) = after.strip_prefix("where") {
+        return after_where.is_empty()
+            || after_where.starts_with(char::is_whitespace)
+            || after_where.starts_with("--")
+            || after_where.starts_with("{-");
+    }
+    if after.starts_with('(') || after.starts_with('{') || after.starts_with('[') {
+        return true;
+    }
+    let n2 = after
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'\'')
+        .count();
+    if n2 == 0 {
+        return false;
+    }
+    let next = after.as_bytes()[0];
+    // `implementation eq a where` / `implementation eq Nat where`.
+    n2 == 1 || next.is_ascii_uppercase() || next == b'_'
+}
+
+fn is_idris_parameters(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "parameters") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    rest.starts_with('(') || rest.starts_with('{')
+}
+
 fn after_balanced_paren_or_brace(s: &str) -> Option<&str> {
     let bytes = s.as_bytes();
     let open = *bytes.first()?;
     let close = match open {
         b'(' => b')',
         b'{' => b'}',
+        b'[' => b']',
         _ => return None,
     };
     let mut depth = 0i32;
@@ -37565,6 +37685,40 @@ mod func_like_line_tests {
         assert!(line_is_func_like("data class Foo"));
         assert!(!line_is_func_like("postulatefoo : Nat"));
         assert!(!line_is_func_like("data nat : nowhere"));
+    }
+
+    #[test]
+    fn idris_implementation_parameters_and_vis_count() {
+        assert!(line_is_func_like("implementation Show Nat where"));
+        assert!(line_is_func_like("implementation Eq a where"));
+        assert!(line_is_func_like("implementation [myShow] Show Nat where"));
+        assert!(line_is_func_like("implementation eq a where"));
+        assert!(line_is_func_like("implementation eq Nat where"));
+        assert!(line_is_func_like(
+            "implementation (Cast a b) => Cast (List a) (List b) where"
+        ));
+        assert!(line_is_func_like("parameters (n : Nat)"));
+        assert!(line_is_func_like("parameters {n : Nat}"));
+        assert!(line_is_func_like("parameters {auto tip : Tip a}"));
+        assert!(line_is_func_like("export implementation Show Nat where"));
+        assert!(line_is_func_like("public export interface Eq a where"));
+        assert!(line_is_func_like("private implementation Show Nat where"));
+        // Generic keys still cover interface / data / record / namespace.
+        assert!(line_is_func_like("interface Show a where"));
+        assert!(line_is_func_like("data Nat = Z | S Nat"));
+        assert!(line_is_func_like("record Point where"));
+        assert!(line_is_func_like("namespace Main"));
+        assert!(!line_is_func_like("implementation"));
+        assert!(!line_is_func_like("parameters"));
+        assert!(!line_is_func_like("implementation where"));
+        assert!(!line_is_func_like("implementation Show Nat"));
+        assert!(!line_is_func_like("implementation the show where"));
+        assert!(!line_is_func_like("parameters n : Nat"));
+        assert!(!line_is_func_like("implementations Show Nat where"));
+        assert!(!line_is_func_like("implementationShow Nat where"));
+        assert!(!line_is_func_like("public export"));
+        // Objective-C @implementation stays on the ObjC path.
+        assert!(line_is_func_like("@implementation MyClass"));
     }
 
     #[test]

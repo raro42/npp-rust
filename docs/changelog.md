@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.476] — 2026-10-21
+
+View:
+
+- **Function List** lists Idris `implementation` / `parameters`, plus optional `public export` / `export` / `private` before those or a generic key (`implementation Show Nat where`, `implementation [myShow] Show Nat where`, `implementation eq a where`, `implementation (Cast a b) => Cast (List a) (List b) where`, `parameters (n : Nat)`, `parameters {n : Nat}`, `export implementation Show Nat where`, `public export interface Eq a where`). Lowercase interface names need `where` / `(` / `{` / `[` soon, or a single-letter / uppercase next token. Prose and bare keywords stay out. `interface` / `data` / `record` / `namespace` stay on the generic prefix keys. Objective-C `@implementation` stays on the ObjC path.
+
 ## [0.3.475] — 2026-10-21
 
 View:
