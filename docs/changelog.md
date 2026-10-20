@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.462] — 2026-10-20
+
+View:
+
+- **Function List** lists PowerShell `filter` / `workflow` / `configuration` (`filter Get-Odd`, `filter Get-Odd($x) {`, `workflow Invoke-Job {`, `configuration WebSite {`). `filter the team`, `workflow the job`, `configuration the site`, and bare keywords stay out. `function` / `class` / `enum` stay on the generic prefix keys.
+
 ## [0.3.461] — 2026-10-20
 
 View:

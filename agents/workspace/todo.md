@@ -654,3 +654,7 @@
 009 keep: Function List GDScript class_name/signal (v0.3.457)
 
 009 keep: Function List Erlang -module/-export/-record/-spec and name() -> (v0.3.459)
+
+009 keep: Function List CSS @property/@layer/@counter-style (v0.3.461)
+
+009 keep: Function List PowerShell filter/workflow/configuration (v0.3.462)

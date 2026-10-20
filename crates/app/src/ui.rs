@@ -31729,6 +31729,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `@layer utilities`, `@layer theme, layout`, `@layer framework.layout`,
 /// `@counter-style thumbs`). `@property color`, `@layer {`, `@layer;`,
 /// `@counter-style the list`, and bare keywords stay out.
+/// PowerShell `filter` / `workflow` / `configuration` count
+/// (`filter Get-Odd`, `filter Get-Odd($x) {`, `workflow Invoke-Job {`,
+/// `configuration WebSite {`). `filter the team`, `workflow the job`,
+/// `configuration the site`, and bare keywords stay out. `function` /
+/// `class` / `enum` stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31777,6 +31782,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_erlang_decl(s)
             || is_sass_decl(s)
             || is_css_at_decl(s)
+            || is_powershell_decl(s)
         {
             return true;
         }
@@ -31821,6 +31827,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_erlang_decl(s)
         || is_sass_decl(s)
         || is_css_at_decl(s)
+        || is_powershell_decl(s)
     {
         return true;
     }
@@ -32802,6 +32809,53 @@ fn css_layer_name(s: &str) -> Option<(&str, &str)> {
 
 fn css_at_tail_ok(rest: &str) -> bool {
     rest.is_empty() || rest.starts_with('{') || rest.starts_with("//") || rest.starts_with("/*")
+}
+
+/// PowerShell `filter Get-Odd`, `filter Get-Odd($x) {`, `workflow Invoke-Job {`,
+/// `configuration WebSite {`. Names may include hyphens. Optional `(…)` params.
+/// Prose and bare keywords stay out. `function` / `class` / `enum` stay on the
+/// generic prefix keys.
+fn is_powershell_decl(s: &str) -> bool {
+    is_powershell_named(s, "filter")
+        || is_powershell_named(s, "workflow")
+        || is_powershell_named(s, "configuration")
+}
+
+fn is_powershell_named(s: &str, kind: &str) -> bool {
+    let Some(rest) = sql_word(s, kind) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_, after_name)) = powershell_ident(rest) else {
+        return false;
+    };
+    let mut rest = after_name.trim_start();
+    if rest.starts_with('(') {
+        let Some(after_paren) = after_balanced_paren(rest, 0) else {
+            return false;
+        };
+        rest = after_paren.trim_start();
+    }
+    powershell_tail_ok(rest)
+}
+
+fn powershell_ident(s: &str) -> Option<(&str, &str)> {
+    let bytes = s.as_bytes();
+    if bytes.is_empty() || !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+        return None;
+    }
+    let n = bytes
+        .iter()
+        .take_while(|b| b.is_ascii_alphanumeric() || **b == b'_' || **b == b'-')
+        .count();
+    Some((&s[..n], &s[n..]))
+}
+
+fn powershell_tail_ok(rest: &str) -> bool {
+    rest.is_empty() || rest.starts_with('{') || rest.starts_with('#')
 }
 
 fn is_ruby_attr_kind(s: &str, kind: &str) -> bool {
@@ -35574,6 +35628,45 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("@media screen"));
         assert!(!line_is_func_like("@include flex-center"));
         assert!(!line_is_func_like("@container (min-width: 40rem)"));
+    }
+
+    #[test]
+    fn powershell_filter_workflow_configuration_count() {
+        assert!(line_is_func_like("filter Get-Odd"));
+        assert!(line_is_func_like("filter Get-Odd {"));
+        assert!(line_is_func_like("filter Get-Odd($x)"));
+        assert!(line_is_func_like("filter Get-Odd($x) {"));
+        assert!(line_is_func_like("filter Get-Odd # note"));
+        assert!(line_is_func_like("  filter Get-Odd"));
+        assert!(line_is_func_like("FILTER Get-Odd"));
+        assert!(line_is_func_like("filter _private"));
+        assert!(line_is_func_like("workflow Invoke-Job"));
+        assert!(line_is_func_like("workflow Invoke-Job {"));
+        assert!(line_is_func_like("workflow Invoke-Job($Name) {"));
+        assert!(line_is_func_like("WORKFLOW Invoke-Job"));
+        assert!(line_is_func_like("configuration WebSite"));
+        assert!(line_is_func_like("configuration WebSite {"));
+        assert!(line_is_func_like("configuration WebSite # dsc"));
+        assert!(line_is_func_like("CONFIGURATION WebSite"));
+        // Generic keys still cover PowerShell function / class / enum.
+        assert!(line_is_func_like("function Get-Name {"));
+        assert!(line_is_func_like("class Person {"));
+        assert!(line_is_func_like("enum Color {"));
+        assert!(!line_is_func_like("filter"));
+        assert!(!line_is_func_like("workflow"));
+        assert!(!line_is_func_like("configuration"));
+        assert!(!line_is_func_like("filter the team"));
+        assert!(!line_is_func_like("workflow the job"));
+        assert!(!line_is_func_like("configuration the site"));
+        assert!(!line_is_func_like("filters Get-Odd"));
+        assert!(!line_is_func_like("workflows Invoke-Job"));
+        assert!(!line_is_func_like("configurations WebSite"));
+        assert!(!line_is_func_like("filterGet-Odd"));
+        assert!(!line_is_func_like("filter 1bad"));
+        assert!(!line_is_func_like("filter -bad"));
+        assert!(!line_is_func_like("filter Get-Odd more"));
+        assert!(!line_is_func_like("filter Get-Odd("));
+        assert!(!line_is_func_like("filter Get-Odd() more"));
     }
 
     #[test]
