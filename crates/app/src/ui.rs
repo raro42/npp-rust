@@ -31684,9 +31684,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// struct` / `enum` / `union` / `opaque` / `error` and `test` blocks count
 /// (`const Point = struct {`, `pub const E = enum(u8) {`,
 /// `const U = packed union {`, `test "add" {`, `test {`). `const x = 1`,
-/// `const Foo = i32`, `test the waters`, and a bare `test` stay out. Bare
-/// arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments, and
-/// control-flow stay out. Kotlin `data class` still counts as a class.
+/// `const Foo = i32`, `test the waters`, and a bare `test` stay out.
+/// MATLAB / Octave `classdef` counts (`classdef MyClass`,
+/// `classdef MyClass < handle`, `classdef (Sealed) MyClass`).
+/// `classdef the team`, `classdefinitions`, and a bare `classdef` stay out.
+/// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
+/// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
@@ -31722,6 +31725,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_objc_method(s)
             || is_solidity_decl(s)
             || is_zig_decl(s)
+            || is_matlab_classdef(s)
         {
             return true;
         }
@@ -31755,6 +31759,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_objc_method(s)
         || is_solidity_decl(s)
         || is_zig_decl(s)
+        || is_matlab_classdef(s)
     {
         return true;
     }
@@ -32132,6 +32137,35 @@ fn solidity_is_clause(rest: &str) -> bool {
         return false;
     };
     after.is_empty() || after.starts_with(char::is_whitespace) || after.starts_with('{')
+}
+
+/// MATLAB / Octave `classdef MyClass`, `classdef MyClass < handle`,
+/// `classdef (Sealed) MyClass`, `classdef (Sealed = true) Foo < handle`.
+/// Optional attributes in `(…)`. One class name. Inheritance via `<` is fine.
+/// `%` line comments after the name count. Prose and a bare `classdef` stay out.
+fn is_matlab_classdef(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "classdef") else {
+        return false;
+    };
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    if rest.starts_with('(') {
+        let Some(after) = after_balanced_paren(rest, 0) else {
+            return false;
+        };
+        rest = after.trim_start();
+    }
+    let Some((_, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    let rest = after.trim_start();
+    rest.is_empty()
+        || rest.starts_with('<')
+        || rest.starts_with('%')
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
 }
 
 /// Zig `const Point = struct {`, `pub const E = enum(u8)`,
@@ -34324,6 +34358,27 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("test add"));
         assert!(!line_is_func_like("testing stays out"));
         assert!(!line_is_func_like("test \"unterminated"));
+    }
+
+    #[test]
+    fn matlab_classdef_counts() {
+        assert!(line_is_func_like("classdef MyClass"));
+        assert!(line_is_func_like("classdef MyClass < handle"));
+        assert!(line_is_func_like(
+            "classdef MyClass < handle & matlab.mixin.Copyable"
+        ));
+        assert!(line_is_func_like("classdef (Sealed) MyClass"));
+        assert!(line_is_func_like("classdef (Sealed = true) Foo < handle"));
+        assert!(line_is_func_like("classdef foo"));
+        assert!(line_is_func_like("classdef foo < handle"));
+        assert!(line_is_func_like("CLASSDEF MyClass"));
+        assert!(line_is_func_like("  classdef MyClass % note"));
+        assert!(!line_is_func_like("classdef"));
+        assert!(!line_is_func_like("classdef the team"));
+        assert!(!line_is_func_like("classdefinitions"));
+        assert!(!line_is_func_like("classdefMyClass"));
+        assert!(!line_is_func_like("classdef (Sealed)"));
+        assert!(!line_is_func_like("classdef (unterminated MyClass"));
     }
 
     #[test]

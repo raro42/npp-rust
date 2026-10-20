@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.451] — 2026-10-20
+
+View:
+
+- **Function List** lists MATLAB / Octave `classdef` declarations (`classdef MyClass`, `classdef MyClass < handle`, `classdef (Sealed) MyClass`). `classdef the team`, `classdefinitions`, and a bare `classdef` stay out.
+
 ## [0.3.450] — 2026-10-20
 
 View:

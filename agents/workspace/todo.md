@@ -639,3 +639,5 @@
 009 keep: Function List F#/OCaml let/let rec bindings (v0.3.438)
 
 009 keep: Function List Solidity contract/library/modifier/error/constructor (v0.3.449)
+
+009 keep: Function List MATLAB/Octave classdef (v0.3.451)
