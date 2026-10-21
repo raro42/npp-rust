@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.500] — 2026-10-22
+
+View:
+
+- **Function List** lists Dockerfile `FROM image:tag AS stage` / `FROM scratch AS export` (optional `ONBUILD`, `--platform=…`). Untagged bare names and SQL `FROM users AS u` stay out (image must look like a ref: `:`, `/`, `@`, `$`, or `scratch`).
+
 ## [0.3.499] — 2026-10-21
 
 View:

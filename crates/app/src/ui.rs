@@ -31892,6 +31892,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Vimscript `function!` / `def!` / `augroup` / `command` (`function! s:Foo(`,
 /// `def! Bar(`, `augroup mygroup`, `command! -nargs=1 MyCmd`). Prose and bare
 /// keywords stay out. Plain `function` / `def` stay on the generic prefix keys.
+/// Dockerfile `FROM image:tag AS stage` / `FROM scratch AS export` / optional
+/// `ONBUILD` and `--platform=…` (`FROM --platform=linux/amd64 golang:1.22 AS build`).
+/// Untagged bare names (`FROM ubuntu AS x`) and SQL `FROM users AS u` stay out
+/// (image must look like a ref: `:`, `/`, `@`, `$`, or `scratch`).
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31977,6 +31981,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_fortran_decl(s)
             || is_tcl_decl(s)
             || is_vimscript_decl(s)
+            || is_dockerfile_decl(s)
         {
             return true;
         }
@@ -32058,6 +32063,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_fortran_decl(s)
         || is_tcl_decl(s)
         || is_vimscript_decl(s)
+        || is_dockerfile_decl(s)
     {
         return true;
     }
@@ -36991,6 +36997,110 @@ fn vim_line_tail_ok(rest: &str) -> bool {
         || rest.starts_with("/*")
 }
 
+/// Dockerfile `FROM ubuntu:22.04 AS builder`, `FROM scratch AS export`,
+/// `ONBUILD FROM python:3 AS runtime`, `FROM --platform=linux/amd64 golang:1.22 AS build`.
+/// Image must look like a container ref (`:`, `/`, `@`, `$`, or `scratch`) so SQL
+/// `FROM users AS u` and untagged `FROM ubuntu AS x` stay out. Prose and bare
+/// `FROM` stay out.
+fn is_dockerfile_decl(s: &str) -> bool {
+    let mut rest = s;
+    if let Some(after) = sql_word(rest, "onbuild") {
+        if !after.starts_with(char::is_whitespace) {
+            return false;
+        }
+        rest = after.trim_start();
+    }
+    let Some(after_from) = sql_word(rest, "from") else {
+        return false;
+    };
+    if !after_from.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = after_from.trim_start();
+    // Optional `--platform=linux/amd64` / `--platform linux/amd64` (and similar).
+    for _ in 0..8 {
+        if !rest.starts_with("--") {
+            break;
+        }
+        let after_dashes = &rest[2..];
+        let flag_n = after_dashes
+            .bytes()
+            .take_while(|b| b.is_ascii_alphanumeric() || *b == b'-' || *b == b'_')
+            .count();
+        if flag_n == 0 {
+            return false;
+        }
+        rest = &after_dashes[flag_n..];
+        if let Some(after_eq) = rest.strip_prefix('=') {
+            let val_n = after_eq
+                .bytes()
+                .take_while(|b| !b.is_ascii_whitespace())
+                .count();
+            if val_n == 0 {
+                return false;
+            }
+            rest = after_eq[val_n..].trim_start();
+        } else {
+            rest = rest.trim_start();
+            let val_n = rest
+                .bytes()
+                .take_while(|b| !b.is_ascii_whitespace())
+                .count();
+            if val_n == 0 {
+                return false;
+            }
+            rest = rest[val_n..].trim_start();
+        }
+    }
+    if rest.is_empty() {
+        return false;
+    }
+    let img_n = rest
+        .bytes()
+        .take_while(|b| !b.is_ascii_whitespace())
+        .count();
+    if img_n == 0 {
+        return false;
+    }
+    let img = &rest[..img_n];
+    if img.eq_ignore_ascii_case("as")
+        || img.eq_ignore_ascii_case("the")
+        || !docker_image_looks_like_ref(img)
+    {
+        return false;
+    }
+    rest = rest[img_n..].trim_start();
+    let Some(after_as) = sql_word(rest, "as") else {
+        return false;
+    };
+    if !after_as.starts_with(char::is_whitespace) {
+        return false;
+    }
+    rest = after_as.trim_start();
+    let name_n = rest
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'-')
+        .count();
+    if name_n == 0 {
+        return false;
+    }
+    let first = rest.as_bytes()[0];
+    if !(first.is_ascii_alphabetic() || first == b'_') {
+        return false;
+    }
+    let name = &rest[..name_n];
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = rest[name_n..].trim_start();
+    after.is_empty() || after.starts_with('#') || after.starts_with("//") || after.starts_with("/*")
+}
+
+fn docker_image_looks_like_ref(img: &str) -> bool {
+    img.eq_ignore_ascii_case("scratch")
+        || img.bytes().any(|b| matches!(b, b':' | b'/' | b'@' | b'$'))
+}
+
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
     let Some((name, after)) = graphql_ident(s) else {
         return false;
@@ -41711,6 +41821,40 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("command the troops"));
         assert!(!line_is_func_like("command! -nargs=1 lowercase"));
         assert!(!line_is_func_like("commanders stay out"));
+    }
+
+    #[test]
+    fn dockerfile_from_as_stage_counts() {
+        assert!(line_is_func_like("FROM ubuntu:22.04 AS builder"));
+        assert!(line_is_func_like("FROM python:3.12-slim AS runtime"));
+        assert!(line_is_func_like("FROM scratch AS export"));
+        assert!(line_is_func_like("FROM SCRATCH AS export"));
+        assert!(line_is_func_like(
+            "FROM gcr.io/distroless/static-debian12 AS final"
+        ));
+        assert!(line_is_func_like(
+            "FROM --platform=linux/amd64 golang:1.22 AS build"
+        ));
+        assert!(line_is_func_like(
+            "FROM --platform linux/arm64 alpine:3.20 AS arm"
+        ));
+        assert!(line_is_func_like("ONBUILD FROM node:20 AS deps"));
+        assert!(line_is_func_like("from ubuntu:latest AS base # comment"));
+        assert!(line_is_func_like("FROM ${BASE_IMAGE} AS builder"));
+        assert!(line_is_func_like("  FROM eclipse-temurin:17 AS jvm"));
+        // Untagged bare names and SQL FROM stay out.
+        assert!(!line_is_func_like("FROM ubuntu AS builder"));
+        assert!(!line_is_func_like("FROM users AS u"));
+        assert!(!line_is_func_like("FROM schema.table AS t"));
+        assert!(!line_is_func_like("FROM"));
+        assert!(!line_is_func_like("FROM "));
+        assert!(!line_is_func_like("FROM ubuntu:22.04"));
+        assert!(!line_is_func_like("FROM AS builder"));
+        assert!(!line_is_func_like("FROM ubuntu:22.04 AS the"));
+        assert!(!line_is_func_like("FROM ubuntu:22.04 AS"));
+        assert!(!line_is_func_like("FROM ubuntu:22.04 ASbuilder"));
+        assert!(!line_is_func_like("ONBUILD FROM ubuntu AS x"));
+        assert!(!line_is_func_like("fromage stays out"));
     }
 
     #[test]
