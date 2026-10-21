@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.482] — 2026-10-21
+
+View:
+
+- **Function List** lists Odin `name :: proc` / `:: struct` / `:: enum` / `:: union` / `:: bit_set` / `:: bit_field` / `:: distinct` (`main :: proc() {`, `Person :: struct {`, `Color :: enum u8 {`, `Flags :: bit_set[Color]`, `MyInt :: distinct int`). Optional leading `@(export)` / `@(private)` attrs. Value consts (`FOO :: 123`) and path uses (`std::vector`, `JSON::Field`) stay out. `package` stays on the generic prefix key.
+
 ## [0.3.481] — 2026-10-21
 
 View:

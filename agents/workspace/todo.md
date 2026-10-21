@@ -1,3 +1,4 @@
+009 keep: Function List sees Odin :: proc / struct / enum / union / bit_set / bit_field / distinct (v0.3.482)
 009 keep: Function List sees Idris implementation / parameters (v0.3.476)
 009 keep: Function List sees Agda postulate / primitive / variable / infix (v0.3.475)
 009 keep: Function List sees Isabelle locale / abbreviation / primrec / typedef (v0.3.474)

@@ -31820,6 +31820,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Builtin / container types only (not C `const int x =`). `struct` /
 /// `enum` / `union` / `service` / `typedef` / `namespace` stay on the
 /// generic prefix keys.
+/// Odin `name :: proc` / `:: struct` / `:: enum` / `:: union` / `:: bit_set` /
+/// `:: bit_field` / `:: distinct` (optional leading `@(…)` attrs). Value
+/// consts (`FOO :: 123`) and C++ `std::vector` stay out. `package` stays on
+/// the generic prefix key.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31887,6 +31891,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_elm_decl(s)
             || is_crystal_decl(s)
             || is_thrift_decl(s)
+            || is_odin_decl(s)
         {
             return true;
         }
@@ -31950,6 +31955,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_elm_decl(s)
         || is_crystal_decl(s)
         || is_thrift_decl(s)
+        || is_odin_decl(s)
     {
         return true;
     }
@@ -34596,6 +34602,68 @@ fn thrift_type_prefix(s: &str) -> Option<&str> {
         }
     }
     None
+}
+
+/// Odin `main :: proc()`, `Person :: struct {`, `Color :: enum u8 {`,
+/// `Flags :: bit_set[Color]`, `MyInt :: distinct int`. Optional leading
+/// `@(export)` / `@(private)` attrs. Value consts (`FOO :: 123`) and path
+/// uses (`std::vector`, `JSON::Field`) stay out. `package` stays on the
+/// generic prefix key.
+fn is_odin_decl(s: &str) -> bool {
+    is_odin_colon_decl(strip_odin_attrs(s))
+}
+
+fn strip_odin_attrs(s: &str) -> &str {
+    let mut rest = s;
+    while let Some(after_at) = rest.strip_prefix('@') {
+        if !after_at.starts_with('(') {
+            break;
+        }
+        let Some(after) = after_balanced_paren_or_brace(after_at) else {
+            break;
+        };
+        rest = after.trim_start();
+    }
+    rest
+}
+
+fn is_odin_colon_decl(s: &str) -> bool {
+    let Some((_name, after)) = graphql_ident(s) else {
+        return false;
+    };
+    let after = after.trim_start();
+    let Some(rest) = after.strip_prefix("::") else {
+        return false;
+    };
+    odin_rhs_kind(rest.trim_start())
+}
+
+fn odin_rhs_kind(s: &str) -> bool {
+    for key in [
+        "proc",
+        "struct",
+        "enum",
+        "union",
+        "bit_set",
+        "bit_field",
+        "distinct",
+    ] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.is_empty()
+            || rest.starts_with(char::is_whitespace)
+            || rest.starts_with('(')
+            || rest.starts_with('{')
+            || rest.starts_with('[')
+            || rest.starts_with('#')
+            || rest.starts_with("//")
+            || rest.starts_with("/*")
+        {
+            return true;
+        }
+    }
+    false
 }
 
 fn after_balanced_angles(s: &str) -> Option<&str> {
@@ -38359,6 +38427,43 @@ mod func_like_line_tests {
         // User types without Thrift builtins stay out.
         assert!(!line_is_func_like("const User u = {}"));
         assert!(!line_is_func_like("constants i32 MAX = 1"));
+    }
+
+    #[test]
+    fn odin_colon_decl_counts() {
+        assert!(line_is_func_like("main :: proc() {"));
+        assert!(line_is_func_like("main :: proc()"));
+        assert!(line_is_func_like("  foo :: proc(a: int) -> int {"));
+        assert!(line_is_func_like("Person :: struct {"));
+        assert!(line_is_func_like("Person :: struct"));
+        assert!(line_is_func_like("Person :: struct #packed {"));
+        assert!(line_is_func_like("Color :: enum {"));
+        assert!(line_is_func_like("Color :: enum u8 {"));
+        assert!(line_is_func_like("Value :: union {"));
+        assert!(line_is_func_like("Flags :: bit_set[Color]"));
+        assert!(line_is_func_like("Flags :: bit_set[Color; u8]"));
+        assert!(line_is_func_like("Bits :: bit_field u32 {"));
+        assert!(line_is_func_like("MyInt :: distinct int"));
+        assert!(line_is_func_like("Adder :: proc(a, b: int) -> int"));
+        assert!(line_is_func_like("@(export) foo :: proc() {"));
+        assert!(line_is_func_like("@(private) Person :: struct {"));
+        assert!(line_is_func_like(
+            "@(export) @(linkage=\"weak\") bar :: proc()"
+        ));
+        // Value consts and path uses stay out.
+        assert!(!line_is_func_like("FOO :: 123"));
+        assert!(!line_is_func_like("PI :: 3.14"));
+        assert!(!line_is_func_like("msg :: \"hello\""));
+        assert!(!line_is_func_like("alias :: OtherType"));
+        assert!(!line_is_func_like("std::vector<int>"));
+        assert!(!line_is_func_like("JSON::Field"));
+        assert!(!line_is_func_like("foo::bar()"));
+        assert!(!line_is_func_like("x := 1"));
+        assert!(!line_is_func_like("x : int = 1"));
+        assert!(!line_is_func_like(":: proc() {"));
+        assert!(!line_is_func_like("main ::"));
+        assert!(!line_is_func_like("main :: "));
+        assert!(!line_is_func_like("procedures :: stay out"));
     }
 
     #[test]
