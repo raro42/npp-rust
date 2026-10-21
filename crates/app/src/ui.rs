@@ -31844,6 +31844,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// variables (`__shared__ float tile[64];`, `__constant__ float c[8];`).
 /// Optional `__forceinline__` / `__noinline__`. Prose and bare keywords stay
 /// out. Plain `void main(` / `struct` stay on the generic / typed-fn paths.
+/// OpenCL `__kernel` / bare `kernel` entry points (`__kernel void add(`,
+/// `kernel void saxpy(`), plus `__global` / `__local` / `__constant` /
+/// `__private` storage (`__constant float c[8];`, `__local float tile[64];`).
+/// Distinct from CUDA `__global__` / `__constant__` (trailing `__`). Prose
+/// and bare keywords stay out. GLSL `shared` / HLSL `groupshared` stay on
+/// their paths.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31918,6 +31924,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_hlsl_decl(s)
             || is_glsl_decl(s)
             || is_cuda_decl(s)
+            || is_opencl_decl(s)
         {
             return true;
         }
@@ -31988,6 +31995,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_hlsl_decl(s)
         || is_glsl_decl(s)
         || is_cuda_decl(s)
+        || is_opencl_decl(s)
     {
         return true;
     }
@@ -35590,6 +35598,215 @@ fn cuda_type_name_ok(ty: &str) -> bool {
             | "cudaStream_t"
             | "cudaEvent_t"
     )
+}
+
+/// OpenCL `__kernel void add(`, `kernel void saxpy(`,
+/// `__constant float coeffs[8];`, `__local float tile[64];`,
+/// `__global float *buf;`, `__private int scratch;`.
+/// Distinct from CUDA `__global__` / `__constant__` (reject trailing `_`).
+/// Optional leading `static` / `inline`. Prose and bare keywords stay out.
+fn is_opencl_decl(s: &str) -> bool {
+    is_opencl_storage(s) || is_opencl_kernel(s)
+}
+
+fn is_opencl_storage(s: &str) -> bool {
+    for key in ["__global", "__local", "__constant", "__private"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        // CUDA uses `__global__` / `__constant__`; do not steal those.
+        if rest.starts_with('_') {
+            continue;
+        }
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        // Optional C type qualifiers between address space and type.
+        let rest = strip_opencl_type_quals(rest);
+        return is_opencl_typed_var(rest);
+    }
+    false
+}
+
+fn is_opencl_kernel(s: &str) -> bool {
+    let mut rest = s;
+    for _ in 0..4 {
+        let mut stripped = false;
+        for q in ["static", "inline", "__inline__"] {
+            let Some(after) = sql_word(rest, q) else {
+                continue;
+            };
+            if !(after.is_empty() || after.starts_with(char::is_whitespace)) {
+                continue;
+            }
+            rest = after.trim_start();
+            stripped = true;
+            break;
+        }
+        if !stripped {
+            break;
+        }
+    }
+    let after_kernel = if let Some(after) = sql_word(rest, "__kernel") {
+        if after.starts_with('_') {
+            return false;
+        }
+        if !(after.is_empty() || after.starts_with(char::is_whitespace)) {
+            return false;
+        }
+        after.trim_start()
+    } else if let Some(after) = sql_word(rest, "kernel") {
+        // Bare OpenCL 2.0 / Metal-style `kernel`; need whitespace then typed fn.
+        if !after.starts_with(char::is_whitespace) {
+            return false;
+        }
+        after.trim_start()
+    } else {
+        return false;
+    };
+    if after_kernel.is_empty() {
+        return false;
+    }
+    // Optional extra address-space / inline after kernel keyword.
+    let mut rest = after_kernel;
+    for _ in 0..4 {
+        let mut stripped = false;
+        for q in [
+            "static",
+            "inline",
+            "__inline__",
+            "__global",
+            "__local",
+            "__constant",
+            "__private",
+        ] {
+            let Some(after) = sql_word(rest, q) else {
+                continue;
+            };
+            if after.starts_with('_')
+                && matches!(q, "__global" | "__local" | "__constant" | "__private")
+            {
+                continue;
+            }
+            if !(after.is_empty() || after.starts_with(char::is_whitespace)) {
+                continue;
+            }
+            rest = after.trim_start();
+            stripped = true;
+            break;
+        }
+        if !stripped {
+            break;
+        }
+    }
+    is_typed_fn_decl(rest)
+}
+
+fn strip_opencl_type_quals(s: &str) -> &str {
+    let mut rest = s;
+    for _ in 0..4 {
+        let mut stripped = false;
+        for q in [
+            "const",
+            "volatile",
+            "restrict",
+            "read_only",
+            "write_only",
+            "read_write",
+        ] {
+            let Some(after) = sql_word(rest, q) else {
+                continue;
+            };
+            if !after.starts_with(char::is_whitespace) {
+                continue;
+            }
+            rest = after.trim_start();
+            stripped = true;
+            break;
+        }
+        if !stripped {
+            break;
+        }
+    }
+    rest
+}
+
+fn is_opencl_typed_var(s: &str) -> bool {
+    let Some((ty, after_ty)) = graphql_ident(s) else {
+        return false;
+    };
+    if !opencl_type_name_ok(ty) {
+        return false;
+    }
+    let after_ty = if after_ty.starts_with('<') {
+        let Some(after) = after_balanced_angles(after_ty) else {
+            return false;
+        };
+        after
+    } else {
+        after_ty
+    };
+    let name_src = after_ty
+        .trim_start()
+        .trim_start_matches(['*', '&'])
+        .trim_start();
+    if name_src.is_empty() {
+        return false;
+    }
+    let Some((_name, after)) = graphql_ident(name_src) else {
+        return false;
+    };
+    let after = after.trim_start();
+    after.is_empty()
+        || after.starts_with(';')
+        || after.starts_with('[')
+        || after.starts_with('=')
+        || after.starts_with(',')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
+/// OpenCL / C scalars, vector types (`float4`), image/sampler types, or a
+/// Capitalized / `_`-prefixed user type. Rejects prose like `__local the tile`.
+fn opencl_type_name_ok(ty: &str) -> bool {
+    if cuda_type_name_ok(ty) {
+        return true;
+    }
+    let lower = ty.to_ascii_lowercase();
+    matches!(
+        lower.as_str(),
+        "half"
+            | "image2d_t"
+            | "image3d_t"
+            | "image2d_array_t"
+            | "image1d_t"
+            | "image1d_buffer_t"
+            | "image1d_array_t"
+            | "image2d_depth_t"
+            | "image2d_array_depth_t"
+            | "sampler_t"
+            | "event_t"
+            | "queue_t"
+            | "clk_event_t"
+            | "ndrange_t"
+            | "reserve_id_t"
+            | "cl_mem"
+    ) || opencl_vector_type(&lower)
+}
+
+fn opencl_vector_type(lower: &str) -> bool {
+    for base in [
+        "char", "uchar", "short", "ushort", "int", "uint", "long", "ulong", "float", "double",
+        "half",
+    ] {
+        if let Some(n) = lower.strip_prefix(base) {
+            if matches!(n, "2" | "3" | "4" | "8" | "16") {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// WebAssembly Text `(module`, `(func $add …)`, `(type $t (func …))`,
@@ -39775,6 +39992,48 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("__constant__"));
         assert!(!line_is_func_like("__managed__"));
         assert!(!line_is_func_like("__managed__ the counter"));
+    }
+
+    #[test]
+    fn opencl_decl_counts() {
+        assert!(line_is_func_like(
+            "__kernel void vector_add(__global const float *a, __global float *c) {"
+        ));
+        assert!(line_is_func_like("kernel void saxpy(int n, float a) {"));
+        assert!(line_is_func_like("static __kernel void init(int *out) {"));
+        assert!(line_is_func_like("inline kernel void warm() {"));
+        assert!(line_is_func_like("__KERNEL void UPPER(float *x) {"));
+        assert!(line_is_func_like("__constant float coeffs[8];"));
+        assert!(line_is_func_like("__CONSTANT float4 tint;"));
+        assert!(line_is_func_like("__local float tile[64];"));
+        assert!(line_is_func_like("__global float *buf;"));
+        assert!(line_is_func_like("__global const float *ro;"));
+        assert!(line_is_func_like("__private int scratch;"));
+        assert!(line_is_func_like("__local float4 block[16];"));
+        assert!(line_is_func_like("__constant image2d_t lut;"));
+        assert!(line_is_func_like("__private sampler_t samp;"));
+        // CUDA double-underscore forms stay on the CUDA path.
+        assert!(line_is_func_like("__global__ void saxpy(int n) {"));
+        assert!(line_is_func_like("__constant__ float coeffs[8];"));
+        assert!(line_is_func_like("struct KernelArgs {"));
+        assert!(line_is_func_like("void host_main() {"));
+        assert!(!line_is_func_like("__kernel"));
+        assert!(!line_is_func_like("__kernel "));
+        assert!(!line_is_func_like("__kernel void"));
+        assert!(!line_is_func_like("__kernel the entry"));
+        assert!(!line_is_func_like("kernel"));
+        assert!(!line_is_func_like("kernel "));
+        assert!(!line_is_func_like("kernel the process"));
+        assert!(!line_is_func_like("__global"));
+        assert!(!line_is_func_like("__global "));
+        assert!(!line_is_func_like("__global float"));
+        assert!(!line_is_func_like("__global the buffer"));
+        assert!(!line_is_func_like("__local"));
+        assert!(!line_is_func_like("__local the tile"));
+        assert!(!line_is_func_like("__constant"));
+        assert!(!line_is_func_like("__constant the coeffs"));
+        assert!(!line_is_func_like("__private"));
+        assert!(!line_is_func_like("__private the scratch"));
     }
 
     #[test]

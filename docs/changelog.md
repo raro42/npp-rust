@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.489] — 2026-10-21
+
+View:
+
+- **Function List** lists OpenCL `__kernel` / bare `kernel` entry points (`__kernel void vector_add(`, `kernel void saxpy(`), plus `__global` / `__local` / `__constant` / `__private` storage (`__constant float coeffs[8];`, `__local float tile[64];`, `__global float *buf;`). Optional `static` / `inline` and OpenCL vector / image / sampler types. Distinct from CUDA `__global__` / `__constant__` (trailing `__`). Prose and bare keywords stay out. Plain `void main(` / `struct` stay on the generic / typed-fn paths.
+
 ## [0.3.488] — 2026-10-21
 
 View:
