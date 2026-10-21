@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.503] — 2026-10-22
+
+View:
+
+- **Function List** lists Bazel / Starlark BUILD rules with same-line `name = "…"` / `name = '…'` (`cc_binary(name = "hello")`, `java_library(name = "lib")`, `py_binary(name = "tool")`, `go_library(name = "pkg")`, `rust_library(name = "mylib")`, `proto_library(name = "api")`, `android_library` / `kt_jvm_library` / `objc_library` / `scala_library` / `sh_binary`, `filegroup` / `genrule` / `alias` / `test_suite` / `config_setting` / `constraint_setting` / `constraint_value` / `platform` / `toolchain`, `lib = cc_library(name = "lib")`). Multi-line rules with `name` on a following line stay out. Prose and bare keywords stay out.
+
 ## [0.3.502] — 2026-10-22
 
 View:

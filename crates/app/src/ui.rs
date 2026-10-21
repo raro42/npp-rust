@@ -31913,6 +31913,17 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `lib = shared_library("foo") {`, `target("executable", "tool") {`).
 /// Double-quoted name on the same line. Meson single-quoted forms stay on
 /// Meson. Prose and bare keywords stay out.
+/// Bazel / Starlark BUILD rules with same-line `name = "…"` / `name = '…'`
+/// (`cc_binary(name = "hello")`, `java_library(name = "lib")`,
+/// `py_binary(name = "tool")`, `go_library(name = "pkg")`,
+/// `rust_library(name = "mylib")`, `proto_library(name = "api")`,
+/// `filegroup(name = "srcs")`, `genrule(name = "gen")`,
+/// `alias(name = "foo")`, `sh_binary(name = "run")`,
+/// `kt_jvm_library(name = "lib")`, `android_library(name = "lib")`,
+/// `objc_library(name = "lib")`, `scala_library(name = "lib")`,
+/// `config_setting(name = "dbg")`, `test_suite(name = "all")`,
+/// `lib = cc_library(name = "lib")`). Multi-line rules with `name` on a
+/// following line stay out. Prose and bare keywords stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32001,6 +32012,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_dockerfile_decl(s)
             || is_meson_decl(s)
             || is_gn_decl(s)
+            || is_bazel_decl(s)
         {
             return true;
         }
@@ -32085,6 +32097,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_dockerfile_decl(s)
         || is_meson_decl(s)
         || is_gn_decl(s)
+        || is_bazel_decl(s)
     {
         return true;
     }
@@ -37355,6 +37368,146 @@ fn gn_after_name_ok(after: &str) -> bool {
         || after.starts_with("/*")
 }
 
+/// Bazel / Starlark `cc_binary(name = "hello")`, `java_library(name = "lib")`,
+/// `py_binary(name = "tool")`, `lib = cc_library(name = "lib")`. Same-line
+/// `name = "…"` / `name = '…'` required. Multi-line rules stay out. Optional
+/// `name =` assignment of the rule call. Prose and bare keywords stay out.
+fn is_bazel_decl(s: &str) -> bool {
+    let rest = meson_strip_assign(s);
+    for key in [
+        "cc_shared_library",
+        "cc_proto_library",
+        "java_proto_library",
+        "py_proto_library",
+        "go_proto_library",
+        "rust_shared_library",
+        "rust_static_library",
+        "rust_proc_macro",
+        "kt_jvm_library",
+        "kt_jvm_binary",
+        "kt_jvm_test",
+        "kt_android_library",
+        "android_instrumentation_test",
+        "android_local_test",
+        "android_library",
+        "android_binary",
+        "objc_library",
+        "objc_binary",
+        "objc_test",
+        "scala_library",
+        "scala_binary",
+        "scala_test",
+        "config_setting",
+        "constraint_setting",
+        "constraint_value",
+        "proto_library",
+        "filegroup",
+        "test_suite",
+        "cc_binary",
+        "cc_library",
+        "cc_import",
+        "cc_test",
+        "java_binary",
+        "java_library",
+        "java_plugin",
+        "java_test",
+        "py_binary",
+        "py_library",
+        "py_test",
+        "go_binary",
+        "go_library",
+        "go_test",
+        "rust_binary",
+        "rust_library",
+        "rust_test",
+        "sh_binary",
+        "sh_library",
+        "sh_test",
+        "genrule",
+        "platform",
+        "toolchain",
+        "alias",
+    ] {
+        if bazel_call_named(rest, key) {
+            return true;
+        }
+    }
+    false
+}
+
+fn bazel_call_named(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(inner) = rest.strip_prefix('(') else {
+        return false;
+    };
+    let inner = inner.trim_start();
+    let Some(after_name_kw) = sql_word(inner, "name") else {
+        return false;
+    };
+    if !(after_name_kw.is_empty()
+        || after_name_kw.starts_with(char::is_whitespace)
+        || after_name_kw.starts_with('='))
+    {
+        return false;
+    }
+    let after_name_kw = after_name_kw.trim_start();
+    let Some(after_eq) = after_name_kw.strip_prefix('=') else {
+        return false;
+    };
+    let after_eq = after_eq.trim_start();
+    let (quote, after_q) = if let Some(rest) = after_eq.strip_prefix('"') {
+        ('"', rest)
+    } else if let Some(rest) = after_eq.strip_prefix('\'') {
+        ('\'', rest)
+    } else {
+        return false;
+    };
+    let Some(end) = after_q.find(quote) else {
+        return false;
+    };
+    if end == 0 {
+        return false;
+    }
+    let name = &after_q[..end];
+    if !bazel_target_name_ok(name) {
+        return false;
+    }
+    let after = after_q[end + 1..].trim_start();
+    bazel_after_name_ok(after)
+}
+
+fn bazel_target_name_ok(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    if bytes.is_empty() {
+        return false;
+    }
+    if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+    {
+        return false;
+    }
+    !name.eq_ignore_ascii_case("the") && !is_control_word(name)
+}
+
+fn bazel_after_name_ok(after: &str) -> bool {
+    after.is_empty()
+        || after.starts_with(',')
+        || after.starts_with(')')
+        || after.starts_with('#')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
     let Some((name, after)) = graphql_ident(s) else {
         return false;
@@ -42196,6 +42349,99 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("target(\"executable\")"));
         assert!(!line_is_func_like("target(executable, \"tool\")"));
         assert!(!line_is_func_like("my_lib = other(\"foo\")"));
+    }
+
+    #[test]
+    fn bazel_starlark_rules_count() {
+        assert!(line_is_func_like("cc_binary(name = \"hello\")"));
+        assert!(line_is_func_like(
+            "cc_library(name = \"lib\", srcs = [\"a.cc\"])"
+        ));
+        assert!(line_is_func_like("cc_test(name = \"lib_test\")"));
+        assert!(line_is_func_like(
+            "cc_proto_library(name = \"api_cc_proto\")"
+        ));
+        assert!(line_is_func_like("cc_shared_library(name = \"shared\")"));
+        assert!(line_is_func_like("cc_import(name = \"prebuilt\")"));
+        assert!(line_is_func_like("java_binary(name = \"App\")"));
+        assert!(line_is_func_like("java_library(name = \"lib\")"));
+        assert!(line_is_func_like("java_test(name = \"LibTest\")"));
+        assert!(line_is_func_like("java_proto_library(name = \"api_java\")"));
+        assert!(line_is_func_like("java_plugin(name = \"proc\")"));
+        assert!(line_is_func_like("py_binary(name = \"tool\")"));
+        assert!(line_is_func_like("py_library(name = \"pkg\")"));
+        assert!(line_is_func_like("py_test(name = \"pkg_test\")"));
+        assert!(line_is_func_like("py_proto_library(name = \"api_py\")"));
+        assert!(line_is_func_like("go_binary(name = \"server\")"));
+        assert!(line_is_func_like("go_library(name = \"pkg\")"));
+        assert!(line_is_func_like("go_test(name = \"pkg_test\")"));
+        assert!(line_is_func_like("go_proto_library(name = \"api_go\")"));
+        assert!(line_is_func_like("rust_binary(name = \"tool\")"));
+        assert!(line_is_func_like("rust_library(name = \"mylib\")"));
+        assert!(line_is_func_like("rust_test(name = \"mylib_test\")"));
+        assert!(line_is_func_like("rust_proc_macro(name = \"macros\")"));
+        assert!(line_is_func_like("rust_shared_library(name = \"cdylib\")"));
+        assert!(line_is_func_like("rust_static_library(name = \"rlib\")"));
+        assert!(line_is_func_like("proto_library(name = \"api_proto\")"));
+        assert!(line_is_func_like("objc_library(name = \"ios_lib\")"));
+        assert!(line_is_func_like("objc_binary(name = \"ios_app\")"));
+        assert!(line_is_func_like("objc_test(name = \"ios_test\")"));
+        assert!(line_is_func_like("android_library(name = \"lib\")"));
+        assert!(line_is_func_like("android_binary(name = \"app\")"));
+        assert!(line_is_func_like("android_local_test(name = \"unit\")"));
+        assert!(line_is_func_like(
+            "android_instrumentation_test(name = \"instr\")"
+        ));
+        assert!(line_is_func_like("kt_jvm_library(name = \"lib\")"));
+        assert!(line_is_func_like("kt_jvm_binary(name = \"app\")"));
+        assert!(line_is_func_like("kt_jvm_test(name = \"LibTest\")"));
+        assert!(line_is_func_like(
+            "kt_android_library(name = \"android_lib\")"
+        ));
+        assert!(line_is_func_like("sh_binary(name = \"run\")"));
+        assert!(line_is_func_like("sh_library(name = \"scripts\")"));
+        assert!(line_is_func_like("sh_test(name = \"check\")"));
+        assert!(line_is_func_like("filegroup(name = \"srcs\")"));
+        assert!(line_is_func_like(
+            "genrule(name = \"gen\", outs = [\"out\"])"
+        ));
+        assert!(line_is_func_like(
+            "alias(name = \"foo\", actual = \":bar\")"
+        ));
+        assert!(line_is_func_like("test_suite(name = \"all\")"));
+        assert!(line_is_func_like("config_setting(name = \"dbg\")"));
+        assert!(line_is_func_like("constraint_setting(name = \"os\")"));
+        assert!(line_is_func_like("constraint_value(name = \"linux\")"));
+        assert!(line_is_func_like("platform(name = \"host\")"));
+        assert!(line_is_func_like("toolchain(name = \"cc_toolchain\")"));
+        assert!(line_is_func_like("scala_library(name = \"lib\")"));
+        assert!(line_is_func_like("scala_binary(name = \"app\")"));
+        assert!(line_is_func_like("scala_test(name = \"LibTest\")"));
+        assert!(line_is_func_like("lib = cc_library(name = \"lib\")"));
+        assert!(line_is_func_like("  app = cc_binary(name = \"app\")"));
+        assert!(line_is_func_like("CC_BINARY(name = \"Hello\") # comment"));
+        assert!(line_is_func_like("cc_binary(name=\"hello\")"));
+        assert!(line_is_func_like("cc_binary(name = 'hello')"));
+        assert!(line_is_func_like("cc_binary(name = \"my-prog\")"));
+        assert!(line_is_func_like("cc_binary(name = \"foo.bar\")"));
+        assert!(line_is_func_like("cc_binary(name = \"pkg/tool\")"));
+        // Multi-line / incomplete / prose stay out.
+        assert!(!line_is_func_like("cc_binary("));
+        assert!(!line_is_func_like("cc_binary()"));
+        assert!(!line_is_func_like("cc_binary(srcs = [\"a.cc\"])"));
+        assert!(!line_is_func_like("cc_binary(name = \"\")"));
+        assert!(!line_is_func_like("cc_binary(name = the)"));
+        assert!(!line_is_func_like("cc_binary(name = \"the\")"));
+        assert!(!line_is_func_like("cc_binary(name)"));
+        assert!(!line_is_func_like("cc_library"));
+        assert!(!line_is_func_like("cc_librarys stay out"));
+        assert!(!line_is_func_like("filegroup the srcs"));
+        assert!(!line_is_func_like("alias the target"));
+        assert!(!line_is_func_like("genrule the output"));
+        assert!(!line_is_func_like("my_lib = other(name = \"foo\")"));
+        // GN / Meson keep their own shapes.
+        assert!(line_is_func_like("executable(\"chrome\") {"));
+        assert!(line_is_func_like("executable('prog', 'main.c')"));
     }
 
     #[test]
