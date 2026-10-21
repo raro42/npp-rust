@@ -31863,6 +31863,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Capitalized `primitive Name` count. JS `new Foo()` / Verilog
 /// `primitive udp_and (` stay out. `actor` / `class` / `trait` /
 /// `interface` / `type` / `fun` stay on the generic prefix keys.
+/// Cython `cdef` / `cpdef` / `ctypedef` as above.
+/// Nim `converter` / `template` (`converter toBool(x: int): bool =`,
+/// `template max(x, y): untyped =`, optional export `*`). C++ `template<…>`
+/// stays on the template-strip path. `proc` / `method` / `iterator` /
+/// `func` / `macro` stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31941,6 +31946,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_metal_decl(s)
             || is_pony_decl(s)
             || is_cython_decl(s)
+            || is_nim_decl(s)
         {
             return true;
         }
@@ -32015,6 +32021,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_metal_decl(s)
         || is_pony_decl(s)
         || is_cython_decl(s)
+        || is_nim_decl(s)
     {
         return true;
     }
@@ -36394,6 +36401,57 @@ fn is_cython_ctypedef_alias(s: &str) -> bool {
                 "unsigned" | "signed" | "long" | "short" | "const" | "volatile"
             )
     })
+}
+
+/// Nim `converter toBool(x: int): bool =`, `template max(x, y): untyped =`,
+/// `template foo =`, optional export `*` / `[T]` after the name.
+/// C++ `template<…>` does not match (no whitespace after `template`).
+/// Prose and bare keywords stay out. `proc` / `method` / `iterator` /
+/// `func` / `macro` stay on the generic prefix keys.
+fn is_nim_decl(s: &str) -> bool {
+    is_nim_keyword_decl(s, "converter") || is_nim_keyword_decl(s, "template")
+}
+
+fn is_nim_keyword_decl(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    nim_decl_name(rest.trim_start())
+}
+
+fn nim_decl_name(s: &str) -> bool {
+    let Some((name, after)) = graphql_ident(s) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let mut rest = after;
+    // Export marker: `converter toBool*` / `template max*`
+    if let Some(after_star) = rest.strip_prefix('*') {
+        rest = after_star;
+    }
+    let rest = rest.trim_start();
+    // Generic params: `template max[T](x, y: T)`
+    let rest = if rest.starts_with('[') {
+        let Some(end) = rest.find(']') else {
+            return false;
+        };
+        rest[end + 1..].trim_start()
+    } else {
+        rest
+    };
+    // Require a Nim tail so prose `converter without_parens` stays out.
+    rest.starts_with('(')
+        || rest.starts_with('=')
+        || rest.starts_with(':')
+        || rest.starts_with('{')
+        || rest.starts_with('#')
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
 }
 
 fn metal_vector_type(lower: &str) -> bool {
@@ -40779,6 +40837,38 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("cdef class the"));
         assert!(!line_is_func_like("cdef extern from"));
         assert!(!line_is_func_like("cdef extern"));
+    }
+
+    #[test]
+    fn nim_converter_template_counts() {
+        assert!(line_is_func_like("converter toBool(x: int): bool ="));
+        assert!(line_is_func_like("converter toString*(x: Foo): string ="));
+        assert!(line_is_func_like("CONVERTER toInt(x: float): int ="));
+        assert!(line_is_func_like("template max(x, y): untyped ="));
+        assert!(line_is_func_like("template max*[T](x, y: T): T ="));
+        assert!(line_is_func_like("template foo ="));
+        assert!(line_is_func_like("template bar:"));
+        assert!(line_is_func_like("template baz {.dirty.} ="));
+        assert!(line_is_func_like("  template nested(a) ="));
+        // Already on generic keys.
+        assert!(line_is_func_like("proc greet(name: string) ="));
+        assert!(line_is_func_like("method draw(self: Widget) ="));
+        assert!(line_is_func_like("iterator items(s: seq[int]): int ="));
+        assert!(line_is_func_like("func add(a, b: int): int ="));
+        assert!(line_is_func_like("macro gen(n: static[int]) ="));
+        // C++ template stays on the template-strip / typed-fn path.
+        assert!(line_is_func_like("template<typename T> void id(T x) {"));
+        assert!(!line_is_func_like("template<typename T>"));
+        // Prose / bare keywords stay out.
+        assert!(!line_is_func_like("converter"));
+        assert!(!line_is_func_like("converter "));
+        assert!(!line_is_func_like("converter the thing"));
+        assert!(!line_is_func_like("template"));
+        assert!(!line_is_func_like("template "));
+        assert!(!line_is_func_like("template the thing"));
+        // Plurals that look like typed C (`templates max(`) stay on typed-fn.
+        assert!(!line_is_func_like("converter without_parens"));
+        assert!(!line_is_func_like("template without_parens"));
     }
 
     #[test]

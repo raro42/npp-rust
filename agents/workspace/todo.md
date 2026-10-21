@@ -701,3 +701,5 @@
 009 keep: Function List Pony be/new => / Capitalized primitive (v0.3.491)
 
 009 keep: Function List Cython cdef/cpdef/ctypedef (v0.3.492)
+
+009 keep: Function List Nim converter/template (v0.3.493)

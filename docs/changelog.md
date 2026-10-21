@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.493] — 2026-10-21
+
+View:
+
+- **Function List** lists Nim `converter` / `template` (`converter toBool(x: int): bool =`, `template max(x, y): untyped =`, optional export `*` / `[T]`). C++ `template<…>` stays on the template-strip path. Prose and bare keywords stay out. `proc` / `method` / `iterator` / `func` / `macro` stay on the generic prefix keys.
+
 ## [0.3.492] — 2026-10-21
 
 View:
