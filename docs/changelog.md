@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.499] — 2026-10-21
+
+View:
+
+- **Function List** lists Vimscript `function!` / `def!` / `augroup` / `command` (`function! s:Foo(`, `def! Bar(`, `augroup mygroup`, `command! -nargs=1 MyCmd`). Prose and bare keywords stay out. Plain `function` / `def` stay on the generic prefix keys.
+
 ## [0.3.498] — 2026-10-21
 
 View:

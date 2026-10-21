@@ -1,3 +1,4 @@
+009 keep: Function List sees Vimscript function! / def! / augroup / command (v0.3.499)
 009 keep: Function List sees Fortran program / block data / submodule (v0.3.497)
 009 keep: Function List sees D unittest / mixin template / static this (v0.3.495)
 009 keep: Function List sees Standard ML structure / signature / functor (v0.3.494)

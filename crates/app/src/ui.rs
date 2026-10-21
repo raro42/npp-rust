@@ -31889,6 +31889,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Tcl `oo::class create` / `oo::define` / `coroutine` (`oo::class create Greeter`,
 /// `oo::define Greeter`, `coroutine tick apply {…} {…}`). Prose and bare
 /// keywords stay out. `proc` / `namespace` stay on the generic prefix keys.
+/// Vimscript `function!` / `def!` / `augroup` / `command` (`function! s:Foo(`,
+/// `def! Bar(`, `augroup mygroup`, `command! -nargs=1 MyCmd`). Prose and bare
+/// keywords stay out. Plain `function` / `def` stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31973,6 +31976,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_ada_decl(s)
             || is_fortran_decl(s)
             || is_tcl_decl(s)
+            || is_vimscript_decl(s)
         {
             return true;
         }
@@ -32053,6 +32057,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_ada_decl(s)
         || is_fortran_decl(s)
         || is_tcl_decl(s)
+        || is_vimscript_decl(s)
     {
         return true;
     }
@@ -36818,6 +36823,174 @@ fn tcl_name_after_ok(rest: &str) -> bool {
         || graphql_ident(rest).is_some()
 }
 
+/// Vimscript `function! s:Foo(`, `def! Bar(`, `augroup mygroup`,
+/// `command! -nargs=1 MyCmd`. Plain `function` / `def` stay on the generic
+/// prefix keys. `augroup END`, prose, and bare keywords stay out.
+fn is_vimscript_decl(s: &str) -> bool {
+    is_vim_function_bang(s) || is_vim_def_bang(s) || is_vim_augroup(s) || is_vim_command(s)
+}
+
+fn is_vim_function_bang(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "function") else {
+        return false;
+    };
+    let Some(rest) = rest.strip_prefix('!') else {
+        return false;
+    };
+    if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    vim_fn_name_then_paren(rest.trim_start())
+}
+
+fn is_vim_def_bang(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "def") else {
+        return false;
+    };
+    let Some(rest) = rest.strip_prefix('!') else {
+        return false;
+    };
+    if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    vim_fn_name_then_paren(rest.trim_start())
+}
+
+fn is_vim_augroup(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "augroup") else {
+        return false;
+    };
+    let rest = match rest.strip_prefix('!') {
+        Some(r) => r,
+        None => rest,
+    };
+    if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("end") || name.eq_ignore_ascii_case("the") || is_control_word(name)
+    {
+        return false;
+    }
+    vim_line_tail_ok(after.trim_start())
+}
+
+fn is_vim_command(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "command") else {
+        return false;
+    };
+    let rest = match rest.strip_prefix('!') {
+        Some(r) => r,
+        None => rest,
+    };
+    if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    // Optional `-nargs=*` / `-bang` / `-complete=file` attrs before the name.
+    for _ in 0..16 {
+        if !rest.starts_with('-') {
+            break;
+        }
+        let after_dash = &rest[1..];
+        let n = after_dash
+            .bytes()
+            .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'-')
+            .count();
+        if n == 0 {
+            return false;
+        }
+        rest = &after_dash[n..];
+        if let Some(after_eq) = rest.strip_prefix('=') {
+            // Value may be bare word, or `<…>`, or comma-list without spaces.
+            let val_n = after_eq
+                .bytes()
+                .take_while(|b| {
+                    b.is_ascii_alphanumeric()
+                        || matches!(*b, b'_' | b'-' | b',' | b'<' | b'>' | b':' | b'.')
+                })
+                .count();
+            if val_n == 0 {
+                return false;
+            }
+            rest = after_eq[val_n..].trim_start();
+        } else {
+            rest = rest.trim_start();
+        }
+    }
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    // User-defined commands must start with an uppercase letter.
+    if !name.as_bytes()[0].is_ascii_uppercase()
+        || name.eq_ignore_ascii_case("the")
+        || is_control_word(name)
+    {
+        return false;
+    }
+    let after = after.trim_start();
+    // Require a replacement / body cue so bare `command Foo` prose stays weak,
+    // but allow EOL and Vim comments.
+    after.is_empty()
+        || after.starts_with('"')
+        || after.starts_with('|')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+        || after.starts_with(':')
+        || graphql_ident(after).is_some()
+        || after.starts_with('<')
+}
+
+fn vim_fn_name_then_paren(s: &str) -> bool {
+    let s = s.trim_start();
+    // Optional `<SID>` before a script-local name.
+    let s = if let Some(rest) = s.strip_prefix("<SID>") {
+        rest
+    } else if let Some(rest) = s.strip_prefix("<sid>") {
+        rest
+    } else {
+        s
+    };
+    // Optional single-letter scope `s:` / `g:` / `b:` / `w:` / `t:`.
+    let s = if s.len() >= 2
+        && matches!(s.as_bytes()[0], b's' | b'g' | b'b' | b'w' | b't' | b'v')
+        && s.as_bytes()[1] == b':'
+    {
+        &s[2..]
+    } else {
+        s
+    };
+    // Autoload path: `foo#bar#Baz` or a plain name.
+    let mut rest = s;
+    let mut pieces = 0usize;
+    loop {
+        let Some((piece, after)) = graphql_ident(rest) else {
+            return false;
+        };
+        if piece.eq_ignore_ascii_case("the") || is_control_word(piece) {
+            return false;
+        }
+        pieces += 1;
+        if let Some(next) = after.strip_prefix('#') {
+            rest = next;
+            continue;
+        }
+        let after = after.trim_start();
+        return pieces > 0 && after.starts_with('(');
+    }
+}
+
+fn vim_line_tail_ok(rest: &str) -> bool {
+    rest.is_empty()
+        || rest.starts_with('"')
+        || rest.starts_with('|')
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
+}
+
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
     let Some((name, after)) = graphql_ident(s) else {
         return false;
@@ -41493,6 +41666,51 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("coroutine tick"));
         assert!(!line_is_func_like("coroutine the tick apply"));
         assert!(!line_is_func_like("coroutines stay out"));
+    }
+
+    #[test]
+    fn vimscript_function_bang_augroup_command_counts() {
+        assert!(line_is_func_like("function! Foo("));
+        assert!(line_is_func_like("function! s:Foo(a, b) abort"));
+        assert!(line_is_func_like("function! foo#bar#Baz("));
+        assert!(line_is_func_like("function! <SID>Helper("));
+        assert!(line_is_func_like("FUNCTION! MyFunc("));
+        assert!(line_is_func_like("  function! g:Util("));
+        assert!(line_is_func_like("def! Bar(x: number): number"));
+        assert!(line_is_func_like("def! s:Helper("));
+        assert!(line_is_func_like("augroup mygroup"));
+        assert!(line_is_func_like("augroup! filetype_vim"));
+        assert!(line_is_func_like("augroup MyGroup \" comment"));
+        assert!(line_is_func_like("command! MyCmd call Foo()"));
+        assert!(line_is_func_like(
+            "command! -nargs=1 -complete=file MyCmd edit <args>"
+        ));
+        assert!(line_is_func_like("command -bang MyCmd echo 'hi'"));
+        assert!(line_is_func_like("command! MyCmd"));
+        // Plain `function` / `def` stay on the generic prefix keys.
+        assert!(line_is_func_like("function Foo("));
+        assert!(line_is_func_like("def Bar("));
+        // Prose / bare keywords stay out.
+        assert!(!line_is_func_like("function!"));
+        assert!(!line_is_func_like("function! "));
+        assert!(!line_is_func_like("function! the Foo("));
+        assert!(!line_is_func_like("function!Foo("));
+        assert!(!line_is_func_like("def!"));
+        assert!(!line_is_func_like("def! "));
+        assert!(!line_is_func_like("def! the Bar("));
+        assert!(!line_is_func_like("augroup"));
+        assert!(!line_is_func_like("augroup "));
+        assert!(!line_is_func_like("augroup END"));
+        assert!(!line_is_func_like("augroup end"));
+        assert!(!line_is_func_like("augroup the group"));
+        assert!(!line_is_func_like("augrouping stay out"));
+        assert!(!line_is_func_like("command"));
+        assert!(!line_is_func_like("command "));
+        assert!(!line_is_func_like("command!"));
+        assert!(!line_is_func_like("command! "));
+        assert!(!line_is_func_like("command the troops"));
+        assert!(!line_is_func_like("command! -nargs=1 lowercase"));
+        assert!(!line_is_func_like("commanders stay out"));
     }
 
     #[test]
