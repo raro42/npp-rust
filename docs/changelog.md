@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.495] — 2026-10-21
+
+View:
+
+- **Function List** lists D `unittest` / `mixin template` / `static this` / `static ~this` (`unittest {`, `unittest "add" {`, `mixin template Foo()`, `static this()`, `shared static ~this()`). Prose and bare keywords stay out. Nim `template` stays on Nim. `class` / `struct` / `interface` / `enum` stay on the generic prefix keys.
+
 ## [0.3.494] — 2026-10-21
 
 View:

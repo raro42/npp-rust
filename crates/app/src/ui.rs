@@ -31872,6 +31872,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `structure Foo :> FOO =`, `signature FOO = sig`, `functor Make (S: ORD) =`).
 /// Lean `structure Point where` stays on Lean. Smithy `structure City {`
 /// stays on Smithy. `fun` / `datatype` / `module` stay on generic / other paths.
+/// D `unittest` / `mixin template` / `static this` / `static ~this`
+/// (`unittest {`, `unittest "add" {`, `mixin template Foo()`,
+/// `static this()`, `shared static ~this()`). Prose and bare keywords stay out.
+/// Nim `template` stays on Nim. `class` / `struct` / `interface` / `enum`
+/// stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31952,6 +31957,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_cython_decl(s)
             || is_nim_decl(s)
             || is_sml_decl(s)
+            || is_d_decl(s)
         {
             return true;
         }
@@ -32028,6 +32034,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_cython_decl(s)
         || is_nim_decl(s)
         || is_sml_decl(s)
+        || is_d_decl(s)
     {
         return true;
     }
@@ -36437,6 +36444,119 @@ fn is_sml_keyword_decl(s: &str, key: &str, allow_paren: bool) -> bool {
         return false;
     }
     sml_name_then_bind(rest.trim_start(), allow_paren)
+}
+
+/// D `unittest {`, `unittest "add" {`, `unittest Foo {`,
+/// `mixin template Name()`, `mixin template Name {`,
+/// `static this()`, `static ~this()`, `shared static this()`,
+/// `shared static ~this()`. Prose and bare keywords stay out.
+/// Nim `template` stays on Nim. `class` / `struct` / `interface` /
+/// `enum` stay on the generic prefix keys.
+fn is_d_decl(s: &str) -> bool {
+    is_d_unittest(s) || is_d_mixin_template(s) || is_d_module_ctor(s)
+}
+
+fn is_d_unittest(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "unittest") else {
+        return false;
+    };
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{')) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if rest.is_empty() {
+        return false;
+    }
+    if rest.starts_with('{') || rest.starts_with("//") || rest.starts_with("/*") {
+        return true;
+    }
+    if let Some(after_q) = rest.strip_prefix('"') {
+        let Some(end) = after_q.find('"') else {
+            return false;
+        };
+        let after = after_q[end + 1..].trim_start();
+        return after.is_empty()
+            || after.starts_with('{')
+            || after.starts_with("//")
+            || after.starts_with("/*");
+    }
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after.trim_start();
+    let stopped = after.is_empty()
+        || after.starts_with('{')
+        || after.starts_with("//")
+        || after.starts_with("/*");
+    if !stopped {
+        return false;
+    }
+    if name.as_bytes()[0].is_ascii_lowercase() {
+        return after.starts_with('{');
+    }
+    true
+}
+
+fn is_d_mixin_template(s: &str) -> bool {
+    let Some(after_mixin) = sql_word(s, "mixin") else {
+        return false;
+    };
+    if !after_mixin.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let after_mixin = after_mixin.trim_start();
+    let Some(after_template) = sql_word(after_mixin, "template") else {
+        return false;
+    };
+    if !after_template.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = after_template.trim_start();
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after.trim_start();
+    after.is_empty()
+        || after.starts_with('(')
+        || after.starts_with('{')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
+fn is_d_module_ctor(s: &str) -> bool {
+    let mut rest = s;
+    if let Some(after_shared) = sql_word(rest, "shared") {
+        if after_shared.starts_with(char::is_whitespace) {
+            rest = after_shared.trim_start();
+        }
+    }
+    let Some(after_static) = sql_word(rest, "static") else {
+        return false;
+    };
+    if !after_static.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = after_static.trim_start();
+    let rest = if let Some(after_tilde) = rest.strip_prefix('~') {
+        after_tilde
+    } else {
+        rest
+    };
+    let Some(after_this) = sql_word(rest, "this") else {
+        return false;
+    };
+    let after_this = after_this.trim_start();
+    after_this.starts_with('(')
+        || after_this.starts_with('{')
+        || after_this.is_empty()
+        || after_this.starts_with("//")
+        || after_this.starts_with("/*")
 }
 
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
@@ -40971,6 +41091,43 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("structure without_bind"));
         assert!(!line_is_func_like("signature without_bind"));
         assert!(!line_is_func_like("functor without_bind"));
+    }
+
+    #[test]
+    fn d_unittest_mixin_template_module_ctor_counts() {
+        assert!(line_is_func_like("unittest {"));
+        assert!(line_is_func_like("unittest{"));
+        assert!(line_is_func_like("unittest \"add\" {"));
+        assert!(line_is_func_like("unittest \"add\""));
+        assert!(line_is_func_like("unittest Foo {"));
+        assert!(line_is_func_like("unittest Foo"));
+        assert!(line_is_func_like("  UNITTEST Bar {"));
+        assert!(line_is_func_like("mixin template Foo() {"));
+        assert!(line_is_func_like("mixin template Foo()"));
+        assert!(line_is_func_like("mixin template Name {"));
+        assert!(line_is_func_like("mixin template Name"));
+        assert!(line_is_func_like("MIXIN TEMPLATE Mix (T) {"));
+        assert!(line_is_func_like("static this() {"));
+        assert!(line_is_func_like("static this()"));
+        assert!(line_is_func_like("static ~this() {"));
+        assert!(line_is_func_like("shared static this() {"));
+        assert!(line_is_func_like("shared static ~this() {"));
+        assert!(line_is_func_like("shared static this {"));
+        // Already covered elsewhere.
+        assert!(line_is_func_like("class Widget {"));
+        assert!(line_is_func_like("struct Point {"));
+        assert!(line_is_func_like("interface IFace {"));
+        assert!(line_is_func_like("enum Color {"));
+        assert!(line_is_func_like("template max(x, y): untyped ="));
+        // Prose / bare keywords stay out.
+        // (`mixin …` still matches the generic Dart/Kotlin `mixin ` prefix.)
+        assert!(!line_is_func_like("unittest"));
+        assert!(!line_is_func_like("unittest "));
+        assert!(!line_is_func_like("unittest the waters"));
+        assert!(!line_is_func_like("static this_thing()"));
+        assert!(!line_is_func_like("static that()"));
+        assert!(!line_is_func_like("shared static"));
+        assert!(!line_is_func_like("this()"));
     }
 
     #[test]
