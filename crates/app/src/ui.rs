@@ -31812,6 +31812,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `:- type …`, `:- pred …`, `:- func …`, `:- pragma …`, …).
 /// Gleam `opaque type Name` / `pub opaque type Name` (optional type params).
 /// Elm `port name :`, `port module Name`, `effect module Name`.
+/// Crystal `annotation` / `lib` / `alias` (`annotation JSON::Field`,
+/// `lib LibC`, `alias Callback = Int32 -> String`). `macro` / `fun` /
+/// `class` / `module` / `struct` / `enum` stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31877,6 +31880,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_mercury_decl(s)
             || is_gleam_decl(s)
             || is_elm_decl(s)
+            || is_crystal_decl(s)
         {
             return true;
         }
@@ -31938,6 +31942,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_mercury_decl(s)
         || is_gleam_decl(s)
         || is_elm_decl(s)
+        || is_crystal_decl(s)
     {
         return true;
     }
@@ -34428,6 +34433,98 @@ fn elm_module_name(s: &str) -> bool {
         || tail.starts_with('{')
         || tail.starts_with("//")
         || tail.starts_with("/*")
+}
+
+/// Crystal `annotation JSON::Field`, `lib LibC`, `alias Callback = Int32 -> String`.
+/// Path names may use `::`. Shell-style `alias ls='…'` stays out. Prose and bare
+/// keywords stay out. `macro` / `fun` / `class` / `module` / `struct` / `enum`
+/// stay on the generic prefix keys.
+fn is_crystal_decl(s: &str) -> bool {
+    is_crystal_annotation(s) || is_crystal_lib(s) || is_crystal_alias(s)
+}
+
+fn is_crystal_annotation(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "annotation") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    crystal_named_tail(rest.trim_start())
+}
+
+fn is_crystal_lib(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "lib") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    crystal_named_tail(rest.trim_start())
+}
+
+fn is_crystal_alias(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "alias") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = crystal_path(rest) else {
+        return false;
+    };
+    let after = after.trim_start();
+    let Some(rhs) = after.strip_prefix('=') else {
+        return false;
+    };
+    let rhs = rhs.trim_start();
+    if rhs.is_empty() || rhs.starts_with('\'') || rhs.starts_with('"') {
+        return false;
+    }
+    if name.as_bytes()[0].is_ascii_lowercase() {
+        let b = rhs.as_bytes()[0];
+        return b.is_ascii_uppercase() || b == b'(' || b == b'_' || rhs.contains("->");
+    }
+    true
+}
+
+fn crystal_named_tail(s: &str) -> bool {
+    let Some((name, after)) = crystal_path(s) else {
+        return false;
+    };
+    let rest = after.trim_start();
+    let stopped = rest.is_empty()
+        || rest.starts_with('#')
+        || rest.starts_with("//")
+        || sql_word(rest, "end").is_some_and(|after| {
+            after.is_empty() || after.starts_with(char::is_whitespace) || after.starts_with('#')
+        });
+    if !stopped {
+        return false;
+    }
+    if name.as_bytes()[0].is_ascii_lowercase() {
+        return rest.is_empty()
+            || rest.starts_with('#')
+            || rest.starts_with("//")
+            || sql_word(rest, "end").is_some();
+    }
+    true
+}
+
+/// Crystal path: `Foo`, `JSON::Field`, `A::B::C`.
+fn crystal_path(s: &str) -> Option<(&str, &str)> {
+    let mut rest = s;
+    loop {
+        let (_, after) = graphql_ident(rest)?;
+        rest = after;
+        if rest.starts_with("::") {
+            rest = &rest[2..];
+            continue;
+        }
+        let path = &s[..s.len() - rest.len()];
+        return Some((path, rest));
+    }
 }
 
 fn after_balanced_paren_or_brace(s: &str) -> Option<&str> {
@@ -38058,6 +38155,63 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("effect module websocket"));
         assert!(!line_is_func_like("effect the module"));
         assert!(!line_is_func_like("effective module Foo"));
+    }
+
+    #[test]
+    fn crystal_annotation_lib_alias_count() {
+        assert!(line_is_func_like("annotation MyAnn"));
+        assert!(line_is_func_like("annotation JSON::Field"));
+        assert!(line_is_func_like("annotation A::B::C # note"));
+        assert!(line_is_func_like("  annotation Foo"));
+        assert!(line_is_func_like("ANNOTATION Bar"));
+        assert!(line_is_func_like("annotation nested end"));
+        assert!(line_is_func_like("annotation counter"));
+        assert!(line_is_func_like("annotation counter end"));
+        assert!(line_is_func_like("lib LibC"));
+        assert!(line_is_func_like("lib LibSDL # ffi"));
+        assert!(line_is_func_like("  lib LibM"));
+        assert!(line_is_func_like("LIB LibFoo"));
+        assert!(line_is_func_like("lib libc"));
+        assert!(line_is_func_like("lib libc end"));
+        assert!(line_is_func_like("alias MyInt = Int32"));
+        assert!(line_is_func_like("alias Callback = Int32 -> String"));
+        assert!(line_is_func_like("alias Nested = Foo::Bar"));
+        assert!(line_is_func_like(
+            "alias ProcType = (Int32, String) -> Bool"
+        ));
+        assert!(line_is_func_like("alias counter = Int32"));
+        assert!(line_is_func_like("alias counter = (Int32) -> Bool"));
+        assert!(line_is_func_like("alias counter = _ -> Nil"));
+        assert!(line_is_func_like("alias counter = Int32 -> String"));
+        // Generic keys still cover Crystal macros / funs / types.
+        assert!(line_is_func_like("macro define_method(name)"));
+        assert!(line_is_func_like("fun getpid : Int32"));
+        assert!(line_is_func_like("class User"));
+        assert!(line_is_func_like("module Utils"));
+        assert!(line_is_func_like("struct Point"));
+        assert!(line_is_func_like("enum Color"));
+        assert!(!line_is_func_like("annotation"));
+        assert!(!line_is_func_like("annotation "));
+        assert!(!line_is_func_like("annotation the field"));
+        assert!(!line_is_func_like("annotations Foo"));
+        assert!(!line_is_func_like("annotationFoo"));
+        assert!(!line_is_func_like("lib"));
+        assert!(!line_is_func_like("lib "));
+        assert!(!line_is_func_like("lib the c"));
+        // Solidity `library Math` still lists; Crystal uses bare `lib`.
+        assert!(line_is_func_like("library Math {"));
+        assert!(!line_is_func_like("libLibC"));
+        assert!(!line_is_func_like("libs LibC"));
+        assert!(!line_is_func_like("alias"));
+        assert!(!line_is_func_like("alias "));
+        assert!(!line_is_func_like("alias MyInt"));
+        assert!(!line_is_func_like("alias the name = Int32"));
+        assert!(!line_is_func_like("alias MyInt ="));
+        // Shell-style aliases stay out.
+        assert!(!line_is_func_like("alias ls='ls -la'"));
+        assert!(!line_is_func_like("alias grep=\"grep --color\""));
+        assert!(!line_is_func_like("alias ll=ls"));
+        assert!(!line_is_func_like("aliases Foo = Bar"));
     }
 
     #[test]

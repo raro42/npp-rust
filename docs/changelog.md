@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.480] — 2026-10-21
+
+View:
+
+- **Function List** lists Crystal `annotation` / `lib` / `alias` (`annotation MyAnn`, `annotation JSON::Field`, `lib LibC`, `alias Callback = Int32 -> String`, `alias Nested = Foo::Bar`). Path names may use `::`. Shell-style `alias ls='…'` stays out. Prose and bare keywords stay out. `macro` / `fun` / `class` / `module` / `struct` / `enum` stay on the generic prefix keys. Solidity `library Math` still lists on the Solidity path.
+
 ## [0.3.479] — 2026-10-21
 
 View:
