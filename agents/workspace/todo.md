@@ -676,3 +676,5 @@
 
 009 keep: Function List Alloy sig/pred/fact/assert (v0.3.472)
 009 keep: Function List Mercury/Prolog :- directives (v0.3.477)
+
+009 keep: Function List Gleam opaque type (v0.3.478)

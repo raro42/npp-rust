@@ -31810,6 +31810,7 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Show Nat where`, `public export interface Eq a where`).
 /// Mercury / Prolog `:-` directives (`:- module foo.`, `:- interface.`,
 /// `:- type …`, `:- pred …`, `:- func …`, `:- pragma …`, …).
+/// Gleam `opaque type Name` / `pub opaque type Name` (optional type params).
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31873,6 +31874,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_agda_decl(s)
             || is_idris_decl(s)
             || is_mercury_decl(s)
+            || is_gleam_decl(s)
         {
             return true;
         }
@@ -31932,6 +31934,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_agda_decl(s)
         || is_idris_decl(s)
         || is_mercury_decl(s)
+        || is_gleam_decl(s)
     {
         return true;
     }
@@ -34312,6 +34315,46 @@ fn mercury_directive_body(after: &str) -> bool {
         || rest.starts_with('%')
         || rest.starts_with("--")
         || rest.starts_with('/')
+}
+
+/// Gleam `opaque type User {`, `pub opaque type Id {`, `opaque type Queue(a) {`.
+/// `pub` is stripped by the outer prefix loop. Lowercase names need `{` / `(` soon.
+/// Prose and bare `opaque` / `opaque type` stay out. Zig `const O = opaque {}`
+/// stays on the Zig path. Plain `type` / `pub type` stay on the generic keys.
+fn is_gleam_decl(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "opaque") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(after_type) = sql_word(rest, "type") else {
+        return false;
+    };
+    if !after_type.starts_with(char::is_whitespace) {
+        return false;
+    }
+    gleam_opaque_type_name(after_type.trim_start())
+}
+
+fn gleam_opaque_type_name(s: &str) -> bool {
+    let Some((name, after)) = graphql_ident(s) else {
+        return false;
+    };
+    let rest = after.trim_start();
+    let stopped = rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with('(')
+        || rest.starts_with("//")
+        || rest.starts_with("/*");
+    if !stopped {
+        return false;
+    }
+    if name.as_bytes()[0].is_ascii_lowercase() {
+        return rest.starts_with('{') || rest.starts_with('(');
+    }
+    true
 }
 
 fn after_balanced_paren_or_brace(s: &str) -> Option<&str> {
@@ -37885,6 +37928,29 @@ mod func_like_line_tests {
         assert!(!line_is_func_like(":- interface something"));
         // Idris `implementation` without `:-` stays on the Idris path.
         assert!(line_is_func_like("implementation Show Nat where"));
+    }
+
+    #[test]
+    fn gleam_opaque_type_counts() {
+        assert!(line_is_func_like("opaque type User {"));
+        assert!(line_is_func_like("pub opaque type Id {"));
+        assert!(line_is_func_like("opaque type Queue(a) {"));
+        assert!(line_is_func_like("  opaque type Nested {"));
+        assert!(line_is_func_like("opaque type User"));
+        assert!(line_is_func_like("opaque type counter {"));
+        assert!(line_is_func_like("opaque type counter(a) {"));
+        // Plain Gleam / Rust type stays on the generic prefix keys.
+        assert!(line_is_func_like("pub type Visible {"));
+        assert!(line_is_func_like("type Alias = Int"));
+        // Zig opaque constructor stays on the Zig path.
+        assert!(line_is_func_like("const O = opaque {}"));
+        assert!(!line_is_func_like("opaque"));
+        assert!(!line_is_func_like("opaque type"));
+        assert!(!line_is_func_like("opaque types User {"));
+        assert!(!line_is_func_like("opaque type the user"));
+        assert!(!line_is_func_like("opaquetype User {"));
+        // Extra whitespace between opaque and type is fine.
+        assert!(line_is_func_like("opaque  type User {"));
     }
 
     #[test]

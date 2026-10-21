@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.478] — 2026-10-21
+
+View:
+
+- **Function List** lists Gleam `opaque type` / `pub opaque type` (`opaque type User {`, `pub opaque type Id {`, `opaque type Queue(a) {`). Lowercase names need `{` or `(` soon. Prose and bare `opaque` / `opaque type` stay out. Zig `const O = opaque {}` stays on the Zig path. Plain `type` / `pub type` stay on the generic prefix keys.
+
 ## [0.3.477] — 2026-10-21
 
 View:
