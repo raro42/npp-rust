@@ -695,3 +695,5 @@
 009 keep: Function List CUDA __global__/__device__/__host__/__shared__/__constant__/__managed__ (v0.3.488)
 
 009 keep: Function List OpenCL __kernel/kernel/__global/__local/__constant/__private (v0.3.489)
+
+009 keep: Function List Metal vertex/fragment/kernel + device/constant/threadgroup storage (v0.3.490)

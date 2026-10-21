@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.490] — 2026-10-21
+
+View:
+
+- **Function List** lists Metal Shading Language `vertex` / `fragment` / `kernel` stage entry points (`vertex float4 main(`, `fragment half4 main(`), plus `device` / `constant` / `threadgroup` / `thread` / `threadgroup_imageblock` storage (`device float *buf;`, `constant float coeffs[8];`, `threadgroup float tile[64];`), plus Metal texture / sampler resources (`texture2d<float> color;`, `sampler samp;`, `depth2d<float> depthTex;`). Optional `static` / `inline`. Bare `kernel` also matches OpenCL. `[[vertex]]` / `[[fragment]]` attributes strip then typed-fn. Prose and bare keywords stay out. Plain `void main(` / `struct` stay on the generic / typed-fn paths.
+
 ## [0.3.489] — 2026-10-21
 
 View:

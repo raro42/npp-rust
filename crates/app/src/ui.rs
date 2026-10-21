@@ -31849,7 +31849,15 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `__private` storage (`__constant float c[8];`, `__local float tile[64];`).
 /// Distinct from CUDA `__global__` / `__constant__` (trailing `__`). Prose
 /// and bare keywords stay out. GLSL `shared` / HLSL `groupshared` stay on
-/// their paths.
+/// their paths. Metal Shading Language `vertex` / `fragment` / `kernel`
+/// stage entry points (`vertex float4 main(`, `fragment half4 main(`),
+/// plus `device` / `constant` / `threadgroup` / `thread` /
+/// `threadgroup_imageblock` storage (`device float *buf;`,
+/// `constant float coeffs[8];`, `threadgroup float tile[64];`), plus
+/// Metal texture / sampler resources (`texture2d<float> color;`,
+/// `sampler samp;`, `depth2d<float> depthTex;`). Bare `kernel` stays on
+/// OpenCL. Prose and bare keywords stay out. `[[vertex]]` attributes
+/// strip via the annotation path then typed-fn.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31925,6 +31933,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_glsl_decl(s)
             || is_cuda_decl(s)
             || is_opencl_decl(s)
+            || is_metal_decl(s)
         {
             return true;
         }
@@ -31996,6 +32005,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_glsl_decl(s)
         || is_cuda_decl(s)
         || is_opencl_decl(s)
+        || is_metal_decl(s)
     {
         return true;
     }
@@ -35799,6 +35809,217 @@ fn opencl_vector_type(lower: &str) -> bool {
     for base in [
         "char", "uchar", "short", "ushort", "int", "uint", "long", "ulong", "float", "double",
         "half",
+    ] {
+        if let Some(n) = lower.strip_prefix(base) {
+            if matches!(n, "2" | "3" | "4" | "8" | "16") {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Metal Shading Language `vertex float4 main(`, `fragment half4 main(`,
+/// `kernel void compute(`, plus address-space storage
+/// (`device float *buf;`, `constant float coeffs[8];`,
+/// `threadgroup float tile[64];`, `thread float scratch;`,
+/// `threadgroup_imageblock float4 block;`) and texture / sampler
+/// resources (`texture2d<float> color;`, `sampler samp;`,
+/// `depth2d<float> depthTex;`). Optional leading `static` / `inline`.
+/// Bare `kernel` also matches OpenCL. Prose and bare keywords stay out.
+/// `[[vertex]] float4 main(` strips via annotations then typed-fn.
+fn is_metal_decl(s: &str) -> bool {
+    is_metal_stage(s) || is_metal_storage(s) || is_metal_resource(s)
+}
+
+fn is_metal_stage(s: &str) -> bool {
+    let mut rest = s;
+    for _ in 0..4 {
+        let mut stripped = false;
+        for q in ["static", "inline", "__inline__"] {
+            let Some(after) = sql_word(rest, q) else {
+                continue;
+            };
+            if !(after.is_empty() || after.starts_with(char::is_whitespace)) {
+                continue;
+            }
+            rest = after.trim_start();
+            stripped = true;
+            break;
+        }
+        if !stripped {
+            break;
+        }
+    }
+    for stage in ["vertex", "fragment", "kernel"] {
+        let Some(after) = sql_word(rest, stage) else {
+            continue;
+        };
+        if !after.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let after = after.trim_start();
+        if after.is_empty() {
+            return false;
+        }
+        return is_typed_fn_decl(after);
+    }
+    false
+}
+
+fn is_metal_storage(s: &str) -> bool {
+    for key in [
+        "threadgroup_imageblock",
+        "threadgroup",
+        "device",
+        "constant",
+        "thread",
+    ] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = strip_metal_type_quals(rest.trim_start());
+        return is_metal_typed_var(rest);
+    }
+    false
+}
+
+fn strip_metal_type_quals(s: &str) -> &str {
+    let mut rest = s;
+    for _ in 0..4 {
+        let mut stripped = false;
+        for q in ["const", "volatile", "restrict"] {
+            let Some(after) = sql_word(rest, q) else {
+                continue;
+            };
+            if !after.starts_with(char::is_whitespace) {
+                continue;
+            }
+            rest = after.trim_start();
+            stripped = true;
+            break;
+        }
+        if !stripped {
+            break;
+        }
+    }
+    rest
+}
+
+fn is_metal_typed_var(s: &str) -> bool {
+    let Some((ty, after_ty)) = graphql_ident(s) else {
+        return false;
+    };
+    if !metal_type_name_ok(ty) {
+        return false;
+    }
+    let after_ty = if after_ty.starts_with('<') {
+        let Some(after) = after_balanced_angles(after_ty) else {
+            return false;
+        };
+        after
+    } else {
+        after_ty
+    };
+    let name_src = after_ty
+        .trim_start()
+        .trim_start_matches(['*', '&'])
+        .trim_start();
+    if name_src.is_empty() {
+        return false;
+    }
+    let Some((_name, after)) = graphql_ident(name_src) else {
+        return false;
+    };
+    let after = after.trim_start();
+    after.is_empty()
+        || after.starts_with(';')
+        || after.starts_with('[')
+        || after.starts_with('=')
+        || after.starts_with(',')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
+const METAL_RESOURCE_TYPES: &[&str] = &[
+    "texture2d_array",
+    "texturecube_array",
+    "texture1d_array",
+    "texture2d_ms",
+    "depth2d_array",
+    "depthcube",
+    "texture3d",
+    "texture2d",
+    "texture1d",
+    "texturecube",
+    "texturebuffer",
+    "depth2d",
+    "sampler",
+];
+
+fn is_metal_resource(s: &str) -> bool {
+    for key in METAL_RESOURCE_TYPES {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        let rest = if rest.starts_with('<') {
+            let Some(after) = after_balanced_angles(rest) else {
+                return false;
+            };
+            after
+        } else if rest.starts_with(char::is_whitespace) {
+            rest
+        } else {
+            continue;
+        };
+        let rest = rest.trim_start();
+        let Some((_name, after)) = graphql_ident(rest) else {
+            return false;
+        };
+        let after = after.trim_start();
+        return after.is_empty()
+            || after.starts_with(';')
+            || after.starts_with('[')
+            || after.starts_with('=')
+            || after.starts_with("//")
+            || after.starts_with("/*");
+    }
+    false
+}
+
+/// Metal scalars / vectors, or a Capitalized / `_`-prefixed user type.
+/// Rejects prose like `device the buffer` / `vertex the shader`.
+fn metal_type_name_ok(ty: &str) -> bool {
+    if opencl_type_name_ok(ty) || hlsl_type_name_ok(ty) {
+        return true;
+    }
+    let lower = ty.to_ascii_lowercase();
+    matches!(
+        lower.as_str(),
+        "float2x2"
+            | "float3x3"
+            | "float4x4"
+            | "float3x4"
+            | "float4x3"
+            | "half2x2"
+            | "half3x3"
+            | "half4x4"
+            | "packed_float3"
+            | "packed_float4"
+            | "simdgroup_float8x8"
+            | "atomic_uint"
+            | "atomic_int"
+            | "metal::float4"
+    ) || metal_vector_type(&lower)
+}
+
+fn metal_vector_type(lower: &str) -> bool {
+    for base in [
+        "bool", "char", "uchar", "short", "ushort", "int", "uint", "long", "ulong", "float",
+        "half", "double",
     ] {
         if let Some(n) = lower.strip_prefix(base) {
             if matches!(n, "2" | "3" | "4" | "8" | "16") {
@@ -40034,6 +40255,70 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("__constant the coeffs"));
         assert!(!line_is_func_like("__private"));
         assert!(!line_is_func_like("__private the scratch"));
+    }
+
+    #[test]
+    fn metal_decl_counts() {
+        assert!(line_is_func_like(
+            "vertex float4 vertex_main(VertexIn in [[stage_in]]) {"
+        ));
+        assert!(line_is_func_like(
+            "fragment half4 fragment_main(VertexOut in [[stage_in]]) {"
+        ));
+        assert!(line_is_func_like(
+            "kernel void compute_main(uint id [[thread_position_in_grid]]) {"
+        ));
+        assert!(line_is_func_like(
+            "static vertex float4 main_v(float2 uv) {"
+        ));
+        assert!(line_is_func_like(
+            "inline fragment float4 main_f(float4 c) {"
+        ));
+        assert!(line_is_func_like("VERTEX float4 UPPER(float2 p) {"));
+        assert!(line_is_func_like("device float *buf;"));
+        assert!(line_is_func_like("device const float *ro;"));
+        assert!(line_is_func_like("constant float coeffs[8];"));
+        assert!(line_is_func_like("CONSTANT float4 tint;"));
+        assert!(line_is_func_like("threadgroup float tile[64];"));
+        assert!(line_is_func_like("thread float scratch;"));
+        assert!(line_is_func_like("threadgroup_imageblock float4 block;"));
+        assert!(line_is_func_like("texture2d<float> color;"));
+        assert!(line_is_func_like(
+            "texture2d<float, access::sample> colorTex;"
+        ));
+        assert!(line_is_func_like("sampler samp;"));
+        assert!(line_is_func_like("depth2d<float> depthTex;"));
+        assert!(line_is_func_like("texturecube<float> envMap;"));
+        // Attribute form strips then typed-fn.
+        assert!(line_is_func_like(
+            "[[vertex]] float4 main_attr(float2 uv) {"
+        ));
+        assert!(line_is_func_like(
+            "[[fragment]] half4 main_frag(float4 c) {"
+        ));
+        // OpenCL / CUDA forms still count on their paths.
+        assert!(line_is_func_like("__kernel void vector_add(float *a) {"));
+        assert!(line_is_func_like("__global__ void saxpy(int n) {"));
+        assert!(line_is_func_like("struct VertexIn {"));
+        assert!(line_is_func_like("void host_main() {"));
+        assert!(!line_is_func_like("vertex"));
+        assert!(!line_is_func_like("vertex "));
+        assert!(!line_is_func_like("vertex the shader"));
+        assert!(!line_is_func_like("fragment"));
+        assert!(!line_is_func_like("fragment of text"));
+        assert!(!line_is_func_like("device"));
+        assert!(!line_is_func_like("device "));
+        assert!(!line_is_func_like("device the buffer"));
+        assert!(!line_is_func_like("constant"));
+        assert!(!line_is_func_like("constant the coeffs"));
+        assert!(!line_is_func_like("threadgroup"));
+        assert!(!line_is_func_like("threadgroup the tile"));
+        assert!(!line_is_func_like("thread"));
+        assert!(!line_is_func_like("thread the scratch"));
+        assert!(!line_is_func_like("texture2d"));
+        assert!(!line_is_func_like("texture2d the color"));
+        assert!(!line_is_func_like("sampler"));
+        assert!(!line_is_func_like("sampler the state"));
     }
 
     #[test]
