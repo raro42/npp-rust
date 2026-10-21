@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.504] — 2026-10-22
+
+View:
+
+- **Function List** lists CMake `add_executable` / `add_library` / `add_custom_target` / `add_test` / `project` alongside `function` / `macro` (`add_executable(app main.cpp)`, `add_library(lib STATIC)`, `add_library(Foo::Bar ALIAS Foo)`, `add_custom_target(docs)`, `add_test(NAME t COMMAND app)`, `add_test(t app)`, `project(MyApp)`). Same-line first name (optional `Foo::Bar`). Prose and bare keywords stay out. Meson / GN / Bazel keep their own shapes.
+
 ## [0.3.503] — 2026-10-22
 
 View:

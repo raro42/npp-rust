@@ -31692,9 +31692,14 @@ const NOT_TYPED_FN: &[&str] = &[
 /// MATLAB / Octave `classdef` counts (`classdef MyClass`,
 /// `classdef MyClass < handle`, `classdef (Sealed) MyClass`).
 /// `classdef the team`, `classdefinitions`, and a bare `classdef` stay out.
-/// CMake `function(name)` / `macro(name)` count (`function(my_func)`,
-/// `macro(my_macro arg)`, optional space before `(`). `function()`,
-/// `functions(…)`, `endfunction()`, and a bare `function` / `macro` stay out.
+/// CMake `function(name)` / `macro(name)` / `add_executable` / `add_library` /
+/// `add_custom_target` / `add_test` / `project` count (`function(my_func)`,
+/// `macro(my_macro arg)`, `add_executable(app main.cpp)`,
+/// `add_library(lib STATIC)`, `add_library(Foo::Bar ALIAS Foo)`,
+/// `add_custom_target(docs)`, `add_test(NAME t COMMAND app)`,
+/// `add_test(t app)`, `project(MyApp)`, optional space before `(`).
+/// `function()`, `functions(…)`, `endfunction()`, bare keywords, and prose
+/// stay out.
 /// VHDL `entity` / `architecture` / `component` / `package` / `package body`
 /// count (`entity Foo is`, `architecture RTL of Foo is`, `component Bar is`,
 /// `package Utils is`, `package body Utils is`). `entity the team`,
@@ -32567,37 +32572,77 @@ fn is_matlab_classdef(s: &str) -> bool {
         || rest.starts_with("/*")
 }
 
-/// CMake `function(name …)` / `macro(name …)` (optional space before `(`).
-/// The first paren argument is the command name. Spaced forms like
-/// `function name` / `macro name` stay with `FUNC_LIKE_KEYS`.
-/// `function()`, `functions(…)`, prose, and a bare `function` / `macro` stay out.
+/// CMake `function(name)` / `macro(name)`, plus target / project calls with a
+/// same-line first name: `add_executable(app …)`, `add_library(lib …)`,
+/// `add_custom_target(docs …)`, `add_test(NAME t …)` / `add_test(t …)`,
+/// `project(MyApp)`. Optional `Foo::Bar` ALIAS-style names. Spaced forms like
+/// `function name` stay with `FUNC_LIKE_KEYS`. Prose and bare keywords stay out.
+/// Meson / GN / Bazel keep their own shapes.
 fn is_cmake_decl(s: &str) -> bool {
-    for key in ["function", "macro"] {
-        let Some(rest) = sql_word(s, key) else {
-            continue;
-        };
-        if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
-            continue;
+    for key in [
+        "add_custom_target",
+        "add_executable",
+        "add_library",
+        "add_test",
+        "function",
+        "macro",
+        "project",
+    ] {
+        if cmake_named_call(s, key) {
+            return true;
         }
-        let rest = rest.trim_start();
-        if !rest.starts_with('(') {
-            continue;
-        }
-        let Some(inner) = rest.strip_prefix('(') else {
-            continue;
-        };
-        let inner = inner.trim_start();
-        let Some((_, after)) = graphql_ident(inner) else {
-            return false;
-        };
-        // Keep leading whitespace: `function(name arg)` separates args with space.
-        return after.is_empty()
-            || after.starts_with(')')
-            || after.starts_with(',')
-            || after.starts_with(char::is_whitespace)
-            || after.starts_with('#');
     }
     false
+}
+
+fn cmake_named_call(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(inner) = rest.strip_prefix('(') else {
+        return false;
+    };
+    let mut inner = inner.trim_start();
+    // `add_test(NAME MyTest COMMAND …)` — skip the NAME keyword when present.
+    // Bare `add_test(NAME)` / `add_test(NAME)` with no test id stay out.
+    if key.eq_ignore_ascii_case("add_test") {
+        if let Some(after_name) = sql_word(inner, "NAME") {
+            if after_name.starts_with(char::is_whitespace) {
+                inner = after_name.trim_start();
+            } else {
+                return false;
+            }
+        }
+    }
+    let Some(after) = cmake_after_target_name(inner) else {
+        return false;
+    };
+    // Keep leading whitespace: `function(name arg)` / `add_library(lib SHARED …)`.
+    after.is_empty()
+        || after.starts_with(')')
+        || after.starts_with(',')
+        || after.starts_with(char::is_whitespace)
+        || after.starts_with('#')
+}
+
+fn cmake_after_target_name(s: &str) -> Option<&str> {
+    let (first, mut rest) = graphql_ident(s)?;
+    if first.eq_ignore_ascii_case("the") || is_control_word(first) {
+        return None;
+    }
+    // `add_library(Foo::Bar ALIAS Foo)` — namespaced ALIAS targets.
+    while let Some(after_colons) = rest.strip_prefix("::") {
+        let (seg, after) = graphql_ident(after_colons)?;
+        if seg.eq_ignore_ascii_case("the") || is_control_word(seg) {
+            return None;
+        }
+        rest = after;
+    }
+    Some(rest)
 }
 
 /// VHDL `entity Foo is`, `architecture RTL of Foo is`, `component Bar is`,
@@ -40184,6 +40229,24 @@ mod func_like_line_tests {
         assert!(line_is_func_like("macro (my_macro)"));
         assert!(line_is_func_like("MACRO(MyMacro)"));
         assert!(line_is_func_like("function(foo"));
+        assert!(line_is_func_like("add_executable(app main.cpp)"));
+        assert!(line_is_func_like("add_executable(app WIN32 main.cpp)"));
+        assert!(line_is_func_like("ADD_EXECUTABLE(App)"));
+        assert!(line_is_func_like("  add_executable(app) # note"));
+        assert!(line_is_func_like("add_library(lib STATIC src.cpp)"));
+        assert!(line_is_func_like("add_library(lib SHARED)"));
+        assert!(line_is_func_like("add_library(lib INTERFACE)"));
+        assert!(line_is_func_like("add_library(Foo::Bar ALIAS Foo)"));
+        assert!(line_is_func_like("add_custom_target(docs ALL)"));
+        assert!(line_is_func_like("add_custom_target(codegen)"));
+        assert!(line_is_func_like("add_test(NAME MyTest COMMAND app)"));
+        assert!(line_is_func_like("add_test(MyTest app)"));
+        assert!(line_is_func_like("ADD_TEST(NAME unit COMMAND t)"));
+        assert!(line_is_func_like("project(MyApp)"));
+        assert!(line_is_func_like(
+            "project(MyApp VERSION 1.0 LANGUAGES CXX)"
+        ));
+        assert!(line_is_func_like("PROJECT(MyApp)"));
         assert!(!line_is_func_like("function()"));
         assert!(!line_is_func_like("function( )"));
         assert!(!line_is_func_like("functions(foo)"));
@@ -40193,6 +40256,28 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("endmacro()"));
         assert!(!line_is_func_like("endfunction(my_func)"));
         assert!(!line_is_func_like("macros(foo)"));
+        assert!(!line_is_func_like("add_executable()"));
+        assert!(!line_is_func_like("add_executable( )"));
+        assert!(!line_is_func_like("add_executables(app)"));
+        assert!(!line_is_func_like("add_executable"));
+        assert!(!line_is_func_like("add_executable the app"));
+        assert!(!line_is_func_like("add_library()"));
+        assert!(!line_is_func_like("add_librarys(lib)"));
+        assert!(!line_is_func_like("add_library the lib"));
+        assert!(!line_is_func_like("add_custom_target()"));
+        assert!(!line_is_func_like("add_custom_targets(docs)"));
+        assert!(!line_is_func_like("add_test()"));
+        assert!(!line_is_func_like("add_test(NAME)"));
+        assert!(!line_is_func_like("add_test(NAME the COMMAND app)"));
+        assert!(!line_is_func_like("add_tests(t)"));
+        assert!(!line_is_func_like("project()"));
+        assert!(!line_is_func_like("project"));
+        assert!(!line_is_func_like("projects(MyApp)"));
+        assert!(!line_is_func_like("project the app"));
+        // Meson / GN / Bazel keep their own shapes.
+        assert!(line_is_func_like("executable('prog', 'main.c')"));
+        assert!(line_is_func_like("executable(\"chrome\") {"));
+        assert!(line_is_func_like("cc_binary(name = \"hello\")"));
     }
 
     #[test]

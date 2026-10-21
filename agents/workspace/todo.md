@@ -714,3 +714,5 @@
 
 009 keep: Function List Ada task/protected (v0.3.496)
 009 keep: Function List Tcl oo::class create / oo::define / coroutine (v0.3.498)
+
+009 keep: Function List CMake add_executable/add_library/add_custom_target/add_test/project (v0.3.504)
