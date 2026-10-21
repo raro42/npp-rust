@@ -31857,7 +31857,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Metal texture / sampler resources (`texture2d<float> color;`,
 /// `sampler samp;`, `depth2d<float> depthTex;`). Bare `kernel` stays on
 /// OpenCL. Prose and bare keywords stay out. `[[vertex]]` attributes
-/// strip via the annotation path then typed-fn.
+/// strip via the annotation path then typed-fn. Pony `be` / `new`
+/// methods with a `=>` body (`be ping()`, `new create(env: Env) =>`,
+/// optional capability `iso`/`trn`/`ref`/`val`/`box`/`tag`) and
+/// Capitalized `primitive Name` count. JS `new Foo()` / Verilog
+/// `primitive udp_and (` stay out. `actor` / `class` / `trait` /
+/// `interface` / `type` / `fun` stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31934,6 +31939,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_cuda_decl(s)
             || is_opencl_decl(s)
             || is_metal_decl(s)
+            || is_pony_decl(s)
         {
             return true;
         }
@@ -32006,6 +32012,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_cuda_decl(s)
         || is_opencl_decl(s)
         || is_metal_decl(s)
+        || is_pony_decl(s)
     {
         return true;
     }
@@ -36014,6 +36021,104 @@ fn metal_type_name_ok(ty: &str) -> bool {
             | "atomic_int"
             | "metal::float4"
     ) || metal_vector_type(&lower)
+}
+
+/// Pony `be ping() =>`, `new create(env: Env) =>`, optional capability
+/// before the name (`new iso create() =>`, `be tag receive(msg) =>`),
+/// and Capitalized `primitive Foo`. Requires `=>` (or `{`) after params
+/// so JS `new Foo()` stays out. Verilog `primitive udp_and (` stays on
+/// the Verilog path (lowercase name + `(`).
+fn is_pony_decl(s: &str) -> bool {
+    is_pony_be(s) || is_pony_new(s) || is_pony_primitive(s)
+}
+
+fn is_pony_be(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "be") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    pony_method_after_keyword(rest.trim_start())
+}
+
+fn is_pony_new(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "new") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    pony_method_after_keyword(rest.trim_start())
+}
+
+fn pony_method_after_keyword(s: &str) -> bool {
+    let rest = strip_pony_cap(s);
+    let Some(open) = rest.find('(') else {
+        return false;
+    };
+    let head = rest[..open].trim();
+    if head.is_empty() || head.contains(char::is_whitespace) {
+        return false;
+    }
+    if head.eq_ignore_ascii_case("the") || is_control_word(head) || !is_fn_name(head) {
+        return false;
+    }
+    let Some(after) = after_balanced_paren(rest, open) else {
+        return false;
+    };
+    pony_arrow_body(after)
+}
+
+fn strip_pony_cap(s: &str) -> &str {
+    for cap in ["iso", "trn", "ref", "val", "box", "tag"] {
+        let Some(after) = sql_word(s, cap) else {
+            continue;
+        };
+        if after.starts_with(char::is_whitespace) {
+            return after.trim_start();
+        }
+    }
+    s
+}
+
+fn pony_arrow_body(after: &str) -> bool {
+    let rest = after.trim_start();
+    if rest.starts_with("=>") || rest.starts_with('{') {
+        return true;
+    }
+    if !rest.starts_with(':') {
+        return false;
+    }
+    // `: Type =>` or `: Type ? =>`
+    rest.contains("=>")
+}
+
+fn is_pony_primitive(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "primitive") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || !name.starts_with(|c: char| c.is_ascii_uppercase()) {
+        return false;
+    }
+    let after = after.trim_start();
+    // Verilog `primitive udp_and (` uses a lowercase name; Capitalized + `(`
+    // is not a Pony primitive form either.
+    if after.starts_with('(') {
+        return false;
+    }
+    after.is_empty()
+        || after.starts_with('[')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+        || sql_word(after, "is").is_some_and(|a| a.is_empty() || a.starts_with(char::is_whitespace))
 }
 
 fn metal_vector_type(lower: &str) -> bool {
@@ -40319,6 +40424,41 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("texture2d the color"));
         assert!(!line_is_func_like("sampler"));
         assert!(!line_is_func_like("sampler the state"));
+    }
+
+    #[test]
+    fn pony_decl_counts() {
+        assert!(line_is_func_like("be ping() =>"));
+        assert!(line_is_func_like("be receive(msg: String) =>"));
+        assert!(line_is_func_like("BE PONG() =>"));
+        assert!(line_is_func_like("new create(env: Env) =>"));
+        assert!(line_is_func_like("new iso create() =>"));
+        assert!(line_is_func_like("new ref from_string(s: String) =>"));
+        assert!(line_is_func_like("be tag receive(msg: Message) =>"));
+        assert!(line_is_func_like("new create(): Main =>"));
+        assert!(line_is_func_like("new create(): Main ? =>"));
+        assert!(line_is_func_like("primitive Foo"));
+        assert!(line_is_func_like("primitive Bar[A]"));
+        assert!(line_is_func_like("primitive Nil is Iterator[None]"));
+        assert!(line_is_func_like("PRIMITIVE Foo"));
+        // Already on generic keys.
+        assert!(line_is_func_like("actor Main"));
+        assert!(line_is_func_like("fun ref apply(): String =>"));
+        assert!(line_is_func_like("class Foo"));
+        // JS / prose / Verilog stay out.
+        assert!(!line_is_func_like("new Foo()"));
+        assert!(!line_is_func_like("new Foo();"));
+        assert!(!line_is_func_like("new"));
+        assert!(!line_is_func_like("new "));
+        assert!(!line_is_func_like("new the object =>"));
+        assert!(!line_is_func_like("be"));
+        assert!(!line_is_func_like("be "));
+        assert!(!line_is_func_like("be the message =>"));
+        assert!(!line_is_func_like("primitive"));
+        assert!(!line_is_func_like("primitive "));
+        assert!(!line_is_func_like("primitive the thing"));
+        // Lowercase `primitive foo` / `primitive udp_and (` stay on Verilog.
+        assert!(line_is_func_like("primitive udp_and (a, b);"));
     }
 
     #[test]

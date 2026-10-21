@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.491] — 2026-10-21
+
+View:
+
+- **Function List** lists Pony `be` / `new` methods with a `=>` body (`be ping()`, `new create(env: Env) =>`, optional capability `iso` / `trn` / `ref` / `val` / `box` / `tag`) and Capitalized `primitive Name` (`primitive Foo`, `primitive Bar[A]`, `primitive Nil is Iterator[None]`). JS `new Foo()` and Verilog `primitive udp_and (` stay out. `actor` / `class` / `trait` / `interface` / `type` / `fun` stay on the generic prefix keys.
+
 ## [0.3.490] — 2026-10-21
 
 View:
