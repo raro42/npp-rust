@@ -31815,6 +31815,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Crystal `annotation` / `lib` / `alias` (`annotation JSON::Field`,
 /// `lib LibC`, `alias Callback = Int32 -> String`). `macro` / `fun` /
 /// `class` / `module` / `struct` / `enum` stay on the generic prefix keys.
+/// Apache Thrift `exception` / `senum` / typed `const` (`exception Boom {`,
+/// `senum Color {`, `const i32 MAX = 1`, `const list<i32> XS = [1]`).
+/// Builtin / container types only (not C `const int x =`). `struct` /
+/// `enum` / `union` / `service` / `typedef` / `namespace` stay on the
+/// generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31881,6 +31886,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_gleam_decl(s)
             || is_elm_decl(s)
             || is_crystal_decl(s)
+            || is_thrift_decl(s)
         {
             return true;
         }
@@ -31943,6 +31949,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_gleam_decl(s)
         || is_elm_decl(s)
         || is_crystal_decl(s)
+        || is_thrift_decl(s)
     {
         return true;
     }
@@ -34525,6 +34532,91 @@ fn crystal_path(s: &str) -> Option<(&str, &str)> {
         let path = &s[..s.len() - rest.len()];
         return Some((path, rest));
     }
+}
+
+/// Apache Thrift `exception Boom {`, `senum Color {`,
+/// `const i32 MAX = 1`, `const list<i32> XS = [1]`. Builtin / container
+/// types only so C `const int x =` stays out. `struct` / `enum` / `union` /
+/// `service` / `typedef` / `namespace` stay on the generic prefix keys.
+fn is_thrift_decl(s: &str) -> bool {
+    is_thrift_exception_or_senum(s) || is_thrift_const(s)
+}
+
+fn is_thrift_exception_or_senum(s: &str) -> bool {
+    for key in ["exception", "senum"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return flatbuffers_decl_name(rest.trim_start());
+        }
+    }
+    false
+}
+
+fn is_thrift_const(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "const") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some(after_ty) = thrift_type_prefix(rest.trim_start()) else {
+        return false;
+    };
+    let Some((_name, after_name)) = graphql_ident(after_ty) else {
+        return false;
+    };
+    let Some(rhs) = after_name.trim_start().strip_prefix('=') else {
+        return false;
+    };
+    let rhs = rhs.trim_start();
+    !rhs.is_empty()
+}
+
+/// Thrift field type then rest: builtins, or `list</set</map<…>`.
+fn thrift_type_prefix(s: &str) -> Option<&str> {
+    for key in ["list", "set", "map"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with('<') {
+            let after = after_balanced_angles(rest)?;
+            return Some(after.trim_start());
+        }
+    }
+    for key in [
+        "bool", "byte", "i8", "i16", "i32", "i64", "double", "string", "binary", "slist",
+    ] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if rest.starts_with(char::is_whitespace) {
+            return Some(rest.trim_start());
+        }
+    }
+    None
+}
+
+fn after_balanced_angles(s: &str) -> Option<&str> {
+    let bytes = s.as_bytes();
+    if bytes.first() != Some(&b'<') {
+        return None;
+    }
+    let mut depth = 0i32;
+    for (i, &b) in bytes.iter().enumerate() {
+        match b {
+            b'<' => depth += 1,
+            b'>' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&s[i + 1..]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 fn after_balanced_paren_or_brace(s: &str) -> Option<&str> {
@@ -38212,6 +38304,61 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("alias grep=\"grep --color\""));
         assert!(!line_is_func_like("alias ll=ls"));
         assert!(!line_is_func_like("aliases Foo = Bar"));
+    }
+
+    #[test]
+    fn thrift_exception_senum_const_count() {
+        assert!(line_is_func_like("exception InvalidOperation {"));
+        assert!(line_is_func_like("exception Boom"));
+        assert!(line_is_func_like("  exception Nested {"));
+        assert!(line_is_func_like("EXCEPTION Boom {"));
+        assert!(line_is_func_like("exception boom {"));
+        assert!(line_is_func_like("senum Color {"));
+        assert!(line_is_func_like("senum palette {"));
+        assert!(line_is_func_like("SENUM Hue"));
+        assert!(line_is_func_like("const i32 INT32CONSTANT = 9853"));
+        assert!(line_is_func_like("const string HELLO = \"hello\""));
+        assert!(line_is_func_like("const bool FLAG = true"));
+        assert!(line_is_func_like("const double PI = 3.14"));
+        assert!(line_is_func_like("const list<i32> LIST = [1, 2]"));
+        assert!(line_is_func_like(
+            "const map<string,string> MAPCONSTANT = {\"a\":\"b\"}"
+        ));
+        assert!(line_is_func_like("const set<i64> IDS = [1]"));
+        assert!(line_is_func_like("const i16 max = 100"));
+        assert!(line_is_func_like("const binary Blob = \"\""));
+        assert!(line_is_func_like("const slist Names = [\"a\"]"));
+        assert!(line_is_func_like("const byte B = 1"));
+        assert!(line_is_func_like("const i8 Tiny = 1"));
+        // Generic keys still cover Thrift structs / services / typedefs.
+        assert!(line_is_func_like("struct User {"));
+        assert!(line_is_func_like("service Calculator {"));
+        assert!(line_is_func_like("enum Operation {"));
+        assert!(line_is_func_like("union Value {"));
+        assert!(line_is_func_like("typedef i32 MyInteger"));
+        assert!(line_is_func_like("namespace cpp tutorial"));
+        assert!(!line_is_func_like("exception"));
+        assert!(!line_is_func_like("exception "));
+        assert!(!line_is_func_like("exception the boom"));
+        assert!(!line_is_func_like("exceptions Boom {"));
+        assert!(!line_is_func_like("exceptionBoom {"));
+        assert!(!line_is_func_like("senum"));
+        assert!(!line_is_func_like("senum "));
+        assert!(!line_is_func_like("senum the color"));
+        assert!(!line_is_func_like("senums Color {"));
+        assert!(!line_is_func_like("const"));
+        assert!(!line_is_func_like("const "));
+        assert!(!line_is_func_like("const i32"));
+        assert!(!line_is_func_like("const i32 MAX"));
+        assert!(!line_is_func_like("const i32 MAX ="));
+        // C / C++ consts stay out (non-Thrift types).
+        assert!(!line_is_func_like("const int x = 1"));
+        assert!(!line_is_func_like("const char *p = 0"));
+        assert!(!line_is_func_like("const Foo bar = 1"));
+        assert!(!line_is_func_like("const std::string s = \"x\""));
+        // User types without Thrift builtins stay out.
+        assert!(!line_is_func_like("const User u = {}"));
+        assert!(!line_is_func_like("constants i32 MAX = 1"));
     }
 
     #[test]

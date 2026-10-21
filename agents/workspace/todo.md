@@ -682,3 +682,5 @@
 009 keep: Function List Elm port / port module / effect module (v0.3.479)
 
 009 keep: Function List Crystal annotation / lib / alias (v0.3.480)
+
+009 keep: Function List Apache Thrift exception/senum/typed const (v0.3.481)

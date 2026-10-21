@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.481] — 2026-10-21
+
+View:
+
+- **Function List** lists Apache Thrift `exception` / `senum` / typed `const` (`exception InvalidOperation {`, `senum Color {`, `const i32 INT32CONSTANT = 9853`, `const list<i32> LIST = [1, 2]`, `const map<string,string> MAPCONSTANT = {"a":"b"}`). Builtin / container types only so C `const int x =` stays out. Prose and bare keywords stay out. `struct` / `enum` / `union` / `service` / `typedef` / `namespace` stay on the generic prefix keys.
+
 ## [0.3.480] — 2026-10-21
 
 View:
