@@ -1,3 +1,4 @@
+009 keep: Function List sees Fortran program / block data / submodule (v0.3.497)
 009 keep: Function List sees D unittest / mixin template / static this (v0.3.495)
 009 keep: Function List sees Standard ML structure / signature / functor (v0.3.494)
 009 keep: Function List sees HLSL cbuffer / tbuffer / Texture2D / RWStructuredBuffer / SamplerState / groupshared (v0.3.486)

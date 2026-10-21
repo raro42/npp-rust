@@ -31882,6 +31882,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `protected body Counter is`; optional discriminant `(…)` before `is`).
 /// Verilog `task do_reset;` stays on Verilog. Prose and bare keywords stay out.
 /// `procedure` / `function` / `package` stay on the generic prefix keys.
+/// Fortran `program` / `block data` / `submodule` (`program Main`,
+/// `block data`, `block data Init`, `submodule (Parent) Child`).
+/// Prose and bare keywords stay out. `subroutine` / `function` / `module` /
+/// `interface` stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31964,6 +31968,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_sml_decl(s)
             || is_d_decl(s)
             || is_ada_decl(s)
+            || is_fortran_decl(s)
         {
             return true;
         }
@@ -32042,6 +32047,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_sml_decl(s)
         || is_d_decl(s)
         || is_ada_decl(s)
+        || is_fortran_decl(s)
     {
         return true;
     }
@@ -36616,6 +36622,83 @@ fn ada_ends_with_is(rest: &str) -> bool {
         || after_is.starts_with("--")
         || after_is.starts_with("//")
         || after_is.starts_with("/*")
+}
+
+/// Fortran `program Main`, `block data` / `block data Init`,
+/// `submodule (Parent) Child`. `subroutine` / `function` / `module` /
+/// `interface` stay on the generic prefix keys. Prose and bare keywords stay out.
+fn is_fortran_decl(s: &str) -> bool {
+    is_fortran_program(s) || is_fortran_block_data(s) || is_fortran_submodule(s)
+}
+
+fn is_fortran_program(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "program") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    fortran_unit_name(rest.trim_start())
+}
+
+fn is_fortran_block_data(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "block") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some(after_data) = sql_word(rest.trim_start(), "data") else {
+        return false;
+    };
+    // Word boundary after `data` (reject `block datas`).
+    if !after_data.is_empty()
+        && !after_data.starts_with(char::is_whitespace)
+        && !after_data.starts_with('!')
+        && !after_data.starts_with("//")
+        && !after_data.starts_with("/*")
+    {
+        return false;
+    }
+    // Unnamed `block data` is a valid Fortran unit.
+    let rest = after_data.trim_start();
+    if rest.is_empty() || rest.starts_with('!') || rest.starts_with("//") || rest.starts_with("/*")
+    {
+        return true;
+    }
+    fortran_unit_name(rest)
+}
+
+fn is_fortran_submodule(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "submodule") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if !rest.starts_with('(') {
+        return false;
+    }
+    let Some(close) = rest.find(')') else {
+        return false;
+    };
+    let inner = &rest[1..close];
+    if inner.trim().is_empty() {
+        return false;
+    }
+    fortran_unit_name(rest[close + 1..].trim_start())
+}
+
+fn fortran_unit_name(s: &str) -> bool {
+    let Some((name, after)) = graphql_ident(s) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let rest = after.trim_start();
+    rest.is_empty() || rest.starts_with('!') || rest.starts_with("//") || rest.starts_with("/*")
 }
 
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
@@ -41224,6 +41307,41 @@ mod func_like_line_tests {
         // Incomplete `task Name` / `task Name;` still match Verilog's named-tail path.
         assert!(!line_is_func_like("protected Counter"));
         assert!(!line_is_func_like("protected body"));
+    }
+
+    #[test]
+    fn fortran_program_block_data_submodule_counts() {
+        assert!(line_is_func_like("program Main"));
+        assert!(line_is_func_like("program Main ! entry"));
+        assert!(line_is_func_like("PROGRAM HELLO"));
+        assert!(line_is_func_like("  program compute"));
+        assert!(line_is_func_like("block data"));
+        assert!(line_is_func_like("block data ! unnamed"));
+        assert!(line_is_func_like("block data Init"));
+        assert!(line_is_func_like("BLOCK DATA Setup"));
+        assert!(line_is_func_like("submodule (Parent) Child"));
+        assert!(line_is_func_like("submodule (Parent:Child) Grand"));
+        assert!(line_is_func_like("SUBMODULE (Math) Impl"));
+        // Already covered elsewhere.
+        assert!(line_is_func_like("subroutine compute(n)"));
+        assert!(line_is_func_like("function add(a, b)"));
+        assert!(line_is_func_like("module Math"));
+        assert!(line_is_func_like("interface Operator(+)"));
+        // Prose / bare keywords stay out.
+        assert!(!line_is_func_like("program"));
+        assert!(!line_is_func_like("program "));
+        assert!(!line_is_func_like("program the main"));
+        assert!(!line_is_func_like("programs stay out"));
+        assert!(!line_is_func_like("block data the init"));
+        assert!(!line_is_func_like("block"));
+        assert!(!line_is_func_like("block "));
+        assert!(!line_is_func_like("block datas"));
+        assert!(!line_is_func_like("submodule"));
+        assert!(!line_is_func_like("submodule "));
+        assert!(!line_is_func_like("submodule () Child"));
+        assert!(!line_is_func_like("submodule (Parent)"));
+        assert!(!line_is_func_like("submodule (Parent) the child"));
+        assert!(!line_is_func_like("submodules stay out"));
     }
 
     #[test]

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.497] — 2026-10-21
+
+View:
+
+- **Function List** lists Fortran `program` / `block data` / `submodule` (`program Main`, `block data`, `block data Init`, `submodule (Parent) Child`). Prose and bare keywords stay out. `subroutine` / `function` / `module` / `interface` stay on the generic prefix keys.
+
 ## [0.3.496] — 2026-10-21
 
 View:
