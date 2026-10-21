@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.485] — 2026-10-21
+
+View:
+
+- **Function List** lists WGSL `var` / `const` / `override` / `enable` / `requires` / `diagnostic` (`var<private> counter: i32`, `var tex: texture_2d<f32>`, `const PI: f32 = 3.14`, `override wg: u32 = 64`, `enable f16;`, `requires subgroups;`, `diagnostic(off, derivative_uniformity);`). Optional leading `@group` / `@binding` / `@fragment`. JS `var x = 1` / `const x = 1` stay out. Zig `const Name = struct` stays on Zig. Thrift typed `const` stays on Thrift. `fn` / `struct` stay on the generic prefix keys. Crystal `alias` stays on Crystal.
+
 ## [0.3.484] — 2026-10-21
 
 View:

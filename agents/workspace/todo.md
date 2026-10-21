@@ -687,3 +687,5 @@
 009 keep: Function List Crystal annotation / lib / alias (v0.3.480)
 
 009 keep: Function List Apache Thrift exception/senum/typed const (v0.3.481)
+
+009 keep: Function List WGSL var/const/override/enable/requires/diagnostic (v0.3.485)

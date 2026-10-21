@@ -31824,6 +31824,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `:: bit_field` / `:: distinct` (optional leading `@(…)` attrs). Value
 /// consts (`FOO :: 123`) and C++ `std::vector` stay out. `package` stays on
 /// the generic prefix key.
+/// WGSL `var` / `const` / `override` / `enable` / `requires` / `diagnostic`
+/// (`var<private> counter: i32`, `const PI: f32 = 3.14`, `override wg = 64u`,
+/// `enable f16;`). JS untyped `var` / `const` stay out. `fn` / `struct` stay
+/// on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31894,6 +31898,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_odin_decl(s)
             || is_bicep_decl(s)
             || is_wat_decl(s)
+            || is_wgsl_decl(s)
         {
             return true;
         }
@@ -31960,6 +31965,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_odin_decl(s)
         || is_bicep_decl(s)
         || is_wat_decl(s)
+        || is_wgsl_decl(s)
     {
         return true;
     }
@@ -34793,6 +34799,105 @@ fn is_bicep_metadata(s: &str) -> bool {
         return false;
     };
     !rhs.trim_start().is_empty()
+}
+
+/// WebGPU Shading Language (WGSL) `var<private> counter: i32`,
+/// `var tex: texture_2d<f32>`, `const PI: f32 = 3.14`,
+/// `override wg: u32 = 64`, `enable f16;`, `requires subgroups;`,
+/// `diagnostic(off, derivative_uniformity);`. Optional leading `@group` /
+/// `@binding` / `@fragment` via annot strip. JS `var x = 1` / `const x = 1`
+/// stay out (need `:` or `<`). Zig `const Name = struct` stays on the Zig
+/// path. Thrift typed `const i32 X =` stays on the Thrift path. `fn` /
+/// `struct` stay on the generic prefix keys; Crystal `alias` stays on Crystal.
+fn is_wgsl_decl(s: &str) -> bool {
+    is_wgsl_var(s)
+        || is_wgsl_const(s)
+        || is_wgsl_override(s)
+        || is_wgsl_enable_or_requires(s)
+        || is_wgsl_diagnostic(s)
+}
+
+fn is_wgsl_var(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "var") else {
+        return false;
+    };
+    let rest = if rest.starts_with('<') {
+        let Some(after) = after_balanced_angles(rest) else {
+            return false;
+        };
+        after
+    } else if rest.starts_with(char::is_whitespace) {
+        rest
+    } else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    let Some((_name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    wgsl_type_annot(after)
+}
+
+fn is_wgsl_const(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "const") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some((_name, after)) = graphql_ident(rest.trim_start()) else {
+        return false;
+    };
+    wgsl_type_annot(after)
+}
+
+fn is_wgsl_override(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "override") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some((_name, after)) = graphql_ident(rest.trim_start()) else {
+        return false;
+    };
+    let after = after.trim_start();
+    wgsl_type_annot(after) || after.starts_with('=')
+}
+
+/// WGSL `name: Type` — a single colon, not C++ `name::path`.
+fn wgsl_type_annot(after: &str) -> bool {
+    let after = after.trim_start();
+    after.starts_with(':') && !after.starts_with("::")
+}
+
+fn is_wgsl_enable_or_requires(s: &str) -> bool {
+    for key in ["enable", "requires"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let Some((_name, after)) = graphql_ident(rest.trim_start()) else {
+            return false;
+        };
+        let after = after.trim_start();
+        return after.is_empty()
+            || after.starts_with(';')
+            || after.starts_with(',')
+            || after.starts_with("//")
+            || after.starts_with("/*");
+    }
+    false
+}
+
+fn is_wgsl_diagnostic(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "diagnostic") else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    rest.starts_with('(')
 }
 
 /// WebAssembly Text `(module`, `(func $add …)`, `(type $t (func …))`,
@@ -38767,6 +38872,57 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("(start )"));
         assert!(!line_is_func_like(";; (func $hidden)"));
         assert!(!line_is_func_like(";(func $hidden)"));
+    }
+
+    #[test]
+    fn wgsl_decl_counts() {
+        assert!(line_is_func_like("var<private> counter: i32;"));
+        assert!(line_is_func_like("var<uniform> ubo: Uniforms;"));
+        assert!(line_is_func_like(
+            "var<storage, read_write> buf: array<f32>;"
+        ));
+        assert!(line_is_func_like("var tex: texture_2d<f32>;"));
+        assert!(line_is_func_like("var samp: sampler;"));
+        assert!(line_is_func_like(
+            "@group(0) @binding(0) var<uniform> u: Uniforms;"
+        ));
+        assert!(line_is_func_like("const PI: f32 = 3.14159;"));
+        assert!(line_is_func_like("const ARR: array<i32, 2> = array(1, 2);"));
+        assert!(line_is_func_like("override workgroupSize: u32;"));
+        assert!(line_is_func_like("override workgroupSize = 64u;"));
+        assert!(line_is_func_like("override workgroupSize: u32 = 64;"));
+        assert!(line_is_func_like("enable f16;"));
+        assert!(line_is_func_like("enable f16, subgroups;"));
+        assert!(line_is_func_like("requires subgroups;"));
+        assert!(line_is_func_like("diagnostic(off, derivative_uniformity);"));
+        assert!(line_is_func_like("DIAGNOSTIC(warning, blah);"));
+        // Generic / other paths still work.
+        assert!(line_is_func_like("fn fs_main() -> vec4f {"));
+        assert!(line_is_func_like("@fragment fn fs_main() -> vec4f {"));
+        assert!(line_is_func_like("struct VertexOut {"));
+        assert!(line_is_func_like("alias MyVec = vec3<f32>;"));
+        assert!(line_is_func_like("(func $add (param i32) (result i32)"));
+        assert!(!line_is_func_like("var"));
+        assert!(!line_is_func_like("var "));
+        assert!(!line_is_func_like("var x = 1;"));
+        assert!(!line_is_func_like("var x;"));
+        assert!(!line_is_func_like("var<private>"));
+        assert!(!line_is_func_like("var<private> counter"));
+        assert!(!line_is_func_like("const"));
+        assert!(!line_is_func_like("const x = 1;"));
+        assert!(!line_is_func_like("const PI = 3.14;"));
+        assert!(!line_is_func_like("const std::string s = \"x\""));
+        assert!(!line_is_func_like("override"));
+        assert!(!line_is_func_like("override "));
+        assert!(!line_is_func_like("override workgroupSize"));
+        assert!(!line_is_func_like("enable"));
+        assert!(!line_is_func_like("enable "));
+        assert!(!line_is_func_like("enable the feature;"));
+        assert!(!line_is_func_like("requires"));
+        assert!(!line_is_func_like("requires "));
+        assert!(!line_is_func_like("diagnostic"));
+        assert!(!line_is_func_like("diagnostic;"));
+        assert!(!line_is_func_like("variables counter: i32;"));
     }
 
     #[test]
