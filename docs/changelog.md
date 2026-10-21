@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.486] — 2026-10-21
+
+View:
+
+- **Function List** lists HLSL `cbuffer` / `tbuffer` / `Texture2D` / `RWStructuredBuffer` / `SamplerState` / `groupshared` (`cbuffer PerFrame : register(b0) {`, `Texture2D<float4> colorMap;`, `RWStructuredBuffer<Particle> particles : register(u0);`, `SamplerState linearSamp;`, `groupshared float sData[64];`). Optional `<T>` on resource types. Prose and bare keywords stay out. `struct` / typed C entry points stay on the generic / typed-fn paths. WGSL `var` / `const` stay on WGSL.
+
 ## [0.3.485] — 2026-10-21
 
 View:

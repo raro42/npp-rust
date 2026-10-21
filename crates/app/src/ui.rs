@@ -31828,6 +31828,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// (`var<private> counter: i32`, `const PI: f32 = 3.14`, `override wg = 64u`,
 /// `enable f16;`). JS untyped `var` / `const` stay out. `fn` / `struct` stay
 /// on the generic prefix keys.
+/// HLSL `cbuffer` / `tbuffer` / `Texture2D` / `RWStructuredBuffer` /
+/// `SamplerState` / `groupshared` (`cbuffer CB : register(b0) {`,
+/// `Texture2D<float4> tex : register(t0);`, `groupshared float s[64];`).
+/// Prose and bare keywords stay out. `struct` / typed C entry points stay on
+/// the generic / typed-fn paths.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31899,6 +31904,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_bicep_decl(s)
             || is_wat_decl(s)
             || is_wgsl_decl(s)
+            || is_hlsl_decl(s)
         {
             return true;
         }
@@ -31966,6 +31972,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_bicep_decl(s)
         || is_wat_decl(s)
         || is_wgsl_decl(s)
+        || is_hlsl_decl(s)
     {
         return true;
     }
@@ -34898,6 +34905,195 @@ fn is_wgsl_diagnostic(s: &str) -> bool {
     };
     let rest = rest.trim_start();
     rest.starts_with('(')
+}
+
+/// HLSL `cbuffer PerFrame : register(b0) {`, `tbuffer Skin {`,
+/// `Texture2D albedo : register(t0);`, `Texture2D<float4> color;`,
+/// `RWStructuredBuffer<Particle> particles : register(u0);`,
+/// `SamplerState linearSamp;`, `groupshared float sData[64];`.
+/// Optional `<T>` on resource types. Prose and bare keywords stay out.
+/// `struct` / `float4 main(` stay on the generic / typed-fn paths. WGSL
+/// `var` / `const` stay on the WGSL path.
+fn is_hlsl_decl(s: &str) -> bool {
+    is_hlsl_cbuffer(s) || is_hlsl_resource(s) || is_hlsl_groupshared(s)
+}
+
+fn is_hlsl_cbuffer(s: &str) -> bool {
+    for key in ["cbuffer", "tbuffer"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let Some((_name, after)) = graphql_ident(rest.trim_start()) else {
+            return false;
+        };
+        let after = after.trim_start();
+        return after.starts_with('{')
+            || after.starts_with(':')
+            || after.starts_with("//")
+            || after.starts_with("/*");
+    }
+    false
+}
+
+const HLSL_RESOURCE_TYPES: &[&str] = &[
+    "RasterizerOrderedStructuredBuffer",
+    "RasterizerOrderedByteAddressBuffer",
+    "RasterizerOrderedTexture2D",
+    "RasterizerOrderedBuffer",
+    "AppendStructuredBuffer",
+    "ConsumeStructuredBuffer",
+    "RWByteAddressBuffer",
+    "ByteAddressBuffer",
+    "RWStructuredBuffer",
+    "StructuredBuffer",
+    "SamplerComparisonState",
+    "ConstantBuffer",
+    "TextureCubeArray",
+    "Texture2DMSArray",
+    "Texture2DArray",
+    "Texture1DArray",
+    "RWTexture2DArray",
+    "RWTexture1DArray",
+    "TextureCube",
+    "Texture2DMS",
+    "Texture3D",
+    "Texture2D",
+    "Texture1D",
+    "RWTexture3D",
+    "RWTexture2D",
+    "RWTexture1D",
+    "SamplerState",
+    "RWBuffer",
+    "Buffer",
+];
+
+fn is_hlsl_resource(s: &str) -> bool {
+    for key in HLSL_RESOURCE_TYPES {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        let rest = if rest.starts_with('<') {
+            let Some(after) = after_balanced_angles(rest) else {
+                return false;
+            };
+            after
+        } else if rest.starts_with(char::is_whitespace) {
+            rest
+        } else {
+            continue;
+        };
+        let rest = rest.trim_start();
+        let Some((_name, after)) = graphql_ident(rest) else {
+            return false;
+        };
+        let after = after.trim_start();
+        return after.is_empty()
+            || after.starts_with(';')
+            || after.starts_with(':')
+            || after.starts_with('[')
+            || after.starts_with('=')
+            || after.starts_with("//")
+            || after.starts_with("/*");
+    }
+    false
+}
+
+fn is_hlsl_groupshared(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "groupshared") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((ty, after_ty)) = graphql_ident(rest) else {
+        return false;
+    };
+    if !hlsl_type_name_ok(ty) {
+        return false;
+    }
+    let after_ty = if after_ty.starts_with('<') {
+        let Some(after) = after_balanced_angles(after_ty) else {
+            return false;
+        };
+        after
+    } else {
+        after_ty
+    };
+    if !after_ty.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some((_name, after)) = graphql_ident(after_ty.trim_start()) else {
+        return false;
+    };
+    let after = after.trim_start();
+    after.is_empty()
+        || after.starts_with(';')
+        || after.starts_with('[')
+        || after.starts_with('=')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
+/// HLSL scalar/vector builtins, or a Capitalized / `_`-prefixed user type.
+/// Rejects prose like `groupshared the memory`.
+fn hlsl_type_name_ok(ty: &str) -> bool {
+    if ty.is_empty() {
+        return false;
+    }
+    let b0 = ty.as_bytes()[0];
+    if b0 == b'_' || b0.is_ascii_uppercase() {
+        return true;
+    }
+    matches!(
+        ty.to_ascii_lowercase().as_str(),
+        "bool"
+            | "bool1"
+            | "bool2"
+            | "bool3"
+            | "bool4"
+            | "int"
+            | "int1"
+            | "int2"
+            | "int3"
+            | "int4"
+            | "uint"
+            | "uint1"
+            | "uint2"
+            | "uint3"
+            | "uint4"
+            | "dword"
+            | "half"
+            | "half1"
+            | "half2"
+            | "half3"
+            | "half4"
+            | "float"
+            | "float1"
+            | "float2"
+            | "float3"
+            | "float4"
+            | "double"
+            | "double1"
+            | "double2"
+            | "double3"
+            | "double4"
+            | "min16float"
+            | "min10float"
+            | "min16int"
+            | "min12int"
+            | "min16uint"
+            | "float1x1"
+            | "float2x2"
+            | "float3x3"
+            | "float4x4"
+            | "float3x4"
+            | "float4x3"
+            | "matrix"
+    )
 }
 
 /// WebAssembly Text `(module`, `(func $add …)`, `(type $t (func …))`,
@@ -38923,6 +39119,58 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("diagnostic"));
         assert!(!line_is_func_like("diagnostic;"));
         assert!(!line_is_func_like("variables counter: i32;"));
+    }
+
+    #[test]
+    fn hlsl_decl_counts() {
+        assert!(line_is_func_like("cbuffer PerFrame : register(b0) {"));
+        assert!(line_is_func_like("cbuffer PerFrame {"));
+        assert!(line_is_func_like("tbuffer SkinData : register(t0) {"));
+        assert!(line_is_func_like("CBUFFER Globals {"));
+        assert!(line_is_func_like("Texture2D albedoMap : register(t0);"));
+        assert!(line_is_func_like("Texture2D<float4> colorMap;"));
+        assert!(line_is_func_like("TextureCube envMap;"));
+        assert!(line_is_func_like("Texture3D volumeTex : register(t1);"));
+        assert!(line_is_func_like("SamplerState linearSamp : register(s0);"));
+        assert!(line_is_func_like("SamplerComparisonState shadowSamp;"));
+        assert!(line_is_func_like(
+            "RWTexture2D<float4> outputTex : register(u0);"
+        ));
+        assert!(line_is_func_like(
+            "RWStructuredBuffer<Particle> particles : register(u1);"
+        ));
+        assert!(line_is_func_like("StructuredBuffer<float3> positions;"));
+        assert!(line_is_func_like("ByteAddressBuffer rawBuf;"));
+        assert!(line_is_func_like("RWByteAddressBuffer rawOut;"));
+        assert!(line_is_func_like(
+            "AppendStructuredBuffer<float> appendBuf;"
+        ));
+        assert!(line_is_func_like("ConstantBuffer<MyCB> cb;"));
+        assert!(line_is_func_like("Buffer<float> scalarBuf;"));
+        assert!(line_is_func_like("groupshared float sData[64];"));
+        assert!(line_is_func_like("groupshared float4 tile[8][8];"));
+        assert!(line_is_func_like("groupshared MyStruct slot;"));
+        // Generic / other paths still work.
+        assert!(line_is_func_like("struct VSOut {"));
+        assert!(line_is_func_like(
+            "float4 main(float2 uv : TEXCOORD0) : SV_Target {"
+        ));
+        assert!(line_is_func_like("var<private> counter: i32;"));
+        assert!(!line_is_func_like("cbuffer"));
+        assert!(!line_is_func_like("cbuffer "));
+        assert!(!line_is_func_like("cbuffer the team"));
+        assert!(!line_is_func_like("tbuffer"));
+        assert!(!line_is_func_like("Texture2D"));
+        assert!(!line_is_func_like("Texture2D "));
+        assert!(!line_is_func_like("Texture2D<float4>"));
+        assert!(!line_is_func_like("Texture2D the map"));
+        assert!(!line_is_func_like("SamplerState"));
+        assert!(!line_is_func_like("RWStructuredBuffer"));
+        assert!(!line_is_func_like("groupshared"));
+        assert!(!line_is_func_like("groupshared "));
+        assert!(!line_is_func_like("groupshared float"));
+        assert!(!line_is_func_like("groupshared the memory"));
+        assert!(!line_is_func_like("buffers particles;"));
     }
 
     #[test]
