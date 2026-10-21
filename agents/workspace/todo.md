@@ -692,3 +692,4 @@
 009 keep: Function List WGSL var/const/override/enable/requires/diagnostic (v0.3.485)
 
 009 keep: Function List GLSL layout/uniform/in/out/attribute/varying/shared/buffer/precision (v0.3.487)
+009 keep: Function List CUDA __global__/__device__/__host__/__shared__/__constant__/__managed__ (v0.3.488)

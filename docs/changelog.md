@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.488] — 2026-10-21
+
+View:
+
+- **Function List** lists CUDA `__global__` / `__device__` / `__host__` kernels and device functions (`__global__ void saxpy(`, `__device__ float add(`, `__host__ __device__ float clamp(`), plus `__shared__` / `__constant__` / `__managed__` storage and `__device__` variables (`__shared__ float tile[64];`, `__constant__ float coeffs[8];`, `__managed__ int counter;`). Optional `__forceinline__` / `__noinline__`. Prose and bare keywords stay out. Plain `void main(` / `struct` stay on the generic / typed-fn paths. GLSL `shared` / HLSL `groupshared` stay on their paths.
+
 ## [0.3.487] — 2026-10-21
 
 View:

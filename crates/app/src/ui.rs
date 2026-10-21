@@ -31838,6 +31838,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `uniform mat4 mvp;`, `out vec4 fragColor;`, `precision mediump float;`).
 /// Prose and bare keywords stay out. `struct` / typed C entry points stay on
 /// the generic / typed-fn paths. HLSL / WGSL stay on their paths.
+/// CUDA `__global__` / `__device__` / `__host__` kernels and device fns
+/// (`__global__ void saxpy(`, `__host__ __device__ float clamp(`), plus
+/// `__shared__` / `__constant__` / `__managed__` storage and `__device__`
+/// variables (`__shared__ float tile[64];`, `__constant__ float c[8];`).
+/// Optional `__forceinline__` / `__noinline__`. Prose and bare keywords stay
+/// out. Plain `void main(` / `struct` stay on the generic / typed-fn paths.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31911,6 +31917,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_wgsl_decl(s)
             || is_hlsl_decl(s)
             || is_glsl_decl(s)
+            || is_cuda_decl(s)
         {
             return true;
         }
@@ -31980,6 +31987,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_wgsl_decl(s)
         || is_hlsl_decl(s)
         || is_glsl_decl(s)
+        || is_cuda_decl(s)
     {
         return true;
     }
@@ -35421,6 +35429,166 @@ fn glsl_type_name_ok(ty: &str) -> bool {
             | "uimage2dms"
             | "uimage2dmsarray"
             | "atomic_uint"
+    )
+}
+
+/// CUDA `__global__ void saxpy(`, `__device__ float add(`,
+/// `__host__ __device__ inline float clamp(`, `__shared__ float tile[64];`,
+/// `__constant__ float coeffs[8];`, `__managed__ int counter;`,
+/// `__device__ float *dev_ptr;`. Optional `__forceinline__` / `__noinline__`.
+/// Prose and bare keywords stay out. Plain `void main(` / `struct` stay on
+/// the generic / typed-fn paths. GLSL `shared` / HLSL `groupshared` stay on
+/// their paths.
+fn is_cuda_decl(s: &str) -> bool {
+    is_cuda_storage(s) || is_cuda_exec(s)
+}
+
+fn is_cuda_storage(s: &str) -> bool {
+    for key in ["__shared__", "__constant__", "__managed__"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        return is_cuda_typed_var(rest.trim_start());
+    }
+    false
+}
+
+fn is_cuda_exec(s: &str) -> bool {
+    let mut rest = s;
+    let mut saw_exec = false;
+    let mut saw_device = false;
+    let mut saw_global = false;
+    for _ in 0..8 {
+        let mut stripped = false;
+        for q in [
+            "__forceinline__",
+            "__noinline__",
+            "__global__",
+            "__device__",
+            "__host__",
+        ] {
+            let Some(after) = sql_word(rest, q) else {
+                continue;
+            };
+            if !(after.is_empty() || after.starts_with(char::is_whitespace)) {
+                continue;
+            }
+            rest = after.trim_start();
+            match q {
+                "__global__" => {
+                    saw_exec = true;
+                    saw_global = true;
+                }
+                "__device__" => {
+                    saw_exec = true;
+                    saw_device = true;
+                }
+                "__host__" => {
+                    saw_exec = true;
+                }
+                _ => {}
+            }
+            stripped = true;
+            break;
+        }
+        if !stripped {
+            break;
+        }
+    }
+    if !saw_exec || rest.is_empty() {
+        return false;
+    }
+    if is_typed_fn_decl(rest) {
+        return true;
+    }
+    // `__device__ float x;` device variables; not `__global__` / host-only.
+    if saw_device && !saw_global {
+        return is_cuda_typed_var(rest);
+    }
+    false
+}
+
+/// `float tile[64];`, `float *dev_ptr;`, `int counter;`. Rejects prose
+/// (`float the tile`) via type-name rules and incomplete tails.
+fn is_cuda_typed_var(s: &str) -> bool {
+    let Some((ty, after_ty)) = graphql_ident(s) else {
+        return false;
+    };
+    if !cuda_type_name_ok(ty) {
+        return false;
+    }
+    let after_ty = if after_ty.starts_with('<') {
+        let Some(after) = after_balanced_angles(after_ty) else {
+            return false;
+        };
+        after
+    } else {
+        after_ty
+    };
+    // `float *dev;` / `float** ptr;` / `float * * ptr;`
+    let name_src = after_ty
+        .trim_start()
+        .trim_start_matches(['*', '&'])
+        .trim_start();
+    if name_src.is_empty() {
+        return false;
+    }
+    let Some((_name, after)) = graphql_ident(name_src) else {
+        return false;
+    };
+    let after = after.trim_start();
+    after.is_empty()
+        || after.starts_with(';')
+        || after.starts_with('[')
+        || after.starts_with('=')
+        || after.starts_with(',')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
+/// CUDA / C scalar builtins, or a Capitalized / `_`-prefixed user type.
+/// Rejects prose like `__shared__ the memory`.
+fn cuda_type_name_ok(ty: &str) -> bool {
+    if ty.is_empty() {
+        return false;
+    }
+    let b0 = ty.as_bytes()[0];
+    if b0 == b'_' || b0.is_ascii_uppercase() {
+        return true;
+    }
+    matches!(
+        ty.to_ascii_lowercase().as_str(),
+        "void"
+            | "bool"
+            | "char"
+            | "short"
+            | "int"
+            | "long"
+            | "float"
+            | "double"
+            | "size_t"
+            | "ptrdiff_t"
+            | "intptr_t"
+            | "uintptr_t"
+            | "int8_t"
+            | "int16_t"
+            | "int32_t"
+            | "int64_t"
+            | "uint8_t"
+            | "uint16_t"
+            | "uint32_t"
+            | "uint64_t"
+            | "uchar"
+            | "ushort"
+            | "uint"
+            | "ulong"
+            | "dim3"
+            | "cudaError_t"
+            | "cudaStream_t"
+            | "cudaEvent_t"
     )
 }
 
@@ -39561,6 +39729,52 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("precision mediump"));
         assert!(!line_is_func_like("precision the float;"));
         assert!(!line_is_func_like("incoming vec3 position;"));
+    }
+
+    #[test]
+    fn cuda_decl_counts() {
+        assert!(line_is_func_like(
+            "__global__ void saxpy(int n, float a, float *x, float *y) {"
+        ));
+        assert!(line_is_func_like(
+            "__device__ float device_add(float a, float b) {"
+        ));
+        assert!(line_is_func_like(
+            "__host__ __device__ float clamp(float x, float lo, float hi) {"
+        ));
+        assert!(line_is_func_like(
+            "__global__ __forceinline__ void init(int *out) {"
+        ));
+        assert!(line_is_func_like("__forceinline__ __device__ int tid() {"));
+        assert!(line_is_func_like("__SHARED__ float tile[64];"));
+        assert!(line_is_func_like("__shared__ float tile[TILE];"));
+        assert!(line_is_func_like("__constant__ float coeffs[8];"));
+        assert!(line_is_func_like("__managed__ int counter;"));
+        assert!(line_is_func_like("__device__ float *dev_ptr;"));
+        assert!(line_is_func_like("__device__ float** grid;"));
+        assert!(line_is_func_like("__device__ MyStruct slot;"));
+        // Generic / other paths still work.
+        assert!(line_is_func_like("struct KernelArgs {"));
+        assert!(line_is_func_like("void host_main() {"));
+        assert!(line_is_func_like("groupshared float sData[64];"));
+        assert!(line_is_func_like("shared float sData[64];"));
+        assert!(!line_is_func_like("__global__"));
+        assert!(!line_is_func_like("__global__ "));
+        assert!(!line_is_func_like("__global__ void"));
+        assert!(!line_is_func_like("__global__ the kernel"));
+        assert!(!line_is_func_like("__device__"));
+        assert!(!line_is_func_like("__device__ "));
+        assert!(!line_is_func_like("__device__ float"));
+        assert!(!line_is_func_like("__device__ the pointer"));
+        assert!(!line_is_func_like("__host__"));
+        assert!(!line_is_func_like("__host__ int x;"));
+        assert!(!line_is_func_like("__shared__"));
+        assert!(!line_is_func_like("__shared__ "));
+        assert!(!line_is_func_like("__shared__ float"));
+        assert!(!line_is_func_like("__shared__ the memory"));
+        assert!(!line_is_func_like("__constant__"));
+        assert!(!line_is_func_like("__managed__"));
+        assert!(!line_is_func_like("__managed__ the counter"));
     }
 
     #[test]
