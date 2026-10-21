@@ -31903,6 +31903,16 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `lib = shared_library('foo', 'foo.c')`). Single-quoted name on the same
 /// line. `test(` / `benchmark(` stay out (Jest / other runners). Prose and
 /// bare keywords stay out. CMake `function(name)` stays on CMake.
+/// GN `executable` / `shared_library` / `static_library` / `source_set` /
+/// `loadable_module` / `group` / `copy` / `action` / `action_foreach` /
+/// `generated_file` / `bundle_data` / `create_bundle` / `config` /
+/// `template` / `toolchain` / `rust_library` / `rust_proc_macro` /
+/// `rust_executable` / `rust_static_library` / `rust_shared_library` /
+/// `rust_test` / `target("type", "name")`
+/// (`executable("chrome") {`, `source_set("base") {`,
+/// `lib = shared_library("foo") {`, `target("executable", "tool") {`).
+/// Double-quoted name on the same line. Meson single-quoted forms stay on
+/// Meson. Prose and bare keywords stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31990,6 +32000,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_vimscript_decl(s)
             || is_dockerfile_decl(s)
             || is_meson_decl(s)
+            || is_gn_decl(s)
         {
             return true;
         }
@@ -32073,6 +32084,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_vimscript_decl(s)
         || is_dockerfile_decl(s)
         || is_meson_decl(s)
+        || is_gn_decl(s)
     {
         return true;
     }
@@ -37197,6 +37209,152 @@ fn meson_call_named(s: &str, key: &str) -> bool {
         || after.starts_with("/*")
 }
 
+/// GN `executable("chrome") {`, `source_set("base") {`,
+/// `shared_library("foo") {`, `lib = static_library("bar") {`,
+/// `action("gen") {`, `target("executable", "tool") {`. Double-quoted
+/// target name on the same line. Optional `name =` assignment. Overlaps
+/// Meson target verbs but Meson uses single quotes. Prose and bare
+/// keywords stay out.
+fn is_gn_decl(s: &str) -> bool {
+    let rest = meson_strip_assign(s);
+    if gn_target_call(rest) {
+        return true;
+    }
+    for key in [
+        "shared_library",
+        "static_library",
+        "loadable_module",
+        "source_set",
+        "action_foreach",
+        "generated_file",
+        "bundle_data",
+        "create_bundle",
+        "rust_library",
+        "rust_proc_macro",
+        "rust_executable",
+        "rust_static_library",
+        "rust_shared_library",
+        "rust_test",
+        "executable",
+        "template",
+        "toolchain",
+        "config",
+        "action",
+        "group",
+        "copy",
+    ] {
+        if gn_call_named(rest, key) {
+            return true;
+        }
+    }
+    false
+}
+
+fn gn_call_named(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(inner) = rest.strip_prefix('(') else {
+        return false;
+    };
+    let inner = inner.trim_start();
+    // GN strings use double quotes.
+    let Some(after_q) = inner.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = after_q.find('"') else {
+        return false;
+    };
+    if end == 0 {
+        return false;
+    }
+    let name = &after_q[..end];
+    if !gn_target_name_ok(name) {
+        return false;
+    }
+    let after = after_q[end + 1..].trim_start();
+    gn_after_name_ok(after)
+}
+
+/// `target("executable", "tool") {` — type string then name string.
+fn gn_target_call(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "target") else {
+        return false;
+    };
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(inner) = rest.strip_prefix('(') else {
+        return false;
+    };
+    let inner = inner.trim_start();
+    let Some(after_type_q) = inner.strip_prefix('"') else {
+        return false;
+    };
+    let Some(type_end) = after_type_q.find('"') else {
+        return false;
+    };
+    if type_end == 0 {
+        return false;
+    }
+    let ty = &after_type_q[..type_end];
+    if !gn_target_name_ok(ty) {
+        return false;
+    }
+    let after_type = after_type_q[type_end + 1..].trim_start();
+    let Some(after_comma) = after_type.strip_prefix(',') else {
+        return false;
+    };
+    let after_comma = after_comma.trim_start();
+    let Some(after_name_q) = after_comma.strip_prefix('"') else {
+        return false;
+    };
+    let Some(name_end) = after_name_q.find('"') else {
+        return false;
+    };
+    if name_end == 0 {
+        return false;
+    }
+    let name = &after_name_q[..name_end];
+    if !gn_target_name_ok(name) {
+        return false;
+    }
+    let after = after_name_q[name_end + 1..].trim_start();
+    gn_after_name_ok(after)
+}
+
+fn gn_target_name_ok(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    if bytes.is_empty() {
+        return false;
+    }
+    if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+    {
+        return false;
+    }
+    !name.eq_ignore_ascii_case("the") && !is_control_word(name)
+}
+
+fn gn_after_name_ok(after: &str) -> bool {
+    after.is_empty()
+        || after.starts_with(',')
+        || after.starts_with(')')
+        || after.starts_with('{')
+        || after.starts_with('#')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
     let Some((name, after)) = graphql_ident(s) else {
         return false;
@@ -41980,13 +42138,64 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("executable("));
         assert!(!line_is_func_like("executable()"));
         assert!(!line_is_func_like("executable('')"));
-        assert!(!line_is_func_like("executable(\"prog\", 'main.c')"));
+        // Double-quoted names are GN (see gn_targets_count), not Meson.
         assert!(!line_is_func_like("executable(prog, 'main.c')"));
         assert!(!line_is_func_like("executable('the', 'main.c')"));
         assert!(!line_is_func_like("executables stay out"));
         assert!(!line_is_func_like("project"));
         assert!(!line_is_func_like("library the books"));
         assert!(!line_is_func_like("my_library = other('foo')"));
+    }
+
+    #[test]
+    fn gn_targets_count() {
+        assert!(line_is_func_like("executable(\"chrome\") {"));
+        assert!(line_is_func_like("shared_library(\"foo\") {"));
+        assert!(line_is_func_like("static_library(\"bar\") {"));
+        assert!(line_is_func_like("source_set(\"base\") {"));
+        assert!(line_is_func_like("loadable_module(\"plugin\") {"));
+        assert!(line_is_func_like("group(\"all\") {"));
+        assert!(line_is_func_like("copy(\"copy_headers\") {"));
+        assert!(line_is_func_like("action(\"generate\") {"));
+        assert!(line_is_func_like("action_foreach(\"gen_each\") {"));
+        assert!(line_is_func_like("generated_file(\"header\") {"));
+        assert!(line_is_func_like("bundle_data(\"assets\") {"));
+        assert!(line_is_func_like("create_bundle(\"app\") {"));
+        assert!(line_is_func_like("config(\"warnings\") {"));
+        assert!(line_is_func_like("template(\"my_template\") {"));
+        assert!(line_is_func_like("toolchain(\"clang\") {"));
+        assert!(line_is_func_like("rust_library(\"mylib\") {"));
+        assert!(line_is_func_like("rust_proc_macro(\"macros\") {"));
+        assert!(line_is_func_like("rust_executable(\"tool\") {"));
+        assert!(line_is_func_like("rust_static_library(\"rlib\") {"));
+        assert!(line_is_func_like("rust_shared_library(\"rdylib\") {"));
+        assert!(line_is_func_like("rust_test(\"crate_tests\") {"));
+        assert!(line_is_func_like("target(\"executable\", \"tool\") {"));
+        assert!(line_is_func_like("lib = shared_library(\"foo\") {"));
+        assert!(line_is_func_like("  exe = executable(\"prog\") {"));
+        assert!(line_is_func_like("EXECUTABLE(\"App\") # comment"));
+        assert!(line_is_func_like("executable(\"my-prog\") {"));
+        assert!(line_is_func_like("executable(\"foo.bar\") {"));
+        assert!(line_is_func_like("source_set(\"base/core\") {"));
+        // Meson single-quoted forms stay on Meson; incomplete / prose stay out.
+        assert!(line_is_func_like("executable('prog', 'main.c')"));
+        assert!(!line_is_func_like("executable("));
+        assert!(!line_is_func_like("executable()"));
+        assert!(!line_is_func_like("executable(\"\")"));
+        assert!(!line_is_func_like("executable(prog)"));
+        // Reject prose name "the" without a brace body (brace form is brace_method).
+        assert!(!line_is_func_like("executable(\"the\")"));
+        assert!(!line_is_func_like("source_set(\"the\")"));
+        assert!(!line_is_func_like("config(\"the\")"));
+        assert!(!line_is_func_like("source_sets stay out"));
+        assert!(!line_is_func_like("source_set"));
+        assert!(!line_is_func_like("group the items"));
+        assert!(!line_is_func_like("copy the file"));
+        assert!(!line_is_func_like("action the plan"));
+        assert!(!line_is_func_like("config the system"));
+        assert!(!line_is_func_like("target(\"executable\")"));
+        assert!(!line_is_func_like("target(executable, \"tool\")"));
+        assert!(!line_is_func_like("my_lib = other(\"foo\")"));
     }
 
     #[test]

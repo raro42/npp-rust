@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.502] — 2026-10-22
+
+View:
+
+- **Function List** lists GN `executable` / `shared_library` / `static_library` / `source_set` / `loadable_module` / `group` / `copy` / `action` / `action_foreach` / `generated_file` / `bundle_data` / `create_bundle` / `config` / `template` / `toolchain` / `rust_library` / `rust_proc_macro` / `rust_executable` / `rust_static_library` / `rust_shared_library` / `rust_test` / `target("type", "name")` (`executable("chrome") {`, `source_set("base") {`, `lib = shared_library("foo") {`, `target("executable", "tool") {`). Double-quoted name on the same line. Meson single-quoted forms stay on Meson. Prose and bare keywords stay out.
+
 ## [0.3.501] — 2026-10-22
 
 View:
