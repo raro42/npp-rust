@@ -678,3 +678,5 @@
 009 keep: Function List Mercury/Prolog :- directives (v0.3.477)
 
 009 keep: Function List Gleam opaque type (v0.3.478)
+
+009 keep: Function List Elm port / port module / effect module (v0.3.479)

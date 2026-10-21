@@ -31811,6 +31811,7 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Mercury / Prolog `:-` directives (`:- module foo.`, `:- interface.`,
 /// `:- type …`, `:- pred …`, `:- func …`, `:- pragma …`, …).
 /// Gleam `opaque type Name` / `pub opaque type Name` (optional type params).
+/// Elm `port name :`, `port module Name`, `effect module Name`.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31875,6 +31876,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_idris_decl(s)
             || is_mercury_decl(s)
             || is_gleam_decl(s)
+            || is_elm_decl(s)
         {
             return true;
         }
@@ -31935,6 +31937,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_idris_decl(s)
         || is_mercury_decl(s)
         || is_gleam_decl(s)
+        || is_elm_decl(s)
     {
         return true;
     }
@@ -34355,6 +34358,76 @@ fn gleam_opaque_type_name(s: &str) -> bool {
         return rest.starts_with('{') || rest.starts_with('(');
     }
     true
+}
+
+/// Elm `port sendMessage : …`, `port module Main exposing (…)`,
+/// `effect module WebSocket where { … }`. Module names must be Cap.Word
+/// (dots ok). Port names need `:` soon. Prose and bare `port` / `effect`
+/// stay out. Plain `module Name` stays on the generic prefix keys.
+fn is_elm_decl(s: &str) -> bool {
+    if let Some(rest) = sql_word(s, "port") {
+        if !rest.starts_with(char::is_whitespace) {
+            return false;
+        }
+        let rest = rest.trim_start();
+        if let Some(after_mod) = sql_word(rest, "module") {
+            if after_mod.starts_with(char::is_whitespace) {
+                return elm_module_name(after_mod.trim_start());
+            }
+        }
+        return elm_port_name(rest);
+    }
+    let Some(rest) = sql_word(s, "effect") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(after_mod) = sql_word(rest, "module") else {
+        return false;
+    };
+    if !after_mod.starts_with(char::is_whitespace) {
+        return false;
+    }
+    elm_module_name(after_mod.trim_start())
+}
+
+fn elm_port_name(s: &str) -> bool {
+    let Some((_name, after)) = graphql_ident(s) else {
+        return false;
+    };
+    after.trim_start().starts_with(':')
+}
+
+fn elm_module_name(s: &str) -> bool {
+    let mut rest = s;
+    loop {
+        let bytes = rest.as_bytes();
+        if bytes.is_empty() || !bytes[0].is_ascii_uppercase() {
+            return false;
+        }
+        let n = rest
+            .bytes()
+            .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+            .count();
+        if n == 0 {
+            return false;
+        }
+        rest = &rest[n..];
+        if rest.starts_with('.') {
+            rest = &rest[1..];
+            continue;
+        }
+        break;
+    }
+    let tail = rest.trim_start();
+    tail.is_empty()
+        || tail.starts_with("exposing")
+        || tail.starts_with("where")
+        || tail.starts_with('{')
+        || tail.starts_with("//")
+        || tail.starts_with("/*")
 }
 
 fn after_balanced_paren_or_brace(s: &str) -> Option<&str> {
@@ -37951,6 +38024,40 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("opaquetype User {"));
         // Extra whitespace between opaque and type is fine.
         assert!(line_is_func_like("opaque  type User {"));
+    }
+
+    #[test]
+    fn elm_port_and_effect_module_counts() {
+        assert!(line_is_func_like("port sendMessage : String -> Cmd msg"));
+        assert!(line_is_func_like(
+            "port receiveMessage : (String -> msg) -> Sub msg"
+        ));
+        assert!(line_is_func_like("port sendMessage: String -> Cmd msg"));
+        assert!(line_is_func_like("  port out : Int -> Cmd msg"));
+        assert!(line_is_func_like("port module Main exposing (..)"));
+        assert!(line_is_func_like("port module Nested.Main exposing (main)"));
+        assert!(line_is_func_like(
+            "effect module WebSocket where { command = MyCmd }"
+        ));
+        assert!(line_is_func_like("effect module Nested.Socket where {"));
+        // Plain Elm / other module stays on the generic prefix keys.
+        assert!(line_is_func_like("module Main exposing (..)"));
+        assert!(line_is_func_like("type alias User = { name : String }"));
+        assert!(!line_is_func_like("port"));
+        assert!(!line_is_func_like("port "));
+        assert!(!line_is_func_like("port the ship"));
+        assert!(!line_is_func_like("port sendMessage"));
+        assert!(!line_is_func_like("portmodule Main"));
+        assert!(!line_is_func_like("port modules Main"));
+        assert!(!line_is_func_like("port module"));
+        assert!(!line_is_func_like("port module main"));
+        assert!(!line_is_func_like("port module Nested."));
+        assert!(!line_is_func_like("effect"));
+        assert!(!line_is_func_like("effect module"));
+        assert!(!line_is_func_like("effect modules WebSocket"));
+        assert!(!line_is_func_like("effect module websocket"));
+        assert!(!line_is_func_like("effect the module"));
+        assert!(!line_is_func_like("effective module Foo"));
     }
 
     #[test]

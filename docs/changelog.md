@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.479] — 2026-10-21
+
+View:
+
+- **Function List** lists Elm `port name :`, `port module Name`, and `effect module Name` (`port sendMessage : String -> Cmd msg`, `port module Main exposing (..)`, `port module Nested.Main exposing (main)`, `effect module WebSocket where { command = MyCmd }`). Module names must be Cap.Word (dots ok). Port names need `:` soon. Prose and bare `port` / `effect` stay out. Plain `module Name` stays on the generic prefix keys.
+
 ## [0.3.478] — 2026-10-21
 
 View:
