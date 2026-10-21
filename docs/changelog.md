@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.496] — 2026-10-21
+
+View:
+
+- **Function List** lists Ada `task` / `protected` (`task Buffer is`, `task type Worker is`, `task body Buffer is`, `protected Counter is`, `protected type Lock is`, `protected body Counter is`; optional discriminant `(…)` before `is`). Verilog `task do_reset;` stays on Verilog. Prose and bare keywords stay out. `procedure` / `function` / `package` stay on the generic prefix keys.
+
 ## [0.3.495] — 2026-10-21
 
 View:

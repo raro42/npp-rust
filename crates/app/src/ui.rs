@@ -31877,6 +31877,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `static this()`, `shared static ~this()`). Prose and bare keywords stay out.
 /// Nim `template` stays on Nim. `class` / `struct` / `interface` / `enum`
 /// stay on the generic prefix keys.
+/// Ada `task` / `protected` (`task Buffer is`, `task type Worker is`,
+/// `task body Buffer is`, `protected Counter is`, `protected type Lock is`,
+/// `protected body Counter is`; optional discriminant `(…)` before `is`).
+/// Verilog `task do_reset;` stays on Verilog. Prose and bare keywords stay out.
+/// `procedure` / `function` / `package` stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31958,6 +31963,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_nim_decl(s)
             || is_sml_decl(s)
             || is_d_decl(s)
+            || is_ada_decl(s)
         {
             return true;
         }
@@ -32035,6 +32041,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_nim_decl(s)
         || is_sml_decl(s)
         || is_d_decl(s)
+        || is_ada_decl(s)
     {
         return true;
     }
@@ -36557,6 +36564,58 @@ fn is_d_module_ctor(s: &str) -> bool {
         || after_this.is_empty()
         || after_this.starts_with("//")
         || after_this.starts_with("/*")
+}
+
+/// Ada `task Buffer is`, `task type Worker is`, `task body Buffer is`,
+/// `protected Counter is`, `protected type Lock is`,
+/// `protected body Counter is`. Optional discriminant `(…)` before `is`.
+/// Verilog `task do_reset;` stays on Verilog. Prose and bare keywords stay out.
+/// `procedure` / `function` / `package` stay on the generic prefix keys.
+fn is_ada_decl(s: &str) -> bool {
+    is_ada_keyword_unit(s, "task") || is_ada_keyword_unit(s, "protected")
+}
+
+fn is_ada_keyword_unit(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    for kind in ["type", "body"] {
+        if let Some(after) = sql_word(rest, kind) {
+            if after.starts_with(char::is_whitespace) {
+                rest = after.trim_start();
+                break;
+            }
+        }
+    }
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let mut rest = after.trim_start();
+    if rest.starts_with('(') {
+        let Some(close) = rest.find(')') else {
+            return false;
+        };
+        rest = rest[close + 1..].trim_start();
+    }
+    ada_ends_with_is(rest)
+}
+
+fn ada_ends_with_is(rest: &str) -> bool {
+    let Some(after_is) = sql_word(rest, "is") else {
+        return false;
+    };
+    after_is.is_empty()
+        || after_is.starts_with(char::is_whitespace)
+        || after_is.starts_with("--")
+        || after_is.starts_with("//")
+        || after_is.starts_with("/*")
 }
 
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
@@ -41128,6 +41187,43 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("static that()"));
         assert!(!line_is_func_like("shared static"));
         assert!(!line_is_func_like("this()"));
+    }
+
+    #[test]
+    fn ada_task_protected_counts() {
+        assert!(line_is_func_like("task Buffer is"));
+        assert!(line_is_func_like("task Buffer is -- producer"));
+        assert!(line_is_func_like("task type Worker is"));
+        assert!(line_is_func_like("task type Worker (Size : Positive) is"));
+        assert!(line_is_func_like("task body Buffer is"));
+        assert!(line_is_func_like("TASK Buffer IS"));
+        assert!(line_is_func_like("protected Counter is"));
+        assert!(line_is_func_like("protected type Lock is"));
+        assert!(line_is_func_like(
+            "protected type Lock (Ceiling : Priority) is"
+        ));
+        assert!(line_is_func_like("protected body Counter is"));
+        assert!(line_is_func_like("  protected Shared is"));
+        // Already covered elsewhere.
+        assert!(line_is_func_like("procedure Greet(Name: string);"));
+        assert!(line_is_func_like(
+            "function Add(X, Y: Integer) return Integer is"
+        ));
+        assert!(line_is_func_like("package Utils is"));
+        // Verilog task stays on Verilog.
+        assert!(line_is_func_like("task do_reset;"));
+        assert!(line_is_func_like("task automatic pulse;"));
+        // Prose / bare keywords stay out.
+        assert!(!line_is_func_like("task"));
+        assert!(!line_is_func_like("task "));
+        assert!(!line_is_func_like("task the buffer is"));
+        assert!(!line_is_func_like("tasks stay out"));
+        assert!(!line_is_func_like("protected"));
+        assert!(!line_is_func_like("protected "));
+        assert!(!line_is_func_like("protected the counter is"));
+        // Incomplete `task Name` / `task Name;` still match Verilog's named-tail path.
+        assert!(!line_is_func_like("protected Counter"));
+        assert!(!line_is_func_like("protected body"));
     }
 
     #[test]

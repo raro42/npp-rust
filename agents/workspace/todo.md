@@ -705,3 +705,5 @@
 009 keep: Function List Cython cdef/cpdef/ctypedef (v0.3.492)
 
 009 keep: Function List Nim converter/template (v0.3.493)
+
+009 keep: Function List Ada task/protected (v0.3.496)
