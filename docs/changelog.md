@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.498] — 2026-10-21
+
+View:
+
+- **Function List** lists Tcl `oo::class create` / `oo::define` / `coroutine` (`oo::class create Greeter`, `oo::define Greeter`, `coroutine tick apply {…} {…}`). Prose and bare keywords stay out. `proc` / `namespace` stay on the generic prefix keys.
+
 ## [0.3.497] — 2026-10-21
 
 View:

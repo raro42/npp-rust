@@ -31886,6 +31886,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `block data`, `block data Init`, `submodule (Parent) Child`).
 /// Prose and bare keywords stay out. `subroutine` / `function` / `module` /
 /// `interface` stay on the generic prefix keys.
+/// Tcl `oo::class create` / `oo::define` / `coroutine` (`oo::class create Greeter`,
+/// `oo::define Greeter`, `coroutine tick apply {…} {…}`). Prose and bare
+/// keywords stay out. `proc` / `namespace` stay on the generic prefix keys.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31969,6 +31972,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_d_decl(s)
             || is_ada_decl(s)
             || is_fortran_decl(s)
+            || is_tcl_decl(s)
         {
             return true;
         }
@@ -32048,6 +32052,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_d_decl(s)
         || is_ada_decl(s)
         || is_fortran_decl(s)
+        || is_tcl_decl(s)
     {
         return true;
     }
@@ -36701,6 +36706,118 @@ fn fortran_unit_name(s: &str) -> bool {
     rest.is_empty() || rest.starts_with('!') || rest.starts_with("//") || rest.starts_with("/*")
 }
 
+/// Tcl `oo::class create Greeter`, `oo::define Greeter`, `coroutine tick …`.
+/// `proc` / `namespace` stay on the generic prefix keys. Prose and bare
+/// keywords stay out.
+fn is_tcl_decl(s: &str) -> bool {
+    is_tcl_oo_class_create(s) || is_tcl_oo_define(s) || is_tcl_coroutine(s)
+}
+
+fn is_tcl_oo_class_create(s: &str) -> bool {
+    let Some(rest) = tcl_strip_prefix(s, "oo::class") else {
+        return false;
+    };
+    let Some(after_create) = sql_word(rest, "create") else {
+        return false;
+    };
+    if !after_create.starts_with(char::is_whitespace) {
+        return false;
+    }
+    tcl_named_tail(after_create.trim_start())
+}
+
+fn is_tcl_oo_define(s: &str) -> bool {
+    let Some(rest) = tcl_strip_prefix(s, "oo::define") else {
+        return false;
+    };
+    tcl_named_tail(rest)
+}
+
+fn is_tcl_coroutine(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "coroutine") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    // Require a following command word so prose `coroutine the tick` stays out
+    // and bare `coroutine` stays out. Name may be followed by more Tcl words.
+    let rest = rest.trim_start();
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after.trim_start();
+    // Bare `coroutine tick` is rare; prefer a second word, `::cmd`, or `{` body.
+    !after.is_empty()
+        && (after.starts_with('{')
+            || after.starts_with('[')
+            || after.starts_with("::")
+            || graphql_ident(after).is_some())
+}
+
+fn tcl_strip_prefix<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
+    if s.len() < prefix.len() || !s.is_char_boundary(prefix.len()) {
+        return None;
+    }
+    if !s[..prefix.len()].eq_ignore_ascii_case(prefix) {
+        return None;
+    }
+    let rest = &s[prefix.len()..];
+    if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
+        return None;
+    }
+    Some(rest.trim_start())
+}
+
+fn tcl_named_tail(s: &str) -> bool {
+    // Allow `::app::Greeter` / `Greeter` / `#auto`.
+    let s = s.trim_start();
+    if let Some(rest) = s.strip_prefix('#') {
+        let rest = rest.trim_start();
+        return graphql_ident(rest).is_some_and(|(name, after)| {
+            !name.eq_ignore_ascii_case("the")
+                && !is_control_word(name)
+                && tcl_name_after_ok(after.trim_start())
+        });
+    }
+    let mut rest = s;
+    // Leading `::` absolute path.
+    if let Some(after) = rest.strip_prefix("::") {
+        rest = after;
+    }
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let mut after = after;
+    // Nested `foo::bar::Baz`.
+    while let Some(next) = after.strip_prefix("::") {
+        let Some((piece, tail)) = graphql_ident(next) else {
+            return false;
+        };
+        if piece.eq_ignore_ascii_case("the") || is_control_word(piece) {
+            return false;
+        }
+        after = tail;
+    }
+    tcl_name_after_ok(after.trim_start())
+}
+
+fn tcl_name_after_ok(rest: &str) -> bool {
+    rest.is_empty()
+        || rest.starts_with('{')
+        || rest.starts_with('[')
+        || rest.starts_with('#')
+        || rest.starts_with("//")
+        || rest.starts_with("/*")
+        || graphql_ident(rest).is_some()
+}
+
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
     let Some((name, after)) = graphql_ident(s) else {
         return false;
@@ -41342,6 +41459,40 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("submodule (Parent)"));
         assert!(!line_is_func_like("submodule (Parent) the child"));
         assert!(!line_is_func_like("submodules stay out"));
+    }
+
+    #[test]
+    fn tcl_oo_class_define_coroutine_counts() {
+        assert!(line_is_func_like("oo::class create Greeter"));
+        assert!(line_is_func_like("oo::class create Greeter {"));
+        assert!(line_is_func_like("oo::class create ::app::Greeter"));
+        assert!(line_is_func_like("oo::class create #auto"));
+        assert!(line_is_func_like("OO::CLASS CREATE Greeter"));
+        assert!(line_is_func_like("  oo::class create Worker"));
+        assert!(line_is_func_like("oo::define Greeter"));
+        assert!(line_is_func_like("oo::define Greeter method hello {}"));
+        assert!(line_is_func_like("oo::define ::app::Greeter"));
+        assert!(line_is_func_like("coroutine tick apply {args} {yield}"));
+        assert!(line_is_func_like("coroutine tick {yield 1}"));
+        assert!(line_is_func_like("coroutine worker ::app::run"));
+        // Already covered elsewhere.
+        assert!(line_is_func_like("proc greet {name} {"));
+        assert!(line_is_func_like("namespace eval ::app {"));
+        // Prose / bare keywords stay out.
+        assert!(!line_is_func_like("oo::class"));
+        assert!(!line_is_func_like("oo::class "));
+        assert!(!line_is_func_like("oo::class create"));
+        assert!(!line_is_func_like("oo::class create "));
+        assert!(!line_is_func_like("oo::class create the greeter"));
+        assert!(!line_is_func_like("oo::class creates Greeter"));
+        assert!(!line_is_func_like("oo::define"));
+        assert!(!line_is_func_like("oo::define "));
+        assert!(!line_is_func_like("oo::define the greeter"));
+        assert!(!line_is_func_like("coroutine"));
+        assert!(!line_is_func_like("coroutine "));
+        assert!(!line_is_func_like("coroutine tick"));
+        assert!(!line_is_func_like("coroutine the tick apply"));
+        assert!(!line_is_func_like("coroutines stay out"));
     }
 
     #[test]
