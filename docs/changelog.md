@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.483] — 2026-10-21
+
+View:
+
+- **Function List** lists Azure Bicep `param` / `resource` / `output` / `targetScope` / `metadata` (`param location string`, `resource stg 'Microsoft.Storage/…@2022-09-01' = {`, `resource stg '…' existing = {`, `output id string = stg.id`, `targetScope = 'resourceGroup'`, `metadata description = '…'`). Optional leading `@description(…)` / `@secure()` decorators. Prose and bare keywords stay out. HCL `resource "aws_instance"` stays on the HCL path. `module` / `type` / `func` stay on the generic prefix keys.
+
 ## [0.3.482] — 2026-10-21
 
 View:

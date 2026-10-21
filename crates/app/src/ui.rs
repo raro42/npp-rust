@@ -31892,6 +31892,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_crystal_decl(s)
             || is_thrift_decl(s)
             || is_odin_decl(s)
+            || is_bicep_decl(s)
         {
             return true;
         }
@@ -31956,6 +31957,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_crystal_decl(s)
         || is_thrift_decl(s)
         || is_odin_decl(s)
+        || is_bicep_decl(s)
     {
         return true;
     }
@@ -34664,6 +34666,131 @@ fn odin_rhs_kind(s: &str) -> bool {
         }
     }
     false
+}
+
+/// Azure Bicep `param name string`, `resource stg 'Type@ver' = {`,
+/// `resource stg 'Type@ver' existing = {`, `output id string = …`,
+/// `targetScope = '…'`, `metadata description = '…'`. Optional leading
+/// `@description(…)` / `@secure()` decorators (via annot strip). Prose and
+/// bare keywords stay out. HCL `resource "aws_instance"` stays on the HCL
+/// path. `module` / `type` / `func` stay on the generic prefix keys.
+fn is_bicep_decl(s: &str) -> bool {
+    is_bicep_target_scope(s)
+        || is_bicep_param(s)
+        || is_bicep_resource(s)
+        || is_bicep_output(s)
+        || is_bicep_metadata(s)
+}
+
+fn is_bicep_target_scope(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "targetScope") else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    let Some(rhs) = rest.strip_prefix('=') else {
+        return false;
+    };
+    !rhs.trim_start().is_empty()
+}
+
+fn is_bicep_param(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "param") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some((name, after)) = graphql_ident(rest.trim_start()) else {
+        return false;
+    };
+    bicep_param_type_ok(name, after.trim_start())
+}
+
+fn bicep_param_type_ok(name: &str, after: &str) -> bool {
+    if after.is_empty() {
+        return false;
+    }
+    if after.starts_with('\'') || after.starts_with('{') || after.starts_with('(') {
+        return true;
+    }
+    let Some((ty, _)) = graphql_ident(after) else {
+        return false;
+    };
+    matches!(ty, "string" | "int" | "bool" | "object" | "array")
+        || bicep_name_not_prose(name)
+        || bicep_name_not_prose(ty)
+}
+
+fn bicep_name_not_prose(name: &str) -> bool {
+    name.bytes()
+        .any(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
+}
+
+fn is_bicep_resource(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "resource") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some((_name, after)) = graphql_ident(rest.trim_start()) else {
+        return false;
+    };
+    let Some(after_type) = bicep_single_quoted(after.trim_start()) else {
+        return false;
+    };
+    let mut after_type = after_type.trim_start();
+    if let Some(rest) = sql_word(after_type, "existing") {
+        if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('=')) {
+            return false;
+        }
+        after_type = rest.trim_start();
+    }
+    after_type.starts_with('=')
+}
+
+fn bicep_single_quoted(s: &str) -> Option<&str> {
+    let body = s.strip_prefix('\'')?;
+    let end = body.find('\'')?;
+    if end == 0 {
+        return None;
+    }
+    Some(&body[end + 1..])
+}
+
+fn is_bicep_output(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "output") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some((name, after)) = graphql_ident(rest.trim_start()) else {
+        return false;
+    };
+    let after = after.trim_start();
+    if !bicep_param_type_ok(name, after) {
+        return false;
+    }
+    // Require `=` somewhere after the type (output always assigns).
+    after.contains('=')
+}
+
+fn is_bicep_metadata(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "metadata") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some((_name, after)) = graphql_ident(rest.trim_start()) else {
+        return false;
+    };
+    let after = after.trim_start();
+    let Some(rhs) = after.strip_prefix('=') else {
+        return false;
+    };
+    !rhs.trim_start().is_empty()
 }
 
 fn after_balanced_angles(s: &str) -> Option<&str> {
@@ -38464,6 +38591,59 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("main ::"));
         assert!(!line_is_func_like("main :: "));
         assert!(!line_is_func_like("procedures :: stay out"));
+    }
+
+    #[test]
+    fn bicep_decl_counts() {
+        assert!(line_is_func_like("param location string"));
+        assert!(line_is_func_like("param name string = 'demo'"));
+        assert!(line_is_func_like("param name string?"));
+        assert!(line_is_func_like("param mode 'Dev' | 'Prod'"));
+        assert!(line_is_func_like("param settings {"));
+        assert!(line_is_func_like("param foo myType"));
+        assert!(line_is_func_like("param foo_bar string"));
+        assert!(line_is_func_like("@description('x') param location string"));
+        assert!(line_is_func_like("@secure() param password string"));
+        assert!(line_is_func_like(
+            "resource stg 'Microsoft.Storage/storageAccounts@2022-09-01' = {"
+        ));
+        assert!(line_is_func_like(
+            "resource stg 'Microsoft.Storage/storageAccounts@2022-09-01' existing = {"
+        ));
+        assert!(line_is_func_like(
+            "resource stg 'Microsoft.Storage/storageAccounts@2022-09-01' = if (cond) {"
+        ));
+        assert!(line_is_func_like("output storageId string = stg.id"));
+        assert!(line_is_func_like(
+            "output ids array = [for i in range(0, 1): i]"
+        ));
+        assert!(line_is_func_like("targetScope = 'resourceGroup'"));
+        assert!(line_is_func_like("targetScope = 'subscription'"));
+        assert!(line_is_func_like("metadata description = 'demo'"));
+        // Generic keys still cover module / type / func.
+        assert!(line_is_func_like("module vnet './vnet.bicep' = {"));
+        assert!(line_is_func_like("type nameType = string"));
+        assert!(line_is_func_like("func getHello() string => 'hello'"));
+        // HCL double-quoted resource still matches the HCL path.
+        assert!(line_is_func_like("resource \"aws_instance\" \"web\" {"));
+        assert!(!line_is_func_like("param"));
+        assert!(!line_is_func_like("param "));
+        assert!(!line_is_func_like("param the team"));
+        assert!(!line_is_func_like("param location"));
+        assert!(!line_is_func_like("parameters location string"));
+        assert!(!line_is_func_like("resource"));
+        assert!(!line_is_func_like("resource stg"));
+        assert!(!line_is_func_like("resource stg 'Type@1'"));
+        assert!(!line_is_func_like("resource the team 'x' = {"));
+        assert!(!line_is_func_like("output"));
+        assert!(!line_is_func_like("output id string"));
+        assert!(!line_is_func_like("output the log string = x"));
+        assert!(!line_is_func_like("targetScope"));
+        assert!(!line_is_func_like("targetScope ="));
+        assert!(!line_is_func_like("targetScope = "));
+        assert!(!line_is_func_like("metadata"));
+        assert!(!line_is_func_like("metadata description"));
+        assert!(!line_is_func_like("metadata description ="));
     }
 
     #[test]
