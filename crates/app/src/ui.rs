@@ -31896,6 +31896,13 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `ONBUILD` and `--platform=…` (`FROM --platform=linux/amd64 golang:1.22 AS build`).
 /// Untagged bare names (`FROM ubuntu AS x`) and SQL `FROM users AS u` stay out
 /// (image must look like a ref: `:`, `/`, `@`, `$`, or `scratch`).
+/// Meson `project` / `executable` / `library` / `shared_library` /
+/// `static_library` / `both_libraries` / `shared_module` / `jar` /
+/// `custom_target` / `run_target` / `alias_target` / `subproject`
+/// (`project('app', 'c')`, `executable('prog', 'main.c')`,
+/// `lib = shared_library('foo', 'foo.c')`). Single-quoted name on the same
+/// line. `test(` / `benchmark(` stay out (Jest / other runners). Prose and
+/// bare keywords stay out. CMake `function(name)` stays on CMake.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31982,6 +31989,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_tcl_decl(s)
             || is_vimscript_decl(s)
             || is_dockerfile_decl(s)
+            || is_meson_decl(s)
         {
             return true;
         }
@@ -32064,6 +32072,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_tcl_decl(s)
         || is_vimscript_decl(s)
         || is_dockerfile_decl(s)
+        || is_meson_decl(s)
     {
         return true;
     }
@@ -37101,6 +37110,93 @@ fn docker_image_looks_like_ref(img: &str) -> bool {
         || img.bytes().any(|b| matches!(b, b':' | b'/' | b'@' | b'$'))
 }
 
+/// Meson `project('app', 'c')`, `executable('prog', 'main.c')`,
+/// `shared_library('foo', 'foo.c')`, `lib = static_library('bar', 'bar.c')`,
+/// `custom_target('gen', …)`, `subproject('wrap')`. Single-quoted target name
+/// on the same line. Optional `name =` assignment. `test(` / `benchmark(` stay
+/// out (Jest and similar). Prose and bare keywords stay out.
+fn is_meson_decl(s: &str) -> bool {
+    let rest = meson_strip_assign(s);
+    for key in [
+        "project",
+        "executable",
+        "shared_library",
+        "static_library",
+        "both_libraries",
+        "shared_module",
+        "custom_target",
+        "run_target",
+        "alias_target",
+        "subproject",
+        "library",
+        "jar",
+    ] {
+        if meson_call_named(rest, key) {
+            return true;
+        }
+    }
+    false
+}
+
+fn meson_strip_assign(s: &str) -> &str {
+    let Some((name, after)) = graphql_ident(s) else {
+        return s;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return s;
+    }
+    let after = after.trim_start();
+    let Some(after_eq) = after.strip_prefix('=') else {
+        return s;
+    };
+    after_eq.trim_start()
+}
+
+fn meson_call_named(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(inner) = rest.strip_prefix('(') else {
+        return false;
+    };
+    let inner = inner.trim_start();
+    // Meson strings use single quotes.
+    let Some(after_q) = inner.strip_prefix('\'') else {
+        return false;
+    };
+    let Some(end) = after_q.find('\'') else {
+        return false;
+    };
+    if end == 0 {
+        return false;
+    }
+    let name = &after_q[..end];
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
+    {
+        return false;
+    }
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after_q[end + 1..].trim_start();
+    after.is_empty()
+        || after.starts_with(',')
+        || after.starts_with(')')
+        || after.starts_with('#')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
     let Some((name, after)) = graphql_ident(s) else {
         return false;
@@ -41855,6 +41951,42 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("FROM ubuntu:22.04 ASbuilder"));
         assert!(!line_is_func_like("ONBUILD FROM ubuntu AS x"));
         assert!(!line_is_func_like("fromage stays out"));
+    }
+
+    #[test]
+    fn meson_targets_count() {
+        assert!(line_is_func_like("project('app', 'c')"));
+        assert!(line_is_func_like("executable('prog', 'main.c')"));
+        assert!(line_is_func_like("library('foo', 'foo.c')"));
+        assert!(line_is_func_like("shared_library('foo', 'foo.c')"));
+        assert!(line_is_func_like("static_library('bar', 'bar.c')"));
+        assert!(line_is_func_like("both_libraries('baz', 'baz.c')"));
+        assert!(line_is_func_like("shared_module('plug', 'plug.c')"));
+        assert!(line_is_func_like("jar('myjar', 'Main.java')"));
+        assert!(line_is_func_like("custom_target('gen', output: 'out.c')"));
+        assert!(line_is_func_like(
+            "run_target('fmt', command: ['clang-format'])"
+        ));
+        assert!(line_is_func_like("alias_target('check', tests)"));
+        assert!(line_is_func_like("subproject('wrap')"));
+        assert!(line_is_func_like("lib = shared_library('foo', 'foo.c')"));
+        assert!(line_is_func_like("  exe = executable('prog', sources)"));
+        assert!(line_is_func_like("PROJECT('App', 'cpp') # comment"));
+        assert!(line_is_func_like("executable('my-prog', 'a.c')"));
+        assert!(line_is_func_like("executable('foo.bar', 'a.c')"));
+        // Jest / other runners and incomplete / prose stay out.
+        assert!(!line_is_func_like("test('adds numbers', () => {"));
+        assert!(!line_is_func_like("benchmark('bench', exe)"));
+        assert!(!line_is_func_like("executable("));
+        assert!(!line_is_func_like("executable()"));
+        assert!(!line_is_func_like("executable('')"));
+        assert!(!line_is_func_like("executable(\"prog\", 'main.c')"));
+        assert!(!line_is_func_like("executable(prog, 'main.c')"));
+        assert!(!line_is_func_like("executable('the', 'main.c')"));
+        assert!(!line_is_func_like("executables stay out"));
+        assert!(!line_is_func_like("project"));
+        assert!(!line_is_func_like("library the books"));
+        assert!(!line_is_func_like("my_library = other('foo')"));
     }
 
     #[test]

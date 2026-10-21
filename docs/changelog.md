@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.501] — 2026-10-22
+
+View:
+
+- **Function List** lists Meson `project` / `executable` / `library` / `shared_library` / `static_library` / `both_libraries` / `shared_module` / `jar` / `custom_target` / `run_target` / `alias_target` / `subproject` (`project('app', 'c')`, `executable('prog', 'main.c')`, `lib = shared_library('foo', 'foo.c')`). Single-quoted name on the same line. `test(` / `benchmark(` stay out (Jest / other runners). Prose and bare keywords stay out.
+
 ## [0.3.500] — 2026-10-22
 
 View:

@@ -1,3 +1,4 @@
+009 keep: Function List sees Meson project/executable/library targets (v0.3.501)
 009 keep: Function List sees Dockerfile FROM … AS stage (v0.3.500)
 009 keep: Function List sees Vimscript function! / def! / augroup / command (v0.3.499)
 009 keep: Function List sees Fortran program / block data / submodule (v0.3.497)
