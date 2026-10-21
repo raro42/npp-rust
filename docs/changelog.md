@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.492] — 2026-10-21
+
+View:
+
+- **Function List** lists Cython `cdef` / `cpdef` functions and types (`cdef int add(`, `cpdef float mul(`, `cdef class Point:`, `cdef packed struct Foo:`, `cdef enum Color:`, `cdef extern from "h":`), plus `ctypedef int my_int` / `ctypedef struct Foo:` / `ctypedef fused numeric:`. Optional modifiers `inline` / `nogil` / `gil` / `api` / `public` / `readonly`. Prose and bare keywords stay out. Plain `def` / `class` / `struct` / `typedef` stay on the generic prefix keys.
+
 ## [0.3.491] — 2026-10-21
 
 View:

@@ -31940,6 +31940,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_opencl_decl(s)
             || is_metal_decl(s)
             || is_pony_decl(s)
+            || is_cython_decl(s)
         {
             return true;
         }
@@ -32013,6 +32014,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_opencl_decl(s)
         || is_metal_decl(s)
         || is_pony_decl(s)
+        || is_cython_decl(s)
     {
         return true;
     }
@@ -36119,6 +36121,279 @@ fn is_pony_primitive(s: &str) -> bool {
         || after.starts_with("//")
         || after.starts_with("/*")
         || sql_word(after, "is").is_some_and(|a| a.is_empty() || a.starts_with(char::is_whitespace))
+}
+
+/// Cython `cdef int add(`, `cpdef float mul(`, `cdef class Point:`,
+/// `cdef packed struct Foo:`, `cdef enum Color:`, `cdef extern from "h":`,
+/// `ctypedef int my_int` / `ctypedef struct Foo:`. Optional modifiers
+/// `inline` / `nogil` / `gil` / `api` / `public` / `readonly`. Prose and
+/// bare keywords stay out. Plain `def` / `class` / `struct` / `typedef`
+/// stay on the generic prefix keys.
+fn is_cython_decl(s: &str) -> bool {
+    is_cython_cdef_cpdef(s) || is_cython_ctypedef(s)
+}
+
+fn is_cython_cdef_cpdef(s: &str) -> bool {
+    for key in ["cdef", "cpdef"] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        return cython_after_cdef(rest.trim_start());
+    }
+    false
+}
+
+fn cython_after_cdef(s: &str) -> bool {
+    if is_cython_extern_from(s) {
+        return true;
+    }
+    let rest = strip_cython_mods(s);
+    if rest.is_empty() {
+        return false;
+    }
+    is_cython_class(rest)
+        || is_cython_aggregate(rest)
+        || is_typed_fn_decl(rest)
+        || is_cython_typed_var(rest)
+}
+
+fn strip_cython_mods(s: &str) -> &str {
+    let mut rest = s;
+    for _ in 0..6 {
+        let mut stripped = false;
+        for m in ["inline", "nogil", "gil", "api", "public", "readonly"] {
+            let Some(after) = sql_word(rest, m) else {
+                continue;
+            };
+            if !after.starts_with(char::is_whitespace) {
+                continue;
+            }
+            rest = after.trim_start();
+            stripped = true;
+            break;
+        }
+        if !stripped {
+            break;
+        }
+    }
+    rest
+}
+
+fn is_cython_extern_from(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "extern") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(rest) = sql_word(rest, "from") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if let Some(after_star) = rest.strip_prefix('*') {
+        let after = after_star.trim_start();
+        return after.is_empty()
+            || after.starts_with(':')
+            || after.starts_with("//")
+            || after.starts_with("/*")
+            || sql_word(after, "nogil").is_some_and(|a| {
+                a.is_empty() || a.starts_with(char::is_whitespace) || a.starts_with(':')
+            });
+    }
+    let quote = match rest.as_bytes().first() {
+        Some(b'"') => '"',
+        Some(b'\'') => '\'',
+        _ => return false,
+    };
+    let Some(end) = rest[1..].find(quote) else {
+        return false;
+    };
+    let after = rest[end + 2..].trim_start();
+    after.is_empty()
+        || after.starts_with(':')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+        || sql_word(after, "nogil").is_some_and(|a| {
+            a.is_empty() || a.starts_with(char::is_whitespace) || a.starts_with(':')
+        })
+}
+
+fn is_cython_class(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "class") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some((name, after)) = graphql_ident(rest.trim_start()) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after.trim_start();
+    after.is_empty()
+        || after.starts_with(':')
+        || after.starts_with('(')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
+fn is_cython_aggregate(s: &str) -> bool {
+    let rest = if let Some(after) = sql_word(s, "packed") {
+        if !after.starts_with(char::is_whitespace) {
+            return false;
+        }
+        after.trim_start()
+    } else {
+        s
+    };
+    for key in ["struct", "union", "enum"] {
+        let Some(after) = sql_word(rest, key) else {
+            continue;
+        };
+        if !after.starts_with(char::is_whitespace) {
+            // `cdef struct:` anonymous is rare; require a name.
+            return false;
+        }
+        let Some((name, tail)) = graphql_ident(after.trim_start()) else {
+            return false;
+        };
+        if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+            return false;
+        }
+        let tail = tail.trim_start();
+        return tail.is_empty()
+            || tail.starts_with(':')
+            || tail.starts_with('{')
+            || tail.starts_with("//")
+            || tail.starts_with("/*");
+    }
+    false
+}
+
+fn is_cython_typed_var(s: &str) -> bool {
+    let Some((ty, after_ty)) = graphql_ident(s) else {
+        return false;
+    };
+    if !cython_type_name_ok(ty) {
+        return false;
+    }
+    let name_src = after_ty
+        .trim_start()
+        .trim_start_matches(['*', '&'])
+        .trim_start();
+    if name_src.is_empty() {
+        return false;
+    }
+    // Functions go through `is_typed_fn_decl`.
+    if name_src.contains('(') {
+        return false;
+    }
+    let Some((name, after)) = graphql_ident(name_src) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after.trim_start();
+    after.is_empty()
+        || after.starts_with(':')
+        || after.starts_with(';')
+        || after.starts_with('[')
+        || after.starts_with('=')
+        || after.starts_with(',')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
+fn cython_type_name_ok(ty: &str) -> bool {
+    if cuda_type_name_ok(ty) {
+        return true;
+    }
+    let lower = ty.to_ascii_lowercase();
+    matches!(
+        lower.as_str(),
+        "bint"
+            | "object"
+            | "str"
+            | "bytes"
+            | "unicode"
+            | "list"
+            | "dict"
+            | "tuple"
+            | "set"
+            | "frozenset"
+            | "complex"
+            | "py_ssize_t"
+            | "py_hash_t"
+            | "py_ucs4"
+    )
+}
+
+fn is_cython_ctypedef(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "ctypedef") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if rest.is_empty() {
+        return false;
+    }
+    if is_cython_aggregate(rest) || is_cython_fused(rest) {
+        return true;
+    }
+    // `ctypedef int my_int` / `ctypedef unsigned long ulong_t`
+    is_cython_typed_var(rest) || is_cython_ctypedef_alias(rest)
+}
+
+fn is_cython_fused(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "fused") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some((name, after)) = graphql_ident(rest.trim_start()) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after.trim_start();
+    after.is_empty() || after.starts_with(':') || after.starts_with("//") || after.starts_with("/*")
+}
+
+fn is_cython_ctypedef_alias(s: &str) -> bool {
+    // Multi-token type then name: `ctypedef unsigned long my_ulong`
+    if s.contains('(') {
+        return false;
+    }
+    let parts: Vec<&str> = s.split_whitespace().collect();
+    if parts.len() < 2 {
+        return false;
+    }
+    let name = parts[parts.len() - 1];
+    let ty_parts = &parts[..parts.len() - 1];
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) || !is_fn_name(name) {
+        return false;
+    }
+    ty_parts.iter().all(|t| {
+        is_type_token(t)
+            || matches!(
+                t.to_ascii_lowercase().as_str(),
+                "unsigned" | "signed" | "long" | "short" | "const" | "volatile"
+            )
+    })
 }
 
 fn metal_vector_type(lower: &str) -> bool {
@@ -40459,6 +40734,51 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("primitive the thing"));
         // Lowercase `primitive foo` / `primitive udp_and (` stay on Verilog.
         assert!(line_is_func_like("primitive udp_and (a, b);"));
+    }
+
+    #[test]
+    fn cython_decl_counts() {
+        assert!(line_is_func_like("cdef int add(int a, int b):"));
+        assert!(line_is_func_like("cpdef float mul(float x):"));
+        assert!(line_is_func_like("CDEF void foo():"));
+        assert!(line_is_func_like("cdef inline int fast(int x):"));
+        assert!(line_is_func_like("cdef nogil void work():"));
+        assert!(line_is_func_like("cdef api int export_me(int x):"));
+        assert!(line_is_func_like("cdef class Point:"));
+        assert!(line_is_func_like("cpdef class Widget:"));
+        assert!(line_is_func_like("cdef packed struct Foo:"));
+        assert!(line_is_func_like("cdef struct Bar:"));
+        assert!(line_is_func_like("cdef union U:"));
+        assert!(line_is_func_like("cdef enum Color:"));
+        assert!(line_is_func_like("cdef extern from \"math.h\":"));
+        assert!(line_is_func_like("cdef extern from *:"));
+        assert!(line_is_func_like("cdef extern from \"foo.h\" nogil:"));
+        assert!(line_is_func_like("cdef int x"));
+        assert!(line_is_func_like("cdef public int count"));
+        assert!(line_is_func_like("cdef readonly str name"));
+        assert!(line_is_func_like("cdef bint flag"));
+        assert!(line_is_func_like("cdef object payload"));
+        assert!(line_is_func_like("ctypedef int my_int"));
+        assert!(line_is_func_like("ctypedef unsigned long my_ulong"));
+        assert!(line_is_func_like("ctypedef struct Foo:"));
+        assert!(line_is_func_like("ctypedef fused numeric:"));
+        // Already on generic keys.
+        assert!(line_is_func_like("def greet():"));
+        assert!(line_is_func_like("class Widget:"));
+        assert!(line_is_func_like("struct Foo {"));
+        // Prose / bare keywords stay out.
+        assert!(!line_is_func_like("cdef"));
+        assert!(!line_is_func_like("cdef "));
+        assert!(!line_is_func_like("cdef the thing"));
+        assert!(!line_is_func_like("cpdef"));
+        assert!(!line_is_func_like("cpdef "));
+        assert!(!line_is_func_like("cpdef the thing"));
+        assert!(!line_is_func_like("ctypedef"));
+        assert!(!line_is_func_like("ctypedef "));
+        assert!(!line_is_func_like("cdef class"));
+        assert!(!line_is_func_like("cdef class the"));
+        assert!(!line_is_func_like("cdef extern from"));
+        assert!(!line_is_func_like("cdef extern"));
     }
 
     #[test]

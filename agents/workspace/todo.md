@@ -697,3 +697,7 @@
 009 keep: Function List OpenCL __kernel/kernel/__global/__local/__constant/__private (v0.3.489)
 
 009 keep: Function List Metal vertex/fragment/kernel + device/constant/threadgroup storage (v0.3.490)
+
+009 keep: Function List Pony be/new => / Capitalized primitive (v0.3.491)
+
+009 keep: Function List Cython cdef/cpdef/ctypedef (v0.3.492)
