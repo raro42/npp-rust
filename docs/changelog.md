@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.487] — 2026-10-21
+
+View:
+
+- **Function List** lists GLSL `layout` / `uniform` / `in` / `out` / `inout` / `attribute` / `varying` / `shared` / `buffer` / `precision` (`layout(location = 0) in vec3 position;`, `layout(local_size_x = 8) in;`, `uniform mat4 mvp;`, `uniform Matrices {`, `out vec4 fragColor;`, `attribute vec3 pos;`, `varying vec2 uv;`, `shared float sData[64];`, `buffer Particles {`, `precision mediump float;`). Optional interpolation / memory / precision qualifiers. Prose and bare keywords stay out. `struct` / typed C entry points stay on the generic / typed-fn paths. HLSL / WGSL stay on their paths.
+
 ## [0.3.486] — 2026-10-21
 
 View:

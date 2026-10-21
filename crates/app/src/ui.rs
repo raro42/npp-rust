@@ -31833,6 +31833,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `Texture2D<float4> tex : register(t0);`, `groupshared float s[64];`).
 /// Prose and bare keywords stay out. `struct` / typed C entry points stay on
 /// the generic / typed-fn paths.
+/// GLSL `layout` / `uniform` / `in` / `out` / `attribute` / `varying` /
+/// `shared` / `buffer` / `precision` (`layout(location = 0) in vec3 pos;`,
+/// `uniform mat4 mvp;`, `out vec4 fragColor;`, `precision mediump float;`).
+/// Prose and bare keywords stay out. `struct` / typed C entry points stay on
+/// the generic / typed-fn paths. HLSL / WGSL stay on their paths.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31905,6 +31910,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_wat_decl(s)
             || is_wgsl_decl(s)
             || is_hlsl_decl(s)
+            || is_glsl_decl(s)
         {
             return true;
         }
@@ -31973,6 +31979,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_wat_decl(s)
         || is_wgsl_decl(s)
         || is_hlsl_decl(s)
+        || is_glsl_decl(s)
     {
         return true;
     }
@@ -35093,6 +35100,327 @@ fn hlsl_type_name_ok(ty: &str) -> bool {
             | "float3x4"
             | "float4x3"
             | "matrix"
+    )
+}
+
+/// GLSL `layout(location = 0) in vec3 position;`, `uniform mat4 mvp;`,
+/// `out vec4 fragColor;`, `attribute vec3 pos;`, `varying vec2 uv;`,
+/// `shared float s[64];`, `buffer Particles {`, `precision mediump float;`.
+/// Optional interpolation / memory / precision qualifiers before storage.
+/// `layout(...) in;` (compute) counts. Prose and bare keywords stay out.
+/// `struct` / `void main(` stay on the generic / typed-fn paths. HLSL
+/// `cbuffer` / WGSL `var` stay on their paths.
+fn is_glsl_decl(s: &str) -> bool {
+    is_glsl_layout(s) || is_glsl_precision(s) || is_glsl_storage(s)
+}
+
+fn is_glsl_layout(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "layout") else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    if !rest.starts_with('(') {
+        return false;
+    }
+    let Some(after) = after_balanced_paren(rest, 0) else {
+        return false;
+    };
+    let after = strip_glsl_qualifiers(after.trim_start());
+    if after.is_empty() {
+        return false;
+    }
+    // `layout(local_size_x = 8) in;` / `layout(...) out;`
+    for key in ["inout", "in", "out"] {
+        let Some(tail) = sql_word(after, key) else {
+            continue;
+        };
+        let tail = tail.trim_start();
+        if tail.starts_with(';') || tail.starts_with("//") || tail.starts_with("/*") {
+            return true;
+        }
+    }
+    is_glsl_storage(after)
+}
+
+fn is_glsl_precision(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "precision") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((qual, after_qual)) = graphql_ident(rest) else {
+        return false;
+    };
+    if !matches!(
+        qual.to_ascii_lowercase().as_str(),
+        "highp" | "mediump" | "lowp"
+    ) {
+        return false;
+    }
+    if !after_qual.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some((ty, after_ty)) = graphql_ident(after_qual.trim_start()) else {
+        return false;
+    };
+    if !matches!(ty.to_ascii_lowercase().as_str(), "float" | "int") {
+        return false;
+    }
+    let after_ty = after_ty.trim_start();
+    after_ty.is_empty()
+        || after_ty.starts_with(';')
+        || after_ty.starts_with("//")
+        || after_ty.starts_with("/*")
+}
+
+fn is_glsl_storage(s: &str) -> bool {
+    let s = strip_glsl_qualifiers(s);
+    for key in [
+        "uniform",
+        "attribute",
+        "varying",
+        "shared",
+        "buffer",
+        "inout",
+        "in",
+        "out",
+    ] {
+        let Some(rest) = sql_word(s, key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        // `uniform Matrices {` / `buffer Particles {`
+        if matches!(key, "uniform" | "buffer") {
+            if let Some((name, after)) = graphql_ident(rest) {
+                let after = after.trim_start();
+                if after.starts_with('{') && glsl_block_name_ok(name) {
+                    return true;
+                }
+            }
+        }
+        let Some((ty, after_ty)) = graphql_ident(rest) else {
+            return false;
+        };
+        if !glsl_type_name_ok(ty) {
+            return false;
+        }
+        let after_ty = if after_ty.starts_with('<') {
+            let Some(after) = after_balanced_angles(after_ty) else {
+                return false;
+            };
+            after
+        } else {
+            after_ty
+        };
+        // `uniform sampler2D;` alone is incomplete.
+        if !after_ty.starts_with(char::is_whitespace) {
+            // `in vec3;` incomplete — need a name (or array on type for buffer).
+            if after_ty.starts_with('[') {
+                // rare: `buffer float data[]` needs a name before `[` usually;
+                // `shared float[64]` is invalid GLSL anyway.
+                return false;
+            }
+            return false;
+        }
+        let Some((_name, after)) = graphql_ident(after_ty.trim_start()) else {
+            return false;
+        };
+        let after = after.trim_start();
+        return after.is_empty()
+            || after.starts_with(';')
+            || after.starts_with('[')
+            || after.starts_with('=')
+            || after.starts_with(':')
+            || after.starts_with("//")
+            || after.starts_with("/*");
+    }
+    false
+}
+
+/// Strip common GLSL interpolation / memory / precision qualifiers.
+fn strip_glsl_qualifiers(mut s: &str) -> &str {
+    for _ in 0..8 {
+        let rest = s.trim_start();
+        let mut stripped = false;
+        for q in [
+            "noperspective",
+            "centroid",
+            "sample",
+            "flat",
+            "smooth",
+            "patch",
+            "precise",
+            "invariant",
+            "coherent",
+            "volatile",
+            "restrict",
+            "readonly",
+            "writeonly",
+            "highp",
+            "mediump",
+            "lowp",
+        ] {
+            let Some(after) = sql_word(rest, q) else {
+                continue;
+            };
+            if after.is_empty() || after.starts_with(char::is_whitespace) {
+                s = after.trim_start();
+                stripped = true;
+                break;
+            }
+        }
+        if !stripped {
+            return rest;
+        }
+    }
+    s.trim_start()
+}
+
+fn glsl_block_name_ok(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let b0 = name.as_bytes()[0];
+    b0 == b'_' || b0.is_ascii_alphabetic()
+}
+
+/// GLSL builtin scalars / vectors / matrices / samplers / images, or a
+/// Capitalized / `_`-prefixed user type. Rejects prose like `in the middle`.
+fn glsl_type_name_ok(ty: &str) -> bool {
+    if ty.is_empty() {
+        return false;
+    }
+    let b0 = ty.as_bytes()[0];
+    if b0 == b'_' || b0.is_ascii_uppercase() {
+        return true;
+    }
+    let lower = ty.to_ascii_lowercase();
+    matches!(
+        lower.as_str(),
+        "void"
+            | "bool"
+            | "int"
+            | "uint"
+            | "float"
+            | "double"
+            | "vec2"
+            | "vec3"
+            | "vec4"
+            | "ivec2"
+            | "ivec3"
+            | "ivec4"
+            | "uvec2"
+            | "uvec3"
+            | "uvec4"
+            | "bvec2"
+            | "bvec3"
+            | "bvec4"
+            | "dvec2"
+            | "dvec3"
+            | "dvec4"
+            | "mat2"
+            | "mat3"
+            | "mat4"
+            | "mat2x2"
+            | "mat2x3"
+            | "mat2x4"
+            | "mat3x2"
+            | "mat3x3"
+            | "mat3x4"
+            | "mat4x2"
+            | "mat4x3"
+            | "mat4x4"
+            | "dmat2"
+            | "dmat3"
+            | "dmat4"
+            | "dmat2x2"
+            | "dmat2x3"
+            | "dmat2x4"
+            | "dmat3x2"
+            | "dmat3x3"
+            | "dmat3x4"
+            | "dmat4x2"
+            | "dmat4x3"
+            | "dmat4x4"
+            | "sampler1d"
+            | "sampler2d"
+            | "sampler3d"
+            | "samplercube"
+            | "sampler2drect"
+            | "sampler1darray"
+            | "sampler2darray"
+            | "samplercubearray"
+            | "samplerbuffer"
+            | "sampler2dms"
+            | "sampler2dmsarray"
+            | "samplercubeshadow"
+            | "sampler1dshadow"
+            | "sampler2dshadow"
+            | "sampler2drectshadow"
+            | "sampler1darrayshadow"
+            | "sampler2darrayshadow"
+            | "samplercubearrayshadow"
+            | "isampler1d"
+            | "isampler2d"
+            | "isampler3d"
+            | "isamplercube"
+            | "isampler2drect"
+            | "isampler1darray"
+            | "isampler2darray"
+            | "isamplercubearray"
+            | "isamplerbuffer"
+            | "isampler2dms"
+            | "isampler2dmsarray"
+            | "usampler1d"
+            | "usampler2d"
+            | "usampler3d"
+            | "usamplercube"
+            | "usampler2drect"
+            | "usampler1darray"
+            | "usampler2darray"
+            | "usamplercubearray"
+            | "usamplerbuffer"
+            | "usampler2dms"
+            | "usampler2dmsarray"
+            | "image1d"
+            | "image2d"
+            | "image3d"
+            | "imagecube"
+            | "image2drect"
+            | "image1darray"
+            | "image2darray"
+            | "imagecubearray"
+            | "imagebuffer"
+            | "image2dms"
+            | "image2dmsarray"
+            | "iimage1d"
+            | "iimage2d"
+            | "iimage3d"
+            | "iimagecube"
+            | "iimage2drect"
+            | "iimage1darray"
+            | "iimage2darray"
+            | "iimagecubearray"
+            | "iimagebuffer"
+            | "iimage2dms"
+            | "iimage2dmsarray"
+            | "uimage1d"
+            | "uimage2d"
+            | "uimage3d"
+            | "uimagecube"
+            | "uimage2drect"
+            | "uimage1darray"
+            | "uimage2darray"
+            | "uimagecubearray"
+            | "uimagebuffer"
+            | "uimage2dms"
+            | "uimage2dmsarray"
+            | "atomic_uint"
     )
 }
 
@@ -39171,6 +39499,68 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("groupshared float"));
         assert!(!line_is_func_like("groupshared the memory"));
         assert!(!line_is_func_like("buffers particles;"));
+    }
+
+    #[test]
+    fn glsl_decl_counts() {
+        assert!(line_is_func_like("layout(location = 0) in vec3 position;"));
+        assert!(line_is_func_like(
+            "layout(location = 0, binding = 1) out vec4 fragColor;"
+        ));
+        assert!(line_is_func_like(
+            "layout(std140, binding = 0) uniform Matrices {"
+        ));
+        assert!(line_is_func_like(
+            "layout(local_size_x = 8, local_size_y = 8) in;"
+        ));
+        assert!(line_is_func_like(
+            "layout(binding = 0) uniform sampler2D tex;"
+        ));
+        assert!(line_is_func_like("LAYOUT(location = 0) IN vec2 uv;"));
+        assert!(line_is_func_like("uniform mat4 mvp;"));
+        assert!(line_is_func_like("uniform sampler2D albedo;"));
+        assert!(line_is_func_like("uniform Matrices {"));
+        assert!(line_is_func_like("in vec3 vNormal;"));
+        assert!(line_is_func_like("out vec4 fragColor;"));
+        assert!(line_is_func_like("inout float x;"));
+        assert!(line_is_func_like("attribute vec3 position;"));
+        assert!(line_is_func_like("varying vec2 vUv;"));
+        assert!(line_is_func_like("shared float sData[64];"));
+        assert!(line_is_func_like("buffer Particles {"));
+        assert!(line_is_func_like("flat in vec3 normal;"));
+        assert!(line_is_func_like("smooth out vec4 color;"));
+        assert!(line_is_func_like("centroid in vec2 uv;"));
+        assert!(line_is_func_like("readonly buffer ParticleBuf {"));
+        assert!(line_is_func_like("precision mediump float;"));
+        assert!(line_is_func_like("precision highp int;"));
+        // Generic / other paths still work.
+        assert!(line_is_func_like("struct VSOut {"));
+        assert!(line_is_func_like("void main() {"));
+        assert!(line_is_func_like("cbuffer PerFrame {"));
+        assert!(line_is_func_like("var<private> counter: i32;"));
+        assert!(!line_is_func_like("layout"));
+        assert!(!line_is_func_like("layout("));
+        assert!(!line_is_func_like("layout()"));
+        assert!(!line_is_func_like("layout(location = 0)"));
+        assert!(!line_is_func_like("layout(location = 0) in"));
+        assert!(!line_is_func_like("uniform"));
+        assert!(!line_is_func_like("uniform "));
+        assert!(!line_is_func_like("uniform mat4"));
+        assert!(!line_is_func_like("uniform the matrix"));
+        assert!(!line_is_func_like("in"));
+        assert!(!line_is_func_like("in "));
+        assert!(!line_is_func_like("in the middle"));
+        assert!(!line_is_func_like("out"));
+        assert!(!line_is_func_like("out of range"));
+        assert!(!line_is_func_like("attribute"));
+        assert!(!line_is_func_like("varying"));
+        assert!(!line_is_func_like("shared"));
+        assert!(!line_is_func_like("shared the memory"));
+        assert!(!line_is_func_like("buffer"));
+        assert!(!line_is_func_like("precision"));
+        assert!(!line_is_func_like("precision mediump"));
+        assert!(!line_is_func_like("precision the float;"));
+        assert!(!line_is_func_like("incoming vec3 position;"));
     }
 
     #[test]

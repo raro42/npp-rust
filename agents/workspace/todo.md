@@ -690,3 +690,5 @@
 009 keep: Function List Apache Thrift exception/senum/typed const (v0.3.481)
 
 009 keep: Function List WGSL var/const/override/enable/requires/diagnostic (v0.3.485)
+
+009 keep: Function List GLSL layout/uniform/in/out/attribute/varying/shared/buffer/precision (v0.3.487)
