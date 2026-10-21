@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.484] — 2026-10-21
+
+View:
+
+- **Function List** lists WebAssembly Text `(module` / `(func $name` / `(type $t` / `(memory` / `(table` / `(global` / `(import` / `(export` / `(start` / `(tag` / `(elem` / `(data` (`(module $m`, `(func $add (param i32 i32) (result i32)`, `(func (export "add") …`, `(type $t (func …))`, `(memory 1)`, `(table $tbl 2 funcref)`, `(global $g (mut i32) …)`, `(import "env" "memory" (memory 1))`, `(export "add" (func $add))`, `(start $main)`, `(tag $e (param i32))`). Lisp `(defun` / `(defn` stay on the Lisp path. WIT `world` / `variant` / `flags` stay on the WIT path. Prose, bare `(func`, and `;;` comments stay out.
+
 ## [0.3.483] — 2026-10-21
 
 View:

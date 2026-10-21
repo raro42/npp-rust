@@ -31893,6 +31893,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_thrift_decl(s)
             || is_odin_decl(s)
             || is_bicep_decl(s)
+            || is_wat_decl(s)
         {
             return true;
         }
@@ -31958,6 +31959,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_thrift_decl(s)
         || is_odin_decl(s)
         || is_bicep_decl(s)
+        || is_wat_decl(s)
     {
         return true;
     }
@@ -34791,6 +34793,82 @@ fn is_bicep_metadata(s: &str) -> bool {
         return false;
     };
     !rhs.trim_start().is_empty()
+}
+
+/// WebAssembly Text `(module`, `(func $add …)`, `(type $t (func …))`,
+/// `(memory 1)` / `(memory $mem 1)`, `(table $tbl 2 funcref)`,
+/// `(global $g (mut i32) …)`, `(import "env" "f" (func …))`,
+/// `(export "add" (func $add))`, `(start $main)`, `(tag $e (param i32))`,
+/// `(elem …)`, `(data …)`. Optional `$name` / `(…)` / digit / `"` tails.
+/// Lisp `(defun` / `(defn` stay on the Lisp path. Bare `(func` with no
+/// useful tail, prose, and `;;` comments stay out. WIT `world` /
+/// `variant` / `flags` stay on the WIT path.
+fn is_wat_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.starts_with(';') {
+        return false;
+    }
+    let Some(rest) = s.strip_prefix('(') else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    for form in [
+        "module", "func", "type", "memory", "table", "global", "import", "export", "start", "tag",
+        "elem", "data",
+    ] {
+        if let Some(after) = wat_form_word(rest, form) {
+            return wat_tail_ok(form, after);
+        }
+    }
+    false
+}
+
+/// Like `lisp_form_word`, but also accepts EOL / `)` / `;` after the form
+/// (WAT `(module)` and `(module` at EOL are declarations).
+fn wat_form_word<'a>(s: &'a str, word: &str) -> Option<&'a str> {
+    let rest = sql_word(s, word)?;
+    match rest.as_bytes().first() {
+        None => Some(rest),
+        Some(b) if b.is_ascii_whitespace() || matches!(*b, b'(' | b')' | b';') => Some(rest),
+        _ => None,
+    }
+}
+
+fn wat_tail_ok(form: &str, after: &str) -> bool {
+    let after = after.trim_start();
+    match form {
+        "module" => {
+            after.is_empty()
+                || after.starts_with('$')
+                || after.starts_with('(')
+                || after.starts_with(';')
+                || after.starts_with(')')
+        }
+        "func" | "type" | "global" | "tag" => {
+            after.starts_with('$') || after.starts_with('(') || after.starts_with(';')
+        }
+        "start" => {
+            after.starts_with('$')
+                || after.starts_with('(')
+                || after.starts_with(';')
+                || after.bytes().next().is_some_and(|b| b.is_ascii_digit())
+        }
+        "memory" | "table" => {
+            after.starts_with('$')
+                || after.starts_with('(')
+                || after.starts_with(';')
+                || after.bytes().next().is_some_and(|b| b.is_ascii_digit())
+        }
+        "import" | "export" => after.starts_with('"') || after.starts_with(';'),
+        "elem" | "data" => {
+            after.starts_with('$')
+                || after.starts_with('(')
+                || after.starts_with(';')
+                || after.starts_with('"')
+                || after.bytes().next().is_some_and(|b| b.is_ascii_digit())
+        }
+        _ => false,
+    }
 }
 
 fn after_balanced_angles(s: &str) -> Option<&str> {
@@ -38644,6 +38722,51 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("metadata"));
         assert!(!line_is_func_like("metadata description"));
         assert!(!line_is_func_like("metadata description ="));
+    }
+
+    #[test]
+    fn wat_decl_counts() {
+        assert!(line_is_func_like("(module"));
+        assert!(line_is_func_like("(module)"));
+        assert!(line_is_func_like("(module $m"));
+        assert!(line_is_func_like("    (MODULE $M"));
+        assert!(line_is_func_like("(func $add (param i32 i32) (result i32)"));
+        assert!(line_is_func_like(
+            "(func (export \"add\") (param i32) (result i32)"
+        ));
+        assert!(line_is_func_like("(func (; anon ;) (param i32)"));
+        assert!(line_is_func_like(
+            "(type $t (func (param i32) (result i32)))"
+        ));
+        assert!(line_is_func_like("(memory 1)"));
+        assert!(line_is_func_like("(memory $mem 1)"));
+        assert!(line_is_func_like("(table $tbl 2 funcref)"));
+        assert!(line_is_func_like("(table 2 funcref)"));
+        assert!(line_is_func_like("(global $g (mut i32) (i32.const 0))"));
+        assert!(line_is_func_like("(global $pi f32 (f32.const 3.14))"));
+        assert!(line_is_func_like("(import \"env\" \"memory\" (memory 1))"));
+        assert!(line_is_func_like("(export \"add\" (func $add))"));
+        assert!(line_is_func_like("(start $main)"));
+        assert!(line_is_func_like("(start 0)"));
+        assert!(line_is_func_like("(tag $e (param i32))"));
+        assert!(line_is_func_like("(elem (i32.const 0) $f)"));
+        assert!(line_is_func_like("(data (i32.const 0) \"hi\")"));
+        // Lisp path still works.
+        assert!(line_is_func_like("(defun greet (name)"));
+        // WIT brace forms stay on the WIT path.
+        assert!(line_is_func_like("world imports {"));
+        assert!(!line_is_func_like("(func"));
+        assert!(!line_is_func_like("(func "));
+        assert!(!line_is_func_like("(function $x)"));
+        assert!(!line_is_func_like("(module the team"));
+        assert!(!line_is_func_like("(memory)"));
+        assert!(!line_is_func_like("(import)"));
+        assert!(!line_is_func_like("(import env)"));
+        assert!(!line_is_func_like("(export)"));
+        assert!(!line_is_func_like("(start)"));
+        assert!(!line_is_func_like("(start )"));
+        assert!(!line_is_func_like(";; (func $hidden)"));
+        assert!(!line_is_func_like(";(func $hidden)"));
     }
 
     #[test]
