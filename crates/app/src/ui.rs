@@ -31868,6 +31868,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `template max(x, y): untyped =`, optional export `*`). C++ `template<…>`
 /// stays on the template-strip path. `proc` / `method` / `iterator` /
 /// `func` / `macro` stay on the generic prefix keys.
+/// Standard ML `structure` / `signature` / `functor` (`structure Foo =`,
+/// `structure Foo :> FOO =`, `signature FOO = sig`, `functor Make (S: ORD) =`).
+/// Lean `structure Point where` stays on Lean. Smithy `structure City {`
+/// stays on Smithy. `fun` / `datatype` / `module` stay on generic / other paths.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -31947,6 +31951,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pony_decl(s)
             || is_cython_decl(s)
             || is_nim_decl(s)
+            || is_sml_decl(s)
         {
             return true;
         }
@@ -32022,6 +32027,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pony_decl(s)
         || is_cython_decl(s)
         || is_nim_decl(s)
+        || is_sml_decl(s)
     {
         return true;
     }
@@ -36410,6 +36416,64 @@ fn is_cython_ctypedef_alias(s: &str) -> bool {
 /// `func` / `macro` stay on the generic prefix keys.
 fn is_nim_decl(s: &str) -> bool {
     is_nim_keyword_decl(s, "converter") || is_nim_keyword_decl(s, "template")
+}
+
+/// Standard ML `structure Foo = struct`, `structure Foo :> FOO =`,
+/// `structure Foo : FOO =`, `signature FOO = sig`,
+/// `functor Make (Elem: ORD) = struct`, `functor F =`.
+/// Lean `structure Point where` stays on Lean. Smithy `structure City {`
+/// stays on Smithy. Prose and bare keywords stay out.
+fn is_sml_decl(s: &str) -> bool {
+    is_sml_keyword_decl(s, "structure", false)
+        || is_sml_keyword_decl(s, "signature", false)
+        || is_sml_keyword_decl(s, "functor", true)
+}
+
+fn is_sml_keyword_decl(s: &str, key: &str, allow_paren: bool) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    sml_name_then_bind(rest.trim_start(), allow_paren)
+}
+
+fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
+    let Some((name, after)) = graphql_ident(s) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let rest = after.trim_start();
+    if rest.starts_with('=') {
+        return true;
+    }
+    if allow_paren && rest.starts_with('(') {
+        return true;
+    }
+    // `structure Foo :> SIG =` / `structure Foo : SIG =`
+    let after_colon = if let Some(r) = rest.strip_prefix(":>") {
+        r
+    } else if let Some(r) = rest.strip_prefix(':') {
+        r
+    } else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    let Some((sig, after_sig)) = graphql_ident(after_colon) else {
+        return false;
+    };
+    if sig.eq_ignore_ascii_case("the") || is_control_word(sig) {
+        return false;
+    }
+    let after_sig = after_sig.trim_start();
+    after_sig.starts_with('=')
+        || after_sig.is_empty()
+        || after_sig.starts_with("(*")
+        || after_sig.starts_with("//")
+        || after_sig.starts_with("/*")
 }
 
 fn is_nim_keyword_decl(s: &str, key: &str) -> bool {
@@ -40869,6 +40933,44 @@ mod func_like_line_tests {
         // Plurals that look like typed C (`templates max(`) stay on typed-fn.
         assert!(!line_is_func_like("converter without_parens"));
         assert!(!line_is_func_like("template without_parens"));
+    }
+
+    #[test]
+    fn sml_structure_signature_functor_counts() {
+        assert!(line_is_func_like("structure Foo = struct"));
+        assert!(line_is_func_like("structure Foo ="));
+        assert!(line_is_func_like("structure Foo :> FOO = struct"));
+        assert!(line_is_func_like("structure Foo : FOO = struct"));
+        assert!(line_is_func_like("structure Foo : FOO"));
+        assert!(line_is_func_like("STRUCTURE Bar = struct (* comment *)"));
+        assert!(line_is_func_like("signature FOO = sig"));
+        assert!(line_is_func_like("signature FOO ="));
+        assert!(line_is_func_like("functor Make (Elem: ORD) = struct"));
+        assert!(line_is_func_like("functor Make (Elem: ORD) : SET = struct"));
+        assert!(line_is_func_like("functor F ="));
+        assert!(line_is_func_like("  structure Nested = struct"));
+        // Already covered elsewhere.
+        assert!(line_is_func_like("fun add x y = x + y"));
+        assert!(line_is_func_like(
+            "datatype 'a list = Nil | Cons of 'a * 'a list"
+        ));
+        assert!(line_is_func_like("module Foo = struct"));
+        // Lean / Smithy stay on their paths.
+        assert!(line_is_func_like("structure Point where"));
+        assert!(line_is_func_like("structure City {"));
+        // Prose / bare keywords stay out.
+        assert!(!line_is_func_like("structure"));
+        assert!(!line_is_func_like("structure "));
+        assert!(!line_is_func_like("structure the module"));
+        assert!(!line_is_func_like("signature"));
+        assert!(!line_is_func_like("signature "));
+        assert!(!line_is_func_like("signature the interface"));
+        assert!(!line_is_func_like("functor"));
+        assert!(!line_is_func_like("functor "));
+        assert!(!line_is_func_like("functor the maker"));
+        assert!(!line_is_func_like("structure without_bind"));
+        assert!(!line_is_func_like("signature without_bind"));
+        assert!(!line_is_func_like("functor without_bind"));
     }
 
     #[test]

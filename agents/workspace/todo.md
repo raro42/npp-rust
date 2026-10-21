@@ -1,3 +1,4 @@
+009 keep: Function List sees Standard ML structure / signature / functor (v0.3.494)
 009 keep: Function List sees HLSL cbuffer / tbuffer / Texture2D / RWStructuredBuffer / SamplerState / groupshared (v0.3.486)
 009 keep: Function List sees WebAssembly Text (module)/(func)/(type)/(memory)/(table)/(global)/(import)/(export)/(start)/(tag)/(elem)/(data) (v0.3.484)
 009 keep: Function List sees Azure Bicep param / resource / output / targetScope / metadata (v0.3.483)

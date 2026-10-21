@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.494] — 2026-10-21
+
+View:
+
+- **Function List** lists Standard ML `structure` / `signature` / `functor` (`structure Foo =`, `structure Foo :> FOO =`, `signature FOO = sig`, `functor Make (S: ORD) =`). Lean `structure Point where` stays on Lean. Smithy `structure City {` stays on Smithy. Prose and bare keywords stay out. `fun` / `datatype` / `module` stay on generic / other paths.
+
 ## [0.3.493] — 2026-10-21
 
 View:
