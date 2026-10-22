@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.519] — 2026-10-22
+
+View:
+
+- **Function List** lists Premake `workspace` / `project` / `solution`: `workspace "App"`, `project "Lib"`, `solution "Old"` (Premake 4). Space then quoted name on the same line (single or double). Optional trailing Lua `--` comment. Meson `project('…')` stays on Meson. Prose, bare keywords, and call-paren forms stay out.
+
 ## [0.3.518] — 2026-10-22
 
 View:

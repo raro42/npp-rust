@@ -31985,6 +31985,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Apache Ant / MSBuild XML (`<target name="compile">`, `<project name="Foo">`,
 /// `<macrodef name="with-echo">`, `<Target Name="Build">`). Quoted `name` /
 /// `Name` on the same line. Prose and bare tags stay out.
+/// Premake `workspace` / `project` / `solution` (`workspace "App"`,
+/// `project "Lib"`, `solution "Old"`). Space then quoted name on the same line
+/// (single or double). Meson `project('…')` stays on Meson. Prose and bare
+/// keywords stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32088,6 +32092,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_android_bp_decl(s)
             || is_scons_decl(s)
             || is_ant_msbuild_decl(s)
+            || is_premake_decl(s)
         {
             return true;
         }
@@ -32187,6 +32192,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_android_bp_decl(s)
         || is_scons_decl(s)
         || is_ant_msbuild_decl(s)
+        || is_premake_decl(s)
     {
         return true;
     }
@@ -39644,6 +39650,77 @@ fn ant_msbuild_name_ok(name: &str) -> bool {
     true
 }
 
+/// Premake workspace / project / solution: `workspace "App"`, `project "Lib"`,
+/// `solution "Old"` (Premake 4). Keyword, whitespace, then a quoted name on the
+/// same line (single or double quotes). Optional trailing Lua `--` comment.
+/// Meson `project('app', 'c')` (paren + single-quoted args) stays on Meson.
+/// Prose (`project the app`), bare keywords, and call-paren forms stay out.
+fn is_premake_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    for key in ["workspace", "project", "solution"] {
+        if premake_named(s, key) {
+            return true;
+        }
+    }
+    false
+}
+
+fn premake_named(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    // Space then quote — not `project(` (Meson) / `projects` / bare keyword.
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let bytes = rest.as_bytes();
+    let Some(&q) = bytes.first() else {
+        return false;
+    };
+    if q != b'"' && q != b'\'' {
+        return false;
+    }
+    let after_q = &rest[1..];
+    let Some(end) = after_q.as_bytes().iter().position(|&b| b == q) else {
+        return false;
+    };
+    if end == 0 {
+        return false;
+    }
+    let name = &after_q[..end];
+    if !premake_name_ok(name) {
+        return false;
+    }
+    let after = after_q[end + 1..].trim_start();
+    after.is_empty()
+        || after.starts_with("--")
+        || after.starts_with('#')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
+fn premake_name_ok(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    if bytes.is_empty() {
+        return false;
+    }
+    let first = bytes[0];
+    if !(first.is_ascii_alphanumeric() || first == b'_') {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
+    {
+        return false;
+    }
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    true
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -41933,7 +42010,8 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 #[cfg(test)]
 mod func_like_line_tests {
     use super::{
-        is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_scons_decl, line_is_func_like,
+        is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_premake_decl, is_scons_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -45572,6 +45650,31 @@ mod func_like_line_tests {
         assert!(!line_is_func_like(r#"<target the compile>"#));
         assert!(!line_is_func_like("<project>"));
         assert!(!line_is_func_like(r#"Target Name="Build""#));
+    }
+
+    #[test]
+    fn premake_workspace_project_count() {
+        assert!(line_is_func_like(r#"workspace "HelloWorld""#));
+        assert!(line_is_func_like(r#"project "App""#));
+        assert!(line_is_func_like(r#"solution "OldStyle""#));
+        assert!(line_is_func_like(r#"project 'Lib'"#));
+        assert!(line_is_func_like(r#"  workspace "Nest.App""#));
+        assert!(line_is_func_like(r#"project "my-lib" -- comment"#));
+        assert!(line_is_func_like(r#"Workspace "Caps""#));
+        // Meson paren form stays on Meson (still lists via Meson path).
+        assert!(line_is_func_like("project('app', 'c')"));
+        assert!(!is_premake_decl("project('app', 'c')"));
+        // Incomplete / prose / bare stay out of Premake.
+        assert!(!is_premake_decl("project"));
+        assert!(!is_premake_decl("project "));
+        assert!(!is_premake_decl(r#"project ""#));
+        assert!(!is_premake_decl(r#"project """"#));
+        assert!(!is_premake_decl(r#"project "the""#));
+        assert!(!is_premake_decl("projects \"App\""));
+        assert!(!is_premake_decl(r#"project("App")"#));
+        assert!(!line_is_func_like(r#"project the app"#));
+        assert!(!line_is_func_like("workspace"));
+        assert!(!line_is_func_like(r#"solution the old"#));
     }
 
     #[test]
