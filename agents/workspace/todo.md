@@ -743,3 +743,5 @@
 009 keep: Function List Cabal library/executable/test-suite stanzas (v0.3.522)
 
 009 keep: Function List pyproject.toml project/build-system/tool/dependency-groups (v0.3.524)
+
+009 keep: Function List package.json / deno.json scripts/bin/exports/workspaces/tasks (v0.3.525)

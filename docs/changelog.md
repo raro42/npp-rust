@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.525] — 2026-10-22
+
+View:
+
+- **Function List** lists package.json / deno.json structural keys: `"scripts": {`, `"bin": {` / `"bin": "…"`, `"exports": {`, `"imports": {`, `"workspaces": [` / `{`, `"contributes": {`, `"engines": {`, `"overrides": {`, `"resolutions": {`, `"typesVersions": {`, `"publishConfig": {`, `"packageManager": "…"`, `"tasks": {`, `"browser": {` / `"browser": "…"`. Optional trailing `,` and `//` / `/*` comment. `"dependencies"` / `"devDependencies"` / `"peerDependencies"` / `"optionalDependencies"` / `"bundledDependencies"` and leaf keys (`"name"`, `"version"`, …) stay out.
+
 ## [0.3.524] — 2026-10-22
 
 View:

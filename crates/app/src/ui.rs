@@ -32015,6 +32015,14 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `[tool]` / `[tool.…]`, `[dependency-groups]`). Optional trailing `#`
 /// comment. Incomplete brackets and prose stay out. Cargo.toml `[package]`
 /// stays on the Cargo path.
+/// package.json / deno.json structural keys (`"scripts": {`, `"bin": {` /
+/// `"bin": "…"`, `"exports": {`, `"imports": {`, `"workspaces": [` / `{`,
+/// `"contributes": {`, `"engines": {`, `"overrides": {`, `"resolutions": {`,
+/// `"typesVersions": {`, `"publishConfig": {`, `"packageManager": "…"`,
+/// `"tasks": {`, `"browser": {` / `"browser": "…"`). Optional trailing `,`
+/// and `//` / `/*` comment. `"dependencies"` / `"devDependencies"` /
+/// `"peerDependencies"` / `"optionalDependencies"` / `"bundledDependencies"`
+/// and leaf keys (`"name"`, `"version"`, …) stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32124,6 +32132,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_cabal_decl(s)
             || is_cargo_toml_decl(s)
             || is_pyproject_toml_decl(s)
+            || is_package_json_decl(s)
         {
             return true;
         }
@@ -32229,6 +32238,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_cabal_decl(s)
         || is_cargo_toml_decl(s)
         || is_pyproject_toml_decl(s)
+        || is_package_json_decl(s)
     {
         return true;
     }
@@ -40258,6 +40268,99 @@ fn pyproject_toml_single_ok(header: &str) -> bool {
     }
 }
 
+/// package.json / deno.json structural keys: `"scripts": {`, `"bin": {` /
+/// `"bin": "./cli.js"`, `"exports": {`, `"imports": {`, `"workspaces": [` /
+/// `{`, `"contributes": {`, `"engines": {`, `"overrides": {`,
+/// `"resolutions": {`, `"typesVersions": {`, `"publishConfig": {`,
+/// `"packageManager": "pnpm@9.0.0"`, `"tasks": {` (Deno), `"browser": {` /
+/// `"browser": "…"`. Optional trailing `,` and `//` / `/*` comment.
+/// Dependency maps and leaf metadata (`"name"`, `"version"`, `"main"`, …)
+/// stay out. Incomplete quotes / missing `:` stay out.
+fn is_package_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !package_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    package_json_value_and_tail_ok(key, after_colon)
+}
+
+fn package_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "scripts"
+            | "bin"
+            | "exports"
+            | "imports"
+            | "workspaces"
+            | "contributes"
+            | "engines"
+            | "overrides"
+            | "resolutions"
+            | "typesVersions"
+            | "publishConfig"
+            | "packageManager"
+            | "tasks"
+            | "browser"
+    )
+}
+
+fn package_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            // Object open: scripts/exports/…; workspaces may be object too.
+            if matches!(key, "packageManager") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            // Array open: workspaces only (npm workspaces field).
+            if key != "workspaces" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            // String value: bin / browser / packageManager.
+            if !matches!(key, "bin" | "browser" | "packageManager") {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        _ => false,
+    }
+}
+
+fn package_json_tail_ok(after: &str) -> bool {
+    let t = after.trim_start();
+    t.is_empty()
+        || t.starts_with(',')
+        || t.starts_with('}')
+        || t.starts_with(']')
+        || t.starts_with("//")
+        || t.starts_with("/*")
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -42548,8 +42651,8 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_cabal_decl,
-        is_cargo_toml_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
-        is_xmake_decl, line_is_func_like,
+        is_cargo_toml_decl, is_package_json_decl, is_premake_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_scons_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -46421,6 +46524,54 @@ mod func_like_line_tests {
         // Cargo `[package]` still lists via the Cargo path, not pyproject.
         assert!(line_is_func_like("[package] # cargo stays cargo"));
         assert!(!is_pyproject_toml_decl("[package] # cargo stays cargo"));
+    }
+
+    #[test]
+    fn package_json_keys_count() {
+        assert!(line_is_func_like(r#""scripts": {"#));
+        assert!(line_is_func_like(r#"  "scripts" : { // npm"#));
+        assert!(line_is_func_like(r#""scripts":{},"#));
+        assert!(line_is_func_like(r#""bin": {"#));
+        assert!(line_is_func_like(r#""bin": "./cli.js","#));
+        assert!(line_is_func_like(r#""bin": "./cli.js" // path"#));
+        assert!(line_is_func_like(r#""exports": {"#));
+        assert!(line_is_func_like(r#""imports": {"#));
+        assert!(line_is_func_like(r#""workspaces": ["#));
+        assert!(line_is_func_like(r#""workspaces": {"#));
+        assert!(line_is_func_like(r#""contributes": {"#));
+        assert!(line_is_func_like(r#""engines": {"#));
+        assert!(line_is_func_like(r#""overrides": {"#));
+        assert!(line_is_func_like(r#""resolutions": {"#));
+        assert!(line_is_func_like(r#""typesVersions": {"#));
+        assert!(line_is_func_like(r#""publishConfig": {"#));
+        assert!(line_is_func_like(r#""packageManager": "pnpm@9.0.0","#));
+        assert!(line_is_func_like(r#""tasks": {"#)); // Deno
+        assert!(line_is_func_like(r#""browser": {"#));
+        assert!(line_is_func_like(r#""browser": "./shim.js","#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""bin": "./cli.js""#));
+        // Dependency maps / leaf metadata stay out.
+        assert!(!is_package_json_decl(r#""dependencies": {"#));
+        assert!(!is_package_json_decl(r#""devDependencies": {"#));
+        assert!(!is_package_json_decl(r#""peerDependencies": {"#));
+        assert!(!is_package_json_decl(r#""optionalDependencies": {"#));
+        assert!(!is_package_json_decl(r#""bundledDependencies": {"#));
+        assert!(!line_is_func_like(r#""dependencies": {"#));
+        assert!(!line_is_func_like(r#""name": "my-pkg","#));
+        assert!(!line_is_func_like(r#""version": "1.0.0","#));
+        assert!(!line_is_func_like(r#""main": "index.js","#));
+        assert!(!line_is_func_like(r#""type": "module","#));
+        // Wrong value shape / incomplete stay out.
+        assert!(!is_package_json_decl(r#""scripts": "build","#));
+        assert!(!is_package_json_decl(r#""scripts": ["#));
+        assert!(!is_package_json_decl(r#""packageManager": {"#));
+        assert!(!is_package_json_decl(r#""workspaces": "packages/*","#));
+        assert!(!is_package_json_decl(r#""exports": "./index.js","#));
+        assert!(!is_package_json_decl(r#""scripts":"#));
+        assert!(!is_package_json_decl(r#""scripts"#));
+        assert!(!is_package_json_decl(r#"scripts: {"#));
+        // Unclosed string value stays out.
+        assert!(!is_package_json_decl(r#""bin": "./unclosed"#));
     }
 
     #[test]
