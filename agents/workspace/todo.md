@@ -749,3 +749,5 @@
 009 keep: Function List composer.json autoload/scripts/repositories/bin/provide (v0.3.526)
 
 009 keep: Function List go.mod directives (v0.3.527)
+
+009 keep: Function List go.work use directives (v0.3.528)

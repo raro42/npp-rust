@@ -276,6 +276,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.518 | Function List sees Apache Ant / MSBuild XML `<target name>` / `<project name>` / `<macrodef name>` / `<Target Name>` |
 | v0.3.519 | Function List sees Premake `workspace` / `project` / `solution` (space then quoted name; Meson `project('…')` stays on Meson) |
 | v0.3.527 | Function List sees go.mod module/go/toolchain/require/exclude/replace/retract |
+| v0.3.528 | Function List sees go.work `use` (`use (` / `use ./foo` / `use .` / `use foo`) |
 | v0.3.526 | Function List sees composer.json `"autoload"` / `"autoload-dev"` / `"scripts"` / `"repositories"` / `"config"` / `"extra"` / `"bin"` / `"provide"` / `"replace"` / `"conflict"` / `"suggest"` |
 | v0.3.525 | Function List sees package.json / deno.json `"scripts"` / `"bin"` / `"exports"` / `"imports"` / `"workspaces"` / `"tasks"` / … |
 | v0.3.524 | Function List sees pyproject.toml `[project]` / `[build-system]` / `[tool.*]` / `[dependency-groups]` |

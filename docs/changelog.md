@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.528] — 2026-10-22
+
+View:
+
+- **Function List** lists go.work `use` directives: `use (`, `use ./foo`, `use ../bar`, `use .`, `use foo`, `use hello/world`, `use /abs/path`. Shares go.mod `go` / `toolchain` / `replace`. Optional `//` / `/*` comment. Bare `use`, prose (`use the team`), wrong case, and member lines inside a `use` block stay out.
+
 ## [0.3.527] — 2026-10-22
 
 View:

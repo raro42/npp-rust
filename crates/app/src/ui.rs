@@ -32028,12 +32028,13 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `"bin": [`, `"provide": {`, `"replace": {`, `"conflict": {`,
 /// `"suggest": {`). Optional trailing `,` and `//` / `/*` comment.
 /// `"require"` / `"require-dev"` and leaf keys (`"name"`, `"type"`, …) stay out.
-/// go.mod directives (`module example.com/foo`, `go 1.22`, `toolchain go1.22.1`,
-/// `require (` / `require path v1.2.3`, `exclude (` / single-line,
-/// `replace (` / `replace old => new`, `retract (` / `retract v1.0.0` /
-/// `retract [v1.0.0, v1.0.1]`). Optional `//` / `/*` comment. JS
-/// `require('fs')`, bare keywords, prose (`module the team`), and
-/// dependency lines inside a block (`github.com/foo v1.2.3`) stay out.
+/// go.mod / go.work directives (`module example.com/foo`, `go 1.22`,
+/// `toolchain go1.22.1`, `require (` / `require path v1.2.3`, `exclude (` /
+/// single-line, `replace (` / `replace old => new`, `retract (` /
+/// `retract v1.0.0` / `retract [v1.0.0, v1.0.1]`, go.work `use (` /
+/// `use ./foo` / `use ../bar` / `use .` / `use foo`). Optional `//` / `/*`
+/// comment. JS `require('fs')`, bare keywords, prose (`module the team` /
+/// `use the team`), and dependency / member lines inside a block stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -40458,13 +40459,14 @@ fn composer_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
     }
 }
 
-/// go.mod directives: `module example.com/foo`, `go 1.22`,
+/// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
 /// `toolchain go1.22.1`, `require (` / `require path v1.2.3`,
 /// `exclude (` / single-line, `replace (` / `replace old => new`,
-/// `retract (` / `retract v1.0.0` / `retract [v1.0.0, v1.0.1]`.
+/// `retract (` / `retract v1.0.0` / `retract [v1.0.0, v1.0.1]`,
+/// go.work `use (` / `use ./foo` / `use ../bar` / `use .` / `use foo`.
 /// Optional trailing `//` / `/*` comment. Case-sensitive keywords.
-/// JS `require('fs')`, bare keywords, prose (`module the team`), and
-/// dependency lines inside a block (`github.com/foo v1.2.3`) stay out.
+/// JS `require('fs')`, bare keywords, prose (`module the team` /
+/// `use the team`), and dependency / member lines inside a block stay out.
 fn is_gomod_decl(s: &str) -> bool {
     let s = s.trim_start();
     gomod_module(s)
@@ -40474,6 +40476,7 @@ fn is_gomod_decl(s: &str) -> bool {
         || gomod_require_or_exclude(s, "exclude")
         || gomod_replace(s)
         || gomod_retract(s)
+        || gomod_use(s)
 }
 
 fn gomod_comment_or_end(rest: &str) -> bool {
@@ -40687,6 +40690,51 @@ fn gomod_retract(s: &str) -> bool {
         return gomod_comment_or_end(&inner[close + 1..]);
     }
     let Some((_ver, after)) = gomod_version_token(rest) else {
+        return false;
+    };
+    gomod_comment_or_end(after)
+}
+
+/// go.work `use` path: `./foo`, `../bar`, `/abs`, `.`, or a single relative
+/// segment (`foo`, `hello/world`). Rejects quotes and empty.
+fn gowork_use_path(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('(') || s.starts_with('"') || s.starts_with('\'') {
+        return None;
+    }
+    let end = s.find(|c: char| c.is_ascii_whitespace()).unwrap_or(s.len());
+    let path = &s[..end];
+    if path.is_empty() {
+        return None;
+    }
+    let ok = if path == "." {
+        true
+    } else {
+        !path.starts_with('-')
+            && path.bytes().all(|b| {
+                b.is_ascii_alphanumeric() || matches!(b, b'.' | b'/' | b'-' | b'_' | b'~' | b'+')
+            })
+    };
+    if !ok {
+        return None;
+    }
+    Some((path, s[end..].trim_start()))
+}
+
+/// go.work `use (` / `use ./foo` / `use ../bar` / `use .` / `use foo`.
+/// Prose (`use the team`) and bare `use` stay out.
+fn gomod_use(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("use") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if gomod_block_open(rest) {
+        return true;
+    }
+    let Some((_path, after)) = gowork_use_path(rest) else {
         return false;
     };
     gomod_comment_or_end(after)
@@ -46990,6 +47038,27 @@ mod func_like_line_tests {
         assert!(!is_gomod_decl("retract []"));
         assert!(!is_gomod_decl("replace example.com/old"));
         assert!(!is_gomod_decl("Module example.com/foo"));
+    }
+
+    #[test]
+    fn gowork_use_directives_count() {
+        assert!(line_is_func_like("use ("));
+        assert!(line_is_func_like("use ./foo"));
+        assert!(line_is_func_like("use ../bar // sibling"));
+        assert!(line_is_func_like("use ."));
+        assert!(line_is_func_like("use foo"));
+        assert!(line_is_func_like("use hello/world"));
+        assert!(line_is_func_like("use /abs/path"));
+        assert!(is_gomod_decl("use ("));
+        assert!(is_gomod_decl("use ./mypackage"));
+        // Bare / prose / member lines inside a use block stay out.
+        assert!(!is_gomod_decl("use"));
+        assert!(!is_gomod_decl("use the team"));
+        assert!(!is_gomod_decl("Use ./foo"));
+        assert!(!is_gomod_decl("user ./foo"));
+        assert!(!line_is_func_like("\t./foo"));
+        assert!(!line_is_func_like("./foo"));
+        assert!(!line_is_func_like("use(\"foo\")"));
     }
 
     #[test]
