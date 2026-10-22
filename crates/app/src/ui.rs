@@ -32063,6 +32063,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_rpmspec_decl(s)
             || is_autoconf_decl(s)
             || is_debian_rules_decl(s)
+            || is_pkgbuild_decl(s)
         {
             return true;
         }
@@ -32156,6 +32157,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_rpmspec_decl(s)
         || is_autoconf_decl(s)
         || is_debian_rules_decl(s)
+        || is_pkgbuild_decl(s)
     {
         return true;
     }
@@ -39239,6 +39241,54 @@ fn rpm_ident_len(s: &str) -> Option<usize> {
     Some(n)
 }
 
+/// Arch PKGBUILD / Alpine APKBUILD phase functions:
+/// `prepare()`, `build()`, `check()`, `package()`, `pkgver()`, and split
+/// `package_foo()` / `package_foo-bar()`. Optional `{` and `#` comments.
+/// Prose (`build the`), bare keywords (`build`), and unknown names stay out.
+fn is_pkgbuild_decl(s: &str) -> bool {
+    const PHASES: &[&str] = &["prepare", "build", "check", "package", "pkgver"];
+    let after_name = if let Some(rest) = s.strip_prefix("package_") {
+        let n = rest
+            .bytes()
+            .take_while(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'+'))
+            .count();
+        if n == 0 {
+            return false;
+        }
+        let name = &rest[..n];
+        // Arch names may end in `+` (e.g. `gtk+`); reject dangling `-` / `_` / `.`.
+        if name.eq_ignore_ascii_case("the")
+            || name.ends_with('-')
+            || name.ends_with('_')
+            || name.ends_with('.')
+        {
+            return false;
+        }
+        &rest[n..]
+    } else {
+        let Some(phase) = PHASES.iter().copied().find(|p| {
+            s.starts_with(p)
+                && s.as_bytes()
+                    .get(p.len())
+                    .is_some_and(|b| *b == b'(' || b.is_ascii_whitespace())
+        }) else {
+            return false;
+        };
+        &s[phase.len()..]
+    };
+    let after = after_name.trim_start();
+    let Some(inner) = after.strip_prefix('(') else {
+        return false;
+    };
+    let inner = inner.trim_start();
+    // Phase / split package functions take no args.
+    let Some(after_paren) = inner.strip_prefix(')') else {
+        return false;
+    };
+    let after_paren = after_paren.trim_start();
+    after_paren.is_empty() || after_paren.starts_with('{') || after_paren.starts_with('#')
+}
+
 /// Debian `debian/rules` debhelper override / hook targets:
 /// `override_dh_auto_build:`, `override_dh_installdocs:`,
 /// `override_dh_auto_test-arch:`, `execute_before_dh_auto_configure:`,
@@ -44731,6 +44781,39 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("override_dh_auto_build := foo"));
         assert!(!line_is_func_like("dh_auto_build:"));
         assert!(!line_is_func_like("build:"));
+    }
+
+    #[test]
+    fn pkgbuild_decls_count() {
+        assert!(line_is_func_like("prepare() {"));
+        assert!(line_is_func_like("build()"));
+        assert!(line_is_func_like("check() {"));
+        assert!(line_is_func_like("package() {"));
+        assert!(line_is_func_like("pkgver() {"));
+        assert!(line_is_func_like("  build() { # compile"));
+        assert!(line_is_func_like("package_foo() {"));
+        assert!(line_is_func_like("package_foo-bar() {"));
+        assert!(line_is_func_like("package_lib.foo+() {"));
+        assert!(line_is_func_like("prepare () {"));
+        // Debian / Autoconf / RPM still work.
+        assert!(line_is_func_like("override_dh_auto_build:"));
+        assert!(line_is_func_like("AC_INIT([foo], [1.0])"));
+        assert!(line_is_func_like("%prep"));
+        // Prose / bare keywords / args / unknown names stay out.
+        // (`install() {` still lists via same-line brace-method path.)
+        assert!(!line_is_func_like("build"));
+        assert!(!line_is_func_like("prepare"));
+        assert!(!line_is_func_like("pkgver"));
+        assert!(!line_is_func_like("build the"));
+        assert!(!line_is_func_like("build:"));
+        assert!(!line_is_func_like("Build()"));
+        assert!(!line_is_func_like("package_"));
+        assert!(!line_is_func_like("package_()"));
+        assert!(!line_is_func_like("package_the()"));
+        assert!(!line_is_func_like("package_foo-()"));
+        assert!(!line_is_func_like("build(x)"));
+        assert!(!line_is_func_like("prepare(args)"));
+        assert!(!line_is_func_like("install()"));
     }
 
     #[test]

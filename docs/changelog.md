@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.513] — 2026-10-22
+
+View:
+
+- **Function List** lists Arch PKGBUILD / Alpine APKBUILD phase functions: `prepare()`, `build()`, `check()`, `package()`, `pkgver()`, and split `package_foo()` / `package_foo-bar()`. Prose, bare keywords, and unknown names stay out.
+
 ## [0.3.512] — 2026-10-22
 
 View:
