@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.520] — 2026-10-22
+
+View:
+
+- **Function List** lists xmake.lua `target` / `option` / `package` / `rule` / `toolchain` / `task`: `target("app")`, `option("foo")`, `package("zlib")`, `rule("markdown")`, `toolchain("clang")`, `task("hello")`. Quoted name on the same line (single or double). Optional trailing Lua `--` comment. GN `target("type", "name")` stays on GN; Meson / Gradle keep their own shapes. Prose, bare keywords, and unquoted names stay out.
+
 ## [0.3.519] — 2026-10-22
 
 View:

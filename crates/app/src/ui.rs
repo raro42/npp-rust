@@ -31989,6 +31989,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `project "Lib"`, `solution "Old"`). Space then quoted name on the same line
 /// (single or double). Meson `project('…')` stays on Meson. Prose and bare
 /// keywords stay out.
+/// xmake.lua `target` / `option` / `package` / `rule` / `toolchain` / `task`
+/// (`target("app")`, `option("foo")`, `package("zlib")`). Quoted name on the
+/// same line (single or double). GN `target("type", "name")` stays on GN;
+/// Meson / Gradle keep their own shapes. Prose and bare keywords stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32093,6 +32097,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_scons_decl(s)
             || is_ant_msbuild_decl(s)
             || is_premake_decl(s)
+            || is_xmake_decl(s)
         {
             return true;
         }
@@ -32193,6 +32198,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_scons_decl(s)
         || is_ant_msbuild_decl(s)
         || is_premake_decl(s)
+        || is_xmake_decl(s)
     {
         return true;
     }
@@ -39721,6 +39727,84 @@ fn premake_name_ok(name: &str) -> bool {
     true
 }
 
+/// xmake.lua `target` / `option` / `package` / `rule` / `toolchain` / `task`:
+/// `target("app")`, `option("foo")`, `package("zlib")`, `rule("markdown")`,
+/// `toolchain("clang")`, `task("hello")`. Keyword then `(` then a quoted name
+/// on the same line (single or double). Optional trailing Lua `--` comment.
+/// GN `target("type", "name")` (two string args) stays on GN. Meson
+/// single-quoted builders and Gradle `task("…")` keep their own shapes.
+/// Prose (`target the app`), bare keywords, and unquoted names stay out.
+fn is_xmake_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    for key in ["target", "option", "package", "rule", "toolchain", "task"] {
+        if xmake_call_named(s, key) {
+            return true;
+        }
+    }
+    false
+}
+
+fn xmake_call_named(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(inner) = rest.strip_prefix('(') else {
+        return false;
+    };
+    let inner = inner.trim_start();
+    let bytes = inner.as_bytes();
+    let Some(&q) = bytes.first() else {
+        return false;
+    };
+    if q != b'"' && q != b'\'' {
+        return false;
+    }
+    let after_q = &inner[1..];
+    let Some(end) = after_q.as_bytes().iter().position(|&b| b == q) else {
+        return false;
+    };
+    if end == 0 {
+        return false;
+    }
+    let name = &after_q[..end];
+    if !xmake_name_ok(name) {
+        return false;
+    }
+    let after = after_q[end + 1..].trim_start();
+    // Single-arg form only — reject GN `target("executable", "tool")`.
+    after.is_empty()
+        || after.starts_with(')')
+        || after.starts_with("--")
+        || after.starts_with('#')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
+fn xmake_name_ok(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    if bytes.is_empty() {
+        return false;
+    }
+    let first = bytes[0];
+    if !(first.is_ascii_alphanumeric() || first == b'_') {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+    {
+        return false;
+    }
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    true
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -42011,7 +42095,7 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_premake_decl, is_scons_decl,
-        line_is_func_like,
+        is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -44873,7 +44957,9 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("copy the file"));
         assert!(!line_is_func_like("action the plan"));
         assert!(!line_is_func_like("config the system"));
-        assert!(!line_is_func_like("target(\"executable\")"));
+        // Single-arg `target("…")` is xmake, not incomplete GN (two-arg only).
+        assert!(line_is_func_like("target(\"executable\")"));
+        assert!(!is_xmake_decl(r#"target("executable", "tool") {"#));
         assert!(!line_is_func_like("target(executable, \"tool\")"));
         assert!(!line_is_func_like("my_lib = other(\"foo\")"));
     }
@@ -45675,6 +45761,36 @@ mod func_like_line_tests {
         assert!(!line_is_func_like(r#"project the app"#));
         assert!(!line_is_func_like("workspace"));
         assert!(!line_is_func_like(r#"solution the old"#));
+    }
+
+    #[test]
+    fn xmake_target_option_count() {
+        assert!(line_is_func_like(r#"target("app")"#));
+        assert!(line_is_func_like(r#"option("enable_foo")"#));
+        assert!(line_is_func_like(r#"package("zlib")"#));
+        assert!(line_is_func_like(r#"rule("markdown")"#));
+        assert!(line_is_func_like(r#"toolchain("clang")"#));
+        assert!(line_is_func_like(r#"task("hello")"#));
+        assert!(line_is_func_like(r#"target('Lib')"#));
+        assert!(line_is_func_like(r#"  target("nest/app")"#));
+        assert!(line_is_func_like(r#"target("my-lib") -- comment"#));
+        assert!(line_is_func_like(r#"Target("Caps")"#));
+        // GN two-arg form stays on GN (still lists via GN path).
+        assert!(line_is_func_like(r#"target("executable", "tool") {"#));
+        assert!(!is_xmake_decl(r#"target("executable", "tool") {"#));
+        // Incomplete / prose / bare stay out of xmake.
+        assert!(!is_xmake_decl("target"));
+        assert!(!is_xmake_decl("target "));
+        assert!(!is_xmake_decl("target()"));
+        assert!(!is_xmake_decl(r#"target("")"#));
+        assert!(!is_xmake_decl(r#"target("the")"#));
+        assert!(!is_xmake_decl(r#"targets("app")"#));
+        assert!(!is_xmake_decl(r#"target "app""#));
+        assert!(!is_xmake_decl(r#"target(app)"#));
+        assert!(!is_xmake_decl(r#"package the zlib"#));
+        assert!(!line_is_func_like(r#"target the app"#));
+        assert!(!line_is_func_like("option"));
+        assert!(!line_is_func_like(r#"option the foo"#));
     }
 
     #[test]
