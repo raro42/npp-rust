@@ -31993,6 +31993,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// (`target("app")`, `option("foo")`, `package("zlib")`). Quoted name on the
 /// same line (single or double). GN `target("type", "name")` stays on GN;
 /// Meson / Gradle keep their own shapes. Prose and bare keywords stay out.
+/// Rake `task` / `multitask` / `file` / `directory` / `rule` (`task :default`,
+/// `task :default => [:test]`, `task "build" do`, `task migrate: :environment`,
+/// `multitask :parallel => [:a, :b]`, `file "out.txt" => ["in.txt"]`,
+/// `directory "tmp"`, `rule '.o' => '.c'`). Symbol or quoted name on the same
+/// line. Gradle `task hello {` / `task("hello")` stay on Gradle. Prose and bare
+/// keywords stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32098,6 +32104,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_ant_msbuild_decl(s)
             || is_premake_decl(s)
             || is_xmake_decl(s)
+            || is_rake_decl(s)
         {
             return true;
         }
@@ -32199,6 +32206,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_ant_msbuild_decl(s)
         || is_premake_decl(s)
         || is_xmake_decl(s)
+        || is_rake_decl(s)
     {
         return true;
     }
@@ -39805,6 +39813,137 @@ fn xmake_name_ok(name: &str) -> bool {
     true
 }
 
+/// Rake `task` / `multitask` / `file` / `directory` / `rule`:
+/// `task :default`, `task :default => [:test]`, `task "build" do`,
+/// `task migrate: :environment`, `multitask :parallel => [:a, :b]`,
+/// `file "out.txt" => ["in.txt"]`, `directory "tmp"`, `rule '.o' => '.c'`.
+/// Symbol (`:name`), quoted name, or Rails `name:` label on the same line.
+/// Optional deps (`=>`), arg lists, `do` / `{`, and `#` comments.
+/// Gradle `task hello {` / `task("hello")` stay on Gradle (paren or bare-ident
+/// brace forms). xmake `rule("…")` stays on xmake. Prose and bare keywords
+/// stay out.
+fn is_rake_decl(s: &str) -> bool {
+    is_rake_task_like(s, "task")
+        || is_rake_task_like(s, "multitask")
+        || is_rake_named_path(s, "file")
+        || is_rake_named_path(s, "directory")
+        || is_rake_rule(s)
+}
+
+fn is_rake_task_like(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    // `:symbol` form — `task :default`, `task :default => [:test]`
+    if let Some(after_sym) = ruby_attr_symbol(rest) {
+        return rake_task_tail_ok(after_sym);
+    }
+    // Quoted — `task "build" do`, `task 'clean'`
+    if let Some(after_q) = rake_quoted_name(rest) {
+        return rake_task_tail_ok(after_q);
+    }
+    // Rails label — `task migrate: :environment do`
+    if let Some((name, after)) = graphql_ident(rest) {
+        if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+            return false;
+        }
+        if let Some(after_colon) = after.strip_prefix(':') {
+            // Not Gradle `task hello {` / `task hello(…)` — require the label colon.
+            return rake_task_tail_ok(after_colon);
+        }
+    }
+    false
+}
+
+fn is_rake_named_path(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if let Some(after_sym) = ruby_attr_symbol(rest) {
+        return rake_task_tail_ok(after_sym);
+    }
+    if let Some(after_q) = rake_quoted_name(rest) {
+        return rake_task_tail_ok(after_q);
+    }
+    false
+}
+
+fn is_rake_rule(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "rule") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    // Quoted pattern only — reject xmake `rule("markdown")` (paren, no space).
+    let Some(after_q) = rake_quoted_name(rest) else {
+        return false;
+    };
+    rake_task_tail_ok(after_q)
+}
+
+fn rake_quoted_name(s: &str) -> Option<&str> {
+    let bytes = s.as_bytes();
+    let &q = bytes.first()?;
+    if q != b'"' && q != b'\'' {
+        return None;
+    }
+    let after_q = &s[1..];
+    let end = after_q.as_bytes().iter().position(|&b| b == q)?;
+    if end == 0 {
+        return None;
+    }
+    let name = &after_q[..end];
+    if !rake_name_ok(name) {
+        return None;
+    }
+    Some(&after_q[end + 1..])
+}
+
+fn rake_name_ok(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    if bytes.is_empty() {
+        return false;
+    }
+    // Paths / extensions: `out.txt`, `.o`, `lib/foo`, `build-app`
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/' | b'+' | b'%'))
+    {
+        return false;
+    }
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    true
+}
+
+fn rake_task_tail_ok(after: &str) -> bool {
+    let after = after.trim_start();
+    after.is_empty()
+        || after.starts_with("=>")
+        || after.starts_with(',')
+        || after.starts_with('[')
+        || after.starts_with('(')
+        || after.starts_with('{')
+        || after.starts_with(':') // `task migrate: :environment`
+        || sql_word(after, "do").is_some_and(|r| {
+            r.is_empty() || r.starts_with(char::is_whitespace) || r.starts_with('|')
+        })
+        || after.starts_with('#')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -42094,8 +42233,8 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 #[cfg(test)]
 mod func_like_line_tests {
     use super::{
-        is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_premake_decl, is_scons_decl,
-        is_xmake_decl, line_is_func_like,
+        is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_premake_decl, is_rake_decl,
+        is_scons_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -45791,6 +45930,49 @@ mod func_like_line_tests {
         assert!(!line_is_func_like(r#"target the app"#));
         assert!(!line_is_func_like("option"));
         assert!(!line_is_func_like(r#"option the foo"#));
+    }
+
+    #[test]
+    fn rake_task_file_rule_count() {
+        assert!(line_is_func_like("task :default"));
+        assert!(line_is_func_like("task :default => [:clean, :build]"));
+        assert!(line_is_func_like(r#"task "build" do"#));
+        assert!(line_is_func_like("task 'clean'"));
+        assert!(line_is_func_like("task migrate: :environment"));
+        assert!(line_is_func_like("task migrate: :environment do"));
+        assert!(line_is_func_like("  task :test do |t|"));
+        assert!(line_is_func_like("multitask :parallel => [:a, :b]"));
+        assert!(line_is_func_like(r#"file "out.txt" => ["in.txt"]"#));
+        assert!(line_is_func_like(r#"file 'out' do"#));
+        assert!(line_is_func_like(r#"directory "tmp""#));
+        assert!(line_is_func_like("directory :build"));
+        assert!(line_is_func_like(r#"rule '.o' => '.c'"#));
+        assert!(line_is_func_like(r#"rule ".o" => ".c" do"#));
+        assert!(line_is_func_like("task :default # note"));
+        assert!(line_is_func_like("TASK :Caps"));
+        // Gradle / xmake shapes still list, but not via Rake.
+        assert!(line_is_func_like("task hello {"));
+        assert!(!is_rake_decl("task hello {"));
+        assert!(line_is_func_like(r#"task("hello")"#));
+        assert!(!is_rake_decl(r#"task("hello")"#));
+        assert!(line_is_func_like(r#"rule("markdown")"#));
+        assert!(!is_rake_decl(r#"rule("markdown")"#));
+        // Incomplete / prose / bare stay out of Rake.
+        assert!(!is_rake_decl("task"));
+        assert!(!is_rake_decl("task "));
+        assert!(!is_rake_decl("task :"));
+        assert!(!is_rake_decl("task the"));
+        assert!(!is_rake_decl("task the name"));
+        assert!(!is_rake_decl(r#"task """"#));
+        assert!(!is_rake_decl("tasks :default"));
+        assert!(!is_rake_decl("file = open(path)"));
+        assert!(!is_rake_decl("file out.txt"));
+        assert!(!is_rake_decl("directory"));
+        assert!(!is_rake_decl("rule"));
+        assert!(!is_rake_decl("rule .o"));
+        assert!(!line_is_func_like("task the default"));
+        assert!(!line_is_func_like("multitask"));
+        assert!(!line_is_func_like("file the out"));
     }
 
     #[test]

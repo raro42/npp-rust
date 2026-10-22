@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.521] — 2026-10-22
+
+View:
+
+- **Function List** lists Rake `task` / `multitask` / `file` / `directory` / `rule`: `task :default`, `task :default => [:test]`, `task "build" do`, `task migrate: :environment`, `multitask :parallel => [:a, :b]`, `file "out.txt" => ["in.txt"]`, `directory "tmp"`, `rule '.o' => '.c'`. Symbol or quoted name on the same line. Gradle `task hello {` / `task("hello")` stay on Gradle; xmake `rule("…")` stays on xmake. Prose and bare keywords stay out.
+
 ## [0.3.520] — 2026-10-22
 
 View:
