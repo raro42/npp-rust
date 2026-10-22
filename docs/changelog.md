@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.511] — 2026-10-22
+
+View:
+
+- **Function List** lists Autoconf / Automake / Libtool / Autoconf Archive / pkg-config macros: `AC_INIT` / `AC_PROG_CC` / `AC_CONFIG_FILES` / `AC_OUTPUT`, `AM_INIT_AUTOMAKE` / `AM_CONDITIONAL`, `LT_INIT`, `AS_IF`, `AX_*`, `PKG_CHECK_MODULES` / `PKG_PROG_PKG_CONFIG`. Prose and bare prefixes stay out.
+
 ## [0.3.510] — 2026-10-22
 
 View:

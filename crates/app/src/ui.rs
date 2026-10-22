@@ -31958,6 +31958,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `%files` / `%changelog` / `%description` / `%package` / scriptlets /
 /// `%define` / `%global` / `%undefine` / `%bcond_with` / `%bcond_without`.
 /// `%{…}` expansions and Makefile `%.o:` stay out.
+/// Autoconf / Automake / Libtool / Autoconf Archive / pkg-config macros:
+/// `AC_INIT` / `AC_PROG_CC` / `AC_CONFIG_FILES` / `AC_OUTPUT`,
+/// `AM_INIT_AUTOMAKE` / `AM_CONDITIONAL`, `LT_INIT`, `AS_IF`, `AX_*`,
+/// `PKG_CHECK_MODULES` / `PKG_PROG_PKG_CONFIG`. Prose and bare prefixes stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32053,6 +32057,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_just_decl(s)
             || is_earthfile_decl(s)
             || is_rpmspec_decl(s)
+            || is_autoconf_decl(s)
         {
             return true;
         }
@@ -32144,6 +32149,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_just_decl(s)
         || is_earthfile_decl(s)
         || is_rpmspec_decl(s)
+        || is_autoconf_decl(s)
     {
         return true;
     }
@@ -39227,6 +39233,53 @@ fn rpm_ident_len(s: &str) -> Option<usize> {
     Some(n)
 }
 
+/// Autoconf / Automake / Libtool / Autoconf Archive / pkg-config macros:
+/// `AC_INIT([foo], [1.0])`, `AC_PROG_CC`, `AC_CONFIG_FILES([Makefile])`,
+/// `AC_OUTPUT`, `AM_INIT_AUTOMAKE([foreign])`, `AM_CONDITIONAL([HAVE_X], …)`,
+/// `LT_INIT`, `AS_IF([test], …)`, `AX_CHECK_COMPILE_FLAG(…)`,
+/// `PKG_CHECK_MODULES([FOO], [bar])`, `PKG_PROG_PKG_CONFIG`. Trailing `dnl` /
+/// `#` comments ok. Prose (`AC_INIT the package`), bare prefixes (`AC_`),
+/// lowercase (`Ac_Init`), and shell `PKG_CONFIG=…` stay out.
+fn is_autoconf_decl(s: &str) -> bool {
+    const PREFIXES: &[&str] = &["AC_", "AM_", "LT_", "AS_", "AX_", "PKG_"];
+    let Some(prefix) = PREFIXES.iter().copied().find(|p| s.starts_with(p)) else {
+        return false;
+    };
+    let rest = &s[prefix.len()..];
+    let name_n = rest
+        .bytes()
+        .take_while(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || *b == b'_')
+        .count();
+    if name_n == 0 {
+        return false;
+    }
+    // Drop trailing underscores so `AC_FOO_` does not count.
+    let name = &rest[..name_n];
+    if name.ends_with('_') {
+        return false;
+    }
+    let after = rest[name_n..].trim_start();
+    if after.is_empty() || after.starts_with('#') {
+        return true;
+    }
+    if let Some(r) = after.strip_prefix("dnl") {
+        return r.is_empty() || r.starts_with(char::is_whitespace);
+    }
+    let Some(inner) = after.strip_prefix('(') else {
+        return false;
+    };
+    let inner = inner.trim_start();
+    if inner.is_empty() {
+        return true;
+    }
+    // Reject prose first-arg: `AC_INIT(the package)`.
+    let lower = inner.to_ascii_lowercase();
+    if lower.starts_with("the ") || lower.starts_with("the)") || lower == "the" {
+        return false;
+    }
+    true
+}
+
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
     let Some((name, after)) = graphql_ident(s) else {
         return false;
@@ -44534,6 +44587,56 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("%define the value"));
         assert!(!line_is_func_like("%bcond_with"));
         assert!(!line_is_func_like("%bcond_with the"));
+        assert!(!line_is_func_like("Name: foo"));
+        assert!(!line_is_func_like("build:"));
+    }
+
+    #[test]
+    fn autoconf_decls_count() {
+        assert!(line_is_func_like("AC_INIT([foo], [1.0])"));
+        assert!(line_is_func_like("AC_INIT"));
+        assert!(line_is_func_like("AC_PREREQ([2.69])"));
+        assert!(line_is_func_like("AC_CONFIG_SRCDIR([src/main.c])"));
+        assert!(line_is_func_like("AC_CONFIG_HEADERS([config.h])"));
+        assert!(line_is_func_like("AC_CONFIG_FILES([Makefile])"));
+        assert!(line_is_func_like("AC_PROG_CC"));
+        assert!(line_is_func_like("AC_PROG_CXX"));
+        assert!(line_is_func_like("AC_CHECK_HEADERS([unistd.h])"));
+        assert!(line_is_func_like("AC_SEARCH_LIBS([sqrt], [m])"));
+        assert!(line_is_func_like("AC_ARG_ENABLE([docs], …)"));
+        assert!(line_is_func_like("AC_DEFINE([HAVE_FOO], [1])"));
+        assert!(line_is_func_like("AC_SUBST([FOO])"));
+        assert!(line_is_func_like("AC_MSG_CHECKING([for foo])"));
+        assert!(line_is_func_like("AC_OUTPUT"));
+        assert!(line_is_func_like("  AC_INIT([bar], [0.1]) # package"));
+        assert!(line_is_func_like("AC_PROG_CC dnl compiler"));
+        assert!(line_is_func_like("AM_INIT_AUTOMAKE([foreign])"));
+        assert!(line_is_func_like("AM_CONDITIONAL([HAVE_X], [test x = y])"));
+        assert!(line_is_func_like("AM_SILENT_RULES([yes])"));
+        assert!(line_is_func_like("AM_MAINTAINER_MODE"));
+        assert!(line_is_func_like("LT_INIT"));
+        assert!(line_is_func_like("LT_PREREQ([2.4])"));
+        assert!(line_is_func_like("AS_IF([test \"x$foo\" = xyes], […])"));
+        assert!(line_is_func_like("AX_CHECK_COMPILE_FLAG([-Wall], […])"));
+        assert!(line_is_func_like("PKG_CHECK_MODULES([GLIB], [glib-2.0])"));
+        assert!(line_is_func_like("PKG_PROG_PKG_CONFIG"));
+        assert!(line_is_func_like("PKG_CHECK_EXISTS([gtk+-3.0])"));
+        // RPM / Makefile / Earthfile still work.
+        assert!(line_is_func_like("%prep"));
+        assert!(line_is_func_like("%.o: %.c"));
+        assert!(line_is_func_like("VERSION 0.8"));
+        // Prose / bare prefixes / lowercase / shell assignments stay out.
+        assert!(!line_is_func_like("AC_"));
+        assert!(!line_is_func_like("AC_INIT the package"));
+        assert!(!line_is_func_like("AC_INIT(the package)"));
+        assert!(!line_is_func_like("Ac_Init([foo])"));
+        assert!(!line_is_func_like("ac_init([foo])"));
+        assert!(!line_is_func_like("AM_"));
+        assert!(!line_is_func_like("LT_INIT now"));
+        assert!(!line_is_func_like("PKG_CONFIG=pkg-config"));
+        assert!(!line_is_func_like("PKG_"));
+        assert!(!line_is_func_like("ACCESS_TOKEN"));
+        assert!(!line_is_func_like("AMOUNT_DUE"));
         assert!(!line_is_func_like("Name: foo"));
         assert!(!line_is_func_like("build:"));
     }

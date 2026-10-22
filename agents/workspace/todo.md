@@ -1,3 +1,4 @@
+009 keep: Function List sees Autoconf/Automake/Libtool/AX_*/PKG_CHECK_MODULES macros (v0.3.511)
 009 keep: Function List sees RPM .spec %prep/%build/%install/%package/%define (v0.3.510)
 009 keep: Function List sees Ninja rule / build / pool / default (v0.3.506)
 009 keep: Function List sees Bazel/Starlark BUILD rules with same-line name= (v0.3.503)
