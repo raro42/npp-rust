@@ -31962,6 +31962,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `AC_INIT` / `AC_PROG_CC` / `AC_CONFIG_FILES` / `AC_OUTPUT`,
 /// `AM_INIT_AUTOMAKE` / `AM_CONDITIONAL`, `LT_INIT`, `AS_IF`, `AX_*`,
 /// `PKG_CHECK_MODULES` / `PKG_PROG_PKG_CONFIG`. Prose and bare prefixes stay out.
+/// Debian `debian/rules` debhelper overrides / hooks:
+/// `override_dh_auto_build:`, `execute_before_dh_auto_configure:`,
+/// `execute_after_dh_install --remaining-packages:`. Prose and bare prefixes
+/// stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32058,6 +32062,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_earthfile_decl(s)
             || is_rpmspec_decl(s)
             || is_autoconf_decl(s)
+            || is_debian_rules_decl(s)
         {
             return true;
         }
@@ -32150,6 +32155,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_earthfile_decl(s)
         || is_rpmspec_decl(s)
         || is_autoconf_decl(s)
+        || is_debian_rules_decl(s)
     {
         return true;
     }
@@ -39233,6 +39239,51 @@ fn rpm_ident_len(s: &str) -> Option<usize> {
     Some(n)
 }
 
+/// Debian `debian/rules` debhelper override / hook targets:
+/// `override_dh_auto_build:`, `override_dh_installdocs:`,
+/// `override_dh_auto_test-arch:`, `execute_before_dh_auto_configure:`,
+/// `execute_after_dh_install --remaining-packages:`. Trailing `#` comments
+/// ok. Prose (`override_dh_auto_build now`), bare prefixes
+/// (`override_dh_`), wrong case, and `:=` assignments stay out.
+fn is_debian_rules_decl(s: &str) -> bool {
+    const PREFIXES: &[&str] = &["override_dh_", "execute_before_dh_", "execute_after_dh_"];
+    let Some(prefix) = PREFIXES.iter().copied().find(|p| s.starts_with(p)) else {
+        return false;
+    };
+    let rest = &s[prefix.len()..];
+    let name_n = rest
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+        .count();
+    if name_n == 0 {
+        return false;
+    }
+    let name = &rest[..name_n];
+    if name.eq_ignore_ascii_case("the") || name.ends_with('-') || name.ends_with('_') {
+        return false;
+    }
+    let mut after = rest[name_n..].trim_start();
+    // Optional flags: `--remaining-packages`
+    while let Some(r) = after.strip_prefix("--") {
+        let flag_n = r
+            .bytes()
+            .take_while(|b| b.is_ascii_alphanumeric() || *b == b'-')
+            .count();
+        if flag_n == 0 || r[..flag_n].ends_with('-') {
+            return false;
+        }
+        after = r[flag_n..].trim_start();
+    }
+    let Some(after_colon) = after.strip_prefix(':') else {
+        return false;
+    };
+    if after_colon.starts_with('=') {
+        return false;
+    }
+    let after_colon = after_colon.trim_start();
+    after_colon.is_empty() || after_colon.starts_with('#')
+}
+
 /// Autoconf / Automake / Libtool / Autoconf Archive / pkg-config macros:
 /// `AC_INIT([foo], [1.0])`, `AC_PROG_CC`, `AC_CONFIG_FILES([Makefile])`,
 /// `AC_OUTPUT`, `AM_INIT_AUTOMAKE([foreign])`, `AM_CONDITIONAL([HAVE_X], …)`,
@@ -44638,6 +44689,47 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("ACCESS_TOKEN"));
         assert!(!line_is_func_like("AMOUNT_DUE"));
         assert!(!line_is_func_like("Name: foo"));
+        assert!(!line_is_func_like("build:"));
+    }
+
+    #[test]
+    fn debian_rules_decls_count() {
+        assert!(line_is_func_like("override_dh_auto_configure:"));
+        assert!(line_is_func_like("override_dh_auto_build:"));
+        assert!(line_is_func_like("override_dh_auto_test:"));
+        assert!(line_is_func_like("override_dh_auto_install:"));
+        assert!(line_is_func_like("override_dh_install:"));
+        assert!(line_is_func_like("override_dh_installdocs:"));
+        assert!(line_is_func_like("override_dh_clean:"));
+        assert!(line_is_func_like("override_dh_auto_test-arch:"));
+        assert!(line_is_func_like("override_dh_auto_test-indep:"));
+        assert!(line_is_func_like("  override_dh_auto_build: # custom"));
+        assert!(line_is_func_like("execute_before_dh_auto_configure:"));
+        assert!(line_is_func_like("execute_after_dh_install:"));
+        assert!(line_is_func_like(
+            "execute_after_dh_install --remaining-packages:"
+        ));
+        assert!(line_is_func_like(
+            "execute_before_dh_auto_build --remaining-packages:"
+        ));
+        // Autoconf / RPM / Makefile still work.
+        assert!(line_is_func_like("AC_INIT([foo], [1.0])"));
+        assert!(line_is_func_like("%prep"));
+        assert!(line_is_func_like("%.o: %.c"));
+        // Prose / bare prefixes / wrong case / assignments stay out.
+        // (`override_dh_auto_build now:` is a Justfile recipe shape elsewhere.)
+        assert!(!line_is_func_like("override_dh_"));
+        assert!(!line_is_func_like("override_dh_auto_build"));
+        assert!(!line_is_func_like("override_dh_auto_build now"));
+        assert!(!line_is_func_like("override_dh_the:"));
+        assert!(!line_is_func_like("Override_dh_auto_build:"));
+        assert!(!line_is_func_like("OVERRIDE_DH_AUTO_BUILD:"));
+        assert!(!line_is_func_like("execute_before_dh_"));
+        assert!(!line_is_func_like("execute_after_dh_install"));
+        assert!(!line_is_func_like("execute_after_dh_install --:"));
+        assert!(!line_is_func_like("override_dh_auto_build:="));
+        assert!(!line_is_func_like("override_dh_auto_build := foo"));
+        assert!(!line_is_func_like("dh_auto_build:"));
         assert!(!line_is_func_like("build:"));
     }
 

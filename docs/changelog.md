@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.512] — 2026-10-22
+
+View:
+
+- **Function List** lists Debian `debian/rules` debhelper overrides / hooks: `override_dh_auto_build:`, `override_dh_installdocs:`, `override_dh_auto_test-arch:`, `execute_before_dh_auto_configure:`, `execute_after_dh_install --remaining-packages:`. Prose, bare prefixes, wrong case, and `:=` assignments stay out.
+
 ## [0.3.511] — 2026-10-22
 
 View:
