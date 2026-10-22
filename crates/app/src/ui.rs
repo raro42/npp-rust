@@ -31977,6 +31977,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Android.bp / Soong modules (`cc_binary {`, `cc_library_shared {`,
 /// `android_app {`, `java_library {`, `rust_library {`, `apex {`, …).
 /// Bazel `cc_binary(name = …)` stays on the Bazel path.
+/// SCons builders (`Program('hello', 'hello.c')`, `env.SharedLibrary("foo", …)`,
+/// `lib = Library('foo', …)`, `Object` / `Command` / `Alias` / `Install` /
+/// `InstallAs`). Quoted target on the same line (single or double). Meson
+/// single-quoted `library` / `shared_library` stay on Meson; GN brace forms
+/// stay on GN. Prose and bare keywords stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32078,6 +32083,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_ebuild_decl(s)
             || is_bitbake_decl(s)
             || is_android_bp_decl(s)
+            || is_scons_decl(s)
         {
             return true;
         }
@@ -32175,6 +32181,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_ebuild_decl(s)
         || is_bitbake_decl(s)
         || is_android_bp_decl(s)
+        || is_scons_decl(s)
     {
         return true;
     }
@@ -39377,6 +39384,135 @@ fn android_bp_prop_start(s: &str) -> bool {
     after.starts_with(':')
 }
 
+/// SCons builders: `Program('hello', 'hello.c')`, `SharedLibrary("foo", …)`,
+/// `env.Library('bar', …)`, `lib = Object('x.o', 'x.c')`, `Command(…)`,
+/// `Alias('install', …)`, `Install('/usr/bin', …)`, `InstallAs(…)`.
+/// Optional assignment and `receiver.` prefix. Quoted target (single or
+/// double) on the same line. Meson single-quoted `library` / `shared_library`
+/// / `static_library` already match via Meson; this path adds `Program`,
+/// `Object*`, `Command`, `Alias`, `Install*`, double-quoted forms, and
+/// `env.` receivers. GN brace targets stay on GN. Prose and bare keywords
+/// stay out.
+fn is_scons_decl(s: &str) -> bool {
+    let rest = scons_strip_assign(s);
+    let rest = scons_strip_receiver(rest);
+    for key in [
+        "InstallVersionedLib",
+        "SharedLibrary",
+        "StaticLibrary",
+        "LoadableModule",
+        "StaticObject",
+        "SharedObject",
+        "InstallAs",
+        "Library",
+        "Program",
+        "Object",
+        "Command",
+        "Install",
+        "Alias",
+        "Package",
+        "JavaJar",
+        "Java",
+    ] {
+        if scons_call_named(rest, key) {
+            return true;
+        }
+    }
+    false
+}
+
+fn scons_strip_assign(s: &str) -> &str {
+    let Some((name, after)) = graphql_ident(s) else {
+        return s;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return s;
+    }
+    let after = after.trim_start();
+    let Some(after_eq) = after.strip_prefix('=') else {
+        return s;
+    };
+    after_eq.trim_start()
+}
+
+/// `env.Program(...)` / `env['BUILDERS'].Program` is too free-form; only
+/// simple `ident.Builder(...)`.
+fn scons_strip_receiver(s: &str) -> &str {
+    let Some((name, after)) = graphql_ident(s) else {
+        return s;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return s;
+    }
+    let after = after.trim_start();
+    let Some(after_dot) = after.strip_prefix('.') else {
+        return s;
+    };
+    after_dot.trim_start()
+}
+
+fn scons_call_named(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(inner) = rest.strip_prefix('(') else {
+        return false;
+    };
+    let inner = inner.trim_start();
+    let (q, after_q) = if let Some(a) = inner.strip_prefix('\'') {
+        ('\'', a)
+    } else if let Some(a) = inner.strip_prefix('"') {
+        ('"', a)
+    } else {
+        return false;
+    };
+    let Some(end) = after_q.find(q) else {
+        return false;
+    };
+    if end == 0 {
+        return false;
+    }
+    let name = &after_q[..end];
+    if !scons_target_name_ok(name) {
+        return false;
+    }
+    let after = after_q[end + 1..].trim_start();
+    after.is_empty()
+        || after.starts_with(',')
+        || after.starts_with(')')
+        || after.starts_with('#')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
+fn scons_target_name_ok(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    let first = bytes[0];
+    // Target or install path: ident, `hello`, `foo/bar`, `/usr/bin`, `./out`.
+    if !(first.is_ascii_alphanumeric()
+        || first == b'_'
+        || first == b'/'
+        || first == b'.'
+        || first == b'$')
+    {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/' | b'$'))
+    {
+        return false;
+    }
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    true
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -41665,7 +41801,7 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 
 #[cfg(test)]
 mod func_like_line_tests {
-    use super::{is_android_bp_decl, is_bitbake_decl, line_is_func_like};
+    use super::{is_android_bp_decl, is_bitbake_decl, is_scons_decl, line_is_func_like};
 
     #[test]
     fn rust_visibility_and_qualifiers_count() {
@@ -45218,6 +45354,58 @@ mod func_like_line_tests {
         assert!(!is_android_bp_decl("cc_binary the {"));
         assert!(!is_android_bp_decl("not_a_module {"));
         assert!(!line_is_func_like("cc_binary { the:"));
+    }
+
+    #[test]
+    fn scons_builders_count() {
+        assert!(line_is_func_like("Program('hello', 'hello.c')"));
+        assert!(line_is_func_like("Program(\"hello\", \"hello.c\")"));
+        assert!(line_is_func_like("SharedLibrary('foo', 'foo.c')"));
+        assert!(line_is_func_like("StaticLibrary(\"bar\", [\"bar.c\"])"));
+        assert!(line_is_func_like("Library('baz', 'baz.c')"));
+        assert!(line_is_func_like("LoadableModule('plug', 'plug.c')"));
+        assert!(line_is_func_like("Object('hello.o', 'hello.c')"));
+        assert!(line_is_func_like("StaticObject('a.o', 'a.c')"));
+        assert!(line_is_func_like("SharedObject('b.o', 'b.c')"));
+        assert!(line_is_func_like(
+            "Command('out.txt', 'in.txt', 'cp $SOURCE $TARGET')"
+        ));
+        assert!(line_is_func_like("Alias('install', '/usr/bin')"));
+        assert!(line_is_func_like("Install('/usr/bin', 'hello')"));
+        assert!(line_is_func_like("InstallAs('/usr/bin/hi', 'hello')"));
+        assert!(line_is_func_like(
+            "InstallVersionedLib('/usr/lib', 'libfoo.so')"
+        ));
+        assert!(line_is_func_like("Package('pkg', 'hello')"));
+        assert!(line_is_func_like("Java('classes', 'Foo.java')"));
+        assert!(line_is_func_like("JavaJar('app.jar', 'Foo.java')"));
+        assert!(line_is_func_like("env.Program('hello', 'hello.c')"));
+        assert!(line_is_func_like("env.SharedLibrary(\"foo\", \"foo.c\")"));
+        assert!(line_is_func_like("lib = Library('foo', ['a.c', 'b.c'])"));
+        assert!(line_is_func_like("  prog = env.Program('tool', 'tool.c')"));
+        assert!(line_is_func_like("PROGRAM('App', 'main.c') # comment"));
+        assert!(line_is_func_like("Program('my-prog', 'a.c')"));
+        assert!(line_is_func_like("Program('foo.bar', 'a.c')"));
+        assert!(line_is_func_like(
+            "Command('$TARGET', '$SOURCE', 'cp $SOURCE $TARGET')"
+        ));
+        // Meson single-quoted library forms still list (Meson path).
+        assert!(line_is_func_like("library('foo', 'foo.c')"));
+        assert!(line_is_func_like("shared_library('foo', 'foo.c')"));
+        // Incomplete / prose / bare stay out of SCons (and usually the line).
+        assert!(!is_scons_decl("Program("));
+        assert!(!is_scons_decl("Program()"));
+        assert!(!is_scons_decl("Program('')"));
+        assert!(!is_scons_decl("Program(\"\")"));
+        assert!(!is_scons_decl("Program(hello)"));
+        assert!(!is_scons_decl("Program('the', 'hello.c')"));
+        assert!(!is_scons_decl("Programs stay out"));
+        assert!(!is_scons_decl("Program"));
+        assert!(!is_scons_decl("env.Program"));
+        assert!(!is_scons_decl("Install(dest, 'hello')"));
+        assert!(!line_is_func_like("Program the hello"));
+        assert!(!line_is_func_like("Alias"));
+        assert!(!line_is_func_like("Command the build"));
     }
 
     #[test]

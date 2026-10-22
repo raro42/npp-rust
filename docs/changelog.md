@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.517] — 2026-10-22
+
+View:
+
+- **Function List** lists SCons builders: `Program('hello', 'hello.c')`, `SharedLibrary` / `StaticLibrary` / `Library` / `LoadableModule`, `Object` / `StaticObject` / `SharedObject`, `Command`, `Alias`, `Install` / `InstallAs` / `InstallVersionedLib`, `Package`, `Java` / `JavaJar`. Optional assignment and `env.` receiver. Quoted target on the same line (single or double). Meson single-quoted `library` / `shared_library` stay on Meson; GN brace forms stay on GN. Prose and bare keywords stay out.
+
 ## [0.3.516] — 2026-10-22
 
 View:
