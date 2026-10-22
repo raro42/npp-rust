@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.523] — 2026-10-22
+
+View:
+
+- **Function List** lists Cargo.toml structural tables: `[package]`, `[lib]`, `[[bin]]` / `[[example]]` / `[[test]]` / `[[bench]]`, `[workspace]` / `[workspace.…]`, `[features]`, `[profile.…]`, `[lints]` / `[lints.…]`, `[patch.…]`, `[replace]`, `[package.metadata…]`, `[target.…]`. Optional trailing `#` comment. `[dependencies]` / `[dev-dependencies]` / `[build-dependencies]` stay out. Incomplete brackets and prose stay out.
+
 ## [0.3.522] — 2026-10-22
 
 View:

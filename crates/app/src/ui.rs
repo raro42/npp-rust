@@ -32005,6 +32005,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// component name (or bare `library`; `head` / `this` for source-repository).
 /// Optional trailing `--` comment. Meson / GN / Solidity brace or paren forms
 /// stay on their paths. Prose and bare keywords (except bare `library`) stay out.
+/// Cargo.toml tables (`[package]`, `[lib]`, `[[bin]]` / `[[example]]` /
+/// `[[test]]` / `[[bench]]`, `[workspace]` / `[workspace.…]`, `[features]`,
+/// `[profile.…]`, `[lints]` / `[lints.…]`, `[patch.…]`, `[replace]`,
+/// `[package.metadata…]`, `[target.…]`). Optional trailing `#` comment.
+/// Dependency tables (`[dependencies]`, `[dev-dependencies]`,
+/// `[build-dependencies]`) stay out. Incomplete brackets and prose stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32112,6 +32118,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_xmake_decl(s)
             || is_rake_decl(s)
             || is_cabal_decl(s)
+            || is_cargo_toml_decl(s)
         {
             return true;
         }
@@ -32215,6 +32222,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_xmake_decl(s)
         || is_rake_decl(s)
         || is_cabal_decl(s)
+        || is_cargo_toml_decl(s)
     {
         return true;
     }
@@ -40073,6 +40081,144 @@ fn cabal_tail_ok(after: &str) -> bool {
     after.is_empty() || after.starts_with("--")
 }
 
+/// Cargo.toml structural tables: `[package]`, `[lib]`, `[[bin]]` /
+/// `[[example]]` / `[[test]]` / `[[bench]]`, `[workspace]` /
+/// `[workspace.package]`, `[features]`, `[profile.dev]` / `[profile.release]`,
+/// `[lints]` / `[lints.rust]`, `[patch.crates-io]`, `[replace]`,
+/// `[package.metadata.…]`, `[target.…]`. Optional trailing `#` comment.
+/// `[dependencies]` / `[dev-dependencies]` / `[build-dependencies]` stay out
+/// (too noisy). Incomplete `[package` / prose stay out.
+fn is_cargo_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if !cargo_toml_tail_ok(after) {
+        return false;
+    }
+    if array {
+        matches!(header, "bin" | "example" | "test" | "bench")
+    } else {
+        cargo_toml_single_ok(header)
+    }
+}
+
+fn cargo_toml_header(s: &str) -> Option<(&str, bool, &str)> {
+    let bytes = s.as_bytes();
+    if bytes.first() != Some(&b'[') {
+        return None;
+    }
+    let array = bytes.get(1) == Some(&b'[');
+    let start = if array { 2 } else { 1 };
+    // Find first `]` (for `[[bin]]` the first `]` ends the name; next must be `]`).
+    let mut i = start;
+    while i < bytes.len() && bytes[i] != b']' {
+        i += 1;
+    }
+    if i >= bytes.len() {
+        return None;
+    }
+    let header = s.get(start..i)?;
+    let after_first = i + 1;
+    if array {
+        if bytes.get(after_first) != Some(&b']') {
+            return None;
+        }
+        let after = s.get(after_first + 1..)?;
+        Some((header, true, after))
+    } else {
+        let after = s.get(after_first..)?;
+        Some((header, false, after))
+    }
+}
+
+fn cargo_toml_tail_ok(after: &str) -> bool {
+    let t = after.trim_start();
+    t.is_empty() || t.starts_with('#')
+}
+
+fn cargo_toml_single_ok(header: &str) -> bool {
+    if header.is_empty() {
+        return false;
+    }
+    // Noisy dependency tables (including dotted target.*.dependencies) stay out
+    // when the whole header is exactly one of these.
+    if matches!(
+        header,
+        "dependencies" | "dev-dependencies" | "build-dependencies"
+    ) {
+        return false;
+    }
+    match header {
+        "package" | "lib" | "workspace" | "features" | "lints" | "replace" => true,
+        h if h.starts_with("workspace.")
+            || h.starts_with("profile.")
+            || h.starts_with("lints.")
+            || h.starts_with("patch.")
+            || h.starts_with("package.metadata")
+            || h.starts_with("target.") =>
+        {
+            cargo_toml_key_path_ok(h)
+        }
+        _ => false,
+    }
+}
+
+fn cargo_toml_key_path_ok(header: &str) -> bool {
+    // Allow bare dotted keys and simple quoted cfg fragments used by Cargo
+    // target tables: target.'cfg(windows)'.dependencies
+    if header.is_empty() {
+        return false;
+    }
+    let bytes = header.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        // Quoted key: '…' or "…"
+        if bytes[i] == b'\'' || bytes[i] == b'"' {
+            let quote = bytes[i];
+            i += 1;
+            let mut found = false;
+            while i < bytes.len() {
+                if bytes[i] == quote {
+                    found = true;
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            if !found {
+                return false;
+            }
+        } else {
+            // Bare key segment: [A-Za-z0-9_-]+
+            let start = i;
+            while i < bytes.len() {
+                let b = bytes[i];
+                if b.is_ascii_alphanumeric() || b == b'_' || b == b'-' {
+                    i += 1;
+                } else {
+                    break;
+                }
+            }
+            if i == start {
+                return false;
+            }
+        }
+        if i >= bytes.len() {
+            return true;
+        }
+        if bytes[i] == b'.' {
+            i += 1;
+            if i >= bytes.len() {
+                return false;
+            }
+            continue;
+        }
+        return false;
+    }
+    true
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -42362,8 +42508,9 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 #[cfg(test)]
 mod func_like_line_tests {
     use super::{
-        is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_cabal_decl, is_premake_decl,
-        is_rake_decl, is_scons_decl, is_xmake_decl, line_is_func_like,
+        is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_cabal_decl,
+        is_cargo_toml_decl, is_premake_decl, is_rake_decl, is_scons_decl, is_xmake_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -46145,6 +46292,52 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("executable the team"));
         assert!(!line_is_func_like("flag the debug"));
         assert!(!line_is_func_like("common the shared"));
+    }
+
+    #[test]
+    fn cargo_toml_tables_count() {
+        assert!(line_is_func_like("[package]"));
+        assert!(line_is_func_like("  [package] # root"));
+        assert!(line_is_func_like("[lib]"));
+        assert!(line_is_func_like("[[bin]]"));
+        assert!(line_is_func_like("[[example]]"));
+        assert!(line_is_func_like("[[test]]"));
+        assert!(line_is_func_like("[[bench]]"));
+        assert!(line_is_func_like("[workspace]"));
+        assert!(line_is_func_like("[workspace.package]"));
+        assert!(line_is_func_like("[workspace.dependencies]"));
+        assert!(line_is_func_like("[features]"));
+        assert!(line_is_func_like("[profile.dev]"));
+        assert!(line_is_func_like("[profile.release]"));
+        assert!(line_is_func_like("[profile.release-lto]"));
+        assert!(line_is_func_like("[lints]"));
+        assert!(line_is_func_like("[lints.rust]"));
+        assert!(line_is_func_like("[lints.clippy]"));
+        assert!(line_is_func_like("[patch.crates-io]"));
+        assert!(line_is_func_like("[replace]"));
+        assert!(line_is_func_like("[package.metadata.docs.rs]"));
+        assert!(line_is_func_like(
+            "[target.x86_64-unknown-linux-gnu.dependencies]"
+        ));
+        assert!(line_is_func_like("[target.'cfg(windows)'.dependencies]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[[bin]]"));
+        // Dependency tables stay out (noise).
+        assert!(!is_cargo_toml_decl("[dependencies]"));
+        assert!(!is_cargo_toml_decl("[dev-dependencies]"));
+        assert!(!is_cargo_toml_decl("[build-dependencies]"));
+        assert!(!line_is_func_like("[dependencies]"));
+        assert!(!line_is_func_like("[dev-dependencies]"));
+        // Incomplete / wrong array / unknown stay out.
+        assert!(!is_cargo_toml_decl("[package"));
+        assert!(!is_cargo_toml_decl("[[bin]"));
+        assert!(!is_cargo_toml_decl("[bin]"));
+        assert!(!is_cargo_toml_decl("[[dependencies]]"));
+        assert!(!is_cargo_toml_decl("[]"));
+        assert!(!is_cargo_toml_decl("[[]]"));
+        assert!(!is_cargo_toml_decl("[Desktop Entry]"));
+        assert!(!is_cargo_toml_decl("package]"));
+        assert!(!line_is_func_like("[dependencies] # stay out"));
     }
 
     #[test]
