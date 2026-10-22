@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.514] — 2026-10-22
+
+View:
+
+- **Function List** lists Gentoo ebuild phase functions: `src_unpack()`, `src_prepare()`, `src_configure()`, `src_compile()`, `src_test()`, `src_install()`, `pkg_pretend()`, `pkg_setup()`, `pkg_nofetch()`, `pkg_preinst()`, `pkg_postinst()`, `pkg_prerm()`, `pkg_postrm()`, `pkg_config()`, `pkg_info()`. Prose, bare keywords, wrong case, and unknown names stay out.
+
 ## [0.3.513] — 2026-10-22
 
 View:

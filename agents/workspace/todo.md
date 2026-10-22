@@ -728,3 +728,4 @@
 009 keep: Function List Justfile attributes/alias/set/export/import/quiet+parameterized recipes (v0.3.508)
 
 009 keep: Function List Earthfile VERSION/FROM/SAVE/BUILD/IMPORT/GIT CLONE/LOCALLY/PROJECT/COMMAND/DO (v0.3.509)
+009 keep: Function List Gentoo ebuild src_*/pkg_* phase functions (v0.3.514)

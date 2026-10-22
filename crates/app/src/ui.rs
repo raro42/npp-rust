@@ -31966,6 +31966,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `override_dh_auto_build:`, `execute_before_dh_auto_configure:`,
 /// `execute_after_dh_install --remaining-packages:`. Prose and bare prefixes
 /// stay out.
+/// Arch PKGBUILD / Alpine APKBUILD phase functions (`prepare()`, `build()`,
+/// `check()`, `package()`, `pkgver()`, `package_foo()`). Prose and bare
+/// keywords stay out.
+/// Gentoo ebuild phase functions (`src_prepare()`, `src_compile()`,
+/// `pkg_postinst()`, …). Prose and bare keywords stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32064,6 +32069,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_autoconf_decl(s)
             || is_debian_rules_decl(s)
             || is_pkgbuild_decl(s)
+            || is_ebuild_decl(s)
         {
             return true;
         }
@@ -32158,6 +32164,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_autoconf_decl(s)
         || is_debian_rules_decl(s)
         || is_pkgbuild_decl(s)
+        || is_ebuild_decl(s)
     {
         return true;
     }
@@ -39241,6 +39248,52 @@ fn rpm_ident_len(s: &str) -> Option<usize> {
     Some(n)
 }
 
+/// Gentoo ebuild phase functions: `src_unpack()`, `src_prepare()`,
+/// `src_configure()`, `src_compile()`, `src_test()`, `src_install()`,
+/// `pkg_pretend()`, `pkg_setup()`, `pkg_nofetch()`, `pkg_preinst()`,
+/// `pkg_postinst()`, `pkg_prerm()`, `pkg_postrm()`, `pkg_config()`,
+/// `pkg_info()`. Optional `{` and `#` comments. Prose (`src_prepare the`),
+/// bare keywords (`src_prepare`), wrong case, and unknown names stay out.
+/// Arch PKGBUILD `prepare()` / `build()` stay on the PKGBUILD path.
+fn is_ebuild_decl(s: &str) -> bool {
+    const PHASES: &[&str] = &[
+        "src_unpack",
+        "src_prepare",
+        "src_configure",
+        "src_compile",
+        "src_test",
+        "src_install",
+        "pkg_pretend",
+        "pkg_setup",
+        "pkg_nofetch",
+        "pkg_preinst",
+        "pkg_postinst",
+        "pkg_prerm",
+        "pkg_postrm",
+        "pkg_config",
+        "pkg_info",
+    ];
+    let Some(phase) = PHASES.iter().copied().find(|p| {
+        s.starts_with(p)
+            && s.as_bytes()
+                .get(p.len())
+                .is_some_and(|b| *b == b'(' || b.is_ascii_whitespace())
+    }) else {
+        return false;
+    };
+    let after = s[phase.len()..].trim_start();
+    let Some(inner) = after.strip_prefix('(') else {
+        return false;
+    };
+    let inner = inner.trim_start();
+    // Phase functions take no args.
+    let Some(after_paren) = inner.strip_prefix(')') else {
+        return false;
+    };
+    let after_paren = after_paren.trim_start();
+    after_paren.is_empty() || after_paren.starts_with('{') || after_paren.starts_with('#')
+}
+
 /// Arch PKGBUILD / Alpine APKBUILD phase functions:
 /// `prepare()`, `build()`, `check()`, `package()`, `pkgver()`, and split
 /// `package_foo()` / `package_foo-bar()`. Optional `{` and `#` comments.
@@ -44814,6 +44867,43 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("build(x)"));
         assert!(!line_is_func_like("prepare(args)"));
         assert!(!line_is_func_like("install()"));
+    }
+
+    #[test]
+    fn ebuild_decls_count() {
+        assert!(line_is_func_like("src_unpack() {"));
+        assert!(line_is_func_like("src_prepare()"));
+        assert!(line_is_func_like("src_configure() {"));
+        assert!(line_is_func_like("src_compile() {"));
+        assert!(line_is_func_like("src_test() {"));
+        assert!(line_is_func_like("src_install() {"));
+        assert!(line_is_func_like("pkg_pretend() {"));
+        assert!(line_is_func_like("pkg_setup() {"));
+        assert!(line_is_func_like("pkg_nofetch() {"));
+        assert!(line_is_func_like("pkg_preinst() {"));
+        assert!(line_is_func_like("pkg_postinst() {"));
+        assert!(line_is_func_like("pkg_prerm() {"));
+        assert!(line_is_func_like("pkg_postrm() {"));
+        assert!(line_is_func_like("pkg_config() {"));
+        assert!(line_is_func_like("pkg_info() {"));
+        assert!(line_is_func_like("  src_prepare() { # patches"));
+        assert!(line_is_func_like("src_compile () {"));
+        // PKGBUILD / Debian still work.
+        assert!(line_is_func_like("prepare() {"));
+        assert!(line_is_func_like("override_dh_auto_build:"));
+        // Prose / bare keywords / args / wrong case stay out.
+        assert!(!line_is_func_like("src_prepare"));
+        assert!(!line_is_func_like("src_compile"));
+        assert!(!line_is_func_like("pkg_postinst"));
+        assert!(!line_is_func_like("src_prepare the"));
+        assert!(!line_is_func_like("src_prepare:"));
+        assert!(!line_is_func_like("Src_prepare()"));
+        assert!(!line_is_func_like("SRC_PREPARE()"));
+        assert!(!line_is_func_like("src_prepare(x)"));
+        assert!(!line_is_func_like("src_prepare(args)"));
+        assert!(!line_is_func_like("src_fetch()"));
+        assert!(!line_is_func_like("default_src_prepare()"));
+        assert!(!line_is_func_like("do_compile()"));
     }
 
     #[test]
