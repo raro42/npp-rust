@@ -735,3 +735,5 @@
 009 keep: Function List BitBake/Yocto do_* tasks (v0.3.515)
 ---
 009 keep: Function List Android.bp/Soong modules (v0.3.516)
+
+009 keep: Function List xmake target/option/package/rule/toolchain/task (v0.3.520)
