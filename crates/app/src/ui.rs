@@ -31974,6 +31974,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// BitBake / Yocto `do_*` tasks (`do_compile()`, `python do_configure()`,
 /// `fakeroot do_install()`, `do_install:append()`, `do_compile_prepend()`).
 /// Prose and bare keywords stay out.
+/// Android.bp / Soong modules (`cc_binary {`, `cc_library_shared {`,
+/// `android_app {`, `java_library {`, `rust_library {`, `apex {`, …).
+/// Bazel `cc_binary(name = …)` stays on the Bazel path.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32074,6 +32077,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pkgbuild_decl(s)
             || is_ebuild_decl(s)
             || is_bitbake_decl(s)
+            || is_android_bp_decl(s)
         {
             return true;
         }
@@ -32170,6 +32174,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pkgbuild_decl(s)
         || is_ebuild_decl(s)
         || is_bitbake_decl(s)
+        || is_android_bp_decl(s)
     {
         return true;
     }
@@ -39253,6 +39258,125 @@ fn rpm_ident_len(s: &str) -> Option<usize> {
     Some(n)
 }
 
+/// Android.bp / Soong module types: `cc_binary {`, `cc_library_shared {`,
+/// `android_app {`, `java_library {`, `rust_binary {`, `filegroup {`,
+/// `genrule {`, `apex {`, … Optional same-line props (`name: "x",`) and
+/// `//` / `#` comments. Prose (`cc_binary the`), bare keywords, wrong case,
+/// and Bazel `cc_binary(name = …)` stay out.
+fn is_android_bp_decl(s: &str) -> bool {
+    // Longer names first so `cc_library_shared` wins over `cc_library`.
+    const TYPES: &[&str] = &[
+        "cc_prebuilt_library_shared",
+        "cc_prebuilt_library_static",
+        "cc_library_host_shared",
+        "cc_library_host_static",
+        "android_test_helper_app",
+        "cc_prebuilt_library",
+        "cc_prebuilt_binary",
+        "cc_library_headers",
+        "cc_library_shared",
+        "cc_library_static",
+        "cc_benchmark_host",
+        "java_library_static",
+        "java_library_host",
+        "java_binary_host",
+        "java_import_host",
+        "java_sdk_library",
+        "java_test_host",
+        "python_binary_host",
+        "python_library_host",
+        "python_test_host",
+        "rust_library_shared",
+        "rust_library_static",
+        "rust_library_dylib",
+        "rust_library_rlib",
+        "rust_binary_host",
+        "rust_proc_macro",
+        "rust_ffi_shared",
+        "rust_ffi_static",
+        "android_app_certificate",
+        "android_robolectric",
+        "prebuilt_usr_share",
+        "cc_test_library",
+        "cc_binary_host",
+        "cc_defaults",
+        "cc_genrule",
+        "cc_object",
+        "cc_benchmark",
+        "cc_binary",
+        "cc_library",
+        "cc_test",
+        "java_library",
+        "java_binary",
+        "java_import",
+        "java_defaults",
+        "java_test",
+        "android_app",
+        "android_library",
+        "android_test",
+        "python_library",
+        "python_test",
+        "rust_binary",
+        "rust_library",
+        "rust_defaults",
+        "rust_test",
+        "rust_ffi",
+        "sh_binary_host",
+        "sh_binary",
+        "sh_test",
+        "filegroup",
+        "gensrcs",
+        "genrule",
+        "prebuilt_etc",
+        "prebuilt_font",
+        "apex_key",
+        "apex",
+        "phony",
+        "ndk_library",
+        "llndk_library",
+        "toolchain_library",
+    ];
+    TYPES.iter().any(|t| android_bp_module(s, t))
+}
+
+fn android_bp_module(s: &str, key: &str) -> bool {
+    if !s.starts_with(key) {
+        return false;
+    }
+    let after = &s[key.len()..];
+    if !(after.is_empty() || after.starts_with(char::is_whitespace) || after.starts_with('{')) {
+        return false;
+    }
+    let after = after.trim_start();
+    let Some(rest) = after.strip_prefix('{') else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    // Empty body start, `}`, comment, or Soong props (`name: "…"`, `srcs: [`).
+    rest.is_empty()
+        || rest.starts_with('}')
+        || rest.starts_with("//")
+        || rest.starts_with('#')
+        || android_bp_prop_start(rest)
+}
+
+fn android_bp_prop_start(s: &str) -> bool {
+    // Property name: lowercase / digit / `_`, then `:`.
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'_')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let name = &s[..n];
+    if name.eq_ignore_ascii_case("the") || name.ends_with('_') {
+        return false;
+    }
+    let after = s[n..].trim_start();
+    after.starts_with(':')
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -41541,7 +41665,7 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 
 #[cfg(test)]
 mod func_like_line_tests {
-    use super::{is_bitbake_decl, line_is_func_like};
+    use super::{is_android_bp_decl, is_bitbake_decl, line_is_func_like};
 
     #[test]
     fn rust_visibility_and_qualifiers_count() {
@@ -45038,6 +45162,62 @@ mod func_like_line_tests {
         assert!(!is_bitbake_decl("python () {"));
         assert!(!is_bitbake_decl("fakeroot()"));
         assert!(!line_is_func_like("addtask do_compile"));
+    }
+
+    #[test]
+    fn android_bp_decls_count() {
+        assert!(line_is_func_like("cc_binary {"));
+        assert!(line_is_func_like("cc_library {"));
+        assert!(line_is_func_like("cc_library_shared {"));
+        assert!(line_is_func_like("cc_library_static {"));
+        assert!(line_is_func_like("cc_library_headers {"));
+        assert!(line_is_func_like("cc_defaults {"));
+        assert!(line_is_func_like("cc_test {"));
+        assert!(line_is_func_like("cc_object {"));
+        assert!(line_is_func_like("cc_genrule {"));
+        assert!(line_is_func_like("cc_prebuilt_library_shared {"));
+        assert!(line_is_func_like("android_app {"));
+        assert!(line_is_func_like("android_library {"));
+        assert!(line_is_func_like("android_test {"));
+        assert!(line_is_func_like("android_app_certificate {"));
+        assert!(line_is_func_like("java_library {"));
+        assert!(line_is_func_like("java_sdk_library {"));
+        assert!(line_is_func_like("java_defaults {"));
+        assert!(line_is_func_like("rust_binary {"));
+        assert!(line_is_func_like("rust_library {"));
+        assert!(line_is_func_like("rust_proc_macro {"));
+        assert!(line_is_func_like("rust_ffi_shared {"));
+        assert!(line_is_func_like("python_binary_host {"));
+        assert!(line_is_func_like("sh_binary {"));
+        assert!(line_is_func_like("filegroup {"));
+        assert!(line_is_func_like("genrule {"));
+        assert!(line_is_func_like("gensrcs {"));
+        assert!(line_is_func_like("apex {"));
+        assert!(line_is_func_like("apex_key {"));
+        assert!(line_is_func_like("prebuilt_etc {"));
+        assert!(line_is_func_like("phony {"));
+        assert!(line_is_func_like("cc_binary { name: \"hello\","));
+        assert!(line_is_func_like("cc_library_shared { name: \"libfoo\","));
+        assert!(line_is_func_like("  android_app { // app"));
+        assert!(line_is_func_like("cc_binary{"));
+        assert!(line_is_func_like("cc_binary {}"));
+        // Bazel paren form stays on Bazel (needs same-line name=).
+        assert!(line_is_func_like("cc_binary(name = \"hello\")"));
+        assert!(!is_android_bp_decl("cc_binary(name = \"hello\")"));
+        // BitBake / PKGBUILD still work.
+        assert!(line_is_func_like("do_compile() {"));
+        assert!(line_is_func_like("prepare() {"));
+        // Prose / bare / wrong case / junk stay out.
+        assert!(!line_is_func_like("cc_binary"));
+        assert!(!line_is_func_like("cc_library"));
+        assert!(!line_is_func_like("cc_binary the"));
+        assert!(!line_is_func_like("Cc_binary {"));
+        assert!(!line_is_func_like("CC_BINARY {"));
+        assert!(!line_is_func_like("cc_binarys {"));
+        assert!(!line_is_func_like("cc_binary_extra {"));
+        assert!(!is_android_bp_decl("cc_binary the {"));
+        assert!(!is_android_bp_decl("not_a_module {"));
+        assert!(!line_is_func_like("cc_binary { the:"));
     }
 
     #[test]

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.516] — 2026-10-22
+
+View:
+
+- **Function List** lists Android.bp / Soong modules: `cc_binary {`, `cc_library` / `cc_library_shared` / `cc_library_static` / `cc_library_headers`, `cc_defaults`, `cc_test`, `cc_object`, `cc_genrule`, `cc_prebuilt_*`, `android_app` / `android_library` / `android_test` / `android_app_certificate`, `java_library` / `java_sdk_library` / `java_defaults`, `rust_binary` / `rust_library` / `rust_proc_macro` / `rust_ffi*`, `python_binary_host`, `sh_binary`, `filegroup`, `genrule` / `gensrcs`, `apex` / `apex_key`, `prebuilt_etc`, `phony`. Optional same-line `name:`. Bazel `cc_binary(name = …)` stays on Bazel. Prose, bare keywords, and wrong case stay out.
+
 ## [0.3.515] — 2026-10-22
 
 View:
