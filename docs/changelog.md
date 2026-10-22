@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.527] — 2026-10-22
+
+View:
+
+- **Function List** lists go.mod directives: `module example.com/foo`, `go 1.22`, `toolchain go1.22.1` / `default`, `require (` / `require path v1.2.3`, `exclude (` / single-line, `replace (` / `replace old => new` (incl. `./` / `../` local), `retract (` / `retract v1.0.0` / `retract [v1.0.0, v1.0.1]`. Optional `//` / `/*` comment. JS `require('fs')`, bare keywords, prose (`module the team`), and dependency lines inside a block stay out.
+
 ## [0.3.526] — 2026-10-22
 
 View:

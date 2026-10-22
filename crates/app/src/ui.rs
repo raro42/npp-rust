@@ -32028,6 +32028,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `"bin": [`, `"provide": {`, `"replace": {`, `"conflict": {`,
 /// `"suggest": {`). Optional trailing `,` and `//` / `/*` comment.
 /// `"require"` / `"require-dev"` and leaf keys (`"name"`, `"type"`, …) stay out.
+/// go.mod directives (`module example.com/foo`, `go 1.22`, `toolchain go1.22.1`,
+/// `require (` / `require path v1.2.3`, `exclude (` / single-line,
+/// `replace (` / `replace old => new`, `retract (` / `retract v1.0.0` /
+/// `retract [v1.0.0, v1.0.1]`). Optional `//` / `/*` comment. JS
+/// `require('fs')`, bare keywords, prose (`module the team`), and
+/// dependency lines inside a block (`github.com/foo v1.2.3`) stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32139,6 +32145,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pyproject_toml_decl(s)
             || is_package_json_decl(s)
             || is_composer_json_decl(s)
+            || is_gomod_decl(s)
         {
             return true;
         }
@@ -32246,6 +32253,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pyproject_toml_decl(s)
         || is_package_json_decl(s)
         || is_composer_json_decl(s)
+        || is_gomod_decl(s)
     {
         return true;
     }
@@ -40450,6 +40458,240 @@ fn composer_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
     }
 }
 
+/// go.mod directives: `module example.com/foo`, `go 1.22`,
+/// `toolchain go1.22.1`, `require (` / `require path v1.2.3`,
+/// `exclude (` / single-line, `replace (` / `replace old => new`,
+/// `retract (` / `retract v1.0.0` / `retract [v1.0.0, v1.0.1]`.
+/// Optional trailing `//` / `/*` comment. Case-sensitive keywords.
+/// JS `require('fs')`, bare keywords, prose (`module the team`), and
+/// dependency lines inside a block (`github.com/foo v1.2.3`) stay out.
+fn is_gomod_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    gomod_module(s)
+        || gomod_go_version(s)
+        || gomod_toolchain(s)
+        || gomod_require_or_exclude(s, "require")
+        || gomod_require_or_exclude(s, "exclude")
+        || gomod_replace(s)
+        || gomod_retract(s)
+}
+
+fn gomod_comment_or_end(rest: &str) -> bool {
+    let t = rest.trim_start();
+    t.is_empty() || t.starts_with("//") || t.starts_with("/*")
+}
+
+fn gomod_path_token(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('(') || s.starts_with('"') || s.starts_with('\'') {
+        return None;
+    }
+    let end = s.find(|c: char| c.is_ascii_whitespace()).unwrap_or(s.len());
+    let path = &s[..end];
+    if path.is_empty() {
+        return None;
+    }
+    // Domain-style or nested path; reject prose like `the`.
+    if !(path.contains('.') || path.contains('/')) {
+        return None;
+    }
+    if !path
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'/' | b'-' | b'_' | b'~' | b'+'))
+    {
+        return None;
+    }
+    Some((path, s[end..].trim_start()))
+}
+
+fn gomod_version_token(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() {
+        return None;
+    }
+    let end = s.find(|c: char| c.is_ascii_whitespace()).unwrap_or(s.len());
+    let ver = &s[..end];
+    // `v1.2.3`, `v0.0.0-…`, or go language version `1.22` / `1.22.0`.
+    let ok = if let Some(rest) = ver.strip_prefix('v') {
+        rest.starts_with(|c: char| c.is_ascii_digit())
+    } else {
+        let mut parts = ver.split('.');
+        matches!(parts.next(), Some(a) if !a.is_empty() && a.bytes().all(|b| b.is_ascii_digit()))
+            && matches!(parts.next(), Some(b) if !b.is_empty() && b.bytes().all(|b| b.is_ascii_digit()))
+            && match parts.next() {
+                None => true,
+                Some(c) => {
+                    !c.is_empty() && c.bytes().all(|b| b.is_ascii_digit()) && parts.next().is_none()
+                }
+            }
+    };
+    if !ok {
+        return None;
+    }
+    Some((ver, s[end..].trim_start()))
+}
+
+fn gomod_module(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("module") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let Some((_path, after)) = gomod_path_token(rest) else {
+        return false;
+    };
+    gomod_comment_or_end(after)
+}
+
+fn gomod_go_version(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("go") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    // `go 1.22` / `go 1.22.0` — no leading `v` (that form is module versions).
+    if rest.starts_with('v') {
+        return false;
+    }
+    let Some((_ver, after)) = gomod_version_token(rest) else {
+        return false;
+    };
+    gomod_comment_or_end(after)
+}
+
+fn gomod_toolchain(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("toolchain") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let end = rest
+        .find(|c: char| c.is_ascii_whitespace())
+        .unwrap_or(rest.len());
+    let name = &rest[..end];
+    // `go1.22.1` or `default`.
+    let ok = name == "default"
+        || (name.starts_with("go")
+            && name.len() > 2
+            && name.as_bytes()[2].is_ascii_digit()
+            && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.'));
+    if !ok {
+        return false;
+    }
+    gomod_comment_or_end(&rest[end..])
+}
+
+fn gomod_block_open(rest: &str) -> bool {
+    let rest = rest.trim_start();
+    let Some(after) = rest.strip_prefix('(') else {
+        return false;
+    };
+    // JS `require('fs')` has a string immediately inside `(`.
+    gomod_comment_or_end(after)
+}
+
+fn gomod_require_or_exclude(s: &str, key: &str) -> bool {
+    let Some(rest) = s.strip_prefix(key) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if gomod_block_open(rest) {
+        return true;
+    }
+    let Some((_path, after_path)) = gomod_path_token(rest) else {
+        return false;
+    };
+    let Some((_ver, after_ver)) = gomod_version_token(after_path) else {
+        return false;
+    };
+    gomod_comment_or_end(after_ver)
+}
+
+fn gomod_replace(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("replace") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if gomod_block_open(rest) {
+        return true;
+    }
+    let Some((_old, after_old)) = gomod_path_token(rest) else {
+        return false;
+    };
+    // Optional old version before `=>`.
+    let after_old = match gomod_version_token(after_old) {
+        Some((_, rest)) => rest,
+        None => after_old,
+    };
+    let Some(after_arrow) = after_old.strip_prefix("=>") else {
+        return false;
+    };
+    if !after_arrow.is_empty() && !after_arrow.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let after_arrow = after_arrow.trim_start();
+    // New side: module path or local `./…` / `../…`.
+    let after_new = if after_arrow.starts_with("./") || after_arrow.starts_with("../") {
+        let end = after_arrow
+            .find(|c: char| c.is_ascii_whitespace())
+            .unwrap_or(after_arrow.len());
+        let path = &after_arrow[..end];
+        if path.is_empty() {
+            return false;
+        }
+        after_arrow[end..].trim_start()
+    } else {
+        let Some((_path, rest)) = gomod_path_token(after_arrow) else {
+            return false;
+        };
+        rest
+    };
+    let after_new = match gomod_version_token(after_new) {
+        Some((_, rest)) => rest,
+        None => after_new,
+    };
+    gomod_comment_or_end(after_new)
+}
+
+fn gomod_retract(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("retract") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if gomod_block_open(rest) {
+        return true;
+    }
+    if let Some(inner) = rest.strip_prefix('[') {
+        // Interval: `[v1.0.0, v1.1.0]` — require a closing `]` then comment/end.
+        let Some(close) = inner.find(']') else {
+            return false;
+        };
+        let body = inner[..close].trim();
+        if body.is_empty() {
+            return false;
+        }
+        return gomod_comment_or_end(&inner[close + 1..]);
+    }
+    let Some((_ver, after)) = gomod_version_token(rest) else {
+        return false;
+    };
+    gomod_comment_or_end(after)
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -42740,8 +42982,9 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_cabal_decl,
-        is_cargo_toml_decl, is_composer_json_decl, is_package_json_decl, is_premake_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_xmake_decl, line_is_func_like,
+        is_cargo_toml_decl, is_composer_json_decl, is_gomod_decl, is_package_json_decl,
+        is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_xmake_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -46701,6 +46944,52 @@ mod func_like_line_tests {
         // npm-style bin string stays on the package.json path, not Composer.
         assert!(!is_composer_json_decl(r#""bin": "./cli.js","#));
         assert!(is_package_json_decl(r#""bin": "./cli.js","#));
+    }
+
+    #[test]
+    fn gomod_directives_count() {
+        assert!(line_is_func_like("module example.com/foo"));
+        assert!(line_is_func_like("module github.com/user/repo // main"));
+        assert!(line_is_func_like("go 1.22"));
+        assert!(line_is_func_like("go 1.22.0 // lang"));
+        assert!(line_is_func_like("toolchain go1.22.1"));
+        assert!(line_is_func_like("toolchain default"));
+        assert!(line_is_func_like("require ("));
+        assert!(line_is_func_like("require example.com/foo v1.2.3"));
+        assert!(line_is_func_like(
+            "require github.com/foo/bar v0.0.0-20240101120000-abcdef // indirect"
+        ));
+        assert!(line_is_func_like("exclude ("));
+        assert!(line_is_func_like("exclude example.com/foo v1.0.0"));
+        assert!(line_is_func_like("replace ("));
+        assert!(line_is_func_like(
+            "replace example.com/old => example.com/new v1.2.3"
+        ));
+        assert!(line_is_func_like(
+            "replace example.com/old v1.0.0 => ./local"
+        ));
+        assert!(line_is_func_like("retract ("));
+        assert!(line_is_func_like("retract v1.0.0"));
+        assert!(line_is_func_like("retract [v1.0.0, v1.1.0]"));
+        assert!(is_gomod_decl("module example.com/foo"));
+        assert!(is_gomod_decl("require ("));
+        assert!(is_gomod_decl("replace example.com/a => ../b"));
+        // Bare / prose / JS require / block dependency lines stay out.
+        assert!(!is_gomod_decl("module"));
+        assert!(!is_gomod_decl("module the team"));
+        assert!(!is_gomod_decl("go"));
+        assert!(!is_gomod_decl("go v1.22"));
+        assert!(!is_gomod_decl("require"));
+        assert!(!is_gomod_decl("require('fs')"));
+        assert!(!is_gomod_decl("require(\"fs\")"));
+        assert!(!line_is_func_like("require('fs')"));
+        assert!(!line_is_func_like("github.com/foo/bar v1.2.3"));
+        assert!(!line_is_func_like("\tgithub.com/foo/bar v1.2.3"));
+        assert!(!is_gomod_decl("toolchain"));
+        assert!(!is_gomod_decl("toolchain latest"));
+        assert!(!is_gomod_decl("retract []"));
+        assert!(!is_gomod_decl("replace example.com/old"));
+        assert!(!is_gomod_decl("Module example.com/foo"));
     }
 
     #[test]
