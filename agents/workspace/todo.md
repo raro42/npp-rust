@@ -716,3 +716,5 @@
 009 keep: Function List Tcl oo::class create / oo::define / coroutine (v0.3.498)
 
 009 keep: Function List CMake add_executable/add_library/add_custom_target/add_test/project (v0.3.504)
+
+009 keep: Function List Gradle task/tasks.register/named/create/registering + Kotlin val-by (v0.3.505)
