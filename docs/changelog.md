@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.515] — 2026-10-22
+
+View:
+
+- **Function List** lists BitBake / Yocto `do_*` tasks: `do_compile()`, `do_configure()`, `do_install()`, `do_fetch()` / `do_unpack()` / `do_patch()`, `do_deploy()`, `do_package()`, `do_populate_sysroot()`, `do_rootfs()`, optional `python` / `fakeroot`, legacy `_append` / `_prepend` and `:append` / `:prepend` / `:class-native` overrides. Prose, bare keywords, wrong case, empty `do_()`, and anonymous `python()` stay out.
+
 ## [0.3.514] — 2026-10-22
 
 View:

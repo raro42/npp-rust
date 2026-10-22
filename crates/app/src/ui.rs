@@ -31971,6 +31971,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// keywords stay out.
 /// Gentoo ebuild phase functions (`src_prepare()`, `src_compile()`,
 /// `pkg_postinst()`, …). Prose and bare keywords stay out.
+/// BitBake / Yocto `do_*` tasks (`do_compile()`, `python do_configure()`,
+/// `fakeroot do_install()`, `do_install:append()`, `do_compile_prepend()`).
+/// Prose and bare keywords stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32070,6 +32073,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_debian_rules_decl(s)
             || is_pkgbuild_decl(s)
             || is_ebuild_decl(s)
+            || is_bitbake_decl(s)
         {
             return true;
         }
@@ -32165,6 +32169,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_debian_rules_decl(s)
         || is_pkgbuild_decl(s)
         || is_ebuild_decl(s)
+        || is_bitbake_decl(s)
     {
         return true;
     }
@@ -39248,6 +39253,87 @@ fn rpm_ident_len(s: &str) -> Option<usize> {
     Some(n)
 }
 
+/// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
+/// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
+/// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
+/// Optional `python` / `fakeroot` prefixes. Legacy `_append` / `_prepend`
+/// and modern `:append` / `:prepend` / `:class-native` overrides.
+/// Optional `{` and `#` comments. Prose (`do_compile the`), bare
+/// `do_compile`, wrong case, empty `do_()`, and anonymous `python()` stay out.
+/// Gentoo `src_compile()` stays on the ebuild path.
+fn is_bitbake_decl(s: &str) -> bool {
+    let mut rest = s;
+    for _ in 0..2 {
+        if let Some(r) = rest.strip_prefix("python") {
+            if r.as_bytes()
+                .first()
+                .is_some_and(|b| b.is_ascii_whitespace())
+            {
+                rest = r.trim_start();
+                continue;
+            }
+        }
+        if let Some(r) = rest.strip_prefix("fakeroot") {
+            if r.as_bytes()
+                .first()
+                .is_some_and(|b| b.is_ascii_whitespace())
+            {
+                rest = r.trim_start();
+                continue;
+            }
+        }
+        break;
+    }
+    if !rest.starts_with("do_") {
+        return false;
+    }
+    let after_do = &rest[3..];
+    let bytes = after_do.as_bytes();
+    // First segment: lowercase / digit / `_` (e.g. `compile`, `install_append`).
+    let n0 = bytes
+        .iter()
+        .take_while(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || **b == b'_')
+        .count();
+    if n0 == 0 {
+        return false;
+    }
+    // Reject dangling `_` (`do_compile_()`, `do__()`). Legacy `_append` /
+    // `_prepend` names end in a letter, so they stay.
+    let first = &after_do[..n0];
+    if first.ends_with('_') {
+        return false;
+    }
+    let mut i = n0;
+    while i < bytes.len() && bytes[i] == b':' {
+        i += 1;
+        let n = bytes[i..]
+            .iter()
+            .take_while(|b| {
+                b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(**b, b'_' | b'-')
+            })
+            .count();
+        if n == 0 {
+            return false;
+        }
+        let seg = &after_do[i..i + n];
+        if seg.starts_with('-') || seg.ends_with('-') || seg.ends_with('_') {
+            return false;
+        }
+        i += n;
+    }
+    let after_name = after_do[i..].trim_start();
+    let Some(inner) = after_name.strip_prefix('(') else {
+        return false;
+    };
+    let inner = inner.trim_start();
+    // Shell / python task bodies take no params in the common form.
+    let Some(after_paren) = inner.strip_prefix(')') else {
+        return false;
+    };
+    let after_paren = after_paren.trim_start();
+    after_paren.is_empty() || after_paren.starts_with('{') || after_paren.starts_with('#')
+}
+
 /// Gentoo ebuild phase functions: `src_unpack()`, `src_prepare()`,
 /// `src_configure()`, `src_compile()`, `src_test()`, `src_install()`,
 /// `pkg_pretend()`, `pkg_setup()`, `pkg_nofetch()`, `pkg_preinst()`,
@@ -39255,6 +39341,7 @@ fn rpm_ident_len(s: &str) -> Option<usize> {
 /// `pkg_info()`. Optional `{` and `#` comments. Prose (`src_prepare the`),
 /// bare keywords (`src_prepare`), wrong case, and unknown names stay out.
 /// Arch PKGBUILD `prepare()` / `build()` stay on the PKGBUILD path.
+/// BitBake `do_compile()` stays on the BitBake path.
 fn is_ebuild_decl(s: &str) -> bool {
     const PHASES: &[&str] = &[
         "src_unpack",
@@ -41454,7 +41541,7 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 
 #[cfg(test)]
 mod func_like_line_tests {
-    use super::line_is_func_like;
+    use super::{is_bitbake_decl, line_is_func_like};
 
     #[test]
     fn rust_visibility_and_qualifiers_count() {
@@ -44903,7 +44990,54 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("src_prepare(args)"));
         assert!(!line_is_func_like("src_fetch()"));
         assert!(!line_is_func_like("default_src_prepare()"));
-        assert!(!line_is_func_like("do_compile()"));
+        // BitBake `do_*` stays on the BitBake path (see bitbake_decls_count).
+    }
+
+    #[test]
+    fn bitbake_decls_count() {
+        assert!(line_is_func_like("do_compile() {"));
+        assert!(line_is_func_like("do_configure()"));
+        assert!(line_is_func_like("do_install() {"));
+        assert!(line_is_func_like("do_fetch() {"));
+        assert!(line_is_func_like("do_unpack() {"));
+        assert!(line_is_func_like("do_patch() {"));
+        assert!(line_is_func_like("do_deploy() {"));
+        assert!(line_is_func_like("do_package() {"));
+        assert!(line_is_func_like("do_populate_sysroot() {"));
+        assert!(line_is_func_like("do_rootfs() {"));
+        assert!(line_is_func_like("python do_configure() {"));
+        assert!(line_is_func_like("fakeroot do_install() {"));
+        assert!(line_is_func_like("python do_install() {"));
+        assert!(line_is_func_like("do_install_append() {"));
+        assert!(line_is_func_like("do_compile_prepend() {"));
+        assert!(line_is_func_like("do_install:append() {"));
+        assert!(line_is_func_like("do_compile:prepend() {"));
+        assert!(line_is_func_like("do_compile:prepend:class-native() {"));
+        assert!(line_is_func_like("do_install:append:qemuarm() {"));
+        assert!(line_is_func_like("  do_compile() { # recipe"));
+        assert!(line_is_func_like("do_compile () {"));
+        // Gentoo / PKGBUILD still work.
+        assert!(line_is_func_like("src_compile() {"));
+        assert!(line_is_func_like("prepare() {"));
+        // Prose / bare / wrong case / junk stay out.
+        assert!(!line_is_func_like("do_compile"));
+        assert!(!line_is_func_like("do_install"));
+        assert!(!line_is_func_like("do_compile the"));
+        assert!(!line_is_func_like("do_compile:"));
+        assert!(!line_is_func_like("Do_compile()"));
+        assert!(!line_is_func_like("DO_COMPILE()"));
+        assert!(!line_is_func_like("do_()"));
+        assert!(!line_is_func_like("do_compile_()"));
+        assert!(!line_is_func_like("do_compile:()"));
+        assert!(!line_is_func_like("do_compile:append:()"));
+        assert!(!line_is_func_like("do_compile(x)"));
+        assert!(!line_is_func_like("do_compile(args)"));
+        // Anonymous BitBake `python()` without `do_*` is not a BitBake hit;
+        // `python () {` may still list via the same-line brace-method path.
+        assert!(!is_bitbake_decl("python()"));
+        assert!(!is_bitbake_decl("python () {"));
+        assert!(!is_bitbake_decl("fakeroot()"));
+        assert!(!line_is_func_like("addtask do_compile"));
     }
 
     #[test]

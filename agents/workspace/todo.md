@@ -729,3 +729,4 @@
 
 009 keep: Function List Earthfile VERSION/FROM/SAVE/BUILD/IMPORT/GIT CLONE/LOCALLY/PROJECT/COMMAND/DO (v0.3.509)
 009 keep: Function List Gentoo ebuild src_*/pkg_* phase functions (v0.3.514)
+009 keep: Function List BitBake/Yocto do_* tasks (v0.3.515)
