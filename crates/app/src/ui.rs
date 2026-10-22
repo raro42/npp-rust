@@ -31954,6 +31954,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `IMPORT github.com/…`, `GIT CLONE …`, `LOCALLY`, `PROJECT …`,
 /// `COMMAND` / `COMMAND --foo=STRING`, `DO +INSTALL`. Bare targets
 /// (`build:`) stay out. Dockerfile `FROM … AS stage` stays on Dockerfile.
+/// RPM `.spec` `%prep` / `%build` / `%install` / `%check` / `%clean` /
+/// `%files` / `%changelog` / `%description` / `%package` / scriptlets /
+/// `%define` / `%global` / `%undefine` / `%bcond_with` / `%bcond_without`.
+/// `%{…}` expansions and Makefile `%.o:` stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32048,6 +32052,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_makefile_decl(s)
             || is_just_decl(s)
             || is_earthfile_decl(s)
+            || is_rpmspec_decl(s)
         {
             return true;
         }
@@ -32138,6 +32143,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_makefile_decl(s)
         || is_just_decl(s)
         || is_earthfile_decl(s)
+        || is_rpmspec_decl(s)
     {
         return true;
     }
@@ -39005,6 +39011,222 @@ fn earth_line_tail_ok(after: &str) -> bool {
     after.is_empty() || after.starts_with('#') || after.starts_with("//") || after.starts_with("/*")
 }
 
+/// RPM `.spec` section markers and macros: `%prep`, `%build`, `%install`,
+/// `%check`, `%clean`, `%files`, `%changelog`, `%description`, `%package`,
+/// `%pre` / `%post` / `%preun` / `%postun` / `%pretrans` / `%posttrans`,
+/// `%verifyscript`, `%generate_buildrequires`, `%conf`, `%trigger*`,
+/// `%define` / `%global` / `%undefine` / `%bcond_with` / `%bcond_without`.
+/// `%{…}` expansions, `%%` escapes, and Makefile `%.o:` stay out.
+fn is_rpmspec_decl(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix('%') else {
+        return false;
+    };
+    // `%%` literal percent, `%{macro}`, `%(shell)`, Makefile `%.o:`.
+    if rest.starts_with('%')
+        || rest.starts_with('{')
+        || rest.starts_with('(')
+        || rest.starts_with('.')
+    {
+        return false;
+    }
+    let name_n = rest
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        .count();
+    if name_n == 0 {
+        return false;
+    }
+    let name = &rest[..name_n];
+    let after = rest[name_n..].trim_start();
+    let lower = name.to_ascii_lowercase();
+    match lower.as_str() {
+        "prep"
+        | "build"
+        | "install"
+        | "check"
+        | "clean"
+        | "changelog"
+        | "pre"
+        | "post"
+        | "preun"
+        | "postun"
+        | "pretrans"
+        | "posttrans"
+        | "preuntrans"
+        | "postuntrans"
+        | "verifyscript"
+        | "generate_buildrequires"
+        | "conf" => rpm_simple_section_ok(after),
+        "files" | "description" => rpm_named_section_ok(after),
+        "package" => rpm_package_ok(after),
+        "define" | "global" | "undefine" => rpm_define_ok(after),
+        "bcond_with" | "bcond_without" => rpm_bcond_ok(after),
+        n if n.starts_with("trigger")
+            || n.starts_with("filetrigger")
+            || n.starts_with("transfiletrigger") =>
+        {
+            rpm_trigger_ok(after)
+        }
+        _ => false,
+    }
+}
+
+fn rpm_simple_section_ok(after: &str) -> bool {
+    let rest = after.trim_start();
+    rest.is_empty() || rest.starts_with('#')
+}
+
+fn rpm_named_section_ok(after: &str) -> bool {
+    let mut rest = after.trim_start();
+    for _ in 0..8 {
+        if rest.is_empty() || rest.starts_with('#') {
+            return true;
+        }
+        // `-n name` / `-f filelist`
+        if let Some(r) = rest.strip_prefix("-n") {
+            if !(r.is_empty() || r.starts_with(char::is_whitespace)) {
+                return false;
+            }
+            rest = r.trim_start();
+            let Some(n) = rpm_ident_len(rest) else {
+                return false;
+            };
+            let name = &rest[..n];
+            if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+                return false;
+            }
+            rest = rest[n..].trim_start();
+            continue;
+        }
+        if let Some(r) = rest.strip_prefix("-f") {
+            if !(r.is_empty() || r.starts_with(char::is_whitespace)) {
+                return false;
+            }
+            rest = r.trim_start();
+            let Some(n) = rpm_ident_len(rest) else {
+                return false;
+            };
+            let name = &rest[..n];
+            if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+                return false;
+            }
+            rest = rest[n..].trim_start();
+            continue;
+        }
+        // Bare package name after `%package foo` (no `-n`).
+        if rest.starts_with('-') {
+            return false;
+        }
+        let Some(n) = rpm_ident_len(rest) else {
+            return false;
+        };
+        let name = &rest[..n];
+        if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+            return false;
+        }
+        rest = rest[n..].trim_start();
+        return rest.is_empty() || rest.starts_with('#');
+    }
+    rest.is_empty() || rest.starts_with('#')
+}
+
+fn rpm_package_ok(after: &str) -> bool {
+    // `%package` always names a subpackage (`%package devel` / `%package -n foo`).
+    let rest = after.trim_start();
+    if rest.is_empty() || rest.starts_with('#') {
+        return false;
+    }
+    rpm_named_section_ok(after)
+}
+
+fn rpm_trigger_ok(after: &str) -> bool {
+    let mut rest = after.trim_start();
+    if rest.is_empty() || rest.starts_with('#') {
+        return true;
+    }
+    // Optional `-n subpkg` before `--`.
+    if let Some(r) = rest.strip_prefix("-n") {
+        if !(r.is_empty() || r.starts_with(char::is_whitespace)) {
+            return false;
+        }
+        rest = r.trim_start();
+        let Some(n) = rpm_ident_len(rest) else {
+            return false;
+        };
+        rest = rest[n..].trim_start();
+    }
+    if rest.is_empty() || rest.starts_with('#') {
+        return true;
+    }
+    // `%triggerin -- pkg [, pkg2 …]`
+    let Some(r) = rest.strip_prefix("--") else {
+        return false;
+    };
+    if !(r.is_empty() || r.starts_with(char::is_whitespace)) {
+        return false;
+    }
+    rest = r.trim_start();
+    let Some(n) = rpm_ident_len(rest) else {
+        return false;
+    };
+    let name = &rest[..n];
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    rest = rest[n..].trim_start();
+    // Optional more packages (comma / space separated); accept rest of line.
+    rest.is_empty()
+        || rest.starts_with('#')
+        || rest.starts_with(',')
+        || rpm_ident_len(rest).is_some()
+}
+
+fn rpm_define_ok(after: &str) -> bool {
+    let rest = after.trim_start();
+    let Some(n) = rpm_ident_len(rest) else {
+        return false;
+    };
+    let name = &rest[..n];
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    // `%undefine name` needs only the name; `%define` / `%global` may have a value.
+    let rest = rest[n..].trim_start();
+    if rest.is_empty() || rest.starts_with('#') {
+        return true;
+    }
+    // Reject prose `the …` as a value token.
+    !rest.to_ascii_lowercase().starts_with("the ")
+}
+
+fn rpm_bcond_ok(after: &str) -> bool {
+    let rest = after.trim_start();
+    let Some(n) = rpm_ident_len(rest) else {
+        return false;
+    };
+    let name = &rest[..n];
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let rest = rest[n..].trim_start();
+    rest.is_empty() || rest.starts_with('#')
+}
+
+fn rpm_ident_len(s: &str) -> Option<usize> {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'+'))
+        .count();
+    if n == 0 {
+        return None;
+    }
+    let first = s.as_bytes()[0];
+    if !(first.is_ascii_alphabetic() || first == b'_') {
+        return None;
+    }
+    Some(n)
+}
+
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
     let Some((name, after)) = graphql_ident(s) else {
         return false;
@@ -44258,6 +44480,62 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("RUN echo hi"));
         assert!(!line_is_func_like("COPY src dest"));
         assert!(!line_is_func_like("WORKDIR /app"));
+    }
+
+    #[test]
+    fn rpmspec_decls_count() {
+        assert!(line_is_func_like("%prep"));
+        assert!(line_is_func_like("%build"));
+        assert!(line_is_func_like("%install"));
+        assert!(line_is_func_like("%check"));
+        assert!(line_is_func_like("%clean"));
+        assert!(line_is_func_like("%changelog"));
+        assert!(line_is_func_like("  %prep # unpack"));
+        assert!(line_is_func_like("%files"));
+        assert!(line_is_func_like("%files -n foo"));
+        assert!(line_is_func_like("%files -f filelist"));
+        assert!(line_is_func_like("%description"));
+        assert!(line_is_func_like("%description -n foo-devel"));
+        assert!(line_is_func_like("%package devel"));
+        assert!(line_is_func_like("%package -n foo-libs"));
+        assert!(line_is_func_like("%pre"));
+        assert!(line_is_func_like("%post"));
+        assert!(line_is_func_like("%preun"));
+        assert!(line_is_func_like("%postun"));
+        assert!(line_is_func_like("%pretrans"));
+        assert!(line_is_func_like("%posttrans"));
+        assert!(line_is_func_like("%verifyscript"));
+        assert!(line_is_func_like("%generate_buildrequires"));
+        assert!(line_is_func_like("%conf"));
+        assert!(line_is_func_like("%triggerin"));
+        assert!(line_is_func_like("%triggerun -- foo"));
+        assert!(line_is_func_like("%define _lto_cflags %{nil}"));
+        assert!(line_is_func_like("%global debug_package %{nil}"));
+        assert!(line_is_func_like("%undefine _debugsource_packages"));
+        assert!(line_is_func_like("%bcond_with docs"));
+        assert!(line_is_func_like("%bcond_without check"));
+        // Earthfile / Makefile / Just still work.
+        assert!(line_is_func_like("VERSION 0.8"));
+        assert!(line_is_func_like("%.o: %.c"));
+        assert!(line_is_func_like("@build:"));
+        // Expansions / escapes / prose / other languages stay out.
+        assert!(!line_is_func_like("%{name}"));
+        assert!(!line_is_func_like("%{_bindir}/foo"));
+        assert!(!line_is_func_like("%%prep"));
+        assert!(!line_is_func_like("%setup -q"));
+        assert!(!line_is_func_like("%configure"));
+        assert!(!line_is_func_like("%make_build"));
+        assert!(!line_is_func_like("%if 0%{?fedora}"));
+        assert!(!line_is_func_like("%endif"));
+        assert!(!line_is_func_like("%prep now"));
+        assert!(!line_is_func_like("%package"));
+        assert!(!line_is_func_like("%package the"));
+        assert!(!line_is_func_like("%define"));
+        assert!(!line_is_func_like("%define the value"));
+        assert!(!line_is_func_like("%bcond_with"));
+        assert!(!line_is_func_like("%bcond_with the"));
+        assert!(!line_is_func_like("Name: foo"));
+        assert!(!line_is_func_like("build:"));
     }
 
     #[test]

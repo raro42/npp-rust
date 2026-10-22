@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.510] — 2026-10-22
+
+View:
+
+- **Function List** lists RPM `.spec` `%prep` / `%build` / `%install` / `%check` / `%clean` / `%files` / `%changelog` / `%description` / `%package` / scriptlets (`%pre`…`%posttrans`) / `%trigger*` / `%define` / `%global` / `%undefine` / `%bcond_with` / `%bcond_without`. `%{…}` expansions and Makefile `%.o:` stay out.
+
 ## [0.3.509] — 2026-10-22
 
 View:

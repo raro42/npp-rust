@@ -1,3 +1,4 @@
+009 keep: Function List sees RPM .spec %prep/%build/%install/%package/%define (v0.3.510)
 009 keep: Function List sees Ninja rule / build / pool / default (v0.3.506)
 009 keep: Function List sees Bazel/Starlark BUILD rules with same-line name= (v0.3.503)
 009 keep: Function List sees GN executable/shared_library/source_set/rust_*/target (v0.3.502)
