@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.533] — 2026-10-23
+
+View:
+
+- **Function List** lists tox.ini sections: `[tox]`, `[testenv]`, `[testenv:…]` (e.g. `py39`, `lint`), `[gh-actions]`, `[gh-actions:…]`. Optional `#` / `;` comment. Key lines (`envlist =`), Cargo / Pipfile / pyproject / Desktop Entry tables, incomplete brackets, and prose stay out.
+
 ## [0.3.532] — 2026-10-23
 
 View:

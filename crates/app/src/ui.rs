@@ -32055,6 +32055,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `[dev-packages]`, `[requires]`, `[scripts]`, `[pipenv]`). Optional
 /// trailing `#` comment. Package assignment lines, Cargo / pyproject
 /// tables, incomplete brackets, and prose stay out.
+/// tox.ini sections (`[tox]`, `[testenv]`, `[testenv:…]`, `[gh-actions]`,
+/// `[gh-actions:…]`). Optional `#` / `;` comment. Key lines (`envlist =`),
+/// Cargo / Pipfile / pyproject / Desktop Entry tables, incomplete
+/// brackets, and prose stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32171,6 +32175,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_brewfile_decl(s)
             || is_podfile_decl(s)
             || is_pipfile_decl(s)
+            || is_tox_ini_decl(s)
         {
             return true;
         }
@@ -32283,6 +32288,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_brewfile_decl(s)
         || is_podfile_decl(s)
         || is_pipfile_decl(s)
+        || is_tox_ini_decl(s)
     {
         return true;
     }
@@ -41083,6 +41089,53 @@ fn is_pipfile_decl(s: &str) -> bool {
     }
 }
 
+/// tox.ini sections: `[tox]`, `[testenv]`, `[testenv:py39]` /
+/// `[testenv:lint]`, `[gh-actions]`, `[gh-actions:env]`. Optional
+/// trailing `#` or `;` comment. Key lines (`envlist = py39`), Cargo /
+/// Pipfile / pyproject / Desktop Entry tables, incomplete brackets, and
+/// prose stay out.
+fn is_tox_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    tox_ini_header_ok(header)
+}
+
+fn tox_ini_tail_ok(after: &str) -> bool {
+    let t = after.trim_start();
+    t.is_empty() || t.starts_with('#') || t.starts_with(';')
+}
+
+fn tox_ini_header_ok(header: &str) -> bool {
+    if matches!(header, "tox" | "testenv" | "gh-actions") {
+        return true;
+    }
+    if let Some(name) = header.strip_prefix("testenv:") {
+        return tox_ini_segment_ok(name);
+    }
+    if let Some(name) = header.strip_prefix("gh-actions:") {
+        return tox_ini_segment_ok(name);
+    }
+    false
+}
+
+fn tox_ini_segment_ok(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -43375,7 +43428,8 @@ mod func_like_line_tests {
         is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl,
         is_cargo_toml_decl, is_composer_json_decl, is_gemfile_decl, is_gomod_decl,
         is_package_json_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_xmake_decl, line_is_func_like,
+        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_tox_ini_decl, is_xmake_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -47569,6 +47623,43 @@ mod func_like_line_tests {
         assert!(!is_pipfile_decl("[project]"));
         assert!(is_pyproject_toml_decl("[tool.poetry]"));
         assert!(!is_pipfile_decl("[tool.poetry]"));
+    }
+
+    #[test]
+    fn tox_ini_sections_count() {
+        assert!(line_is_func_like("[tox]"));
+        assert!(line_is_func_like("  [tox] # root"));
+        assert!(line_is_func_like("[tox] ; root"));
+        assert!(line_is_func_like("[testenv]"));
+        assert!(line_is_func_like("[testenv:py39]"));
+        assert!(line_is_func_like("[testenv:lint]"));
+        assert!(line_is_func_like("[testenv:py3.12]"));
+        assert!(line_is_func_like("[gh-actions]"));
+        assert!(line_is_func_like("[gh-actions:env]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[testenv]"));
+        assert!(is_tox_ini_decl("[testenv:py39]"));
+        assert!(is_tox_ini_decl("[testenv:lint]"));
+        assert!(is_tox_ini_decl("[gh-actions]"));
+        assert!(is_tox_ini_decl("[gh-actions:env]"));
+        // Key lines / incomplete / other tables stay out.
+        assert!(!is_tox_ini_decl("envlist = py39,py310"));
+        assert!(!line_is_func_like("envlist = py39,py310"));
+        assert!(!is_tox_ini_decl("[tox"));
+        assert!(!is_tox_ini_decl("[[tox]]"));
+        assert!(!is_tox_ini_decl("[testenv:]"));
+        assert!(!is_tox_ini_decl("[testenv:-bad]"));
+        assert!(!is_tox_ini_decl("[gh-actions:]"));
+        assert!(!is_tox_ini_decl("[Desktop Entry]"));
+        assert!(!is_tox_ini_decl("[flake8]"));
+        assert!(!is_tox_ini_decl("[metadata]"));
+        // Cargo / Pipfile / pyproject stay on their paths.
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_tox_ini_decl("[package]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_tox_ini_decl("[packages]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_tox_ini_decl("[project]"));
     }
 
     #[test]
