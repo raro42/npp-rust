@@ -32051,6 +32051,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// trailing kwargs / `#` / `|installer|`. Bare keywords, prose
 /// (`pod the alamofire`), and wrong case stay out. xmake `target("…")`
 /// stays on its path; Gemfile `gem` / Brewfile `brew` stay on theirs.
+/// Pipfile (Pipenv) structural tables (`[[source]]`, `[packages]`,
+/// `[dev-packages]`, `[requires]`, `[scripts]`, `[pipenv]`). Optional
+/// trailing `#` comment. Package assignment lines, Cargo / pyproject
+/// tables, incomplete brackets, and prose stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32166,6 +32170,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
             || is_podfile_decl(s)
+            || is_pipfile_decl(s)
         {
             return true;
         }
@@ -32277,6 +32282,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
         || is_podfile_decl(s)
+        || is_pipfile_decl(s)
     {
         return true;
     }
@@ -41055,6 +41061,28 @@ fn podfile_hook(s: &str, kw: &str) -> bool {
     gemfile_comment_or_end(inner[end + 1..].trim_start())
 }
 
+/// Pipfile (Pipenv) structural tables: `[[source]]`, `[packages]`,
+/// `[dev-packages]`, `[requires]`, `[scripts]`, `[pipenv]`. Optional
+/// trailing `#` comment. Package assignment lines (`requests = "*"`),
+/// Cargo / pyproject tables, incomplete brackets, and prose stay out.
+fn is_pipfile_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if !cargo_toml_tail_ok(after) {
+        return false;
+    }
+    if array {
+        header == "source"
+    } else {
+        matches!(
+            header,
+            "packages" | "dev-packages" | "requires" | "scripts" | "pipenv"
+        )
+    }
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -43346,8 +43374,8 @@ mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl,
         is_cargo_toml_decl, is_composer_json_decl, is_gemfile_decl, is_gomod_decl,
-        is_package_json_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_scons_decl, is_xmake_decl, line_is_func_like,
+        is_package_json_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -47503,6 +47531,44 @@ mod func_like_line_tests {
         assert!(!is_podfile_decl(r#"brew "git""#));
         assert!(is_xmake_decl(r#"target("app")"#));
         assert!(!is_podfile_decl(r#"target("app")"#));
+    }
+
+    #[test]
+    fn pipfile_tables_count() {
+        assert!(line_is_func_like("[[source]]"));
+        assert!(line_is_func_like("  [[source]] # pypi"));
+        assert!(line_is_func_like("[packages]"));
+        assert!(line_is_func_like("[dev-packages]"));
+        assert!(line_is_func_like("[requires]"));
+        assert!(line_is_func_like("[scripts]"));
+        assert!(line_is_func_like("[pipenv]"));
+        assert!(line_is_func_like("[packages] # prod"));
+        assert!(is_pipfile_decl("[[source]]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(is_pipfile_decl("[dev-packages]"));
+        assert!(is_pipfile_decl("[requires]"));
+        assert!(is_pipfile_decl("[scripts]"));
+        assert!(is_pipfile_decl("[pipenv]"));
+        // Package lines / incomplete / Cargo / pyproject stay out.
+        assert!(!is_pipfile_decl(r#"requests = "*""#));
+        assert!(!line_is_func_like(r#"requests = "*""#));
+        assert!(!is_pipfile_decl("[[source]"));
+        assert!(!is_pipfile_decl("[source]"));
+        assert!(!is_pipfile_decl("[[packages]]"));
+        assert!(!is_pipfile_decl("[package]"));
+        assert!(!is_pipfile_decl("[project]"));
+        assert!(!is_pipfile_decl("[dependencies]"));
+        assert!(!is_pipfile_decl("[]"));
+        assert!(!is_pipfile_decl("[[]]"));
+        assert!(!is_pipfile_decl("[Desktop Entry]"));
+        assert!(!is_pipfile_decl("packages]"));
+        // Cargo / pyproject stay on their paths.
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_pipfile_decl("[package]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_pipfile_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[tool.poetry]"));
+        assert!(!is_pipfile_decl("[tool.poetry]"));
     }
 
     #[test]

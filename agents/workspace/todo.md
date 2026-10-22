@@ -755,3 +755,7 @@
 009 keep: Function List Bundler Gemfile source/ruby/gem/group/gemspec/platform/git_source/plugin/eval_gemfile (v0.3.529)
 
 009 keep: Function List Homebrew Brewfile tap/brew/cask/mas/whalebrew/vscode (v0.3.530)
+
+009 keep: Function List CocoaPods Podfile directives (v0.3.531)
+
+009 keep: Function List Pipfile (Pipenv) [[source]]/[packages]/[dev-packages]/[requires]/[scripts]/[pipenv] (v0.3.532)

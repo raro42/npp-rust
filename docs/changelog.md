@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.532] — 2026-10-23
+
+View:
+
+- **Function List** lists Pipfile (Pipenv) structural tables: `[[source]]`, `[packages]`, `[dev-packages]`, `[requires]`, `[scripts]`, `[pipenv]`. Optional `#` comment. Package assignment lines (`requests = "*"`), Cargo / pyproject tables, incomplete brackets, and prose stay out.
+
 ## [0.3.531] — 2026-10-23
 
 View:
