@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.518] — 2026-10-22
+
+View:
+
+- **Function List** lists Apache Ant / MSBuild XML targets: `<target name="compile">`, `<project name="Foo" default="all">`, `<macrodef name="with-echo">`, `<Target Name="Build">`. Tag is case-insensitive. Quoted `name` / `Name` on the same line (other attrs may precede). Prose, bare tags, closing tags, and non-name elements stay out.
+
 ## [0.3.517] — 2026-10-22
 
 View:

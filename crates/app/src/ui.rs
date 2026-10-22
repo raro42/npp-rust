@@ -31982,6 +31982,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `InstallAs`). Quoted target on the same line (single or double). Meson
 /// single-quoted `library` / `shared_library` stay on Meson; GN brace forms
 /// stay on GN. Prose and bare keywords stay out.
+/// Apache Ant / MSBuild XML (`<target name="compile">`, `<project name="Foo">`,
+/// `<macrodef name="with-echo">`, `<Target Name="Build">`). Quoted `name` /
+/// `Name` on the same line. Prose and bare tags stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32084,6 +32087,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_bitbake_decl(s)
             || is_android_bp_decl(s)
             || is_scons_decl(s)
+            || is_ant_msbuild_decl(s)
         {
             return true;
         }
@@ -32182,6 +32186,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_bitbake_decl(s)
         || is_android_bp_decl(s)
         || is_scons_decl(s)
+        || is_ant_msbuild_decl(s)
     {
         return true;
     }
@@ -39513,6 +39518,132 @@ fn scons_target_name_ok(name: &str) -> bool {
     true
 }
 
+/// Apache Ant / MSBuild XML targets: `<target name="compile">`,
+/// `<project name="Foo" default="all">`, `<macrodef name="with-echo">`,
+/// `<Target Name="Build" DependsOnTargets="Prepare">`. Tag is case-insensitive
+/// (`target` / `Target` / `TARGET`). Quoted `name` / `Name` attribute on the
+/// same line (single or double quotes; other attrs may precede). Prose
+/// (`<target the compile>`), bare tags (`<target>`), closing tags, and
+/// non-name elements stay out.
+fn is_ant_msbuild_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('<') else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    if rest.starts_with('/') || rest.starts_with('!') || rest.starts_with('?') {
+        return false;
+    }
+    let after_tag = if let Some(a) = ant_xml_open_tag(rest, "macrodef") {
+        a
+    } else if let Some(a) = ant_xml_open_tag(rest, "target") {
+        a
+    } else if let Some(a) = ant_xml_open_tag(rest, "project") {
+        a
+    } else {
+        return false;
+    };
+    ant_msbuild_name_attr(after_tag)
+}
+
+fn ant_xml_open_tag<'a>(s: &'a str, tag: &str) -> Option<&'a str> {
+    let rest = sql_word(s, tag)?;
+    if !(rest.is_empty()
+        || rest.starts_with(char::is_whitespace)
+        || rest.starts_with('/')
+        || rest.starts_with('>'))
+    {
+        return None;
+    }
+    Some(rest.trim_start())
+}
+
+fn ant_msbuild_name_attr(s: &str) -> bool {
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        if i >= bytes.len() {
+            return false;
+        }
+        if bytes[i] == b'>' {
+            return false;
+        }
+        if bytes[i] == b'/' {
+            return false;
+        }
+        let start = i;
+        while i < bytes.len()
+            && (bytes[i].is_ascii_alphanumeric() || matches!(bytes[i], b'_' | b'-' | b':'))
+        {
+            i += 1;
+        }
+        if i == start {
+            return false;
+        }
+        let attr = &s[start..i];
+        let is_name = attr.eq_ignore_ascii_case("name");
+        while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        if i >= bytes.len() || bytes[i] != b'=' {
+            return false;
+        }
+        i += 1;
+        while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        if i >= bytes.len() {
+            return false;
+        }
+        let q = bytes[i];
+        if q != b'"' && q != b'\'' {
+            return false;
+        }
+        i += 1;
+        let val_start = i;
+        while i < bytes.len() && bytes[i] != q {
+            // Names stay on one line; reject raw `<` / `>` inside the value.
+            if bytes[i] == b'<' || bytes[i] == b'>' {
+                return false;
+            }
+            i += 1;
+        }
+        if i >= bytes.len() {
+            return false;
+        }
+        let val = &s[val_start..i];
+        i += 1;
+        if is_name {
+            return ant_msbuild_name_ok(val);
+        }
+    }
+    false
+}
+
+fn ant_msbuild_name_ok(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    let first = bytes[0];
+    if !(first.is_ascii_alphanumeric() || first == b'_' || first == b'.' || first == b'$') {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'$'))
+    {
+        return false;
+    }
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    true
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -41801,7 +41932,9 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 
 #[cfg(test)]
 mod func_like_line_tests {
-    use super::{is_android_bp_decl, is_bitbake_decl, is_scons_decl, line_is_func_like};
+    use super::{
+        is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_scons_decl, line_is_func_like,
+    };
 
     #[test]
     fn rust_visibility_and_qualifiers_count() {
@@ -45406,6 +45539,39 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("Program the hello"));
         assert!(!line_is_func_like("Alias"));
         assert!(!line_is_func_like("Command the build"));
+    }
+
+    #[test]
+    fn ant_msbuild_xml_targets_count() {
+        assert!(line_is_func_like(r#"<target name="compile">"#));
+        assert!(line_is_func_like(r#"<target name='clean'/>"#));
+        assert!(line_is_func_like(
+            r#"<target name="jar" depends="compile">"#
+        ));
+        assert!(line_is_func_like(
+            r#"<target depends="init" name="compile">"#
+        ));
+        assert!(line_is_func_like(r#"<project name="MyApp" default="all">"#));
+        assert!(line_is_func_like(r#"<macrodef name="with-echo">"#));
+        assert!(line_is_func_like(
+            r#"<Target Name="Build" DependsOnTargets="Prepare">"#
+        ));
+        assert!(line_is_func_like(r#"<TARGET NAME="Clean">"#));
+        assert!(line_is_func_like(r#"  <target name="test-unit">"#));
+        assert!(line_is_func_like(r#"<target name="foo.bar">"#));
+        assert!(line_is_func_like(r#"<target name="$build">"#));
+        // Incomplete / prose / bare stay out.
+        assert!(!is_ant_msbuild_decl("<target>"));
+        assert!(!is_ant_msbuild_decl("<target name=>"));
+        assert!(!is_ant_msbuild_decl(r#"<target name="">"#));
+        assert!(!is_ant_msbuild_decl(r#"<target name="the">"#));
+        assert!(!is_ant_msbuild_decl("</target>"));
+        assert!(!is_ant_msbuild_decl(r#"<targets name="compile">"#));
+        assert!(!is_ant_msbuild_decl(r#"<property name="src">"#));
+        assert!(!is_ant_msbuild_decl(r#"<ItemGroup Name="Compile">"#));
+        assert!(!line_is_func_like(r#"<target the compile>"#));
+        assert!(!line_is_func_like("<project>"));
+        assert!(!line_is_func_like(r#"Target Name="Build""#));
     }
 
     #[test]
