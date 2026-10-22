@@ -1,3 +1,4 @@
+009 keep: Function List sees Cargo.toml [package]/[lib]/[[bin]]/[workspace]/[profile.*] (v0.3.523)
 009 keep: Function List sees Rake task/multitask/file/directory/rule (v0.3.521)
 009 keep: Function List sees Premake workspace/project/solution (v0.3.519)
 009 keep: Function List sees Apache Ant / MSBuild XML <target name> / <project name> / <macrodef name> / <Target Name> (v0.3.518)
