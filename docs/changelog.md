@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.529] — 2026-10-23
+
+View:
+
+- **Function List** lists Bundler Gemfile directives: `source "…"`, `ruby "…"`, `gem "…"` (optional version / kwargs), `group :development do` / `group :development, :test do`, `gemspec` / `gemspec path:`, `platforms :ruby do` / `platform :jruby do`, `git_source(:github)`, `plugin "…"`, `eval_gemfile "…"`. Optional `#` comment. Bare keywords, prose (`gem the rails`, `source the gems`), and wrong case stay out. Rake `task` stays on the Rake path.
+
 ## [0.3.528] — 2026-10-22
 
 View:

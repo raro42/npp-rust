@@ -32035,6 +32035,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `use ./foo` / `use ../bar` / `use .` / `use foo`). Optional `//` / `/*`
 /// comment. JS `require('fs')`, bare keywords, prose (`module the team` /
 /// `use the team`), and dependency / member lines inside a block stay out.
+/// Bundler Gemfile directives (`source "…"`, `ruby "…"`, `gem "…"`,
+/// `group :development do`, `gemspec`, `platforms :ruby do` /
+/// `platform :jruby do`, `git_source(:github)`, `plugin "…"`,
+/// `eval_gemfile "…"`). Optional trailing args / `#` / `do`. Bare keywords,
+/// prose (`gem the rails`, `source the gems`), and wrong case stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32147,6 +32152,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_package_json_decl(s)
             || is_composer_json_decl(s)
             || is_gomod_decl(s)
+            || is_gemfile_decl(s)
         {
             return true;
         }
@@ -32255,6 +32261,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_package_json_decl(s)
         || is_composer_json_decl(s)
         || is_gomod_decl(s)
+        || is_gemfile_decl(s)
     {
         return true;
     }
@@ -40740,6 +40747,183 @@ fn gomod_use(s: &str) -> bool {
     gomod_comment_or_end(after)
 }
 
+/// Bundler Gemfile directives: `source "…"`, `ruby "…"`, `gem "…"`,
+/// `group :development do`, `gemspec`, `platforms :ruby do` /
+/// `platform :jruby do`, `git_source(:github)`, `plugin "…"`,
+/// `eval_gemfile "…"`. Optional trailing kwargs / version / `#` / `do`.
+/// Bare keywords, prose (`gem the rails`, `source the gems`), and wrong
+/// case stay out. Rake `task` / Ruby `attr_*` stay on their paths.
+fn is_gemfile_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    gemfile_quoted_kw(s, "source")
+        || gemfile_quoted_kw(s, "ruby")
+        || gemfile_quoted_kw(s, "gem")
+        || gemfile_quoted_kw(s, "plugin")
+        || gemfile_quoted_kw(s, "eval_gemfile")
+        || gemfile_gemspec(s)
+        || gemfile_group_or_platform(s, "group")
+        || gemfile_group_or_platform(s, "platforms")
+        || gemfile_group_or_platform(s, "platform")
+        || gemfile_git_source(s)
+}
+
+fn gemfile_comment_or_end(rest: &str) -> bool {
+    let t = rest.trim_start();
+    t.is_empty() || t.starts_with('#')
+}
+
+fn gemfile_do_tail(rest: &str) -> bool {
+    let Some(after) = rest.strip_prefix("do") else {
+        return false;
+    };
+    after.is_empty() || after.starts_with(char::is_whitespace) || after.starts_with('#')
+}
+
+/// After a quoted string: allow trailing kwargs / version / `do` / `#`.
+fn gemfile_after_quoted_ok(after: &str) -> bool {
+    let t = after.trim_start();
+    if gemfile_comment_or_end(t) {
+        return true;
+    }
+    if gemfile_do_tail(t) {
+        let after_do = t[2..].trim_start();
+        return gemfile_comment_or_end(after_do);
+    }
+    // Trailing args: `, …` (version string, kwargs, git:, require:, …).
+    if let Some(rest) = t.strip_prefix(',') {
+        let rest = rest.trim_start();
+        return !rest.is_empty();
+    }
+    false
+}
+
+fn gemfile_quoted_string(s: &str) -> Option<(&str, &str)> {
+    let bytes = s.as_bytes();
+    let &q = bytes.first()?;
+    if q != b'"' && q != b'\'' {
+        return None;
+    }
+    let rest = &s[1..];
+    let end = rest.find(q as char)?;
+    let name = &rest[..end];
+    if name.is_empty() {
+        return None;
+    }
+    // Gem / source / plugin names: printable, no bare spaces (paths/URLs ok).
+    if name.chars().any(|c| c == '\n' || c == '\r') {
+        return None;
+    }
+    Some((name, rest[end + 1..].trim_start()))
+}
+
+fn gemfile_quoted_kw(s: &str, kw: &str) -> bool {
+    let Some(rest) = s.strip_prefix(kw) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_name, after)) = gemfile_quoted_string(rest) else {
+        return false;
+    };
+    gemfile_after_quoted_ok(after)
+}
+
+fn gemfile_gemspec(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("gemspec") else {
+        return false;
+    };
+    // Bare `gemspec` or `gemspec path: "…"`, `gemspec name: "foo"`.
+    if rest.is_empty() || rest.starts_with(char::is_whitespace) {
+        let t = rest.trim_start();
+        return gemfile_comment_or_end(t)
+            || t.starts_with("path:")
+            || t.starts_with("name:")
+            || t.starts_with("development_group:");
+    }
+    false
+}
+
+fn gemfile_symbol_or_string(s: &str) -> Option<&str> {
+    let s = s.trim_start();
+    if let Some(rest) = s.strip_prefix(':') {
+        let end = rest
+            .find(|c: char| {
+                !(c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '?' || c == '!')
+            })
+            .unwrap_or(rest.len());
+        if end == 0 {
+            return None;
+        }
+        return Some(rest[end..].trim_start());
+    }
+    if let Some((_name, after)) = gemfile_quoted_string(s) {
+        return Some(after);
+    }
+    None
+}
+
+fn gemfile_group_or_platform(s: &str, kw: &str) -> bool {
+    let Some(rest) = s.strip_prefix(kw) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    // At least one `:sym` or `"name"`, optional more via `,`.
+    let Some(after_first) = gemfile_symbol_or_string(rest) else {
+        return false;
+    };
+    rest = after_first;
+    while let Some(after_comma) = rest.strip_prefix(',') {
+        rest = after_comma.trim_start();
+        let Some(after_next) = gemfile_symbol_or_string(rest) else {
+            return false;
+        };
+        rest = after_next;
+    }
+    // Prefer `do` (Bundler block). Allow bare end / `#` for one-liners.
+    if gemfile_do_tail(rest) {
+        let after_do = rest[2..].trim_start();
+        return gemfile_comment_or_end(after_do);
+    }
+    gemfile_comment_or_end(rest)
+}
+
+fn gemfile_git_source(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("git_source") else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    let Some(inner) = rest.strip_prefix('(') else {
+        return false;
+    };
+    let inner = inner.trim_start();
+    // `:github` or `"github"`.
+    let after_name = if let Some(r) = inner.strip_prefix(':') {
+        let end = r
+            .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .unwrap_or(r.len());
+        if end == 0 {
+            return false;
+        }
+        r[end..].trim_start()
+    } else if let Some((_n, after)) = gemfile_quoted_string(inner) {
+        after
+    } else {
+        return false;
+    };
+    let Some(after_paren) = after_name.strip_prefix(')') else {
+        return false;
+    };
+    let after_paren = after_paren.trim_start();
+    gemfile_comment_or_end(after_paren)
+        || gemfile_do_tail(after_paren)
+        || after_paren.starts_with('{')
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -43030,9 +43214,9 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_cabal_decl,
-        is_cargo_toml_decl, is_composer_json_decl, is_gomod_decl, is_package_json_decl,
-        is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_xmake_decl,
-        line_is_func_like,
+        is_cargo_toml_decl, is_composer_json_decl, is_gemfile_decl, is_gomod_decl,
+        is_package_json_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
+        is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -47059,6 +47243,48 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("\t./foo"));
         assert!(!line_is_func_like("./foo"));
         assert!(!line_is_func_like("use(\"foo\")"));
+    }
+
+    #[test]
+    fn gemfile_directives_count() {
+        assert!(line_is_func_like(r#"source "https://rubygems.org""#));
+        assert!(line_is_func_like("source 'https://rubygems.org'"));
+        assert!(line_is_func_like(r#"ruby "3.2.0""#));
+        assert!(line_is_func_like(r#"ruby "~> 3.2" # engine"#));
+        assert!(line_is_func_like(r#"gem "rails""#));
+        assert!(line_is_func_like(r#"gem "rails", "~> 7.1""#));
+        assert!(line_is_func_like(r#"gem "puma", require: false"#));
+        assert!(line_is_func_like("gem 'nokogiri', platform: :ruby"));
+        assert!(line_is_func_like("group :development do"));
+        assert!(line_is_func_like("group :development, :test do"));
+        assert!(line_is_func_like(r#"group "assets" do"#));
+        assert!(line_is_func_like("gemspec"));
+        assert!(line_is_func_like(r#"gemspec path: "engines/foo""#));
+        assert!(line_is_func_like("platforms :ruby, :mri do"));
+        assert!(line_is_func_like("platform :jruby do"));
+        assert!(line_is_func_like("git_source(:github)"));
+        assert!(line_is_func_like("git_source(:github) do"));
+        assert!(line_is_func_like(r#"git_source("github") {"#));
+        assert!(line_is_func_like(r#"plugin "bundler-graph""#));
+        assert!(line_is_func_like(r#"eval_gemfile "Gemfile.other""#));
+        assert!(is_gemfile_decl(r#"gem "rails""#));
+        assert!(is_gemfile_decl("group :development do"));
+        // Bare / prose / wrong case stay out.
+        assert!(!is_gemfile_decl("gem"));
+        assert!(!is_gemfile_decl("gem the rails"));
+        assert!(!is_gemfile_decl("source the gems"));
+        assert!(!is_gemfile_decl("source"));
+        assert!(!is_gemfile_decl("ruby"));
+        assert!(!is_gemfile_decl("group"));
+        assert!(!is_gemfile_decl("group development do"));
+        assert!(!is_gemfile_decl("Gem \"rails\""));
+        assert!(!is_gemfile_decl("gemspec_path"));
+        assert!(!is_gemfile_decl("git_source"));
+        assert!(!is_gemfile_decl("git_source()"));
+        assert!(!line_is_func_like(r#"gem """#));
+        // Rake stays on its path; random `do` prefix must not match.
+        assert!(is_rake_decl("task :default"));
+        assert!(!is_gemfile_decl("docker pull"));
     }
 
     #[test]
