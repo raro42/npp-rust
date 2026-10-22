@@ -32040,6 +32040,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `platform :jruby do`, `git_source(:github)`, `plugin "…"`,
 /// `eval_gemfile "…"`). Optional trailing args / `#` / `do`. Bare keywords,
 /// prose (`gem the rails`, `source the gems`), and wrong case stay out.
+/// Homebrew Brewfile directives (`tap "…"`, `brew "…"`, `cask "…"`,
+/// `mas "…", id: …`, `whalebrew "…"`, `vscode "…"`). Optional trailing
+/// kwargs / `#`. Bare keywords, prose (`brew the package`), `brew install`,
+/// and wrong case stay out. Gemfile `gem` / Rake `task` stay on their paths.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32153,6 +32157,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_composer_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
+            || is_brewfile_decl(s)
         {
             return true;
         }
@@ -32262,6 +32267,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_composer_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
+        || is_brewfile_decl(s)
     {
         return true;
     }
@@ -40924,6 +40930,52 @@ fn gemfile_git_source(s: &str) -> bool {
         || after_paren.starts_with('{')
 }
 
+/// Homebrew Brewfile directives: `tap "…"`, `brew "…"`, `cask "…"`,
+/// `mas "…", id: 123`, `whalebrew "…"`, `vscode "…"`. Optional trailing
+/// kwargs / `#` comment. Bare keywords, prose (`brew the package`),
+/// `brew install …`, and wrong case stay out. Gemfile `gem` / Rake
+/// `task` stay on their paths.
+fn is_brewfile_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    gemfile_quoted_kw(s, "tap")
+        || gemfile_quoted_kw(s, "brew")
+        || gemfile_quoted_kw(s, "cask")
+        || gemfile_quoted_kw(s, "whalebrew")
+        || gemfile_quoted_kw(s, "vscode")
+        || brewfile_mas(s)
+}
+
+fn brewfile_mas(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("mas") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_name, after)) = gemfile_quoted_string(rest) else {
+        return false;
+    };
+    // Prefer `mas "Name", id: 12345`. Also allow bare quoted + `#`.
+    let t = after.trim_start();
+    if gemfile_comment_or_end(t) {
+        return true;
+    }
+    let Some(after_comma) = t.strip_prefix(',') else {
+        return false;
+    };
+    let after_comma = after_comma.trim_start();
+    let Some(after_id) = after_comma.strip_prefix("id:") else {
+        return false;
+    };
+    let after_id = after_id.trim_start();
+    let digits = after_id.chars().take_while(|c| c.is_ascii_digit()).count();
+    if digits == 0 {
+        return false;
+    }
+    gemfile_comment_or_end(after_id[digits..].trim_start())
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -43213,7 +43265,7 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 #[cfg(test)]
 mod func_like_line_tests {
     use super::{
-        is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_cabal_decl,
+        is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl,
         is_cargo_toml_decl, is_composer_json_decl, is_gemfile_decl, is_gomod_decl,
         is_package_json_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
         is_xmake_decl, line_is_func_like,
@@ -47285,6 +47337,43 @@ mod func_like_line_tests {
         // Rake stays on its path; random `do` prefix must not match.
         assert!(is_rake_decl("task :default"));
         assert!(!is_gemfile_decl("docker pull"));
+    }
+
+    #[test]
+    fn brewfile_directives_count() {
+        assert!(line_is_func_like(r#"tap "homebrew/cask""#));
+        assert!(line_is_func_like("tap 'user/repo'"));
+        assert!(line_is_func_like(r#"brew "git""#));
+        assert!(line_is_func_like(r#"brew "node", args: ["--HEAD"]"#));
+        assert!(line_is_func_like(r#"brew "mysql@5.6" # db"#));
+        assert!(line_is_func_like(r#"cask "firefox""#));
+        assert!(line_is_func_like(
+            r#"cask "visual-studio-code", args: { language: "en" }"#
+        ));
+        assert!(line_is_func_like(r#"mas "1Password", id: 1333542190"#));
+        assert!(line_is_func_like("mas 'Xcode', id: 497799835 # apple"));
+        assert!(line_is_func_like(r#"mas "Notes""#));
+        assert!(line_is_func_like(r#"whalebrew "whalebrew/wget""#));
+        assert!(line_is_func_like(r#"vscode "ms-python.python""#));
+        assert!(is_brewfile_decl(r#"brew "git""#));
+        assert!(is_brewfile_decl(r#"mas "1Password", id: 1333542190"#));
+        // Bare / prose / shell brew / wrong case stay out.
+        assert!(!is_brewfile_decl("brew"));
+        assert!(!is_brewfile_decl("brew the package"));
+        assert!(!is_brewfile_decl("brew install git"));
+        assert!(!is_brewfile_decl(r#"brew install "git""#));
+        assert!(!is_brewfile_decl("tap"));
+        assert!(!is_brewfile_decl("cask"));
+        assert!(!is_brewfile_decl("mas"));
+        assert!(!is_brewfile_decl("Brew \"git\""));
+        assert!(!is_brewfile_decl("mas \"X\", id:"));
+        assert!(!is_brewfile_decl(r#"mas "X", id: abc"#));
+        assert!(!line_is_func_like(r#"brew """#));
+        // Gemfile / Rake stay on their paths.
+        assert!(is_gemfile_decl(r#"gem "rails""#));
+        assert!(!is_brewfile_decl(r#"gem "rails""#));
+        assert!(is_rake_decl("task :default"));
+        assert!(!is_brewfile_decl("task :default"));
     }
 
     #[test]

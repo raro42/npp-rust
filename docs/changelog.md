@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.530] — 2026-10-23
+
+View:
+
+- **Function List** lists Homebrew Brewfile directives: `tap "…"`, `brew "…"` (optional kwargs), `cask "…"`, `mas "…", id: …` (bare quoted name also ok), `whalebrew "…"`, `vscode "…"`. Optional `#` comment. Bare keywords, prose (`brew the package`), `brew install …`, and wrong case stay out. Gemfile `gem` / Rake `task` stay on their paths.
+
 ## [0.3.529] — 2026-10-23
 
 View:
