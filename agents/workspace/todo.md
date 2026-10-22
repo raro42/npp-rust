@@ -745,3 +745,5 @@
 009 keep: Function List pyproject.toml project/build-system/tool/dependency-groups (v0.3.524)
 
 009 keep: Function List package.json / deno.json scripts/bin/exports/workspaces/tasks (v0.3.525)
+
+009 keep: Function List composer.json autoload/scripts/repositories/bin/provide (v0.3.526)

@@ -32023,6 +32023,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// and `//` / `/*` comment. `"dependencies"` / `"devDependencies"` /
 /// `"peerDependencies"` / `"optionalDependencies"` / `"bundledDependencies"`
 /// and leaf keys (`"name"`, `"version"`, …) stay out.
+/// composer.json structural keys (`"autoload": {`, `"autoload-dev": {`,
+/// `"scripts": {`, `"repositories": [` / `{`, `"config": {`, `"extra": {`,
+/// `"bin": [`, `"provide": {`, `"replace": {`, `"conflict": {`,
+/// `"suggest": {`). Optional trailing `,` and `//` / `/*` comment.
+/// `"require"` / `"require-dev"` and leaf keys (`"name"`, `"type"`, …) stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32133,6 +32138,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_cargo_toml_decl(s)
             || is_pyproject_toml_decl(s)
             || is_package_json_decl(s)
+            || is_composer_json_decl(s)
         {
             return true;
         }
@@ -32239,6 +32245,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_cargo_toml_decl(s)
         || is_pyproject_toml_decl(s)
         || is_package_json_decl(s)
+        || is_composer_json_decl(s)
     {
         return true;
     }
@@ -40361,6 +40368,88 @@ fn package_json_tail_ok(after: &str) -> bool {
         || t.starts_with("/*")
 }
 
+/// composer.json structural keys: `"autoload": {`, `"autoload-dev": {`,
+/// `"scripts": {`, `"repositories": [` / `{`, `"config": {`, `"extra": {`,
+/// `"bin": ["bin/console"]`, `"provide": {`, `"replace": {`, `"conflict": {`,
+/// `"suggest": {`. Optional trailing `,` and `//` / `/*` comment.
+/// `"require"` / `"require-dev"` and leaf metadata (`"name"`, `"type"`,
+/// `"license"`, `"version"`, …) stay out. Incomplete quotes / missing `:`
+/// stay out. package.json `"bin": {` / `"bin": "…"` stay on the npm path.
+fn is_composer_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !composer_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    composer_json_value_and_tail_ok(key, after_colon)
+}
+
+fn composer_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "autoload"
+            | "autoload-dev"
+            | "scripts"
+            | "repositories"
+            | "config"
+            | "extra"
+            | "bin"
+            | "provide"
+            | "replace"
+            | "conflict"
+            | "suggest"
+    )
+}
+
+fn composer_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            // Object open: all listed keys except bin (Composer bin is an array).
+            if key == "bin" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            // Array open: repositories and bin. Allow a same-line first
+            // string (`"bin": ["bin/console"]`) or object (`"repositories": [{`).
+            if !matches!(key, "repositories" | "bin") {
+                return false;
+            }
+            let rest = after_colon[1..].trim_start();
+            if package_json_tail_ok(rest) {
+                return true;
+            }
+            if let Some(inner) = rest.strip_prefix('"') {
+                let Some(end) = inner.find('"') else {
+                    return false;
+                };
+                return package_json_tail_ok(&inner[end + 1..]);
+            }
+            if let Some(inner) = rest.strip_prefix('{') {
+                return package_json_tail_ok(inner);
+            }
+            false
+        }
+        _ => false,
+    }
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -42651,8 +42740,8 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_cabal_decl,
-        is_cargo_toml_decl, is_package_json_decl, is_premake_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_scons_decl, is_xmake_decl, line_is_func_like,
+        is_cargo_toml_decl, is_composer_json_decl, is_package_json_decl, is_premake_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -46572,6 +46661,46 @@ mod func_like_line_tests {
         assert!(!is_package_json_decl(r#"scripts: {"#));
         // Unclosed string value stays out.
         assert!(!is_package_json_decl(r#""bin": "./unclosed"#));
+    }
+
+    #[test]
+    fn composer_json_keys_count() {
+        assert!(line_is_func_like(r#""autoload": {"#));
+        assert!(line_is_func_like(r#"  "autoload" : { // psr-4"#));
+        assert!(line_is_func_like(r#""autoload-dev": {"#));
+        assert!(line_is_func_like(r#""scripts": {},"#));
+        assert!(line_is_func_like(r#""repositories": ["#));
+        assert!(line_is_func_like(r#""repositories": {"#));
+        assert!(line_is_func_like(r#""config": {"#));
+        assert!(line_is_func_like(r#""extra": {"#));
+        assert!(line_is_func_like(r#""bin": ["bin/console"],"#));
+        assert!(line_is_func_like(r#""bin": [ // bins"#));
+        assert!(line_is_func_like(r#""provide": {"#));
+        assert!(line_is_func_like(r#""replace": {"#));
+        assert!(line_is_func_like(r#""conflict": {"#));
+        assert!(line_is_func_like(r#""suggest": {"#));
+        assert!(is_composer_json_decl(r#""autoload": {"#));
+        assert!(is_composer_json_decl(r#""bin": ["bin/console"]"#));
+        // require maps / leaf metadata stay out.
+        assert!(!is_composer_json_decl(r#""require": {"#));
+        assert!(!is_composer_json_decl(r#""require-dev": {"#));
+        assert!(!line_is_func_like(r#""require": {"#));
+        assert!(!line_is_func_like(r#""name": "vendor/pkg","#));
+        assert!(!line_is_func_like(r#""type": "library","#));
+        assert!(!line_is_func_like(r#""license": "MIT","#));
+        assert!(!line_is_func_like(r#""version": "1.0.0","#));
+        // Wrong value shape / incomplete stay out.
+        assert!(!is_composer_json_decl(r#""autoload": ["#));
+        assert!(!is_composer_json_decl(r#""bin": {"#));
+        assert!(!is_composer_json_decl(r#""bin": "bin/console","#));
+        assert!(!is_composer_json_decl(r#""scripts": "test","#));
+        assert!(!is_composer_json_decl(r#""repositories": "packagist","#));
+        assert!(!is_composer_json_decl(r#""autoload":"#));
+        assert!(!is_composer_json_decl(r#""autoload"#));
+        assert!(!is_composer_json_decl(r#"autoload: {"#));
+        // npm-style bin string stays on the package.json path, not Composer.
+        assert!(!is_composer_json_decl(r#""bin": "./cli.js","#));
+        assert!(is_package_json_decl(r#""bin": "./cli.js","#));
     }
 
     #[test]

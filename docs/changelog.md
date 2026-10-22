@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.526] — 2026-10-22
+
+View:
+
+- **Function List** lists composer.json structural keys: `"autoload": {`, `"autoload-dev": {`, `"scripts": {`, `"repositories": [` / `{`, `"config": {`, `"extra": {`, `"bin": [`, `"provide": {`, `"replace": {`, `"conflict": {`, `"suggest": {`. Optional trailing `,` and `//` / `/*` comment. `"require"` / `"require-dev"` and leaf keys (`"name"`, `"type"`, …) stay out. package.json `"bin": {` / `"bin": "…"` stay on the npm path.
+
 ## [0.3.525] — 2026-10-22
 
 View:
