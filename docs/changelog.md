@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.508] — 2026-10-22
+
+View:
+
+- **Function List** lists Justfile `[private]` / `[unix]` / `[confirm("…")]` attributes, `alias f := foo`, `set dotenv-load` / `set shell := […]`, `export FOO := "bar"`, `import "foo.just"`, quiet `@build:` / `@build: clean`, and parameterized recipes (`test *args:`, `hello name="world":`). Bare `build:` without `@` or params stays out. Makefile / Ninja keep their own shapes.
+
 ## [0.3.507] — 2026-10-22
 
 View:

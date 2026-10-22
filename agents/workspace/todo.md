@@ -721,3 +721,4 @@
 009 keep: Function List Gradle task/tasks.register/named/create/registering + Kotlin val-by (v0.3.505)
 
 009 keep: Function List Makefile .PHONY/special targets/pattern rules/include/define (v0.3.507)
+009 keep: Function List Justfile attributes/alias/set/export/import/quiet+parameterized recipes (v0.3.508)

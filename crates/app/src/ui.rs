@@ -31941,6 +31941,14 @@ const NOT_TYPED_FN: &[&str] = &[
 /// pattern rules `%.o: %.c`, `include` / `-include` / `sinclude`, and
 /// `define NAME` / `endef`. Assignments (`FOO =`, `FOO :=`) stay out. Prose
 /// and bare keywords stay out. Ninja keeps its own shapes.
+/// Justfile `[private]` / `[unix]` / `[confirm("…")]` attributes,
+/// `alias f := foo`, `set dotenv-load` / `set shell := […]`,
+/// `export FOO := "bar"`, `import "foo.just"`, quiet `@build:` /
+/// `@build: clean`, and parameterized recipes (`test *args:`,
+/// `hello name:`, `hello name="world":`). Bare `build:` without `@` or
+/// params stays out. Plain-ident params without `*` / `+` / `=` may not
+/// carry deps (avoids Agda/Idris `data nat : …`). Makefile / Ninja keep
+/// their own shapes.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32033,6 +32041,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_gradle_decl(s)
             || is_ninja_decl(s)
             || is_makefile_decl(s)
+            || is_just_decl(s)
         {
             return true;
         }
@@ -32121,6 +32130,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_gradle_decl(s)
         || is_ninja_decl(s)
         || is_makefile_decl(s)
+        || is_just_decl(s)
     {
         return true;
     }
@@ -38132,6 +38142,419 @@ fn make_target_token_ok(tok: &str) -> bool {
     })
 }
 
+/// Justfile `[private]` / `[unix]` / `[confirm("…")]` attributes,
+/// `alias f := foo`, `set dotenv-load` / `set shell := […]`,
+/// `export FOO := "bar"`, `import "foo.just"`, quiet `@build:` /
+/// `@build: clean`, and parameterized recipes (`test *args:`,
+/// `hello name="world":`). Bare `build:` without `@` or params stays out
+/// (avoids CSS / switch `default:` / Make `note: something`). Makefile /
+/// Ninja keep their own shapes.
+fn is_just_decl(s: &str) -> bool {
+    is_just_attribute(s)
+        || is_just_alias(s)
+        || is_just_set(s)
+        || is_just_export(s)
+        || is_just_import(s)
+        || is_just_recipe(s)
+}
+
+fn is_just_attribute(s: &str) -> bool {
+    let mut rest = s;
+    let mut any = false;
+    while rest.starts_with('[') {
+        let Some(end) = rest.find(']') else {
+            return false;
+        };
+        let inner = rest[1..end].trim();
+        if !just_attr_inner_ok(inner) {
+            return false;
+        }
+        any = true;
+        rest = rest[end + 1..].trim_start();
+    }
+    any && (rest.is_empty() || rest.starts_with('#'))
+}
+
+fn just_attr_inner_ok(inner: &str) -> bool {
+    if inner.is_empty() {
+        return false;
+    }
+    let n = inner
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'-' || *b == b'_')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let name = &inner[..n];
+    if !just_attr_name(name) {
+        return false;
+    }
+    let after = inner[n..].trim_start();
+    after.is_empty() || after.starts_with('(')
+}
+
+fn just_attr_name(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "private"
+            | "unix"
+            | "linux"
+            | "macos"
+            | "windows"
+            | "openbsd"
+            | "freebsd"
+            | "no-cd"
+            | "no-exit-message"
+            | "confirm"
+            | "group"
+            | "working-directory"
+            | "script"
+            | "doc"
+            | "positional-arguments"
+            | "metadata"
+            | "no-quiet"
+            | "quiet"
+    )
+}
+
+fn is_just_alias(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "alias") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = just_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after.trim_start();
+    after.starts_with(":=")
+}
+
+fn is_just_set(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "set") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = just_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after.trim_start();
+    if after.starts_with(":=") || (after.starts_with('=') && !after.starts_with("=>")) {
+        return just_setting_name(name) || name.contains('-');
+    }
+    (after.is_empty() || after.starts_with('#')) && just_setting_name(name)
+}
+
+fn just_setting_name(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "allow-duplicate-recipes"
+            | "allow-duplicate-variables"
+            | "dotenv-load"
+            | "dotenv-filename"
+            | "dotenv-path"
+            | "dotenv-required"
+            | "export"
+            | "fallback"
+            | "ignore-comments"
+            | "positional-arguments"
+            | "shell"
+            | "windows-shell"
+            | "tempdir"
+            | "unstable"
+            | "quiet"
+            | "no-exit-message"
+            | "script-interpreter"
+    )
+}
+
+fn is_just_export(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "export") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = just_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) || just_export_name_reject(name) {
+        return false;
+    }
+    let after = after.trim_start();
+    after.starts_with(":=") || (after.starts_with('=') && !after.starts_with("=>"))
+}
+
+fn just_export_name_reject(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "fn" | "def"
+            | "function"
+            | "class"
+            | "struct"
+            | "trait"
+            | "interface"
+            | "enum"
+            | "type"
+            | "const"
+            | "let"
+            | "var"
+            | "async"
+            | "default"
+            | "mod"
+            | "module"
+            | "crate"
+            | "super"
+            | "use"
+            | "pub"
+            | "impl"
+    )
+}
+
+fn is_just_import(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "import") else {
+        return false;
+    };
+    // `import "foo.just"` or `import? "foo.just"` (optional import).
+    if !(rest.starts_with(char::is_whitespace) || rest.starts_with('?')) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    if let Some(after) = rest.strip_prefix('?') {
+        rest = after.trim_start();
+    }
+    let Some(&quote) = rest.as_bytes().first() else {
+        return false;
+    };
+    if quote != b'"' && quote != b'\'' {
+        return false;
+    }
+    just_quoted_path_line(rest, quote)
+}
+
+fn just_quoted_path_line(rest: &str, quote: u8) -> bool {
+    let bytes = rest.as_bytes();
+    if bytes.first().copied() != Some(quote) {
+        return false;
+    }
+    let Some(end) = bytes.iter().skip(1).position(|&b| b == quote) else {
+        return false;
+    };
+    let end = end + 1;
+    if end <= 1 {
+        return false;
+    }
+    // Require `.just` so JS/TS `import "foo.js"` / bare `import "side"` stay out.
+    let path = &rest[1..end];
+    if !path.to_ascii_lowercase().contains(".just") {
+        return false;
+    }
+    let after = rest[end + 1..].trim_start();
+    after.is_empty() || after.starts_with('#')
+}
+
+fn is_just_recipe(s: &str) -> bool {
+    let quiet = s.starts_with('@');
+    let body = if quiet { &s[1..] } else { s };
+    let Some((name, rest)) = just_ident(body) else {
+        return false;
+    };
+    if !just_recipe_name_ok(name) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(colon) = just_recipe_colon(rest) else {
+        return false;
+    };
+    let params = rest[..colon].trim();
+    let after = rest[colon + 1..].trim_start();
+    let after_ok = after.is_empty() || after.starts_with('#') || just_deps_ok(after);
+    if quiet {
+        return after_ok && (params.is_empty() || just_params_ok(params));
+    }
+    if params.is_empty() || !just_params_ok(params) {
+        return false;
+    }
+    // Plain `hello name:` is Just; plain `data nat : nowhere` / `parameters n : Nat`
+    // (Agda / Idris prose) must stay out — only allow deps when params use
+    // Just markers (`*`, `+`, or `=`).
+    if just_params_are_plain_idents(params) {
+        return after.is_empty() || after.starts_with('#');
+    }
+    after_ok
+}
+
+fn just_params_are_plain_idents(params: &str) -> bool {
+    let mut rest = params;
+    while !rest.is_empty() {
+        rest = rest.trim_start();
+        if rest.is_empty() {
+            break;
+        }
+        let Some((tok, after)) = just_next_param_token(rest) else {
+            return false;
+        };
+        if tok.starts_with('*') || tok.starts_with('+') || tok.contains('=') {
+            return false;
+        }
+        rest = after;
+    }
+    true
+}
+
+fn just_recipe_name_ok(name: &str) -> bool {
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    !matches!(
+        name.to_ascii_lowercase().as_str(),
+        "default" | "case" | "else" | "catch" | "finally" | "note" | "color" | "margin" | "padding"
+    )
+}
+
+fn just_ident(s: &str) -> Option<(&str, &str)> {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'-')
+        .count();
+    if n == 0 {
+        return None;
+    }
+    let first = s.as_bytes()[0];
+    if !(first.is_ascii_alphabetic() || first == b'_') {
+        return None;
+    }
+    Some((&s[..n], &s[n..]))
+}
+
+fn just_recipe_colon(s: &str) -> Option<usize> {
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    let mut quote: Option<u8> = None;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if let Some(q) = quote {
+            if b == q {
+                quote = None;
+            }
+            i += 1;
+            continue;
+        }
+        if b == b'"' || b == b'\'' {
+            quote = Some(b);
+            i += 1;
+            continue;
+        }
+        if b == b':' {
+            if bytes.get(i + 1).copied() == Some(b'=') {
+                return None;
+            }
+            return Some(i);
+        }
+        i += 1;
+    }
+    None
+}
+
+fn just_params_ok(params: &str) -> bool {
+    let mut any = false;
+    let mut rest = params;
+    while !rest.is_empty() {
+        rest = rest.trim_start();
+        if rest.is_empty() {
+            break;
+        }
+        let Some((tok, after)) = just_next_param_token(rest) else {
+            return false;
+        };
+        if !just_param_token_ok(tok) {
+            return false;
+        }
+        any = true;
+        rest = after;
+    }
+    any
+}
+
+fn just_next_param_token(s: &str) -> Option<(&str, &str)> {
+    let bytes = s.as_bytes();
+    if bytes.is_empty() {
+        return None;
+    }
+    let mut i = 0;
+    let mut quote: Option<u8> = None;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if let Some(q) = quote {
+            if b == q {
+                quote = None;
+            }
+            i += 1;
+            continue;
+        }
+        if b == b'"' || b == b'\'' {
+            quote = Some(b);
+            i += 1;
+            continue;
+        }
+        if b.is_ascii_whitespace() {
+            break;
+        }
+        i += 1;
+    }
+    if i == 0 {
+        return None;
+    }
+    Some((&s[..i], &s[i..]))
+}
+
+fn just_param_token_ok(tok: &str) -> bool {
+    let tok = tok
+        .strip_prefix('*')
+        .or_else(|| tok.strip_prefix('+'))
+        .unwrap_or(tok);
+    if let Some((name, val)) = tok.split_once('=') {
+        if name.is_empty() || val.is_empty() {
+            return false;
+        }
+        return just_ident(name).is_some_and(|(n, rest)| rest.is_empty() && just_recipe_name_ok(n));
+    }
+    just_ident(tok).is_some_and(|(n, rest)| rest.is_empty() && just_recipe_name_ok(n))
+}
+
+fn just_deps_ok(s: &str) -> bool {
+    let body = s.split('#').next().unwrap_or(s).trim();
+    if body.is_empty() {
+        return false;
+    }
+    let mut any = false;
+    for tok in body.split_whitespace() {
+        if tok.eq_ignore_ascii_case("the") {
+            return false;
+        }
+        let pathish = tok.contains('/') || tok.contains('.') || tok.contains('$');
+        let ident_ok = just_ident(tok).is_some_and(|(_, rest)| rest.is_empty());
+        if !(pathish || ident_ok) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
     let Some((name, after)) = graphql_ident(s) else {
         return false;
@@ -43241,6 +43664,69 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("endefine"));
         assert!(!line_is_func_like("note: something"));
         assert!(!line_is_func_like("default:"));
+    }
+
+    #[test]
+    fn justfile_decls_count() {
+        assert!(line_is_func_like("[private]"));
+        assert!(line_is_func_like("[unix]"));
+        assert!(line_is_func_like("[linux]"));
+        assert!(line_is_func_like("[macos]"));
+        assert!(line_is_func_like("[windows]"));
+        assert!(line_is_func_like("[no-cd]"));
+        assert!(line_is_func_like("[confirm]"));
+        assert!(line_is_func_like("[confirm(\"sure?\")]"));
+        assert!(line_is_func_like("[group(\"build\")]"));
+        assert!(line_is_func_like("[working-directory(\"/tmp\")]"));
+        assert!(line_is_func_like("[script(\"bash\")]"));
+        assert!(line_is_func_like("[private] [unix]"));
+        assert!(line_is_func_like("alias f := foo"));
+        assert!(line_is_func_like("alias build-all := build"));
+        assert!(line_is_func_like("set dotenv-load"));
+        assert!(line_is_func_like("set export"));
+        assert!(line_is_func_like("set shell := [\"bash\", \"-cu\"]"));
+        assert!(line_is_func_like("set positional-arguments"));
+        assert!(line_is_func_like("export RUST_LOG := \"debug\""));
+        assert!(line_is_func_like("export FOO=\"bar\""));
+        assert!(line_is_func_like("import \"foo.just\""));
+        assert!(line_is_func_like("import './bar.just'"));
+        assert!(line_is_func_like("import? \"optional.just\""));
+        assert!(line_is_func_like("@build:"));
+        assert!(line_is_func_like("@build: clean"));
+        assert!(line_is_func_like("@test *args:"));
+        assert!(line_is_func_like("test *args:"));
+        assert!(line_is_func_like("test +args:"));
+        assert!(line_is_func_like("hello name:"));
+        assert!(line_is_func_like("hello name=\"world\":"));
+        assert!(line_is_func_like("hello name='world':"));
+        assert!(line_is_func_like("run cmd=\"a:b\":"));
+        assert!(line_is_func_like("greet name=\"world\": # hi"));
+        // Crystal alias / Make / generic keys still work.
+        assert!(line_is_func_like("alias MyInt = Int32"));
+        assert!(line_is_func_like(".PHONY: clean"));
+        assert!(line_is_func_like("mod docker"));
+        // Bare recipes / prose / other languages stay out.
+        assert!(!line_is_func_like("build:"));
+        assert!(!line_is_func_like("clean:"));
+        assert!(!line_is_func_like("default:"));
+        assert!(!line_is_func_like("note: something"));
+        assert!(!line_is_func_like("color: red"));
+        assert!(!line_is_func_like("all: foo.o"));
+        assert!(!line_is_func_like("[Fact]"));
+        assert!(!line_is_func_like("[private"));
+        assert!(!line_is_func_like("alias f = foo"));
+        assert!(!line_is_func_like("alias"));
+        assert!(!line_is_func_like("set"));
+        assert!(!line_is_func_like("set foo"));
+        assert!(!line_is_func_like("set -e"));
+        // `export fn` / `export default` still count via generic export strip.
+        assert!(line_is_func_like("export fn foo()"));
+        assert!(!line_is_func_like("import \"foo.js\""));
+        assert!(!line_is_func_like("import \"side-effects\""));
+        assert!(!line_is_func_like("import { x } from \"y\""));
+        assert!(!line_is_func_like("FOO := bar"));
+        assert!(!line_is_func_like("test:"));
+        assert!(!line_is_func_like("hello the:"));
     }
 
     #[test]
