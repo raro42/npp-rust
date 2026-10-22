@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.505] — 2026-10-22
+
+View:
+
+- **Function List** lists Gradle `task hello {` / `task hello(type: Copy) {` / `task("hello") {`, `tasks.register("hello")` / `tasks.named("build")` / `tasks.create("x")` / `tasks.registering("hello")`, and Kotlin `val hello by tasks.registering` / `val hello by tasks.creating`. Ada `task Buffer is` stays on Ada. Prose and bare keywords stay out.
+
 ## [0.3.504] — 2026-10-22
 
 View:

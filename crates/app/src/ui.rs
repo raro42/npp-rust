@@ -31929,6 +31929,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `config_setting(name = "dbg")`, `test_suite(name = "all")`,
 /// `lib = cc_library(name = "lib")`). Multi-line rules with `name` on a
 /// following line stay out. Prose and bare keywords stay out.
+/// Gradle `task hello {` / `task hello(type: Copy) {` / `task("hello") {`,
+/// `tasks.register("hello")` / `tasks.named("build")` / `tasks.create("x")` /
+/// `tasks.registering("hello")`, and Kotlin `val hello by tasks.registering` /
+/// `val hello by tasks.creating`. Ada `task Buffer is` stays on Ada. Prose
+/// and bare keywords stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32018,6 +32023,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_meson_decl(s)
             || is_gn_decl(s)
             || is_bazel_decl(s)
+            || is_gradle_decl(s)
         {
             return true;
         }
@@ -32103,6 +32109,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_meson_decl(s)
         || is_gn_decl(s)
         || is_bazel_decl(s)
+        || is_gradle_decl(s)
     {
         return true;
     }
@@ -37553,6 +37560,181 @@ fn bazel_after_name_ok(after: &str) -> bool {
         || after.starts_with("/*")
 }
 
+/// Gradle Groovy / Kotlin DSL task declarations:
+/// `task hello {`, `task hello(type: Copy) {`, `task("hello") {`,
+/// `tasks.register("hello")`, `tasks.named("build")`, `tasks.create("x")`,
+/// `tasks.registering("hello")`, `val hello by tasks.registering`,
+/// `val hello by tasks.creating`. Ada `task Buffer is` stays on Ada.
+/// Prose and bare keywords stay out.
+fn is_gradle_decl(s: &str) -> bool {
+    is_gradle_task_kw(s) || is_gradle_tasks_api(s) || is_gradle_tasks_delegate(s)
+}
+
+fn is_gradle_task_kw(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "task") else {
+        return false;
+    };
+    if !(rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    // `task("hello") {` / `task('hello') {`
+    if rest.starts_with('(') {
+        return gradle_quoted_call_tail(rest);
+    }
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after.trim_start();
+    // `task hello {` / `task hello(type: Copy) {`
+    after.starts_with('{') || after.starts_with('(')
+}
+
+fn is_gradle_tasks_api(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "tasks") else {
+        return false;
+    };
+    if !rest.starts_with('.') {
+        return false;
+    }
+    let rest = &rest[1..];
+    for method in ["registering", "register", "named", "create", "creating"] {
+        let Some(after_m) = sql_word(rest, method) else {
+            continue;
+        };
+        if !(after_m.is_empty()
+            || after_m.starts_with(char::is_whitespace)
+            || after_m.starts_with('(')
+            || after_m.starts_with('<'))
+        {
+            return false;
+        }
+        let after_m = after_m.trim_start();
+        // Kotlin `tasks.registering<Copy>()` / `tasks.registering<Copy>("x")`
+        let after_m = if after_m.starts_with('<') {
+            let Some(end) = skip_balanced_delim(after_m.as_bytes(), 0, b'<', b'>') else {
+                return false;
+            };
+            after_m[end..].trim_start()
+        } else {
+            after_m
+        };
+        return gradle_quoted_call_tail(after_m);
+    }
+    false
+}
+
+fn is_gradle_tasks_delegate(s: &str) -> bool {
+    // `val hello by tasks.registering` / `val hello by tasks.creating {`
+    let Some(rest) = sql_word(s, "val") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = graphql_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after.trim_start();
+    let Some(after_by) = sql_word(after, "by") else {
+        return false;
+    };
+    if !after_by.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let after_by = after_by.trim_start();
+    let Some(after_tasks) = sql_word(after_by, "tasks") else {
+        return false;
+    };
+    if !after_tasks.starts_with('.') {
+        return false;
+    }
+    let after_tasks = &after_tasks[1..];
+    for method in ["registering", "creating"] {
+        let Some(after_m) = sql_word(after_tasks, method) else {
+            continue;
+        };
+        if !(after_m.is_empty()
+            || after_m.starts_with(char::is_whitespace)
+            || after_m.starts_with('(')
+            || after_m.starts_with('<')
+            || after_m.starts_with('{')
+            || after_m.starts_with("//")
+            || after_m.starts_with("/*"))
+        {
+            return false;
+        }
+        let after_m = after_m.trim_start();
+        let after_m = if after_m.starts_with('<') {
+            let Some(end) = skip_balanced_delim(after_m.as_bytes(), 0, b'<', b'>') else {
+                return false;
+            };
+            after_m[end..].trim_start()
+        } else {
+            after_m
+        };
+        // Name is the `val` binding. Optional type args, string name, or body.
+        if after_m.is_empty()
+            || after_m.starts_with('{')
+            || after_m.starts_with('(')
+            || after_m.starts_with("//")
+            || after_m.starts_with("/*")
+        {
+            return true;
+        }
+        return false;
+    }
+    false
+}
+
+fn gradle_quoted_call_tail(s: &str) -> bool {
+    let Some(inner) = s.strip_prefix('(') else {
+        return false;
+    };
+    let inner = inner.trim_start();
+    let (quote, after_q) = if let Some(rest) = inner.strip_prefix('"') {
+        ('"', rest)
+    } else if let Some(rest) = inner.strip_prefix('\'') {
+        ('\'', rest)
+    } else {
+        return false;
+    };
+    let Some(end) = after_q.find(quote) else {
+        return false;
+    };
+    if end == 0 {
+        return false;
+    }
+    let name = &after_q[..end];
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b':'))
+    {
+        return false;
+    }
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after_q[end + 1..].trim_start();
+    after.is_empty()
+        || after.starts_with(',')
+        || after.starts_with(')')
+        || after.starts_with('{')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+}
+
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
     let Some((name, after)) = graphql_ident(s) else {
         return false;
@@ -42527,6 +42709,53 @@ mod func_like_line_tests {
         // GN / Meson keep their own shapes.
         assert!(line_is_func_like("executable(\"chrome\") {"));
         assert!(line_is_func_like("executable('prog', 'main.c')"));
+    }
+
+    #[test]
+    fn gradle_task_decls_count() {
+        assert!(line_is_func_like("task hello {"));
+        assert!(line_is_func_like("task hello(type: Copy) {"));
+        assert!(line_is_func_like("task copyDocs(type: Copy) {"));
+        assert!(line_is_func_like("TASK Hello {"));
+        assert!(line_is_func_like("  task hello { // note"));
+        assert!(line_is_func_like("task(\"hello\") {"));
+        assert!(line_is_func_like("task('hello') {"));
+        assert!(line_is_func_like("task(\"my-task\") {"));
+        assert!(line_is_func_like("tasks.register(\"hello\")"));
+        assert!(line_is_func_like("tasks.register(\"hello\") {"));
+        assert!(line_is_func_like("tasks.register('hello') {"));
+        assert!(line_is_func_like("tasks.register(\"copyDocs\", Copy) {"));
+        assert!(line_is_func_like("tasks.named(\"build\")"));
+        assert!(line_is_func_like("tasks.named(\"build\") {"));
+        assert!(line_is_func_like("tasks.create(\"legacy\") {"));
+        assert!(line_is_func_like("tasks.registering(\"hello\")"));
+        assert!(line_is_func_like("tasks.registering(\"hello\") {"));
+        assert!(line_is_func_like("tasks.registering<Copy>(\"docs\")"));
+        assert!(line_is_func_like("val hello by tasks.registering"));
+        assert!(line_is_func_like("val hello by tasks.registering {"));
+        assert!(line_is_func_like(
+            "val docs by tasks.registering(Copy::class)"
+        ));
+        assert!(line_is_func_like("val docs by tasks.registering<Copy>"));
+        assert!(line_is_func_like("val docs by tasks.registering<Copy>("));
+        assert!(line_is_func_like("val hello by tasks.creating"));
+        assert!(line_is_func_like("val hello by tasks.creating {"));
+        // Ada / Verilog keep their own shapes (`task name` alone is Verilog).
+        assert!(line_is_func_like("task Buffer is"));
+        assert!(line_is_func_like("task do_reset;"));
+        assert!(line_is_func_like("task hello"));
+        // Prose / incomplete Gradle stay out.
+        assert!(!line_is_func_like("task"));
+        assert!(!line_is_func_like("task the team {"));
+        assert!(!line_is_func_like("tasks"));
+        assert!(!line_is_func_like("tasks.register()"));
+        assert!(!line_is_func_like("tasks.register(\"\")"));
+        assert!(!line_is_func_like("tasks.register(\"the\")"));
+        assert!(!line_is_func_like("tasks.register the hello"));
+        assert!(!line_is_func_like("tasking stays out"));
+        assert!(!line_is_func_like("val hello by tasks"));
+        assert!(!line_is_func_like("val the by tasks.registering"));
+        assert!(!line_is_func_like("hello by tasks.registering"));
     }
 
     #[test]
