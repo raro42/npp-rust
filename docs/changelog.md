@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.507] — 2026-10-22
+
+View:
+
+- **Function List** lists Makefile `.PHONY: clean`, `.SUFFIXES: .c .o`, other special targets, pattern rules `%.o: %.c`, `include` / `-include` / `sinclude`, and `define NAME` / `endef`. Assignments (`FOO =`, `FOO :=`) stay out. Prose and bare keywords stay out. Ninja keeps its own shapes.
+
 ## [0.3.506] — 2026-10-22
 
 View:

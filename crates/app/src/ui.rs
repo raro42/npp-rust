@@ -31937,6 +31937,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Ninja `rule cc`, `build foo.o: cc foo.c`, `pool link_pool`, `default app`
 /// (`build out1 out2: link a.o | order || dyndep`). Prose and bare keywords
 /// stay out. Gradle / Meson / GN / Bazel keep their own shapes.
+/// Makefile `.PHONY: clean`, `.SUFFIXES: .c .o`, other special targets,
+/// pattern rules `%.o: %.c`, `include` / `-include` / `sinclude`, and
+/// `define NAME` / `endef`. Assignments (`FOO =`, `FOO :=`) stay out. Prose
+/// and bare keywords stay out. Ninja keeps its own shapes.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32028,6 +32032,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_bazel_decl(s)
             || is_gradle_decl(s)
             || is_ninja_decl(s)
+            || is_makefile_decl(s)
         {
             return true;
         }
@@ -32115,6 +32120,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_bazel_decl(s)
         || is_gradle_decl(s)
         || is_ninja_decl(s)
+        || is_makefile_decl(s)
     {
         return true;
     }
@@ -37908,6 +37914,224 @@ fn ninja_path_token_ok(tok: &str) -> bool {
     })
 }
 
+/// Makefile `.PHONY: clean`, `.SUFFIXES: .c .o`, other special targets,
+/// pattern rules `%.o: %.c` / `$(DIR)/%.o: %.c`, `include` / `-include` /
+/// `sinclude` paths, and `define NAME` / `endef`. Assignments (`FOO =`,
+/// `FOO :=`) stay out. Prose and bare keywords stay out. Ninja keeps its
+/// own shapes.
+fn is_makefile_decl(s: &str) -> bool {
+    is_make_special_target(s) || is_make_pattern_rule(s) || is_make_include(s) || is_make_define(s)
+}
+
+fn is_make_special_target(s: &str) -> bool {
+    if !s.starts_with('.') {
+        return false;
+    }
+    let rest = &s[1..];
+    let n = rest
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let name = &rest[..n];
+    if !make_special_target_name(name) {
+        return false;
+    }
+    let after = rest[n..].trim_start();
+    // `.PHONY: …` / `.SUFFIXES:` — not `.PHONY :=` assignments.
+    if !after.starts_with(':') || after.starts_with(":=") || after.starts_with("::=") {
+        return false;
+    }
+    let after_colon = after[1..].trim_start();
+    after_colon.is_empty() || after_colon.starts_with('#') || make_prereq_list_ok(after_colon)
+}
+
+fn make_special_target_name(name: &str) -> bool {
+    matches!(
+        name.to_ascii_uppercase().as_str(),
+        "PHONY"
+            | "SUFFIXES"
+            | "DEFAULT"
+            | "PRECIOUS"
+            | "INTERMEDIATE"
+            | "SECONDARY"
+            | "DELETE_ON_ERROR"
+            | "IGNORE"
+            | "LOW_RESOLUTION_TIME"
+            | "SILENT"
+            | "EXPORT_ALL_VARIABLES"
+            | "NOTPARALLEL"
+            | "ONESHELL"
+            | "POSIX"
+            | "SECONDEXPANSION"
+            | "MAKE"
+            | "WAIT"
+            | "NOTINTERMEDIATE"
+            | "EXTRA_PREREQS"
+    )
+}
+
+fn is_make_pattern_rule(s: &str) -> bool {
+    let Some(colon) = make_rule_colon(s) else {
+        return false;
+    };
+    let target = s[..colon].trim();
+    if target.is_empty() || !target.contains('%') {
+        return false;
+    }
+    if !make_target_token_ok(target) {
+        return false;
+    }
+    let after = s[colon + 1..].trim_start();
+    after.is_empty() || after.starts_with('#') || make_prereq_list_ok(after)
+}
+
+fn make_rule_colon(s: &str) -> Option<usize> {
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b':' {
+            // Skip Make assignments: `:=` `::=` `:::=` and `:` followed by `=`.
+            let next = bytes.get(i + 1).copied();
+            if next == Some(b'=') {
+                return None;
+            }
+            if next == Some(b':') {
+                // Double-colon rule `target:: deps` is rare; treat `::=` as assign.
+                if bytes.get(i + 2).copied() == Some(b'=') {
+                    return None;
+                }
+                return Some(i);
+            }
+            return Some(i);
+        }
+        i += 1;
+    }
+    None
+}
+
+fn is_make_include(s: &str) -> bool {
+    let rest = if let Some(r) = sql_word(s, "include") {
+        r
+    } else if let Some(r) = sql_word(s, "-include") {
+        r
+    } else if let Some(r) = sql_word(s, "sinclude") {
+        r
+    } else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if rest.is_empty() || rest.starts_with('#') {
+        return false;
+    }
+    let body = rest.split('#').next().unwrap_or(rest).trim();
+    make_prereq_list_ok(body)
+}
+
+fn is_make_define(s: &str) -> bool {
+    if let Some(rest) = sql_word(s, "endef") {
+        if rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('#') {
+            let after = rest.trim_start();
+            return after.is_empty() || after.starts_with('#');
+        }
+    }
+    let Some(rest) = sql_word(s, "define") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = make_var_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after.trim_start();
+    after.is_empty()
+        || after.starts_with('#')
+        || after.starts_with('=')
+        || after.starts_with(":=")
+        || after.starts_with("::=")
+}
+
+fn make_var_ident(s: &str) -> Option<(&str, &str)> {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'-' || *b == b'.')
+        .count();
+    if n == 0 {
+        return None;
+    }
+    let first = s.as_bytes()[0];
+    if !(first.is_ascii_alphabetic() || first == b'_') {
+        return None;
+    }
+    Some((&s[..n], &s[n..]))
+}
+
+fn make_prereq_list_ok(s: &str) -> bool {
+    let body = s.split('#').next().unwrap_or(s).trim();
+    if body.is_empty() {
+        return false;
+    }
+    let mut any = false;
+    for tok in body.split_whitespace() {
+        if !make_target_token_ok(tok) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn make_target_token_ok(tok: &str) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    if tok.eq_ignore_ascii_case("the") {
+        return false;
+    }
+    // Reject bare English control words without Make metacharacters.
+    if is_control_word(tok) && !tok.contains(['%', '$', '/', '.', '-']) {
+        return false;
+    }
+    let bytes = tok.as_bytes();
+    let first = bytes[0];
+    if !(first.is_ascii_alphanumeric()
+        || matches!(first, b'_' | b'.' | b'%' | b'$' | b'/' | b'-' | b'*'))
+    {
+        return false;
+    }
+    bytes.iter().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                *b,
+                b'_' | b'-'
+                    | b'.'
+                    | b'/'
+                    | b'%'
+                    | b'$'
+                    | b'('
+                    | b')'
+                    | b'{'
+                    | b'}'
+                    | b'*'
+                    | b'+'
+                    | b'?'
+                    | b'@'
+                    | b'<'
+                    | b'>'
+            )
+    })
+}
+
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
     let Some((name, after)) = graphql_ident(s) else {
         return false;
@@ -42974,6 +43198,49 @@ mod func_like_line_tests {
         // Indent attribute lines are not decls (trim_start would still see command=).
         assert!(!line_is_func_like("command = gcc $in -o $out"));
         assert!(!line_is_func_like("depth = 4"));
+    }
+
+    #[test]
+    fn makefile_decls_count() {
+        assert!(line_is_func_like(".PHONY: clean"));
+        assert!(line_is_func_like(".PHONY: clean install test"));
+        assert!(line_is_func_like(".PHONY:"));
+        assert!(line_is_func_like(".SUFFIXES: .c .o"));
+        assert!(line_is_func_like(".PRECIOUS: %.o"));
+        assert!(line_is_func_like(".ONESHELL:"));
+        assert!(line_is_func_like(".DELETE_ON_ERROR:"));
+        assert!(line_is_func_like("%.o: %.c"));
+        assert!(line_is_func_like("$(DIR)/%.o: %.c"));
+        assert!(line_is_func_like("%.o: %.c # compile"));
+        assert!(line_is_func_like("include config.mk"));
+        assert!(line_is_func_like("-include .depend"));
+        assert!(line_is_func_like("sinclude foo.mk"));
+        assert!(line_is_func_like("define two-lines"));
+        assert!(line_is_func_like("define RECIPE ="));
+        assert!(line_is_func_like("define RECIPE :="));
+        assert!(line_is_func_like("endef"));
+        assert!(line_is_func_like("endef # done"));
+        // Ninja keeps its own shapes.
+        assert!(line_is_func_like("rule cc"));
+        assert!(line_is_func_like("build foo.o: cc foo.c"));
+        // Assignments / prose / incomplete Make stay out.
+        assert!(!line_is_func_like(".PHONY"));
+        assert!(!line_is_func_like(".PHONY := clean"));
+        assert!(!line_is_func_like(".NOTAPHONY: clean"));
+        assert!(!line_is_func_like("PHONY: clean"));
+        assert!(!line_is_func_like("%.o"));
+        assert!(!line_is_func_like("foo.o: foo.c"));
+        assert!(!line_is_func_like("all: foo.o"));
+        assert!(!line_is_func_like("FOO = bar"));
+        assert!(!line_is_func_like("FOO := bar"));
+        assert!(!line_is_func_like("FOO += bar"));
+        assert!(!line_is_func_like("include"));
+        assert!(!line_is_func_like("include the"));
+        assert!(!line_is_func_like("define"));
+        assert!(!line_is_func_like("define the"));
+        assert!(!line_is_func_like("endefine"));
+        assert!(!line_is_func_like("note: something"));
+        assert!(!line_is_func_like("default:"));
     }
 
     #[test]
