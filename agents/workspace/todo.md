@@ -738,3 +738,5 @@
 009 keep: Function List Android.bp/Soong modules (v0.3.516)
 
 009 keep: Function List xmake target/option/package/rule/toolchain/task (v0.3.520)
+
+009 keep: Function List Cabal library/executable/test-suite stanzas (v0.3.522)
