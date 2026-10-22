@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.524] — 2026-10-22
+
+View:
+
+- **Function List** lists pyproject.toml structural tables: `[project]` / `[project.scripts]` / `[project.optional-dependencies]` / `[project.urls]` / `[project.entry-points.…]`, `[build-system]`, `[tool]` / `[tool.poetry]` / `[tool.ruff]` / `[tool.pytest.ini_options]` / …, `[dependency-groups]`. Optional trailing `#` comment. Incomplete brackets, array tables, and Cargo.toml `[package]` stay out.
+
 ## [0.3.523] — 2026-10-22
 
 View:

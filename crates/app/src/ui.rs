@@ -32011,6 +32011,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `[package.metadata…]`, `[target.…]`). Optional trailing `#` comment.
 /// Dependency tables (`[dependencies]`, `[dev-dependencies]`,
 /// `[build-dependencies]`) stay out. Incomplete brackets and prose stay out.
+/// pyproject.toml tables (`[project]` / `[project.…]`, `[build-system]`,
+/// `[tool]` / `[tool.…]`, `[dependency-groups]`). Optional trailing `#`
+/// comment. Incomplete brackets and prose stay out. Cargo.toml `[package]`
+/// stays on the Cargo path.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32119,6 +32123,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_rake_decl(s)
             || is_cabal_decl(s)
             || is_cargo_toml_decl(s)
+            || is_pyproject_toml_decl(s)
         {
             return true;
         }
@@ -32223,6 +32228,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_rake_decl(s)
         || is_cabal_decl(s)
         || is_cargo_toml_decl(s)
+        || is_pyproject_toml_decl(s)
     {
         return true;
     }
@@ -40219,6 +40225,39 @@ fn cargo_toml_key_path_ok(header: &str) -> bool {
     true
 }
 
+/// pyproject.toml structural tables: `[project]` / `[project.scripts]` /
+/// `[project.optional-dependencies]` / `[project.urls]` /
+/// `[project.entry-points.…]`, `[build-system]`, `[tool]` /
+/// `[tool.poetry]` / `[tool.ruff]` / `[tool.pytest.ini_options]` / …,
+/// `[dependency-groups]`. Optional trailing `#` comment. Array tables
+/// (`[[…]]`) and incomplete / prose / Cargo `[package]` stay out.
+fn is_pyproject_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || !cargo_toml_tail_ok(after) {
+        return false;
+    }
+    pyproject_toml_single_ok(header)
+}
+
+fn pyproject_toml_single_ok(header: &str) -> bool {
+    if header.is_empty() {
+        return false;
+    }
+    match header {
+        "project" | "build-system" | "tool" | "dependency-groups" => true,
+        h if h.starts_with("project.")
+            || h.starts_with("tool.")
+            || h.starts_with("dependency-groups.") =>
+        {
+            cargo_toml_key_path_ok(h)
+        }
+        _ => false,
+    }
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -42509,8 +42548,8 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_cabal_decl,
-        is_cargo_toml_decl, is_premake_decl, is_rake_decl, is_scons_decl, is_xmake_decl,
-        line_is_func_like,
+        is_cargo_toml_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
+        is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -46338,6 +46377,50 @@ mod func_like_line_tests {
         assert!(!is_cargo_toml_decl("[Desktop Entry]"));
         assert!(!is_cargo_toml_decl("package]"));
         assert!(!line_is_func_like("[dependencies] # stay out"));
+        // Cargo tables stay on the Cargo path, not pyproject.
+        assert!(!is_pyproject_toml_decl("[package]"));
+        assert!(!is_pyproject_toml_decl("[lib]"));
+        assert!(!is_pyproject_toml_decl("[[bin]]"));
+    }
+
+    #[test]
+    fn pyproject_toml_tables_count() {
+        assert!(line_is_func_like("[project]"));
+        assert!(line_is_func_like("  [project] # root"));
+        assert!(line_is_func_like("[project.scripts]"));
+        assert!(line_is_func_like("[project.optional-dependencies]"));
+        assert!(line_is_func_like("[project.gui-scripts]"));
+        assert!(line_is_func_like("[project.urls]"));
+        assert!(line_is_func_like("[project.entry-points.console_scripts]"));
+        assert!(line_is_func_like("[build-system]"));
+        assert!(line_is_func_like("[tool]"));
+        assert!(line_is_func_like("[tool.poetry]"));
+        assert!(line_is_func_like("[tool.poetry.dependencies]"));
+        assert!(line_is_func_like("[tool.ruff]"));
+        assert!(line_is_func_like("[tool.ruff.lint]"));
+        assert!(line_is_func_like("[tool.pytest.ini_options]"));
+        assert!(line_is_func_like("[tool.setuptools.packages.find]"));
+        assert!(line_is_func_like("[tool.hatch.version]"));
+        assert!(line_is_func_like("[tool.uv]"));
+        assert!(line_is_func_like("[tool.maturin]"));
+        assert!(line_is_func_like("[dependency-groups]"));
+        assert!(line_is_func_like("[dependency-groups.dev]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[build-system]"));
+        assert!(is_pyproject_toml_decl("[tool.black]"));
+        // Cargo / incomplete / array / prose stay out.
+        assert!(!is_pyproject_toml_decl("[package]"));
+        assert!(!is_pyproject_toml_decl("[lib]"));
+        assert!(!is_pyproject_toml_decl("[workspace]"));
+        assert!(!is_pyproject_toml_decl("[features]"));
+        assert!(!is_pyproject_toml_decl("[[project]]"));
+        assert!(!is_pyproject_toml_decl("[project"));
+        assert!(!is_pyproject_toml_decl("[]"));
+        assert!(!is_pyproject_toml_decl("[Desktop Entry]"));
+        assert!(!is_pyproject_toml_decl("project]"));
+        // Cargo `[package]` still lists via the Cargo path, not pyproject.
+        assert!(line_is_func_like("[package] # cargo stays cargo"));
+        assert!(!is_pyproject_toml_decl("[package] # cargo stays cargo"));
     }
 
     #[test]
