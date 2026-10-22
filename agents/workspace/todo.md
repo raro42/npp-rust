@@ -1,3 +1,4 @@
+009 keep: Function List sees Ninja rule / build / pool / default (v0.3.506)
 009 keep: Function List sees Bazel/Starlark BUILD rules with same-line name= (v0.3.503)
 009 keep: Function List sees GN executable/shared_library/source_set/rust_*/target (v0.3.502)
 009 keep: Function List sees Meson project/executable/library targets (v0.3.501)

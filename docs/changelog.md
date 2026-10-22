@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.506] — 2026-10-22
+
+View:
+
+- **Function List** lists Ninja `rule cc`, `build foo.o: cc foo.c`, `pool link_pool`, and `default app` (`build out1 out2: link a.o | order || dyndep`). JS/TS `default export` stays out. Prose and bare keywords stay out. Gradle / Meson / GN / Bazel keep their own shapes.
+
 ## [0.3.505] — 2026-10-22
 
 View:

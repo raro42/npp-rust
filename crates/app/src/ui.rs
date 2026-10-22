@@ -31934,6 +31934,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `tasks.registering("hello")`, and Kotlin `val hello by tasks.registering` /
 /// `val hello by tasks.creating`. Ada `task Buffer is` stays on Ada. Prose
 /// and bare keywords stay out.
+/// Ninja `rule cc`, `build foo.o: cc foo.c`, `pool link_pool`, `default app`
+/// (`build out1 out2: link a.o | order || dyndep`). Prose and bare keywords
+/// stay out. Gradle / Meson / GN / Bazel keep their own shapes.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32024,6 +32027,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_gn_decl(s)
             || is_bazel_decl(s)
             || is_gradle_decl(s)
+            || is_ninja_decl(s)
         {
             return true;
         }
@@ -32110,6 +32114,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_gn_decl(s)
         || is_bazel_decl(s)
         || is_gradle_decl(s)
+        || is_ninja_decl(s)
     {
         return true;
     }
@@ -37735,6 +37740,174 @@ fn gradle_quoted_call_tail(s: &str) -> bool {
         || after.starts_with("/*")
 }
 
+/// Ninja `rule cc`, `pool link_pool`, `build foo.o: cc foo.c`, `default app`.
+/// `build out1 out2: link a.o | order || dyndep`. Indent attribute lines stay
+/// out (leading whitespace trimmed already). Prose and bare keywords stay out.
+/// Gradle / Meson / GN / Bazel keep their own shapes.
+fn is_ninja_decl(s: &str) -> bool {
+    is_ninja_named_kw(s, "rule")
+        || is_ninja_named_kw(s, "pool")
+        || is_ninja_build(s)
+        || is_ninja_default(s)
+}
+
+fn is_ninja_named_kw(s: &str, kw: &str) -> bool {
+    let Some(rest) = sql_word(s, kw) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = ninja_ident(rest) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    let after = after.trim_start();
+    after.is_empty() || after.starts_with('#')
+}
+
+fn is_ninja_build(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "build") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(colon) = rest.find(':') else {
+        return false;
+    };
+    let outs = rest[..colon].trim();
+    if outs.is_empty() || !ninja_path_list_ok(outs) {
+        return false;
+    }
+    let after_colon = rest[colon + 1..].trim_start();
+    let Some((rule, after_rule)) = ninja_ident(after_colon) else {
+        return false;
+    };
+    if rule.eq_ignore_ascii_case("the") || is_control_word(rule) {
+        return false;
+    }
+    let after_rule = after_rule.trim_start();
+    after_rule.is_empty()
+        || after_rule.starts_with('#')
+        || after_rule.starts_with('|')
+        || ninja_path_token_ok(
+            after_rule
+                .split(|c: char| c.is_ascii_whitespace() || c == '|')
+                .next()
+                .unwrap_or(""),
+        )
+}
+
+fn is_ninja_default(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "default") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if rest.is_empty() || rest.starts_with('#') || rest.starts_with('=') || rest.starts_with('(') {
+        return false;
+    }
+    let body = rest.split('#').next().unwrap_or(rest).trim();
+    let Some(first) = body.split_whitespace().next() else {
+        return false;
+    };
+    // JS/TS `default export` / `default function` / F# `default member` stay out.
+    if ninja_default_kw_reject(first) {
+        return false;
+    }
+    ninja_path_list_ok(body)
+}
+
+fn ninja_default_kw_reject(tok: &str) -> bool {
+    matches!(
+        tok.to_ascii_lowercase().as_str(),
+        "export"
+            | "function"
+            | "class"
+            | "async"
+            | "interface"
+            | "type"
+            | "const"
+            | "let"
+            | "var"
+            | "void"
+            | "int"
+            | "string"
+            | "number"
+            | "boolean"
+            | "object"
+            | "new"
+            | "this"
+            | "member"
+            | "override"
+            | "abstract"
+            | "public"
+            | "private"
+            | "static"
+            | "return"
+            | "module"
+            | "namespace"
+    )
+}
+
+fn ninja_ident(s: &str) -> Option<(&str, &str)> {
+    let n = s
+        .bytes()
+        .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'-' || *b == b'.')
+        .count();
+    if n == 0 {
+        return None;
+    }
+    let first = s.as_bytes()[0];
+    if !(first.is_ascii_alphabetic() || first == b'_') {
+        return None;
+    }
+    Some((&s[..n], &s[n..]))
+}
+
+fn ninja_path_list_ok(s: &str) -> bool {
+    let mut any = false;
+    for tok in s.split_whitespace() {
+        if tok == "|" || tok == "||" {
+            continue;
+        }
+        if !ninja_path_token_ok(tok) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn ninja_path_token_ok(tok: &str) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    if tok.eq_ignore_ascii_case("the") || is_control_word(tok) {
+        return false;
+    }
+    let bytes = tok.as_bytes();
+    let first = bytes[0];
+    if !(first.is_ascii_alphanumeric() || matches!(first, b'_' | b'$' | b'.' | b'/' | b'%' | b'-'))
+    {
+        return false;
+    }
+    bytes.iter().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                *b,
+                b'_' | b'-' | b'.' | b'/' | b'$' | b'%' | b'+' | b'=' | b'{' | b'}' | b':' | b'@'
+            )
+    })
+}
+
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
     let Some((name, after)) = graphql_ident(s) else {
         return false;
@@ -41038,7 +41211,9 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("grammarJSON {"));
         assert!(!line_is_func_like("grammar 1bad {"));
         assert!(!line_is_func_like("token number"));
-        assert!(!line_is_func_like("rule object"));
+        // Lowercase `rule object` without `{`/`[` is incomplete Raku, but it is a
+        // valid Ninja `rule` line, so Function List keeps it (see ninja_decls_count).
+        assert!(line_is_func_like("rule object"));
         assert!(!line_is_func_like("regex ident"));
         assert!(!line_is_func_like("role mixable"));
         assert!(!line_is_func_like("grammar JSON more"));
@@ -42756,6 +42931,49 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("val hello by tasks"));
         assert!(!line_is_func_like("val the by tasks.registering"));
         assert!(!line_is_func_like("hello by tasks.registering"));
+    }
+
+    #[test]
+    fn ninja_decls_count() {
+        assert!(line_is_func_like("rule cc"));
+        assert!(line_is_func_like("rule cxx # compile"));
+        assert!(line_is_func_like("RULE Link"));
+        assert!(line_is_func_like("pool link_pool"));
+        assert!(line_is_func_like("pool console"));
+        assert!(line_is_func_like("build foo.o: cc foo.c"));
+        assert!(line_is_func_like("build $builddir/foo.o: cxx foo.cc"));
+        assert!(line_is_func_like("build app: link foo.o bar.o"));
+        assert!(line_is_func_like("build out1 out2: link a.o"));
+        assert!(line_is_func_like("build app: link foo.o | order.h"));
+        assert!(line_is_func_like("build app: link foo.o || dyndep"));
+        assert!(line_is_func_like("default app"));
+        assert!(line_is_func_like("default app other"));
+        assert!(line_is_func_like("default $builddir/app # tip"));
+        // Gradle / Meson keep their own shapes.
+        assert!(line_is_func_like("task hello {"));
+        assert!(line_is_func_like("executable('prog', 'main.c')"));
+        // Prose / incomplete Ninja stay out.
+        assert!(!line_is_func_like("rule"));
+        assert!(!line_is_func_like("rule the"));
+        assert!(!line_is_func_like("rules stay out"));
+        assert!(!line_is_func_like("pool"));
+        assert!(!line_is_func_like("pool the"));
+        assert!(!line_is_func_like("build"));
+        assert!(!line_is_func_like("build foo.o"));
+        assert!(!line_is_func_like("build : cc"));
+        assert!(!line_is_func_like("build the: cc foo.c"));
+        assert!(!line_is_func_like("build foo.o: the foo.c"));
+        assert!(!line_is_func_like("build the house"));
+        assert!(!line_is_func_like("default"));
+        assert!(!line_is_func_like("default the"));
+        assert!(!line_is_func_like("default = 1"));
+        assert!(!line_is_func_like("default()"));
+        assert!(!line_is_func_like("default export"));
+        // `default function` / `default class` still count via the generic
+        // function/class path after the `default` qualifier strip.
+        // Indent attribute lines are not decls (trim_start would still see command=).
+        assert!(!line_is_func_like("command = gcc $in -o $out"));
+        assert!(!line_is_func_like("depth = 4"));
     }
 
     #[test]
