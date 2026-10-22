@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.522] — 2026-10-22
+
+View:
+
+- **Function List** lists Cabal `.cabal` stanzas: `library`, `library mylib`, `executable foo`, `test-suite tests`, `benchmark bench`, `foreign-library mylib`, `common shared`, `flag debug`, `source-repository head` / `this`. Space then component name (or bare `library`; `head` / `this` for source-repository). Optional trailing `--` comment. Meson / GN / Solidity brace or paren forms stay on their paths. Prose and bare keywords (except bare `library`) stay out.
+
 ## [0.3.521] — 2026-10-22
 
 View:

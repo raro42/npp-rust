@@ -31999,6 +31999,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `directory "tmp"`, `rule '.o' => '.c'`). Symbol or quoted name on the same
 /// line. Gradle `task hello {` / `task("hello")` stay on Gradle. Prose and bare
 /// keywords stay out.
+/// Cabal `.cabal` stanzas (`library`, `library mylib`, `executable foo`,
+/// `test-suite tests`, `benchmark bench`, `foreign-library mylib`,
+/// `common shared`, `flag debug`, `source-repository head`). Space then
+/// component name (or bare `library`; `head` / `this` for source-repository).
+/// Optional trailing `--` comment. Meson / GN / Solidity brace or paren forms
+/// stay on their paths. Prose and bare keywords (except bare `library`) stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32105,6 +32111,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_premake_decl(s)
             || is_xmake_decl(s)
             || is_rake_decl(s)
+            || is_cabal_decl(s)
         {
             return true;
         }
@@ -32207,6 +32214,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_premake_decl(s)
         || is_xmake_decl(s)
         || is_rake_decl(s)
+        || is_cabal_decl(s)
     {
         return true;
     }
@@ -39944,6 +39952,127 @@ fn rake_task_tail_ok(after: &str) -> bool {
         || after.starts_with("/*")
 }
 
+/// Cabal `.cabal` package stanzas: `library`, `library mylib`,
+/// `executable foo`, `test-suite tests`, `benchmark bench`,
+/// `foreign-library mylib`, `common shared`, `flag debug`,
+/// `source-repository head` / `this`. Keyword then optional/required
+/// component name on the same line. Optional trailing `--` comment.
+/// Meson `executable('…')` / GN `executable("…")` / Solidity `library Math {`
+/// stay on their paths (paren or brace). Prose and bare keywords (except
+/// bare `library`) stay out.
+fn is_cabal_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    is_cabal_library(s)
+        || cabal_named(s, "executable")
+        || cabal_named(s, "test-suite")
+        || cabal_named(s, "benchmark")
+        || cabal_named(s, "foreign-library")
+        || cabal_named(s, "common")
+        || cabal_named(s, "flag")
+        || is_cabal_source_repository(s)
+}
+
+fn is_cabal_library(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "library") else {
+        return false;
+    };
+    // Reject `library(` (Meson) / `librarys` / `library{`.
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace)) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if rest.is_empty() || cabal_tail_ok(rest) {
+        return true;
+    }
+    // Named library: `library mylib`
+    let Some((name, after)) = cabal_component_name(rest) else {
+        return false;
+    };
+    if !cabal_name_ok(name) {
+        return false;
+    }
+    cabal_tail_ok(after.trim_start())
+}
+
+fn cabal_named(s: &str, key: &str) -> bool {
+    let Some(rest) = sql_word(s, key) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = cabal_component_name(rest) else {
+        return false;
+    };
+    if !cabal_name_ok(name) {
+        return false;
+    }
+    cabal_tail_ok(after.trim_start())
+}
+
+fn is_cabal_source_repository(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "source-repository") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = cabal_component_name(rest) else {
+        return false;
+    };
+    if !name.eq_ignore_ascii_case("head") && !name.eq_ignore_ascii_case("this") {
+        return false;
+    }
+    cabal_tail_ok(after.trim_start())
+}
+
+fn cabal_component_name(s: &str) -> Option<(&str, &str)> {
+    let bytes = s.as_bytes();
+    if bytes.is_empty() {
+        return None;
+    }
+    let mut i = 0;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if b.is_ascii_alphanumeric() || b == b'-' || b == b'_' {
+            i += 1;
+        } else {
+            break;
+        }
+    }
+    if i == 0 {
+        return None;
+    }
+    Some((&s[..i], &s[i..]))
+}
+
+fn cabal_name_ok(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    if bytes.is_empty() {
+        return false;
+    }
+    let first = bytes[0];
+    if !first.is_ascii_alphanumeric() {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'-' | b'_'))
+    {
+        return false;
+    }
+    if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+        return false;
+    }
+    true
+}
+
+fn cabal_tail_ok(after: &str) -> bool {
+    after.is_empty() || after.starts_with("--")
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -42233,8 +42362,8 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 #[cfg(test)]
 mod func_like_line_tests {
     use super::{
-        is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_premake_decl, is_rake_decl,
-        is_scons_decl, is_xmake_decl, line_is_func_like,
+        is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_cabal_decl, is_premake_decl,
+        is_rake_decl, is_scons_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -42814,7 +42943,8 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("contracts stay out"));
         assert!(!line_is_func_like("contract"));
         assert!(!line_is_func_like("library of tools"));
-        assert!(!line_is_func_like("library"));
+        // Bare `library` is a Cabal stanza (see cabal_stanzas_count), not Solidity.
+        assert!(line_is_func_like("library"));
         assert!(!line_is_func_like("modifier of state"));
         assert!(!line_is_func_like("modifier"));
         assert!(!line_is_func_like("error rate"));
@@ -45973,6 +46103,48 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("task the default"));
         assert!(!line_is_func_like("multitask"));
         assert!(!line_is_func_like("file the out"));
+    }
+
+    #[test]
+    fn cabal_stanzas_count() {
+        assert!(line_is_func_like("library"));
+        assert!(line_is_func_like("library -- main lib"));
+        assert!(line_is_func_like("library mylib"));
+        assert!(line_is_func_like("  library internal-lib"));
+        assert!(line_is_func_like("executable foo"));
+        assert!(line_is_func_like("executable my-exe -- note"));
+        assert!(line_is_func_like("test-suite tests"));
+        assert!(line_is_func_like("benchmark bench"));
+        assert!(line_is_func_like("foreign-library mylib"));
+        assert!(line_is_func_like("common shared"));
+        assert!(line_is_func_like("flag debug"));
+        assert!(line_is_func_like("source-repository head"));
+        assert!(line_is_func_like("source-repository this"));
+        assert!(line_is_func_like("LIBRARY MyLib"));
+        assert!(line_is_func_like("Executable Foo"));
+        // Meson / GN / Solidity shapes still list, but not via Cabal.
+        assert!(line_is_func_like("executable('prog', 'main.c')"));
+        assert!(!is_cabal_decl("executable('prog', 'main.c')"));
+        assert!(line_is_func_like(r#"executable("chrome") {"#));
+        assert!(!is_cabal_decl(r#"executable("chrome") {"#));
+        assert!(line_is_func_like("library Math {"));
+        assert!(!is_cabal_decl("library Math {"));
+        // Incomplete / prose / bare stay out of Cabal.
+        assert!(!is_cabal_decl("executable"));
+        assert!(!is_cabal_decl("executable "));
+        assert!(!is_cabal_decl("executable the"));
+        assert!(!is_cabal_decl("executable the team"));
+        assert!(!is_cabal_decl("test-suite"));
+        assert!(!is_cabal_decl("benchmark"));
+        assert!(!is_cabal_decl("flag"));
+        assert!(!is_cabal_decl("common"));
+        assert!(!is_cabal_decl("source-repository"));
+        assert!(!is_cabal_decl("source-repository origin"));
+        assert!(!is_cabal_decl("libraries"));
+        assert!(!is_cabal_decl("executables foo"));
+        assert!(!line_is_func_like("executable the team"));
+        assert!(!line_is_func_like("flag the debug"));
+        assert!(!line_is_func_like("common the shared"));
     }
 
     #[test]
