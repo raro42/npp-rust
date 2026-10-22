@@ -32044,6 +32044,13 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `mas "…", id: …`, `whalebrew "…"`, `vscode "…"`). Optional trailing
 /// kwargs / `#`. Bare keywords, prose (`brew the package`), `brew install`,
 /// and wrong case stay out. Gemfile `gem` / Rake `task` stay on their paths.
+/// CocoaPods Podfile directives (`pod "…"`, `target "…" do`,
+/// `abstract_target "…" do`, `use_frameworks!`, `use_modular_headers!`,
+/// `inhibit_all_warnings!`, `install! "cocoapods"`, `pre_install` /
+/// `post_install` / `pre_integrate` / `post_integrate` hooks). Optional
+/// trailing kwargs / `#` / `|installer|`. Bare keywords, prose
+/// (`pod the alamofire`), and wrong case stay out. xmake `target("…")`
+/// stays on its path; Gemfile `gem` / Brewfile `brew` stay on theirs.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32158,6 +32165,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
+            || is_podfile_decl(s)
         {
             return true;
         }
@@ -32268,6 +32276,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
+        || is_podfile_decl(s)
     {
         return true;
     }
@@ -40976,6 +40985,76 @@ fn brewfile_mas(s: &str) -> bool {
     gemfile_comment_or_end(after_id[digits..].trim_start())
 }
 
+/// CocoaPods Podfile directives: `pod "…"`, `target "…" do`,
+/// `abstract_target "…" do`, `use_frameworks!`, `use_modular_headers!`,
+/// `inhibit_all_warnings!`, `install! "cocoapods"`, and install hooks
+/// (`pre_install` / `post_install` / `pre_integrate` / `post_integrate`).
+/// Optional trailing kwargs / `#` / `|installer|`. Bare keywords, prose
+/// (`pod the alamofire`), and wrong case stay out. xmake `target("…")`
+/// stays on its path; Gemfile `gem` / Brewfile `brew` stay on theirs.
+fn is_podfile_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    gemfile_quoted_kw(s, "pod")
+        || gemfile_quoted_kw(s, "target")
+        || gemfile_quoted_kw(s, "abstract_target")
+        || podfile_bang(s, "use_frameworks!")
+        || podfile_bang(s, "use_modular_headers!")
+        || podfile_bang(s, "inhibit_all_warnings!")
+        || podfile_install(s)
+        || podfile_hook(s, "pre_install")
+        || podfile_hook(s, "post_install")
+        || podfile_hook(s, "pre_integrate")
+        || podfile_hook(s, "post_integrate")
+}
+
+fn podfile_bang(s: &str, kw: &str) -> bool {
+    let Some(rest) = s.strip_prefix(kw) else {
+        return false;
+    };
+    let t = rest.trim_start();
+    // Bare bang, `#` comment, or kwargs (`:linkage => :static`).
+    gemfile_comment_or_end(t) || t.starts_with(':') || t.starts_with(',')
+}
+
+fn podfile_install(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("install!") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_name, after)) = gemfile_quoted_string(rest) else {
+        return false;
+    };
+    gemfile_after_quoted_ok(after)
+}
+
+fn podfile_hook(s: &str, kw: &str) -> bool {
+    let Some(rest) = s.strip_prefix(kw) else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if !gemfile_do_tail(rest) {
+        return false;
+    }
+    let after_do = rest[2..].trim_start();
+    if gemfile_comment_or_end(after_do) {
+        return true;
+    }
+    // Optional `|installer|` block args.
+    let Some(inner) = after_do.strip_prefix('|') else {
+        return false;
+    };
+    let Some(end) = inner.find('|') else {
+        return false;
+    };
+    gemfile_comment_or_end(inner[end + 1..].trim_start())
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -43267,8 +43346,8 @@ mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl,
         is_cargo_toml_decl, is_composer_json_decl, is_gemfile_decl, is_gomod_decl,
-        is_package_json_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
-        is_xmake_decl, line_is_func_like,
+        is_package_json_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_scons_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -47374,6 +47453,56 @@ mod func_like_line_tests {
         assert!(!is_brewfile_decl(r#"gem "rails""#));
         assert!(is_rake_decl("task :default"));
         assert!(!is_brewfile_decl("task :default"));
+    }
+
+    #[test]
+    fn podfile_directives_count() {
+        assert!(line_is_func_like(r#"pod "Alamofire""#));
+        assert!(line_is_func_like("pod 'SwiftyJSON'"));
+        assert!(line_is_func_like(r#"pod "Alamofire", "~> 5.0""#));
+        assert!(line_is_func_like(
+            r#"pod "Foo", :git => "https://example.com/Foo.git""#
+        ));
+        assert!(line_is_func_like(r#"pod "Bar" # dep"#));
+        assert!(line_is_func_like(r#"target "MyApp" do"#));
+        assert!(line_is_func_like("target 'Tests' do"));
+        assert!(line_is_func_like(r#"abstract_target "Shows" do"#));
+        assert!(line_is_func_like("use_frameworks!"));
+        assert!(line_is_func_like("use_frameworks! :linkage => :static"));
+        assert!(line_is_func_like("use_modular_headers!"));
+        assert!(line_is_func_like("inhibit_all_warnings! # hush"));
+        assert!(line_is_func_like(r#"install! "cocoapods""#));
+        assert!(line_is_func_like(
+            r#"install! "cocoapods", :deterministic_uuids => false"#
+        ));
+        assert!(line_is_func_like("pre_install do"));
+        assert!(line_is_func_like("post_install do |installer|"));
+        assert!(line_is_func_like("pre_integrate do |installer|"));
+        assert!(line_is_func_like("post_integrate do |installer| # hook"));
+        assert!(is_podfile_decl(r#"pod "Alamofire""#));
+        assert!(is_podfile_decl(r#"target "MyApp" do"#));
+        assert!(is_podfile_decl("use_frameworks!"));
+        assert!(is_podfile_decl("post_install do |installer|"));
+        // Bare / prose / wrong case stay out.
+        assert!(!is_podfile_decl("pod"));
+        assert!(!is_podfile_decl("pod the alamofire"));
+        assert!(!is_podfile_decl("target"));
+        assert!(!is_podfile_decl("target MyApp do"));
+        assert!(!is_podfile_decl("use_frameworks"));
+        assert!(!is_podfile_decl("Use_frameworks!"));
+        assert!(!is_podfile_decl("install!"));
+        assert!(!is_podfile_decl(r#"install! cocoapods"#));
+        assert!(!is_podfile_decl("post_install"));
+        assert!(!is_podfile_decl("post_install |installer|"));
+        assert!(!is_podfile_decl("Pod \"Alamofire\""));
+        assert!(!line_is_func_like(r#"pod """#));
+        // Gemfile / Brewfile / xmake stay on their paths.
+        assert!(is_gemfile_decl(r#"gem "rails""#));
+        assert!(!is_podfile_decl(r#"gem "rails""#));
+        assert!(is_brewfile_decl(r#"brew "git""#));
+        assert!(!is_podfile_decl(r#"brew "git""#));
+        assert!(is_xmake_decl(r#"target("app")"#));
+        assert!(!is_podfile_decl(r#"target("app")"#));
     }
 
     #[test]

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.531] — 2026-10-23
+
+View:
+
+- **Function List** lists CocoaPods Podfile directives: `pod "…"` (optional version / kwargs), `target "…" do`, `abstract_target "…" do`, `use_frameworks!` / `use_modular_headers!` / `inhibit_all_warnings!` (optional kwargs), `install! "cocoapods"`, `pre_install` / `post_install` / `pre_integrate` / `post_integrate` hooks (optional `|installer|`). Optional `#` comment. Bare keywords, prose (`pod the alamofire`), and wrong case stay out. xmake `target("…")` stays on its path; Gemfile `gem` / Brewfile `brew` stay on theirs.
+
 ## [0.3.530] — 2026-10-23
 
 View:
