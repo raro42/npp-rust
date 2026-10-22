@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.509] — 2026-10-22
+
+View:
+
+- **Function List** lists Earthfile `VERSION 0.8`, `FROM alpine:3.18` / `FROM +base` (optional `--platform=…`), `SAVE ARTIFACT` / `SAVE IMAGE`, `BUILD +target`, `IMPORT github.com/…`, `GIT CLONE …`, `LOCALLY`, `PROJECT …`, `COMMAND` / `COMMAND --foo=STRING`, and `DO +INSTALL`. Bare targets (`build:`) stay out. Dockerfile `FROM … AS stage` stays on Dockerfile.
+
 ## [0.3.508] — 2026-10-22
 
 View:

@@ -31949,6 +31949,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// params stays out. Plain-ident params without `*` / `+` / `=` may not
 /// carry deps (avoids Agda/Idris `data nat : …`). Makefile / Ninja keep
 /// their own shapes.
+/// Earthfile `VERSION 0.8`, `FROM alpine:3.18` / `FROM +base` / optional
+/// `--platform=…`, `SAVE ARTIFACT` / `SAVE IMAGE`, `BUILD +target`,
+/// `IMPORT github.com/…`, `GIT CLONE …`, `LOCALLY`, `PROJECT …`,
+/// `COMMAND` / `COMMAND --foo=STRING`, `DO +INSTALL`. Bare targets
+/// (`build:`) stay out. Dockerfile `FROM … AS stage` stays on Dockerfile.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32042,6 +32047,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_ninja_decl(s)
             || is_makefile_decl(s)
             || is_just_decl(s)
+            || is_earthfile_decl(s)
         {
             return true;
         }
@@ -32131,6 +32137,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_ninja_decl(s)
         || is_makefile_decl(s)
         || is_just_decl(s)
+        || is_earthfile_decl(s)
     {
         return true;
     }
@@ -38555,6 +38562,449 @@ fn just_deps_ok(s: &str) -> bool {
     any
 }
 
+/// Earthfile `VERSION 0.8`, `FROM alpine:3.18` / `FROM +base` (optional
+/// `--platform=…`; `AS` stage optional), `SAVE ARTIFACT` / `SAVE IMAGE`,
+/// `BUILD +target`, `IMPORT github.com/…`, `GIT CLONE …`, `LOCALLY`,
+/// `PROJECT …`, `COMMAND` / `COMMAND --foo=STRING`, `DO +INSTALL`.
+/// Bare targets (`build:`) stay out. Dockerfile `FROM … AS stage` stays on
+/// Dockerfile. SQL `FROM users` and untagged `FROM ubuntu` stay out.
+fn is_earthfile_decl(s: &str) -> bool {
+    is_earth_version(s)
+        || is_earth_from(s)
+        || is_earth_save(s)
+        || is_earth_build(s)
+        || is_earth_import(s)
+        || is_earth_git_clone(s)
+        || is_earth_locally(s)
+        || is_earth_project(s)
+        || is_earth_command(s)
+        || is_earth_do(s)
+}
+
+fn is_earth_version(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "version") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    rest = earth_skip_flags(rest);
+    if rest.is_empty() {
+        return false;
+    }
+    let ver_n = rest
+        .bytes()
+        .take_while(|b| b.is_ascii_digit() || *b == b'.')
+        .count();
+    if ver_n == 0 || !rest.as_bytes()[0].is_ascii_digit() {
+        return false;
+    }
+    let after = rest[ver_n..].trim_start();
+    earth_line_tail_ok(after)
+}
+
+fn is_earth_from(s: &str) -> bool {
+    let Some(after_from) = sql_word(s, "from") else {
+        return false;
+    };
+    if !after_from.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = after_from.trim_start();
+    rest = earth_skip_flags(rest);
+    if rest.is_empty() {
+        return false;
+    }
+    let img_n = rest
+        .bytes()
+        .take_while(|b| !b.is_ascii_whitespace())
+        .count();
+    if img_n == 0 {
+        return false;
+    }
+    let img = &rest[..img_n];
+    if img.eq_ignore_ascii_case("as") || img.eq_ignore_ascii_case("the") || !earth_from_ref_ok(img)
+    {
+        return false;
+    }
+    rest = rest[img_n..].trim_start();
+    // Optional `AS name` (Earthfile allows FROM without AS; Dockerfile path
+    // still owns `FROM image AS stage` via is_dockerfile_decl).
+    if let Some(after_as) = sql_word(rest, "as") {
+        if after_as.starts_with(char::is_whitespace) {
+            rest = after_as.trim_start();
+            let name_n = rest
+                .bytes()
+                .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'-')
+                .count();
+            if name_n == 0 {
+                return false;
+            }
+            let first = rest.as_bytes()[0];
+            if !(first.is_ascii_alphabetic() || first == b'_') {
+                return false;
+            }
+            let name = &rest[..name_n];
+            if name.eq_ignore_ascii_case("the") || is_control_word(name) {
+                return false;
+            }
+            rest = rest[name_n..].trim_start();
+        }
+    }
+    earth_line_tail_ok(rest)
+}
+
+fn earth_from_ref_ok(img: &str) -> bool {
+    if let Some(name) = img.strip_prefix('+') {
+        return !name.is_empty()
+            && name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'/' | b'.'))
+            && !name.eq_ignore_ascii_case("the");
+    }
+    docker_image_looks_like_ref(img)
+}
+
+fn is_earth_save(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "save") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    if let Some(after) = sql_word(rest, "artifact") {
+        if after.is_empty() || after.starts_with(char::is_whitespace) {
+            return earth_save_artifact_body(after.trim_start());
+        }
+    }
+    if let Some(after) = sql_word(rest, "image") {
+        if after.is_empty() || after.starts_with(char::is_whitespace) {
+            return earth_save_image_body(after.trim_start());
+        }
+    }
+    false
+}
+
+fn earth_save_artifact_body(s: &str) -> bool {
+    let mut rest = earth_skip_flags(s);
+    // Need at least one path token.
+    let path_n = rest
+        .bytes()
+        .take_while(|b| !b.is_ascii_whitespace())
+        .count();
+    if path_n == 0 {
+        return false;
+    }
+    let path = &rest[..path_n];
+    if path.eq_ignore_ascii_case("as") || path.eq_ignore_ascii_case("the") {
+        return false;
+    }
+    rest = rest[path_n..].trim_start();
+    if let Some(after_as) = sql_word(rest, "as") {
+        if after_as.starts_with(char::is_whitespace) {
+            let after_as = after_as.trim_start();
+            if let Some(after_local) = sql_word(after_as, "local") {
+                if after_local.is_empty() || after_local.starts_with(char::is_whitespace) {
+                    rest = after_local.trim_start();
+                    let dest_n = rest
+                        .bytes()
+                        .take_while(|b| !b.is_ascii_whitespace())
+                        .count();
+                    if dest_n == 0 {
+                        return false;
+                    }
+                    rest = rest[dest_n..].trim_start();
+                }
+            }
+        }
+    }
+    earth_line_tail_ok(rest)
+}
+
+fn earth_save_image_body(s: &str) -> bool {
+    let rest = earth_skip_flags(s);
+    // `SAVE IMAGE` alone (cache) or with a name / `--push name`.
+    if earth_line_tail_ok(rest) {
+        return true;
+    }
+    let name_n = rest
+        .bytes()
+        .take_while(|b| !b.is_ascii_whitespace())
+        .count();
+    if name_n == 0 {
+        return false;
+    }
+    let name = &rest[..name_n];
+    if name.eq_ignore_ascii_case("the") || name.starts_with("--") {
+        return false;
+    }
+    earth_line_tail_ok(rest[name_n..].trim_start())
+}
+
+fn is_earth_build(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "build") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = earth_skip_flags(rest.trim_start());
+    // One or more `+target` refs.
+    let mut any = false;
+    while rest.starts_with('+') {
+        let tok_n = rest
+            .bytes()
+            .take_while(|b| !b.is_ascii_whitespace())
+            .count();
+        if tok_n < 2 || !earth_from_ref_ok(&rest[..tok_n]) {
+            return false;
+        }
+        any = true;
+        rest = rest[tok_n..].trim_start();
+        rest = earth_skip_flags(rest);
+    }
+    any && earth_line_tail_ok(rest)
+}
+
+fn is_earth_import(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "import") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    // Not Justfile `import "foo.just"` / JS `import {`.
+    if rest.starts_with('"')
+        || rest.starts_with('\'')
+        || rest.starts_with('{')
+        || rest.starts_with('?')
+    {
+        return false;
+    }
+    rest = earth_skip_flags(rest);
+    let path_n = rest
+        .bytes()
+        .take_while(|b| !b.is_ascii_whitespace())
+        .count();
+    if path_n == 0 {
+        return false;
+    }
+    let path = &rest[..path_n];
+    // Earthly imports look like `github.com/org/repo` or `./lib` or `+target`.
+    // Require `/`, a relative `.` / `..` prefix, or `+` so Python `import os.path`
+    // and JS bare `import x` stay out.
+    if !(path.starts_with('+') || path.starts_with('.') || path.contains('/')) {
+        return false;
+    }
+    if path.eq_ignore_ascii_case("the") {
+        return false;
+    }
+    rest = rest[path_n..].trim_start();
+    // Optional `AS alias`.
+    if let Some(after_as) = sql_word(rest, "as") {
+        if after_as.starts_with(char::is_whitespace) {
+            rest = after_as.trim_start();
+            let alias_n = rest
+                .bytes()
+                .take_while(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'-')
+                .count();
+            if alias_n == 0 {
+                return false;
+            }
+            let alias = &rest[..alias_n];
+            if alias.eq_ignore_ascii_case("the") || is_control_word(alias) {
+                return false;
+            }
+            rest = rest[alias_n..].trim_start();
+        }
+    }
+    earth_line_tail_ok(rest)
+}
+
+fn is_earth_git_clone(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "git") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(after_clone) = sql_word(rest, "clone") else {
+        return false;
+    };
+    if !after_clone.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = earth_skip_flags(after_clone.trim_start());
+    let url_n = rest
+        .bytes()
+        .take_while(|b| !b.is_ascii_whitespace())
+        .count();
+    if url_n == 0 {
+        return false;
+    }
+    let url = &rest[..url_n];
+    if url.eq_ignore_ascii_case("the") {
+        return false;
+    }
+    // Rough URL / path shape.
+    if !(url.contains(':') || url.contains('/') || url.contains('@') || url.starts_with('.')) {
+        return false;
+    }
+    rest = rest[url_n..].trim_start();
+    // Optional dest directory.
+    if !rest.is_empty() && !rest.starts_with('#') && !rest.starts_with("//") {
+        let dest_n = rest
+            .bytes()
+            .take_while(|b| !b.is_ascii_whitespace())
+            .count();
+        if dest_n == 0 {
+            return false;
+        }
+        rest = rest[dest_n..].trim_start();
+    }
+    earth_line_tail_ok(rest)
+}
+
+fn is_earth_locally(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "locally") else {
+        return false;
+    };
+    earth_line_tail_ok(rest.trim_start())
+}
+
+fn is_earth_project(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "project") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    // Not CMake/Meson `project(`.
+    let rest = rest.trim_start();
+    if rest.starts_with('(') || rest.starts_with('\'') {
+        return false;
+    }
+    let path_n = rest
+        .bytes()
+        .take_while(|b| !b.is_ascii_whitespace())
+        .count();
+    if path_n == 0 {
+        return false;
+    }
+    let path = &rest[..path_n];
+    if path.eq_ignore_ascii_case("the") || is_control_word(path) {
+        return false;
+    }
+    // Earthly PROJECT org/name looks path-like.
+    if !(path.contains('/') || path.contains('.')) {
+        return false;
+    }
+    earth_line_tail_ok(rest[path_n..].trim_start())
+}
+
+fn is_earth_command(s: &str) -> bool {
+    // Case-sensitive `COMMAND` so Vim/prose lowercase `command` stays out.
+    let Some(rest) = s.strip_prefix("COMMAND") else {
+        return false;
+    };
+    // Not Vim `command!` (different case anyway) / `COMMANDs`.
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('-')) {
+        return false;
+    }
+    let rest = earth_skip_flags(rest.trim_start());
+    earth_line_tail_ok(rest)
+}
+
+fn is_earth_do(s: &str) -> bool {
+    let Some(rest) = sql_word(s, "do") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = earth_skip_flags(rest.trim_start());
+    if !rest.starts_with('+') {
+        return false;
+    }
+    let tok_n = rest
+        .bytes()
+        .take_while(|b| !b.is_ascii_whitespace())
+        .count();
+    if tok_n < 2 || !earth_from_ref_ok(&rest[..tok_n]) {
+        return false;
+    }
+    rest = rest[tok_n..].trim_start();
+    rest = earth_skip_flags(rest);
+    earth_line_tail_ok(rest)
+}
+
+fn earth_skip_flags(mut rest: &str) -> &str {
+    for _ in 0..12 {
+        if !rest.starts_with("--") {
+            break;
+        }
+        let after_dashes = &rest[2..];
+        let flag_n = after_dashes
+            .bytes()
+            .take_while(|b| b.is_ascii_alphanumeric() || *b == b'-' || *b == b'_')
+            .count();
+        if flag_n == 0 {
+            break;
+        }
+        let flag = &after_dashes[..flag_n];
+        rest = &after_dashes[flag_n..];
+        if let Some(after_eq) = rest.strip_prefix('=') {
+            let val_n = after_eq
+                .bytes()
+                .take_while(|b| !b.is_ascii_whitespace())
+                .count();
+            if val_n == 0 {
+                break;
+            }
+            rest = after_eq[val_n..].trim_start();
+        } else {
+            rest = rest.trim_start();
+            if rest.starts_with("--") || rest.starts_with('+') || rest.is_empty() {
+                continue;
+            }
+            let val_n = rest
+                .bytes()
+                .take_while(|b| !b.is_ascii_whitespace())
+                .count();
+            if val_n == 0 {
+                break;
+            }
+            // Space-separated value only for known value-flags. Boolean flags
+            // must not swallow versions (`0.7`), paths (`./out`), or image refs
+            // after `--push` / `--keep-ts`.
+            let known_value = matches!(
+                flag.to_ascii_lowercase().as_str(),
+                "platform"
+                    | "branch"
+                    | "remote-path"
+                    | "chmod"
+                    | "user"
+                    | "entrypoint"
+                    | "shell"
+                    | "build-arg"
+                    | "tag"
+            );
+            if known_value {
+                rest = rest[val_n..].trim_start();
+            }
+        }
+    }
+    rest
+}
+
+fn earth_line_tail_ok(after: &str) -> bool {
+    after.is_empty() || after.starts_with('#') || after.starts_with("//") || after.starts_with("/*")
+}
+
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
     let Some((name, after)) = graphql_ident(s) else {
         return false;
@@ -43338,13 +43788,14 @@ mod func_like_line_tests {
         assert!(line_is_func_like("from ubuntu:latest AS base # comment"));
         assert!(line_is_func_like("FROM ${BASE_IMAGE} AS builder"));
         assert!(line_is_func_like("  FROM eclipse-temurin:17 AS jvm"));
+        // Earthfile owns `FROM image:tag` without `AS` (see earthfile_decls_count).
+        assert!(line_is_func_like("FROM ubuntu:22.04"));
         // Untagged bare names and SQL FROM stay out.
         assert!(!line_is_func_like("FROM ubuntu AS builder"));
         assert!(!line_is_func_like("FROM users AS u"));
         assert!(!line_is_func_like("FROM schema.table AS t"));
         assert!(!line_is_func_like("FROM"));
         assert!(!line_is_func_like("FROM "));
-        assert!(!line_is_func_like("FROM ubuntu:22.04"));
         assert!(!line_is_func_like("FROM AS builder"));
         assert!(!line_is_func_like("FROM ubuntu:22.04 AS the"));
         assert!(!line_is_func_like("FROM ubuntu:22.04 AS"));
@@ -43727,6 +44178,86 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("FOO := bar"));
         assert!(!line_is_func_like("test:"));
         assert!(!line_is_func_like("hello the:"));
+    }
+
+    #[test]
+    fn earthfile_decls_count() {
+        assert!(line_is_func_like("VERSION 0.8"));
+        assert!(line_is_func_like("VERSION 0.7"));
+        assert!(line_is_func_like("VERSION --arg-scope-and-set 0.7"));
+        assert!(line_is_func_like("  VERSION 0.8 # pin"));
+        assert!(line_is_func_like("FROM alpine:3.18"));
+        assert!(line_is_func_like("FROM golang:1.22-alpine"));
+        assert!(line_is_func_like("FROM +base"));
+        assert!(line_is_func_like("FROM +build/deps"));
+        assert!(line_is_func_like("FROM --platform=linux/amd64 alpine:3.18"));
+        assert!(line_is_func_like("FROM --platform linux/arm64 alpine:3.20"));
+        assert!(line_is_func_like("FROM alpine:3.18 AS base"));
+        assert!(line_is_func_like("FROM scratch"));
+        assert!(line_is_func_like("FROM ${BASE}:latest"));
+        assert!(line_is_func_like("SAVE ARTIFACT /bin/app"));
+        assert!(line_is_func_like(
+            "SAVE ARTIFACT /bin/app AS LOCAL ./bin/app"
+        ));
+        assert!(line_is_func_like("SAVE ARTIFACT --keep-ts ./out"));
+        assert!(line_is_func_like("SAVE IMAGE"));
+        assert!(line_is_func_like("SAVE IMAGE myorg/app:latest"));
+        assert!(line_is_func_like("SAVE IMAGE --push myorg/app:1.0"));
+        assert!(line_is_func_like("BUILD +build"));
+        assert!(line_is_func_like("BUILD +deps +build"));
+        assert!(line_is_func_like("BUILD --platform=linux/amd64 +build"));
+        assert!(line_is_func_like("IMPORT github.com/foo/bar"));
+        assert!(line_is_func_like("IMPORT github.com/foo/bar:main"));
+        assert!(line_is_func_like("IMPORT ./lib"));
+        assert!(line_is_func_like("IMPORT ../shared AS shared"));
+        assert!(line_is_func_like("IMPORT +other AS other"));
+        assert!(line_is_func_like(
+            "GIT CLONE git@github.com:foo/bar.git dest"
+        ));
+        assert!(line_is_func_like(
+            "GIT CLONE --branch main https://github.com/foo/bar.git src"
+        ));
+        assert!(line_is_func_like("LOCALLY"));
+        assert!(line_is_func_like("LOCALLY # host"));
+        assert!(line_is_func_like("PROJECT github.com/foo/bar"));
+        assert!(line_is_func_like("COMMAND"));
+        assert!(line_is_func_like("COMMAND --foo=STRING"));
+        assert!(line_is_func_like("DO +INSTALL"));
+        assert!(line_is_func_like("DO +INSTALL --foo=bar"));
+        // Dockerfile AS stage / Justfile / CMake / Vimscript still work.
+        assert!(line_is_func_like("FROM ubuntu:22.04 AS builder"));
+        assert!(line_is_func_like("import \"foo.just\""));
+        assert!(line_is_func_like("project(MyApp)"));
+        assert!(line_is_func_like("command! -nargs=1 MyCmd"));
+        // Bare targets / prose / other languages stay out.
+        assert!(!line_is_func_like("build:"));
+        assert!(!line_is_func_like("deps:"));
+        assert!(!line_is_func_like("VERSION"));
+        assert!(!line_is_func_like("VERSION the"));
+        assert!(!line_is_func_like("FROM ubuntu"));
+        assert!(!line_is_func_like("FROM users"));
+        assert!(!line_is_func_like("FROM the image"));
+        assert!(!line_is_func_like("FROM +"));
+        assert!(!line_is_func_like("SAVE ARTIFACT"));
+        assert!(!line_is_func_like("SAVE ARTIFACT AS LOCAL ./out"));
+        assert!(!line_is_func_like("SAVE IMAGE the"));
+        assert!(!line_is_func_like("BUILD"));
+        assert!(!line_is_func_like("BUILD build"));
+        assert!(!line_is_func_like("BUILD the +build"));
+        assert!(!line_is_func_like("IMPORT os.path"));
+        assert!(!line_is_func_like("IMPORT { x } from \"y\""));
+        assert!(!line_is_func_like("IMPORT \"foo.js\""));
+        assert!(!line_is_func_like("GIT CLONE"));
+        assert!(!line_is_func_like("GIT CLONE the repo"));
+        assert!(!line_is_func_like("GIT pull origin main"));
+        assert!(!line_is_func_like("LOCALLY now"));
+        assert!(!line_is_func_like("PROJECT MyApp"));
+        assert!(!line_is_func_like("PROJECT the app"));
+        assert!(!line_is_func_like("DO INSTALL"));
+        assert!(!line_is_func_like("DO the +INSTALL"));
+        assert!(!line_is_func_like("RUN echo hi"));
+        assert!(!line_is_func_like("COPY src dest"));
+        assert!(!line_is_func_like("WORKDIR /app"));
     }
 
     #[test]

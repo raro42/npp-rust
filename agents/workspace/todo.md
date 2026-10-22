@@ -722,3 +722,5 @@
 
 009 keep: Function List Makefile .PHONY/special targets/pattern rules/include/define (v0.3.507)
 009 keep: Function List Justfile attributes/alias/set/export/import/quiet+parameterized recipes (v0.3.508)
+
+009 keep: Function List Earthfile VERSION/FROM/SAVE/BUILD/IMPORT/GIT CLONE/LOCALLY/PROJECT/COMMAND/DO (v0.3.509)
