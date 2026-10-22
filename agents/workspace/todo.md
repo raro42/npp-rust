@@ -1,3 +1,4 @@
+009 keep: Function List sees Premake workspace/project/solution (v0.3.519)
 009 keep: Function List sees Apache Ant / MSBuild XML <target name> / <project name> / <macrodef name> / <Target Name> (v0.3.518)
 009 keep: Function List sees SCons Program/SharedLibrary/Library/Object/Command/Alias/Install (v0.3.517)
 009 keep: Function List sees Arch PKGBUILD / Alpine APKBUILD prepare/build/check/package/pkgver (v0.3.513)
