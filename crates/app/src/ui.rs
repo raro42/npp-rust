@@ -32284,6 +32284,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_dhcpd_decl(s)
             || is_syslog_ng_decl(s)
             || is_dovecot_decl(s)
+            || is_freeradius_decl(s)
         {
             return true;
         }
@@ -32420,6 +32421,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_dhcpd_decl(s)
         || is_syslog_ng_decl(s)
         || is_dovecot_decl(s)
+        || is_freeradius_decl(s)
     {
         return true;
     }
@@ -43584,6 +43586,92 @@ fn dovecot_local_remote(s: &str) -> bool {
     false
 }
 
+/// FreeRADIUS config block openers: `client localhost {`,
+/// `client 192.168.0.0/24 {`, `client "nas-1" {`,
+/// `home_server localhost {`, `home_server_pool my_auth_failover {`,
+/// `realm example.com {`, `server default {`, `modules {`,
+/// `instantiate {`, `listen {`, `policy {`, `files {`,
+/// `authorize {`, `authenticate {`, `preacct {`, `accounting {`,
+/// `session {`, `post-auth {`, `pre-proxy {`, `post-proxy {`,
+/// `recv-coa {`, `send-coa {`. Exact lowercase. Optional `#` after `{`.
+/// Wrong case, prose (`client the {`), bare keywords, nginx bare
+/// `server {`, HAProxy `listen name`, and in-block settings stay out.
+fn is_freeradius_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    freeradius_bare_block(s) || freeradius_named_block(s)
+}
+
+fn freeradius_prose_name(name: &str) -> bool {
+    matches!(name, "the" | "a" | "an" | "this" | "that" | "my" | "our")
+}
+
+fn freeradius_bare_block(s: &str) -> bool {
+    // Longer hyphenated keys first.
+    for key in [
+        "authenticate",
+        "instantiate",
+        "accounting",
+        "post-proxy",
+        "pre-proxy",
+        "post-auth",
+        "recv-coa",
+        "send-coa",
+        "authorize",
+        "preacct",
+        "session",
+        "modules",
+        "policy",
+        "listen",
+        "files",
+    ] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        // Not `modules_extra` / `filespace` / `listening`.
+        if rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{') {
+            return nginx_brace_tail(rest);
+        }
+    }
+    false
+}
+
+/// Name after `client` / `home_server` / …: quoted, ident (dots ok),
+/// or IPv4/IPv6 with optional `/bits` CIDR.
+fn freeradius_name_rest(s: &str) -> Option<&str> {
+    let s = s.trim_start();
+    if let Some((name, after)) = named_conf_quoted_or_ident(s) {
+        if freeradius_prose_name(name) {
+            return None;
+        }
+        return Some(after);
+    }
+    dovecot_addr_prefix(s)
+}
+
+fn freeradius_named_block(s: &str) -> bool {
+    // Longer keys first so `home_server_pool` wins over `home_server`.
+    for key in [
+        "home_server_pool",
+        "home_server",
+        "client",
+        "realm",
+        "server",
+    ] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        let Some(after) = freeradius_name_rest(rest) else {
+            return false;
+        };
+        return nginx_brace_tail(after);
+    }
+    false
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -45876,13 +45964,14 @@ mod func_like_line_tests {
         is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl, is_aws_config_decl,
         is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
         is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl,
-        is_editorconfig_decl, is_fluent_bit_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_keepalived_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl, is_package_json_decl,
-        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl,
-        is_syslog_ng_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
+        is_editorconfig_decl, is_fluent_bit_decl, is_freeradius_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_keepalived_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_package_json_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_ssh_config_decl,
+        is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
+        is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -51163,6 +51252,55 @@ mod func_like_line_tests {
         assert!(is_dovecot_decl("service auth {"));
         assert!(is_named_conf_decl("options {"));
         assert!(!is_dovecot_decl("options {"));
+    }
+
+    #[test]
+    fn freeradius_blocks_count() {
+        assert!(line_is_func_like("client localhost {"));
+        assert!(line_is_func_like("client 192.168.0.0/24 { # lab"));
+        assert!(line_is_func_like("  client \"nas-1\" {"));
+        assert!(line_is_func_like("home_server localhost {"));
+        assert!(line_is_func_like("home_server_pool my_auth_failover {"));
+        assert!(line_is_func_like("realm example.com {"));
+        assert!(line_is_func_like("server default {"));
+        assert!(line_is_func_like("modules {"));
+        assert!(line_is_func_like("instantiate {"));
+        assert!(line_is_func_like("listen {"));
+        assert!(line_is_func_like("policy {"));
+        assert!(line_is_func_like("files {"));
+        assert!(line_is_func_like("authorize {"));
+        assert!(line_is_func_like("authenticate {"));
+        assert!(line_is_func_like("preacct {"));
+        assert!(line_is_func_like("accounting {"));
+        assert!(line_is_func_like("session {"));
+        assert!(line_is_func_like("post-auth {"));
+        assert!(line_is_func_like("pre-proxy {"));
+        assert!(line_is_func_like("post-proxy {"));
+        assert!(line_is_func_like("recv-coa {"));
+        assert!(line_is_func_like("send-coa {"));
+        assert!(is_freeradius_decl("client 'inner' {"));
+        // Bare keywords / wrong case / prose / other dialects stay out.
+        assert!(!is_freeradius_decl("client"));
+        assert!(!is_freeradius_decl("client the {"));
+        assert!(!is_freeradius_decl("Client localhost {"));
+        assert!(!is_freeradius_decl("home_server"));
+        assert!(!is_freeradius_decl("home_server the {"));
+        assert!(!is_freeradius_decl("server"));
+        assert!(!is_freeradius_decl("server the {"));
+        assert!(!is_freeradius_decl("modules"));
+        assert!(!is_freeradius_decl("listen"));
+        assert!(!is_freeradius_decl("authorize"));
+        assert!(!is_freeradius_decl("post-auth"));
+        assert!(!is_freeradius_decl("ipaddr = 127.0.0.1"));
+        assert!(!is_freeradius_decl("secret = testing123"));
+        // nginx bare `server {` / HAProxy `listen www` stay on their paths.
+        assert!(is_nginx_conf_decl("server {"));
+        assert!(!is_freeradius_decl("server {"));
+        assert!(is_haproxy_decl("listen www"));
+        assert!(!is_freeradius_decl("listen www"));
+        // dovecot named service stays on dovecot.
+        assert!(is_dovecot_decl("service auth {"));
+        assert!(!is_freeradius_decl("service auth {"));
     }
 
     #[test]

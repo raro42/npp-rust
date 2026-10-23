@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.557] — 2026-10-24
+
+View:
+
+- **Function List** lists FreeRADIUS config block openers: `client localhost {`, `client 192.168.0.0/24 {`, `client "nas-1" {`, `home_server localhost {`, `home_server_pool my_auth_failover {`, `realm example.com {`, `server default {`, `modules {`, `instantiate {`, `listen {`, `policy {`, `files {`, `authorize {`, `authenticate {`, `preacct {`, `accounting {`, `session {`, `post-auth {`, `pre-proxy {`, `post-proxy {`, `recv-coa {`, `send-coa {`. Exact lowercase. Optional `#` after `{`. Wrong case, prose (`client the {`), bare keywords, nginx bare `server {`, HAProxy `listen name`, and in-block settings stay out.
+
 ## [0.3.556] — 2026-10-24
 
 View:
