@@ -32282,6 +32282,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_nftables_decl(s)
             || is_keepalived_decl(s)
             || is_dhcpd_decl(s)
+            || is_syslog_ng_decl(s)
         {
             return true;
         }
@@ -32416,6 +32417,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_nftables_decl(s)
         || is_keepalived_decl(s)
         || is_dhcpd_decl(s)
+        || is_syslog_ng_decl(s)
     {
         return true;
     }
@@ -43359,6 +43361,126 @@ fn dhcpd_on_event(s: &str) -> bool {
     false
 }
 
+/// syslog-ng.conf block openers: `source s_sys {`, `destination d_mesg {`,
+/// `filter f_kernel {`, `parser p_json {`, `rewrite r_set {`,
+/// `template t_demo {`, `log {`, `options {`,
+/// `block source s_tcp(…) {` / `block destination d_file {`. Exact lowercase.
+/// Optional `(…)` params after the name. Optional `#` after `{`. Wrong case,
+/// prose (`source the {`), bare keywords, Nim `template`, named.conf-only
+/// statements, and in-block drivers stay out.
+fn is_syslog_ng_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    syslog_ng_bare_block(s) || syslog_ng_named_block(s) || syslog_ng_block_def(s)
+}
+
+fn syslog_ng_prose_name(name: &str) -> bool {
+    matches!(name, "the" | "a" | "an" | "this" | "that" | "my" | "our")
+}
+
+/// Skip an optional `(…)` parameter list (depth-counted; no string awareness).
+fn syslog_ng_skip_params(s: &str) -> Option<&str> {
+    let s = s.trim_start();
+    if !s.starts_with('(') {
+        return Some(s);
+    }
+    let bytes = s.as_bytes();
+    let mut depth = 0i32;
+    for (i, &b) in bytes.iter().enumerate() {
+        match b {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&s[i + 1..]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn syslog_ng_after_name(after_name: &str) -> bool {
+    let Some(rest) = syslog_ng_skip_params(after_name) else {
+        return false;
+    };
+    nginx_brace_tail(rest)
+}
+
+fn syslog_ng_bare_block(s: &str) -> bool {
+    for key in ["options", "log"] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        // Not `logging` / `logical` / `options_extra`.
+        if rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{') {
+            return nginx_brace_tail(rest);
+        }
+    }
+    false
+}
+
+fn syslog_ng_named_block(s: &str) -> bool {
+    for key in [
+        "source",
+        "destination",
+        "filter",
+        "parser",
+        "rewrite",
+        "template",
+    ] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        let Some((name, after)) = nginx_ident(rest) else {
+            return false;
+        };
+        if syslog_ng_prose_name(name) {
+            return false;
+        }
+        return syslog_ng_after_name(after);
+    }
+    false
+}
+
+fn syslog_ng_block_def(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("block") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    for kind in [
+        "source",
+        "destination",
+        "filter",
+        "parser",
+        "rewrite",
+        "template",
+    ] {
+        let Some(after_kind) = rest.strip_prefix(kind) else {
+            continue;
+        };
+        if !after_kind.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let after_kind = after_kind.trim_start();
+        let Some((name, after)) = nginx_ident(after_kind) else {
+            return false;
+        };
+        if syslog_ng_prose_name(name) {
+            return false;
+        }
+        return syslog_ng_after_name(after);
+    }
+    false
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -45655,9 +45777,9 @@ mod func_like_line_tests {
         is_haproxy_decl, is_keepalived_decl, is_mysql_cnf_decl, is_named_conf_decl,
         is_nftables_decl, is_nginx_conf_decl, is_package_json_decl, is_php_ini_decl,
         is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
-        is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl, is_systemd_unit_decl,
-        is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, line_is_func_like,
+        is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
+        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -50849,6 +50971,49 @@ mod func_like_line_tests {
         assert!(!is_dhcpd_decl("vrrp_instance VI_1 {"));
         assert!(is_named_conf_decl("options {"));
         assert!(!is_dhcpd_decl("options {"));
+    }
+
+    #[test]
+    fn syslog_ng_blocks_count() {
+        assert!(line_is_func_like("source s_sys {"));
+        assert!(line_is_func_like("destination d_mesg { # local"));
+        assert!(line_is_func_like("  filter f_kernel {"));
+        assert!(line_is_func_like("parser p_json {"));
+        assert!(line_is_func_like("rewrite r_set {"));
+        assert!(line_is_func_like("template t_demo {"));
+        assert!(line_is_func_like("log {"));
+        assert!(line_is_func_like("options {"));
+        assert!(line_is_func_like("block source s_tcp {"));
+        assert!(line_is_func_like(
+            "block destination d_file(file(\"/var/log/x\")) {"
+        ));
+        assert!(line_is_func_like("source s_net() {"));
+        assert!(is_syslog_ng_decl("source s_sys {"));
+        assert!(is_syslog_ng_decl("block filter f_demo {"));
+        // Bare keywords / wrong case / prose / other dialects stay out.
+        assert!(!is_syslog_ng_decl("source"));
+        assert!(!is_syslog_ng_decl("source the {"));
+        assert!(!is_syslog_ng_decl("Source s_sys {"));
+        assert!(!is_syslog_ng_decl("destination"));
+        assert!(!is_syslog_ng_decl("filter the {"));
+        assert!(!is_syslog_ng_decl("template"));
+        assert!(!is_syslog_ng_decl("log"));
+        assert!(!is_syslog_ng_decl("options"));
+        assert!(!is_syslog_ng_decl("block source"));
+        assert!(!is_syslog_ng_decl("block source the {"));
+        assert!(!is_syslog_ng_decl("block foo s_sys {"));
+        assert!(!is_syslog_ng_decl("system();"));
+        assert!(!is_syslog_ng_decl("file(\"/var/log/messages\");"));
+        assert!(!is_syslog_ng_decl("facility(kern);"));
+        // Nim template / named.conf logging / dhcpd stay on their paths.
+        assert!(!is_syslog_ng_decl("template max(x, y): untyped ="));
+        assert!(is_named_conf_decl("logging {"));
+        assert!(!is_syslog_ng_decl("logging {"));
+        assert!(is_dhcpd_decl("host printer {"));
+        assert!(!is_syslog_ng_decl("host printer {"));
+        // named.conf `options {` also matches syslog-ng; both count.
+        assert!(is_named_conf_decl("options {"));
+        assert!(is_syslog_ng_decl("options {"));
     }
 
     #[test]

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.555] — 2026-10-24
+
+View:
+
+- **Function List** lists syslog-ng.conf block openers: `source s_sys {`, `destination d_mesg {`, `filter f_kernel {`, `parser p_json {`, `rewrite r_set {`, `template t_demo {`, `log {`, `options {`, `block source s_tcp {` / `block destination d_file(…) {`. Exact lowercase. Optional `(…)` params after the name. Optional `#` after `{`. Wrong case, prose (`source the {`), bare keywords, Nim `template`, and in-block drivers stay out.
+
 ## [0.3.554] — 2026-10-24
 
 View:
