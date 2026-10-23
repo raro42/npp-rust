@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.552] — 2026-10-23
+
+View:
+
+- **Function List** lists nftables block openers: `table inet filter {`, `table ip nat {`, `chain input {`, `set blacklist {`, `map portfwd {`, `flowtable f {`, `counter http {`, `quota q {`, `limit rate_limit {`, `secmark m {`, `synproxy s {`, `meter flood {`, `ct helper ftp {`, `ct timeout t {`, `ct expectation e {`. Exact lowercase. Families: `ip` / `ip6` / `inet` / `arp` / `bridge` / `netdev`. Optional `#` after `{`. FlatBuffers `table Monster {`, nginx `map $a $b {`, wrong case, prose, bare keywords, and in-block statements stay out.
+
 ## [0.3.551] — 2026-10-23
 
 View:

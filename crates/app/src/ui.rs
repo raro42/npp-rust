@@ -32279,6 +32279,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_grafana_ini_decl(s)
             || is_supervisord_conf_decl(s)
             || is_named_conf_decl(s)
+            || is_nftables_decl(s)
         {
             return true;
         }
@@ -32410,6 +32411,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_grafana_ini_decl(s)
         || is_supervisord_conf_decl(s)
         || is_named_conf_decl(s)
+        || is_nftables_decl(s)
     {
         return true;
     }
@@ -42888,6 +42890,106 @@ fn named_conf_primaries(s: &str) -> bool {
     false
 }
 
+/// nftables block openers: `table inet filter {`, `table ip nat {`,
+/// `chain input {`, `set blacklist {`, `map portfwd {`, `flowtable f {`,
+/// `counter http {`, `quota q {`, `limit rate_limit {`, `secmark m {`,
+/// `synproxy s {`, `meter flood {`, `ct helper ftp {`, `ct timeout t {`,
+/// `ct expectation e {`. Exact lowercase. Families: `ip` / `ip6` / `inet` /
+/// `arp` / `bridge` / `netdev`. Optional `#` after `{`. FlatBuffers
+/// `table Monster {`, nginx `map $a $b {`, wrong case, prose
+/// (`table the filter {` / `chain the input {`), bare keywords, and
+/// in-block statements stay out.
+fn is_nftables_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    nftables_table(s) || nftables_named_object(s) || nftables_ct_object(s)
+}
+
+fn nftables_prose_name(name: &str) -> bool {
+    matches!(name, "the" | "a" | "an" | "this" | "that" | "my" | "our")
+}
+
+fn nftables_table(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("table") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((family, after)) = nginx_ident(rest) else {
+        return false;
+    };
+    if !matches!(family, "ip" | "ip6" | "inet" | "arp" | "bridge" | "netdev") {
+        return false;
+    }
+    let after = after.trim_start();
+    let Some((name, after)) = nginx_ident(after) else {
+        return false;
+    };
+    if nftables_prose_name(name) {
+        return false;
+    }
+    nginx_brace_tail(after)
+}
+
+fn nftables_named_object(s: &str) -> bool {
+    for key in [
+        "chain",
+        "set",
+        "map",
+        "flowtable",
+        "counter",
+        "quota",
+        "limit",
+        "secmark",
+        "synproxy",
+        "meter",
+    ] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        let Some((name, after)) = nginx_ident(rest) else {
+            return false;
+        };
+        if nftables_prose_name(name) {
+            return false;
+        }
+        return nginx_brace_tail(after);
+    }
+    false
+}
+
+fn nftables_ct_object(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("ct") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    for kind in ["helper", "timeout", "expectation"] {
+        let Some(rest) = rest.strip_prefix(kind) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        let Some((name, after)) = nginx_ident(rest) else {
+            return false;
+        };
+        if nftables_prose_name(name) {
+            return false;
+        }
+        return nginx_brace_tail(after);
+    }
+    false
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -45181,11 +45283,11 @@ mod func_like_line_tests {
         is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
         is_composer_json_decl, is_desktop_entry_decl, is_editorconfig_decl, is_fluent_bit_decl,
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nginx_conf_decl, is_package_json_decl,
-        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl,
-        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_package_json_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_ssh_config_decl,
+        is_supervisord_conf_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
+        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -50242,6 +50344,51 @@ mod func_like_line_tests {
         // Named http still counts as BIND.
         assert!(is_named_conf_decl(r#"http "dns-over-http" {"#));
         assert!(!is_nginx_conf_decl(r#"http "dns-over-http" {"#));
+    }
+
+    #[test]
+    fn nftables_blocks_count() {
+        assert!(line_is_func_like("table inet filter {"));
+        assert!(line_is_func_like("table ip nat { # NAT"));
+        assert!(line_is_func_like("  table ip6 filter {"));
+        assert!(line_is_func_like("table arp filter {"));
+        assert!(line_is_func_like("table bridge filter {"));
+        assert!(line_is_func_like("table netdev ingress {"));
+        assert!(line_is_func_like("chain input {"));
+        assert!(line_is_func_like("set blacklist {"));
+        assert!(line_is_func_like("map portfwd {"));
+        assert!(line_is_func_like("flowtable f {"));
+        assert!(line_is_func_like("counter http_req {"));
+        assert!(line_is_func_like("quota q {"));
+        assert!(line_is_func_like("limit rate_limit {"));
+        assert!(line_is_func_like("secmark m {"));
+        assert!(line_is_func_like("synproxy s {"));
+        assert!(line_is_func_like("meter flood {"));
+        assert!(line_is_func_like("ct helper ftp-standard {"));
+        assert!(line_is_func_like("ct timeout custom {"));
+        assert!(line_is_func_like("ct expectation expect1 {"));
+        assert!(is_nftables_decl("table inet filter {"));
+        assert!(is_nftables_decl("chain forward {"));
+        // Bare keywords / wrong case / prose / other dialects stay out.
+        assert!(!is_nftables_decl("table"));
+        assert!(!is_nftables_decl("table inet"));
+        assert!(!is_nftables_decl("Table inet filter {"));
+        assert!(!is_nftables_decl("table the filter {"));
+        assert!(!is_nftables_decl("chain the input {"));
+        assert!(!is_nftables_decl("chain {"));
+        assert!(!is_nftables_decl("type filter hook input priority 0;"));
+        assert!(!is_nftables_decl("policy accept;"));
+        assert!(!is_nftables_decl("flush ruleset"));
+        assert!(!is_nftables_decl("define lan = 192.168.1.0/24"));
+        // FlatBuffers `table Monster {` stays on FlatBuffers.
+        assert!(line_is_func_like("table Monster {"));
+        assert!(!is_nftables_decl("table Monster {"));
+        // nginx `map $a $b {` stays on nginx.
+        assert!(is_nginx_conf_decl("map $a $b {"));
+        assert!(!is_nftables_decl("map $a $b {"));
+        // Named nftables map still counts.
+        assert!(is_nftables_decl("map portfwd {"));
+        assert!(!is_nginx_conf_decl("map portfwd {"));
     }
 
     #[test]
