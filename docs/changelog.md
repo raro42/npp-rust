@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.537] — 2026-10-23
+
+View:
+
+- **Function List** lists Git config sections: `[core]`, `[user]`, `[remote "origin"]`, `[branch "main"]`, `[includeIf "gitdir:…"]`, `[filter "lfs"]`, `[url "…"]`, `[branch.main]`. Optional `#` / `;` comment. Known lowercase section names; optional quoted or dotted subsection. Key lines (`user.name =`), systemd / Desktop Entry / tox / Cargo / Pipfile / pyproject / EditorConfig tables, incomplete brackets, and prose stay out.
+
 ## [0.3.536] — 2026-10-23
 
 View:

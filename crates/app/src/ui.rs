@@ -32073,6 +32073,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `/`. Key lines (`indent_size =`), systemd / Desktop Entry / tox / Cargo
 /// / Pipfile / pyproject tables, bare `[Makefile]`, incomplete brackets,
 /// and prose stay out.
+/// Git config sections (`[core]`, `[user]`, `[remote "origin"]`,
+/// `[branch "main"]`, `[includeIf "gitdir:…"]`, `[branch.main]`). Optional
+/// `#` / `;` comment. Known lowercase section names only; optional quoted
+/// or dotted subsection. Key lines (`user.name =`), systemd / Desktop Entry
+/// / tox / Cargo / Pipfile / pyproject / EditorConfig tables, incomplete
+/// brackets, and prose stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32193,6 +32199,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
+            || is_gitconfig_decl(s)
         {
             return true;
         }
@@ -32309,6 +32316,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
+        || is_gitconfig_decl(s)
     {
         return true;
     }
@@ -41247,6 +41255,177 @@ fn editorconfig_glob_ok(header: &str) -> bool {
         .any(|b| matches!(b, b'*' | b'?' | b'{' | b'/'))
 }
 
+/// Git config sections: `[core]`, `[user]`, `[remote "origin"]`,
+/// `[branch "main"]`, `[includeIf "gitdir:~/work/"]`, `[filter "lfs"]`,
+/// `[url "https://github.com/"]`, `[branch.main]`. Optional trailing
+/// `#` or `;` comment. Known lowercase section names only so systemd
+/// `[Unit]` / Cargo `[package]` / tox / Desktop Entry / EditorConfig stay
+/// on their paths. Key lines (`user.name =`, `core.editor =`), incomplete
+/// brackets, and prose stay out.
+fn is_gitconfig_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    gitconfig_header_ok(header)
+}
+
+fn gitconfig_header_ok(header: &str) -> bool {
+    let bytes = header.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || matches!(bytes[i], b'-' | b'_')) {
+        i += 1;
+    }
+    if i == 0 {
+        return false;
+    }
+    let section = &header[..i];
+    if !gitconfig_section_ok(section) {
+        return false;
+    }
+    let rest = &header[i..];
+    if rest.is_empty() {
+        return true;
+    }
+    // Dotted form: `[branch.main]`.
+    if let Some(sub) = rest.strip_prefix('.') {
+        return gitconfig_dotted_sub_ok(sub);
+    }
+    // Quoted subsection: `[remote "origin"]` (whitespace then quotes).
+    if !rest
+        .as_bytes()
+        .first()
+        .is_some_and(|b| b.is_ascii_whitespace())
+    {
+        return false;
+    }
+    gitconfig_quoted_sub_ok(rest)
+}
+
+fn gitconfig_section_ok(section: &str) -> bool {
+    matches!(
+        section,
+        "advice"
+            | "alias"
+            | "am"
+            | "apply"
+            | "attr"
+            | "bitmap"
+            | "blame"
+            | "branch"
+            | "browser"
+            | "bundle"
+            | "checkout"
+            | "clean"
+            | "clone"
+            | "color"
+            | "column"
+            | "commit"
+            | "commitgraph"
+            | "core"
+            | "credential"
+            | "diff"
+            | "difftool"
+            | "extensions"
+            | "fastimport"
+            | "feature"
+            | "fetch"
+            | "filter"
+            | "format"
+            | "fsck"
+            | "fsmonitor"
+            | "gc"
+            | "gpg"
+            | "grep"
+            | "gui"
+            | "help"
+            | "http"
+            | "https"
+            | "i18n"
+            | "include"
+            | "includeIf"
+            | "index"
+            | "init"
+            | "instaweb"
+            | "interactive"
+            | "log"
+            | "mailinfo"
+            | "mailmap"
+            | "maintenance"
+            | "man"
+            | "merge"
+            | "mergetool"
+            | "notes"
+            | "pack"
+            | "pager"
+            | "pretty"
+            | "protocol"
+            | "pull"
+            | "push"
+            | "rebase"
+            | "receive"
+            | "remote"
+            | "remotes"
+            | "repack"
+            | "replace"
+            | "rerere"
+            | "reset"
+            | "safe"
+            | "sendemail"
+            | "sequence"
+            | "showBranch"
+            | "sparse"
+            | "splitIndex"
+            | "ssh"
+            | "stash"
+            | "status"
+            | "submodule"
+            | "tag"
+            | "tar"
+            | "trace2"
+            | "transfer"
+            | "uploadarchive"
+            | "uploadpack"
+            | "url"
+            | "user"
+            | "versionsort"
+            | "web"
+            | "worktree"
+    )
+}
+
+fn gitconfig_dotted_sub_ok(sub: &str) -> bool {
+    if sub.is_empty() {
+        return false;
+    }
+    let bytes = sub.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
+}
+
+fn gitconfig_quoted_sub_ok(rest: &str) -> bool {
+    let rest = rest.trim_start();
+    let Some(inner) = rest.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = inner.find('"') else {
+        return false;
+    };
+    if end == 0 {
+        return false;
+    }
+    // Nothing after the closing quote except we already trimmed the
+    // bracket via cargo_toml_header; reject trailing junk inside header.
+    inner[end + 1..].is_empty()
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -43538,9 +43717,9 @@ mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl,
         is_cargo_toml_decl, is_composer_json_decl, is_desktop_entry_decl, is_editorconfig_decl,
-        is_gemfile_decl, is_gomod_decl, is_package_json_decl, is_pipfile_decl, is_podfile_decl,
-        is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_systemd_unit_decl,
-        is_tox_ini_decl, is_xmake_decl, line_is_func_like,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_package_json_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
+        is_systemd_unit_decl, is_tox_ini_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -47887,6 +48066,59 @@ mod func_like_line_tests {
         assert!(!is_editorconfig_decl("[packages]"));
         assert!(is_pyproject_toml_decl("[project]"));
         assert!(!is_editorconfig_decl("[project]"));
+    }
+
+    #[test]
+    fn gitconfig_sections_count() {
+        assert!(line_is_func_like("[core]"));
+        assert!(line_is_func_like("  [user] # identity"));
+        assert!(line_is_func_like("[alias] ; shortcuts"));
+        assert!(line_is_func_like("[remote \"origin\"]"));
+        assert!(line_is_func_like("[branch \"main\"]"));
+        assert!(line_is_func_like("[includeIf \"gitdir:~/work/\"]"));
+        assert!(line_is_func_like("[filter \"lfs\"]"));
+        assert!(line_is_func_like("[url \"https://github.com/\"]"));
+        assert!(line_is_func_like("[branch.main]"));
+        assert!(line_is_func_like("[includeIf.gitdir]"));
+        assert!(is_gitconfig_decl("[core]"));
+        assert!(is_gitconfig_decl("[user]"));
+        assert!(is_gitconfig_decl("[remote \"origin\"]"));
+        assert!(is_gitconfig_decl("[branch \"main\"]"));
+        assert!(is_gitconfig_decl("[includeIf \"gitdir:/srv/git/\"]"));
+        assert!(is_gitconfig_decl("[branch.main]"));
+        // Key lines / incomplete / unknown / other tables stay out.
+        assert!(!is_gitconfig_decl("user.name = Ada"));
+        assert!(!line_is_func_like("user.name = Ada"));
+        assert!(!is_gitconfig_decl("core.editor = vim"));
+        assert!(!is_gitconfig_decl("[core"));
+        assert!(!is_gitconfig_decl("[[core]]"));
+        assert!(!is_gitconfig_decl("[Core]"));
+        assert!(!is_gitconfig_decl("[USER]"));
+        assert!(!is_gitconfig_decl("[unknown]"));
+        assert!(is_gitconfig_decl("[remote]"));
+        assert!(!is_gitconfig_decl("[remote \"\"]"));
+        assert!(!is_gitconfig_decl("[remote origin]"));
+        assert!(!is_gitconfig_decl("[remote\"origin\"]"));
+        assert!(!is_gitconfig_decl("[Unit]"));
+        assert!(!is_gitconfig_decl("[Desktop Entry]"));
+        assert!(!is_gitconfig_decl("[tox]"));
+        assert!(!is_gitconfig_decl("[package]"));
+        assert!(!is_gitconfig_decl("[*]"));
+        // systemd / Desktop Entry / tox / Cargo / EditorConfig stay on their paths.
+        assert!(is_systemd_unit_decl("[Unit]"));
+        assert!(!is_gitconfig_decl("[Unit]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_gitconfig_decl("[Desktop Entry]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_gitconfig_decl("[tox]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_gitconfig_decl("[package]"));
+        assert!(is_editorconfig_decl("[*]"));
+        assert!(!is_gitconfig_decl("[*]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_gitconfig_decl("[packages]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_gitconfig_decl("[project]"));
     }
 
     #[test]
