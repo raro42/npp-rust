@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.536] — 2026-10-23
+
+View:
+
+- **Function List** lists EditorConfig glob sections: `[*]`, `[*.rs]`, `[*.{js,ts}]`, `[lib/**/*.js]`, `[{package.json,.travis.yml}]`, `[src/main.rs]`. Optional `#` / `;` comment. Header must contain `*` / `?` / `{` or `/`. Key lines (`indent_size =`), bare `[Makefile]`, systemd / Desktop Entry / tox / Cargo / Pipfile / pyproject tables, incomplete brackets, and prose stay out.
+
 ## [0.3.535] — 2026-10-23
 
 View:

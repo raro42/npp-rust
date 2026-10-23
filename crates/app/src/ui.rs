@@ -32067,6 +32067,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `[Scope]`). Optional `#` / `;` comment. Key lines (`Description=`),
 /// Desktop Entry / tox / Cargo / Pipfile / pyproject tables, incomplete
 /// brackets, and prose stay out.
+/// EditorConfig glob sections (`[*]`, `[*.rs]`, `[*.{js,ts}]`,
+/// `[lib/**/*.js]`, `[{package.json,.travis.yml}]`). Optional `#` / `;`
+/// comment. Header must contain a glob metacharacter (`*` / `?` / `{`) or
+/// `/`. Key lines (`indent_size =`), systemd / Desktop Entry / tox / Cargo
+/// / Pipfile / pyproject tables, bare `[Makefile]`, incomplete brackets,
+/// and prose stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32186,6 +32192,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_tox_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
+            || is_editorconfig_decl(s)
         {
             return true;
         }
@@ -32301,6 +32308,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_tox_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
+        || is_editorconfig_decl(s)
     {
         return true;
     }
@@ -41216,6 +41224,29 @@ fn is_systemd_unit_decl(s: &str) -> bool {
     )
 }
 
+/// EditorConfig glob sections: `[*]`, `[*.rs]`, `[*.{js,ts}]`,
+/// `[lib/**/*.js]`, `[{package.json,.travis.yml}]`. Optional trailing
+/// `#` or `;` comment. Header must contain `*` / `?` / `{` or `/` so
+/// fixed INI tables (`[Unit]`, `[package]`, `[tox]`, `[Desktop Entry]`)
+/// stay on their paths. Key lines (`indent_size = 2`), bare `[Makefile]`,
+/// incomplete brackets, and prose stay out.
+fn is_editorconfig_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    editorconfig_glob_ok(header)
+}
+
+fn editorconfig_glob_ok(header: &str) -> bool {
+    header
+        .bytes()
+        .any(|b| matches!(b, b'*' | b'?' | b'{' | b'/'))
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -43506,10 +43537,10 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl,
-        is_cargo_toml_decl, is_composer_json_decl, is_desktop_entry_decl, is_gemfile_decl,
-        is_gomod_decl, is_package_json_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_systemd_unit_decl, is_tox_ini_decl,
-        is_xmake_decl, line_is_func_like,
+        is_cargo_toml_decl, is_composer_json_decl, is_desktop_entry_decl, is_editorconfig_decl,
+        is_gemfile_decl, is_gomod_decl, is_package_json_decl, is_pipfile_decl, is_podfile_decl,
+        is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_systemd_unit_decl,
+        is_tox_ini_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -47818,6 +47849,44 @@ mod func_like_line_tests {
         assert!(!is_systemd_unit_decl("[packages]"));
         assert!(is_pyproject_toml_decl("[project]"));
         assert!(!is_systemd_unit_decl("[project]"));
+    }
+
+    #[test]
+    fn editorconfig_glob_sections_count() {
+        assert!(line_is_func_like("[*]"));
+        assert!(line_is_func_like("  [*.rs] # rust"));
+        assert!(line_is_func_like("[*.{js,ts}] ; web"));
+        assert!(line_is_func_like("[lib/**/*.js]"));
+        assert!(line_is_func_like("[{package.json,.travis.yml}]"));
+        assert!(line_is_func_like("[src/main.rs]"));
+        assert!(is_editorconfig_decl("[*]"));
+        assert!(is_editorconfig_decl("[*.py]"));
+        assert!(is_editorconfig_decl("[?.md]"));
+        // Key lines / incomplete / bare names / fixed INI stay out.
+        assert!(!is_editorconfig_decl("indent_size = 2"));
+        assert!(!line_is_func_like("indent_size = 2"));
+        assert!(!is_editorconfig_decl("root = true"));
+        assert!(!is_editorconfig_decl("[*"));
+        assert!(!is_editorconfig_decl("[[*]]"));
+        assert!(!is_editorconfig_decl("[]"));
+        assert!(!is_editorconfig_decl("[Makefile]"));
+        assert!(!is_editorconfig_decl("[Unit]"));
+        assert!(!is_editorconfig_decl("[Desktop Entry]"));
+        assert!(!is_editorconfig_decl("[tox]"));
+        assert!(!is_editorconfig_decl("[package]"));
+        // systemd / Desktop Entry / tox / Cargo stay on their paths.
+        assert!(is_systemd_unit_decl("[Unit]"));
+        assert!(!is_editorconfig_decl("[Unit]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_editorconfig_decl("[Desktop Entry]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_editorconfig_decl("[tox]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_editorconfig_decl("[package]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_editorconfig_decl("[packages]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_editorconfig_decl("[project]"));
     }
 
     #[test]

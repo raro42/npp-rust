@@ -1,3 +1,4 @@
+009 keep: Function List sees EditorConfig glob sections [*] / [*.rs] / [*.{js,ts}] (v0.3.536)
 009 keep: Function List sees Desktop Entry [Desktop Entry]/[Desktop Action …] (v0.3.534)
 009 keep: Function List sees tox.ini [tox]/[testenv]/[testenv:…]/[gh-actions] (v0.3.533)
 009 keep: Function List sees Cargo.toml [package]/[lib]/[[bin]]/[workspace]/[profile.*] (v0.3.523)
@@ -761,3 +762,5 @@
 009 keep: Function List CocoaPods Podfile directives (v0.3.531)
 
 009 keep: Function List Pipfile (Pipenv) [[source]]/[packages]/[dev-packages]/[requires]/[scripts]/[pipenv] (v0.3.532)
+
+009 keep: Function List systemd unit sections [Unit]/[Service]/[Install]/[Socket]/[Timer]/[Mount]/[Automount]/[Swap]/[Path]/[Slice]/[Scope] (v0.3.535)
