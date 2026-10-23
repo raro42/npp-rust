@@ -32286,6 +32286,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_dovecot_decl(s)
             || is_freeradius_decl(s)
             || is_ipsec_conf_decl(s)
+            || is_openvpn_decl(s)
         {
             return true;
         }
@@ -32424,6 +32425,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_dovecot_decl(s)
         || is_freeradius_decl(s)
         || is_ipsec_conf_decl(s)
+        || is_openvpn_decl(s)
     {
         return true;
     }
@@ -43752,6 +43754,56 @@ fn ipsec_conf_named(s: &str) -> bool {
     false
 }
 
+/// OpenVPN inline files and `<connection>` blocks: `<ca>`, `<cert>`,
+/// `<key>`, `<dh>`, `<pkcs12>`, `<extra-certs>`, `<crl-verify>`,
+/// `<tls-auth>`, `<tls-crypt>`, `<tls-crypt-v2>`, `<auth-user-pass>`,
+/// `<http-proxy-user-pass>`, `<auth-gen-token-secret>`,
+/// `<peer-fingerprint>`, `<verify-hash>`, `<connection>`. Exact
+/// lowercase, tag then `>`. Optional `#` or `;` comment. Closing tags,
+/// wrong case, plist `<key>name</key>`, and trailing payload stay out.
+fn is_openvpn_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('<') else {
+        return false;
+    };
+    if rest.starts_with('/') {
+        return false;
+    }
+    const TAGS: &[&str] = &[
+        "auth-gen-token-secret",
+        "http-proxy-user-pass",
+        "peer-fingerprint",
+        "tls-crypt-v2",
+        "auth-user-pass",
+        "extra-certs",
+        "crl-verify",
+        "verify-hash",
+        "connection",
+        "tls-crypt",
+        "tls-auth",
+        "pkcs12",
+        "cert",
+        "key",
+        "dh",
+        "ca",
+    ];
+    for tag in TAGS {
+        let Some(after) = rest.strip_prefix(tag) else {
+            continue;
+        };
+        let Some(after) = after.strip_prefix('>') else {
+            continue;
+        };
+        return openvpn_tail(after);
+    }
+    false
+}
+
+fn openvpn_tail(rest: &str) -> bool {
+    let rest = rest.trim_start();
+    rest.is_empty() || rest.starts_with('#') || rest.starts_with(';')
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -46047,11 +46099,11 @@ mod func_like_line_tests {
         is_editorconfig_decl, is_fluent_bit_decl, is_freeradius_decl, is_gemfile_decl,
         is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_ipsec_conf_decl,
         is_keepalived_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_package_json_decl, is_php_ini_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
-        is_ssh_config_decl, is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_unit_decl,
-        is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, line_is_func_like,
+        is_nginx_conf_decl, is_openvpn_decl, is_package_json_decl, is_php_ini_decl,
+        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
+        is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
+        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -51409,6 +51461,46 @@ mod func_like_line_tests {
         assert!(!is_ipsec_conf_decl("listen www"));
         assert!(is_freeradius_decl("client localhost {"));
         assert!(!is_ipsec_conf_decl("client localhost {"));
+    }
+
+    #[test]
+    fn openvpn_inline_blocks_count() {
+        assert!(line_is_func_like("<ca>"));
+        assert!(line_is_func_like("  <cert> # inline"));
+        assert!(line_is_func_like("<key> ; pem"));
+        assert!(line_is_func_like("<dh>"));
+        assert!(line_is_func_like("<pkcs12>"));
+        assert!(line_is_func_like("<extra-certs>"));
+        assert!(line_is_func_like("<crl-verify>"));
+        assert!(line_is_func_like("<tls-auth>"));
+        assert!(line_is_func_like("<tls-crypt>"));
+        assert!(line_is_func_like("<tls-crypt-v2>"));
+        assert!(line_is_func_like("<auth-user-pass>"));
+        assert!(line_is_func_like("<http-proxy-user-pass>"));
+        assert!(line_is_func_like("<auth-gen-token-secret>"));
+        assert!(line_is_func_like("<peer-fingerprint>"));
+        assert!(line_is_func_like("<verify-hash>"));
+        assert!(line_is_func_like("<connection>"));
+        // Closing tags, wrong case, payload, and near-misses stay out.
+        assert!(!is_openvpn_decl("</ca>"));
+        assert!(!is_openvpn_decl("</connection>"));
+        assert!(!is_openvpn_decl("<CA>"));
+        assert!(!is_openvpn_decl("<Cert>"));
+        assert!(!is_openvpn_decl("<ca"));
+        assert!(!is_openvpn_decl("<ca> extra"));
+        assert!(!is_openvpn_decl("<key>CFBundleName</key>"));
+        assert!(!is_openvpn_decl("<key/>"));
+        assert!(!is_openvpn_decl("< ca >"));
+        assert!(!is_openvpn_decl("<connection> remote 1.2.3.4"));
+        assert!(!is_openvpn_decl("<cache>"));
+        assert!(!is_openvpn_decl("<certificate>"));
+        assert!(!is_openvpn_decl("<secret>"));
+        assert!(!is_openvpn_decl("dev tun"));
+        // Apache containers and ipsec headers stay on their paths.
+        assert!(is_apache_httpd_decl("<VirtualHost *:80>"));
+        assert!(!is_openvpn_decl("<VirtualHost *:80>"));
+        assert!(is_ipsec_conf_decl("conn vpn"));
+        assert!(!is_openvpn_decl("conn vpn"));
     }
 
     #[test]

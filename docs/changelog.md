@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.559] — 2026-10-24
+
+View:
+
+- **Function List** lists OpenVPN inline blocks: `<ca>`, `<cert>`, `<key>`, `<dh>`, `<pkcs12>`, `<extra-certs>`, `<crl-verify>`, `<tls-auth>`, `<tls-crypt>`, `<tls-crypt-v2>`, `<auth-user-pass>`, `<http-proxy-user-pass>`, `<auth-gen-token-secret>`, `<peer-fingerprint>`, `<verify-hash>`, `<connection>`. Exact lowercase. Optional `#` or `;` after `>`. Closing tags, wrong case, plist `<key>name</key>`, and trailing payload stay out.
+
 ## [0.3.558] — 2026-10-24
 
 View:
