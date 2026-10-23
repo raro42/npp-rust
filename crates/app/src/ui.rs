@@ -32099,6 +32099,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `[mariadb-10.11]`, …. Optional `#` / `;` comment. Key lines (`port =`),
 /// wrong case, WireGuard / AWS / git / systemd / Desktop Entry / tox / Cargo /
 /// EditorConfig tables, incomplete brackets, and prose stay out.
+/// PHP.ini sections: `[PHP]`, `[CLI Server]`, `[Date]`, `[Session]`,
+/// `[opcache]`, `[MySQLi]`, `[mail function]`, …. Exact stock casing.
+/// Optional `#` / `;` comment. Key lines (`engine =`, `memory_limit =`),
+/// wrong case, MySQL / WireGuard / AWS / git / systemd / Desktop Entry /
+/// tox / Cargo / EditorConfig tables, incomplete brackets, and prose stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32224,6 +32229,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_aws_config_decl(s)
             || is_wireguard_config_decl(s)
             || is_mysql_cnf_decl(s)
+            || is_php_ini_decl(s)
         {
             return true;
         }
@@ -32345,6 +32351,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_aws_config_decl(s)
         || is_wireguard_config_decl(s)
         || is_mysql_cnf_decl(s)
+        || is_php_ini_decl(s)
     {
         return true;
     }
@@ -41775,6 +41782,80 @@ fn mysql_cnf_version_ok(ver: &str) -> bool {
     !ver.ends_with('.')
 }
 
+/// PHP.ini sections (stock + common extensions): `[PHP]`, `[CLI Server]`,
+/// `[Date]`, `[filter]`, `[iconv]`, `[intl]`, `[sqlite3]`, `[Pcre]`, `[Pdo]`,
+/// `[Pdo_mysql]`, `[Phar]`, `[mail function]`, `[ODBC]`, `[MySQLi]`,
+/// `[mysqlnd]`, `[OCI8]`, `[PostgreSQL]`, `[bcmath]`, `[browscap]`,
+/// `[Session]`, `[Assertion]`, `[COM]`, `[mbstring]`, `[gd]`, `[exif]`,
+/// `[Tidy]`, `[soap]`, `[sysvshm]`, `[ldap]`, `[dba]`, `[opcache]`,
+/// `[curl]`, `[openssl]`, `[ffi]`, plus common extras (`[Zend]`, `[apcu]`,
+/// `[xdebug]`, `[imagick]`, `[memcached]`, `[redis]`, `[sodium]`, `[zip]`,
+/// `[ftp]`, `[fileinfo]`). Exact casing as in stock `php.ini`. Optional
+/// trailing `#` / `;` comment. Key lines (`engine =`, `memory_limit =`),
+/// wrong case, MySQL / WireGuard / AWS / git / systemd / Desktop Entry /
+/// tox / Cargo / EditorConfig tables, incomplete brackets, and prose stay out.
+fn is_php_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    php_ini_header_ok(header)
+}
+
+fn php_ini_header_ok(header: &str) -> bool {
+    const EXACT: &[&str] = &[
+        "PHP",
+        "CLI Server",
+        "Date",
+        "filter",
+        "iconv",
+        "intl",
+        "sqlite3",
+        "Pcre",
+        "Pdo",
+        "Pdo_mysql",
+        "Phar",
+        "mail function",
+        "ODBC",
+        "MySQLi",
+        "mysqlnd",
+        "OCI8",
+        "PostgreSQL",
+        "bcmath",
+        "browscap",
+        "Session",
+        "Assertion",
+        "COM",
+        "mbstring",
+        "gd",
+        "exif",
+        "Tidy",
+        "soap",
+        "sysvshm",
+        "ldap",
+        "dba",
+        "opcache",
+        "curl",
+        "openssl",
+        "ffi",
+        // Common extension / Zend sections.
+        "Zend",
+        "apcu",
+        "xdebug",
+        "imagick",
+        "memcached",
+        "redis",
+        "sodium",
+        "zip",
+        "ftp",
+        "fileinfo",
+    ];
+    EXACT.contains(&header)
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -44067,10 +44148,10 @@ mod func_like_line_tests {
         is_android_bp_decl, is_ant_msbuild_decl, is_aws_config_decl, is_bitbake_decl,
         is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl, is_composer_json_decl,
         is_desktop_entry_decl, is_editorconfig_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_mysql_cnf_decl, is_package_json_decl, is_pipfile_decl, is_podfile_decl,
-        is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_ssh_config_decl,
-        is_systemd_unit_decl, is_tox_ini_decl, is_wireguard_config_decl, is_xmake_decl,
-        line_is_func_like,
+        is_gomod_decl, is_mysql_cnf_decl, is_package_json_decl, is_php_ini_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
+        is_ssh_config_decl, is_systemd_unit_decl, is_tox_ini_decl, is_wireguard_config_decl,
+        is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -48646,6 +48727,91 @@ mod func_like_line_tests {
         assert!(!is_mysql_cnf_decl("Host github.com"));
         assert!(is_editorconfig_decl("[*]"));
         assert!(!is_mysql_cnf_decl("[*]"));
+    }
+
+    #[test]
+    fn php_ini_sections_count() {
+        assert!(line_is_func_like("[PHP]"));
+        assert!(line_is_func_like("  [PHP] # local"));
+        assert!(line_is_func_like("[CLI Server]"));
+        assert!(line_is_func_like("[Date]"));
+        assert!(line_is_func_like("[filter]"));
+        assert!(line_is_func_like("[iconv]"));
+        assert!(line_is_func_like("[intl]"));
+        assert!(line_is_func_like("[sqlite3]"));
+        assert!(line_is_func_like("[Pcre]"));
+        assert!(line_is_func_like("[Pdo]"));
+        assert!(line_is_func_like("[Pdo_mysql]"));
+        assert!(line_is_func_like("[Phar]"));
+        assert!(line_is_func_like("[mail function]"));
+        assert!(line_is_func_like("[mail function] ; sendmail"));
+        assert!(line_is_func_like("[ODBC]"));
+        assert!(line_is_func_like("[MySQLi]"));
+        assert!(line_is_func_like("[mysqlnd]"));
+        assert!(line_is_func_like("[OCI8]"));
+        assert!(line_is_func_like("[PostgreSQL]"));
+        assert!(line_is_func_like("[bcmath]"));
+        assert!(line_is_func_like("[browscap]"));
+        assert!(line_is_func_like("[Session]"));
+        assert!(line_is_func_like("[Assertion]"));
+        assert!(line_is_func_like("[COM]"));
+        assert!(line_is_func_like("[mbstring]"));
+        assert!(line_is_func_like("[gd]"));
+        assert!(line_is_func_like("[exif]"));
+        assert!(line_is_func_like("[Tidy]"));
+        assert!(line_is_func_like("[soap]"));
+        assert!(line_is_func_like("[sysvshm]"));
+        assert!(line_is_func_like("[ldap]"));
+        assert!(line_is_func_like("[dba]"));
+        assert!(line_is_func_like("[opcache]"));
+        assert!(line_is_func_like("[curl]"));
+        assert!(line_is_func_like("[openssl]"));
+        assert!(line_is_func_like("[ffi]"));
+        assert!(line_is_func_like("[Zend]"));
+        assert!(line_is_func_like("[apcu]"));
+        assert!(line_is_func_like("[xdebug]"));
+        assert!(line_is_func_like("[imagick]"));
+        assert!(line_is_func_like("[memcached]"));
+        assert!(line_is_func_like("[redis]"));
+        assert!(line_is_func_like("[sodium]"));
+        assert!(line_is_func_like("[zip]"));
+        assert!(line_is_func_like("[ftp]"));
+        assert!(line_is_func_like("[fileinfo]"));
+        assert!(is_php_ini_decl("[PHP]"));
+        assert!(is_php_ini_decl("[opcache]"));
+        assert!(is_php_ini_decl("[CLI Server]"));
+        assert!(is_php_ini_decl("[mail function]"));
+        // Key lines / wrong case / incomplete stay out.
+        assert!(!is_php_ini_decl("engine = On"));
+        assert!(!line_is_func_like("engine = On"));
+        assert!(!is_php_ini_decl("memory_limit = 128M"));
+        assert!(!is_php_ini_decl("session.save_handler = files"));
+        assert!(!is_php_ini_decl("[php]"));
+        assert!(!is_php_ini_decl("[Php]"));
+        assert!(!is_php_ini_decl("[SESSION]"));
+        assert!(!is_php_ini_decl("[Opcache]"));
+        assert!(!is_php_ini_decl("[PHP"));
+        assert!(!is_php_ini_decl("[[PHP]]"));
+        assert!(!is_php_ini_decl("[PHPs]"));
+        assert!(!is_php_ini_decl("[CLI]"));
+        assert!(!is_php_ini_decl("[mail]"));
+        // MySQL / WireGuard / AWS / git / systemd / SSH stay on their paths.
+        assert!(is_mysql_cnf_decl("[mysqld]"));
+        assert!(!is_php_ini_decl("[mysqld]"));
+        assert!(is_mysql_cnf_decl("[mysql]"));
+        assert!(!is_php_ini_decl("[mysql]"));
+        assert!(is_wireguard_config_decl("[Interface]"));
+        assert!(!is_php_ini_decl("[Interface]"));
+        assert!(is_aws_config_decl("[default]"));
+        assert!(!is_php_ini_decl("[default]"));
+        assert!(is_gitconfig_decl("[core]"));
+        assert!(!is_php_ini_decl("[core]"));
+        assert!(is_systemd_unit_decl("[Unit]"));
+        assert!(!is_php_ini_decl("[Unit]"));
+        assert!(is_ssh_config_decl("Host github.com"));
+        assert!(!is_php_ini_decl("Host github.com"));
+        assert!(is_editorconfig_decl("[*]"));
+        assert!(!is_php_ini_decl("[*]"));
     }
 
     #[test]

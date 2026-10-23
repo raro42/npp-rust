@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.542] — 2026-10-23
+
+View:
+
+- **Function List** lists PHP.ini sections: `[PHP]`, `[CLI Server]`, `[Date]`, `[Session]`, `[opcache]`, `[MySQLi]`, `[mail function]`, plus common extensions (`[xdebug]`, `[apcu]`, …). Exact stock casing. Optional `#` / `;` comment. Key lines (`engine =` / `memory_limit =`), wrong case, MySQL / WireGuard / AWS / git / systemd / Desktop Entry / tox / Cargo / EditorConfig tables, incomplete brackets, and prose stay out.
+
 ## [0.3.541] — 2026-10-23
 
 View:
