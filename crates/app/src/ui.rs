@@ -32090,6 +32090,10 @@ const NOT_TYPED_FN: &[&str] = &[
 /// comment. Key lines (`region =`, `aws_access_key_id =`), git / systemd /
 /// Desktop Entry / tox / Cargo / EditorConfig tables, incomplete brackets,
 /// bare `[profile]`, and prose stay out.
+/// WireGuard (`wg-quick`) sections: `[Interface]`, `[Peer]`. Optional `#` / `;`
+/// comment. Key lines (`PrivateKey =`, `Address =`, `AllowedIPs =`), wrong
+/// case, git / systemd / AWS / Desktop Entry / tox / Cargo / EditorConfig
+/// tables, incomplete brackets, and prose stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32213,6 +32217,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_gitconfig_decl(s)
             || is_ssh_config_decl(s)
             || is_aws_config_decl(s)
+            || is_wireguard_config_decl(s)
         {
             return true;
         }
@@ -32332,6 +32337,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_gitconfig_decl(s)
         || is_ssh_config_decl(s)
         || is_aws_config_decl(s)
+        || is_wireguard_config_decl(s)
     {
         return true;
     }
@@ -41664,6 +41670,23 @@ fn aws_config_name_ok(name: &str) -> bool {
         .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'-' | b'_' | b'.'))
 }
 
+/// WireGuard / `wg-quick` config sections: `[Interface]`, `[Peer]`.
+/// Optional trailing `#` / `;` comment. Case-sensitive headers so
+/// lowercase `[interface]` / `[peer]` stay out. Key lines
+/// (`PrivateKey =`, `Address =`, `AllowedIPs =`, `Endpoint =`),
+/// AWS / git / systemd / Desktop Entry / tox / Cargo / EditorConfig
+/// tables, incomplete brackets, and prose stay out.
+fn is_wireguard_config_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    matches!(header, "Interface" | "Peer")
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -43958,7 +43981,8 @@ mod func_like_line_tests {
         is_desktop_entry_decl, is_editorconfig_decl, is_gemfile_decl, is_gitconfig_decl,
         is_gomod_decl, is_package_json_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
         is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_ssh_config_decl,
-        is_systemd_unit_decl, is_tox_ini_decl, is_xmake_decl, line_is_func_like,
+        is_systemd_unit_decl, is_tox_ini_decl, is_wireguard_config_decl, is_xmake_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -48436,6 +48460,41 @@ mod func_like_line_tests {
         assert!(!is_aws_config_decl("Host github.com"));
         assert!(is_editorconfig_decl("[*]"));
         assert!(!is_aws_config_decl("[*]"));
+    }
+
+    #[test]
+    fn wireguard_config_sections_count() {
+        assert!(line_is_func_like("[Interface]"));
+        assert!(line_is_func_like("  [Interface] # local"));
+        assert!(line_is_func_like("[Peer]"));
+        assert!(line_is_func_like("[Peer] ; remote"));
+        assert!(is_wireguard_config_decl("[Interface]"));
+        assert!(is_wireguard_config_decl("[Peer]"));
+        // Key lines / wrong case / incomplete stay out.
+        assert!(!is_wireguard_config_decl("PrivateKey = example"));
+        assert!(!line_is_func_like("PrivateKey = example"));
+        assert!(!is_wireguard_config_decl("Address = 10.0.0.1/24"));
+        assert!(!is_wireguard_config_decl("AllowedIPs = 0.0.0.0/0"));
+        assert!(!is_wireguard_config_decl("Endpoint = vpn.example:51820"));
+        assert!(!is_wireguard_config_decl("[interface]"));
+        assert!(!is_wireguard_config_decl("[peer]"));
+        assert!(!is_wireguard_config_decl("[INTERFACE]"));
+        assert!(!is_wireguard_config_decl("[PEER]"));
+        assert!(!is_wireguard_config_decl("[Interface"));
+        assert!(!is_wireguard_config_decl("[[Interface]]"));
+        assert!(!is_wireguard_config_decl("[Interfaces]"));
+        assert!(!is_wireguard_config_decl("[Peers]"));
+        // AWS / git / systemd / SSH stay on their paths.
+        assert!(is_aws_config_decl("[default]"));
+        assert!(!is_wireguard_config_decl("[default]"));
+        assert!(is_gitconfig_decl("[core]"));
+        assert!(!is_wireguard_config_decl("[core]"));
+        assert!(is_systemd_unit_decl("[Unit]"));
+        assert!(!is_wireguard_config_decl("[Unit]"));
+        assert!(is_ssh_config_decl("Host github.com"));
+        assert!(!is_wireguard_config_decl("Host github.com"));
+        assert!(is_editorconfig_decl("[*]"));
+        assert!(!is_wireguard_config_decl("[*]"));
     }
 
     #[test]

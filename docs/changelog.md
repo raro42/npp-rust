@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.540] — 2026-10-23
+
+View:
+
+- **Function List** lists WireGuard / `wg-quick` sections: `[Interface]`, `[Peer]`. Optional `#` / `;` comment. Key lines (`PrivateKey =` / `Address =` / `AllowedIPs =`), wrong case, AWS / git / systemd / Desktop Entry / tox / Cargo / EditorConfig tables, incomplete brackets, and prose stay out.
+
 ## [0.3.539] — 2026-10-23
 
 View:
