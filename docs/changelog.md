@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.535] — 2026-10-23
+
+View:
+
+- **Function List** lists systemd unit sections: `[Unit]`, `[Service]`, `[Install]`, `[Socket]`, `[Timer]`, `[Mount]`, `[Automount]`, `[Swap]`, `[Path]`, `[Slice]`, `[Scope]`. Optional `#` / `;` comment. Key lines (`Description=` / `ExecStart=`), Desktop Entry / tox / Cargo / Pipfile / pyproject tables, incomplete brackets, lowercase `[unit]`, network/journal sections, and prose stay out.
+
 ## [0.3.534] — 2026-10-23
 
 View:

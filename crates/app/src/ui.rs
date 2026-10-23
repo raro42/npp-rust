@@ -32062,6 +32062,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Desktop Entry sections (`[Desktop Entry]`, `[Desktop Action …]`).
 /// Optional `#` / `;` comment. Key lines (`Name=`), tox / Cargo / Pipfile /
 /// pyproject tables, incomplete brackets, and prose stay out.
+/// systemd unit sections (`[Unit]`, `[Service]`, `[Install]`, `[Socket]`,
+/// `[Timer]`, `[Mount]`, `[Automount]`, `[Swap]`, `[Path]`, `[Slice]`,
+/// `[Scope]`). Optional `#` / `;` comment. Key lines (`Description=`),
+/// Desktop Entry / tox / Cargo / Pipfile / pyproject tables, incomplete
+/// brackets, and prose stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32180,6 +32185,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pipfile_decl(s)
             || is_tox_ini_decl(s)
             || is_desktop_entry_decl(s)
+            || is_systemd_unit_decl(s)
         {
             return true;
         }
@@ -32294,6 +32300,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pipfile_decl(s)
         || is_tox_ini_decl(s)
         || is_desktop_entry_decl(s)
+        || is_systemd_unit_decl(s)
     {
         return true;
     }
@@ -41180,6 +41187,35 @@ fn desktop_entry_action_ok(name: &str) -> bool {
         .all(|b| b.is_ascii_alphanumeric() || *b == b'-')
 }
 
+/// systemd unit file sections: `[Unit]`, `[Service]`, `[Install]`,
+/// `[Socket]`, `[Timer]`, `[Mount]`, `[Automount]`, `[Swap]`, `[Path]`,
+/// `[Slice]`, `[Scope]`. Optional trailing `#` or `;` comment. Key lines
+/// (`Description=…`, `ExecStart=…`), Desktop Entry / tox / Cargo /
+/// Pipfile / pyproject tables, incomplete brackets, and prose stay out.
+fn is_systemd_unit_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    matches!(
+        header,
+        "Unit"
+            | "Service"
+            | "Install"
+            | "Socket"
+            | "Timer"
+            | "Mount"
+            | "Automount"
+            | "Swap"
+            | "Path"
+            | "Slice"
+            | "Scope"
+    )
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -43472,8 +43508,8 @@ mod func_like_line_tests {
         is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl,
         is_cargo_toml_decl, is_composer_json_decl, is_desktop_entry_decl, is_gemfile_decl,
         is_gomod_decl, is_package_json_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_tox_ini_decl, is_xmake_decl,
-        line_is_func_like,
+        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_systemd_unit_decl, is_tox_ini_decl,
+        is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -47741,6 +47777,47 @@ mod func_like_line_tests {
         assert!(!is_desktop_entry_decl("[packages]"));
         assert!(is_pyproject_toml_decl("[project]"));
         assert!(!is_desktop_entry_decl("[project]"));
+    }
+
+    #[test]
+    fn systemd_unit_sections_count() {
+        assert!(line_is_func_like("[Unit]"));
+        assert!(line_is_func_like("  [Service] # nginx"));
+        assert!(line_is_func_like("[Install] ; wants"));
+        assert!(line_is_func_like("[Socket]"));
+        assert!(line_is_func_like("[Timer]"));
+        assert!(line_is_func_like("[Mount]"));
+        assert!(line_is_func_like("[Automount]"));
+        assert!(line_is_func_like("[Swap]"));
+        assert!(line_is_func_like("[Path]"));
+        assert!(line_is_func_like("[Slice]"));
+        assert!(line_is_func_like("[Scope]"));
+        assert!(is_systemd_unit_decl("[Unit]"));
+        assert!(is_systemd_unit_decl("[Service]"));
+        assert!(is_systemd_unit_decl("[Install]"));
+        // Key lines / incomplete / other tables stay out.
+        assert!(!is_systemd_unit_decl("Description=App"));
+        assert!(!line_is_func_like("Description=App"));
+        assert!(!is_systemd_unit_decl("ExecStart=/usr/bin/app"));
+        assert!(!is_systemd_unit_decl("[Unit"));
+        assert!(!is_systemd_unit_decl("[[Unit]]"));
+        assert!(!is_systemd_unit_decl("[unit]"));
+        assert!(!is_systemd_unit_decl("[Network]"));
+        assert!(!is_systemd_unit_decl("[Journal]"));
+        assert!(!is_systemd_unit_decl("[Desktop Entry]"));
+        assert!(!is_systemd_unit_decl("[tox]"));
+        assert!(!is_systemd_unit_decl("[package]"));
+        // Desktop Entry / tox / Cargo / Pipfile / pyproject stay on their paths.
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_systemd_unit_decl("[Desktop Entry]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_systemd_unit_decl("[tox]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_systemd_unit_decl("[package]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_systemd_unit_decl("[packages]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_systemd_unit_decl("[project]"));
     }
 
     #[test]
