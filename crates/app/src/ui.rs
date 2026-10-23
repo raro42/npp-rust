@@ -32278,6 +32278,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_telegraf_toml_decl(s)
             || is_grafana_ini_decl(s)
             || is_supervisord_conf_decl(s)
+            || is_named_conf_decl(s)
         {
             return true;
         }
@@ -32408,6 +32409,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_telegraf_toml_decl(s)
         || is_grafana_ini_decl(s)
         || is_supervisord_conf_decl(s)
+        || is_named_conf_decl(s)
     {
         return true;
     }
@@ -42714,6 +42716,178 @@ fn supervisord_conf_header_ok(header: &str) -> bool {
     false
 }
 
+/// BIND / named.conf block openers: `options {`, `logging {`, `controls {`,
+/// `statistics-channels {`, `managed-keys {`, `trust-anchors {`,
+/// `zone "example.com" {` / `zone example.com IN {`, `view "internal" {`,
+/// `acl "trusted" {`, `key "ddns-key" {`, `server 192.0.2.1 {`,
+/// `primaries name {` / `masters name {`, `tls "name" {`, `http "name" {`,
+/// `dnssec-policy "name" {`. Exact lowercase keywords. Optional `#` after
+/// `{`. nginx bare `http {` / `server {`, wrong case, prose
+/// (`zone the team {`), bare keywords, and in-block statements stay out.
+fn is_named_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    named_conf_bare_block(s)
+        || named_conf_named_block(s)
+        || named_conf_server(s)
+        || named_conf_primaries(s)
+}
+
+fn named_conf_bare_block(s: &str) -> bool {
+    for key in [
+        "options",
+        "logging",
+        "controls",
+        "statistics-channels",
+        "managed-keys",
+        "trust-anchors",
+    ] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        // Not `options-foo` / `logging_channel`.
+        if rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{') {
+            return nginx_brace_tail(rest);
+        }
+    }
+    false
+}
+
+fn named_conf_quoted_or_ident(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() {
+        return None;
+    }
+    if let Some(q) = s.as_bytes().first().copied() {
+        if q == b'"' || q == b'\'' {
+            let inner = &s[1..];
+            let end = inner.find(q as char)?;
+            if end == 0 {
+                return None;
+            }
+            return Some((&inner[..end], &inner[end + 1..]));
+        }
+    }
+    let (name, after) = nginx_ident(s)?;
+    if matches!(name, "the" | "a" | "an" | "this" | "that" | "my" | "our") {
+        return None;
+    }
+    Some((name, after))
+}
+
+fn named_conf_class(s: &str) -> Option<&str> {
+    let s = s.trim_start();
+    let (cls, after) = nginx_ident(s)?;
+    if matches!(
+        cls.to_ascii_uppercase().as_str(),
+        "IN" | "CH" | "HS" | "ANY"
+    ) {
+        Some(after)
+    } else {
+        None
+    }
+}
+
+fn named_conf_named_block(s: &str) -> bool {
+    for key in [
+        "zone",
+        "view",
+        "acl",
+        "key",
+        "tls",
+        "http",
+        "dnssec-policy",
+        "parental-agents",
+    ] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        let Some((_name, after)) = named_conf_quoted_or_ident(rest) else {
+            return false;
+        };
+        let after = after.trim_start();
+        // Optional DNS class before `{` (`zone "x" IN {`).
+        let after = if after.starts_with('{') {
+            after
+        } else if let Some(after_cls) = named_conf_class(after) {
+            after_cls.trim_start()
+        } else {
+            return false;
+        };
+        return nginx_brace_tail(after);
+    }
+    false
+}
+
+fn named_conf_ipv4_or_v6(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() {
+        return None;
+    }
+    let bytes = s.as_bytes();
+    // IPv4: digits and dots. IPv6: hex, colon, optional zone id `%`.
+    let n = bytes
+        .iter()
+        .take_while(|b| b.is_ascii_hexdigit() || matches!(**b, b'.' | b':' | b'%'))
+        .count();
+    if n == 0 {
+        return None;
+    }
+    let addr = &s[..n];
+    let has_dot = addr.contains('.');
+    let has_colon = addr.contains(':');
+    if has_dot {
+        let mut parts = 0usize;
+        for part in addr.split('.') {
+            parts += 1;
+            if part.is_empty() || part.parse::<u8>().is_err() {
+                return None;
+            }
+        }
+        if parts != 4 {
+            return None;
+        }
+    } else if !has_colon {
+        // Reject bare hex words (`dead`).
+        return None;
+    }
+    Some((addr, &s[n..]))
+}
+
+fn named_conf_server(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("server") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_addr, after)) = named_conf_ipv4_or_v6(rest) else {
+        return false;
+    };
+    nginx_brace_tail(after)
+}
+
+fn named_conf_primaries(s: &str) -> bool {
+    for key in ["primaries", "masters"] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        let Some((_name, after)) = named_conf_quoted_or_ident(rest) else {
+            return false;
+        };
+        return nginx_brace_tail(after);
+    }
+    false
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -45007,11 +45181,11 @@ mod func_like_line_tests {
         is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
         is_composer_json_decl, is_desktop_entry_decl, is_editorconfig_decl, is_fluent_bit_decl,
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_mysql_cnf_decl, is_nginx_conf_decl, is_package_json_decl, is_php_ini_decl,
-        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
-        is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl, is_systemd_unit_decl,
-        is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, line_is_func_like,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nginx_conf_decl, is_package_json_decl,
+        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl,
+        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -50023,6 +50197,51 @@ mod func_like_line_tests {
         assert!(!is_supervisord_conf_decl("[Service]"));
         assert!(is_grafana_ini_decl("[database]"));
         assert!(!is_supervisord_conf_decl("[database]"));
+    }
+
+    #[test]
+    fn named_conf_blocks_count() {
+        assert!(line_is_func_like("options {"));
+        assert!(line_is_func_like("logging { # channels"));
+        assert!(line_is_func_like("  controls {"));
+        assert!(line_is_func_like("statistics-channels {"));
+        assert!(line_is_func_like("managed-keys {"));
+        assert!(line_is_func_like("trust-anchors {"));
+        assert!(line_is_func_like(r#"zone "example.com" {"#));
+        assert!(line_is_func_like("zone example.com {"));
+        assert!(line_is_func_like(r#"zone "example.com" IN {"#));
+        assert!(line_is_func_like(r#"zone "example.com" in {"#));
+        assert!(line_is_func_like(r#"view "internal" {"#));
+        assert!(line_is_func_like(r#"acl "trusted" {"#));
+        assert!(line_is_func_like(r#"key "ddns-key" {"#));
+        assert!(line_is_func_like("server 192.0.2.1 {"));
+        assert!(line_is_func_like("server 2001:db8::1 {"));
+        assert!(line_is_func_like("primaries edge {"));
+        assert!(line_is_func_like(r#"masters "ns-west" {"#));
+        assert!(line_is_func_like(r#"tls "tls-params" {"#));
+        assert!(line_is_func_like(r#"http "local" {"#));
+        assert!(line_is_func_like(r#"dnssec-policy "standard" {"#));
+        assert!(line_is_func_like(r#"parental-agents "pa1" {"#));
+        assert!(is_named_conf_decl("options {"));
+        assert!(is_named_conf_decl(r#"zone "ex.com" CH {"#));
+        // Bare keywords / wrong case / prose / nginx bare blocks stay out.
+        assert!(!is_named_conf_decl("options"));
+        assert!(!is_named_conf_decl("Options {"));
+        assert!(!is_named_conf_decl("zone the team {"));
+        assert!(!is_named_conf_decl("zone {"));
+        assert!(!is_named_conf_decl("server {"));
+        assert!(!is_named_conf_decl("server the.host {"));
+        assert!(!is_named_conf_decl("listen-on port 53 {"));
+        assert!(!is_named_conf_decl("allow-transfer {"));
+        assert!(!is_named_conf_decl("type master;"));
+        // nginx bare `http {` / `server {` stay on nginx.
+        assert!(is_nginx_conf_decl("http {"));
+        assert!(!is_named_conf_decl("http {"));
+        assert!(is_nginx_conf_decl("server {"));
+        assert!(!is_named_conf_decl("server {"));
+        // Named http still counts as BIND.
+        assert!(is_named_conf_decl(r#"http "dns-over-http" {"#));
+        assert!(!is_nginx_conf_decl(r#"http "dns-over-http" {"#));
     }
 
     #[test]

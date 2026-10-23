@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.551] — 2026-10-23
+
+View:
+
+- **Function List** lists BIND / named.conf block openers: `options {`, `logging {`, `controls {`, `statistics-channels {`, `managed-keys {`, `trust-anchors {`, `zone "example.com" {` / `zone example.com IN {`, `view "internal" {`, `acl "trusted" {`, `key "ddns-key" {`, `server 192.0.2.1 {`, `primaries name {` / `masters name {`, `tls "name" {`, `http "name" {`, `dnssec-policy "name" {`, `parental-agents "name" {`. Exact lowercase keywords. Optional `#` after `{`. nginx bare `http {` / `server {`, wrong case, prose (`zone the team {`), bare keywords, and in-block statements stay out.
+
 ## [0.3.550] — 2026-10-23
 
 View:

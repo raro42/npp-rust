@@ -1,3 +1,4 @@
+009 keep: Function List BIND/named.conf options/logging/controls/zone/view/acl/key/server/primaries/masters/tls/http/dnssec-policy (v0.3.551)
 009 keep: Function List supervisord.conf unix_http_server/inet_http_server/supervisord/supervisorctl/include/program:/group:/eventlistener:/fcgi-program:/rpcinterface: (v0.3.550)
 009 keep: Function List Telegraf.conf [[inputs.*]]/[[outputs.*]]/[[processors.*]]/[[aggregators.*]]/[[secretstores.*]]/[agent]/[global_tags] (v0.3.548)
 009 keep: Function List Vector.toml sources/transforms/sinks/enrichment_tables/tests/secrets/api (v0.3.547)
