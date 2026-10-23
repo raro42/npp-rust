@@ -1,3 +1,4 @@
+009 keep: Function List FreeRADIUS client/home_server/home_server_pool/realm/server/modules/instantiate/listen/policy/files/authorize/authenticate/preacct/accounting/session/post-auth/pre-proxy/post-proxy/recv-coa/send-coa (v0.3.557)
 009 keep: Function List ISC dhcpd.conf subnet/subnet6/host/group/shared-network/pool/class/failover peer/on commit|expiry|release (v0.3.554)
 009 keep: Function List keepalived.conf global_defs/static_*/vrrp_instance/vrrp_script/vrrp_sync_group/vrrp_track_*/virtual_server (v0.3.553)
 009 keep: Function List nftables table/chain/set/map/flowtable/counter/quota/limit/secmark/synproxy/meter/ct helper|timeout|expectation (v0.3.552)
