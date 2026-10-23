@@ -781,3 +781,5 @@
 009 keep: Function List MySQL/MariaDB option-file sections (v0.3.541)
 
 009 keep: Function List PHP.ini sections [PHP]/[CLI Server]/[Date]/[Session]/[opcache]/[MySQLi]/[mail function] (+ common extensions) (v0.3.542)
+
+009 keep: Function List Grafana.ini sections (v0.3.549)

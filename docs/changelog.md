@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.549] — 2026-10-23
+
+View:
+
+- **Function List** lists Grafana.ini sections: `[server]`, `[database]`, `[auth]` / `[auth.github]`, `[log.console]`, `[unified_alerting]`, `[tracing.opentelemetry.otlp]`, and other stock `defaults.ini` headers. Exact lowercase. Optional `#` / `;` comment. Key lines (`http_port = 3000` / `type = sqlite3`), wrong case, PHP / MySQL / Fluent Bit / WireGuard / Telegraf / Vector / AWS / git / systemd / Desktop Entry / tox / Cargo / EditorConfig tables, incomplete brackets, and prose stay out.
+
 ## [0.3.548] — 2026-10-23
 
 View:

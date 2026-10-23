@@ -32276,6 +32276,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_fluent_bit_decl(s)
             || is_vector_toml_decl(s)
             || is_telegraf_toml_decl(s)
+            || is_grafana_ini_decl(s)
         {
             return true;
         }
@@ -32404,6 +32405,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_fluent_bit_decl(s)
         || is_vector_toml_decl(s)
         || is_telegraf_toml_decl(s)
+        || is_grafana_ini_decl(s)
     {
         return true;
     }
@@ -42518,6 +42520,152 @@ fn telegraf_plugin_name_ok(name: &str) -> bool {
         .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
 }
 
+/// Grafana.ini sections from stock `defaults.ini` / `custom.ini`:
+/// `[server]`, `[database]`, `[auth]`, `[auth.github]`, `[log.console]`,
+/// `[unified_alerting]`, `[tracing.opentelemetry.otlp]`, …
+/// Exact lowercase headers (including dotted nests). Optional `#` / `;`
+/// comment. Key lines (`http_port = 3000`, `type = sqlite3`), wrong case
+/// (`[Server]`, `[Database]`), PHP / MySQL / Fluent Bit / WireGuard /
+/// Telegraf / Vector / AWS / git / systemd / Desktop Entry / tox / Cargo /
+/// EditorConfig tables, incomplete brackets, and prose stay out.
+fn is_grafana_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    grafana_ini_header_ok(header)
+}
+
+fn grafana_ini_header_ok(header: &str) -> bool {
+    // Stock section names from Grafana `conf/defaults.ini` (exact case).
+    const EXACT: &[&str] = &[
+        "analytics",
+        "annotations",
+        "annotations.api",
+        "annotations.app_platform",
+        "annotations.dashboard",
+        "auth",
+        "auth.anonymous",
+        "auth.azuread",
+        "auth.basic",
+        "auth.generic_oauth",
+        "auth.github",
+        "auth.gitlab",
+        "auth.google",
+        "auth.grafana_com",
+        "auth.grafananet",
+        "auth.jwt",
+        "auth.ldap",
+        "auth.okta",
+        "auth.proxy",
+        "aws",
+        "azure",
+        "cloud_migration",
+        "dashboard_cleanup",
+        "dashboards",
+        "database",
+        "dataproxy",
+        "datasources",
+        "date_formats",
+        "emails",
+        "enterprise",
+        "environment",
+        "explore",
+        "expressions",
+        "external_image_storage",
+        "external_image_storage.azure_blob",
+        "external_image_storage.gcs",
+        "external_image_storage.local",
+        "external_image_storage.s3",
+        "external_image_storage.webdav",
+        "feature_toggles",
+        "feature_toggles.openfeature",
+        "feature_toggles.openfeature.context",
+        "folder",
+        "frontend_dev",
+        "geomap",
+        "grafana-apiserver",
+        "grafana_com",
+        "grafana_net",
+        "grpc_server",
+        "help",
+        "live",
+        "log",
+        "log.console",
+        "log.file",
+        "log.frontend",
+        "log.syslog",
+        "metrics",
+        "metrics.environment_info",
+        "metrics.graphite",
+        "nats",
+        "navigation.app_sections",
+        "navigation.app_standalone_pages",
+        "news",
+        "panels",
+        "paths",
+        "plugin.canvas",
+        "plugin.grafana-image-renderer",
+        "plugins",
+        "plugins_marketplace",
+        "plugins.restricted_apis_allowlist",
+        "plugins.restricted_apis_blocklist",
+        "profile",
+        "provisioning",
+        "public_dashboards",
+        "query",
+        "query_history",
+        "quota",
+        "rbac",
+        "rbac.iam_client",
+        "rbac.leader_election",
+        "recording_rules",
+        "recording_rules.custom_headers",
+        "remote.alertmanager",
+        "remote_cache",
+        "rendering",
+        "search",
+        "secretscan",
+        "secrets_manager",
+        "secrets_manager.encryption.secret_key.v1",
+        "secure_socks_datasource_proxy",
+        "security",
+        "security.encryption",
+        "server",
+        "server.custom_response_headers",
+        "service_accounts",
+        "short_links",
+        "smtp",
+        "smtp.static_headers",
+        "snapshots",
+        "sql_datasources",
+        "sso_settings",
+        "storage",
+        "support_bundles",
+        "time_picker",
+        "tracing.jaeger",
+        "tracing.opentelemetry",
+        "tracing.opentelemetry.file",
+        "tracing.opentelemetry.jaeger",
+        "tracing.opentelemetry.otlp",
+        "unified_alerting",
+        "unified_alerting.notification_history",
+        "unified_alerting.notification_history.external_labels",
+        "unified_alerting.prometheus_conversion",
+        "unified_alerting.reserved_labels",
+        "unified_alerting.screenshots",
+        "unified_alerting.state_history",
+        "unified_alerting.state_history.annotations",
+        "unified_alerting.state_history.external_labels",
+        "unified_storage",
+        "users",
+    ];
+    EXACT.contains(&header)
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -44810,11 +44958,12 @@ mod func_like_line_tests {
         is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl, is_aws_config_decl,
         is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
         is_composer_json_decl, is_desktop_entry_decl, is_editorconfig_decl, is_fluent_bit_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_haproxy_decl, is_mysql_cnf_decl,
-        is_nginx_conf_decl, is_package_json_decl, is_php_ini_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
-        is_ssh_config_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_mysql_cnf_decl, is_nginx_conf_decl, is_package_json_decl, is_php_ini_decl,
+        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
+        is_scons_decl, is_ssh_config_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
+        is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -49743,6 +49892,52 @@ mod func_like_line_tests {
         assert!(!is_telegraf_toml_decl("[[source]]"));
         assert!(is_php_ini_decl("[PHP]"));
         assert!(!is_telegraf_toml_decl("[PHP]"));
+    }
+
+    #[test]
+    fn grafana_ini_sections_count() {
+        assert!(line_is_func_like("[server]"));
+        assert!(line_is_func_like("[server] # bind"));
+        assert!(line_is_func_like("  [database] ; sqlite"));
+        assert!(line_is_func_like("[auth]"));
+        assert!(line_is_func_like("[auth.github]"));
+        assert!(line_is_func_like("[auth.anonymous]"));
+        assert!(line_is_func_like("[log.console]"));
+        assert!(line_is_func_like("[unified_alerting]"));
+        assert!(line_is_func_like("[tracing.opentelemetry.otlp]"));
+        assert!(line_is_func_like("[paths]"));
+        assert!(line_is_func_like("[security]"));
+        assert!(line_is_func_like("[users]"));
+        assert!(line_is_func_like("[smtp]"));
+        assert!(line_is_func_like("[feature_toggles]"));
+        assert!(line_is_func_like("[plugin.grafana-image-renderer]"));
+        assert!(is_grafana_ini_decl("[remote_cache]"));
+        assert!(is_grafana_ini_decl("[dataproxy]"));
+        // Key lines / wrong case / incomplete stay out.
+        assert!(!is_grafana_ini_decl("http_port = 3000"));
+        assert!(!is_grafana_ini_decl("type = sqlite3"));
+        assert!(!is_grafana_ini_decl("[Server]"));
+        assert!(!is_grafana_ini_decl("[Database]"));
+        assert!(!is_grafana_ini_decl("[AUTH]"));
+        assert!(!is_grafana_ini_decl("[server"));
+        assert!(!is_grafana_ini_decl("[[server]]"));
+        assert!(!is_grafana_ini_decl("[server the]"));
+        assert!(!is_grafana_ini_decl("[not_a_grafana_section]"));
+        // PHP / MySQL / Fluent Bit / WireGuard / Telegraf / Vector stay on their paths.
+        assert!(is_php_ini_decl("[PHP]"));
+        assert!(!is_grafana_ini_decl("[PHP]"));
+        assert!(is_mysql_cnf_decl("[mysqld]"));
+        assert!(!is_grafana_ini_decl("[mysqld]"));
+        assert!(is_fluent_bit_decl("[INPUT]"));
+        assert!(!is_grafana_ini_decl("[INPUT]"));
+        assert!(is_wireguard_config_decl("[Interface]"));
+        assert!(!is_grafana_ini_decl("[Interface]"));
+        assert!(is_telegraf_toml_decl("[[inputs.cpu]]"));
+        assert!(!is_grafana_ini_decl("[[inputs.cpu]]"));
+        assert!(is_vector_toml_decl("[sources.stdin]"));
+        assert!(!is_grafana_ini_decl("[sources.stdin]"));
+        assert!(is_haproxy_decl("frontend www"));
+        assert!(!is_grafana_ini_decl("frontend www"));
     }
 
     #[test]
