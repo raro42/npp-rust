@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.547] — 2026-10-23
+
+View:
+
+- **Function List** lists Vector.toml component tables: `[sources.name]`, `[transforms.name]`, `[sinks.name]`, `[enrichment_tables.name]`, `[tests.name]`, `[secrets.name]`, bare `[api]`. Exact lowercase kinds. Optional `#` comment. Key lines (`type = "stdin"` / `inputs = ["in"]`), wrong case, Fluent Bit / PHP / MySQL / WireGuard / Cargo / tox tables, incomplete brackets, bare `[sources]` without a name, and prose stay out.
+
 ## [0.3.546] — 2026-10-23
 
 View:

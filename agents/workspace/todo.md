@@ -1,3 +1,5 @@
+009 keep: Function List Vector.toml sources/transforms/sinks/enrichment_tables/tests/secrets/api (v0.3.547)
+009 keep: Function List Fluent Bit SERVICE/INPUT/FILTER/OUTPUT/PARSER/MULTILINE_PARSER/CUSTOM/PROCESSOR/CHECK (v0.3.546)
 009 keep: Function List HAProxy global/defaults/traces/frontend/backend/listen/resolvers/cache/peers/mailers/userlist/http-errors/ring/program/fcgi-app (v0.3.545)
 009 keep: Function List Apache httpd VirtualHost/Directory/Files/Location/IfModule/If/Else/Proxy/Require*/Limit/Macro (v0.3.544)
 009 keep: Function List nginx events/http/server/upstream/location/map/geo/split_clients/limit_except (v0.3.543)
