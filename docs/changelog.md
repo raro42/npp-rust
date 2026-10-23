@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.545] — 2026-10-23
+
+View:
+
+- **Function List** lists HAProxy section headers: `global`, `defaults` / `defaults name`, `traces`, `frontend name`, `backend name`, `listen name`, `resolvers name`, `cache name`, `peers name`, `mailers name`, `userlist name`, `http-errors name`, `ring name`, `program name`, `fcgi-app name`. Optional `#` comment. Exact lowercase. nginx `server {` / `listen 80;`, wrong case, prose (`frontend the team`), and in-section directives stay out.
+
 ## [0.3.544] — 2026-10-23
 
 View:

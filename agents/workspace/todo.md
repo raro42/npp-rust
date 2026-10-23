@@ -1,3 +1,4 @@
+009 keep: Function List HAProxy global/defaults/traces/frontend/backend/listen/resolvers/cache/peers/mailers/userlist/http-errors/ring/program/fcgi-app (v0.3.545)
 009 keep: Function List Apache httpd VirtualHost/Directory/Files/Location/IfModule/If/Else/Proxy/Require*/Limit/Macro (v0.3.544)
 009 keep: Function List nginx events/http/server/upstream/location/map/geo/split_clients/limit_except (v0.3.543)
 009 keep: Function List sees AWS config [default]/[profile …]/[sso-session …]/[services …]/[plugins] (v0.3.539)

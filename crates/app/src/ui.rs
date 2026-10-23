@@ -32119,6 +32119,13 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `<Macro VHost $domain>`. Optional `#` comment after `>`. Tag name
 /// case-insensitive. Closing tags, HTML / Ant / unknown tags, and prose
 /// (`<Directory the team>`) stay out.
+/// HAProxy section headers: `global`, `defaults` / `defaults name`,
+/// `traces`, `frontend name`, `backend name`, `listen name`,
+/// `resolvers name`, `cache name`, `peers name`, `mailers name`,
+/// `userlist name`, `http-errors name`, `ring name`, `program name`,
+/// `fcgi-app name`. Optional `#` comment. Exact lowercase. nginx
+/// `server {` / `listen 80;`, wrong case, prose (`frontend the team`),
+/// and directives stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32247,6 +32254,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_php_ini_decl(s)
             || is_nginx_conf_decl(s)
             || is_apache_httpd_decl(s)
+            || is_haproxy_decl(s)
         {
             return true;
         }
@@ -32371,6 +32379,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_php_ini_decl(s)
         || is_nginx_conf_decl(s)
         || is_apache_httpd_decl(s)
+        || is_haproxy_decl(s)
     {
         return true;
     }
@@ -42251,6 +42260,91 @@ fn apache_httpd_tail(s: &str, need_args: bool) -> bool {
     true
 }
 
+/// HAProxy section headers: `global`, `defaults` / `defaults name`,
+/// `traces`, `frontend name`, `backend name`, `listen name`,
+/// `resolvers name`, `cache name`, `peers name`, `mailers name`,
+/// `userlist name`, `http-errors name`, `ring name`, `program name`,
+/// `fcgi-app name`. Optional `#` comment. Exact lowercase keywords.
+/// nginx `server {` / `listen 80;`, wrong case (`Frontend www`),
+/// prose (`frontend the team`), and in-section directives
+/// (`bind *:80`, `server s1 127.0.0.1:80`, `default_backend app`) stay out.
+fn is_haproxy_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    haproxy_optional_name(s) || haproxy_named(s)
+}
+
+fn haproxy_tail(rest: &str) -> bool {
+    let rest = rest.trim_start();
+    rest.is_empty() || rest.starts_with('#')
+}
+
+fn haproxy_stop_word(name: &str) -> bool {
+    matches!(name, "the" | "a" | "an" | "this" | "that" | "my" | "our")
+}
+
+/// Bare or optionally named: `global`, `traces`, `defaults` / `defaults http`.
+fn haproxy_optional_name(s: &str) -> bool {
+    for key in ["global", "traces", "defaults"] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        // Not `globalized` / `default_backend` / `tracespace`.
+        if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('#')) {
+            continue;
+        }
+        if key == "global" || key == "traces" {
+            return haproxy_tail(rest);
+        }
+        // `defaults` may take an optional section name.
+        let rest = rest.trim_start();
+        if rest.is_empty() || rest.starts_with('#') {
+            return true;
+        }
+        let Some((name, after)) = nginx_ident(rest) else {
+            return false;
+        };
+        if haproxy_stop_word(name) {
+            return false;
+        }
+        return haproxy_tail(after);
+    }
+    false
+}
+
+fn haproxy_named(s: &str) -> bool {
+    // Longer multi-word keys first so `http-errors` / `fcgi-app` win.
+    for key in [
+        "http-errors",
+        "fcgi-app",
+        "frontend",
+        "backend",
+        "resolvers",
+        "userlist",
+        "mailers",
+        "listen",
+        "cache",
+        "peers",
+        "ring",
+        "program",
+    ] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        let Some((name, after)) = nginx_ident(rest) else {
+            return false;
+        };
+        if haproxy_stop_word(name) {
+            return false;
+        }
+        return haproxy_tail(after);
+    }
+    false
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -44543,7 +44637,7 @@ mod func_like_line_tests {
         is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl, is_aws_config_decl,
         is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
         is_composer_json_decl, is_desktop_entry_decl, is_editorconfig_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_mysql_cnf_decl, is_nginx_conf_decl,
+        is_gitconfig_decl, is_gomod_decl, is_haproxy_decl, is_mysql_cnf_decl, is_nginx_conf_decl,
         is_package_json_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
         is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_ssh_config_decl,
         is_systemd_unit_decl, is_tox_ini_decl, is_wireguard_config_decl, is_xmake_decl,
@@ -49315,6 +49409,52 @@ mod func_like_line_tests {
         assert!(is_nginx_conf_decl("http {"));
         assert!(!is_apache_httpd_decl("http {"));
         assert!(!is_apache_httpd_decl("[PHP]"));
+    }
+
+    #[test]
+    fn haproxy_sections_count() {
+        assert!(line_is_func_like("global"));
+        assert!(line_is_func_like("global # process"));
+        assert!(line_is_func_like("defaults"));
+        assert!(line_is_func_like("defaults http"));
+        assert!(line_is_func_like("  defaults mydefaults # named"));
+        assert!(line_is_func_like("traces"));
+        assert!(line_is_func_like("frontend www"));
+        assert!(line_is_func_like("frontend http-in"));
+        assert!(line_is_func_like("backend app"));
+        assert!(line_is_func_like("listen stats"));
+        assert!(line_is_func_like("resolvers dns"));
+        assert!(line_is_func_like("cache mycache"));
+        assert!(line_is_func_like("peers mypeers"));
+        assert!(line_is_func_like("mailers smtp"));
+        assert!(line_is_func_like("userlist users"));
+        assert!(line_is_func_like("http-errors myerrors"));
+        assert!(line_is_func_like("ring myring"));
+        assert!(line_is_func_like("program myprog"));
+        assert!(line_is_func_like("fcgi-app php-fpm"));
+        assert!(is_haproxy_decl("frontend fe_main"));
+        // Wrong case / bare named / prose / directives stay out.
+        assert!(!is_haproxy_decl("Frontend www"));
+        assert!(!is_haproxy_decl("GLOBAL"));
+        assert!(!is_haproxy_decl("frontend"));
+        assert!(!is_haproxy_decl("backend"));
+        assert!(!is_haproxy_decl("frontend the team"));
+        assert!(!is_haproxy_decl("frontend the"));
+        assert!(!is_haproxy_decl("defaults the"));
+        assert!(!is_haproxy_decl("global extra"));
+        assert!(!is_haproxy_decl("default_backend app"));
+        assert!(!is_haproxy_decl("bind *:80"));
+        assert!(!is_haproxy_decl("server s1 127.0.0.1:80"));
+        assert!(!is_haproxy_decl("listen 80"));
+        assert!(!is_haproxy_decl("listen 80;"));
+        // nginx / Apache stay on their paths.
+        assert!(is_nginx_conf_decl("server {"));
+        assert!(!is_haproxy_decl("server {"));
+        assert!(is_nginx_conf_decl("http {"));
+        assert!(!is_haproxy_decl("http {"));
+        assert!(is_apache_httpd_decl("<VirtualHost *:80>"));
+        assert!(!is_haproxy_decl("<VirtualHost *:80>"));
+        assert!(!is_haproxy_decl("[PHP]"));
     }
 
     #[test]
