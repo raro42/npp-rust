@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.556] — 2026-10-24
+
+View:
+
+- **Function List** lists dovecot.conf block openers: `protocol imap {`, `service auth {`, `passdb {`, `userdb {`, `namespace inbox {`, `mailbox Drafts {`, `plugin {`, `dict {`, `local_name mail.example.com {`, `inet_listener imap {` / `unix_listener auth {` / `fifo_listener x {`, `metric auth_success {`, `local {` / `local 192.168.0.0/24 {`, `remote {` / `remote 10.0.0.0/8 {`. Exact lowercase keywords. Optional `#` after `{`. Wrong case, prose (`protocol the {`), bare keywords, and in-block settings stay out.
+
 ## [0.3.555] — 2026-10-24
 
 View:

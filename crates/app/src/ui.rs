@@ -32283,6 +32283,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_keepalived_decl(s)
             || is_dhcpd_decl(s)
             || is_syslog_ng_decl(s)
+            || is_dovecot_decl(s)
         {
             return true;
         }
@@ -32418,6 +32419,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_keepalived_decl(s)
         || is_dhcpd_decl(s)
         || is_syslog_ng_decl(s)
+        || is_dovecot_decl(s)
     {
         return true;
     }
@@ -43481,6 +43483,107 @@ fn syslog_ng_block_def(s: &str) -> bool {
     false
 }
 
+/// dovecot.conf block openers: `protocol imap {`, `service auth {`,
+/// `passdb {`, `userdb {`, `namespace inbox {`, `mailbox Drafts {`,
+/// `plugin {`, `dict {`, `local_name mail.example.com {`,
+/// `inet_listener imap {` / `unix_listener auth {` / `fifo_listener x {`,
+/// `metric auth_success {`, `local {` / `local 192.168.0.0/24 {`,
+/// `remote {` / `remote 10.0.0.0/8 {`. Exact lowercase keywords.
+/// Optional `#` after `{`. Wrong case, prose (`protocol the {`), bare
+/// keywords, protobuf `service Greeter {` still counts via that path,
+/// and in-block settings stay out.
+fn is_dovecot_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    dovecot_bare_block(s) || dovecot_named_block(s) || dovecot_local_remote(s)
+}
+
+fn dovecot_prose_name(name: &str) -> bool {
+    matches!(name, "the" | "a" | "an" | "this" | "that" | "my" | "our")
+}
+
+fn dovecot_bare_block(s: &str) -> bool {
+    for key in ["passdb", "userdb", "plugin", "dict"] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        // Not `plugins` / `dictionary` / `passdb_extra`.
+        if rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{') {
+            return nginx_brace_tail(rest);
+        }
+    }
+    false
+}
+
+fn dovecot_named_block(s: &str) -> bool {
+    for key in [
+        "protocol",
+        "service",
+        "namespace",
+        "mailbox",
+        "local_name",
+        "inet_listener",
+        "unix_listener",
+        "fifo_listener",
+        "metric",
+    ] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        let Some((name, after)) = named_conf_quoted_or_ident(rest) else {
+            return false;
+        };
+        if dovecot_prose_name(name) {
+            return false;
+        }
+        return nginx_brace_tail(after);
+    }
+    false
+}
+
+/// Optional IPv4/IPv6 with optional `/bits` CIDR; returns rest after the addr.
+fn dovecot_addr_prefix(s: &str) -> Option<&str> {
+    let (_addr, after) = named_conf_ipv4_or_v6(s)?;
+    let after = after.trim_start();
+    if let Some(rest) = after.strip_prefix('/') {
+        let bits_n = rest
+            .as_bytes()
+            .iter()
+            .take_while(|b| b.is_ascii_digit())
+            .count();
+        if bits_n == 0 {
+            return None;
+        }
+        Some(&rest[bits_n..])
+    } else {
+        Some(after)
+    }
+}
+
+fn dovecot_local_remote(s: &str) -> bool {
+    for key in ["local", "remote"] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        // Not `local_name` / `localization` / `remotes` / `localfoo`.
+        if !rest.is_empty() && !rest.starts_with(char::is_whitespace) && !rest.starts_with('{') {
+            continue;
+        }
+        let rest = rest.trim_start();
+        if rest.starts_with('{') {
+            return nginx_brace_tail(rest);
+        }
+        let Some(after) = dovecot_addr_prefix(rest) else {
+            return false;
+        };
+        return nginx_brace_tail(after);
+    }
+    false
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -45772,14 +45875,14 @@ mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl, is_aws_config_decl,
         is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
-        is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl, is_editorconfig_decl,
-        is_fluent_bit_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
-        is_haproxy_decl, is_keepalived_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_package_json_decl, is_php_ini_decl,
-        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
-        is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
-        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
+        is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl,
+        is_editorconfig_decl, is_fluent_bit_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_keepalived_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl, is_package_json_decl,
+        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl,
+        is_syslog_ng_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
+        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -51014,6 +51117,52 @@ mod func_like_line_tests {
         // named.conf `options {` also matches syslog-ng; both count.
         assert!(is_named_conf_decl("options {"));
         assert!(is_syslog_ng_decl("options {"));
+    }
+
+    #[test]
+    fn dovecot_blocks_count() {
+        assert!(line_is_func_like("protocol imap {"));
+        assert!(line_is_func_like("service auth { # login"));
+        assert!(line_is_func_like("  passdb {"));
+        assert!(line_is_func_like("userdb {"));
+        assert!(line_is_func_like("namespace inbox {"));
+        assert!(line_is_func_like("mailbox Drafts {"));
+        assert!(line_is_func_like("plugin {"));
+        assert!(line_is_func_like("dict {"));
+        assert!(line_is_func_like("local_name mail.example.com {"));
+        assert!(line_is_func_like("inet_listener imap {"));
+        assert!(line_is_func_like("unix_listener auth-userdb {"));
+        assert!(line_is_func_like("fifo_listener login {"));
+        assert!(line_is_func_like("metric auth_success {"));
+        assert!(line_is_func_like("local {"));
+        assert!(line_is_func_like("local 192.168.0.0/24 {"));
+        assert!(line_is_func_like("remote 10.0.0.0/8 {"));
+        assert!(is_dovecot_decl("protocol \"imap\" {"));
+        assert!(is_dovecot_decl("mailbox \"Spam\" {"));
+        // Bare keywords / wrong case / prose / other dialects stay out.
+        assert!(!is_dovecot_decl("protocol"));
+        assert!(!is_dovecot_decl("protocol the {"));
+        assert!(!is_dovecot_decl("Protocol imap {"));
+        assert!(!is_dovecot_decl("passdb"));
+        assert!(!is_dovecot_decl("plugin"));
+        assert!(!is_dovecot_decl("local"));
+        assert!(!is_dovecot_decl("local the {"));
+        assert!(!is_dovecot_decl("remote"));
+        assert!(!is_dovecot_decl("service"));
+        assert!(!is_dovecot_decl("service the {"));
+        assert!(!is_dovecot_decl("local_name"));
+        assert!(!is_dovecot_decl("local_name the {"));
+        assert!(!is_dovecot_decl("mail_plugins = $mail_plugins"));
+        assert!(!is_dovecot_decl("driver = pam"));
+        assert!(!is_dovecot_decl(
+            "ssl_cert = </etc/dovecot/private/dovecot.pem"
+        ));
+        // syslog-ng / named stay on their paths; service also hits dovecot.
+        assert!(is_syslog_ng_decl("source s_sys {"));
+        assert!(!is_dovecot_decl("source s_sys {"));
+        assert!(is_dovecot_decl("service auth {"));
+        assert!(is_named_conf_decl("options {"));
+        assert!(!is_dovecot_decl("options {"));
     }
 
     #[test]
