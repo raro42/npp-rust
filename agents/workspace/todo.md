@@ -766,3 +766,5 @@
 009 keep: Function List systemd unit sections [Unit]/[Service]/[Install]/[Socket]/[Timer]/[Mount]/[Automount]/[Swap]/[Path]/[Slice]/[Scope] (v0.3.535)
 
 009 keep: Function List Git config sections [core]/[user]/[remote "origin"]/[branch.main] (v0.3.537)
+
+009 keep: Function List SSH config Host/Match/Include (v0.3.538)

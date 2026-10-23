@@ -32079,6 +32079,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// or dotted subsection. Key lines (`user.name =`), systemd / Desktop Entry
 /// / tox / Cargo / Pipfile / pyproject / EditorConfig tables, incomplete
 /// brackets, and prose stay out.
+/// SSH config (`~/.ssh/config`) `Host` / `Match` / `Include` lines.
+/// `Host github.com` / `Host *` / `Host *.example.com !lab`, `Match host *.corp`,
+/// `Match all`, `Include ~/.ssh/config.d/*`. Optional `#` comment. Key lines
+/// (`HostName`, `User`, `IdentityFile`, `Port`), bare keywords, prose
+/// (`Host the server` still lists as patterns; `Match the host` stays out),
+/// and wrong case stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32200,6 +32206,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
             || is_gitconfig_decl(s)
+            || is_ssh_config_decl(s)
         {
             return true;
         }
@@ -32317,6 +32324,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
         || is_gitconfig_decl(s)
+        || is_ssh_config_decl(s)
     {
         return true;
     }
@@ -41426,6 +41434,184 @@ fn gitconfig_quoted_sub_ok(rest: &str) -> bool {
     inner[end + 1..].is_empty()
 }
 
+/// SSH config section headers: `Host` / `Match` / `Include`.
+/// `Host github.com`, `Host * *.internal`, `Host !lab.example.com`,
+/// `Match host *.corp user alice`, `Match all`, `Match canonical`,
+/// `Match exec "/usr/bin/true"`, `Include ~/.ssh/config.d/*`.
+/// Optional trailing `#` comment. `HostName` / `User` / `Port` /
+/// `IdentityFile` key lines, bare keywords, `Match the host` prose,
+/// and wrong case stay out.
+fn is_ssh_config_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    ssh_config_host(s) || ssh_config_match(s) || ssh_config_include(s)
+}
+
+fn ssh_config_comment_or_end(rest: &str) -> bool {
+    let t = rest.trim_start();
+    t.is_empty() || t.starts_with('#')
+}
+
+/// Next whitespace / `#`-delimited token; `None` at end or comment.
+fn ssh_config_token(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return None;
+    }
+    let end = s
+        .find(|c: char| c.is_ascii_whitespace() || c == '#')
+        .unwrap_or(s.len());
+    if end == 0 {
+        return None;
+    }
+    Some((&s[..end], &s[end..]))
+}
+
+fn ssh_config_host_pattern_ok(pat: &str) -> bool {
+    if pat.is_empty() {
+        return false;
+    }
+    pat.chars().all(|c| {
+        c.is_ascii_alphanumeric()
+            || matches!(c, '*' | '?' | '!' | '.' | '-' | '_' | ':' | '[' | ']' | '/')
+    })
+}
+
+fn ssh_config_host(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("Host") else {
+        return false;
+    };
+    // Not `HostName` / `HostbasedAuthentication`.
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    let mut saw = false;
+    while let Some((pat, after)) = ssh_config_token(rest) {
+        if !ssh_config_host_pattern_ok(pat) {
+            return false;
+        }
+        saw = true;
+        rest = after;
+    }
+    saw && ssh_config_comment_or_end(rest)
+}
+
+fn ssh_config_match_criterion(tok: &str) -> Option<&'static str> {
+    match tok.to_ascii_lowercase().as_str() {
+        "all" => Some("all"),
+        "canonical" => Some("canonical"),
+        "final" => Some("final"),
+        "exec" => Some("exec"),
+        "host" => Some("host"),
+        "originalhost" => Some("originalhost"),
+        "user" => Some("user"),
+        "localuser" => Some("localuser"),
+        "group" => Some("group"),
+        "localgroup" => Some("localgroup"),
+        "tagged" => Some("tagged"),
+        "localnetwork" => Some("localnetwork"),
+        _ => None,
+    }
+}
+
+fn ssh_config_match(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("Match") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    let mut saw = false;
+    while let Some((tok, after)) = ssh_config_token(rest) {
+        let Some(crit) = ssh_config_match_criterion(tok) else {
+            return false;
+        };
+        rest = after;
+        saw = true;
+        match crit {
+            "all" => {
+                // `Match all` ends the criteria list.
+                return ssh_config_comment_or_end(rest);
+            }
+            "canonical" | "final" => {}
+            "exec" => {
+                let rest_t = rest.trim_start();
+                // `exec "cmd …"` or a single unquoted token.
+                if let Some(q) = rest_t.as_bytes().first().copied() {
+                    if q == b'"' || q == b'\'' {
+                        let inner = &rest_t[1..];
+                        let Some(end) = inner.find(q as char) else {
+                            return false;
+                        };
+                        if end == 0 {
+                            return false;
+                        }
+                        rest = &inner[end + 1..];
+                        continue;
+                    }
+                }
+                let Some((_cmd, after_cmd)) = ssh_config_token(rest) else {
+                    return false;
+                };
+                rest = after_cmd;
+            }
+            _ => {
+                // Pattern / name argument required.
+                let Some((pat, after_pat)) = ssh_config_token(rest) else {
+                    return false;
+                };
+                if crit == "tagged" {
+                    if pat.is_empty()
+                        || !pat
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+                    {
+                        return false;
+                    }
+                } else if !ssh_config_host_pattern_ok(pat) {
+                    return false;
+                }
+                rest = after_pat;
+            }
+        }
+    }
+    saw && ssh_config_comment_or_end(rest)
+}
+
+fn ssh_config_include(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("Include") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    let mut saw = false;
+    while let Some((path, after)) = ssh_config_token(rest) {
+        // Paths / globs: require a path-ish character so prose
+        // (`Include the team`) stays out.
+        if !(path.contains('/')
+            || path.contains('*')
+            || path.contains('?')
+            || path.contains('~')
+            || path.contains('.')
+            || path
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'))
+        {
+            return false;
+        }
+        // Reject bare English fillers used as a lone first token.
+        if !saw && matches!(path, "the" | "a" | "an" | "this" | "that" | "my" | "our") {
+            return false;
+        }
+        saw = true;
+        rest = after;
+    }
+    saw && ssh_config_comment_or_end(rest)
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -43719,7 +43905,8 @@ mod func_like_line_tests {
         is_cargo_toml_decl, is_composer_json_decl, is_desktop_entry_decl, is_editorconfig_decl,
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_package_json_decl, is_pipfile_decl,
         is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
-        is_systemd_unit_decl, is_tox_ini_decl, is_xmake_decl, line_is_func_like,
+        is_ssh_config_decl, is_systemd_unit_decl, is_tox_ini_decl, is_xmake_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -48119,6 +48306,45 @@ mod func_like_line_tests {
         assert!(!is_gitconfig_decl("[packages]"));
         assert!(is_pyproject_toml_decl("[project]"));
         assert!(!is_gitconfig_decl("[project]"));
+    }
+
+    #[test]
+    fn ssh_config_host_match_include_count() {
+        assert!(line_is_func_like("Host github.com"));
+        assert!(line_is_func_like("  Host * # default"));
+        assert!(line_is_func_like("Host *.example.com !lab.example.com"));
+        assert!(line_is_func_like("Host [2001:db8::1]"));
+        assert!(line_is_func_like("Match host *.corp"));
+        assert!(line_is_func_like("Match all"));
+        assert!(line_is_func_like("Match canonical host *.internal"));
+        assert!(line_is_func_like("Match user alice host *.corp # staff"));
+        assert!(line_is_func_like("Match exec \"/usr/bin/true\""));
+        assert!(line_is_func_like("Match tagged prod"));
+        assert!(line_is_func_like("Include ~/.ssh/config.d/*"));
+        assert!(line_is_func_like("Include /etc/ssh/ssh_config.d/*.conf"));
+        assert!(is_ssh_config_decl("Host github.com"));
+        assert!(is_ssh_config_decl("Match host *.corp"));
+        assert!(is_ssh_config_decl("Include config.d"));
+        // Key lines / bare / wrong case / prose Match stay out.
+        assert!(!is_ssh_config_decl("HostName github.com"));
+        assert!(!line_is_func_like("HostName github.com"));
+        assert!(!is_ssh_config_decl("User git"));
+        assert!(!is_ssh_config_decl("IdentityFile ~/.ssh/id_ed25519"));
+        assert!(!is_ssh_config_decl("Port 22"));
+        assert!(!is_ssh_config_decl("Host"));
+        assert!(!is_ssh_config_decl("Match"));
+        assert!(!is_ssh_config_decl("Include"));
+        assert!(!is_ssh_config_decl("host github.com"));
+        assert!(!is_ssh_config_decl("match all"));
+        assert!(!is_ssh_config_decl("Match the host"));
+        assert!(!is_ssh_config_decl("Match host"));
+        assert!(!is_ssh_config_decl("Include the team"));
+        assert!(!is_ssh_config_decl("HostbasedAuthentication yes"));
+        // Git / systemd / other tables stay on their paths.
+        assert!(is_gitconfig_decl("[core]"));
+        assert!(!is_ssh_config_decl("[core]"));
+        assert!(is_systemd_unit_decl("[Unit]"));
+        assert!(!is_ssh_config_decl("[Unit]"));
     }
 
     #[test]

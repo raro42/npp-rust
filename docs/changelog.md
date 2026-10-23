@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.538] — 2026-10-23
+
+View:
+
+- **Function List** lists SSH config `Host` / `Match` / `Include` lines: `Host github.com`, `Host * *.internal`, `Match host *.corp`, `Match all`, `Match exec "…"`, `Include ~/.ssh/config.d/*`. Optional `#` comment. Key lines (`HostName` / `User` / `IdentityFile` / `Port`), bare keywords, `Match the host` prose, and wrong case stay out.
+
 ## [0.3.537] — 2026-10-23
 
 View:
