@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.541] — 2026-10-23
+
+View:
+
+- **Function List** lists MySQL / MariaDB option-file sections: `[mysqld]`, `[mysql]`, `[client]`, `[mysqldump]`, `[mariadb]`, `[client-server]`, versioned `[mysqld-8.0]` / `[mariadb-10.11]`, …. Optional `#` / `;` comment. Key lines (`port =`), wrong case, WireGuard / AWS / git / systemd / Desktop Entry / tox / Cargo / EditorConfig tables, incomplete brackets, and prose stay out.
+
 ## [0.3.540] — 2026-10-23
 
 View:

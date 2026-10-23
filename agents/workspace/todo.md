@@ -769,3 +769,7 @@
 009 keep: Function List Git config sections [core]/[user]/[remote "origin"]/[branch.main] (v0.3.537)
 
 009 keep: Function List SSH config Host/Match/Include (v0.3.538)
+
+009 keep: Function List WireGuard [Interface]/[Peer] (v0.3.540)
+
+009 keep: Function List MySQL/MariaDB option-file sections (v0.3.541)

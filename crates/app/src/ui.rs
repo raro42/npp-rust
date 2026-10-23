@@ -32094,6 +32094,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// comment. Key lines (`PrivateKey =`, `Address =`, `AllowedIPs =`), wrong
 /// case, git / systemd / AWS / Desktop Entry / tox / Cargo / EditorConfig
 /// tables, incomplete brackets, and prose stay out.
+/// MySQL / MariaDB option-file sections: `[mysqld]`, `[mysql]`, `[client]`,
+/// `[mysqldump]`, `[mariadb]`, `[client-server]`, versioned `[mysqld-8.0]` /
+/// `[mariadb-10.11]`, …. Optional `#` / `;` comment. Key lines (`port =`),
+/// wrong case, WireGuard / AWS / git / systemd / Desktop Entry / tox / Cargo /
+/// EditorConfig tables, incomplete brackets, and prose stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32218,6 +32223,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_ssh_config_decl(s)
             || is_aws_config_decl(s)
             || is_wireguard_config_decl(s)
+            || is_mysql_cnf_decl(s)
         {
             return true;
         }
@@ -32338,6 +32344,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_ssh_config_decl(s)
         || is_aws_config_decl(s)
         || is_wireguard_config_decl(s)
+        || is_mysql_cnf_decl(s)
     {
         return true;
     }
@@ -41687,6 +41694,87 @@ fn is_wireguard_config_decl(s: &str) -> bool {
     matches!(header, "Interface" | "Peer")
 }
 
+/// MySQL / MariaDB option-file (`my.cnf` / `my.ini`) sections:
+/// `[mysqld]`, `[mysql]`, `[client]`, `[mysqldump]`, `[mysqladmin]`,
+/// `[mysqlbinlog]`, `[mysqlcheck]`, `[mysqlimport]`, `[mysqlshow]`,
+/// `[mysqlslap]`, `[mysql_upgrade]`, `[mysqld_safe]`, `[safe_mysqld]`,
+/// `[server]`, `[client-server]`, `[client-mariadb]`, `[mariadb]`,
+/// `[mariadbd]`, `[galera]`, `[embedded]`, plus versioned groups
+/// (`[mysqld-8.0]`, `[mariadb-10.11]`, `[mariadbd-10.6]`, `[mysql-5.7]`).
+/// Optional trailing `#` / `;` comment. Lowercase headers only.
+/// Key lines (`port =`, `datadir =`), wrong case, WireGuard / AWS / git /
+/// systemd / Desktop Entry / tox / Cargo / EditorConfig tables, incomplete
+/// brackets, and prose stay out.
+fn is_mysql_cnf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    mysql_cnf_header_ok(header)
+}
+
+fn mysql_cnf_header_ok(header: &str) -> bool {
+    const EXACT: &[&str] = &[
+        "client",
+        "mysql",
+        "mysqld",
+        "mysqld_safe",
+        "safe_mysqld",
+        "server",
+        "mysqldump",
+        "mysqladmin",
+        "mysqlbinlog",
+        "mysqlcheck",
+        "mysqlimport",
+        "mysqlshow",
+        "mysqlslap",
+        "mysql_upgrade",
+        "client-server",
+        "client-mariadb",
+        "mariadb",
+        "mariadbd",
+        "galera",
+        "embedded",
+    ];
+    if EXACT.contains(&header) {
+        return true;
+    }
+    for prefix in ["mysqld-", "mariadbd-", "mariadb-", "mysql-"] {
+        if let Some(ver) = header.strip_prefix(prefix) {
+            return mysql_cnf_version_ok(ver);
+        }
+    }
+    false
+}
+
+fn mysql_cnf_version_ok(ver: &str) -> bool {
+    if ver.is_empty() {
+        return false;
+    }
+    let bytes = ver.as_bytes();
+    if !bytes[0].is_ascii_digit() {
+        return false;
+    }
+    // `8.0`, `10.11`, `5.7.40` — digits and dots; no leading/trailing/double `.`.
+    let mut prev_dot = false;
+    for &b in bytes {
+        if b == b'.' {
+            if prev_dot {
+                return false;
+            }
+            prev_dot = true;
+        } else if b.is_ascii_digit() {
+            prev_dot = false;
+        } else {
+            return false;
+        }
+    }
+    !ver.ends_with('.')
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -43979,8 +44067,8 @@ mod func_like_line_tests {
         is_android_bp_decl, is_ant_msbuild_decl, is_aws_config_decl, is_bitbake_decl,
         is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl, is_composer_json_decl,
         is_desktop_entry_decl, is_editorconfig_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_package_json_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_ssh_config_decl,
+        is_gomod_decl, is_mysql_cnf_decl, is_package_json_decl, is_pipfile_decl, is_podfile_decl,
+        is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_ssh_config_decl,
         is_systemd_unit_decl, is_tox_ini_decl, is_wireguard_config_decl, is_xmake_decl,
         line_is_func_like,
     };
@@ -48495,6 +48583,69 @@ mod func_like_line_tests {
         assert!(!is_wireguard_config_decl("Host github.com"));
         assert!(is_editorconfig_decl("[*]"));
         assert!(!is_wireguard_config_decl("[*]"));
+    }
+
+    #[test]
+    fn mysql_cnf_sections_count() {
+        assert!(line_is_func_like("[mysqld]"));
+        assert!(line_is_func_like("  [mysqld] # local"));
+        assert!(line_is_func_like("[mysql]"));
+        assert!(line_is_func_like("[client]"));
+        assert!(line_is_func_like("[client] ; shared"));
+        assert!(line_is_func_like("[mysqldump]"));
+        assert!(line_is_func_like("[mysqladmin]"));
+        assert!(line_is_func_like("[mysqlbinlog]"));
+        assert!(line_is_func_like("[mysqlcheck]"));
+        assert!(line_is_func_like("[mysqlimport]"));
+        assert!(line_is_func_like("[mysqlshow]"));
+        assert!(line_is_func_like("[mysqlslap]"));
+        assert!(line_is_func_like("[mysql_upgrade]"));
+        assert!(line_is_func_like("[mysqld_safe]"));
+        assert!(line_is_func_like("[safe_mysqld]"));
+        assert!(line_is_func_like("[server]"));
+        assert!(line_is_func_like("[client-server]"));
+        assert!(line_is_func_like("[client-mariadb]"));
+        assert!(line_is_func_like("[mariadb]"));
+        assert!(line_is_func_like("[mariadbd]"));
+        assert!(line_is_func_like("[galera]"));
+        assert!(line_is_func_like("[embedded]"));
+        assert!(line_is_func_like("[mysqld-8.0]"));
+        assert!(line_is_func_like("[mysqld-5.7.40]"));
+        assert!(line_is_func_like("[mariadb-10.11]"));
+        assert!(line_is_func_like("[mariadbd-10.6]"));
+        assert!(line_is_func_like("[mysql-5.7]"));
+        assert!(is_mysql_cnf_decl("[mysqld]"));
+        assert!(is_mysql_cnf_decl("[mysqld-8.0]"));
+        assert!(is_mysql_cnf_decl("[client-server]"));
+        // Key lines / wrong case / incomplete / bad version stay out.
+        assert!(!is_mysql_cnf_decl("port = 3306"));
+        assert!(!line_is_func_like("port = 3306"));
+        assert!(!is_mysql_cnf_decl("datadir = /var/lib/mysql"));
+        assert!(!is_mysql_cnf_decl("socket = /tmp/mysql.sock"));
+        assert!(!is_mysql_cnf_decl("[MYSQLD]"));
+        assert!(!is_mysql_cnf_decl("[Mysqld]"));
+        assert!(!is_mysql_cnf_decl("[Client]"));
+        assert!(!is_mysql_cnf_decl("[mysqld"));
+        assert!(!is_mysql_cnf_decl("[[mysqld]]"));
+        assert!(!is_mysql_cnf_decl("[mysqlds]"));
+        assert!(!is_mysql_cnf_decl("[mysqld-]"));
+        assert!(!is_mysql_cnf_decl("[mysqld-8.]"));
+        assert!(!is_mysql_cnf_decl("[mysqld-.0]"));
+        assert!(!is_mysql_cnf_decl("[mysqld-8..0]"));
+        assert!(!is_mysql_cnf_decl("[mysqld-8.0a]"));
+        // WireGuard / AWS / git / systemd / SSH stay on their paths.
+        assert!(is_wireguard_config_decl("[Interface]"));
+        assert!(!is_mysql_cnf_decl("[Interface]"));
+        assert!(is_aws_config_decl("[default]"));
+        assert!(!is_mysql_cnf_decl("[default]"));
+        assert!(is_gitconfig_decl("[core]"));
+        assert!(!is_mysql_cnf_decl("[core]"));
+        assert!(is_systemd_unit_decl("[Unit]"));
+        assert!(!is_mysql_cnf_decl("[Unit]"));
+        assert!(is_ssh_config_decl("Host github.com"));
+        assert!(!is_mysql_cnf_decl("Host github.com"));
+        assert!(is_editorconfig_decl("[*]"));
+        assert!(!is_mysql_cnf_decl("[*]"));
     }
 
     #[test]
