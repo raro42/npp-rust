@@ -1,3 +1,4 @@
+009 keep: Function List sees AWS config [default]/[profile …]/[sso-session …]/[services …]/[plugins] (v0.3.539)
 009 keep: Function List sees EditorConfig glob sections [*] / [*.rs] / [*.{js,ts}] (v0.3.536)
 009 keep: Function List sees Desktop Entry [Desktop Entry]/[Desktop Action …] (v0.3.534)
 009 keep: Function List sees tox.ini [tox]/[testenv]/[testenv:…]/[gh-actions] (v0.3.533)

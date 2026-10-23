@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.539] — 2026-10-23
+
+View:
+
+- **Function List** lists AWS config sections: `[default]`, `[profile name]`, `[sso-session name]`, `[services name]`, `[plugins]`. Optional `#` / `;` comment. Key lines (`region =`), bare `[profile]`, git / systemd / Desktop Entry / tox / Cargo / EditorConfig tables, incomplete brackets, and prose stay out.
+
 ## [0.3.538] — 2026-10-23
 
 View:

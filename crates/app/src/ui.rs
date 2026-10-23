@@ -32085,6 +32085,11 @@ const NOT_TYPED_FN: &[&str] = &[
 /// (`HostName`, `User`, `IdentityFile`, `Port`), bare keywords, prose
 /// (`Host the server` still lists as patterns; `Match the host` stays out),
 /// and wrong case stay out.
+/// AWS config (`~/.aws/config`) sections: `[default]`, `[profile name]`,
+/// `[sso-session name]`, `[services name]`, `[plugins]`. Optional `#` / `;`
+/// comment. Key lines (`region =`, `aws_access_key_id =`), git / systemd /
+/// Desktop Entry / tox / Cargo / EditorConfig tables, incomplete brackets,
+/// bare `[profile]`, and prose stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32207,6 +32212,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_editorconfig_decl(s)
             || is_gitconfig_decl(s)
             || is_ssh_config_decl(s)
+            || is_aws_config_decl(s)
         {
             return true;
         }
@@ -32325,6 +32331,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_editorconfig_decl(s)
         || is_gitconfig_decl(s)
         || is_ssh_config_decl(s)
+        || is_aws_config_decl(s)
     {
         return true;
     }
@@ -41612,6 +41619,51 @@ fn ssh_config_include(s: &str) -> bool {
     saw && ssh_config_comment_or_end(rest)
 }
 
+/// AWS CLI / SDK config sections (`~/.aws/config`, shared credentials
+/// style tables that use the same headers): `[default]`,
+/// `[profile production]`, `[sso-session my-sso]`,
+/// `[services my-services]`, `[plugins]`. Optional trailing `#` / `;`
+/// comment. Named sections need a non-empty alphanumeric / hyphen /
+/// underscore name. Key lines (`region =`, `aws_access_key_id =`),
+/// bare `[profile]` / `[sso-session]`, git / systemd / Desktop Entry /
+/// tox / Cargo / EditorConfig tables, incomplete brackets, and prose
+/// stay out.
+fn is_aws_config_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    aws_config_header_ok(header)
+}
+
+fn aws_config_header_ok(header: &str) -> bool {
+    if header == "default" || header == "plugins" {
+        return true;
+    }
+    for prefix in ["profile ", "sso-session ", "services "] {
+        if let Some(name) = header.strip_prefix(prefix) {
+            return aws_config_name_ok(name);
+        }
+    }
+    false
+}
+
+fn aws_config_name_ok(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'-' | b'_' | b'.'))
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -43901,12 +43953,12 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 #[cfg(test)]
 mod func_like_line_tests {
     use super::{
-        is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl,
-        is_cargo_toml_decl, is_composer_json_decl, is_desktop_entry_decl, is_editorconfig_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_package_json_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
-        is_ssh_config_decl, is_systemd_unit_decl, is_tox_ini_decl, is_xmake_decl,
-        line_is_func_like,
+        is_android_bp_decl, is_ant_msbuild_decl, is_aws_config_decl, is_bitbake_decl,
+        is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl, is_composer_json_decl,
+        is_desktop_entry_decl, is_editorconfig_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_package_json_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_ssh_config_decl,
+        is_systemd_unit_decl, is_tox_ini_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -48345,6 +48397,45 @@ mod func_like_line_tests {
         assert!(!is_ssh_config_decl("[core]"));
         assert!(is_systemd_unit_decl("[Unit]"));
         assert!(!is_ssh_config_decl("[Unit]"));
+    }
+
+    #[test]
+    fn aws_config_sections_count() {
+        assert!(line_is_func_like("[default]"));
+        assert!(line_is_func_like("  [default] # fallback"));
+        assert!(line_is_func_like("[profile production]"));
+        assert!(line_is_func_like("[profile my-dev]"));
+        assert!(line_is_func_like("[profile org.team]"));
+        assert!(line_is_func_like("[sso-session my-sso]"));
+        assert!(line_is_func_like("[services my-services]"));
+        assert!(line_is_func_like("[plugins]"));
+        assert!(is_aws_config_decl("[default]"));
+        assert!(is_aws_config_decl("[profile production]"));
+        assert!(is_aws_config_decl("[sso-session my-sso]"));
+        assert!(is_aws_config_decl("[services shared]"));
+        assert!(is_aws_config_decl("[plugins]"));
+        // Key lines / bare / wrong case / incomplete stay out.
+        assert!(!is_aws_config_decl("region = us-east-1"));
+        assert!(!line_is_func_like("region = us-east-1"));
+        assert!(!is_aws_config_decl("aws_access_key_id = example"));
+        assert!(!is_aws_config_decl("[profile]"));
+        assert!(!is_aws_config_decl("[sso-session]"));
+        assert!(!is_aws_config_decl("[services]"));
+        assert!(!is_aws_config_decl("[Profile production]"));
+        assert!(!is_aws_config_decl("[DEFAULT]"));
+        assert!(!is_aws_config_decl("[default"));
+        assert!(!is_aws_config_decl("[[default]]"));
+        assert!(!is_aws_config_decl("[profile the team]"));
+        assert!(!is_aws_config_decl("[profile ]"));
+        // Git / systemd / other tables stay on their paths.
+        assert!(is_gitconfig_decl("[core]"));
+        assert!(!is_aws_config_decl("[core]"));
+        assert!(is_systemd_unit_decl("[Unit]"));
+        assert!(!is_aws_config_decl("[Unit]"));
+        assert!(is_ssh_config_decl("Host github.com"));
+        assert!(!is_aws_config_decl("Host github.com"));
+        assert!(is_editorconfig_decl("[*]"));
+        assert!(!is_aws_config_decl("[*]"));
     }
 
     #[test]
