@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.546] — 2026-10-23
+
+View:
+
+- **Function List** lists Fluent Bit classic sections: `[SERVICE]`, `[INPUT]`, `[FILTER]`, `[OUTPUT]`, `[PARSER]`, `[MULTILINE_PARSER]`, `[CUSTOM]`, `[PROCESSOR]`, `[CHECK]`. Exact uppercase. Optional `#` / `;` comment. Key lines (`Name cpu` / `Flush 1`), wrong case, PHP / MySQL / WireGuard / AWS / git / systemd / Desktop Entry / tox / Cargo / EditorConfig tables, incomplete brackets, and prose stay out.
+
 ## [0.3.545] — 2026-10-23
 
 View:

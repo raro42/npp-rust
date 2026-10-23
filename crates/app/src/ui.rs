@@ -32126,6 +32126,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `fcgi-app name`. Optional `#` comment. Exact lowercase. nginx
 /// `server {` / `listen 80;`, wrong case, prose (`frontend the team`),
 /// and directives stay out.
+/// Fluent Bit classic sections: `[SERVICE]`, `[INPUT]`, `[FILTER]`,
+/// `[OUTPUT]`, `[PARSER]`, `[MULTILINE_PARSER]`, `[CUSTOM]`,
+/// `[PROCESSOR]`, `[CHECK]`. Exact uppercase. Optional `#` / `;`
+/// comment. Key lines (`Name cpu`, `Flush 1`), wrong case, PHP /
+/// MySQL / WireGuard / AWS / git / systemd / Desktop Entry / tox /
+/// Cargo / EditorConfig tables, incomplete brackets, and prose stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32255,6 +32261,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_nginx_conf_decl(s)
             || is_apache_httpd_decl(s)
             || is_haproxy_decl(s)
+            || is_fluent_bit_decl(s)
         {
             return true;
         }
@@ -32380,6 +32387,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_nginx_conf_decl(s)
         || is_apache_httpd_decl(s)
         || is_haproxy_decl(s)
+        || is_fluent_bit_decl(s)
     {
         return true;
     }
@@ -42345,6 +42353,39 @@ fn haproxy_named(s: &str) -> bool {
     false
 }
 
+/// Fluent Bit classic config sections: `[SERVICE]`, `[INPUT]`, `[FILTER]`,
+/// `[OUTPUT]`, `[PARSER]`, `[MULTILINE_PARSER]`, `[CUSTOM]`,
+/// `[PROCESSOR]`, `[CHECK]`. Exact uppercase as in stock `.conf`.
+/// Optional trailing `#` / `;` comment. Key lines (`Name cpu`,
+/// `Flush 1`, `Match *`), wrong case (`[input]`, `[Service]`), PHP /
+/// MySQL / WireGuard / AWS / git / systemd / Desktop Entry / tox /
+/// Cargo / EditorConfig tables, incomplete brackets, and prose stay out.
+fn is_fluent_bit_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    fluent_bit_header_ok(header)
+}
+
+fn fluent_bit_header_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "SERVICE"
+            | "INPUT"
+            | "FILTER"
+            | "OUTPUT"
+            | "PARSER"
+            | "MULTILINE_PARSER"
+            | "CUSTOM"
+            | "PROCESSOR"
+            | "CHECK"
+    )
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -44636,12 +44677,12 @@ mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl, is_aws_config_decl,
         is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
-        is_composer_json_decl, is_desktop_entry_decl, is_editorconfig_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_haproxy_decl, is_mysql_cnf_decl, is_nginx_conf_decl,
-        is_package_json_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_ssh_config_decl,
-        is_systemd_unit_decl, is_tox_ini_decl, is_wireguard_config_decl, is_xmake_decl,
-        line_is_func_like,
+        is_composer_json_decl, is_desktop_entry_decl, is_editorconfig_decl, is_fluent_bit_decl,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_haproxy_decl, is_mysql_cnf_decl,
+        is_nginx_conf_decl, is_package_json_decl, is_php_ini_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
+        is_ssh_config_decl, is_systemd_unit_decl, is_tox_ini_decl, is_wireguard_config_decl,
+        is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -49455,6 +49496,42 @@ mod func_like_line_tests {
         assert!(is_apache_httpd_decl("<VirtualHost *:80>"));
         assert!(!is_haproxy_decl("<VirtualHost *:80>"));
         assert!(!is_haproxy_decl("[PHP]"));
+    }
+
+    #[test]
+    fn fluent_bit_sections_count() {
+        assert!(line_is_func_like("[SERVICE]"));
+        assert!(line_is_func_like("[SERVICE] # process"));
+        assert!(line_is_func_like("  [INPUT] ; collectors"));
+        assert!(line_is_func_like("[FILTER]"));
+        assert!(line_is_func_like("[OUTPUT]"));
+        assert!(line_is_func_like("[PARSER]"));
+        assert!(line_is_func_like("[MULTILINE_PARSER]"));
+        assert!(line_is_func_like("[CUSTOM]"));
+        assert!(line_is_func_like("[PROCESSOR]"));
+        assert!(line_is_func_like("[CHECK]"));
+        assert!(is_fluent_bit_decl("[INPUT]"));
+        // Key lines / wrong case / incomplete stay out.
+        assert!(!is_fluent_bit_decl("Name cpu"));
+        assert!(!is_fluent_bit_decl("Flush 1"));
+        assert!(!is_fluent_bit_decl("Match *"));
+        assert!(!is_fluent_bit_decl("[input]"));
+        assert!(!is_fluent_bit_decl("[Service]"));
+        assert!(!is_fluent_bit_decl("[INPUT"));
+        assert!(!is_fluent_bit_decl("[[INPUT]]"));
+        assert!(!is_fluent_bit_decl("[INPUTS]"));
+        assert!(!is_fluent_bit_decl("[SERVICE the]"));
+        // PHP / MySQL / WireGuard / HAProxy / nginx stay on their paths.
+        assert!(is_php_ini_decl("[PHP]"));
+        assert!(!is_fluent_bit_decl("[PHP]"));
+        assert!(is_mysql_cnf_decl("[mysqld]"));
+        assert!(!is_fluent_bit_decl("[mysqld]"));
+        assert!(is_wireguard_config_decl("[Interface]"));
+        assert!(!is_fluent_bit_decl("[Interface]"));
+        assert!(is_haproxy_decl("frontend www"));
+        assert!(!is_fluent_bit_decl("frontend www"));
+        assert!(is_nginx_conf_decl("http {"));
+        assert!(!is_fluent_bit_decl("http {"));
     }
 
     #[test]
