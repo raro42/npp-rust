@@ -32138,6 +32138,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// comment. Key lines (`type = "stdin"`), wrong case, Fluent Bit /
 /// PHP / MySQL / WireGuard / Cargo / tox tables, incomplete brackets,
 /// bare `[sources]`, and prose stay out.
+/// Telegraf.conf plugin tables: `[[inputs.cpu]]`, `[[outputs.influxdb]]`,
+/// `[[processors.regex]]`, `[[aggregators.basicstats]]`,
+/// `[[secretstores.jose]]`, bare `[agent]` / `[global_tags]`. Exact
+/// lowercase. Optional `#` comment. Key lines (`interval = "10s"`),
+/// wrong case, Vector / Fluent Bit / Cargo / Pipfile tables, incomplete
+/// brackets, bare `[[inputs]]`, and prose stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32269,6 +32275,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_haproxy_decl(s)
             || is_fluent_bit_decl(s)
             || is_vector_toml_decl(s)
+            || is_telegraf_toml_decl(s)
         {
             return true;
         }
@@ -32396,6 +32403,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_haproxy_decl(s)
         || is_fluent_bit_decl(s)
         || is_vector_toml_decl(s)
+        || is_telegraf_toml_decl(s)
     {
         return true;
     }
@@ -42452,6 +42460,64 @@ fn vector_toml_name_ok(name: &str) -> bool {
         .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
 }
 
+/// Telegraf.conf plugin / agent tables: `[[inputs.cpu]]`,
+/// `[[outputs.influxdb]]`, `[[processors.regex]]`,
+/// `[[aggregators.basicstats]]`, `[[secretstores.jose]]`, bare
+/// `[agent]` / `[global_tags]`. Exact lowercase kinds. Optional `#`
+/// comment. Key lines (`interval = "10s"`, `percpu = true`), wrong case
+/// (`[[Inputs.cpu]]`, `[Agent]`), Vector single-bracket tables, Fluent
+/// Bit / Cargo `[[bin]]` / Pipfile `[[source]]`, incomplete brackets,
+/// bare `[[inputs]]` without a plugin name, and prose stay out.
+fn is_telegraf_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if header.is_empty() || !cargo_toml_tail_ok(after) {
+        return false;
+    }
+    if array {
+        telegraf_plugin_header_ok(header)
+    } else {
+        matches!(header, "agent" | "global_tags")
+    }
+}
+
+fn telegraf_plugin_header_ok(header: &str) -> bool {
+    for kind in [
+        "secretstores",
+        "aggregators",
+        "processors",
+        "outputs",
+        "inputs",
+    ] {
+        let Some(rest) = header.strip_prefix(kind) else {
+            continue;
+        };
+        let Some(name) = rest.strip_prefix('.') else {
+            return false;
+        };
+        return telegraf_plugin_name_ok(name);
+    }
+    false
+}
+
+fn telegraf_plugin_name_ok(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    if matches!(name, "the" | "a" | "an" | "this" | "that" | "my" | "our") {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -44747,8 +44813,8 @@ mod func_like_line_tests {
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_haproxy_decl, is_mysql_cnf_decl,
         is_nginx_conf_decl, is_package_json_decl, is_php_ini_decl, is_pipfile_decl,
         is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
-        is_ssh_config_decl, is_systemd_unit_decl, is_tox_ini_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
+        is_ssh_config_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
+        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -49638,6 +49704,45 @@ mod func_like_line_tests {
         assert!(!is_vector_toml_decl("[package]"));
         assert!(is_haproxy_decl("frontend www"));
         assert!(!is_vector_toml_decl("frontend www"));
+    }
+
+    #[test]
+    fn telegraf_toml_sections_count() {
+        assert!(line_is_func_like("[[inputs.cpu]]"));
+        assert!(line_is_func_like("[[inputs.disk]] # mounts"));
+        assert!(line_is_func_like("  [[outputs.influxdb]]"));
+        assert!(line_is_func_like("[[processors.regex]]"));
+        assert!(line_is_func_like("[[aggregators.basicstats]]"));
+        assert!(line_is_func_like("[[secretstores.jose]]"));
+        assert!(line_is_func_like("[agent]"));
+        assert!(line_is_func_like("[agent] # interval"));
+        assert!(line_is_func_like("[global_tags]"));
+        assert!(is_telegraf_toml_decl("[[inputs.mem]]"));
+        assert!(is_telegraf_toml_decl("[[outputs.file]]"));
+        assert!(is_telegraf_toml_decl("[[outputs.influxdb_v2]]"));
+        assert!(is_telegraf_toml_decl("[[processors.rename]]"));
+        // Key lines / wrong case / incomplete / bare kinds stay out.
+        assert!(!is_telegraf_toml_decl("interval = \"10s\""));
+        assert!(!is_telegraf_toml_decl("percpu = true"));
+        assert!(!is_telegraf_toml_decl("[[Inputs.cpu]]"));
+        assert!(!is_telegraf_toml_decl("[Agent]"));
+        assert!(!is_telegraf_toml_decl("[[inputs]]"));
+        assert!(!is_telegraf_toml_decl("[[inputs.]]"));
+        assert!(!is_telegraf_toml_decl("[[inputs.the]]"));
+        assert!(!is_telegraf_toml_decl("[[inputs.cpu]"));
+        assert!(!is_telegraf_toml_decl("[inputs.cpu]"));
+        assert!(!is_telegraf_toml_decl("[[input.cpu]]"));
+        // Vector / Fluent Bit / Cargo / Pipfile stay on their paths.
+        assert!(is_vector_toml_decl("[sources.stdin]"));
+        assert!(!is_telegraf_toml_decl("[sources.stdin]"));
+        assert!(is_fluent_bit_decl("[INPUT]"));
+        assert!(!is_telegraf_toml_decl("[INPUT]"));
+        assert!(is_cargo_toml_decl("[[bin]]"));
+        assert!(!is_telegraf_toml_decl("[[bin]]"));
+        assert!(is_pipfile_decl("[[source]]"));
+        assert!(!is_telegraf_toml_decl("[[source]]"));
+        assert!(is_php_ini_decl("[PHP]"));
+        assert!(!is_telegraf_toml_decl("[PHP]"));
     }
 
     #[test]

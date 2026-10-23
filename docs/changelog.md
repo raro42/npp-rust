@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.548] — 2026-10-23
+
+View:
+
+- **Function List** lists Telegraf.conf plugin tables: `[[inputs.cpu]]`, `[[outputs.influxdb]]`, `[[processors.regex]]`, `[[aggregators.basicstats]]`, `[[secretstores.jose]]`, bare `[agent]` / `[global_tags]`. Exact lowercase. Optional `#` comment. Key lines (`interval = "10s"` / `percpu = true`), wrong case, Vector / Fluent Bit / Cargo / Pipfile tables, incomplete brackets, bare `[[inputs]]` without a plugin name, and prose stay out.
+
 ## [0.3.547] — 2026-10-23
 
 View:

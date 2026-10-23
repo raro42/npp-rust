@@ -1,3 +1,4 @@
+009 keep: Function List Telegraf.conf [[inputs.*]]/[[outputs.*]]/[[processors.*]]/[[aggregators.*]]/[[secretstores.*]]/[agent]/[global_tags] (v0.3.548)
 009 keep: Function List Vector.toml sources/transforms/sinks/enrichment_tables/tests/secrets/api (v0.3.547)
 009 keep: Function List Fluent Bit SERVICE/INPUT/FILTER/OUTPUT/PARSER/MULTILINE_PARSER/CUSTOM/PROCESSOR/CHECK (v0.3.546)
 009 keep: Function List HAProxy global/defaults/traces/frontend/backend/listen/resolvers/cache/peers/mailers/userlist/http-errors/ring/program/fcgi-app (v0.3.545)
