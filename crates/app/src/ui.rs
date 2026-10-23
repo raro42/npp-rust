@@ -32110,6 +32110,15 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `geo $addr $out {`, `split_clients … $out {`, `limit_except GET {`.
 /// Optional `#` comment after `{`. Directives without `{` (`listen 80;`,
 /// `server_name …;`), wrong case, prose, and HCL / other braces stay out.
+/// Apache httpd section containers: `<VirtualHost *:80>`, `<Directory /var/www>`,
+/// `<DirectoryMatch "^/var/www">`, `<Files "*.php">`, `<FilesMatch "\.php$">`,
+/// `<Location /api>`, `<LocationMatch "^/api">`, `<IfModule mod_ssl.c>`,
+/// `<IfDefine SSL>`, `<If "…">`, `<ElseIf "…">`, `<Else>`, `<Proxy *>`,
+/// `<ProxyMatch …>`, `<RequireAll>`, `<RequireAny>`, `<RequireNone>`,
+/// `<Limit GET POST>`, `<LimitExcept GET>`, `<AuthnProviderAlias ldap myldap>`,
+/// `<Macro VHost $domain>`. Optional `#` comment after `>`. Tag name
+/// case-insensitive. Closing tags, HTML / Ant / unknown tags, and prose
+/// (`<Directory the team>`) stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32237,6 +32246,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_mysql_cnf_decl(s)
             || is_php_ini_decl(s)
             || is_nginx_conf_decl(s)
+            || is_apache_httpd_decl(s)
         {
             return true;
         }
@@ -32360,6 +32370,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_mysql_cnf_decl(s)
         || is_php_ini_decl(s)
         || is_nginx_conf_decl(s)
+        || is_apache_httpd_decl(s)
     {
         return true;
     }
@@ -42155,6 +42166,91 @@ fn nginx_limit_except(s: &str) -> bool {
     saw && nginx_brace_tail(rest)
 }
 
+/// Apache httpd section containers: `<VirtualHost *:80>`,
+/// `<Directory /var/www/html>`, `<DirectoryMatch "^/var/www">`,
+/// `<Files "*.php">`, `<FilesMatch "\.php$">`, `<Location /api>`,
+/// `<LocationMatch "^/api">`, `<IfModule mod_ssl.c>`, `<IfDefine SSL>`,
+/// `<If "%{REQUEST_URI} =~ m#^/admin#">`, `<ElseIf "…">`, `<Else>`,
+/// `<Proxy *>`, `<ProxyMatch "^http://">`, `<RequireAll>`, `<RequireAny>`,
+/// `<RequireNone>`, `<Limit GET POST>`, `<LimitExcept GET>`,
+/// `<AuthnProviderAlias ldap myldap>`, `<Macro VHost $domain>`.
+/// Optional `#` comment after `>`. Tag name case-insensitive. Closing
+/// tags (`</VirtualHost>`), HTML (`<div>`), Ant / MSBuild (`<target name>`),
+/// unknown tags, bare containers that need args (`<Directory>`), and prose
+/// (`<Directory the team>`) stay out.
+fn is_apache_httpd_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('<') else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    if rest.starts_with('/') || rest.starts_with('!') || rest.starts_with('?') {
+        return false;
+    }
+    let bytes = rest.as_bytes();
+    if bytes.is_empty() || !bytes[0].is_ascii_alphabetic() {
+        return false;
+    }
+    let n = bytes
+        .iter()
+        .take_while(|b| b.is_ascii_alphanumeric())
+        .count();
+    if n == 0 {
+        return false;
+    }
+    let tag = &rest[..n];
+    let after = &rest[n..];
+    let (need_args, known) = match tag.to_ascii_lowercase().as_str() {
+        "else" | "requireall" | "requireany" | "requirenone" => (false, true),
+        "virtualhost" | "directory" | "directorymatch" | "files" | "filesmatch" | "location"
+        | "locationmatch" | "ifmodule" | "ifdefine" | "if" | "elseif" | "proxy" | "proxymatch"
+        | "limit" | "limitexcept" | "authnprovideralias" | "macro" => (true, true),
+        _ => (false, false),
+    };
+    if !known {
+        return false;
+    }
+    // Tag must end (whitespace, `>`, or `/` for empty-element — we reject `/`).
+    if !(after.is_empty() || after.starts_with(char::is_whitespace) || after.starts_with('>')) {
+        return false;
+    }
+    apache_httpd_tail(after, need_args)
+}
+
+fn apache_httpd_tail(s: &str, need_args: bool) -> bool {
+    let s = s.trim_start();
+    let Some(gt) = s.find('>') else {
+        return false;
+    };
+    let before = s[..gt].trim();
+    // No nested `<` in args; no self-close `/` at end of empty-element form
+    // for section openers (Apache sections are not `<Foo />`).
+    if before.contains('<') || before.ends_with('/') {
+        return false;
+    }
+    let after = s[gt + 1..].trim_start();
+    if !(after.is_empty() || after.starts_with('#')) {
+        return false;
+    }
+    if !need_args {
+        return before.is_empty();
+    }
+    if before.is_empty() {
+        return false;
+    }
+    // First token must not be bare prose stop-words.
+    let first = before.split_whitespace().next().unwrap_or("");
+    let unquoted = first.trim_matches(|c| c == '"' || c == '\'');
+    let lower = unquoted.to_ascii_lowercase();
+    if matches!(
+        lower.as_str(),
+        "the" | "a" | "an" | "this" | "that" | "my" | "our"
+    ) {
+        return false;
+    }
+    true
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -44444,13 +44540,14 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 #[cfg(test)]
 mod func_like_line_tests {
     use super::{
-        is_android_bp_decl, is_ant_msbuild_decl, is_aws_config_decl, is_bitbake_decl,
-        is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl, is_composer_json_decl,
-        is_desktop_entry_decl, is_editorconfig_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_mysql_cnf_decl, is_nginx_conf_decl, is_package_json_decl,
-        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_scons_decl, is_ssh_config_decl, is_systemd_unit_decl, is_tox_ini_decl,
-        is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
+        is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl, is_aws_config_decl,
+        is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
+        is_composer_json_decl, is_desktop_entry_decl, is_editorconfig_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_mysql_cnf_decl, is_nginx_conf_decl,
+        is_package_json_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_ssh_config_decl,
+        is_systemd_unit_decl, is_tox_ini_decl, is_wireguard_config_decl, is_xmake_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -49168,6 +49265,56 @@ mod func_like_line_tests {
         assert!(!is_nginx_conf_decl("[mysqld]"));
         assert!(line_is_func_like(r#"resource "aws_instance" "web" {"#));
         assert!(!is_nginx_conf_decl(r#"resource "aws_instance" "web" {"#));
+    }
+
+    #[test]
+    fn apache_httpd_sections_count() {
+        assert!(line_is_func_like("<VirtualHost *:80>"));
+        assert!(line_is_func_like("<VirtualHost _default_:443>"));
+        assert!(line_is_func_like("  <Directory /var/www/html> # site"));
+        assert!(line_is_func_like(r#"<Directory "/var/www/html">"#));
+        assert!(line_is_func_like(r#"<DirectoryMatch "^/var/www">"#));
+        assert!(line_is_func_like(r#"<Files "*.php">"#));
+        assert!(line_is_func_like(r#"<FilesMatch "\.php$">"#));
+        assert!(line_is_func_like("<Location /api>"));
+        assert!(line_is_func_like(r#"<LocationMatch "^/api">"#));
+        assert!(line_is_func_like("<IfModule mod_ssl.c>"));
+        assert!(line_is_func_like("<IfModule !mod_php.c>"));
+        assert!(line_is_func_like("<IfDefine SSL>"));
+        assert!(line_is_func_like(r#"<If "%{REQUEST_URI} =~ m#^/admin#">"#));
+        assert!(line_is_func_like(r#"<ElseIf "%{HTTP_HOST} == 'x'">"#));
+        assert!(line_is_func_like("<Else>"));
+        assert!(line_is_func_like("<Proxy *>"));
+        assert!(line_is_func_like(r#"<ProxyMatch "^http://">"#));
+        assert!(line_is_func_like("<RequireAll>"));
+        assert!(line_is_func_like("<RequireAny>"));
+        assert!(line_is_func_like("<RequireNone>"));
+        assert!(line_is_func_like("<Limit GET POST>"));
+        assert!(line_is_func_like("<LimitExcept GET>"));
+        assert!(line_is_func_like("<AuthnProviderAlias ldap myldap>"));
+        assert!(line_is_func_like("<Macro VHost $domain>"));
+        // Case-insensitive tag (Apache).
+        assert!(is_apache_httpd_decl("<virtualhost *:80>"));
+        assert!(is_apache_httpd_decl("<DIRECTORY /srv>"));
+        assert!(is_apache_httpd_decl("<else>"));
+        // Closing / bare / prose / unknown / HTML / Ant stay out.
+        assert!(!is_apache_httpd_decl("</VirtualHost>"));
+        assert!(!line_is_func_like("</VirtualHost>"));
+        assert!(!is_apache_httpd_decl("<Directory>"));
+        assert!(!is_apache_httpd_decl("<VirtualHost>"));
+        assert!(!is_apache_httpd_decl("<Directory the team>"));
+        assert!(!is_apache_httpd_decl("<Location the>"));
+        assert!(!is_apache_httpd_decl("<Else foo>"));
+        assert!(!is_apache_httpd_decl("<RequireAll extra>"));
+        assert!(!is_apache_httpd_decl("<div class=\"x\">"));
+        assert!(!is_apache_httpd_decl("<ServerName example.com>"));
+        assert!(!is_apache_httpd_decl("VirtualHost *:80"));
+        // Ant / nginx stay on their paths.
+        assert!(is_ant_msbuild_decl(r#"<target name="compile">"#));
+        assert!(!is_apache_httpd_decl(r#"<target name="compile">"#));
+        assert!(is_nginx_conf_decl("http {"));
+        assert!(!is_apache_httpd_decl("http {"));
+        assert!(!is_apache_httpd_decl("[PHP]"));
     }
 
     #[test]

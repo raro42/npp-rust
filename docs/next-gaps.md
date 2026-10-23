@@ -278,6 +278,7 @@ Wave that closed the old table (#8–#14) and later product depth through **v0.3
 | v0.3.527 | Function List sees go.mod module/go/toolchain/require/exclude/replace/retract |
 | v0.3.528 | Function List sees go.work `use` (`use (` / `use ./foo` / `use .` / `use foo`) |
 | v0.3.540 | Function List sees WireGuard / `wg-quick` `[Interface]` / `[Peer]` |
+| v0.3.544 | Function List sees Apache httpd sections (`<VirtualHost>`, `<Directory>`, `<DirectoryMatch>`, `<Files>`, `<FilesMatch>`, `<Location>`, `<LocationMatch>`, `<IfModule>`, `<IfDefine>`, `<If>` / `<ElseIf>` / `<Else>`, `<Proxy>`, `<ProxyMatch>`, `<RequireAll|Any|None>`, `<Limit>`, `<LimitExcept>`, `<AuthnProviderAlias>`, `<Macro>`) |
 | v0.3.543 | Function List sees nginx config blocks (`events {`, `http {`, `server {`, `upstream name {`, `location / {` / modifiers, `map` / `geo` / `split_clients` / `limit_except`) |
 | v0.3.542 | Function List sees PHP.ini sections (`[PHP]`, `[CLI Server]`, `[Date]`, `[Session]`, `[opcache]`, `[MySQLi]`, `[mail function]`, …; exact stock casing) |
 | v0.3.541 | Function List sees MySQL / MariaDB option-file sections (`[mysqld]`, `[mysql]`, `[client]`, …; versioned `[mysqld-8.0]`) |

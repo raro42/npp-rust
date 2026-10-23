@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.544] — 2026-10-23
+
+View:
+
+- **Function List** lists Apache httpd section containers: `<VirtualHost *:80>`, `<Directory /var/www>`, `<DirectoryMatch "^/var/www">`, `<Files "*.php">`, `<FilesMatch "\.php$">`, `<Location /api>`, `<LocationMatch "^/api">`, `<IfModule mod_ssl.c>`, `<IfDefine SSL>`, `<If "…">`, `<ElseIf "…">`, `<Else>`, `<Proxy *>`, `<ProxyMatch …>`, `<RequireAll>`, `<RequireAny>`, `<RequireNone>`, `<Limit GET POST>`, `<LimitExcept GET>`, `<AuthnProviderAlias ldap myldap>`, `<Macro VHost $domain>`. Optional `#` comment after `>`. Tag name case-insensitive. Closing tags, HTML / Ant / unknown tags, bare containers that need args, and prose (`<Directory the team>`) stay out.
+
 ## [0.3.543] — 2026-10-23
 
 View:
