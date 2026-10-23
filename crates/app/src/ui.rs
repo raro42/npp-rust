@@ -32281,6 +32281,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_named_conf_decl(s)
             || is_nftables_decl(s)
             || is_keepalived_decl(s)
+            || is_dhcpd_decl(s)
         {
             return true;
         }
@@ -32414,6 +32415,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_named_conf_decl(s)
         || is_nftables_decl(s)
         || is_keepalived_decl(s)
+        || is_dhcpd_decl(s)
     {
         return true;
     }
@@ -43120,6 +43122,243 @@ fn keepalived_virtual_server(s: &str) -> bool {
     nginx_brace_tail(after)
 }
 
+/// ISC dhcpd.conf block openers: `subnet 192.168.1.0 netmask 255.255.255.0 {`,
+/// `subnet6 2001:db8:1::/64 {`, `host printer {`, `group {` / `group lab {`,
+/// `shared-network office {`, `pool {`, `class "Vendor" {`,
+/// `failover peer "dhcp-failover" {`, `on commit {` / `on expiry {` /
+/// `on release {`. Exact lowercase. Optional `#` after `{`. Wrong case,
+/// prose (`host the {`), bare keywords, and in-block statements stay out.
+fn is_dhcpd_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    dhcpd_subnet(s)
+        || dhcpd_subnet6(s)
+        || dhcpd_host(s)
+        || dhcpd_group(s)
+        || dhcpd_shared_network(s)
+        || dhcpd_pool(s)
+        || dhcpd_class(s)
+        || dhcpd_failover_peer(s)
+        || dhcpd_on_event(s)
+}
+
+fn dhcpd_prose_name(name: &str) -> bool {
+    matches!(name, "the" | "a" | "an" | "this" | "that" | "my" | "our")
+}
+
+/// IPv6 prefix with required `/bits` (e.g. `2001:db8::/64`).
+fn dhcpd_v6_prefix(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    let bytes = s.as_bytes();
+    let n = bytes
+        .iter()
+        .take_while(|b| b.is_ascii_hexdigit() || matches!(**b, b':' | b'%'))
+        .count();
+    if n == 0 || !s[..n].contains(':') {
+        return None;
+    }
+    let rest = &s[n..];
+    let after_slash = rest.strip_prefix('/')?;
+    let bits_n = after_slash
+        .as_bytes()
+        .iter()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    if bits_n == 0 {
+        return None;
+    }
+    let bits = &after_slash[..bits_n];
+    let Ok(v) = bits.parse::<u8>() else {
+        return None;
+    };
+    if v > 128 {
+        return None;
+    }
+    Some((&s[..n + 1 + bits_n], &after_slash[bits_n..]))
+}
+
+fn dhcpd_subnet(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("subnet") else {
+        return false;
+    };
+    // Not `subnet6`.
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_net, after)) = named_conf_ipv4_or_v6(rest) else {
+        return false;
+    };
+    // IPv4 subnet needs `netmask`; reject bare IPv6 here (use subnet6).
+    if after.trim_start().starts_with('{') || !after.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let after = after.trim_start();
+    let Some(after_nm) = after.strip_prefix("netmask") else {
+        return false;
+    };
+    if !after_nm.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let after_nm = after_nm.trim_start();
+    let Some((_mask, after)) = named_conf_ipv4_or_v6(after_nm) else {
+        return false;
+    };
+    nginx_brace_tail(after)
+}
+
+fn dhcpd_subnet6(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("subnet6") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_pfx, after)) = dhcpd_v6_prefix(rest) else {
+        return false;
+    };
+    nginx_brace_tail(after)
+}
+
+fn dhcpd_host(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("host") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = named_conf_quoted_or_ident(rest) else {
+        return false;
+    };
+    if dhcpd_prose_name(name) {
+        return false;
+    }
+    nginx_brace_tail(after)
+}
+
+fn dhcpd_group(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("group") else {
+        return false;
+    };
+    // Bare `group {` or `group name {` / `group "name" {`.
+    if rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{') {
+        let rest = rest.trim_start();
+        if rest.starts_with('{') {
+            return nginx_brace_tail(rest);
+        }
+        let Some((name, after)) = named_conf_quoted_or_ident(rest) else {
+            return false;
+        };
+        if dhcpd_prose_name(name) {
+            return false;
+        }
+        return nginx_brace_tail(after);
+    }
+    false
+}
+
+fn dhcpd_shared_network(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("shared-network") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = named_conf_quoted_or_ident(rest) else {
+        return false;
+    };
+    if dhcpd_prose_name(name) {
+        return false;
+    }
+    nginx_brace_tail(after)
+}
+
+fn dhcpd_pool(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("pool") else {
+        return false;
+    };
+    if rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{') {
+        return nginx_brace_tail(rest);
+    }
+    false
+}
+
+/// dhcpd `class` / `failover peer` names are quoted; require `"` / `'` so
+/// Java `class Foo {` stays on the generic prefix path.
+fn dhcpd_quoted_name(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    let q = *s.as_bytes().first()?;
+    if q != b'"' && q != b'\'' {
+        return None;
+    }
+    let inner = &s[1..];
+    let end = inner.find(q as char)?;
+    if end == 0 {
+        return None;
+    }
+    let name = &inner[..end];
+    if dhcpd_prose_name(name) {
+        return None;
+    }
+    Some((name, &inner[end + 1..]))
+}
+
+fn dhcpd_class(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("class") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_name, after)) = dhcpd_quoted_name(rest) else {
+        return false;
+    };
+    nginx_brace_tail(after)
+}
+
+fn dhcpd_failover_peer(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("failover") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(after_peer) = rest.strip_prefix("peer") else {
+        return false;
+    };
+    if !after_peer.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let after_peer = after_peer.trim_start();
+    let Some((_name, after)) = dhcpd_quoted_name(after_peer) else {
+        return false;
+    };
+    nginx_brace_tail(after)
+}
+
+fn dhcpd_on_event(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("on") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    for ev in ["commit", "expiry", "release"] {
+        let Some(after) = rest.strip_prefix(ev) else {
+            continue;
+        };
+        if after.is_empty() || after.starts_with(char::is_whitespace) || after.starts_with('{') {
+            return nginx_brace_tail(after);
+        }
+    }
+    false
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -45411,14 +45650,14 @@ mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl, is_aws_config_decl,
         is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
-        is_composer_json_decl, is_desktop_entry_decl, is_editorconfig_decl, is_fluent_bit_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_keepalived_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_package_json_decl, is_php_ini_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
-        is_ssh_config_decl, is_supervisord_conf_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
-        is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        line_is_func_like,
+        is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl, is_editorconfig_decl,
+        is_fluent_bit_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
+        is_haproxy_decl, is_keepalived_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_package_json_decl, is_php_ini_decl,
+        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
+        is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl, is_systemd_unit_decl,
+        is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -50558,6 +50797,58 @@ mod func_like_line_tests {
         assert!(!is_keepalived_decl("table inet filter {"));
         assert!(is_nginx_conf_decl("server {"));
         assert!(!is_keepalived_decl("server {"));
+    }
+
+    #[test]
+    fn dhcpd_blocks_count() {
+        assert!(line_is_func_like(
+            "subnet 192.168.1.0 netmask 255.255.255.0 {"
+        ));
+        assert!(line_is_func_like(
+            "subnet 10.0.0.0 netmask 255.255.255.0 { # lan"
+        ));
+        assert!(line_is_func_like("subnet6 2001:db8:1::/64 {"));
+        assert!(line_is_func_like("  host printer {"));
+        assert!(line_is_func_like("host \"laser\" {"));
+        assert!(line_is_func_like("group {"));
+        assert!(line_is_func_like("group lab {"));
+        assert!(line_is_func_like("group \"lab\" {"));
+        assert!(line_is_func_like("shared-network office {"));
+        assert!(line_is_func_like("pool {"));
+        assert!(line_is_func_like("class \"Vendor\" {"));
+        assert!(line_is_func_like("failover peer \"dhcp-failover\" {"));
+        assert!(line_is_func_like("on commit {"));
+        assert!(line_is_func_like("on expiry {"));
+        assert!(line_is_func_like("on release {"));
+        assert!(is_dhcpd_decl("subnet 192.168.1.0 netmask 255.255.255.0 {"));
+        assert!(is_dhcpd_decl("subnet6 2001:db8::/48 {"));
+        // Bare keywords / wrong case / prose / other dialects stay out.
+        assert!(!is_dhcpd_decl("subnet"));
+        assert!(!is_dhcpd_decl("subnet 192.168.1.0 {"));
+        assert!(!is_dhcpd_decl("subnet 192.168.1.0 netmask {"));
+        assert!(!is_dhcpd_decl("Subnet 192.168.1.0 netmask 255.255.255.0 {"));
+        assert!(!is_dhcpd_decl("subnet6 2001:db8:1:: {"));
+        assert!(!is_dhcpd_decl("host"));
+        assert!(!is_dhcpd_decl("host the {"));
+        assert!(!is_dhcpd_decl("HOST printer {"));
+        assert!(!is_dhcpd_decl("group the {"));
+        assert!(!is_dhcpd_decl("shared-network the {"));
+        assert!(!is_dhcpd_decl("pool"));
+        assert!(!is_dhcpd_decl("class Vendor {"));
+        assert!(!is_dhcpd_decl("class \"the\" {"));
+        assert!(!is_dhcpd_decl("failover peer"));
+        assert!(!is_dhcpd_decl("failover peer the {"));
+        assert!(!is_dhcpd_decl("on commit"));
+        assert!(!is_dhcpd_decl("range 192.168.1.10 192.168.1.100;"));
+        assert!(!is_dhcpd_decl("option routers 192.168.1.1;"));
+        assert!(!is_dhcpd_decl("hardware ethernet aa:bb:cc:dd:ee:ff;"));
+        // Java class / keepalived / named stay on their paths.
+        assert!(!is_dhcpd_decl("class Foo {"));
+        assert!(line_is_func_like("class Foo {"));
+        assert!(is_keepalived_decl("vrrp_instance VI_1 {"));
+        assert!(!is_dhcpd_decl("vrrp_instance VI_1 {"));
+        assert!(is_named_conf_decl("options {"));
+        assert!(!is_dhcpd_decl("options {"));
     }
 
     #[test]

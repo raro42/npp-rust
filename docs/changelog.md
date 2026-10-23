@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.554] — 2026-10-24
+
+View:
+
+- **Function List** lists ISC dhcpd.conf block openers: `subnet 192.168.1.0 netmask 255.255.255.0 {`, `subnet6 2001:db8:1::/64 {`, `host printer {`, `group {` / `group lab {`, `shared-network office {`, `pool {`, `class "Vendor" {`, `failover peer "dhcp-failover" {`, `on commit {` / `on expiry {` / `on release {`. Exact lowercase. Optional `#` after `{`. Wrong case, prose (`host the {`), bare keywords, Java `class Foo {`, and in-block statements stay out.
+
 ## [0.3.553] — 2026-10-23
 
 View:
