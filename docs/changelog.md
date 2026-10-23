@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.543] — 2026-10-23
+
+View:
+
+- **Function List** lists nginx config block openers: `events {`, `http {`, `server {`, `mail {`, `stream {`, `types {`, `upstream name {`, `location / {` (modifiers `=` / `~` / `~*` / `^~` / `@name`), `map $a $b {`, `geo $out {` / `geo $addr $out {`, `split_clients … $out {`, `limit_except GET {`. Optional `#` comment after `{`. Exact lowercase. Directives without `{` (`listen 80;`, `server_name …;`), wrong case, prose, and HCL / other braces stay out.
+
 ## [0.3.542] — 2026-10-23
 
 View:

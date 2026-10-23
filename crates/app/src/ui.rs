@@ -32104,6 +32104,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// Optional `#` / `;` comment. Key lines (`engine =`, `memory_limit =`),
 /// wrong case, MySQL / WireGuard / AWS / git / systemd / Desktop Entry /
 /// tox / Cargo / EditorConfig tables, incomplete brackets, and prose stay out.
+/// nginx config block openers: `events {`, `http {`, `server {`, `mail {`,
+/// `stream {`, `types {`, `upstream name {`, `location / {` (modifiers
+/// `=` / `~` / `~*` / `^~` / `@name`), `map $a $b {`, `geo $out {` /
+/// `geo $addr $out {`, `split_clients … $out {`, `limit_except GET {`.
+/// Optional `#` comment after `{`. Directives without `{` (`listen 80;`,
+/// `server_name …;`), wrong case, prose, and HCL / other braces stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32230,6 +32236,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_wireguard_config_decl(s)
             || is_mysql_cnf_decl(s)
             || is_php_ini_decl(s)
+            || is_nginx_conf_decl(s)
         {
             return true;
         }
@@ -32352,6 +32359,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_wireguard_config_decl(s)
         || is_mysql_cnf_decl(s)
         || is_php_ini_decl(s)
+        || is_nginx_conf_decl(s)
     {
         return true;
     }
@@ -41856,6 +41864,297 @@ fn php_ini_header_ok(header: &str) -> bool {
     EXACT.contains(&header)
 }
 
+/// nginx config block openers: `events {`, `http {`, `server {`, `mail {`,
+/// `stream {`, `types {`, `upstream backend {`, `location / {` /
+/// `location = /uri {` / `location ~ pattern {` / `location ~* … {` /
+/// `location ^~ /prefix {` / `location @name {`, `map $a $b {`,
+/// `geo $out {` / `geo $addr $out {`, `split_clients … $out {`,
+/// `limit_except GET HEAD {`. Optional `#` comment after `{`. Exact
+/// lowercase keywords. Directives without `{` (`listen 80;`,
+/// `server_name example.com;`), wrong case (`Server {`), prose
+/// (`location the team {`), and HCL / other brace forms stay out.
+fn is_nginx_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    nginx_bare_block(s)
+        || nginx_upstream(s)
+        || nginx_location(s)
+        || nginx_map(s)
+        || nginx_geo(s)
+        || nginx_split_clients(s)
+        || nginx_limit_except(s)
+}
+
+fn nginx_brace_tail(rest: &str) -> bool {
+    let rest = rest.trim_start();
+    let Some(after) = rest.strip_prefix('{') else {
+        return false;
+    };
+    let after = after.trim_start();
+    after.is_empty() || after.starts_with('#')
+}
+
+fn nginx_bare_block(s: &str) -> bool {
+    for key in ["events", "http", "server", "mail", "stream", "types"] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        // Not `http2` / `server_name` / `streaming` / `mailman`.
+        if rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{') {
+            return nginx_brace_tail(rest);
+        }
+    }
+    false
+}
+
+fn nginx_ident(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() {
+        return None;
+    }
+    let bytes = s.as_bytes();
+    if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+        return None;
+    }
+    let n = bytes
+        .iter()
+        .take_while(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
+        .count();
+    if n == 0 {
+        return None;
+    }
+    Some((&s[..n], &s[n..]))
+}
+
+fn nginx_upstream(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("upstream") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((name, after)) = nginx_ident(rest) else {
+        return false;
+    };
+    if matches!(name, "the" | "a" | "an" | "this" | "that" | "my" | "our") {
+        return false;
+    }
+    nginx_brace_tail(after)
+}
+
+fn nginx_location_uri(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('{') || s.starts_with('#') {
+        return None;
+    }
+    if let Some(q) = s.as_bytes().first().copied() {
+        if q == b'"' || q == b'\'' {
+            let inner = &s[1..];
+            let end = inner.find(q as char)?;
+            if end == 0 {
+                return None;
+            }
+            return Some((&inner[..end], &inner[end + 1..]));
+        }
+    }
+    let end = s
+        .find(|c: char| c.is_ascii_whitespace() || c == '{' || c == '#')
+        .unwrap_or(s.len());
+    if end == 0 {
+        return None;
+    }
+    let uri = &s[..end];
+    if matches!(uri, "the" | "a" | "an" | "this" | "that" | "my" | "our") {
+        return None;
+    }
+    // Path, named location, or regex-looking pattern.
+    if !(uri.starts_with('/')
+        || uri.starts_with('@')
+        || uri.starts_with('^')
+        || uri.starts_with('.')
+        || uri.starts_with('\\')
+        || uri.starts_with('(')
+        || uri.contains('*')
+        || uri.contains('?')
+        || uri.contains('[')
+        || uri.contains('$')
+        || uri.contains('+')
+        || uri.contains('|'))
+    {
+        return None;
+    }
+    Some((uri, &s[end..]))
+}
+
+fn nginx_location(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("location") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    // Optional modifier: `=`, `~`, `~*`, `^~`.
+    if let Some(r) = rest.strip_prefix("^~") {
+        if r.starts_with(char::is_whitespace) {
+            rest = r.trim_start();
+        } else {
+            return false;
+        }
+    } else if let Some(r) = rest.strip_prefix("~*") {
+        if r.starts_with(char::is_whitespace) {
+            rest = r.trim_start();
+        } else {
+            return false;
+        }
+    } else if let Some(r) = rest.strip_prefix('~') {
+        if r.starts_with(char::is_whitespace) {
+            rest = r.trim_start();
+        } else {
+            return false;
+        }
+    } else if let Some(r) = rest.strip_prefix('=') {
+        if r.starts_with(char::is_whitespace) {
+            rest = r.trim_start();
+        } else {
+            return false;
+        }
+    }
+    let Some((_uri, after)) = nginx_location_uri(rest) else {
+        return false;
+    };
+    nginx_brace_tail(after)
+}
+
+fn nginx_dollar_or_quoted(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() {
+        return None;
+    }
+    if let Some(q) = s.as_bytes().first().copied() {
+        if q == b'"' || q == b'\'' {
+            let inner = &s[1..];
+            let end = inner.find(q as char)?;
+            if end == 0 {
+                return None;
+            }
+            return Some((&inner[..end], &inner[end + 1..]));
+        }
+    }
+    let rest = s.strip_prefix('$')?;
+    let bytes = rest.as_bytes();
+    if bytes.is_empty() || !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+        return None;
+    }
+    let n = bytes
+        .iter()
+        .take_while(|b| b.is_ascii_alphanumeric() || **b == b'_')
+        .count();
+    // Include leading `$` in the token span for callers that ignore it.
+    Some((&s[..n + 1], &rest[n..]))
+}
+
+fn nginx_map(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("map") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_src, after)) = nginx_dollar_or_quoted(rest) else {
+        return false;
+    };
+    let after = after.trim_start();
+    let Some((_dst, after)) = nginx_dollar_or_quoted(after) else {
+        return false;
+    };
+    nginx_brace_tail(after)
+}
+
+fn nginx_geo(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("geo") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_first, after)) = nginx_dollar_or_quoted(rest) else {
+        return false;
+    };
+    let after_t = after.trim_start();
+    // `geo $out {` or `geo $addr $out {`.
+    if after_t.starts_with('{') {
+        return nginx_brace_tail(after);
+    }
+    let Some((_second, after2)) = nginx_dollar_or_quoted(after_t) else {
+        return false;
+    };
+    nginx_brace_tail(after2)
+}
+
+fn nginx_split_clients(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("split_clients") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some((_src, after)) = nginx_dollar_or_quoted(rest) else {
+        return false;
+    };
+    let after = after.trim_start();
+    let Some((_dst, after)) = nginx_dollar_or_quoted(after) else {
+        return false;
+    };
+    nginx_brace_tail(after)
+}
+
+fn nginx_limit_except(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("limit_except") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    let mut saw = false;
+    while let Some((meth, after)) = nginx_ident(rest) {
+        // HTTP methods in nginx `limit_except` are uppercase.
+        if !(meth.chars().all(|c| c.is_ascii_uppercase())
+            && matches!(
+                meth,
+                "GET"
+                    | "HEAD"
+                    | "POST"
+                    | "PUT"
+                    | "DELETE"
+                    | "MKCOL"
+                    | "COPY"
+                    | "MOVE"
+                    | "OPTIONS"
+                    | "PROPFIND"
+                    | "PROPPATCH"
+                    | "LOCK"
+                    | "UNLOCK"
+                    | "PATCH"
+                    | "TRACE"
+                    | "CONNECT"
+            ))
+        {
+            return false;
+        }
+        saw = true;
+        rest = after.trim_start();
+        if rest.starts_with('{') {
+            break;
+        }
+    }
+    saw && nginx_brace_tail(rest)
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -44148,10 +44447,10 @@ mod func_like_line_tests {
         is_android_bp_decl, is_ant_msbuild_decl, is_aws_config_decl, is_bitbake_decl,
         is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl, is_composer_json_decl,
         is_desktop_entry_decl, is_editorconfig_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_mysql_cnf_decl, is_package_json_decl, is_php_ini_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
-        is_ssh_config_decl, is_systemd_unit_decl, is_tox_ini_decl, is_wireguard_config_decl,
-        is_xmake_decl, line_is_func_like,
+        is_gomod_decl, is_mysql_cnf_decl, is_nginx_conf_decl, is_package_json_decl,
+        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_scons_decl, is_ssh_config_decl, is_systemd_unit_decl, is_tox_ini_decl,
+        is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -48812,6 +49111,63 @@ mod func_like_line_tests {
         assert!(!is_php_ini_decl("Host github.com"));
         assert!(is_editorconfig_decl("[*]"));
         assert!(!is_php_ini_decl("[*]"));
+    }
+
+    #[test]
+    fn nginx_conf_blocks_count() {
+        assert!(line_is_func_like("events {"));
+        assert!(line_is_func_like("http {"));
+        assert!(line_is_func_like("  server { # vhost"));
+        assert!(line_is_func_like("mail {"));
+        assert!(line_is_func_like("stream {"));
+        assert!(line_is_func_like("types {"));
+        assert!(line_is_func_like("upstream backend {"));
+        assert!(line_is_func_like("upstream api_v1 {"));
+        assert!(line_is_func_like("location / {"));
+        assert!(line_is_func_like("location /api/ {"));
+        assert!(line_is_func_like("location = /exact {"));
+        assert!(line_is_func_like(r"location ~ \.php$ {"));
+        assert!(line_is_func_like(r"location ~* \.(jpg|png)$ {"));
+        assert!(line_is_func_like("location ^~ /static/ {"));
+        assert!(line_is_func_like("location @fallback {"));
+        assert!(line_is_func_like(r#"location "/foo bar" {"#));
+        assert!(line_is_func_like("map $http_host $name {"));
+        assert!(line_is_func_like("map $uri $new {"));
+        assert!(line_is_func_like("geo $geo {"));
+        assert!(line_is_func_like("geo $remote_addr $geo {"));
+        assert!(line_is_func_like(
+            r#"split_clients "${remote_addr}AAA" $variant {"#
+        ));
+        assert!(line_is_func_like("limit_except GET HEAD {"));
+        assert!(line_is_func_like("limit_except GET {"));
+        assert!(is_nginx_conf_decl("http {"));
+        assert!(is_nginx_conf_decl("location / {"));
+        assert!(is_nginx_conf_decl("upstream backend {"));
+        // Directives without brace / wrong case / prose stay out.
+        assert!(!is_nginx_conf_decl("listen 80;"));
+        assert!(!line_is_func_like("listen 80;"));
+        assert!(!is_nginx_conf_decl("server_name example.com;"));
+        assert!(!is_nginx_conf_decl("worker_processes auto;"));
+        assert!(!is_nginx_conf_decl("Server {"));
+        assert!(!is_nginx_conf_decl("HTTP {"));
+        assert!(!is_nginx_conf_decl("http"));
+        assert!(!is_nginx_conf_decl("location"));
+        assert!(!is_nginx_conf_decl("location the team {"));
+        assert!(!is_nginx_conf_decl("upstream the {"));
+        assert!(!is_nginx_conf_decl("upstream {"));
+        assert!(!is_nginx_conf_decl("map $a {"));
+        assert!(!is_nginx_conf_decl("limit_except get {"));
+        assert!(!is_nginx_conf_decl("limit_except FOO {"));
+        // Not http2 / server_name as bare blocks.
+        assert!(!is_nginx_conf_decl("http2 {"));
+        assert!(!is_nginx_conf_decl("server_name {"));
+        // PHP / MySQL / HCL stay on their paths.
+        assert!(is_php_ini_decl("[PHP]"));
+        assert!(!is_nginx_conf_decl("[PHP]"));
+        assert!(is_mysql_cnf_decl("[mysqld]"));
+        assert!(!is_nginx_conf_decl("[mysqld]"));
+        assert!(line_is_func_like(r#"resource "aws_instance" "web" {"#));
+        assert!(!is_nginx_conf_decl(r#"resource "aws_instance" "web" {"#));
     }
 
     #[test]

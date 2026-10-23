@@ -1,3 +1,4 @@
+009 keep: Function List nginx events/http/server/upstream/location/map/geo/split_clients/limit_except (v0.3.543)
 009 keep: Function List sees AWS config [default]/[profile …]/[sso-session …]/[services …]/[plugins] (v0.3.539)
 009 keep: Function List sees EditorConfig glob sections [*] / [*.rs] / [*.{js,ts}] (v0.3.536)
 009 keep: Function List sees Desktop Entry [Desktop Entry]/[Desktop Action …] (v0.3.534)
@@ -773,3 +774,5 @@
 009 keep: Function List WireGuard [Interface]/[Peer] (v0.3.540)
 
 009 keep: Function List MySQL/MariaDB option-file sections (v0.3.541)
+
+009 keep: Function List PHP.ini sections [PHP]/[CLI Server]/[Date]/[Session]/[opcache]/[MySQLi]/[mail function] (+ common extensions) (v0.3.542)
