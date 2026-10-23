@@ -32285,6 +32285,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_syslog_ng_decl(s)
             || is_dovecot_decl(s)
             || is_freeradius_decl(s)
+            || is_ipsec_conf_decl(s)
         {
             return true;
         }
@@ -32422,6 +32423,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_syslog_ng_decl(s)
         || is_dovecot_decl(s)
         || is_freeradius_decl(s)
+        || is_ipsec_conf_decl(s)
     {
         return true;
     }
@@ -43672,6 +43674,84 @@ fn freeradius_named_block(s: &str) -> bool {
     false
 }
 
+/// strongSwan / Libreswan `ipsec.conf` section headers: `config setup`,
+/// `conn %default`, `conn vpn`, `ca rootca`. Exact lowercase. Optional
+/// `#` comment after the name. Names may be `%default` / `%any`-style
+/// magics, idents, or quoted. Wrong case, prose (`conn the`), bare
+/// `conn` / `ca` / `config`, HAProxy `listen`, and in-section settings
+/// (`left=…`, `auto=add`) stay out.
+fn is_ipsec_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    ipsec_conf_setup(s) || ipsec_conf_named(s)
+}
+
+fn ipsec_conf_tail(rest: &str) -> bool {
+    let rest = rest.trim_start();
+    rest.is_empty() || rest.starts_with('#')
+}
+
+fn ipsec_conf_prose_name(name: &str) -> bool {
+    matches!(name, "the" | "a" | "an" | "this" | "that" | "my" | "our")
+}
+
+/// `config setup` (exact two-word header).
+fn ipsec_conf_setup(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("config") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    let Some(rest) = rest.strip_prefix("setup") else {
+        return false;
+    };
+    // Not `setups` / `setup_extra`.
+    if !(rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('#')) {
+        return false;
+    }
+    ipsec_conf_tail(rest)
+}
+
+/// `%default` / `%any` magics, or quoted / ident names.
+fn ipsec_conf_name_rest(s: &str) -> Option<&str> {
+    let s = s.trim_start();
+    if s.starts_with('%') {
+        let bytes = s.as_bytes();
+        let n = bytes
+            .iter()
+            .take_while(|b| b.is_ascii_alphanumeric() || matches!(*b, b'%' | b'_' | b'-' | b'.'))
+            .count();
+        // Need at least `%` + one more char.
+        if n < 2 {
+            return None;
+        }
+        return Some(&s[n..]);
+    }
+    let (name, after) = named_conf_quoted_or_ident(s)?;
+    if ipsec_conf_prose_name(name) {
+        return None;
+    }
+    Some(after)
+}
+
+fn ipsec_conf_named(s: &str) -> bool {
+    for key in ["conn", "ca"] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        let Some(after) = ipsec_conf_name_rest(rest) else {
+            return false;
+        };
+        return ipsec_conf_tail(after);
+    }
+    false
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -45965,13 +46045,13 @@ mod func_like_line_tests {
         is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
         is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl,
         is_editorconfig_decl, is_fluent_bit_decl, is_freeradius_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_keepalived_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_package_json_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_ssh_config_decl,
-        is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
-        is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        line_is_func_like,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_ipsec_conf_decl,
+        is_keepalived_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_package_json_decl, is_php_ini_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
+        is_ssh_config_decl, is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_unit_decl,
+        is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -51301,6 +51381,34 @@ mod func_like_line_tests {
         // dovecot named service stays on dovecot.
         assert!(is_dovecot_decl("service auth {"));
         assert!(!is_freeradius_decl("service auth {"));
+    }
+
+    #[test]
+    fn ipsec_conf_sections_count() {
+        assert!(line_is_func_like("config setup"));
+        assert!(line_is_func_like("config setup # debug"));
+        assert!(line_is_func_like("  conn %default"));
+        assert!(line_is_func_like("conn vpn"));
+        assert!(line_is_func_like("conn roadwarrior # rw"));
+        assert!(line_is_func_like("ca rootca"));
+        assert!(line_is_func_like("ca \"my-ca\""));
+        assert!(is_ipsec_conf_decl("conn 'site-to-site'"));
+        // Bare keywords / wrong case / prose / settings stay out.
+        assert!(!is_ipsec_conf_decl("config"));
+        assert!(!is_ipsec_conf_decl("config setup extra"));
+        assert!(!is_ipsec_conf_decl("Config setup"));
+        assert!(!is_ipsec_conf_decl("conn"));
+        assert!(!is_ipsec_conf_decl("conn the"));
+        assert!(!is_ipsec_conf_decl("Conn vpn"));
+        assert!(!is_ipsec_conf_decl("ca"));
+        assert!(!is_ipsec_conf_decl("ca the"));
+        assert!(!is_ipsec_conf_decl("left=192.168.0.1"));
+        assert!(!is_ipsec_conf_decl("auto=add"));
+        // HAProxy listen stays on haproxy; FreeRADIUS client stays there.
+        assert!(is_haproxy_decl("listen www"));
+        assert!(!is_ipsec_conf_decl("listen www"));
+        assert!(is_freeradius_decl("client localhost {"));
+        assert!(!is_ipsec_conf_decl("client localhost {"));
     }
 
     #[test]

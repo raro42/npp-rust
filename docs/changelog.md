@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.558] — 2026-10-24
+
+View:
+
+- **Function List** lists strongSwan / Libreswan `ipsec.conf` section headers: `config setup`, `conn %default`, `conn vpn`, `ca rootca`. Exact lowercase. Optional `#` after the name. `%` magics, idents, or quoted names. Wrong case, prose (`conn the`), bare keywords, and in-section settings stay out.
+
 ## [0.3.557] — 2026-10-24
 
 View:
