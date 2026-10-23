@@ -32277,6 +32277,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_vector_toml_decl(s)
             || is_telegraf_toml_decl(s)
             || is_grafana_ini_decl(s)
+            || is_supervisord_conf_decl(s)
         {
             return true;
         }
@@ -32406,6 +32407,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_vector_toml_decl(s)
         || is_telegraf_toml_decl(s)
         || is_grafana_ini_decl(s)
+        || is_supervisord_conf_decl(s)
     {
         return true;
     }
@@ -42666,6 +42668,52 @@ fn grafana_ini_header_ok(header: &str) -> bool {
     EXACT.contains(&header)
 }
 
+/// supervisord.conf sections: `[unix_http_server]`, `[inet_http_server]`,
+/// `[supervisord]`, `[supervisorctl]`, `[include]`,
+/// `[program:name]`, `[group:name]`, `[eventlistener:name]`,
+/// `[fcgi-program:name]`, `[rpcinterface:name]`. Exact lowercase fixed
+/// headers; named kinds need a non-empty segment (`tox_ini_segment_ok`).
+/// Optional `#` / `;` comment. Key lines (`command = …` / `autostart = true`),
+/// wrong case, Grafana / PHP / MySQL / Fluent Bit / WireGuard / Telegraf /
+/// Vector / AWS / git / systemd / Desktop Entry / tox / Cargo / EditorConfig
+/// tables, incomplete brackets, bare `[program:]`, and prose stay out.
+fn is_supervisord_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    supervisord_conf_header_ok(header)
+}
+
+fn supervisord_conf_header_ok(header: &str) -> bool {
+    const EXACT: &[&str] = &[
+        "unix_http_server",
+        "inet_http_server",
+        "supervisord",
+        "supervisorctl",
+        "include",
+    ];
+    if EXACT.contains(&header) {
+        return true;
+    }
+    const PREFIXES: &[&str] = &[
+        "program:",
+        "group:",
+        "eventlistener:",
+        "fcgi-program:",
+        "rpcinterface:",
+    ];
+    for prefix in PREFIXES {
+        if let Some(name) = header.strip_prefix(prefix) {
+            return tox_ini_segment_ok(name);
+        }
+    }
+    false
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -44961,9 +45009,9 @@ mod func_like_line_tests {
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
         is_mysql_cnf_decl, is_nginx_conf_decl, is_package_json_decl, is_php_ini_decl,
         is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
-        is_scons_decl, is_ssh_config_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
-        is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        line_is_func_like,
+        is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl, is_systemd_unit_decl,
+        is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -49938,6 +49986,43 @@ mod func_like_line_tests {
         assert!(!is_grafana_ini_decl("[sources.stdin]"));
         assert!(is_haproxy_decl("frontend www"));
         assert!(!is_grafana_ini_decl("frontend www"));
+    }
+
+    #[test]
+    fn supervisord_conf_sections_count() {
+        assert!(line_is_func_like("[unix_http_server]"));
+        assert!(line_is_func_like("[inet_http_server] # listen"));
+        assert!(line_is_func_like("  [supervisord] ; main"));
+        assert!(line_is_func_like("[supervisorctl]"));
+        assert!(line_is_func_like("[include]"));
+        assert!(line_is_func_like("[program:app]"));
+        assert!(line_is_func_like("[program:my-worker]"));
+        assert!(line_is_func_like("[group:web]"));
+        assert!(line_is_func_like("[eventlistener:crashmail]"));
+        assert!(line_is_func_like("[fcgi-program:flask]"));
+        assert!(line_is_func_like("[rpcinterface:supervisor]"));
+        assert!(is_supervisord_conf_decl("[program:foo.bar]"));
+        // Key lines / wrong case / incomplete / bare prefix stay out.
+        assert!(!is_supervisord_conf_decl("command = /usr/bin/app"));
+        assert!(!is_supervisord_conf_decl("autostart = true"));
+        assert!(!is_supervisord_conf_decl("[Supervisord]"));
+        assert!(!is_supervisord_conf_decl("[PROGRAM:app]"));
+        assert!(!is_supervisord_conf_decl("[program:]"));
+        assert!(!is_supervisord_conf_decl("[program: the app]"));
+        assert!(!is_supervisord_conf_decl("[program"));
+        assert!(!is_supervisord_conf_decl("[[program:app]]"));
+        assert!(!is_supervisord_conf_decl("[not_a_supervisor_section]"));
+        // Grafana / PHP / tox / systemd stay on their paths.
+        assert!(is_grafana_ini_decl("[server]"));
+        assert!(!is_supervisord_conf_decl("[server]"));
+        assert!(is_php_ini_decl("[PHP]"));
+        assert!(!is_supervisord_conf_decl("[PHP]"));
+        assert!(is_tox_ini_decl("[testenv:py311]"));
+        assert!(!is_supervisord_conf_decl("[testenv:py311]"));
+        assert!(is_systemd_unit_decl("[Service]"));
+        assert!(!is_supervisord_conf_decl("[Service]"));
+        assert!(is_grafana_ini_decl("[database]"));
+        assert!(!is_supervisord_conf_decl("[database]"));
     }
 
     #[test]

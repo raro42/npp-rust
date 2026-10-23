@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.550] — 2026-10-23
+
+View:
+
+- **Function List** lists supervisord.conf sections: `[unix_http_server]`, `[inet_http_server]`, `[supervisord]`, `[supervisorctl]`, `[include]`, `[program:name]`, `[group:name]`, `[eventlistener:name]`, `[fcgi-program:name]`, `[rpcinterface:name]`. Exact lowercase fixed headers; named kinds need a non-empty segment. Optional `#` / `;` comment. Key lines (`command = …` / `autostart = true`), wrong case, Grafana / PHP / MySQL / Fluent Bit / WireGuard / Telegraf / Vector / AWS / git / systemd / Desktop Entry / tox / Cargo / EditorConfig tables, incomplete brackets, bare `[program:]`, and prose stay out.
+
 ## [0.3.549] — 2026-10-23
 
 View:
