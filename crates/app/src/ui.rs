@@ -32280,6 +32280,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_supervisord_conf_decl(s)
             || is_named_conf_decl(s)
             || is_nftables_decl(s)
+            || is_keepalived_decl(s)
         {
             return true;
         }
@@ -32412,6 +32413,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_supervisord_conf_decl(s)
         || is_named_conf_decl(s)
         || is_nftables_decl(s)
+        || is_keepalived_decl(s)
     {
         return true;
     }
@@ -42990,6 +42992,134 @@ fn nftables_ct_object(s: &str) -> bool {
     false
 }
 
+/// keepalived.conf block openers: `global_defs {`, `static_ipaddress {`,
+/// `static_routes {`, `static_rules {`, `vrrp_instance VI_1 {`,
+/// `vrrp_script chk_http {`, `vrrp_sync_group VG1 {`,
+/// `vrrp_track_file tf1 {`, `vrrp_track_process nginx {`,
+/// `virtual_server 192.168.1.10 80 {`, `virtual_server fwmark 1 {`,
+/// `virtual_server group G1 {`. Exact lowercase. Optional `#` after `{`.
+/// Wrong case, prose (`vrrp_instance the {`), bare keywords, and
+/// in-block statements stay out.
+fn is_keepalived_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    keepalived_bare_block(s) || keepalived_named_block(s) || keepalived_virtual_server(s)
+}
+
+fn keepalived_prose_name(name: &str) -> bool {
+    matches!(name, "the" | "a" | "an" | "this" | "that" | "my" | "our")
+}
+
+fn keepalived_bare_block(s: &str) -> bool {
+    for key in [
+        "global_defs",
+        "static_ipaddress",
+        "static_routes",
+        "static_rules",
+    ] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        // Not `global_defs_extra` / `static_ipaddress6`.
+        if rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{') {
+            return nginx_brace_tail(rest);
+        }
+    }
+    false
+}
+
+fn keepalived_named_block(s: &str) -> bool {
+    for key in [
+        "vrrp_instance",
+        "vrrp_script",
+        "vrrp_sync_group",
+        "vrrp_track_file",
+        "vrrp_track_process",
+    ] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        let Some((name, after)) = nginx_ident(rest) else {
+            return false;
+        };
+        if keepalived_prose_name(name) {
+            return false;
+        }
+        return nginx_brace_tail(after);
+    }
+    false
+}
+
+fn keepalived_port(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() || !s.as_bytes()[0].is_ascii_digit() {
+        return None;
+    }
+    let n = s
+        .as_bytes()
+        .iter()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    if n == 0 {
+        return None;
+    }
+    let port = &s[..n];
+    if port.parse::<u16>().is_err() {
+        return None;
+    }
+    Some((port, &s[n..]))
+}
+
+fn keepalived_virtual_server(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("virtual_server") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let rest = rest.trim_start();
+    // `virtual_server fwmark N {`
+    if let Some(after_fw) = rest.strip_prefix("fwmark") {
+        if !after_fw.starts_with(char::is_whitespace) {
+            return false;
+        }
+        let after_fw = after_fw.trim_start();
+        let Some((_mark, after)) = keepalived_port(after_fw) else {
+            return false;
+        };
+        return nginx_brace_tail(after);
+    }
+    // `virtual_server group NAME {`
+    if let Some(after_grp) = rest.strip_prefix("group") {
+        if !after_grp.starts_with(char::is_whitespace) {
+            return false;
+        }
+        let after_grp = after_grp.trim_start();
+        let Some((name, after)) = nginx_ident(after_grp) else {
+            return false;
+        };
+        if keepalived_prose_name(name) {
+            return false;
+        }
+        return nginx_brace_tail(after);
+    }
+    // `virtual_server IP PORT {`
+    let Some((_addr, after)) = named_conf_ipv4_or_v6(rest) else {
+        return false;
+    };
+    if !after.starts_with(char::is_whitespace) {
+        return false;
+    }
+    let after = after.trim_start();
+    let Some((_port, after)) = keepalived_port(after) else {
+        return false;
+    };
+    nginx_brace_tail(after)
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -45283,11 +45413,12 @@ mod func_like_line_tests {
         is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
         is_composer_json_decl, is_desktop_entry_decl, is_editorconfig_decl, is_fluent_bit_decl,
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_package_json_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_ssh_config_decl,
-        is_supervisord_conf_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
+        is_keepalived_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_package_json_decl, is_php_ini_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_scons_decl,
+        is_ssh_config_decl, is_supervisord_conf_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
+        is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -50389,6 +50520,44 @@ mod func_like_line_tests {
         // Named nftables map still counts.
         assert!(is_nftables_decl("map portfwd {"));
         assert!(!is_nginx_conf_decl("map portfwd {"));
+    }
+
+    #[test]
+    fn keepalived_blocks_count() {
+        assert!(line_is_func_like("global_defs {"));
+        assert!(line_is_func_like("global_defs { # defaults"));
+        assert!(line_is_func_like("  static_ipaddress {"));
+        assert!(line_is_func_like("static_routes {"));
+        assert!(line_is_func_like("static_rules {"));
+        assert!(line_is_func_like("vrrp_instance VI_1 {"));
+        assert!(line_is_func_like("vrrp_script chk_http {"));
+        assert!(line_is_func_like("vrrp_sync_group VG1 {"));
+        assert!(line_is_func_like("vrrp_track_file tf1 {"));
+        assert!(line_is_func_like("vrrp_track_process nginx {"));
+        assert!(line_is_func_like("virtual_server 192.168.1.10 80 {"));
+        assert!(line_is_func_like("virtual_server 2001:db8::1 443 {"));
+        assert!(line_is_func_like("virtual_server fwmark 1 {"));
+        assert!(line_is_func_like("virtual_server group G1 {"));
+        assert!(is_keepalived_decl("vrrp_instance VI_1 {"));
+        assert!(is_keepalived_decl("virtual_server 10.0.0.1 8080 {"));
+        // Bare keywords / wrong case / prose / other dialects stay out.
+        assert!(!is_keepalived_decl("global_defs"));
+        assert!(!is_keepalived_decl("vrrp_instance"));
+        assert!(!is_keepalived_decl("VRRP_INSTANCE VI_1 {"));
+        assert!(!is_keepalived_decl("vrrp_instance the {"));
+        assert!(!is_keepalived_decl("vrrp_script the {"));
+        assert!(!is_keepalived_decl("virtual_server"));
+        assert!(!is_keepalived_decl("virtual_server 192.168.1.10 {"));
+        assert!(!is_keepalived_decl("virtual_server group the {"));
+        assert!(!is_keepalived_decl("virtual_server fwmark {"));
+        assert!(!is_keepalived_decl("state MASTER"));
+        assert!(!is_keepalived_decl("interface eth0"));
+        assert!(!is_keepalived_decl("virtual_ipaddress {"));
+        // nftables / nginx stay on their paths.
+        assert!(is_nftables_decl("table inet filter {"));
+        assert!(!is_keepalived_decl("table inet filter {"));
+        assert!(is_nginx_conf_decl("server {"));
+        assert!(!is_keepalived_decl("server {"));
     }
 
     #[test]

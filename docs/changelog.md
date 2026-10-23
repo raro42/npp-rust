@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.553] — 2026-10-23
+
+View:
+
+- **Function List** lists keepalived.conf block openers: `global_defs {`, `static_ipaddress {`, `static_routes {`, `static_rules {`, `vrrp_instance VI_1 {`, `vrrp_script chk_http {`, `vrrp_sync_group VG1 {`, `vrrp_track_file tf1 {`, `vrrp_track_process nginx {`, `virtual_server 192.168.1.10 80 {`, `virtual_server fwmark 1 {`, `virtual_server group G1 {`. Exact lowercase. Optional `#` after `{`. Wrong case, prose (`vrrp_instance the {`), bare keywords, and in-block statements stay out.
+
 ## [0.3.552] — 2026-10-23
 
 View:
