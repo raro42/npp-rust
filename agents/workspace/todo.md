@@ -1,3 +1,4 @@
+009 keep: Function List supervisord.conf unix_http_server/inet_http_server/supervisord/supervisorctl/include/program:/group:/eventlistener:/fcgi-program:/rpcinterface: (v0.3.550)
 009 keep: Function List Telegraf.conf [[inputs.*]]/[[outputs.*]]/[[processors.*]]/[[aggregators.*]]/[[secretstores.*]]/[agent]/[global_tags] (v0.3.548)
 009 keep: Function List Vector.toml sources/transforms/sinks/enrichment_tables/tests/secrets/api (v0.3.547)
 009 keep: Function List Fluent Bit SERVICE/INPUT/FILTER/OUTPUT/PARSER/MULTILINE_PARSER/CUSTOM/PROCESSOR/CHECK (v0.3.546)
