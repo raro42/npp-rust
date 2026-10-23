@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.534] — 2026-10-23
+
+View:
+
+- **Function List** lists FreeDesktop Desktop Entry sections: `[Desktop Entry]`, `[Desktop Action …]` (action id alphanumeric / hyphen). Optional `#` / `;` comment. Key lines (`Name=` / `Exec=`), tox / Cargo / Pipfile / pyproject tables, incomplete brackets, bare `[Desktop Action]`, and prose stay out.
+
 ## [0.3.533] — 2026-10-23
 
 View:

@@ -32059,6 +32059,9 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `[gh-actions:…]`). Optional `#` / `;` comment. Key lines (`envlist =`),
 /// Cargo / Pipfile / pyproject / Desktop Entry tables, incomplete
 /// brackets, and prose stay out.
+/// Desktop Entry sections (`[Desktop Entry]`, `[Desktop Action …]`).
+/// Optional `#` / `;` comment. Key lines (`Name=`), tox / Cargo / Pipfile /
+/// pyproject tables, incomplete brackets, and prose stay out.
 /// Bare arrows (`(x) =>`, `Ok(v) =>`), calls (`foo();`), other assignments,
 /// and control-flow stay out. Kotlin `data class` still counts as a class.
 /// `created` and `create a note` stay out.
@@ -32176,6 +32179,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_podfile_decl(s)
             || is_pipfile_decl(s)
             || is_tox_ini_decl(s)
+            || is_desktop_entry_decl(s)
         {
             return true;
         }
@@ -32289,6 +32293,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_podfile_decl(s)
         || is_pipfile_decl(s)
         || is_tox_ini_decl(s)
+        || is_desktop_entry_decl(s)
     {
         return true;
     }
@@ -41136,6 +41141,45 @@ fn tox_ini_segment_ok(name: &str) -> bool {
         .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
 }
 
+/// FreeDesktop Desktop Entry sections: `[Desktop Entry]`,
+/// `[Desktop Action foo]` / `[Desktop Action NewWindow]`. Optional
+/// trailing `#` or `;` comment. Key lines (`Name=App`, `Exec=…`), tox /
+/// Cargo / Pipfile / pyproject tables, incomplete brackets, bare
+/// `[Desktop Action]`, and prose stay out.
+fn is_desktop_entry_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    desktop_entry_header_ok(header)
+}
+
+fn desktop_entry_header_ok(header: &str) -> bool {
+    if header == "Desktop Entry" {
+        return true;
+    }
+    let Some(action) = header.strip_prefix("Desktop Action ") else {
+        return false;
+    };
+    desktop_entry_action_ok(action)
+}
+
+fn desktop_entry_action_ok(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || *b == b'-')
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -43426,8 +43470,8 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_android_bp_decl, is_ant_msbuild_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl,
-        is_cargo_toml_decl, is_composer_json_decl, is_gemfile_decl, is_gomod_decl,
-        is_package_json_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_cargo_toml_decl, is_composer_json_decl, is_desktop_entry_decl, is_gemfile_decl,
+        is_gomod_decl, is_package_json_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
         is_pyproject_toml_decl, is_rake_decl, is_scons_decl, is_tox_ini_decl, is_xmake_decl,
         line_is_func_like,
     };
@@ -47660,6 +47704,43 @@ mod func_like_line_tests {
         assert!(!is_tox_ini_decl("[packages]"));
         assert!(is_pyproject_toml_decl("[project]"));
         assert!(!is_tox_ini_decl("[project]"));
+    }
+
+    #[test]
+    fn desktop_entry_sections_count() {
+        assert!(line_is_func_like("[Desktop Entry]"));
+        assert!(line_is_func_like("  [Desktop Entry] # app"));
+        assert!(line_is_func_like("[Desktop Entry] ; app"));
+        assert!(line_is_func_like("[Desktop Action new-window]"));
+        assert!(line_is_func_like("[Desktop Action NewWindow]"));
+        assert!(line_is_func_like("[Desktop Action foo-bar]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Action new-window]"));
+        assert!(is_desktop_entry_decl("[Desktop Action NewWindow]"));
+        // Key lines / incomplete / other tables stay out.
+        assert!(!is_desktop_entry_decl("Name=App"));
+        assert!(!line_is_func_like("Name=App"));
+        assert!(!is_desktop_entry_decl("Exec=/usr/bin/app %U"));
+        assert!(!is_desktop_entry_decl("[Desktop Entry"));
+        assert!(!is_desktop_entry_decl("[[Desktop Entry]]"));
+        assert!(!is_desktop_entry_decl("[Desktop Action]"));
+        assert!(!is_desktop_entry_decl("[Desktop Action ]"));
+        assert!(!is_desktop_entry_decl("[Desktop Action -bad]"));
+        assert!(!is_desktop_entry_decl("[Desktop Action foo_bar]"));
+        assert!(!is_desktop_entry_decl("[Desktop Action foo bar]"));
+        assert!(!is_desktop_entry_decl("[KDE Desktop Entry]"));
+        assert!(!is_desktop_entry_decl("[tox]"));
+        assert!(!is_desktop_entry_decl("[flake8]"));
+        assert!(!is_desktop_entry_decl("[metadata]"));
+        // tox / Cargo / Pipfile / pyproject stay on their paths.
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_desktop_entry_decl("[tox]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_desktop_entry_decl("[package]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_desktop_entry_decl("[packages]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_desktop_entry_decl("[project]"));
     }
 
     #[test]
