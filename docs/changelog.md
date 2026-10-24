@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.577] — 2026-10-24
+
+View:
+
+- **Function List** lists `/etc/security/limits.conf` rules: `* soft nofile 1024`, `* hard nofile 2048`, `@student hard nproc 20`, `% hard maxlogins 4`, `%faculty soft maxlogins 2`, `ftp hard nproc 0`, `alice - priority 10`. Domain = user / `@group` / `*` / `%` / `%group`. Type = `soft` / `hard` / `-`. Item = stock ulimit names (`core` / `nofile` / `nproc` / `maxlogins` / …). Value = number / `unlimited` / `-`. Optional `#` comment. Bare / prose / incomplete / neighbouring families stay out.
+
 ## [0.3.576] — 2026-10-24
 
 View:

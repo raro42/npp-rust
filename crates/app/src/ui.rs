@@ -32305,6 +32305,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_audit_rules_decl(s)
             || is_pam_conf_decl(s)
             || is_sudoers_decl(s)
+            || is_limits_conf_decl(s)
         {
             return true;
         }
@@ -32461,6 +32462,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_audit_rules_decl(s)
         || is_pam_conf_decl(s)
         || is_sudoers_decl(s)
+        || is_limits_conf_decl(s)
     {
         return true;
     }
@@ -44931,6 +44933,133 @@ fn sudoers_name_or_path_ok(tok: &str) -> bool {
     })
 }
 
+/// `/etc/security/limits.conf`: `* soft nofile 1024`, `* hard nofile 2048`,
+/// `@student hard nproc 20`, `% hard maxlogins 4`, `%group soft maxlogins 2`,
+/// `ftp hard nproc 0`, `alice - priority 10`. Domain = user / `@group` / `*` /
+/// `%` / `%group`. Type = `soft` / `hard` / `-`. Item = stock ulimit names
+/// (`core` / `nofile` / `nproc` / `maxlogins` / …). Value = number /
+/// `unlimited` / `-`. Optional `#` comment. Bare / prose / incomplete /
+/// neighbouring families stay out.
+fn is_limits_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let Some((domain, after_domain)) = limits_next_token(s) else {
+        return false;
+    };
+    if !limits_domain_ok(domain) {
+        return false;
+    }
+    let Some((ty, after_type)) = limits_next_token(after_domain) else {
+        return false;
+    };
+    if !limits_type_ok(ty) {
+        return false;
+    }
+    let Some((item, after_item)) = limits_next_token(after_type) else {
+        return false;
+    };
+    if !limits_item_ok(item) {
+        return false;
+    }
+    let Some((value, after_value)) = limits_next_token(after_item) else {
+        return false;
+    };
+    if !limits_value_ok(value) {
+        return false;
+    }
+    let after = after_value.trim_start();
+    after.is_empty() || after.starts_with('#')
+}
+
+fn limits_next_token(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() {
+        return None;
+    }
+    let end = s
+        .find(|c: char| c.is_whitespace() || c == '#')
+        .unwrap_or(s.len());
+    if end == 0 {
+        return None;
+    }
+    Some((&s[..end], &s[end..]))
+}
+
+fn limits_domain_ok(tok: &str) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    const PROSE: &[&str] = &["the", "a", "an", "to", "of", "for", "and", "or"];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    if tok == "*" || tok == "%" {
+        return true;
+    }
+    // `@group` or `%group` (maxlogins group form).
+    if let Some(rest) = tok.strip_prefix('@').or_else(|| tok.strip_prefix('%')) {
+        return !rest.is_empty() && limits_name_ok(rest);
+    }
+    limits_name_ok(tok)
+}
+
+fn limits_name_ok(tok: &str) -> bool {
+    let bytes = tok.as_bytes();
+    if bytes.is_empty() || !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
+}
+
+fn limits_type_ok(tok: &str) -> bool {
+    matches!(tok, "soft" | "hard" | "-")
+}
+
+fn limits_item_ok(tok: &str) -> bool {
+    const ITEMS: &[&str] = &[
+        "core",
+        "data",
+        "fsize",
+        "memlock",
+        "nofile",
+        "rss",
+        "stack",
+        "cpu",
+        "nproc",
+        "as",
+        "maxlogins",
+        "maxsyslogins",
+        "priority",
+        "locks",
+        "sigpending",
+        "msgqueue",
+        "nice",
+        "rtprio",
+        "chroot",
+    ];
+    ITEMS.iter().any(|i| tok.eq_ignore_ascii_case(i))
+}
+
+fn limits_value_ok(tok: &str) -> bool {
+    if tok == "-" || tok.eq_ignore_ascii_case("unlimited") {
+        return true;
+    }
+    // Integer (optional leading +); reject bare prose.
+    let bytes = tok.as_bytes();
+    if bytes.is_empty() {
+        return false;
+    }
+    let start = if bytes[0] == b'+' { 1 } else { 0 };
+    if start >= bytes.len() {
+        return false;
+    }
+    bytes[start..].iter().all(|b| b.is_ascii_digit())
+}
+
 /// udev rules: `KERNEL=="sda"`, `SUBSYSTEM=="usb", ATTR{idVendor}=="1234",
 /// MODE="0666"`, `ACTION=="add", RUN+="/usr/local/bin/…"`, `LABEL="end"`,
 /// `GOTO="end"`, `ENV{DEVTYPE}=="disk"`. Match/assign keys with `==` / `!=` /
@@ -47614,15 +47743,15 @@ mod func_like_line_tests {
         is_editorconfig_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
         is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
         is_haproxy_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
-        is_lightdm_conf_decl, is_logrotate_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_openvpn_decl,
-        is_package_json_decl, is_pam_conf_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl,
-        is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl, is_samba_conf_decl,
-        is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl,
-        is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, line_is_func_like,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
+        is_openvpn_decl, is_package_json_decl, is_pam_conf_decl, is_php_ini_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl,
+        is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_sudoers_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -53681,6 +53810,42 @@ mod func_like_line_tests {
         assert!(is_audit_rules_decl("-w /etc/passwd -p wa -k identity"));
         assert!(!is_sudoers_decl("-w /etc/passwd -p wa -k identity"));
         assert!(!line_is_func_like("@include flex-center"));
+        // limits.conf stays on its path.
+        assert!(is_limits_conf_decl("* soft nofile 1024"));
+        assert!(!is_sudoers_decl("* soft nofile 1024"));
+    }
+
+    #[test]
+    fn limits_conf_rules_count() {
+        assert!(line_is_func_like("* soft nofile 1024"));
+        assert!(line_is_func_like("* hard nofile 2048"));
+        assert!(line_is_func_like("@student hard nproc 20"));
+        assert!(line_is_func_like("% hard maxlogins 4"));
+        assert!(line_is_func_like("%faculty soft maxlogins 2"));
+        assert!(line_is_func_like("ftp hard nproc 0"));
+        assert!(line_is_func_like("alice - priority 10"));
+        assert!(line_is_func_like("* soft core unlimited # dump"));
+        assert!(line_is_func_like("* hard rss -"));
+        assert!(line_is_func_like("  bob soft nice +5"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_limits_conf_decl("*"));
+        assert!(!is_limits_conf_decl("* soft"));
+        assert!(!is_limits_conf_decl("* soft nofile"));
+        assert!(!is_limits_conf_decl("the soft nofile 1024"));
+        assert!(!is_limits_conf_decl("* soft the 1024"));
+        assert!(!is_limits_conf_decl("* soft nofile the"));
+        assert!(!is_limits_conf_decl("* medium nofile 1024"));
+        assert!(!is_limits_conf_decl("* soft unknownitem 1024"));
+        assert!(!is_limits_conf_decl("#* soft nofile 1024"));
+        assert!(!is_limits_conf_decl("not a limits line"));
+        // Neighbouring families stay on their paths.
+        assert!(is_sudoers_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(!is_limits_conf_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(is_pam_conf_decl("auth required pam_unix.so"));
+        assert!(!is_limits_conf_decl("auth required pam_unix.so"));
+        assert!(is_audit_rules_decl("-w /etc/passwd -p wa -k identity"));
+        assert!(!is_limits_conf_decl("-w /etc/passwd -p wa -k identity"));
+        assert!(!line_is_func_like("the soft nofile 1024"));
     }
 
     #[test]

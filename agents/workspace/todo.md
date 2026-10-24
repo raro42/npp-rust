@@ -822,3 +822,5 @@
 009 keep: Function List Linux-PAM pam.conf/pam.d rules (v0.3.575)
 
 009 keep: Function List sudoers rules (v0.3.576)
+
+009 keep: Function List /etc/security/limits.conf soft/hard/- rules (v0.3.577)
