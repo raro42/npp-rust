@@ -32314,6 +32314,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_hosts_access_decl(s)
             || is_hosts_file_decl(s)
             || is_resolv_conf_decl(s)
+            || is_nsswitch_conf_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32477,6 +32478,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_hosts_access_decl(s)
         || is_hosts_file_decl(s)
         || is_resolv_conf_decl(s)
+        || is_nsswitch_conf_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -45895,6 +45897,109 @@ fn resolv_sortlist_ok(tok: &str) -> bool {
     }
 }
 
+/// `/etc/nsswitch.conf`: `passwd: files systemd`, `group: files systemd`,
+/// `shadow: files`, `hosts: files dns`,
+/// `hosts: mymachines resolve [!UNAVAIL=return] files myhostname dns`,
+/// `networks: files`, `protocols: files`, `services: files`, `ethers: files`,
+/// `rpc: files`, `netgroup: files`, `sudoers: files`. Optional `#` comment.
+/// Bare / prose / incomplete / neighbouring families (hosts.allow `ALL:`,
+/// access.conf, resolv.conf, …) stay out.
+fn is_nsswitch_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some((db, rest)) = body.split_once(':') else {
+        return false;
+    };
+    let db = db.trim();
+    if !nsswitch_database_ok(db) {
+        return false;
+    }
+    let rest = rest.trim();
+    if rest.is_empty() {
+        return false;
+    }
+    let mut saw = false;
+    let mut rem = rest;
+    while let Some((tok, after)) = fstab_next_token(rem) {
+        if tok.starts_with('[') {
+            if !nsswitch_action_ok(tok) {
+                return false;
+            }
+        } else if !nsswitch_service_ok(tok) {
+            return false;
+        }
+        saw = true;
+        rem = after;
+    }
+    saw && rem.trim_start().is_empty()
+}
+
+fn nsswitch_database_ok(db: &str) -> bool {
+    matches!(
+        db,
+        "passwd"
+            | "group"
+            | "shadow"
+            | "gshadow"
+            | "hosts"
+            | "networks"
+            | "protocols"
+            | "services"
+            | "ethers"
+            | "rpc"
+            | "netgroup"
+            | "aliases"
+            | "automount"
+            | "publickey"
+            | "sudoers"
+            | "initgroups"
+    )
+}
+
+fn nsswitch_service_ok(tok: &str) -> bool {
+    if tok.is_empty() || tok.len() > 48 {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team", "note",
+    ];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    let bytes = tok.as_bytes();
+    if !bytes[0].is_ascii_lowercase() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_' || b == b'-')
+}
+
+fn nsswitch_action_ok(tok: &str) -> bool {
+    // `[SUCCESS=return]`, `[!UNAVAIL=return]`, `[NOTFOUND=continue]`, …
+    if tok.len() < 5 || tok.len() > 40 || !tok.starts_with('[') || !tok.ends_with(']') {
+        return false;
+    }
+    let inner = &tok[1..tok.len() - 1];
+    let (status, action) = match inner.split_once('=') {
+        Some((s, a)) => (s, a),
+        None => return false,
+    };
+    let status = status.strip_prefix('!').unwrap_or(status);
+    matches!(status, "SUCCESS" | "NOTFOUND" | "UNAVAIL" | "TRYAGAIN")
+        && matches!(action, "return" | "continue" | "merge")
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -48716,14 +48821,14 @@ mod func_like_line_tests {
         is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
         is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl,
         is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nm_connection_decl, is_openvpn_decl, is_package_json_decl, is_pam_conf_decl,
-        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_resolv_conf_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl,
-        is_sddm_conf_decl, is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl,
-        is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, line_is_func_like,
+        is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_package_json_decl,
+        is_pam_conf_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rsyslog_decl,
+        is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_sudoers_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -55029,7 +55134,61 @@ mod func_like_line_tests {
         assert!(!is_resolv_conf_decl("options {"));
         assert!(is_fstab_decl("UUID=abcd-1234 / ext4 defaults 0 1"));
         assert!(!is_resolv_conf_decl("UUID=abcd-1234 / ext4 defaults 0 1"));
+        assert!(is_nsswitch_conf_decl("hosts: files dns"));
+        assert!(!is_resolv_conf_decl("hosts: files dns"));
         assert!(!line_is_func_like("nameserver the"));
+    }
+
+    #[test]
+    fn nsswitch_conf_entries_count() {
+        assert!(line_is_func_like("passwd: files systemd"));
+        assert!(line_is_func_like("group: files systemd"));
+        assert!(line_is_func_like("shadow: files"));
+        assert!(line_is_func_like("hosts: files dns"));
+        assert!(line_is_func_like(
+            "hosts: mymachines resolve [!UNAVAIL=return] files myhostname dns"
+        ));
+        assert!(line_is_func_like("networks: files"));
+        assert!(line_is_func_like("protocols: files"));
+        assert!(line_is_func_like("services: files"));
+        assert!(line_is_func_like("ethers: files"));
+        assert!(line_is_func_like("rpc: files"));
+        assert!(line_is_func_like("netgroup: files"));
+        assert!(line_is_func_like("sudoers: files"));
+        assert!(line_is_func_like("aliases: files"));
+        assert!(line_is_func_like("gshadow: files"));
+        assert!(line_is_func_like("initgroups: files"));
+        assert!(line_is_func_like("automount: files"));
+        assert!(line_is_func_like("publickey: files"));
+        assert!(line_is_func_like("passwd:files"));
+        assert!(line_is_func_like("  hosts: files dns # lan"));
+        assert!(line_is_func_like("group: files [SUCCESS=merge] systemd"));
+        assert!(line_is_func_like(
+            "hosts: mdns4_minimal [NOTFOUND=return] dns"
+        ));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_nsswitch_conf_decl("passwd:"));
+        assert!(!is_nsswitch_conf_decl("passwd"));
+        assert!(!is_nsswitch_conf_decl("hosts: the dns"));
+        assert!(!is_nsswitch_conf_decl("hosts: files the"));
+        assert!(!is_nsswitch_conf_decl("# passwd: files"));
+        assert!(!is_nsswitch_conf_decl("not a nsswitch line"));
+        assert!(!is_nsswitch_conf_decl("Passwd: files"));
+        assert!(!is_nsswitch_conf_decl("hosts: Files"));
+        assert!(!is_nsswitch_conf_decl("hosts: files [BAD=return]"));
+        assert!(!is_nsswitch_conf_decl("hosts: files [UNAVAIL=skip]"));
+        // Neighbouring families stay on their paths.
+        assert!(is_hosts_access_decl("ALL: LOCAL"));
+        assert!(!is_nsswitch_conf_decl("ALL: LOCAL"));
+        assert!(is_access_conf_decl("+ : root : LOCAL"));
+        assert!(!is_nsswitch_conf_decl("+ : root : LOCAL"));
+        assert!(is_resolv_conf_decl("nameserver 8.8.8.8"));
+        assert!(!is_nsswitch_conf_decl("nameserver 8.8.8.8"));
+        assert!(is_hosts_file_decl("127.0.0.1 localhost"));
+        assert!(!is_nsswitch_conf_decl("127.0.0.1 localhost"));
+        assert!(is_sudoers_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(!is_nsswitch_conf_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(!line_is_func_like("hosts: the dns"));
     }
 
     #[test]

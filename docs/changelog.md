@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.584] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/nsswitch.conf` databases: `passwd: files systemd`, `group: files systemd`, `shadow: files`, `hosts: files dns`, `hosts: mymachines resolve [!UNAVAIL=return] files myhostname dns`, `networks: files`, `protocols: files`, `services: files`, `ethers: files`, `rpc: files`, `netgroup: files`, `sudoers: files`, `aliases: files`, `gshadow: files`, `initgroups: files`, `automount: files`, `publickey: files`, `group: files [SUCCESS=merge] systemd`, `hosts: mdns4_minimal [NOTFOUND=return] dns`. Optional `#` comment. Bare / prose / incomplete / neighbouring families (hosts.allow `ALL:`, access.conf, resolv.conf, …) stay out.
+
 ## [0.3.583] — 2026-10-25
 
 View:
