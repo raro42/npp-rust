@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.563] — 2026-10-24
+
+View:
+
+- **Function List** lists SSSD `sssd.conf` sections: `[sssd]`, `[nss]`, `[pam]`, `[sudo]`, `[autofs]`, `[ssh]`, `[pac]`, `[ifp]`, `[secrets]`, `[session_recording]`, `[domain/NAME]`. Exact lowercase. Optional `#` / `;` comment. Wrong case, bare `[domain/]`, AWS / Samba / Fail2ban / Kerberos / WireGuard / systemd / PHP capitals, Cargo / Grafana tables, incomplete brackets, and key lines stay out.
+
 ## [0.3.562] — 2026-10-24
 
 View:

@@ -32290,6 +32290,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_samba_conf_decl(s)
             || is_krb5_conf_decl(s)
             || is_fail2ban_conf_decl(s)
+            || is_sssd_conf_decl(s)
         {
             return true;
         }
@@ -32432,6 +32433,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_samba_conf_decl(s)
         || is_krb5_conf_decl(s)
         || is_fail2ban_conf_decl(s)
+        || is_sssd_conf_decl(s)
     {
         return true;
     }
@@ -43888,6 +43890,45 @@ fn is_fail2ban_conf_decl(s: &str) -> bool {
     false
 }
 
+/// SSSD `sssd.conf` sections: `[sssd]`, `[nss]`, `[pam]`, `[sudo]`,
+/// `[autofs]`, `[ssh]`, `[pac]`, `[ifp]`, `[secrets]`, `[session_recording]`,
+/// `[domain/NAME]`. Exact lowercase. Optional `#` / `;` comment. Wrong case,
+/// bare `[domain/]`, AWS / Samba / Fail2ban / Kerberos / WireGuard / systemd /
+/// PHP capitals, Cargo / Grafana tables, incomplete brackets, and key lines
+/// stay out.
+fn is_sssd_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    if matches!(
+        header,
+        "sssd"
+            | "nss"
+            | "pam"
+            | "sudo"
+            | "autofs"
+            | "ssh"
+            | "pac"
+            | "ifp"
+            | "secrets"
+            | "session_recording"
+    ) {
+        return true;
+    }
+    // Domain sections: `[domain/default]`, `[domain/example.com]`.
+    if let Some(rest) = header.strip_prefix("domain/") {
+        return !rest.is_empty()
+            && rest
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'));
+    }
+    false
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -46186,9 +46227,9 @@ mod func_like_line_tests {
         is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl, is_openvpn_decl,
         is_package_json_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
         is_pyproject_toml_decl, is_rake_decl, is_samba_conf_decl, is_scons_decl,
-        is_ssh_config_decl, is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_unit_decl,
-        is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, line_is_func_like,
+        is_ssh_config_decl, is_sssd_conf_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
+        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -51698,6 +51739,47 @@ mod func_like_line_tests {
         assert!(!is_fail2ban_conf_decl("[PHP]"));
         assert!(is_krb5_conf_decl("[libdefaults]"));
         assert!(!is_fail2ban_conf_decl("[libdefaults]"));
+    }
+
+    #[test]
+    fn sssd_conf_sections_count() {
+        assert!(line_is_func_like("[sssd]"));
+        assert!(line_is_func_like("  [nss] # responders"));
+        assert!(line_is_func_like("[pam] ; auth"));
+        assert!(line_is_func_like("[sudo]"));
+        assert!(line_is_func_like("[autofs]"));
+        assert!(line_is_func_like("[ssh]"));
+        assert!(line_is_func_like("[pac]"));
+        assert!(line_is_func_like("[ifp]"));
+        assert!(line_is_func_like("[secrets]"));
+        assert!(line_is_func_like("[session_recording]"));
+        assert!(line_is_func_like("[domain/default]"));
+        assert!(line_is_func_like("[domain/example.com]"));
+        assert!(line_is_func_like("[domain/corp_ad]"));
+        // Wrong case / bare domain / other tables / key lines stay out.
+        assert!(!is_sssd_conf_decl("[SSSD]"));
+        assert!(!is_sssd_conf_decl("[Nss]"));
+        assert!(!is_sssd_conf_decl("[PAM]"));
+        assert!(!is_sssd_conf_decl("[Domain/default]"));
+        assert!(!is_sssd_conf_decl("[domain/]"));
+        assert!(!is_sssd_conf_decl("[domain]"));
+        assert!(!is_sssd_conf_decl("[[sssd]]"));
+        assert!(!is_sssd_conf_decl("[sssd"));
+        assert!(!is_sssd_conf_decl("services = nss, pam"));
+        assert!(!is_sssd_conf_decl("id_provider = ldap"));
+        // Samba / Fail2ban / Kerberos / WireGuard / systemd / PHP stay on their paths.
+        assert!(is_samba_conf_decl("[global]"));
+        assert!(!is_sssd_conf_decl("[global]"));
+        assert!(is_fail2ban_conf_decl("[DEFAULT]"));
+        assert!(!is_sssd_conf_decl("[DEFAULT]"));
+        assert!(is_krb5_conf_decl("[libdefaults]"));
+        assert!(!is_sssd_conf_decl("[libdefaults]"));
+        assert!(is_wireguard_config_decl("[Interface]"));
+        assert!(!is_sssd_conf_decl("[Interface]"));
+        assert!(is_systemd_unit_decl("[Unit]"));
+        assert!(!is_sssd_conf_decl("[Unit]"));
+        assert!(is_php_ini_decl("[PHP]"));
+        assert!(!is_sssd_conf_decl("[PHP]"));
     }
 
     #[test]
