@@ -1,3 +1,5 @@
+009 keep: Function List udev rules KERNEL/ATTR/LABEL/GOTO/RUN+= (v0.3.573)
+
 009 keep: Function List logrotate /var/log/… { path blocks + include /etc/logrotate.d (v0.3.572)
 009 keep: Function List SDDM [General]/[Theme]/[Users]/[X11]/[Wayland]/[Autologin] (v0.3.568)
 009 keep: Function List GDM [daemon]/[security]/[xdmcp]/[chooser]/[debug]/[greeter] (v0.3.567)
