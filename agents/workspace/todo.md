@@ -1,3 +1,4 @@
+009 keep: Function List GDM [daemon]/[security]/[xdmcp]/[chooser]/[debug]/[greeter] (v0.3.567)
 009 keep: Function List LightDM [LightDM]/[Seat:*]/[Seat:name]/[XDMCPServer]/[VNCServer]/[SeatDefaults] (v0.3.566)
 009 keep: Function List Xorg Section ServerLayout/Files/Module/InputDevice/InputClass/Device/VideoAdaptor/Monitor/Modes/Screen/Vendor/ServerFlags/Display/Extensions/DRI/Pointer/Keyboard (v0.3.565)
 009 keep: Function List Unbound/NSD server:/remote-control:/stub-zone:/forward-zone:/auth-zone:/view:/python:/dynlib:/dnscrypt:/cachedb:/dnstap:/rpz:/verify:/key:/pattern:/zone:/tls-auth: (v0.3.564)
