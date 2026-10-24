@@ -32292,6 +32292,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_fail2ban_conf_decl(s)
             || is_sssd_conf_decl(s)
             || is_unbound_nsd_conf_decl(s)
+            || is_xorg_conf_decl(s)
         {
             return true;
         }
@@ -32436,6 +32437,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_fail2ban_conf_decl(s)
         || is_sssd_conf_decl(s)
         || is_unbound_nsd_conf_decl(s)
+        || is_xorg_conf_decl(s)
     {
         return true;
     }
@@ -43931,6 +43933,54 @@ fn is_sssd_conf_decl(s: &str) -> bool {
     false
 }
 
+/// Xorg `xorg.conf` / `xorg.conf.d` section openers: `Section "ServerLayout"`,
+/// `Section "Files"`, `Section "Module"`, `Section "InputDevice"`,
+/// `Section "InputClass"`, `Section "Device"`, `Section "VideoAdaptor"`,
+/// `Section "Monitor"`, `Section "Modes"`, `Section "Screen"`,
+/// `Section "Vendor"`, `Section "ServerFlags"`, `Section "Display"`,
+/// `Section "Extensions"`, `Section "DRI"`, plus obsolete `Section "Pointer"` /
+/// `Section "Keyboard"`. Exact `Section` casing and quoted stock names.
+/// Optional `#` comment. Wrong case, missing quotes, unknown names,
+/// `EndSection`, Apache `<…>` tags, and prose stay out.
+fn is_xorg_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix("Section") else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    let Some(rest) = rest.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let name = &rest[..end];
+    let after = rest[end + 1..].trim_start();
+    if !(after.is_empty() || after.starts_with('#')) {
+        return false;
+    }
+    matches!(
+        name,
+        "ServerLayout"
+            | "Files"
+            | "Module"
+            | "InputDevice"
+            | "InputClass"
+            | "Device"
+            | "VideoAdaptor"
+            | "Monitor"
+            | "Modes"
+            | "Screen"
+            | "Vendor"
+            | "ServerFlags"
+            | "Display"
+            | "Extensions"
+            | "DRI"
+            | "Pointer"
+            | "Keyboard"
+    )
+}
+
 /// Unbound `unbound.conf` / NSD `nsd.conf` top-level clauses: `server:`,
 /// `remote-control:`, Unbound `stub-zone:` / `forward-zone:` / `auth-zone:` /
 /// `view:` / `python:` / `dynlib:` / `dnscrypt:` / `cachedb:` / `dnstap:` /
@@ -46274,7 +46324,8 @@ mod func_like_line_tests {
         is_pyproject_toml_decl, is_rake_decl, is_samba_conf_decl, is_scons_decl,
         is_ssh_config_decl, is_sssd_conf_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
         is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_unbound_nsd_conf_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
+        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -51861,6 +51912,43 @@ mod func_like_line_tests {
         assert!(!is_unbound_nsd_conf_decl("zone \"example.com\" {"));
         assert!(is_nginx_conf_decl("server {"));
         assert!(!is_unbound_nsd_conf_decl("server {"));
+    }
+
+    #[test]
+    fn xorg_conf_sections_count() {
+        assert!(line_is_func_like("Section \"ServerLayout\""));
+        assert!(line_is_func_like("  Section \"Files\" # fonts"));
+        assert!(line_is_func_like("Section \"Module\""));
+        assert!(line_is_func_like("Section \"InputDevice\""));
+        assert!(line_is_func_like("Section \"InputClass\""));
+        assert!(line_is_func_like("Section \"Device\""));
+        assert!(line_is_func_like("Section \"VideoAdaptor\""));
+        assert!(line_is_func_like("Section \"Monitor\""));
+        assert!(line_is_func_like("Section \"Modes\""));
+        assert!(line_is_func_like("Section \"Screen\""));
+        assert!(line_is_func_like("Section \"Vendor\""));
+        assert!(line_is_func_like("Section \"ServerFlags\""));
+        assert!(line_is_func_like("Section \"Display\""));
+        assert!(line_is_func_like("Section \"Extensions\""));
+        assert!(line_is_func_like("Section \"DRI\""));
+        assert!(line_is_func_like("Section \"Pointer\""));
+        assert!(line_is_func_like("Section \"Keyboard\""));
+        // Wrong case / missing quotes / unknown / EndSection / other shapes.
+        assert!(!is_xorg_conf_decl("section \"Device\""));
+        assert!(!is_xorg_conf_decl("SECTION \"Device\""));
+        assert!(!is_xorg_conf_decl("Section Device"));
+        assert!(!is_xorg_conf_decl("Section \"\""));
+        assert!(!is_xorg_conf_decl("Section \"Foo\""));
+        assert!(!is_xorg_conf_decl("Section \"device\""));
+        assert!(!is_xorg_conf_decl("EndSection"));
+        assert!(!is_xorg_conf_decl(
+            "Section \"Device\" Identifier \"Card0\""
+        ));
+        assert!(!is_xorg_conf_decl("Identifier \"Card0\""));
+        // Apache containers stay on their path.
+        assert!(is_apache_httpd_decl("<VirtualHost *:80>"));
+        assert!(!is_xorg_conf_decl("<VirtualHost *:80>"));
+        assert!(!is_xorg_conf_decl("<Directory /var/www>"));
     }
 
     #[test]

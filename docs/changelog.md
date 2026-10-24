@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.565] — 2026-10-24
+
+View:
+
+- **Function List** lists Xorg `xorg.conf` / `xorg.conf.d` section openers: `Section "ServerLayout"`, `Section "Files"`, `Section "Module"`, `Section "InputDevice"`, `Section "InputClass"`, `Section "Device"`, `Section "VideoAdaptor"`, `Section "Monitor"`, `Section "Modes"`, `Section "Screen"`, `Section "Vendor"`, `Section "ServerFlags"`, `Section "Display"`, `Section "Extensions"`, `Section "DRI"`, plus obsolete `Section "Pointer"` / `Section "Keyboard"`. Exact `Section` casing and quoted stock names. Optional `#` comment. Wrong case, missing quotes, unknown names, `EndSection`, Apache `<…>` tags, and prose stay out.
+
 ## [0.3.564] — 2026-10-24
 
 View:
