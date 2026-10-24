@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.567] — 2026-10-24
+
+View:
+
+- **Function List** lists GDM `custom.conf` / `gdm.conf` sections: `[daemon]`, `[security]`, `[xdmcp]`, `[chooser]`, `[debug]`, optional `[greeter]`. Exact lowercase. Optional `#` / `;` comment. Wrong case, LightDM / AWS / Samba / Fail2ban / SSSD / Kerberos / WireGuard / systemd / PHP capitals, Cargo / Grafana tables, incomplete brackets, and key lines stay out.
+
 ## [0.3.566] — 2026-10-24
 
 View:

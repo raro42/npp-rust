@@ -32294,6 +32294,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_unbound_nsd_conf_decl(s)
             || is_xorg_conf_decl(s)
             || is_lightdm_conf_decl(s)
+            || is_gdm_conf_decl(s)
         {
             return true;
         }
@@ -32440,6 +32441,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_unbound_nsd_conf_decl(s)
         || is_xorg_conf_decl(s)
         || is_lightdm_conf_decl(s)
+        || is_gdm_conf_decl(s)
     {
         return true;
     }
@@ -43964,6 +43966,25 @@ fn is_lightdm_conf_decl(s: &str) -> bool {
     false
 }
 
+/// GDM `custom.conf` / `gdm.conf` sections: `[daemon]`, `[security]`,
+/// `[xdmcp]`, `[chooser]`, `[debug]`, optional `[greeter]`. Exact lowercase.
+/// Optional `#` / `;` comment. Wrong case, LightDM / AWS / Samba / Fail2ban /
+/// SSSD / Kerberos / WireGuard / systemd / PHP capitals, Cargo / Grafana
+/// tables, incomplete brackets, and key lines stay out.
+fn is_gdm_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    matches!(
+        header,
+        "daemon" | "security" | "xdmcp" | "chooser" | "debug" | "greeter"
+    )
+}
+
 /// Xorg `xorg.conf` / `xorg.conf.d` section openers: `Section "ServerLayout"`,
 /// `Section "Files"`, `Section "Module"`, `Section "InputDevice"`,
 /// `Section "InputClass"`, `Section "Device"`, `Section "VideoAdaptor"`,
@@ -46348,15 +46369,15 @@ mod func_like_line_tests {
         is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
         is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl,
         is_editorconfig_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_openvpn_decl, is_package_json_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl,
-        is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_samba_conf_decl, is_scons_decl,
-        is_ssh_config_decl, is_sssd_conf_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
-        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_unbound_nsd_conf_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
-        line_is_func_like,
+        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
+        is_haproxy_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
+        is_lightdm_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_openvpn_decl, is_package_json_decl, is_php_ini_decl,
+        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
+        is_samba_conf_decl, is_scons_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
+        is_tox_ini_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -52011,6 +52032,39 @@ mod func_like_line_tests {
         assert!(!is_lightdm_conf_decl("[global]"));
         assert!(is_xorg_conf_decl("Section \"Device\""));
         assert!(!is_lightdm_conf_decl("Section \"Device\""));
+    }
+
+    #[test]
+    fn gdm_conf_sections_count() {
+        assert!(line_is_func_like("[daemon]"));
+        assert!(line_is_func_like("  [security] # pam"));
+        assert!(line_is_func_like("[xdmcp]"));
+        assert!(line_is_func_like("[chooser]"));
+        assert!(line_is_func_like("[debug]"));
+        assert!(line_is_func_like("[greeter]"));
+        assert!(line_is_func_like("[daemon] ; comment"));
+        // Wrong case / unknown / key lines.
+        assert!(!is_gdm_conf_decl("[Daemon]"));
+        assert!(!is_gdm_conf_decl("[DAEMON]"));
+        assert!(!is_gdm_conf_decl("[Security]"));
+        assert!(!is_gdm_conf_decl("[Foo]"));
+        assert!(!is_gdm_conf_decl("AutomaticLoginEnable=true"));
+        assert!(!is_gdm_conf_decl("WaylandEnable=false"));
+        // Neighbouring INI / DM families stay on their paths.
+        assert!(is_lightdm_conf_decl("[LightDM]"));
+        assert!(!is_gdm_conf_decl("[LightDM]"));
+        assert!(is_lightdm_conf_decl("[XDMCPServer]"));
+        assert!(!is_gdm_conf_decl("[XDMCPServer]"));
+        assert!(is_sssd_conf_decl("[sssd]"));
+        assert!(!is_gdm_conf_decl("[sssd]"));
+        assert!(is_fail2ban_conf_decl("[DEFAULT]"));
+        assert!(!is_gdm_conf_decl("[DEFAULT]"));
+        assert!(is_aws_config_decl("[default]"));
+        assert!(!is_gdm_conf_decl("[default]"));
+        assert!(is_samba_conf_decl("[global]"));
+        assert!(!is_gdm_conf_decl("[global]"));
+        assert!(is_xorg_conf_decl("Section \"Device\""));
+        assert!(!is_gdm_conf_decl("Section \"Device\""));
     }
 
     #[test]
