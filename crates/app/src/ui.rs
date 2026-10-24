@@ -32306,6 +32306,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pam_conf_decl(s)
             || is_sudoers_decl(s)
             || is_limits_conf_decl(s)
+            || is_access_conf_decl(s)
         {
             return true;
         }
@@ -32463,6 +32464,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pam_conf_decl(s)
         || is_sudoers_decl(s)
         || is_limits_conf_decl(s)
+        || is_access_conf_decl(s)
     {
         return true;
     }
@@ -45060,6 +45062,105 @@ fn limits_value_ok(tok: &str) -> bool {
     bytes[start..].iter().all(|b| b.is_ascii_digit())
 }
 
+/// `/etc/security/access.conf` (pam_access): `+ : root : LOCAL`,
+/// `- : ALL EXCEPT wheel : ALL`, `+ : @admins : .example.com`,
+/// `+ : (wheel) : ALL`, `+:root:LOCAL`. Permission `+` / `-`, then users,
+/// then origins, colon-separated. Optional `#` comment. Bare / prose /
+/// incomplete / neighbouring families stay out.
+fn is_access_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let after_perm = match s.as_bytes().first() {
+        Some(b'+' | b'-') => &s[1..],
+        _ => return false,
+    };
+    let after_perm = after_perm.trim_start();
+    let Some(after_first) = after_perm.strip_prefix(':') else {
+        return false;
+    };
+    let Some(colon2) = after_first.find(':') else {
+        return false;
+    };
+    let users = after_first[..colon2].trim();
+    let after_users = &after_first[colon2 + 1..];
+    let origins = if let Some(hash) = after_users.find('#') {
+        after_users[..hash].trim()
+    } else {
+        after_users.trim()
+    };
+    if users.is_empty() || origins.is_empty() {
+        return false;
+    }
+    // No further colon fields (three-field form only).
+    if origins.contains(':') {
+        return false;
+    }
+    access_conf_field_ok(users) && access_conf_field_ok(origins)
+}
+
+fn access_conf_field_ok(field: &str) -> bool {
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team", "note",
+    ];
+    if PROSE.iter().any(|w| field.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    let mut saw = false;
+    for tok in field.split_whitespace() {
+        if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+            // `ALL EXCEPT …` / `EXCEPT` are stock; lone prose stays out.
+            if !tok.eq_ignore_ascii_case("except") {
+                return false;
+            }
+            continue;
+        }
+        if !access_conf_token_ok(tok) {
+            return false;
+        }
+        saw = true;
+    }
+    saw
+}
+
+fn access_conf_token_ok(tok: &str) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    if tok.eq_ignore_ascii_case("ALL")
+        || tok.eq_ignore_ascii_case("LOCAL")
+        || tok.eq_ignore_ascii_case("EXCEPT")
+    {
+        return true;
+    }
+    // `(group)` or bare group/user / @netgroup / .domain / host / IP / CIDR.
+    let inner = if tok.starts_with('(') && tok.ends_with(')') && tok.len() >= 3 {
+        &tok[1..tok.len() - 1]
+    } else {
+        tok
+    };
+    let bytes = inner.as_bytes();
+    if bytes.is_empty() {
+        return false;
+    }
+    // Leading `@` (netgroup) or `.` (domain) ok.
+    let start = if matches!(bytes[0], b'@' | b'.') {
+        1
+    } else {
+        0
+    };
+    if start >= bytes.len() {
+        return false;
+    }
+    if !(bytes[start].is_ascii_alphanumeric() || bytes[start] == b'_') {
+        return false;
+    }
+    bytes[start..].iter().all(|&b| {
+        b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/' | b'*' | b'+' | b'%')
+    })
+}
+
 /// udev rules: `KERNEL=="sda"`, `SUBSYSTEM=="usb", ATTR{idVendor}=="1234",
 /// MODE="0666"`, `ACTION=="add", RUN+="/usr/local/bin/…"`, `LABEL="end"`,
 /// `GOTO="end"`, `ENV{DEVTYPE}=="disk"`. Match/assign keys with `==` / `!=` /
@@ -47737,21 +47838,21 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 #[cfg(test)]
 mod func_like_line_tests {
     use super::{
-        is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl, is_audit_rules_decl,
-        is_aws_config_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
-        is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl,
-        is_editorconfig_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
-        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
-        is_haproxy_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
-        is_openvpn_decl, is_package_json_decl, is_pam_conf_decl, is_php_ini_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl,
-        is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_sudoers_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
+        is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
+        is_audit_rules_decl, is_aws_config_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl,
+        is_cargo_toml_decl, is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl,
+        is_dovecot_decl, is_editorconfig_decl, is_fail2ban_conf_decl, is_fluent_bit_decl,
+        is_freeradius_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
+        is_grafana_ini_decl, is_haproxy_decl, is_ipsec_conf_decl, is_keepalived_decl,
+        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nm_connection_decl, is_openvpn_decl, is_package_json_decl, is_pam_conf_decl,
+        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
+        is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl, is_supervisord_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
+        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -53846,6 +53947,41 @@ mod func_like_line_tests {
         assert!(is_audit_rules_decl("-w /etc/passwd -p wa -k identity"));
         assert!(!is_limits_conf_decl("-w /etc/passwd -p wa -k identity"));
         assert!(!line_is_func_like("the soft nofile 1024"));
+        // access.conf stays on its path.
+        assert!(is_access_conf_decl("+ : root : LOCAL"));
+        assert!(!is_limits_conf_decl("+ : root : LOCAL"));
+    }
+
+    #[test]
+    fn access_conf_rules_count() {
+        assert!(line_is_func_like("+ : root : LOCAL"));
+        assert!(line_is_func_like("- : ALL EXCEPT wheel : ALL"));
+        assert!(line_is_func_like("+ : @admins : .example.com"));
+        assert!(line_is_func_like("+ : (wheel) : ALL"));
+        assert!(line_is_func_like("+:root:LOCAL"));
+        assert!(line_is_func_like("- : ALL : ALL # deny"));
+        assert!(line_is_func_like("  + : alice bob : 192.168.1.0/24"));
+        assert!(line_is_func_like("+ : root : LOCAL.LAN"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_access_conf_decl("+"));
+        assert!(!is_access_conf_decl("+ : root"));
+        assert!(!is_access_conf_decl("+ : root :"));
+        assert!(!is_access_conf_decl("+ : the : LOCAL"));
+        assert!(!is_access_conf_decl("+ : root : the"));
+        assert!(!is_access_conf_decl("+ : the team : LOCAL"));
+        assert!(!is_access_conf_decl("# + : root : LOCAL"));
+        assert!(!is_access_conf_decl("not an access line"));
+        assert!(!is_access_conf_decl("root : LOCAL")); // missing +/-
+                                                       // Neighbouring families stay on their paths.
+        assert!(is_limits_conf_decl("* soft nofile 1024"));
+        assert!(!is_access_conf_decl("* soft nofile 1024"));
+        assert!(is_sudoers_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(!is_access_conf_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(is_pam_conf_decl("auth required pam_unix.so"));
+        assert!(!is_access_conf_decl("auth required pam_unix.so"));
+        assert!(is_audit_rules_decl("-w /etc/passwd -p wa -k identity"));
+        assert!(!is_access_conf_decl("-w /etc/passwd -p wa -k identity"));
+        assert!(!line_is_func_like("+ : the : LOCAL"));
     }
 
     #[test]

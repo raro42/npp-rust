@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.578] — 2026-10-24
+
+View:
+
+- **Function List** lists `/etc/security/access.conf` (pam_access) rules: `+ : root : LOCAL`, `- : ALL EXCEPT wheel : ALL`, `+ : @admins : .example.com`, `+ : (wheel) : ALL`, `+:root:LOCAL`. Permission `+` / `-`, then users, then origins, colon-separated. Optional `#` comment. Bare / prose / incomplete / neighbouring families stay out.
+
 ## [0.3.577] — 2026-10-24
 
 View:

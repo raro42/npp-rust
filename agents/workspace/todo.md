@@ -824,3 +824,5 @@
 009 keep: Function List sudoers rules (v0.3.576)
 
 009 keep: Function List /etc/security/limits.conf soft/hard/- rules (v0.3.577)
+
+009 keep: Function List /etc/security/access.conf pam_access rules (v0.3.578)
