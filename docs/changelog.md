@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.568] — 2026-10-24
+
+View:
+
+- **Function List** lists SDDM `sddm.conf` sections: `[General]`, `[Theme]`, `[Users]`, `[X11]`, `[Wayland]`, `[Autologin]`. Exact stock casing. Optional `#` / `;` comment. Wrong case, LightDM / GDM / AWS / Samba / Fail2ban / SSSD / Kerberos / WireGuard / systemd / PHP capitals, Cargo / Grafana tables, incomplete brackets, and key lines stay out.
+
 ## [0.3.567] — 2026-10-24
 
 View:
