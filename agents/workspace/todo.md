@@ -1,3 +1,4 @@
+009 keep: Function List SDDM [General]/[Theme]/[Users]/[X11]/[Wayland]/[Autologin] (v0.3.568)
 009 keep: Function List GDM [daemon]/[security]/[xdmcp]/[chooser]/[debug]/[greeter] (v0.3.567)
 009 keep: Function List LightDM [LightDM]/[Seat:*]/[Seat:name]/[XDMCPServer]/[VNCServer]/[SeatDefaults] (v0.3.566)
 009 keep: Function List Xorg Section ServerLayout/Files/Module/InputDevice/InputClass/Device/VideoAdaptor/Monitor/Modes/Screen/Vendor/ServerFlags/Display/Extensions/DRI/Pointer/Keyboard (v0.3.565)
