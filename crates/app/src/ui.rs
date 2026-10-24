@@ -32287,6 +32287,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_freeradius_decl(s)
             || is_ipsec_conf_decl(s)
             || is_openvpn_decl(s)
+            || is_samba_conf_decl(s)
         {
             return true;
         }
@@ -32426,6 +32427,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_freeradius_decl(s)
         || is_ipsec_conf_decl(s)
         || is_openvpn_decl(s)
+        || is_samba_conf_decl(s)
     {
         return true;
     }
@@ -43804,6 +43806,25 @@ fn openvpn_tail(rest: &str) -> bool {
     rest.is_empty() || rest.starts_with('#') || rest.starts_with(';')
 }
 
+/// Samba `smb.conf` special sections: `[global]`, `[homes]`, `[printers]`,
+/// `[print$]`, `[IPC$]`, `[netlogon]`, `[sysvol]`. Optional `#` / `;`
+/// comment. Wrong case, free-form share names, Cargo / Grafana tables,
+/// WireGuard / systemd / PHP capitals, incomplete brackets, and key lines
+/// stay out.
+fn is_samba_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    matches!(
+        header,
+        "global" | "homes" | "printers" | "print$" | "IPC$" | "netlogon" | "sysvol"
+    )
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -46101,9 +46122,9 @@ mod func_like_line_tests {
         is_keepalived_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
         is_nginx_conf_decl, is_openvpn_decl, is_package_json_decl, is_php_ini_decl,
         is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
-        is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
-        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
+        is_samba_conf_decl, is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl,
+        is_syslog_ng_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
+        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -51501,6 +51522,41 @@ mod func_like_line_tests {
         assert!(!is_openvpn_decl("<VirtualHost *:80>"));
         assert!(is_ipsec_conf_decl("conn vpn"));
         assert!(!is_openvpn_decl("conn vpn"));
+    }
+
+    #[test]
+    fn samba_conf_sections_count() {
+        assert!(line_is_func_like("[global]"));
+        assert!(line_is_func_like("  [homes] # users"));
+        assert!(line_is_func_like("[printers] ; cups"));
+        assert!(line_is_func_like("[print$]"));
+        assert!(line_is_func_like("[IPC$]"));
+        assert!(line_is_func_like("[netlogon]"));
+        assert!(line_is_func_like("[sysvol]"));
+        // Free-form shares / wrong case / other tables stay out.
+        assert!(!is_samba_conf_decl("[public]"));
+        assert!(!is_samba_conf_decl("[share$]"));
+        assert!(!is_samba_conf_decl("[Global]"));
+        assert!(!is_samba_conf_decl("[HOMES]"));
+        assert!(!is_samba_conf_decl("[ipc$]"));
+        assert!(!is_samba_conf_decl("[dependencies]"));
+        assert!(!is_samba_conf_decl("[section]"));
+        assert!(!is_samba_conf_decl("[[global]]"));
+        assert!(!is_samba_conf_decl("[global"));
+        assert!(!is_samba_conf_decl("path = /srv/samba"));
+        assert!(!is_samba_conf_decl("workgroup = WORKGROUP"));
+        // WireGuard / systemd / PHP capitals stay on their paths.
+        assert!(is_wireguard_config_decl("[Interface]"));
+        assert!(!is_samba_conf_decl("[Interface]"));
+        assert!(is_systemd_unit_decl("[Unit]"));
+        assert!(!is_samba_conf_decl("[Unit]"));
+        assert!(is_php_ini_decl("[PHP]"));
+        assert!(!is_samba_conf_decl("[PHP]"));
+        // OpenVPN / ipsec stay on theirs.
+        assert!(is_openvpn_decl("<ca>"));
+        assert!(!is_samba_conf_decl("<ca>"));
+        assert!(is_ipsec_conf_decl("conn vpn"));
+        assert!(!is_samba_conf_decl("conn vpn"));
     }
 
     #[test]

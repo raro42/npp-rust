@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.560] — 2026-10-24
+
+View:
+
+- **Function List** lists Samba `smb.conf` special sections: `[global]`, `[homes]`, `[printers]`, `[print$]`, `[IPC$]`, `[netlogon]`, `[sysvol]`. Optional `#` / `;` comment. Wrong case, free-form share names, Cargo / Grafana tables, WireGuard / systemd / PHP capitals, incomplete brackets, and key lines stay out.
+
 ## [0.3.559] — 2026-10-24
 
 View:
