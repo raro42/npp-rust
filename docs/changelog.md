@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.580] — 2026-10-24
+
+View:
+
+- **Function List** lists `/etc/fstab` entries: `UUID=… / ext4 defaults 0 1`, `/dev/sda1 /boot ext4 defaults 0 2`, `tmpfs /tmp tmpfs defaults 0 0`, `LABEL=home /home xfs defaults 0 2`, `//server/share /mnt/cifs cifs credentials=… 0 0`, `server:/export /mnt/nfs nfs defaults 0 0`, `/swapfile none swap sw 0 0`. Spec, mount point, type, options, optional dump + pass. Optional `#` comment. Bare / prose / incomplete / neighbouring families stay out.
+
 ## [0.3.579] — 2026-10-24
 
 View:

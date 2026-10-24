@@ -1,3 +1,5 @@
+009 keep: Function List /etc/fstab UUID/LABEL/tmpfs/CIFS/NFS entries (v0.3.580)
+
 009 keep: Function List Linux audit.rules -w/-a/-A/-D/-b/-f/-e/-r/-i/--loginuid-immutable (v0.3.574)
 
 009 keep: Function List udev rules KERNEL/ATTR/LABEL/GOTO/RUN+= (v0.3.573)

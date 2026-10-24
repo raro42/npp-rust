@@ -32149,8 +32149,12 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `created` and `create a note` stay out.
 fn line_is_func_like(line: &str) -> bool {
     let mut s = line.trim_end_matches(['\n', '\r']).trim_start();
-    if s.is_empty() || s.starts_with("//") || s.starts_with("/*") {
+    if s.is_empty() || s.starts_with("/*") {
         return false;
+    }
+    // `// comment` stays out; CIFS fstab sources (`//server/share …`) count.
+    if s.starts_with("//") {
+        return is_fstab_decl(s);
     }
     if let Some(rest) = strip_leading_rust_attrs(s) {
         s = rest;
@@ -32308,6 +32312,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_limits_conf_decl(s)
             || is_access_conf_decl(s)
             || is_hosts_access_decl(s)
+            || is_fstab_decl(s)
         {
             return true;
         }
@@ -32467,6 +32472,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_limits_conf_decl(s)
         || is_access_conf_decl(s)
         || is_hosts_access_decl(s)
+        || is_fstab_decl(s)
     {
         return true;
     }
@@ -45324,6 +45330,309 @@ fn hosts_access_token_ok(tok: &str, clients: bool) -> bool {
         .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/' | b'*'))
 }
 
+/// `/etc/fstab`: `UUID=… / ext4 defaults 0 1`, `/dev/sda1 /boot ext4 defaults 0 2`,
+/// `tmpfs /tmp tmpfs defaults 0 0`, `LABEL=home /home xfs defaults 0 2`,
+/// `//server/share /mnt cifs credentials=/etc/creds 0 0`,
+/// `server:/export /mnt nfs defaults 0 0`. Spec, mount point, type, options,
+/// optional dump + pass. Optional `#` comment. Bare / prose / incomplete /
+/// neighbouring families stay out.
+fn is_fstab_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let mut fields = Vec::with_capacity(6);
+    let mut rest = body;
+    while fields.len() < 6 {
+        let Some((tok, after)) = fstab_next_token(rest) else {
+            break;
+        };
+        fields.push(tok);
+        rest = after;
+    }
+    if !rest.trim_start().is_empty() {
+        return false;
+    }
+    if fields.len() < 4 || fields.len() > 6 {
+        return false;
+    }
+    let spec = fields[0];
+    let mnt = fields[1];
+    let fstype = fields[2];
+    let opts = fields[3];
+    if !fstab_spec_ok(spec)
+        || !fstab_mount_ok(mnt)
+        || !fstab_type_ok(fstype)
+        || !fstab_opts_ok(opts)
+    {
+        return false;
+    }
+    if fields.len() >= 5 && !fstab_number_ok(fields[4]) {
+        return false;
+    }
+    if fields.len() == 6 && !fstab_number_ok(fields[5]) {
+        return false;
+    }
+    true
+}
+
+fn fstab_next_token(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() {
+        return None;
+    }
+    let end = s.find(char::is_whitespace).unwrap_or(s.len());
+    if end == 0 {
+        return None;
+    }
+    Some((&s[..end], &s[end..]))
+}
+
+fn fstab_spec_ok(tok: &str) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team", "note",
+    ];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    // UUID= / LABEL= / PARTUUID= / PARTLABEL= / …
+    if let Some((key, val)) = tok.split_once('=') {
+        if key.is_empty() || val.is_empty() {
+            return false;
+        }
+        if !key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_') {
+            return false;
+        }
+        return val
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b':' | b'.' | b'/'));
+    }
+    // Device / bind path.
+    if tok.starts_with('/') {
+        return tok.len() > 1
+            && tok.as_bytes()[1..]
+                .iter()
+                .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/'));
+    }
+    // CIFS `//server/share`.
+    if let Some(rest) = tok.strip_prefix("//") {
+        return !rest.is_empty()
+            && rest
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/'));
+    }
+    // NFS `host:/export` (host may be dotted; path after first `:/`).
+    if let Some((host, path)) = tok.split_once(":/") {
+        if host.is_empty() || path.is_empty() {
+            return false;
+        }
+        let host_ok = host
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'));
+        let path_ok = path
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/'));
+        return host_ok && path_ok;
+    }
+    // Pseudo / special sources: tmpfs, proc, none, swap, …
+    fstab_special_source(tok)
+}
+
+fn fstab_special_source(tok: &str) -> bool {
+    matches!(
+        tok,
+        "tmpfs"
+            | "proc"
+            | "sysfs"
+            | "devtmpfs"
+            | "devpts"
+            | "cgroup"
+            | "cgroup2"
+            | "securityfs"
+            | "debugfs"
+            | "pstore"
+            | "efivarfs"
+            | "hugetlbfs"
+            | "mqueue"
+            | "overlay"
+            | "configfs"
+            | "binfmt_misc"
+            | "autofs"
+            | "fusectl"
+            | "none"
+            | "swap"
+            | "ramfs"
+            | "bpf"
+            | "tracefs"
+    )
+}
+
+fn fstab_mount_ok(tok: &str) -> bool {
+    if tok == "none" || tok == "swap" {
+        return true;
+    }
+    if tok == "/" {
+        return true;
+    }
+    if !tok.starts_with('/') || tok.len() < 2 {
+        return false;
+    }
+    tok.as_bytes()[1..]
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/'))
+}
+
+fn fstab_type_ok(tok: &str) -> bool {
+    if tok.is_empty() || tok.len() > 32 {
+        return false;
+    }
+    const PROSE: &[&str] = &["the", "a", "an", "to", "of", "for", "and", "or", "is"];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    // Stock / common types (case-sensitive as in fstab).
+    const TYPES: &[&str] = &[
+        "ext2",
+        "ext3",
+        "ext4",
+        "xfs",
+        "btrfs",
+        "f2fs",
+        "vfat",
+        "fat",
+        "msdos",
+        "ntfs",
+        "ntfs3",
+        "exfat",
+        "swap",
+        "tmpfs",
+        "proc",
+        "sysfs",
+        "devtmpfs",
+        "devpts",
+        "cgroup",
+        "cgroup2",
+        "nfs",
+        "nfs4",
+        "cifs",
+        "smb3",
+        "smbfs",
+        "iso9660",
+        "udf",
+        "squashfs",
+        "overlay",
+        "fuse",
+        "fuseblk",
+        "fusectl",
+        "auto",
+        "none",
+        "bind",
+        "ramfs",
+        "zfs",
+        "jfs",
+        "reiserfs",
+        "hfsplus",
+        "apfs",
+        "erofs",
+        "ubifs",
+        "jffs2",
+        "minix",
+        "romfs",
+        "bpf",
+        "tracefs",
+        "securityfs",
+        "debugfs",
+        "pstore",
+        "efivarfs",
+        "hugetlbfs",
+        "mqueue",
+        "configfs",
+        "binfmt_misc",
+        "autofs",
+    ];
+    if TYPES.contains(&tok) {
+        return true;
+    }
+    // Fuse helpers: `fuse.sshfs`, `fuse.rclone`.
+    if let Some(rest) = tok.strip_prefix("fuse.") {
+        return !rest.is_empty()
+            && rest
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'));
+    }
+    false
+}
+
+fn fstab_opts_ok(tok: &str) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team",
+    ];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    // Distinctive: comma list, `=` kv, or stock single option.
+    if tok.contains(',') || tok.contains('=') {
+        return tok.bytes().all(|b| {
+            b.is_ascii_alphanumeric()
+                || matches!(
+                    b,
+                    b'_' | b'-' | b'.' | b'/' | b',' | b'=' | b':' | b'@' | b'+' | b'%'
+                )
+        });
+    }
+    matches!(
+        tok,
+        "defaults"
+            | "ro"
+            | "rw"
+            | "sw"
+            | "noatime"
+            | "relatime"
+            | "nodiratime"
+            | "nosuid"
+            | "nodev"
+            | "noexec"
+            | "sync"
+            | "async"
+            | "user"
+            | "users"
+            | "owner"
+            | "auto"
+            | "noauto"
+            | "exec"
+            | "suid"
+            | "dev"
+            | "bind"
+            | "rbind"
+            | "nofail"
+            | "discard"
+            | "compress"
+    ) || (tok
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
+        && tok.len() >= 2
+        && tok.len() <= 40
+        && tok.bytes().any(|b| b.is_ascii_alphabetic()))
+}
+
+fn fstab_number_ok(tok: &str) -> bool {
+    !tok.is_empty() && tok.bytes().all(|b| b.is_ascii_digit()) && tok.len() <= 3
+}
+
 /// udev rules: `KERNEL=="sda"`, `SUBSYSTEM=="usb", ATTR{idVendor}=="1234",
 /// MODE="0666"`, `ACTION=="add", RUN+="/usr/local/bin/…"`, `LABEL="end"`,
 /// `GOTO="end"`, `ENV{DEVTYPE}=="disk"`. Match/assign keys with `==` / `!=` /
@@ -48005,14 +48314,14 @@ mod func_like_line_tests {
         is_audit_rules_decl, is_aws_config_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl,
         is_cargo_toml_decl, is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl,
         is_dovecot_decl, is_editorconfig_decl, is_fail2ban_conf_decl, is_fluent_bit_decl,
-        is_freeradius_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
-        is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl, is_ipsec_conf_decl,
-        is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl,
-        is_logrotate_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nm_connection_decl, is_openvpn_decl, is_package_json_decl,
-        is_pam_conf_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl,
-        is_sddm_conf_decl, is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl,
+        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl,
+        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_logrotate_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_openvpn_decl,
+        is_package_json_decl, is_pam_conf_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl,
+        is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl, is_samba_conf_decl,
+        is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl,
         is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
         is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_udev_rule_decl,
         is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
@@ -54186,6 +54495,53 @@ mod func_like_line_tests {
         assert!(is_pam_conf_decl("auth required pam_unix.so"));
         assert!(!is_hosts_access_decl("auth required pam_unix.so"));
         assert!(!line_is_func_like("ALL: the"));
+        // fstab stays on its path.
+        assert!(is_fstab_decl("UUID=abcd-1234 / ext4 defaults 0 1"));
+        assert!(!is_hosts_access_decl("UUID=abcd-1234 / ext4 defaults 0 1"));
+    }
+
+    #[test]
+    fn fstab_entries_count() {
+        assert!(line_is_func_like("UUID=abcd-1234 / ext4 defaults 0 1"));
+        assert!(line_is_func_like("/dev/sda1 /boot ext4 defaults 0 2"));
+        assert!(line_is_func_like("tmpfs /tmp tmpfs defaults 0 0"));
+        assert!(line_is_func_like("LABEL=home /home xfs defaults 0 2"));
+        assert!(line_is_func_like(
+            "//server/share /mnt/cifs cifs credentials=/etc/creds,uid=1000 0 0"
+        ));
+        assert!(line_is_func_like(
+            "server:/export /mnt/nfs nfs defaults 0 0"
+        ));
+        assert!(line_is_func_like(
+            "  /swapfile none swap sw 0 0 # hibernation"
+        ));
+        assert!(line_is_func_like("proc /proc proc defaults"));
+        assert!(line_is_func_like(
+            "/dev/mapper/root / ext4 noatime,nodiratime 0 1"
+        ));
+        assert!(line_is_func_like("none /dev/pts devpts gid=5,mode=620 0 0"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_fstab_decl("UUID=abcd-1234"));
+        assert!(!is_fstab_decl("UUID=abcd-1234 /"));
+        assert!(!is_fstab_decl("UUID=abcd-1234 / ext4"));
+        assert!(!is_fstab_decl("the / team of tools"));
+        assert!(!is_fstab_decl("/dev/sda1 the ext4 defaults 0 1"));
+        assert!(!is_fstab_decl("# UUID=abcd-1234 / ext4 defaults 0 1"));
+        assert!(!is_fstab_decl("not an fstab line"));
+        assert!(!is_fstab_decl("UUID= / ext4 defaults 0 1"));
+        assert!(!is_fstab_decl("/dev/sda1 /boot weirdtype defaults 0 1"));
+        // Neighbouring families stay on their paths.
+        assert!(is_hosts_access_decl("ALL: LOCAL"));
+        assert!(!is_fstab_decl("ALL: LOCAL"));
+        assert!(is_limits_conf_decl("* soft nofile 1024"));
+        assert!(!is_fstab_decl("* soft nofile 1024"));
+        assert!(is_access_conf_decl("+ : root : LOCAL"));
+        assert!(!is_fstab_decl("+ : root : LOCAL"));
+        assert!(is_sudoers_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(!is_fstab_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(is_pam_conf_decl("auth required pam_unix.so"));
+        assert!(!is_fstab_decl("auth required pam_unix.so"));
+        assert!(!line_is_func_like("the / team of tools"));
     }
 
     #[test]
