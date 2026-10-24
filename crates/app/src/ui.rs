@@ -32302,6 +32302,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_logrotate_decl(s)
             || is_udev_rule_decl(s)
             || is_audit_rules_decl(s)
+            || is_pam_conf_decl(s)
         {
             return true;
         }
@@ -32456,6 +32457,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_logrotate_decl(s)
         || is_udev_rule_decl(s)
         || is_audit_rules_decl(s)
+        || is_pam_conf_decl(s)
     {
         return true;
     }
@@ -44300,6 +44302,215 @@ fn audit_rules_list_action(pair: &str) -> bool {
     (a_list && b_act) || (a_act && b_list)
 }
 
+/// Linux-PAM `pam.conf` / `pam.d` rules: `auth required pam_unix.so`,
+/// `account requisite pam_unix.so`, `-password optional pam_gnome_keyring.so`,
+/// `session [success=1 default=ignore] pam_succeed_if.so …`,
+/// `login auth required pam_unix.so` (pam.conf with service),
+/// `auth include system-auth`, `auth substack password-auth`,
+/// `@include common-auth`. Type/control case-insensitive; optional leading
+/// `-` on type (quiet missing module). Optional `#` comment. Bare types,
+/// prose (`auth the unix`), incomplete, and non-PAM lines stay out.
+fn is_pam_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    // Debian/Ubuntu include: `@include common-auth`
+    if let Some(rest) = s.strip_prefix("@include") {
+        if !rest.starts_with(char::is_whitespace) {
+            return false;
+        }
+        let rest = rest.trim_start();
+        let end = rest
+            .find(|c: char| c.is_whitespace() || c == '#')
+            .unwrap_or(rest.len());
+        if end == 0 {
+            return false;
+        }
+        let name = &rest[..end];
+        // Debian/Ubuntu `@include common-auth` — not Sass `@include mixin`.
+        if !pam_at_include_name_ok(name) {
+            return false;
+        }
+        let after = rest[end..].trim_start();
+        return after.is_empty() || after.starts_with('#');
+    }
+
+    // Optional service (pam.conf) then type control module-path …
+    let (first, after_first) = match pam_next_token(s) {
+        Some(pair) => pair,
+        None => return false,
+    };
+    let after_type = if pam_type_ok(first) {
+        after_first
+    } else {
+        // pam.conf: service type …
+        if !pam_service_ok(first) {
+            return false;
+        }
+        match pam_next_token(after_first) {
+            Some((t, a)) if pam_type_ok(t) => a,
+            _ => return false,
+        }
+    };
+
+    let Some((control, after_control)) = pam_parse_control(after_type) else {
+        return false;
+    };
+    let include_like = matches!(
+        control.to_ascii_lowercase().as_str(),
+        "include" | "substack"
+    );
+    let Some((module, after_module)) = pam_next_token(after_control) else {
+        return false;
+    };
+    if !pam_module_ok(module, include_like) {
+        return false;
+    }
+    // Remainder may hold module arguments; accept anything (or comment).
+    let _ = after_module;
+    true
+}
+
+fn pam_next_token(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return None;
+    }
+    let end = s
+        .find(|c: char| c.is_whitespace() || c == '#')
+        .unwrap_or(s.len());
+    if end == 0 {
+        return None;
+    }
+    Some((&s[..end], &s[end..]))
+}
+
+fn pam_type_ok(tok: &str) -> bool {
+    let t = tok.strip_prefix('-').unwrap_or(tok);
+    matches!(
+        t.to_ascii_lowercase().as_str(),
+        "auth" | "account" | "password" | "session"
+    )
+}
+
+fn pam_service_ok(tok: &str) -> bool {
+    if tok.is_empty() || tok.starts_with('-') {
+        return false;
+    }
+    // Service names are lowercase identifiers (login, su, other, sshd…).
+    let bytes = tok.as_bytes();
+    if !bytes[0].is_ascii_lowercase() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
+}
+
+fn pam_parse_control(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return None;
+    }
+    if s.starts_with('[') {
+        let end = s.find(']')?;
+        let control = &s[..=end];
+        let inner = &control[1..control.len() - 1];
+        if inner.is_empty() {
+            return None;
+        }
+        // Every space-separated token must be `value=action`.
+        if !inner.split_whitespace().all(|pair| {
+            let Some((v, a)) = pair.split_once('=') else {
+                return false;
+            };
+            !v.is_empty() && !a.is_empty()
+        }) {
+            return None;
+        }
+        return Some((control, &s[end + 1..]));
+    }
+    let (tok, rest) = pam_next_token(s)?;
+    const SIMPLE: &[&str] = &[
+        "required",
+        "requisite",
+        "sufficient",
+        "optional",
+        "include",
+        "substack",
+    ];
+    if !SIMPLE.iter().any(|k| tok.eq_ignore_ascii_case(k)) {
+        return None;
+    }
+    Some((tok, rest))
+}
+
+fn pam_module_ok(tok: &str, include_like: bool) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    // Prose guards.
+    const PROSE: &[&str] = &["the", "a", "an", "to", "of", "for", "and", "or"];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    if include_like {
+        return pam_include_name_ok(tok);
+    }
+    // Module path: `pam_unix.so`, `/lib/security/pam_unix.so`, relative path.
+    if tok.ends_with(".so") {
+        return tok.len() > 3
+            && tok
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/'));
+    }
+    if tok.starts_with('/') {
+        return tok.len() > 1
+            && tok
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/'));
+    }
+    false
+}
+
+fn pam_include_name_ok(tok: &str) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    const PROSE: &[&str] = &["the", "a", "an", "to", "of", "for", "and", "or"];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    // pam.d include / substack target: `system-auth`, `password-auth`.
+    let bytes = tok.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric()
+        || bytes[0] == b'_'
+        || bytes[0] == b'.'
+        || bytes[0] == b'/')
+    {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/'))
+}
+
+/// `@include` must look like a PAM drop-in (`common-auth`), not Sass `@include mixin`.
+fn pam_at_include_name_ok(tok: &str) -> bool {
+    if !pam_include_name_ok(tok) || tok.contains('(') {
+        return false;
+    }
+    let lower = tok.to_ascii_lowercase();
+    const MARKERS: &[&str] = &["auth", "account", "session", "password"];
+    MARKERS.iter().any(|m| {
+        lower == *m
+            || lower.starts_with(&format!("{m}-"))
+            || lower.ends_with(&format!("-{m}"))
+            || lower.contains(&format!("-{m}-"))
+    })
+}
+
 /// udev rules: `KERNEL=="sda"`, `SUBSYSTEM=="usb", ATTR{idVendor}=="1234",
 /// MODE="0666"`, `ACTION=="add", RUN+="/usr/local/bin/…"`, `LABEL="end"`,
 /// `GOTO="end"`, `ENV{DEVTYPE}=="disk"`. Match/assign keys with `==` / `!=` /
@@ -46985,12 +47196,13 @@ mod func_like_line_tests {
         is_haproxy_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
         is_lightdm_conf_decl, is_logrotate_decl, is_mysql_cnf_decl, is_named_conf_decl,
         is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_openvpn_decl,
-        is_package_json_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl,
-        is_sddm_conf_decl, is_ssh_config_decl, is_sssd_conf_decl, is_supervisord_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
-        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
+        is_package_json_decl, is_pam_conf_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl,
+        is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl, is_samba_conf_decl,
+        is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -52945,6 +53157,51 @@ mod func_like_line_tests {
         assert!(is_logrotate_decl("/var/log/messages {"));
         assert!(!is_audit_rules_decl("/var/log/messages {"));
         assert!(line_is_func_like("KERNEL==\"sda\""));
+        // PAM stays on its path.
+        assert!(is_pam_conf_decl("auth required pam_unix.so"));
+        assert!(!is_audit_rules_decl("auth required pam_unix.so"));
+    }
+
+    #[test]
+    fn pam_conf_rules_count() {
+        assert!(line_is_func_like("auth required pam_unix.so"));
+        assert!(line_is_func_like("account requisite pam_unix.so # check"));
+        assert!(line_is_func_like("-password optional pam_gnome_keyring.so"));
+        assert!(line_is_func_like(
+            "session [success=1 default=ignore] pam_succeed_if.so uid > 1000"
+        ));
+        assert!(line_is_func_like("login auth required pam_unix.so"));
+        assert!(line_is_func_like("sshd session optional pam_motd.so"));
+        assert!(line_is_func_like("auth include system-auth"));
+        assert!(line_is_func_like("auth substack password-auth"));
+        assert!(line_is_func_like("@include common-auth"));
+        assert!(line_is_func_like("  @include common-password # deb"));
+        assert!(line_is_func_like(
+            "auth required /lib/security/pam_unix.so nullok"
+        ));
+        assert!(line_is_func_like("AUTH REQUIRED pam_unix.so"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_pam_conf_decl("auth"));
+        assert!(!is_pam_conf_decl("auth required"));
+        assert!(!is_pam_conf_decl("auth the unix"));
+        assert!(!is_pam_conf_decl("auth required the"));
+        assert!(!is_pam_conf_decl("@include"));
+        assert!(!is_pam_conf_decl("@include the"));
+        assert!(!is_pam_conf_decl("@include flex-center")); // Sass
+        assert!(!is_pam_conf_decl("@Include common-auth"));
+        assert!(!is_pam_conf_decl("include common-auth"));
+        assert!(!is_pam_conf_decl("not a pam rule"));
+        assert!(!is_pam_conf_decl(
+            "session [success default=ignore] pam_unix.so"
+        ));
+        // Neighbouring families stay on their paths.
+        assert!(is_audit_rules_decl("-w /etc/passwd -p wa -k identity"));
+        assert!(!is_pam_conf_decl("-w /etc/passwd -p wa -k identity"));
+        assert!(is_udev_rule_decl("KERNEL==\"sda\""));
+        assert!(!is_pam_conf_decl("KERNEL==\"sda\""));
+        assert!(is_sssd_conf_decl("[sssd]"));
+        assert!(!is_pam_conf_decl("[sssd]"));
+        assert!(!line_is_func_like("@include flex-center"));
     }
 
     #[test]

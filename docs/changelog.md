@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.575] — 2026-10-24
+
+View:
+
+- **Function List** lists Linux-PAM `pam.conf` / `pam.d` rules: `auth required pam_unix.so`, `account requisite pam_unix.so`, `-password optional pam_gnome_keyring.so`, `session [success=1 default=ignore] pam_succeed_if.so …`, `login auth required pam_unix.so` (pam.conf with service), `auth include system-auth`, `auth substack password-auth`, `@include common-auth`. Type/control case-insensitive; optional leading `-` on type. Optional `#` comment. Bare types, prose (`auth the unix`), incomplete, wrong `@Include`, malformed bracket control, and non-PAM lines stay out.
+
 ## [0.3.574] — 2026-10-24
 
 View:
