@@ -32300,6 +32300,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_systemd_networkd_decl(s)
             || is_rsyslog_decl(s)
             || is_logrotate_decl(s)
+            || is_udev_rule_decl(s)
         {
             return true;
         }
@@ -32452,6 +32453,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_systemd_networkd_decl(s)
         || is_rsyslog_decl(s)
         || is_logrotate_decl(s)
+        || is_udev_rule_decl(s)
     {
         return true;
     }
@@ -44183,6 +44185,148 @@ fn is_systemd_networkd_decl(s: &str) -> bool {
     )
 }
 
+/// udev rules: `KERNEL=="sda"`, `SUBSYSTEM=="usb", ATTR{idVendor}=="1234",
+/// MODE="0666"`, `ACTION=="add", RUN+="/usr/local/bin/…"`, `LABEL="end"`,
+/// `GOTO="end"`, `ENV{DEVTYPE}=="disk"`. Match/assign keys with `==` / `!=` /
+/// `=` / `+=` / `-=` / `:=`. Optional `{…}` on ATTR / ATTRS / ENV / TAG /
+/// SYSCTL / SECLABEL / IMPORT. Optional `#` comment. Comma-separated fields.
+/// Bare keys, prose, wrong-case keys, and non-udev lines stay out.
+fn is_udev_rule_decl(s: &str) -> bool {
+    let mut rest = s.trim_start();
+    if rest.is_empty() || rest.starts_with('#') {
+        return false;
+    }
+    let mut saw = false;
+    loop {
+        rest = rest.trim_start();
+        if rest.is_empty() || rest.starts_with('#') {
+            return saw;
+        }
+        if saw {
+            let Some(after_comma) = rest.strip_prefix(',') else {
+                return false;
+            };
+            rest = after_comma.trim_start();
+            if rest.is_empty() || rest.starts_with('#') {
+                return false;
+            }
+        }
+        let Some(after_key) = udev_rule_key(rest) else {
+            return false;
+        };
+        let Some(after_op) = udev_rule_operator(after_key) else {
+            return false;
+        };
+        let Some(after_val) = udev_rule_value(after_op) else {
+            return false;
+        };
+        rest = after_val;
+        saw = true;
+    }
+}
+
+fn udev_rule_key(s: &str) -> Option<&str> {
+    // Longer / more-specific prefixes first (ATTRS before ATTR, KERNELS before
+    // KERNEL, WAIT_FOR / SECLABEL / SUBSYSTEM / DEVPATH / SYMLINK / PROGRAM /
+    // OPTIONS / RESULT / IMPORT / ACTION / DRIVER / OWNER / GROUP / CONST /
+    // LABEL / GOTO / MODE / NAME / TEST / ENV / TAG / RUN).
+    const KEYS: &[&str] = &[
+        "SUBSYSTEM",
+        "WAIT_FOR",
+        "SECLABEL",
+        "DEVPATH",
+        "KERNELS",
+        "KERNEL",
+        "SYMLINK",
+        "PROGRAM",
+        "OPTIONS",
+        "RESULT",
+        "IMPORT",
+        "ACTION",
+        "DRIVER",
+        "ATTRS",
+        "ATTR",
+        "SYSCTL",
+        "OWNER",
+        "GROUP",
+        "CONST",
+        "LABEL",
+        "GOTO",
+        "MODE",
+        "NAME",
+        "TEST",
+        "ENV",
+        "TAG",
+        "RUN",
+    ];
+    for key in KEYS {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        // Optional `{attr}` / `{program}` / …
+        let rest = if let Some(inner) = rest.strip_prefix('{') {
+            let end = inner.find('}')?;
+            if end == 0 {
+                return None;
+            }
+            &inner[end + 1..]
+        } else {
+            rest
+        };
+        // Must continue with an operator (`==` / `!=` / `=` / `+=` / …).
+        if rest.starts_with('=')
+            || rest.starts_with('!')
+            || rest.starts_with('+')
+            || rest.starts_with('-')
+            || rest.starts_with(':')
+        {
+            return Some(rest);
+        }
+        return None;
+    }
+    None
+}
+
+fn udev_rule_operator(s: &str) -> Option<&str> {
+    for op in ["==", "!=", "+=", "-=", ":=", "="] {
+        if let Some(rest) = s.strip_prefix(op) {
+            return Some(rest);
+        }
+    }
+    None
+}
+
+fn udev_rule_value(s: &str) -> Option<&str> {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(',') {
+        return None;
+    }
+    if s.starts_with('"') || s.starts_with('\'') {
+        let quote = s.as_bytes()[0];
+        let bytes = s.as_bytes();
+        let mut j = 1usize;
+        while j < bytes.len() {
+            if bytes[j] == b'\\' {
+                j = j.saturating_add(2);
+                continue;
+            }
+            if bytes[j] == quote {
+                return Some(&s[j + 1..]);
+            }
+            j += 1;
+        }
+        return None;
+    }
+    // Unquoted value until `,` / `#` / whitespace.
+    let end = s
+        .find(|c: char| c == ',' || c == '#' || c.is_ascii_whitespace())
+        .unwrap_or(s.len());
+    if end == 0 {
+        return None;
+    }
+    Some(&s[end..])
+}
+
 /// logrotate path-block openers and `include`: `/var/log/messages {`,
 /// `/var/log/httpd/*log {`, `/var/log/a.log /var/log/b.log {`,
 /// `"/var/log/odd name.log" {`, `include /etc/logrotate.d`. Exact lowercase
@@ -46730,8 +46874,8 @@ mod func_like_line_tests {
         is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl,
         is_sddm_conf_decl, is_ssh_config_decl, is_sssd_conf_decl, is_supervisord_conf_decl,
         is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
-        is_tox_ini_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
+        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -52611,6 +52755,42 @@ mod func_like_line_tests {
     }
 
     #[test]
+    fn udev_rules_count() {
+        assert!(line_is_func_like("KERNEL==\"sda\""));
+        assert!(line_is_func_like(
+            "SUBSYSTEM==\"usb\", ATTR{idVendor}==\"1234\", MODE=\"0666\""
+        ));
+        assert!(line_is_func_like(
+            "ACTION==\"add\", RUN+=\"/usr/local/bin/hotplug\""
+        ));
+        assert!(line_is_func_like("LABEL=\"end\""));
+        assert!(line_is_func_like("GOTO=\"end\""));
+        assert!(line_is_func_like("ENV{DEVTYPE}==\"disk\" # disk only"));
+        assert!(line_is_func_like("ATTRS{idVendor}==\"0a12\""));
+        assert!(line_is_func_like("IMPORT{program}=\"uname\""));
+        assert!(line_is_func_like("OWNER=\"root\", GROUP=\"disk\""));
+        assert!(line_is_func_like("KERNEL!=\"loop*\", NAME=\"disk%n\""));
+        assert!(line_is_func_like("OPTIONS+=\"last_rule\""));
+        assert!(line_is_func_like("  SYMLINK+=\"mydisk\""));
+        // Bare / wrong case / prose / incomplete stay out.
+        assert!(!is_udev_rule_decl("KERNEL"));
+        assert!(!is_udev_rule_decl("KERNEL=="));
+        assert!(!is_udev_rule_decl("kernel==\"sda\""));
+        assert!(!is_udev_rule_decl("MODE"));
+        assert!(!is_udev_rule_decl("ATTR{}==\"x\""));
+        assert!(!is_udev_rule_decl("KERNEL==\"sda\","));
+        assert!(!is_udev_rule_decl("not a udev rule"));
+        assert!(!is_udev_rule_decl("SUBSYSTEM the usb"));
+        // Neighbouring families stay on their paths.
+        assert!(is_logrotate_decl("/var/log/messages {"));
+        assert!(!is_udev_rule_decl("/var/log/messages {"));
+        assert!(is_nginx_conf_decl("location / {"));
+        assert!(!is_udev_rule_decl("location / {"));
+        assert!(is_rsyslog_decl("module(load=\"imudp\")"));
+        assert!(!is_udev_rule_decl("module(load=\"imudp\")"));
+    }
+
+    #[test]
     fn logrotate_blocks_count() {
         assert!(line_is_func_like("/var/log/messages {"));
         assert!(line_is_func_like("  /var/log/httpd/*log { # apache"));
@@ -52645,6 +52825,9 @@ mod func_like_line_tests {
         // logrotate hit after the generic `data` prefix strip.
         assert!(!line_is_func_like("data \"has space\" \"name\" {"));
         assert!(!is_logrotate_decl("\"has space\" \"name\" {"));
+        // udev stays on its path.
+        assert!(is_udev_rule_decl("KERNEL==\"sda\""));
+        assert!(!is_logrotate_decl("KERNEL==\"sda\""));
     }
 
     #[test]

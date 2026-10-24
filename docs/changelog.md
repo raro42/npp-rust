@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.573] — 2026-10-24
+
+View:
+
+- **Function List** lists udev rules: `KERNEL=="sda"`, `SUBSYSTEM=="usb", ATTR{idVendor}=="1234", MODE="0666"`, `ACTION=="add", RUN+="/usr/local/bin/…"`, `LABEL="end"`, `GOTO="end"`, `ENV{DEVTYPE}=="disk"`. Match/assign keys with `==` / `!=` / `=` / `+=` / `-=` / `:=`. Optional `{…}` on ATTR / ATTRS / ENV / TAG / SYSCTL / SECLABEL / IMPORT. Optional `#` comment. Comma-separated fields. Bare keys, prose, wrong-case keys, and non-udev lines stay out.
+
 ## [0.3.572] — 2026-10-24
 
 View:
