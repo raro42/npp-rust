@@ -32291,6 +32291,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_krb5_conf_decl(s)
             || is_fail2ban_conf_decl(s)
             || is_sssd_conf_decl(s)
+            || is_unbound_nsd_conf_decl(s)
         {
             return true;
         }
@@ -32434,6 +32435,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_krb5_conf_decl(s)
         || is_fail2ban_conf_decl(s)
         || is_sssd_conf_decl(s)
+        || is_unbound_nsd_conf_decl(s)
     {
         return true;
     }
@@ -43929,6 +43931,49 @@ fn is_sssd_conf_decl(s: &str) -> bool {
     false
 }
 
+/// Unbound `unbound.conf` / NSD `nsd.conf` top-level clauses: `server:`,
+/// `remote-control:`, Unbound `stub-zone:` / `forward-zone:` / `auth-zone:` /
+/// `view:` / `python:` / `dynlib:` / `dnscrypt:` / `cachedb:` / `dnstap:` /
+/// `rpz:`, NSD `verify:` / `key:` / `pattern:` / `zone:` / `tls-auth:`.
+/// Exact lowercase. Clause alone on the line (optional `#` comment). Same-line
+/// values, wrong case, nested attrs (`name: example.com`, `directory: "…"`),
+/// BIND `zone "x" {`, nginx `server {`, and prose stay out.
+fn is_unbound_nsd_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    // Longer keys first so remote-control / forward-zone / stub-zone /
+    // auth-zone / tls-auth / dnscrypt / cachedb / dnstap / pattern win.
+    for key in [
+        "remote-control",
+        "forward-zone",
+        "stub-zone",
+        "auth-zone",
+        "tls-auth",
+        "dnscrypt",
+        "cachedb",
+        "dnstap",
+        "pattern",
+        "python",
+        "dynlib",
+        "verify",
+        "server",
+        "view",
+        "zone",
+        "key",
+        "rpz",
+    ] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        let Some(rest) = rest.strip_prefix(':') else {
+            continue;
+        };
+        let rest = rest.trim_start();
+        // Top-level clause only: no same-line value.
+        return rest.is_empty() || rest.starts_with('#');
+    }
+    false
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -46228,8 +46273,8 @@ mod func_like_line_tests {
         is_package_json_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
         is_pyproject_toml_decl, is_rake_decl, is_samba_conf_decl, is_scons_decl,
         is_ssh_config_decl, is_sssd_conf_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
-        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
+        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_unbound_nsd_conf_decl,
+        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -51780,6 +51825,42 @@ mod func_like_line_tests {
         assert!(!is_sssd_conf_decl("[Unit]"));
         assert!(is_php_ini_decl("[PHP]"));
         assert!(!is_sssd_conf_decl("[PHP]"));
+    }
+
+    #[test]
+    fn unbound_nsd_conf_clauses_count() {
+        assert!(line_is_func_like("server:"));
+        assert!(line_is_func_like("  remote-control: # unbound-control"));
+        assert!(line_is_func_like("stub-zone:"));
+        assert!(line_is_func_like("forward-zone:"));
+        assert!(line_is_func_like("auth-zone:"));
+        assert!(line_is_func_like("view:"));
+        assert!(line_is_func_like("python:"));
+        assert!(line_is_func_like("dynlib:"));
+        assert!(line_is_func_like("dnscrypt:"));
+        assert!(line_is_func_like("cachedb:"));
+        assert!(line_is_func_like("dnstap:"));
+        assert!(line_is_func_like("rpz:"));
+        assert!(line_is_func_like("verify:"));
+        assert!(line_is_func_like("key:"));
+        assert!(line_is_func_like("pattern:"));
+        assert!(line_is_func_like("zone:"));
+        assert!(line_is_func_like("tls-auth:"));
+        // Wrong case / same-line values / nested attrs / other shapes stay out.
+        assert!(!is_unbound_nsd_conf_decl("Server:"));
+        assert!(!is_unbound_nsd_conf_decl("SERVER:"));
+        assert!(!is_unbound_nsd_conf_decl("Forward-Zone:"));
+        assert!(!is_unbound_nsd_conf_decl("server: 1"));
+        assert!(!is_unbound_nsd_conf_decl("name: example.com"));
+        assert!(!is_unbound_nsd_conf_decl("directory: \"/etc/unbound\""));
+        assert!(!is_unbound_nsd_conf_decl("servers:"));
+        assert!(!is_unbound_nsd_conf_decl("remote-control-extra:"));
+        assert!(!is_unbound_nsd_conf_decl("server"));
+        // BIND brace / nginx brace stay on their paths.
+        assert!(is_named_conf_decl("zone \"example.com\" {"));
+        assert!(!is_unbound_nsd_conf_decl("zone \"example.com\" {"));
+        assert!(is_nginx_conf_decl("server {"));
+        assert!(!is_unbound_nsd_conf_decl("server {"));
     }
 
     #[test]

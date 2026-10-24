@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.564] — 2026-10-24
+
+View:
+
+- **Function List** lists Unbound `unbound.conf` / NSD `nsd.conf` top-level clauses: `server:`, `remote-control:`, Unbound `stub-zone:` / `forward-zone:` / `auth-zone:` / `view:` / `python:` / `dynlib:` / `dnscrypt:` / `cachedb:` / `dnstap:` / `rpz:`, NSD `verify:` / `key:` / `pattern:` / `zone:` / `tls-auth:`. Exact lowercase. Clause alone on the line (optional `#` comment). Same-line values, wrong case, nested attrs, BIND `zone "x" {`, nginx `server {`, and prose stay out.
+
 ## [0.3.563] — 2026-10-24
 
 View:
