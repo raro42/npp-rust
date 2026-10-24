@@ -1,3 +1,4 @@
+009 keep: Function List Fail2ban [DEFAULT]/[Definition]/[Init]/[Init?…]/[INCLUDES] (v0.3.562)
 009 keep: Function List OpenVPN inline ca/cert/key/dh/pkcs12/extra-certs/crl-verify/tls-auth/tls-crypt/tls-crypt-v2/auth-user-pass/http-proxy-user-pass/auth-gen-token-secret/peer-fingerprint/verify-hash/connection (v0.3.559)
 009 keep: Function List strongSwan/Libreswan ipsec.conf config setup/conn/ca (v0.3.558)
 009 keep: Function List FreeRADIUS client/home_server/home_server_pool/realm/server/modules/instantiate/listen/policy/files/authorize/authenticate/preacct/accounting/session/post-auth/pre-proxy/post-proxy/recv-coa/send-coa (v0.3.557)
