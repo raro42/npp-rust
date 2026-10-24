@@ -32313,6 +32313,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_access_conf_decl(s)
             || is_hosts_access_decl(s)
             || is_hosts_file_decl(s)
+            || is_resolv_conf_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32475,6 +32476,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_access_conf_decl(s)
         || is_hosts_access_decl(s)
         || is_hosts_file_decl(s)
+        || is_resolv_conf_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -45782,6 +45784,117 @@ fn hosts_file_name_ok(tok: &str) -> bool {
     true
 }
 
+/// `/etc/resolv.conf`: `nameserver 192.168.1.1`, `nameserver 2001:db8::1`,
+/// `search example.com corp.example.com`, `domain example.com`,
+/// `options timeout:2 attempts:3 rotate`, `options edns0 trust-ad`,
+/// `sortlist 130.155.160.0/255.255.240.0 130.155.0.0`. Optional `#` or `;`
+/// comment. Bare / prose / incomplete / neighbouring families (hosts,
+/// named `options {`, syslog-ng `options {`, …) stay out.
+fn is_resolv_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    let cut = s
+        .find('#')
+        .into_iter()
+        .chain(s.find(';'))
+        .min()
+        .unwrap_or(s.len());
+    let body = s[..cut].trim();
+    if body.is_empty() {
+        return false;
+    }
+    let mut fields = Vec::with_capacity(8);
+    let mut rest = body;
+    while fields.len() < 16 {
+        let Some((tok, after)) = fstab_next_token(rest) else {
+            break;
+        };
+        fields.push(tok);
+        rest = after;
+    }
+    if !rest.trim_start().is_empty() {
+        return false;
+    }
+    if fields.len() < 2 {
+        return false;
+    }
+    let key = fields[0];
+    let args = &fields[1..];
+    match key {
+        "nameserver" => args.len() == 1 && hosts_file_addr_ok(args[0]),
+        "domain" => args.len() == 1 && hosts_file_name_ok(args[0]),
+        "search" => !args.is_empty() && args.iter().all(|a| hosts_file_name_ok(a)),
+        "options" => !args.is_empty() && args.iter().all(|a| resolv_option_ok(a)),
+        "sortlist" => !args.is_empty() && args.iter().all(|a| resolv_sortlist_ok(a)),
+        _ => false,
+    }
+}
+
+fn resolv_option_ok(tok: &str) -> bool {
+    if tok.is_empty() || tok.len() > 64 {
+        return false;
+    }
+    // named / syslog-ng brace openers stay out.
+    if tok.contains('{') || tok.contains('}') || tok.contains('/') || tok.contains('=') {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team", "note",
+    ];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    // `timeout:2`, `ndots:1`, `attempts:3`, `rotate`, `edns0`, `trust-ad`, …
+    let (name, value) = match tok.split_once(':') {
+        Some((n, v)) => (n, Some(v)),
+        None => (tok, None),
+    };
+    if name.is_empty()
+        || !name.as_bytes()[0].is_ascii_lowercase()
+        || !name
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+    {
+        return false;
+    }
+    if let Some(v) = value {
+        if v.is_empty() || v.len() > 8 || !v.bytes().all(|b| b.is_ascii_digit()) {
+            return false;
+        }
+    }
+    true
+}
+
+fn resolv_sortlist_ok(tok: &str) -> bool {
+    if tok.is_empty() || tok.len() > 80 {
+        return false;
+    }
+    let (addr, mask) = match tok.split_once('/') {
+        Some((a, m)) => (a, Some(m)),
+        None => (tok, None),
+    };
+    // sortlist is IPv4-oriented in resolv.conf.
+    if !hosts_file_addr_ok(addr) || addr.contains(':') {
+        return false;
+    }
+    match mask {
+        None => true,
+        Some(m) => {
+            if m.is_empty() {
+                return false;
+            }
+            // CIDR prefix length.
+            if m.bytes().all(|b| b.is_ascii_digit()) {
+                return m.parse::<u8>().map(|n| n <= 32).unwrap_or(false);
+            }
+            // Dotted netmask.
+            hosts_file_addr_ok(m) && !m.contains(':')
+        }
+    }
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -48605,11 +48718,12 @@ mod func_like_line_tests {
         is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nm_connection_decl, is_openvpn_decl, is_package_json_decl, is_pam_conf_decl,
         is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl, is_supervisord_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
-        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
+        is_rake_decl, is_resolv_conf_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl,
+        is_sddm_conf_decl, is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl,
+        is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -54870,6 +54984,52 @@ mod func_like_line_tests {
         // /etc/hosts stays on its path.
         assert!(is_hosts_file_decl("127.0.0.1 localhost"));
         assert!(!is_crypttab_decl("127.0.0.1 localhost"));
+        // /etc/resolv.conf stays on its path.
+        assert!(is_resolv_conf_decl("nameserver 8.8.8.8"));
+        assert!(!is_hosts_file_decl("nameserver 8.8.8.8"));
+        assert!(!is_crypttab_decl("nameserver 8.8.8.8"));
+    }
+
+    #[test]
+    fn resolv_conf_entries_count() {
+        assert!(line_is_func_like("nameserver 192.168.1.1"));
+        assert!(line_is_func_like("nameserver 2001:db8::1"));
+        assert!(line_is_func_like("nameserver ::1"));
+        assert!(line_is_func_like("search example.com corp.example.com"));
+        assert!(line_is_func_like("domain example.com"));
+        assert!(line_is_func_like("options timeout:2 attempts:3 rotate"));
+        assert!(line_is_func_like("options edns0 trust-ad"));
+        assert!(line_is_func_like(
+            "sortlist 130.155.160.0/255.255.240.0 130.155.0.0"
+        ));
+        assert!(line_is_func_like("sortlist 192.168.0.0/16"));
+        assert!(line_is_func_like("  nameserver 8.8.8.8 # google"));
+        assert!(line_is_func_like("nameserver 1.1.1.1 ; cloudflare"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_resolv_conf_decl("nameserver"));
+        assert!(!is_resolv_conf_decl("nameserver the"));
+        assert!(!is_resolv_conf_decl("search"));
+        assert!(!is_resolv_conf_decl("search the domain"));
+        assert!(!is_resolv_conf_decl("domain"));
+        assert!(!is_resolv_conf_decl("options"));
+        assert!(!is_resolv_conf_decl("options the"));
+        assert!(!is_resolv_conf_decl("# nameserver 8.8.8.8"));
+        assert!(!is_resolv_conf_decl("; nameserver 8.8.8.8"));
+        assert!(!is_resolv_conf_decl("not a resolv line"));
+        assert!(!is_resolv_conf_decl("nameserver 999.0.0.1"));
+        assert!(!is_resolv_conf_decl("nameserver 8.8.8.8 8.8.4.4"));
+        // Neighbouring families stay on their paths.
+        assert!(is_hosts_file_decl("127.0.0.1 localhost"));
+        assert!(!is_resolv_conf_decl("127.0.0.1 localhost"));
+        assert!(is_hosts_access_decl("ALL: LOCAL"));
+        assert!(!is_resolv_conf_decl("ALL: LOCAL"));
+        assert!(is_named_conf_decl("options {"));
+        assert!(!is_resolv_conf_decl("options {"));
+        assert!(is_syslog_ng_decl("options {"));
+        assert!(!is_resolv_conf_decl("options {"));
+        assert!(is_fstab_decl("UUID=abcd-1234 / ext4 defaults 0 1"));
+        assert!(!is_resolv_conf_decl("UUID=abcd-1234 / ext4 defaults 0 1"));
+        assert!(!line_is_func_like("nameserver the"));
     }
 
     #[test]

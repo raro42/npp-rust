@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.583] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/resolv.conf` directives: `nameserver 192.168.1.1`, `nameserver 2001:db8::1`, `search example.com corp.example.com`, `domain example.com`, `options timeout:2 attempts:3 rotate`, `options edns0 trust-ad`, `sortlist 130.155.160.0/255.255.240.0 130.155.0.0`, `sortlist 192.168.0.0/16`. Optional `#` or `;` comment. Bare / prose / incomplete / neighbouring families (hosts, named `options {`, syslog-ng `options {`, …) stay out.
+
 ## [0.3.582] — 2026-10-25
 
 View:

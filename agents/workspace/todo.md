@@ -1,3 +1,5 @@
+009 keep: Function List /etc/resolv.conf nameserver/search/domain/options/sortlist (v0.3.583)
+
 009 keep: Function List /etc/hosts address+hostname entries (v0.3.582)
 
 009 keep: Function List /etc/crypttab name/device/key/options entries (v0.3.581)
