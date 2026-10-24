@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.574] — 2026-10-24
+
+View:
+
+- **Function List** lists Linux `audit.rules` / auditctl lines: `-w /etc/passwd -p wa -k identity`, `-a always,exit -F arch=b64 -S open -k access`, `-A never,task`, `-a exit,always` (either order), controls `-D` / `-b 8192` / `-f 1` / `-e 1` / `-r 0` / `-i` / `--loginuid-immutable`. Exact leading `-` option letter (or `--loginuid-immutable`). Optional `#` comment. Bare flags, prose (`-w the passwd`), wrong-case (`-W` / `-d`), incomplete (`-a always`), and non-audit lines stay out.
+
 ## [0.3.573] — 2026-10-24
 
 View:

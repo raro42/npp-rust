@@ -32301,6 +32301,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_rsyslog_decl(s)
             || is_logrotate_decl(s)
             || is_udev_rule_decl(s)
+            || is_audit_rules_decl(s)
         {
             return true;
         }
@@ -32454,6 +32455,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_rsyslog_decl(s)
         || is_logrotate_decl(s)
         || is_udev_rule_decl(s)
+        || is_audit_rules_decl(s)
     {
         return true;
     }
@@ -44185,6 +44187,119 @@ fn is_systemd_networkd_decl(s: &str) -> bool {
     )
 }
 
+/// Linux `audit.rules` / auditctl lines: `-w /etc/passwd -p wa -k identity`,
+/// `-a always,exit -F arch=b64 -S open -k access`, `-A never,task …`,
+/// controls `-D` / `-b 8192` / `-f 1` / `-e 1` / `-r 0` / `-i` /
+/// `--loginuid-immutable`. Exact leading `-` option letter (or the long
+/// `--loginuid-immutable`). Optional `#` comment. Bare flags, prose,
+/// wrong-case letters, and non-audit lines stay out.
+fn is_audit_rules_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    if let Some(rest) = s.strip_prefix("--loginuid-immutable") {
+        return audit_rules_tail(rest);
+    }
+    let Some(rest) = s.strip_prefix('-') else {
+        return false;
+    };
+    let bytes = rest.as_bytes();
+    if bytes.is_empty() {
+        return false;
+    }
+    let opt = bytes[0];
+    // Lowercase option letters, plus uppercase `-D` / `-A` (auditctl).
+    if !(opt.is_ascii_lowercase() || opt == b'D' || opt == b'A') {
+        return false;
+    }
+    let after_opt = &rest[1..];
+    match opt {
+        b'D' | b'i' | b'c' => audit_rules_tail(after_opt),
+        b'b' | b'f' | b'e' | b'r' => {
+            if !after_opt.starts_with(char::is_whitespace) {
+                return false;
+            }
+            let rest = after_opt.trim_start();
+            let end = rest
+                .find(|c: char| c.is_whitespace() || c == '#')
+                .unwrap_or(rest.len());
+            if end == 0 {
+                return false;
+            }
+            let num = &rest[..end];
+            if !num.bytes().all(|b| b.is_ascii_digit()) {
+                return false;
+            }
+            audit_rules_tail(&rest[end..])
+        }
+        b'w' => {
+            if !after_opt.starts_with(char::is_whitespace) {
+                return false;
+            }
+            let rest = after_opt.trim_start();
+            let end = rest
+                .find(|c: char| c.is_whitespace() || c == '#')
+                .unwrap_or(rest.len());
+            if end == 0 {
+                return false;
+            }
+            let path = &rest[..end];
+            // Path-like watch target.
+            if !(path.starts_with('/')
+                || path.starts_with('.')
+                || path.contains('/')
+                || path.contains('*'))
+            {
+                return false;
+            }
+            // Remainder may hold `-p` / `-k` / …; just require non-prose start.
+            let after = rest[end..].trim_start();
+            after.is_empty() || after.starts_with('#') || after.starts_with('-')
+        }
+        b'a' | b'A' => {
+            if !after_opt.starts_with(char::is_whitespace) {
+                return false;
+            }
+            let rest = after_opt.trim_start();
+            let end = rest
+                .find(|c: char| c.is_whitespace() || c == '#')
+                .unwrap_or(rest.len());
+            if end == 0 {
+                return false;
+            }
+            let pair = &rest[..end];
+            if !audit_rules_list_action(pair) {
+                return false;
+            }
+            let after = rest[end..].trim_start();
+            after.is_empty() || after.starts_with('#') || after.starts_with('-')
+        }
+        _ => false,
+    }
+}
+
+fn audit_rules_tail(rest: &str) -> bool {
+    let rest = rest.trim_start();
+    rest.is_empty() || rest.starts_with('#')
+}
+
+fn audit_rules_list_action(pair: &str) -> bool {
+    let Some((a, b)) = pair.split_once(',') else {
+        return false;
+    };
+    if a.is_empty() || b.is_empty() {
+        return false;
+    }
+    const LISTS: &[&str] = &["task", "exit", "user", "exclude", "filesystem", "io_uring"];
+    const ACTIONS: &[&str] = &["always", "never"];
+    let a_list = LISTS.contains(&a);
+    let b_list = LISTS.contains(&b);
+    let a_act = ACTIONS.contains(&a);
+    let b_act = ACTIONS.contains(&b);
+    (a_list && b_act) || (a_act && b_list)
+}
+
 /// udev rules: `KERNEL=="sda"`, `SUBSYSTEM=="usb", ATTR{idVendor}=="1234",
 /// MODE="0666"`, `ACTION=="add", RUN+="/usr/local/bin/…"`, `LABEL="end"`,
 /// `GOTO="end"`, `ENV{DEVTYPE}=="disk"`. Match/assign keys with `==` / `!=` /
@@ -46862,8 +46977,8 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 #[cfg(test)]
 mod func_like_line_tests {
     use super::{
-        is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl, is_aws_config_decl,
-        is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
+        is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl, is_audit_rules_decl,
+        is_aws_config_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
         is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl,
         is_editorconfig_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
         is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
@@ -52788,6 +52903,48 @@ mod func_like_line_tests {
         assert!(!is_udev_rule_decl("location / {"));
         assert!(is_rsyslog_decl("module(load=\"imudp\")"));
         assert!(!is_udev_rule_decl("module(load=\"imudp\")"));
+        // audit.rules stays on its path.
+        assert!(is_audit_rules_decl("-w /etc/passwd -p wa -k identity"));
+        assert!(!is_udev_rule_decl("-w /etc/passwd -p wa -k identity"));
+    }
+
+    #[test]
+    fn audit_rules_count() {
+        assert!(line_is_func_like("-w /etc/passwd -p wa -k identity"));
+        assert!(line_is_func_like(
+            "-a always,exit -F arch=b64 -S open,openat -k access"
+        ));
+        assert!(line_is_func_like("-A never,task"));
+        assert!(line_is_func_like(
+            "-a exit,always -S adjtimex # either order"
+        ));
+        assert!(line_is_func_like("-D"));
+        assert!(line_is_func_like("-b 8192"));
+        assert!(line_is_func_like("-f 1 # syslog"));
+        assert!(line_is_func_like("-e 1"));
+        assert!(line_is_func_like("-r 0"));
+        assert!(line_is_func_like("-i"));
+        assert!(line_is_func_like("--loginuid-immutable"));
+        assert!(line_is_func_like("  -w ./relative/path -p r"));
+        assert!(line_is_func_like("-w /var/log/* -p wa"));
+        // Bare / wrong case / prose / incomplete stay out.
+        assert!(!is_audit_rules_decl("-w"));
+        assert!(!is_audit_rules_decl("-w the passwd"));
+        assert!(!is_audit_rules_decl("-W /etc/passwd"));
+        assert!(!is_audit_rules_decl("-a always"));
+        assert!(!is_audit_rules_decl("-a always,exit,extra"));
+        assert!(!is_audit_rules_decl("-a foo,bar"));
+        assert!(!is_audit_rules_decl("-b"));
+        assert!(!is_audit_rules_decl("-b eight"));
+        assert!(!is_audit_rules_decl("-d"));
+        assert!(!is_audit_rules_decl("w /etc/passwd"));
+        assert!(!is_audit_rules_decl("not an audit rule"));
+        // Neighbouring families stay on their paths.
+        assert!(is_udev_rule_decl("KERNEL==\"sda\""));
+        assert!(!is_audit_rules_decl("KERNEL==\"sda\""));
+        assert!(is_logrotate_decl("/var/log/messages {"));
+        assert!(!is_audit_rules_decl("/var/log/messages {"));
+        assert!(line_is_func_like("KERNEL==\"sda\""));
     }
 
     #[test]

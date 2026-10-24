@@ -1,3 +1,5 @@
+009 keep: Function List Linux audit.rules -w/-a/-A/-D/-b/-f/-e/-r/-i/--loginuid-immutable (v0.3.574)
+
 009 keep: Function List udev rules KERNEL/ATTR/LABEL/GOTO/RUN+= (v0.3.573)
 
 009 keep: Function List logrotate /var/log/… { path blocks + include /etc/logrotate.d (v0.3.572)
