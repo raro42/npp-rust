@@ -1,3 +1,4 @@
+009 keep: Function List logrotate /var/log/… { path blocks + include /etc/logrotate.d (v0.3.572)
 009 keep: Function List SDDM [General]/[Theme]/[Users]/[X11]/[Wayland]/[Autologin] (v0.3.568)
 009 keep: Function List GDM [daemon]/[security]/[xdmcp]/[chooser]/[debug]/[greeter] (v0.3.567)
 009 keep: Function List LightDM [LightDM]/[Seat:*]/[Seat:name]/[XDMCPServer]/[VNCServer]/[SeatDefaults] (v0.3.566)
