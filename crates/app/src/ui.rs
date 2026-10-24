@@ -32307,6 +32307,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_sudoers_decl(s)
             || is_limits_conf_decl(s)
             || is_access_conf_decl(s)
+            || is_hosts_access_decl(s)
         {
             return true;
         }
@@ -32465,6 +32466,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_sudoers_decl(s)
         || is_limits_conf_decl(s)
         || is_access_conf_decl(s)
+        || is_hosts_access_decl(s)
     {
         return true;
     }
@@ -45161,6 +45163,167 @@ fn access_conf_token_ok(tok: &str) -> bool {
     })
 }
 
+/// `/etc/hosts.allow` / `/etc/hosts.deny` (tcp_wrappers): `ALL: LOCAL`,
+/// `sshd: 192.168.1.0/24`, `ALL: .example.com EXCEPT bad.example.com`,
+/// `in.ftpd: ALL: spawn /bin/echo …`, `sshd,vsftpd: ALL`. Daemon list then
+/// client list, colon-separated; optional third field = shell command.
+/// Optional `#` comment. pam_access `+/- : …` stays on access.conf. Bare /
+/// prose / incomplete / neighbouring families stay out.
+fn is_hosts_access_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    // Leave pam_access (`+ : …` / `- : …` / `+:…`) to is_access_conf_decl.
+    if matches!(s.as_bytes().first(), Some(b'+' | b'-')) {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(colon1) = body.find(':') else {
+        return false;
+    };
+    let daemons = body[..colon1].trim();
+    let after_daemons = body[colon1 + 1..].trim();
+    if daemons.is_empty() || after_daemons.is_empty() {
+        return false;
+    }
+    let (clients, shell) = if let Some(colon2) = after_daemons.find(':') {
+        (
+            after_daemons[..colon2].trim(),
+            Some(after_daemons[colon2 + 1..].trim()),
+        )
+    } else {
+        (after_daemons, None)
+    };
+    if clients.is_empty() {
+        return false;
+    }
+    if let Some(cmd) = shell {
+        if cmd.is_empty() {
+            return false;
+        }
+    }
+    // Two-field client must not contain another colon (IPv6 bracket forms later).
+    if shell.is_none() && clients.contains(':') {
+        return false;
+    }
+    hosts_access_list_ok(daemons, false)
+        && hosts_access_list_ok(clients, true)
+        && hosts_access_client_distinctive(clients)
+}
+
+fn hosts_access_list_ok(field: &str, clients: bool) -> bool {
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team", "note",
+    ];
+    if PROSE.iter().any(|w| field.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    let mut saw = false;
+    for raw in field.split(|c: char| c.is_whitespace() || c == ',') {
+        let tok = raw.trim();
+        if tok.is_empty() {
+            continue;
+        }
+        if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+            if tok != "EXCEPT" {
+                return false;
+            }
+            continue;
+        }
+        if !hosts_access_token_ok(tok, clients) {
+            return false;
+        }
+        saw = true;
+    }
+    saw
+}
+
+/// Reject bare `Name: foo` / `color: red` / `all: foo.o` / `foo.o: foo.c`:
+/// client side must look like tcp_wrappers (uppercase keyword, IP/CIDR,
+/// `.domain`, `@netgroup`, `/file`, or hostname with ≥2 dots).
+fn hosts_access_client_distinctive(clients: &str) -> bool {
+    for raw in clients.split(|c: char| c.is_whitespace() || c == ',') {
+        let tok = raw.trim();
+        if tok.is_empty() || tok == "EXCEPT" {
+            continue;
+        }
+        // Stock wildcards are uppercase in hosts_access(5); lowercase `all:`
+        // is a common Makefile target.
+        if matches!(tok, "ALL" | "LOCAL" | "KNOWN" | "UNKNOWN" | "PARANOID") {
+            return true;
+        }
+        let bytes = tok.as_bytes();
+        if matches!(bytes.first(), Some(b'.' | b'@' | b'/')) {
+            return true;
+        }
+        // IPv4 / CIDR: digit start; need ≥2 dots or a `/` (avoid `22.04` tags).
+        if bytes[0].is_ascii_digit() {
+            let dots = tok.bytes().filter(|&b| b == b'.').count();
+            if dots >= 2 || tok.contains('/') {
+                return true;
+            }
+        }
+        // Multi-label hostname (`host.example.com`); one-dot `foo.o` stays out.
+        let dots = tok.bytes().filter(|&b| b == b'.').count();
+        if dots >= 2
+            && bytes.iter().any(|b| b.is_ascii_alphabetic())
+            && bytes
+                .iter()
+                .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'*'))
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn hosts_access_token_ok(tok: &str, clients: bool) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    // Case-sensitive stock words (see hosts_access_client_distinctive).
+    if matches!(
+        tok,
+        "ALL" | "LOCAL" | "EXCEPT" | "KNOWN" | "UNKNOWN" | "PARANOID"
+    ) {
+        return true;
+    }
+    // `/file/name` pattern file, `@netgroup`, `.domain` — clients only.
+    let bytes = tok.as_bytes();
+    if bytes[0] == b'/' {
+        return clients
+            && bytes.len() > 1
+            && bytes[1..].iter().all(|&b| {
+                b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/' | b'*')
+            });
+    }
+    let start = if matches!(bytes[0], b'@' | b'.') {
+        if !clients {
+            return false;
+        }
+        1
+    } else {
+        0
+    };
+    if start >= bytes.len() {
+        return false;
+    }
+    if !(bytes[start].is_ascii_alphanumeric() || bytes[start] == b'_') {
+        return false;
+    }
+    bytes[start..]
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/' | b'*'))
+}
+
 /// udev rules: `KERNEL=="sda"`, `SUBSYSTEM=="usb", ATTR{idVendor}=="1234",
 /// MODE="0666"`, `ACTION=="add", RUN+="/usr/local/bin/…"`, `LABEL="end"`,
 /// `GOTO="end"`, `ENV{DEVTYPE}=="disk"`. Match/assign keys with `==` / `!=` /
@@ -47843,16 +48006,17 @@ mod func_like_line_tests {
         is_cargo_toml_decl, is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl,
         is_dovecot_decl, is_editorconfig_decl, is_fail2ban_conf_decl, is_fluent_bit_decl,
         is_freeradius_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
-        is_grafana_ini_decl, is_haproxy_decl, is_ipsec_conf_decl, is_keepalived_decl,
-        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nm_connection_decl, is_openvpn_decl, is_package_json_decl, is_pam_conf_decl,
-        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl, is_supervisord_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
-        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
+        is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl, is_ipsec_conf_decl,
+        is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl,
+        is_logrotate_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nm_connection_decl, is_openvpn_decl, is_package_json_decl,
+        is_pam_conf_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl,
+        is_sddm_conf_decl, is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl,
+        is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -53982,6 +54146,46 @@ mod func_like_line_tests {
         assert!(is_audit_rules_decl("-w /etc/passwd -p wa -k identity"));
         assert!(!is_access_conf_decl("-w /etc/passwd -p wa -k identity"));
         assert!(!line_is_func_like("+ : the : LOCAL"));
+        // hosts.allow / hosts.deny stay on their path.
+        assert!(is_hosts_access_decl("ALL: LOCAL"));
+        assert!(!is_access_conf_decl("ALL: LOCAL"));
+    }
+
+    #[test]
+    fn hosts_access_rules_count() {
+        assert!(line_is_func_like("ALL: LOCAL"));
+        assert!(line_is_func_like("sshd: 192.168.1.0/24"));
+        assert!(line_is_func_like(
+            "ALL: .example.com EXCEPT bad.example.com"
+        ));
+        assert!(line_is_func_like("sshd,vsftpd: ALL"));
+        assert!(line_is_func_like("in.ftpd: ALL: spawn /bin/echo denied"));
+        assert!(line_is_func_like("  ALL : ALL # allow"));
+        assert!(line_is_func_like("sshd: /etc/hosts.allow.sshd"));
+        assert!(line_is_func_like("sshd: @admins"));
+        assert!(line_is_func_like("ALL: KNOWN"));
+        assert!(line_is_func_like("ALL: PARANOID"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_hosts_access_decl("ALL"));
+        assert!(!is_hosts_access_decl("ALL:"));
+        assert!(!is_hosts_access_decl(": LOCAL"));
+        assert!(!is_hosts_access_decl("ALL: the"));
+        assert!(!is_hosts_access_decl("the: LOCAL"));
+        assert!(!is_hosts_access_decl("ALL: the team"));
+        assert!(!is_hosts_access_decl("# ALL: LOCAL"));
+        assert!(!is_hosts_access_decl("not a hosts.allow line"));
+        assert!(!is_hosts_access_decl("ALL: LOCAL:")); // empty shell
+                                                       // Neighbouring families stay on their paths.
+        assert!(is_access_conf_decl("+ : root : LOCAL"));
+        assert!(!is_hosts_access_decl("+ : root : LOCAL"));
+        assert!(!is_hosts_access_decl("+:root:LOCAL"));
+        assert!(is_limits_conf_decl("* soft nofile 1024"));
+        assert!(!is_hosts_access_decl("* soft nofile 1024"));
+        assert!(is_sudoers_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(!is_hosts_access_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(is_pam_conf_decl("auth required pam_unix.so"));
+        assert!(!is_hosts_access_decl("auth required pam_unix.so"));
+        assert!(!line_is_func_like("ALL: the"));
     }
 
     #[test]

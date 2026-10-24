@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.579] — 2026-10-24
+
+View:
+
+- **Function List** lists `/etc/hosts.allow` / `/etc/hosts.deny` (tcp_wrappers) rules: `ALL: LOCAL`, `sshd: 192.168.1.0/24`, `ALL: .example.com EXCEPT bad.example.com`, `sshd,vsftpd: ALL`, `in.ftpd: ALL: spawn /bin/echo …`, `sshd: /etc/hosts.allow.sshd`, `sshd: @admins`. Daemon list then client list, colon-separated; optional third field = shell command. Optional `#` comment. pam_access `+/- : …` stays on access.conf. Bare / prose / incomplete / neighbouring families stay out.
+
 ## [0.3.578] — 2026-10-24
 
 View:
