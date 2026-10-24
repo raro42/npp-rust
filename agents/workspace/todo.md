@@ -797,3 +797,5 @@
 009 keep: Function List dovecot.conf protocol/service/passdb/userdb/namespace/mailbox/plugin/dict/local_name/listeners/metric/local/remote (v0.3.556)
 
 009 keep: Function List Samba smb.conf special sections (v0.3.560)
+
+009 keep: Function List MIT Kerberos krb5.conf/kdc.conf sections (v0.3.561)
