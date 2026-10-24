@@ -32312,6 +32312,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_limits_conf_decl(s)
             || is_access_conf_decl(s)
             || is_hosts_access_decl(s)
+            || is_hosts_file_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32473,6 +32474,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_limits_conf_decl(s)
         || is_access_conf_decl(s)
         || is_hosts_access_decl(s)
+        || is_hosts_file_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -45635,6 +45637,151 @@ fn fstab_number_ok(tok: &str) -> bool {
     !tok.is_empty() && tok.bytes().all(|b| b.is_ascii_digit()) && tok.len() <= 3
 }
 
+/// `/etc/hosts`: `127.0.0.1 localhost`, `::1 localhost ip6-localhost`,
+/// `192.168.1.10 server.example.com server`, `ff02::1 ip6-allnodes`,
+/// `0.0.0.0 ads.example.com`. Address then one or more hostnames. Optional
+/// `#` comment. Bare / prose / incomplete / neighbouring families
+/// (hosts.allow, fstab, crypttab, …) stay out.
+fn is_hosts_file_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let mut fields = Vec::with_capacity(8);
+    let mut rest = body;
+    while fields.len() < 16 {
+        let Some((tok, after)) = fstab_next_token(rest) else {
+            break;
+        };
+        fields.push(tok);
+        rest = after;
+    }
+    if !rest.trim_start().is_empty() {
+        return false;
+    }
+    if fields.len() < 2 {
+        return false;
+    }
+    if !hosts_file_addr_ok(fields[0]) {
+        return false;
+    }
+    fields[1..].iter().all(|h| hosts_file_name_ok(h))
+}
+
+fn hosts_file_addr_ok(tok: &str) -> bool {
+    if tok.is_empty() || tok.len() > 64 {
+        return false;
+    }
+    // IPv4 dotted decimal (no CIDR — that is hosts.allow shape).
+    if tok.contains('.') && !tok.contains(':') {
+        let parts: Vec<&str> = tok.split('.').collect();
+        if parts.len() != 4 {
+            return false;
+        }
+        return parts.iter().all(|p| {
+            if p.is_empty() || p.len() > 3 || !p.bytes().all(|b| b.is_ascii_digit()) {
+                return false;
+            }
+            if p.len() > 1 && p.starts_with('0') {
+                return false;
+            }
+            p.parse::<u16>().map(|n| n <= 255).unwrap_or(false)
+        });
+    }
+    // IPv6 (must contain `:`). Allow `::`, hex groups, optional zone `%iface`.
+    if !tok.contains(':') {
+        return false;
+    }
+    let (addr, zone) = match tok.split_once('%') {
+        Some((a, z)) => (a, Some(z)),
+        None => (tok, None),
+    };
+    if let Some(z) = zone {
+        if z.is_empty()
+            || !z
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
+        {
+            return false;
+        }
+    }
+    if addr == "::" {
+        return true;
+    }
+    let has_double = addr.contains("::");
+    if has_double && addr.matches("::").count() != 1 {
+        return false;
+    }
+    let parts: Vec<&str> = if has_double {
+        addr.split("::").flat_map(|side| side.split(':')).collect()
+    } else {
+        addr.split(':').collect()
+    };
+    if parts.iter().filter(|p| !p.is_empty()).count() > 8 {
+        return false;
+    }
+    if !has_double && parts.len() != 8 {
+        return false;
+    }
+    parts.iter().all(|p| {
+        if p.is_empty() {
+            return has_double;
+        }
+        // Last group may be dotted IPv4 in IPv4-mapped form.
+        if p.contains('.') {
+            return hosts_file_addr_ok(p);
+        }
+        p.len() <= 4 && p.bytes().all(|b| b.is_ascii_hexdigit())
+    })
+}
+
+fn hosts_file_name_ok(tok: &str) -> bool {
+    if tok.is_empty() || tok.len() > 253 {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team", "note",
+    ];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    // No path / device / options shapes (fstab / crypttab / hosts.allow).
+    if tok.contains('/') || tok.contains('=') || tok.contains(',') || tok.contains(':') {
+        return false;
+    }
+    let bytes = tok.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    if !bytes[bytes.len() - 1].is_ascii_alphanumeric() {
+        return false;
+    }
+    // DNS labels: alnum / `-` / `.` (dot-separated).
+    let mut prev_dot = false;
+    for &b in bytes {
+        if b == b'.' {
+            if prev_dot {
+                return false;
+            }
+            prev_dot = true;
+            continue;
+        }
+        prev_dot = false;
+        if !(b.is_ascii_alphanumeric() || b == b'-' || b == b'_') {
+            return false;
+        }
+    }
+    true
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -48453,16 +48600,16 @@ mod func_like_line_tests {
         is_dhcpd_decl, is_dovecot_decl, is_editorconfig_decl, is_fail2ban_conf_decl,
         is_fluent_bit_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
         is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hosts_access_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
-        is_openvpn_decl, is_package_json_decl, is_pam_conf_decl, is_php_ini_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl,
-        is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_sudoers_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
+        is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
+        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nm_connection_decl, is_openvpn_decl, is_package_json_decl, is_pam_conf_decl,
+        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
+        is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl, is_supervisord_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
+        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -54720,6 +54867,47 @@ mod func_like_line_tests {
         assert!(is_pam_conf_decl("auth required pam_unix.so"));
         assert!(!is_crypttab_decl("auth required pam_unix.so"));
         assert!(!line_is_func_like("the UUID=abcd-1234 none luks"));
+        // /etc/hosts stays on its path.
+        assert!(is_hosts_file_decl("127.0.0.1 localhost"));
+        assert!(!is_crypttab_decl("127.0.0.1 localhost"));
+    }
+
+    #[test]
+    fn hosts_file_entries_count() {
+        assert!(line_is_func_like("127.0.0.1 localhost"));
+        assert!(line_is_func_like(
+            "::1 localhost ip6-localhost ip6-loopback"
+        ));
+        assert!(line_is_func_like("192.168.1.10 server.example.com server"));
+        assert!(line_is_func_like("ff02::1 ip6-allnodes"));
+        assert!(line_is_func_like("ff02::2 ip6-allrouters"));
+        assert!(line_is_func_like("0.0.0.0 ads.example.com"));
+        assert!(line_is_func_like("  10.0.0.1 app.local # lan"));
+        assert!(line_is_func_like("2001:db8::1 www.example.com"));
+        assert!(line_is_func_like("::ffff:192.0.2.1 mapped.host"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_hosts_file_decl("127.0.0.1"));
+        assert!(!is_hosts_file_decl("localhost"));
+        assert!(!is_hosts_file_decl("127.0.0.1 the"));
+        assert!(!is_hosts_file_decl("# 127.0.0.1 localhost"));
+        assert!(!is_hosts_file_decl("not a hosts line"));
+        assert!(!is_hosts_file_decl("999.0.0.1 localhost"));
+        assert!(!is_hosts_file_decl("127.0.0 localhost"));
+        assert!(!is_hosts_file_decl("192.168.1.0/24 localhost"));
+        // Neighbouring families stay on their paths.
+        assert!(is_hosts_access_decl("ALL: LOCAL"));
+        assert!(!is_hosts_file_decl("ALL: LOCAL"));
+        assert!(is_hosts_access_decl("sshd: 192.168.1.0/24"));
+        assert!(!is_hosts_file_decl("sshd: 192.168.1.0/24"));
+        assert!(is_fstab_decl("UUID=abcd-1234 / ext4 defaults 0 1"));
+        assert!(!is_hosts_file_decl("UUID=abcd-1234 / ext4 defaults 0 1"));
+        assert!(is_crypttab_decl("cr_home UUID=abcd-1234 none luks"));
+        assert!(!is_hosts_file_decl("cr_home UUID=abcd-1234 none luks"));
+        assert!(is_limits_conf_decl("* soft nofile 1024"));
+        assert!(!is_hosts_file_decl("* soft nofile 1024"));
+        assert!(is_access_conf_decl("+ : root : LOCAL"));
+        assert!(!is_hosts_file_decl("+ : root : LOCAL"));
+        assert!(!line_is_func_like("127.0.0.1 the"));
     }
 
     #[test]

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.582] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/hosts` entries: `127.0.0.1 localhost`, `::1 localhost ip6-localhost`, `192.168.1.10 server.example.com server`, `ff02::1 ip6-allnodes`, `0.0.0.0 ads.example.com`, `2001:db8::1 www.example.com`, `::ffff:192.0.2.1 mapped.host`. Address then one or more hostnames. Optional `#` comment. Bare / prose / incomplete / neighbouring families (hosts.allow, fstab, crypttab, …) stay out.
+
 ## [0.3.581] — 2026-10-25
 
 View:
