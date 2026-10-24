@@ -800,3 +800,5 @@
 009 keep: Function List Samba smb.conf special sections (v0.3.560)
 
 009 keep: Function List MIT Kerberos krb5.conf/kdc.conf sections (v0.3.561)
+
+009 keep: Function List SSSD sssd.conf [sssd]/[nss]/[pam]/[sudo]/[autofs]/[ssh]/[pac]/[ifp]/[secrets]/[session_recording]/[domain/NAME] (v0.3.563)
