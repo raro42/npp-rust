@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [0.3.571] — 2026-10-24
+
+View:
+
+- **Function List** lists rsyslog RainerScript objects and classic `$ModLoad` / `$IncludeConfig`: `module(load="imudp")`, `input(type="imudp" port="514")`, `action(type="omfile" file="…")`, `parser(name="json" type="mmjsonparse")`, `timezone(id="UTC" type="offset" offset="+00:00")`, `template(name="tpl" type="string" string="%msg%\\n")`, `ruleset(name="remote") {`, `global(workDirectory="/var/lib/rsyslog")`, `main_queue(queue.size="10000")`, `include(file="/etc/rsyslog.d/*.conf")`, `$ModLoad imudp`, `$IncludeConfig /etc/rsyslog.d/*.conf`. Exact lowercase object names. Params must include a known key (`load=` / `type=` / `name=` / `id=` / `file=` / `=`). Optional `{` or `#` after `)`. Bare `input(` / `module(`, Python `input("…")`, GraphQL `input UserInput {`, syslog-ng `source s_sys {`, prose, and wrong case stay out.
+
+
 ## [0.3.570] — 2026-10-24
 
 View:

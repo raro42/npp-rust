@@ -32298,6 +32298,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_sddm_conf_decl(s)
             || is_nm_connection_decl(s)
             || is_systemd_networkd_decl(s)
+            || is_rsyslog_decl(s)
         {
             return true;
         }
@@ -32448,6 +32449,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_sddm_conf_decl(s)
         || is_nm_connection_decl(s)
         || is_systemd_networkd_decl(s)
+        || is_rsyslog_decl(s)
     {
         return true;
     }
@@ -44179,6 +44181,88 @@ fn is_systemd_networkd_decl(s: &str) -> bool {
     )
 }
 
+/// rsyslog RainerScript objects and classic `$ModLoad` / `$IncludeConfig`:
+/// `module(load="imudp")`, `input(type="imudp" port="514")`,
+/// `action(type="omfile" file="…")`, `parser(name="json" type="mmjsonparse")`,
+/// `timezone(id="UTC" type="offset" offset="+00:00")`,
+/// `template(name="tpl" type="string" string="%msg%\\n")`,
+/// `ruleset(name="remote") {`, `global(workDirectory="/var/lib/rsyslog")`,
+/// `main_queue(queue.size="10000")`, `include(file="/etc/rsyslog.d/*.conf")`,
+/// `$ModLoad imudp`, `$IncludeConfig /etc/rsyslog.d/*.conf`. Exact lowercase
+/// object names. Params must include a known key (`load=` / `type=` / `name=` /
+/// `id=` / `file=` / `workDirectory=` / `queue.size=` / …). Optional `{` or `#`
+/// after `)`. Bare `input(` / `module(`, Python `input("…")`, GraphQL
+/// `input UserInput {`, syslog-ng `source s_sys {`, prose, and wrong case stay
+/// out.
+fn is_rsyslog_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    rsyslog_dollar_directive(s)
+        || rsyslog_object(s, "module", &["load="])
+        || rsyslog_object(s, "input", &["type="])
+        || rsyslog_object(s, "action", &["type="])
+        || rsyslog_object(s, "parser", &["type=", "name="])
+        || rsyslog_object(s, "timezone", &["id="])
+        || rsyslog_object(s, "template", &["name="])
+        || rsyslog_object(s, "ruleset", &["name="])
+        || rsyslog_object(s, "global", &["="])
+        || rsyslog_object(s, "main_queue", &["="])
+        || rsyslog_object(s, "include", &["file=", "text="])
+}
+
+fn rsyslog_dollar_directive(s: &str) -> bool {
+    for key in ["$ModLoad", "$IncludeConfig"] {
+        let Some(rest) = s.strip_prefix(key) else {
+            continue;
+        };
+        if !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        if rest.is_empty() || rest.starts_with('#') {
+            continue;
+        }
+        // One token (module name or path/glob); optional `#` comment.
+        let tok_end = rest
+            .find(|c: char| c.is_whitespace() || c == '#')
+            .unwrap_or(rest.len());
+        if tok_end == 0 {
+            continue;
+        }
+        let after = rest[tok_end..].trim_start();
+        if after.is_empty() || after.starts_with('#') {
+            return true;
+        }
+    }
+    false
+}
+
+fn rsyslog_object(s: &str, key: &str, required: &[&str]) -> bool {
+    let Some(rest) = s.strip_prefix(key) else {
+        return false;
+    };
+    // Not `modules` / `inputs` / `actions` / …
+    if !rest.starts_with('(') {
+        return false;
+    }
+    let Some(after) = syslog_ng_skip_params(rest) else {
+        return false;
+    };
+    // `rest` is `(…)` + after; inner is between the outer parens.
+    let close_at = rest.len().saturating_sub(after.len() + 1);
+    if close_at < 1 || !rest.as_bytes().get(close_at).is_some_and(|&b| b == b')') {
+        return false;
+    }
+    let inner = &rest[1..close_at];
+    if inner.trim().is_empty() {
+        return false;
+    }
+    if !required.iter().any(|needle| inner.contains(needle)) {
+        return false;
+    }
+    let after = after.trim_start();
+    after.is_empty() || after.starts_with('{') || after.starts_with('#')
+}
+
 /// Xorg `xorg.conf` / `xorg.conf.d` section openers: `Section "ServerLayout"`,
 /// `Section "Files"`, `Section "Module"`, `Section "InputDevice"`,
 /// `Section "InputClass"`, `Section "Device"`, `Section "VideoAdaptor"`,
@@ -46568,11 +46652,11 @@ mod func_like_line_tests {
         is_lightdm_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
         is_nginx_conf_decl, is_nm_connection_decl, is_openvpn_decl, is_package_json_decl,
         is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_unbound_nsd_conf_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
-        line_is_func_like,
+        is_rake_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
+        is_ssh_config_decl, is_sssd_conf_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
+        is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -52401,6 +52485,54 @@ mod func_like_line_tests {
         assert!(!is_systemd_networkd_decl("[global]"));
         assert!(is_xorg_conf_decl("Section \"Device\""));
         assert!(!is_systemd_networkd_decl("Section \"Device\""));
+    }
+
+    #[test]
+    fn rsyslog_objects_count() {
+        assert!(line_is_func_like("module(load=\"imudp\")"));
+        assert!(line_is_func_like(
+            "  input(type=\"imudp\" port=\"514\") # udp"
+        ));
+        assert!(line_is_func_like(
+            "action(type=\"omfile\" file=\"/var/log/messages\")"
+        ));
+        assert!(line_is_func_like(
+            "parser(name=\"json\" type=\"mmjsonparse\")"
+        ));
+        assert!(line_is_func_like(
+            "timezone(id=\"UTC\" type=\"offset\" offset=\"+00:00\")"
+        ));
+        assert!(line_is_func_like(
+            "template(name=\"tpl\" type=\"string\" string=\"%msg%\\n\")"
+        ));
+        assert!(line_is_func_like("ruleset(name=\"remote\") {"));
+        assert!(line_is_func_like(
+            "global(workDirectory=\"/var/lib/rsyslog\")"
+        ));
+        assert!(line_is_func_like("main_queue(queue.size=\"10000\")"));
+        assert!(line_is_func_like("include(file=\"/etc/rsyslog.d/*.conf\")"));
+        assert!(line_is_func_like("$ModLoad imudp"));
+        assert!(line_is_func_like(
+            "$IncludeConfig /etc/rsyslog.d/*.conf # drop-ins"
+        ));
+        // Wrong case / bare / prose / non-rsyslog.
+        assert!(!is_rsyslog_decl("Module(load=\"imudp\")"));
+        assert!(!is_rsyslog_decl("modules(load=\"imudp\")"));
+        assert!(!is_rsyslog_decl("module()"));
+        assert!(!is_rsyslog_decl("module(load)"));
+        assert!(!is_rsyslog_decl("input(\"prompt\")"));
+        assert!(!is_rsyslog_decl("input()"));
+        assert!(!is_rsyslog_decl("input UserInput {"));
+        assert!(!is_rsyslog_decl("$modload imudp"));
+        assert!(!is_rsyslog_decl("$ModLoad"));
+        assert!(!is_rsyslog_decl("$ModLoad # bare"));
+        // Neighbouring families stay on their paths.
+        assert!(is_syslog_ng_decl("source s_sys {"));
+        assert!(!is_rsyslog_decl("source s_sys {"));
+        assert!(is_syslog_ng_decl("log {"));
+        assert!(!is_rsyslog_decl("log {"));
+        assert!(line_is_func_like("input UserInput {"));
+        assert!(!is_rsyslog_decl("input UserInput {"));
     }
 
     #[test]
