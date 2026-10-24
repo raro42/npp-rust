@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.566] — 2026-10-24
+
+View:
+
+- **Function List** lists LightDM `lightdm.conf` sections: `[LightDM]`, `[Seat:*]` / `[Seat:seat0]`, `[XDMCPServer]`, `[VNCServer]`, obsolete `[SeatDefaults]`. Exact stock casing. Optional `#` / `;` comment. Wrong case, bare `[Seat:]`, AWS / Samba / Fail2ban / SSSD / Kerberos / WireGuard / systemd / PHP capitals, Cargo / Grafana tables, incomplete brackets, and key lines stay out.
+
 ## [0.3.565] — 2026-10-24
 
 View:
