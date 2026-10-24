@@ -809,3 +809,5 @@
 009 keep: Function List SSSD sssd.conf [sssd]/[nss]/[pam]/[sudo]/[autofs]/[ssh]/[pac]/[ifp]/[secrets]/[session_recording]/[domain/NAME] (v0.3.563)
 
 009 keep: Function List NetworkManager connection keyfile sections (v0.3.569)
+
+009 keep: Function List systemd-networkd .network/.netdev/.link sections (v0.3.570)
