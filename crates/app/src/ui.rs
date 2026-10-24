@@ -32297,6 +32297,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_gdm_conf_decl(s)
             || is_sddm_conf_decl(s)
             || is_nm_connection_decl(s)
+            || is_systemd_networkd_decl(s)
         {
             return true;
         }
@@ -32446,6 +32447,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_gdm_conf_decl(s)
         || is_sddm_conf_decl(s)
         || is_nm_connection_decl(s)
+        || is_systemd_networkd_decl(s)
     {
         return true;
     }
@@ -44094,6 +44096,89 @@ fn is_nm_connection_decl(s: &str) -> bool {
     )
 }
 
+/// systemd-networkd `.network` / `.netdev` / `.link` sections: `[Match]`,
+/// `[Network]`, `[Link]`, `[Address]` / `[Route]` / `[Neighbor]` /
+/// `[NextHop]` / `[RoutingPolicyRule]`, `[DHCPv4]` / `[DHCPv6]` /
+/// `[DHCPPrefixDelegation]` / `[DHCPServer]` / `[DHCPServerStaticLease]`,
+/// `[IPv6AcceptRA]` / `[IPv6SendRA]` / `[IPv6Prefix]` / `[IPv6RoutePrefix]` /
+/// `[IPv6AddressLabel]` / `[IPv6PREF64Prefix]`, `[LLDP]` / `[CAN]` /
+/// `[Bridge]` / `[BridgeFDB]` / `[BridgeMDB]` / `[BridgeVLAN]` /
+/// `[BridgePort]`, `[NetDev]`, `[VLAN]` / `[MACVLAN]` / `[MACVTAP]` /
+/// `[IPVLAN]` / `[IPVTAP]` / `[VXLAN]` / `[GENEVE]` / `[L2TP]` /
+/// `[L2TPSession]` / `[MACsec]` / `[MACsecReceiveChannel]` /
+/// `[MACsecReceiveAssociation]`, `[Tunnel]` / `[FooOverUDP]` / `[VXCAN]` /
+/// `[Tun]` / `[Tap]`, `[WireGuard]` / `[WireGuardPeer]`, `[Bond]` / `[Xfrm]` /
+/// `[VRF]` / `[WLAN]` / `[BatmanAdvanced]`, `[SR-IOV]`. Exact Title Case.
+/// Optional `#` / `;` comment. Wrong case, NetworkManager lowercase, systemd
+/// unit `[Unit]` / `[Service]`, WireGuard `[Interface]` / `[Peer]` (veth
+/// `[Peer]` stays on WireGuard), SDDM / LightDM / GDM / AWS / Samba /
+/// Fail2ban / SSSD / Kerberos / PHP capitals, Cargo / Grafana tables,
+/// incomplete brackets, and key lines stay out.
+fn is_systemd_networkd_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    matches!(
+        header,
+        "Match"
+            | "Network"
+            | "Link"
+            | "Address"
+            | "Route"
+            | "Neighbor"
+            | "NextHop"
+            | "RoutingPolicyRule"
+            | "DHCPv4"
+            | "DHCPv6"
+            | "DHCPPrefixDelegation"
+            | "DHCPServer"
+            | "DHCPServerStaticLease"
+            | "IPv6AcceptRA"
+            | "IPv6SendRA"
+            | "IPv6Prefix"
+            | "IPv6RoutePrefix"
+            | "IPv6AddressLabel"
+            | "IPv6PREF64Prefix"
+            | "LLDP"
+            | "CAN"
+            | "Bridge"
+            | "BridgeFDB"
+            | "BridgeMDB"
+            | "BridgeVLAN"
+            | "BridgePort"
+            | "NetDev"
+            | "VLAN"
+            | "MACVLAN"
+            | "MACVTAP"
+            | "IPVLAN"
+            | "IPVTAP"
+            | "VXLAN"
+            | "GENEVE"
+            | "L2TP"
+            | "L2TPSession"
+            | "MACsec"
+            | "MACsecReceiveChannel"
+            | "MACsecReceiveAssociation"
+            | "Tunnel"
+            | "FooOverUDP"
+            | "VXCAN"
+            | "Tun"
+            | "Tap"
+            | "WireGuard"
+            | "WireGuardPeer"
+            | "Bond"
+            | "Xfrm"
+            | "VRF"
+            | "WLAN"
+            | "BatmanAdvanced"
+            | "SR-IOV"
+    )
+}
+
 /// Xorg `xorg.conf` / `xorg.conf.d` section openers: `Section "ServerLayout"`,
 /// `Section "Files"`, `Section "Module"`, `Section "InputDevice"`,
 /// `Section "InputClass"`, `Section "Device"`, `Section "VideoAdaptor"`,
@@ -46484,9 +46569,10 @@ mod func_like_line_tests {
         is_nginx_conf_decl, is_nm_connection_decl, is_openvpn_decl, is_package_json_decl,
         is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
         is_rake_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_unit_decl,
-        is_telegraf_toml_decl, is_tox_ini_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
+        is_sssd_conf_decl, is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_unbound_nsd_conf_decl,
+        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -52255,6 +52341,66 @@ mod func_like_line_tests {
         assert!(!is_nm_connection_decl("[global]"));
         assert!(is_xorg_conf_decl("Section \"Device\""));
         assert!(!is_nm_connection_decl("Section \"Device\""));
+    }
+
+    #[test]
+    fn systemd_networkd_sections_count() {
+        assert!(line_is_func_like("[Match]"));
+        assert!(line_is_func_like("  [Network] # dhcp"));
+        assert!(line_is_func_like("[Link]"));
+        assert!(line_is_func_like("[Address]"));
+        assert!(line_is_func_like("[Route]"));
+        assert!(line_is_func_like("[DHCPv4]"));
+        assert!(line_is_func_like("[DHCPv6]"));
+        assert!(line_is_func_like("[IPv6AcceptRA]"));
+        assert!(line_is_func_like("[NetDev]"));
+        assert!(line_is_func_like("[VLAN]"));
+        assert!(line_is_func_like("[Bridge]"));
+        assert!(line_is_func_like("[WireGuard]"));
+        assert!(line_is_func_like("[WireGuardPeer]"));
+        assert!(line_is_func_like("[Bond]"));
+        assert!(line_is_func_like("[SR-IOV]"));
+        assert!(line_is_func_like("[Match] ; comment"));
+        // Wrong case / unknown / key lines.
+        assert!(!is_systemd_networkd_decl("[match]"));
+        assert!(!is_systemd_networkd_decl("[MATCH]"));
+        assert!(!is_systemd_networkd_decl("[network]"));
+        assert!(!is_systemd_networkd_decl("[Foo]"));
+        assert!(!is_systemd_networkd_decl("DHCP=yes"));
+        assert!(!is_systemd_networkd_decl("Address=192.168.1.10/24"));
+        // Neighbouring INI / unit / WireGuard / NM families stay on their paths.
+        assert!(is_systemd_unit_decl("[Unit]"));
+        assert!(!is_systemd_networkd_decl("[Unit]"));
+        assert!(is_systemd_unit_decl("[Service]"));
+        assert!(!is_systemd_networkd_decl("[Service]"));
+        assert!(!is_systemd_unit_decl("[Network]"));
+        assert!(is_systemd_networkd_decl("[Network]"));
+        assert!(is_wireguard_config_decl("[Interface]"));
+        assert!(!is_systemd_networkd_decl("[Interface]"));
+        assert!(is_wireguard_config_decl("[Peer]"));
+        assert!(!is_systemd_networkd_decl("[Peer]"));
+        assert!(is_nm_connection_decl("[connection]"));
+        assert!(!is_systemd_networkd_decl("[connection]"));
+        assert!(is_nm_connection_decl("[wireguard]"));
+        assert!(!is_systemd_networkd_decl("[wireguard]"));
+        assert!(is_nm_connection_decl("[bridge]"));
+        assert!(!is_systemd_networkd_decl("[bridge]"));
+        assert!(is_sddm_conf_decl("[General]"));
+        assert!(!is_systemd_networkd_decl("[General]"));
+        assert!(is_gdm_conf_decl("[daemon]"));
+        assert!(!is_systemd_networkd_decl("[daemon]"));
+        assert!(is_lightdm_conf_decl("[LightDM]"));
+        assert!(!is_systemd_networkd_decl("[LightDM]"));
+        assert!(is_sssd_conf_decl("[sssd]"));
+        assert!(!is_systemd_networkd_decl("[sssd]"));
+        assert!(is_fail2ban_conf_decl("[DEFAULT]"));
+        assert!(!is_systemd_networkd_decl("[DEFAULT]"));
+        assert!(is_aws_config_decl("[default]"));
+        assert!(!is_systemd_networkd_decl("[default]"));
+        assert!(is_samba_conf_decl("[global]"));
+        assert!(!is_systemd_networkd_decl("[global]"));
+        assert!(is_xorg_conf_decl("Section \"Device\""));
+        assert!(!is_systemd_networkd_decl("Section \"Device\""));
     }
 
     #[test]

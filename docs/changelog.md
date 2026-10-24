@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.570] — 2026-10-24
+
+View:
+
+- **Function List** lists systemd-networkd `.network` / `.netdev` / `.link` sections: `[Match]`, `[Network]`, `[Link]`, `[Address]` / `[Route]` / `[Neighbor]` / `[NextHop]` / `[RoutingPolicyRule]`, `[DHCPv4]` / `[DHCPv6]` / `[DHCPPrefixDelegation]` / `[DHCPServer]` / `[DHCPServerStaticLease]`, `[IPv6AcceptRA]` / `[IPv6SendRA]` / `[IPv6Prefix]` / `[IPv6RoutePrefix]` / `[IPv6AddressLabel]` / `[IPv6PREF64Prefix]`, `[LLDP]` / `[CAN]` / `[Bridge]` / `[BridgeFDB]` / `[BridgeMDB]` / `[BridgeVLAN]` / `[BridgePort]`, `[NetDev]`, `[VLAN]` / `[MACVLAN]` / `[MACVTAP]` / `[IPVLAN]` / `[IPVTAP]` / `[VXLAN]` / `[GENEVE]` / `[L2TP]` / `[L2TPSession]` / `[MACsec]` / `[MACsecReceiveChannel]` / `[MACsecReceiveAssociation]`, `[Tunnel]` / `[FooOverUDP]` / `[VXCAN]` / `[Tun]` / `[Tap]`, `[WireGuard]` / `[WireGuardPeer]`, `[Bond]` / `[Xfrm]` / `[VRF]` / `[WLAN]` / `[BatmanAdvanced]`, `[SR-IOV]`. Exact Title Case. Optional `#` / `;` comment. Wrong case, NetworkManager lowercase, systemd unit `[Unit]` / `[Service]`, WireGuard `[Interface]` / `[Peer]` (veth `[Peer]` stays on WireGuard), SDDM / LightDM / GDM / AWS / Samba / Fail2ban / SSSD / Kerberos / PHP capitals, Cargo / Grafana tables, incomplete brackets, and key lines stay out.
+
 ## [0.3.569] — 2026-10-24
 
 View:
