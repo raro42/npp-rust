@@ -32289,6 +32289,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_openvpn_decl(s)
             || is_samba_conf_decl(s)
             || is_krb5_conf_decl(s)
+            || is_fail2ban_conf_decl(s)
         {
             return true;
         }
@@ -32430,6 +32431,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_openvpn_decl(s)
         || is_samba_conf_decl(s)
         || is_krb5_conf_decl(s)
+        || is_fail2ban_conf_decl(s)
     {
         return true;
     }
@@ -43859,6 +43861,33 @@ fn is_krb5_conf_decl(s: &str) -> bool {
     )
 }
 
+/// Fail2ban `jail.conf` / `fail2ban.conf` / filter / action sections:
+/// `[DEFAULT]`, `[Definition]`, `[Init]`, `[Init?family=inet4]`,
+/// `[INCLUDES]`. Exact stock casing. Optional `#` / `;` comment. Free-form
+/// jail names (`[sshd]`), wrong case, AWS `[default]`, Samba / WireGuard /
+/// systemd / PHP capitals, Cargo / Grafana tables, incomplete brackets, and
+/// key lines stay out.
+fn is_fail2ban_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    if matches!(header, "DEFAULT" | "Definition" | "Init" | "INCLUDES") {
+        return true;
+    }
+    // Action conditional inits: `[Init?family=inet4]`, `[Init?family=inet6]`.
+    if let Some(rest) = header.strip_prefix("Init?") {
+        return !rest.is_empty()
+            && rest
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'=' | b'.'));
+    }
+    false
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -46151,15 +46180,15 @@ mod func_like_line_tests {
         is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl, is_aws_config_decl,
         is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
         is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl,
-        is_editorconfig_decl, is_fluent_bit_decl, is_freeradius_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_ipsec_conf_decl,
-        is_keepalived_decl, is_krb5_conf_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_openvpn_decl, is_package_json_decl,
-        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_samba_conf_decl, is_scons_decl, is_ssh_config_decl,
-        is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
-        is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        line_is_func_like,
+        is_editorconfig_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl, is_openvpn_decl,
+        is_package_json_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_samba_conf_decl, is_scons_decl,
+        is_ssh_config_decl, is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_unit_decl,
+        is_telegraf_toml_decl, is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, line_is_func_like,
     };
 
     #[test]
@@ -51632,6 +51661,43 @@ mod func_like_line_tests {
         assert!(is_krb5_conf_decl("[plugins]"));
         assert!(is_aws_config_decl("[profile foo]"));
         assert!(!is_krb5_conf_decl("[profile foo]"));
+    }
+
+    #[test]
+    fn fail2ban_conf_sections_count() {
+        assert!(line_is_func_like("[DEFAULT]"));
+        assert!(line_is_func_like("  [Definition] # filter"));
+        assert!(line_is_func_like("[Init] ; action"));
+        assert!(line_is_func_like("[Init?family=inet4]"));
+        assert!(line_is_func_like("[Init?family=inet6]"));
+        assert!(line_is_func_like("[INCLUDES]"));
+        // Wrong case / free-form jails / other tables / key lines stay out.
+        assert!(!is_fail2ban_conf_decl("[default]"));
+        assert!(!is_fail2ban_conf_decl("[definition]"));
+        assert!(!is_fail2ban_conf_decl("[DEFINITION]"));
+        assert!(!is_fail2ban_conf_decl("[init]"));
+        assert!(!is_fail2ban_conf_decl("[includes]"));
+        assert!(!is_fail2ban_conf_decl("[sshd]"));
+        assert!(!is_fail2ban_conf_decl("[apache-auth]"));
+        assert!(!is_fail2ban_conf_decl("[Init?]"));
+        assert!(!is_fail2ban_conf_decl("[[DEFAULT]]"));
+        assert!(!is_fail2ban_conf_decl("[DEFAULT"));
+        assert!(!is_fail2ban_conf_decl("bantime = 10m"));
+        assert!(!is_fail2ban_conf_decl("filter = sshd"));
+        // AWS lowercase `[default]` stays on AWS; Fail2ban wants uppercase.
+        assert!(is_aws_config_decl("[default]"));
+        assert!(!is_fail2ban_conf_decl("[default]"));
+        // Samba / WireGuard / systemd / PHP / Kerberos stay on their paths.
+        assert!(is_samba_conf_decl("[global]"));
+        assert!(!is_fail2ban_conf_decl("[global]"));
+        assert!(is_wireguard_config_decl("[Interface]"));
+        assert!(!is_fail2ban_conf_decl("[Interface]"));
+        assert!(is_systemd_unit_decl("[Unit]"));
+        assert!(!is_fail2ban_conf_decl("[Unit]"));
+        assert!(is_php_ini_decl("[PHP]"));
+        assert!(!is_fail2ban_conf_decl("[PHP]"));
+        assert!(is_krb5_conf_decl("[libdefaults]"));
+        assert!(!is_fail2ban_conf_decl("[libdefaults]"));
     }
 
     #[test]

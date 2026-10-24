@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.562] — 2026-10-24
+
+View:
+
+- **Function List** lists Fail2ban `jail.conf` / `fail2ban.conf` / filter / action sections: `[DEFAULT]`, `[Definition]`, `[Init]`, `[Init?family=inet4]`, `[INCLUDES]`. Exact stock casing. Optional `#` / `;` comment. Free-form jail names (`[sshd]`), wrong case, AWS `[default]`, Samba / WireGuard / systemd / PHP capitals, Cargo / Grafana tables, incomplete brackets, and key lines stay out.
+
 ## [0.3.561] — 2026-10-24
 
 View:
