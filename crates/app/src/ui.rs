@@ -32315,6 +32315,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_hosts_file_decl(s)
             || is_resolv_conf_decl(s)
             || is_nsswitch_conf_decl(s)
+            || is_passwd_group_file_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32479,6 +32480,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_hosts_file_decl(s)
         || is_resolv_conf_decl(s)
         || is_nsswitch_conf_decl(s)
+        || is_passwd_group_file_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -46000,6 +46002,116 @@ fn nsswitch_action_ok(tok: &str) -> bool {
         && matches!(action, "return" | "continue" | "merge")
 }
 
+/// `/etc/passwd` / `/etc/group`: `root:x:0:0:root:/root:/bin/bash`,
+/// `alice:x:1000:1000:Alice User,,,:/home/alice:/bin/zsh`,
+/// `nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin`,
+/// `sudo:x:27:alice,bob`, `docker:x:999:`, `root:x:0:`. Optional `#`
+/// comment. Bare / prose / incomplete / neighbouring families (nsswitch
+/// `passwd: files`, hosts.allow, …) stay out.
+fn is_passwd_group_file_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // Colon fields only (passwd = 7, group = 4). Do not use whitespace split.
+    let parts: Vec<&str> = body.split(':').collect();
+    match parts.len() {
+        7 => {
+            // name:password:UID:GID:GECOS:home:shell
+            passwd_account_name_ok(parts[0])
+                && passwd_password_ok(parts[1])
+                && passwd_id_ok(parts[2])
+                && passwd_id_ok(parts[3])
+                && passwd_gecos_ok(parts[4])
+                && passwd_path_field_ok(parts[5])
+                && passwd_path_field_ok(parts[6])
+        }
+        4 => {
+            // name:password:GID:member,list
+            passwd_account_name_ok(parts[0])
+                && passwd_password_ok(parts[1])
+                && passwd_id_ok(parts[2])
+                && passwd_member_list_ok(parts[3])
+        }
+        _ => false,
+    }
+}
+
+fn passwd_account_name_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 32 {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team", "note",
+    ];
+    if PROSE.iter().any(|w| name.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    // POSIX-ish: start letter or `_`; then alnum / `_` / `-`.
+    if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+}
+
+fn passwd_password_ok(pw: &str) -> bool {
+    // Common: `x`, `*`, `!`, `!!`, empty, or `$id$…` hash. No spaces / colons.
+    if pw.len() > 128 || pw.contains(' ') || pw.contains(':') {
+        return false;
+    }
+    true
+}
+
+fn passwd_id_ok(id: &str) -> bool {
+    if id.is_empty() || id.len() > 10 {
+        return false;
+    }
+    id.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn passwd_gecos_ok(gecos: &str) -> bool {
+    // Free text without `:`; empty OK. Cap length.
+    gecos.len() <= 256 && !gecos.contains(':')
+}
+
+fn passwd_path_field_ok(path: &str) -> bool {
+    // Empty, `-`, or absolute path (home / shell).
+    if path.is_empty() || path == "-" {
+        return true;
+    }
+    if path.len() > 256 || !path.starts_with('/') || path.contains(' ') {
+        return false;
+    }
+    path.bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'/' | b'_' | b'-' | b'.' | b'+'))
+}
+
+fn passwd_member_list_ok(list: &str) -> bool {
+    if list.is_empty() {
+        return true;
+    }
+    if list.len() > 512 || list.contains(' ') {
+        return false;
+    }
+    list.split(',').all(|m| {
+        if m.is_empty() {
+            return false;
+        }
+        passwd_account_name_ok(m)
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -48822,13 +48934,13 @@ mod func_like_line_tests {
         is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl,
         is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_package_json_decl,
-        is_pam_conf_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rsyslog_decl,
-        is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_sudoers_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
+        is_pam_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
+        is_resolv_conf_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
+        is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl, is_supervisord_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
+        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -55188,7 +55300,68 @@ mod func_like_line_tests {
         assert!(!is_nsswitch_conf_decl("127.0.0.1 localhost"));
         assert!(is_sudoers_decl("root ALL=(ALL:ALL) ALL"));
         assert!(!is_nsswitch_conf_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(is_passwd_group_file_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(!is_nsswitch_conf_decl("root:x:0:0:root:/root:/bin/bash"));
         assert!(!line_is_func_like("hosts: the dns"));
+    }
+
+    #[test]
+    fn passwd_group_file_entries_count() {
+        assert!(line_is_func_like("root:x:0:0:root:/root:/bin/bash"));
+        assert!(line_is_func_like(
+            "alice:x:1000:1000:Alice User,,,:/home/alice:/bin/zsh"
+        ));
+        assert!(line_is_func_like(
+            "nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin"
+        ));
+        assert!(line_is_func_like(
+            "www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin"
+        ));
+        assert!(line_is_func_like("sync:x:4:65534:sync:/bin:/bin/sync"));
+        assert!(line_is_func_like("user:!:1001:1001::/home/user:"));
+        assert!(line_is_func_like(
+            "locked:!!:1002:1002::/home/locked:/bin/false"
+        ));
+        assert!(line_is_func_like(
+            "  bob:x:1003:1003::/home/bob:/bin/bash # comment"
+        ));
+        assert!(line_is_func_like("sudo:x:27:alice,bob"));
+        assert!(line_is_func_like("docker:x:999:"));
+        assert!(line_is_func_like("root:x:0:"));
+        assert!(line_is_func_like("users:x:100:alice"));
+        assert!(line_is_func_like(
+            "_uuidd:x:104:104::/run/uuidd:/usr/sbin/nologin"
+        ));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_passwd_group_file_decl("root:x:0:0:root:/root"));
+        assert!(!is_passwd_group_file_decl("root:x:0:0"));
+        assert!(!is_passwd_group_file_decl("root"));
+        assert!(!is_passwd_group_file_decl("the:x:0:0:root:/root:/bin/bash"));
+        assert!(!is_passwd_group_file_decl(
+            "root:x:uid:0:root:/root:/bin/bash"
+        ));
+        assert!(!is_passwd_group_file_decl(
+            "1root:x:0:0:root:/root:/bin/bash"
+        ));
+        assert!(!is_passwd_group_file_decl(
+            "# root:x:0:0:root:/root:/bin/bash"
+        ));
+        assert!(!is_passwd_group_file_decl("not a passwd line"));
+        assert!(!is_passwd_group_file_decl("sudo:x:27:the"));
+        assert!(!is_passwd_group_file_decl("sudo:x:gid:alice"));
+        assert!(!is_passwd_group_file_decl("sudo:x:27:alice,"));
+        // Neighbouring families stay on their paths.
+        assert!(is_nsswitch_conf_decl("passwd: files systemd"));
+        assert!(!is_passwd_group_file_decl("passwd: files systemd"));
+        assert!(is_nsswitch_conf_decl("group: files"));
+        assert!(!is_passwd_group_file_decl("group: files"));
+        assert!(is_hosts_access_decl("ALL: LOCAL"));
+        assert!(!is_passwd_group_file_decl("ALL: LOCAL"));
+        assert!(is_hosts_file_decl("127.0.0.1 localhost"));
+        assert!(!is_passwd_group_file_decl("127.0.0.1 localhost"));
+        assert!(is_resolv_conf_decl("nameserver 8.8.8.8"));
+        assert!(!is_passwd_group_file_decl("nameserver 8.8.8.8"));
+        assert!(!line_is_func_like("the:x:0:0:root:/root:/bin/bash"));
     }
 
     #[test]

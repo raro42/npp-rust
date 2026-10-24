@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.585] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/passwd` / `/etc/group` entries: `root:x:0:0:root:/root:/bin/bash`, `alice:x:1000:1000:Alice User,,,:/home/alice:/bin/zsh`, `nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin`, `www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin`, `user:!:1001:1001::/home/user:`, `locked:!!:1002:1002::/home/locked:/bin/false`, `sudo:x:27:alice,bob`, `docker:x:999:`, `root:x:0:`, `users:x:100:alice`, `_uuidd:x:104:104::/run/uuidd:/usr/sbin/nologin`. Passwd = 7 colon fields (name, password, UID, GID, GECOS, home, shell); group = 4 (name, password, GID, member list). Optional `#` comment. Bare / prose / incomplete / neighbouring families (nsswitch `passwd: files`, hosts.allow, …) stay out.
+
 ## [0.3.584] — 2026-10-25
 
 View:
