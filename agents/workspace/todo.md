@@ -811,3 +811,5 @@
 009 keep: Function List NetworkManager connection keyfile sections (v0.3.569)
 
 009 keep: Function List systemd-networkd .network/.netdev/.link sections (v0.3.570)
+
+009 keep: Function List rsyslog RainerScript module/input/action/parser/timezone/template/ruleset/global/main_queue/include + $ModLoad/$IncludeConfig (v0.3.571)
