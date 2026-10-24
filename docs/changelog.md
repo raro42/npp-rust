@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.576] — 2026-10-24
+
+View:
+
+- **Function List** lists sudoers rules: `#include /etc/sudoers.local`, `#includedir /etc/sudoers.d`, `@include …` / `@includedir …`, `Defaults env_reset`, `Defaults:alice !requiretty`, `Defaults@host timestamp_timeout=15`, `Defaults!/usr/bin/sudoedit !authenticate`, `User_Alias` / `Runas_Alias` / `Host_Alias` / `Cmnd_Alias NAME = …`, privilege lines `root ALL=(ALL:ALL) ALL`, `%sudo ALL=(ALL) ALL`, `alice ALL=(ALL) NOPASSWD: /usr/bin/systemctl`. Optional `#` comment after a rule. Bare keywords, prose (`root the ALL`), C `#include <stdio.h>`, Sass `@include mixin`, PAM rules, and incomplete lines stay out.
+
 ## [0.3.575] — 2026-10-24
 
 View:

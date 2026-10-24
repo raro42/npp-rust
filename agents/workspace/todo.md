@@ -820,3 +820,5 @@
 009 keep: Function List rsyslog RainerScript module/input/action/parser/timezone/template/ruleset/global/main_queue/include + $ModLoad/$IncludeConfig (v0.3.571)
 
 009 keep: Function List Linux-PAM pam.conf/pam.d rules (v0.3.575)
+
+009 keep: Function List sudoers rules (v0.3.576)

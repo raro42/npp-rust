@@ -32168,7 +32168,8 @@ fn line_is_func_like(line: &str) -> bool {
         return true;
     }
     if s.starts_with('#') {
-        return is_define_macro(s);
+        // `#define` macros, plus sudoers `#include` / `#includedir`.
+        return is_define_macro(s) || is_sudoers_decl(s);
     }
     for _ in 0..8 {
         if is_haskell_decl(s)
@@ -32303,6 +32304,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_udev_rule_decl(s)
             || is_audit_rules_decl(s)
             || is_pam_conf_decl(s)
+            || is_sudoers_decl(s)
         {
             return true;
         }
@@ -32458,6 +32460,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_udev_rule_decl(s)
         || is_audit_rules_decl(s)
         || is_pam_conf_decl(s)
+        || is_sudoers_decl(s)
     {
         return true;
     }
@@ -44511,6 +44514,423 @@ fn pam_at_include_name_ok(tok: &str) -> bool {
     })
 }
 
+/// sudoers: `#include /etc/sudoers.local`, `#includedir /etc/sudoers.d`,
+/// `@include …` / `@includedir …`, `Defaults env_reset`,
+/// `Defaults:alice !requiretty`, `Defaults@host timestamp_timeout=15`,
+/// `Defaults!/usr/bin/sudoedit !authenticate`, `User_Alias ADMINS = jsmith`,
+/// `Runas_Alias` / `Host_Alias` / `Cmnd_Alias`, privilege lines
+/// `root ALL=(ALL:ALL) ALL`, `%sudo ALL=(ALL) ALL`,
+/// `alice ALL=(ALL) NOPASSWD: /usr/bin/systemctl`. Optional `#` comment after
+/// a rule. Bare keywords, prose (`root the ALL`), C `#include <stdio.h>`,
+/// Sass `@include mixin`, PAM rules, and incomplete lines stay out.
+fn is_sudoers_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() {
+        return false;
+    }
+    // Include directives (before generic `#` comment reject).
+    if let Some(rest) = sudoers_strip_include_kw(s) {
+        return sudoers_include_path_ok(rest);
+    }
+    if s.starts_with('#') {
+        return false;
+    }
+
+    // Defaults / Defaults:user / Defaults@host / Defaults!cmnd …
+    if let Some(rest) = sudoers_strip_defaults(s) {
+        return sudoers_defaults_body_ok(rest);
+    }
+
+    // User_Alias / Runas_Alias / Host_Alias / Cmnd_Alias NAME = …
+    if let Some(rest) = sudoers_strip_alias_kw(s) {
+        return sudoers_alias_body_ok(rest);
+    }
+
+    // Privilege: user host = [(runas)] [tags:] commands
+    sudoers_privilege_ok(s)
+}
+
+fn sudoers_strip_include_kw(s: &str) -> Option<&str> {
+    for kw in ["#includedir", "#include", "@includedir", "@include"] {
+        if let Some(rest) = s.strip_prefix(kw) {
+            if rest.starts_with(char::is_whitespace) {
+                return Some(rest.trim_start());
+            }
+        }
+    }
+    None
+}
+
+fn sudoers_include_path_ok(rest: &str) -> bool {
+    let end = rest
+        .find(|c: char| c.is_whitespace() || c == '#')
+        .unwrap_or(rest.len());
+    if end == 0 {
+        return false;
+    }
+    let path = &rest[..end];
+    // Filesystem-ish path; reject C `#include <stdio.h>` / `"foo.h"` and Sass
+    // `@include mixin` prose.
+    if path.starts_with('<') || path.starts_with('"') || path.starts_with('\'') {
+        return false;
+    }
+    const PROSE: &[&str] = &["the", "a", "an", "to", "of", "for", "and", "or"];
+    if PROSE.iter().any(|w| path.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    let bytes = path.as_bytes();
+    if !(bytes[0] == b'/'
+        || bytes[0] == b'.'
+        || bytes[0].is_ascii_alphanumeric()
+        || bytes[0] == b'_'
+        || bytes[0] == b'~')
+    {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/' | b'~' | b'*'))
+    {
+        return false;
+    }
+    // Prefer paths that look like files/dirs (slash, dot, or tilde), not bare words.
+    if !(path.contains('/') || path.contains('.') || path.starts_with('~') || path.starts_with('*'))
+    {
+        return false;
+    }
+    let after = rest[end..].trim_start();
+    after.is_empty() || after.starts_with('#')
+}
+
+fn sudoers_strip_defaults(s: &str) -> Option<&str> {
+    let lower = s.as_bytes();
+    const KW: &[u8] = b"Defaults";
+    if lower.len() < KW.len() {
+        return None;
+    }
+    if !s[..KW.len()].eq_ignore_ascii_case("Defaults") {
+        return None;
+    }
+    let rest = &s[KW.len()..];
+    // `Defaults …` or `Defaults:…` / `Defaults@…` / `Defaults!…` / `Defaults>…`
+    if rest.is_empty() {
+        return None;
+    }
+    let c = rest.as_bytes()[0];
+    if c.is_ascii_whitespace() || matches!(c, b':' | b'@' | b'!' | b'>') {
+        return Some(rest.trim_start());
+    }
+    None
+}
+
+fn sudoers_defaults_body_ok(rest: &str) -> bool {
+    // Optional qualifier glued or spaced already trimmed: `:alice !requiretty`
+    // or `env_reset` or `@host timestamp_timeout=15`.
+    let rest = rest.trim_start();
+    if rest.is_empty() || rest.starts_with('#') {
+        return false;
+    }
+    // Qualifier forms start with : @ ! >
+    let after_qual = if matches!(rest.as_bytes()[0], b':' | b'@' | b'!' | b'>') {
+        let q = &rest[1..];
+        let end = q
+            .find(|c: char| c.is_whitespace() || c == '#')
+            .unwrap_or(q.len());
+        if end == 0 {
+            return false;
+        }
+        let qual = &q[..end];
+        if !sudoers_name_or_path_ok(qual) {
+            return false;
+        }
+        q[end..].trim_start()
+    } else {
+        rest
+    };
+    if after_qual.is_empty() || after_qual.starts_with('#') {
+        return false;
+    }
+    // At least one option token (not prose filler alone).
+    let end = after_qual
+        .find(|c: char| c.is_whitespace() || c == '#')
+        .unwrap_or(after_qual.len());
+    if end == 0 {
+        return false;
+    }
+    let opt = &after_qual[..end];
+    const PROSE: &[&str] = &["the", "a", "an", "to", "of", "for", "and", "or"];
+    if PROSE.iter().any(|w| opt.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    // Options are identifiers, often `!flag` or `key=value`.
+    let body = opt.strip_prefix('!').unwrap_or(opt);
+    if body.is_empty() {
+        return false;
+    }
+    body.bytes().all(|b| {
+        b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'=' | b'+' | b':' | b'/')
+    })
+}
+
+fn sudoers_strip_alias_kw(s: &str) -> Option<&str> {
+    for kw in ["User_Alias", "Runas_Alias", "Host_Alias", "Cmnd_Alias"] {
+        if let Some(rest) = s.strip_prefix(kw) {
+            if rest.starts_with(char::is_whitespace) {
+                return Some(rest.trim_start());
+            }
+        }
+    }
+    None
+}
+
+fn sudoers_alias_body_ok(rest: &str) -> bool {
+    // NAME = member[, member…]
+    let end = rest
+        .find(|c: char| c.is_whitespace() || c == '=' || c == '#')
+        .unwrap_or(rest.len());
+    if end == 0 {
+        return false;
+    }
+    let name = &rest[..end];
+    if !sudoers_alias_name_ok(name) {
+        return false;
+    }
+    let after = rest[end..].trim_start();
+    let Some(after_eq) = after.strip_prefix('=') else {
+        return false;
+    };
+    let after_eq = after_eq.trim_start();
+    if after_eq.is_empty() || after_eq.starts_with('#') {
+        return false;
+    }
+    let mend = after_eq
+        .find(|c: char| c.is_whitespace() || c == ',' || c == '#')
+        .unwrap_or(after_eq.len());
+    if mend == 0 {
+        return false;
+    }
+    let member = &after_eq[..mend];
+    const PROSE: &[&str] = &["the", "a", "an", "to", "of", "for", "and", "or"];
+    if PROSE.iter().any(|w| member.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    sudoers_name_or_path_ok(member)
+}
+
+fn sudoers_alias_name_ok(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_uppercase() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
+}
+
+fn sudoers_privilege_ok(s: &str) -> bool {
+    let Some((user, after_user)) = sudoers_next_token(s) else {
+        return false;
+    };
+    if !sudoers_user_spec_ok(user) {
+        return false;
+    }
+    let Some((host, after_host)) = sudoers_next_token(after_user) else {
+        return false;
+    };
+    if !sudoers_host_spec_ok(host) {
+        return false;
+    }
+    let after_host = after_host.trim_start();
+    let Some(after_eq) = after_host.strip_prefix('=') else {
+        return false;
+    };
+    let mut rest = after_eq.trim_start();
+    if rest.is_empty() || rest.starts_with('#') {
+        return false;
+    }
+    // Optional (Runas_List). Real sudoers lines almost always have this or
+    // host ALL + a path/ALL/tag command; require one of those shapes so
+    // random `a b = c` source lines stay out.
+    let mut has_runas = false;
+    if rest.starts_with('(') {
+        let Some(close) = rest.find(')') else {
+            return false;
+        };
+        let inner = &rest[1..close];
+        if inner.is_empty() {
+            return false;
+        }
+        // Allow ALL, ALL:ALL, user:group, #uid, %group, …
+        if !inner.chars().all(|c| {
+            c.is_ascii_alphanumeric()
+                || matches!(c, ':' | '%' | '#' | '+' | '_' | '-' | ',' | ' ' | '*' | '/')
+        }) {
+            return false;
+        }
+        has_runas = true;
+        rest = rest[close + 1..].trim_start();
+    }
+    if rest.is_empty() || rest.starts_with('#') {
+        return false;
+    }
+    // Tags (NOPASSWD: PASSWD: …) then command, or bare ALL / path.
+    let (cmd, _) = match sudoers_next_token(rest) {
+        Some(pair) => pair,
+        None => return false,
+    };
+    if !sudoers_command_or_tag_ok(cmd) {
+        return false;
+    }
+    // Without (runas), require host ALL and a clear sudoers command
+    // (ALL / path / tag / Cmnd_Alias), not a generic word.
+    if !has_runas {
+        if !host.eq_ignore_ascii_case("ALL") {
+            return false;
+        }
+        if !(cmd.eq_ignore_ascii_case("ALL")
+            || cmd.starts_with('/')
+            || cmd.ends_with(':')
+            || cmd.starts_with('!')
+            || sudoers_alias_name_ok(cmd.strip_prefix('!').unwrap_or(cmd)))
+        {
+            return false;
+        }
+    }
+    true
+}
+
+fn sudoers_next_token(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return None;
+    }
+    let end = s
+        .find(|c: char| c.is_whitespace() || c == '#' || c == '=')
+        .unwrap_or(s.len());
+    if end == 0 {
+        return None;
+    }
+    Some((&s[..end], &s[end..]))
+}
+
+fn sudoers_user_spec_ok(tok: &str) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    // Reject keywords that belong to other families / prose / common source.
+    const BLOCK: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "auth", "account", "password", "session",
+        "include", "substack", "defaults", "alias", "const", "let", "var", "type", "class",
+        "struct", "enum", "fn", "fun", "func", "def", "function", "target", "sig", "pred", "fact",
+        "assert",
+    ];
+    if BLOCK.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    // %group, +netgroup, #uid, %#gid, user, User_Alias ref
+    let t = tok;
+    if t.starts_with('%') || t.starts_with('+') || t.starts_with('#') {
+        return t.len() > 1 && sudoers_name_or_path_ok(&t[1..]);
+    }
+    sudoers_name_or_path_ok(t)
+}
+
+fn sudoers_host_spec_ok(tok: &str) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    const PROSE: &[&str] = &["the", "a", "an", "to", "of", "for", "and", "or"];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    if tok.eq_ignore_ascii_case("ALL") {
+        return true;
+    }
+    if tok.starts_with('+') || tok.starts_with('%') {
+        return tok.len() > 1 && sudoers_name_or_path_ok(&tok[1..]);
+    }
+    // Hostname, IPv4, or Host_Alias.
+    tok.bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'*' | b':'))
+        && tok.as_bytes()[0].is_ascii_alphanumeric()
+}
+
+fn sudoers_command_or_tag_ok(tok: &str) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    const PROSE: &[&str] = &["the", "a", "an", "to", "of", "for", "and", "or"];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    // Tag: NOPASSWD: / PASSWD: / NOEXEC: / …
+    if let Some(tag) = tok.strip_suffix(':') {
+        const TAGS: &[&str] = &[
+            "NOPASSWD",
+            "PASSWD",
+            "NOEXEC",
+            "EXEC",
+            "SETENV",
+            "NOSETENV",
+            "LOG_INPUT",
+            "NOLOG_INPUT",
+            "LOG_OUTPUT",
+            "NOLOG_OUTPUT",
+            "FOLLOW",
+            "NOFOLLOW",
+            "MAIL",
+            "NOMAIL",
+            "INTERCEPT",
+            "NOINTERCEPT",
+        ];
+        return TAGS.iter().any(|t| tag.eq_ignore_ascii_case(t));
+    }
+    if tok.eq_ignore_ascii_case("ALL") {
+        return true;
+    }
+    // Command path or Cmnd_Alias (UPPER) or quoted.
+    if tok.starts_with('"') {
+        return tok.len() > 2 && tok.ends_with('"');
+    }
+    if let Some(rest) = tok.strip_prefix('!') {
+        return !rest.is_empty() && sudoers_command_or_tag_ok(rest);
+    }
+    if tok.starts_with('/') {
+        return tok.len() > 1
+            && tok.bytes().all(|b| {
+                b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/' | b'*')
+            });
+    }
+    // Cmnd_Alias reference only (UPPER_SNAKE); bare words stay out.
+    sudoers_alias_name_ok(tok)
+}
+
+fn sudoers_name_or_path_ok(tok: &str) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    const PROSE: &[&str] = &["the", "a", "an", "to", "of", "for", "and", "or"];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    let bytes = tok.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric()
+        || bytes[0] == b'_'
+        || bytes[0] == b'.'
+        || bytes[0] == b'/'
+        || bytes[0] == b'~'
+        || bytes[0] == b'*')
+    {
+        return false;
+    }
+    bytes.iter().all(|&b| {
+        b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/' | b'~' | b'*' | b':')
+    })
+}
+
 /// udev rules: `KERNEL=="sda"`, `SUBSYSTEM=="usb", ATTR{idVendor}=="1234",
 /// MODE="0666"`, `ACTION=="add", RUN+="/usr/local/bin/…"`, `LABEL="end"`,
 /// `GOTO="end"`, `ENV{DEVTYPE}=="disk"`. Match/assign keys with `==` / `!=` /
@@ -47198,7 +47618,7 @@ mod func_like_line_tests {
         is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_openvpn_decl,
         is_package_json_decl, is_pam_conf_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl,
         is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl, is_samba_conf_decl,
-        is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl,
         is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
         is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_udev_rule_decl,
         is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
@@ -53201,6 +53621,65 @@ mod func_like_line_tests {
         assert!(!is_pam_conf_decl("KERNEL==\"sda\""));
         assert!(is_sssd_conf_decl("[sssd]"));
         assert!(!is_pam_conf_decl("[sssd]"));
+        assert!(!line_is_func_like("@include flex-center"));
+        // sudoers stays on its path.
+        assert!(is_sudoers_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(!is_pam_conf_decl("root ALL=(ALL:ALL) ALL"));
+    }
+
+    #[test]
+    fn sudoers_rules_count() {
+        assert!(line_is_func_like("root ALL=(ALL:ALL) ALL"));
+        assert!(line_is_func_like("%sudo ALL=(ALL) ALL"));
+        assert!(line_is_func_like("%admin ALL=(ALL:ALL) ALL # admins"));
+        assert!(line_is_func_like(
+            "alice ALL=(ALL) NOPASSWD: /usr/bin/systemctl"
+        ));
+        assert!(line_is_func_like("bob ALL = (ALL) ALL"));
+        assert!(line_is_func_like("+netgroup ALL=(ALL) ALL"));
+        assert!(line_is_func_like("Defaults env_reset"));
+        assert!(line_is_func_like("Defaults:alice !requiretty"));
+        assert!(line_is_func_like("Defaults@host timestamp_timeout=15"));
+        assert!(line_is_func_like(
+            "Defaults!/usr/bin/sudoedit !authenticate"
+        ));
+        assert!(line_is_func_like("User_Alias ADMINS = jsmith, mike"));
+        assert!(line_is_func_like("Runas_Alias OP = root"));
+        assert!(line_is_func_like("Host_Alias SERVERS = web1, web2"));
+        assert!(line_is_func_like("Cmnd_Alias SHUTDOWN = /sbin/halt"));
+        assert!(line_is_func_like("#include /etc/sudoers.local"));
+        assert!(line_is_func_like("#includedir /etc/sudoers.d"));
+        assert!(line_is_func_like("@include /etc/sudoers.local"));
+        assert!(line_is_func_like("@includedir /etc/sudoers.d # drop-ins"));
+        // Bare / prose / incomplete / neighbouring stay out.
+        assert!(!is_sudoers_decl("root"));
+        assert!(!is_sudoers_decl("root ALL"));
+        assert!(!is_sudoers_decl("root the ALL"));
+        assert!(!is_sudoers_decl("Defaults"));
+        assert!(!is_sudoers_decl("Defaults the"));
+        assert!(!is_sudoers_decl("User_Alias"));
+        assert!(!is_sudoers_decl("User_Alias ADMINS"));
+        assert!(!is_sudoers_decl("User_Alias admins = jsmith")); // name must be UPPER
+        assert!(!is_sudoers_decl("#include"));
+        assert!(!is_sudoers_decl("#include <stdio.h>")); // C
+        assert!(!is_sudoers_decl("#include \"foo.h\""));
+        assert!(!is_sudoers_decl("@include mixin")); // Sass-ish bare word
+        assert!(!is_sudoers_decl("@include flex-center"));
+        assert!(!is_sudoers_decl("# User privilege specification"));
+        assert!(!is_sudoers_decl("not a sudoers line"));
+        // Source-like `a b = c` must not look like sudoers.
+        assert!(!is_sudoers_decl("const x = 1"));
+        assert!(!is_sudoers_decl("let x = function"));
+        assert!(!is_sudoers_decl("alias ll=ls"));
+        assert!(!is_sudoers_decl(r#"Target Name="Build""#));
+        assert!(!is_sudoers_decl("const int x = 1"));
+        // Neighbouring families stay on their paths.
+        assert!(is_pam_conf_decl("auth required pam_unix.so"));
+        assert!(!is_sudoers_decl("auth required pam_unix.so"));
+        assert!(is_pam_conf_decl("@include common-auth"));
+        assert!(!is_sudoers_decl("@include common-auth"));
+        assert!(is_audit_rules_decl("-w /etc/passwd -p wa -k identity"));
+        assert!(!is_sudoers_decl("-w /etc/passwd -p wa -k identity"));
         assert!(!line_is_func_like("@include flex-center"));
     }
 
