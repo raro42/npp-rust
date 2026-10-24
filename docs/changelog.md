@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.561] — 2026-10-24
+
+View:
+
+- **Function List** lists MIT Kerberos `krb5.conf` / `kdc.conf` sections: `[libdefaults]`, `[realms]`, `[domain_realm]`, `[capaths]`, `[appdefaults]`, `[logging]`, `[kdcdefaults]`, `[dbdefaults]`, `[dbmodules]`, `[otp]`, `[login]`, `[password_quality]`, `[plugins]`. Exact lowercase. Optional `#` / `;` comment. Wrong case, AWS / Samba / WireGuard / systemd / PHP capitals, Cargo / Grafana tables, incomplete brackets, and key lines stay out.
+
 ## [0.3.560] — 2026-10-24
 
 View:

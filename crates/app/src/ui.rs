@@ -32288,6 +32288,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_ipsec_conf_decl(s)
             || is_openvpn_decl(s)
             || is_samba_conf_decl(s)
+            || is_krb5_conf_decl(s)
         {
             return true;
         }
@@ -32428,6 +32429,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_ipsec_conf_decl(s)
         || is_openvpn_decl(s)
         || is_samba_conf_decl(s)
+        || is_krb5_conf_decl(s)
     {
         return true;
     }
@@ -43825,6 +43827,38 @@ fn is_samba_conf_decl(s: &str) -> bool {
     )
 }
 
+/// MIT Kerberos `krb5.conf` / `kdc.conf` sections: `[libdefaults]`,
+/// `[realms]`, `[domain_realm]`, `[capaths]`, `[appdefaults]`, `[logging]`,
+/// `[kdcdefaults]`, `[dbdefaults]`, `[dbmodules]`, `[otp]`, `[login]`,
+/// `[password_quality]`, `[plugins]`. Exact lowercase. Optional `#` / `;`
+/// comment. Wrong case, AWS / Samba / WireGuard / systemd / PHP capitals,
+/// Cargo / Grafana tables, incomplete brackets, and key lines stay out.
+fn is_krb5_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    matches!(
+        header,
+        "libdefaults"
+            | "realms"
+            | "domain_realm"
+            | "capaths"
+            | "appdefaults"
+            | "logging"
+            | "kdcdefaults"
+            | "dbdefaults"
+            | "dbmodules"
+            | "otp"
+            | "login"
+            | "password_quality"
+            | "plugins"
+    )
+}
+
 /// BitBake / Yocto recipe tasks: `do_compile()`, `do_install()`,
 /// `do_configure()`, `do_fetch()`, `do_unpack()`, `do_patch()`,
 /// `do_deploy()`, `do_package()`, `do_populate_sysroot()`, …
@@ -46119,12 +46153,13 @@ mod func_like_line_tests {
         is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl,
         is_editorconfig_decl, is_fluent_bit_decl, is_freeradius_decl, is_gemfile_decl,
         is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_ipsec_conf_decl,
-        is_keepalived_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_openvpn_decl, is_package_json_decl, is_php_ini_decl,
-        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
-        is_samba_conf_decl, is_scons_decl, is_ssh_config_decl, is_supervisord_conf_decl,
-        is_syslog_ng_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, line_is_func_like,
+        is_keepalived_decl, is_krb5_conf_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_openvpn_decl, is_package_json_decl,
+        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_samba_conf_decl, is_scons_decl, is_ssh_config_decl,
+        is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
+        is_tox_ini_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -51557,6 +51592,46 @@ mod func_like_line_tests {
         assert!(!is_samba_conf_decl("<ca>"));
         assert!(is_ipsec_conf_decl("conn vpn"));
         assert!(!is_samba_conf_decl("conn vpn"));
+    }
+
+    #[test]
+    fn krb5_conf_sections_count() {
+        assert!(line_is_func_like("[libdefaults]"));
+        assert!(line_is_func_like("  [realms] # MIT"));
+        assert!(line_is_func_like("[domain_realm] ; map"));
+        assert!(line_is_func_like("[capaths]"));
+        assert!(line_is_func_like("[appdefaults]"));
+        assert!(line_is_func_like("[logging]"));
+        assert!(line_is_func_like("[kdcdefaults]"));
+        assert!(line_is_func_like("[dbdefaults]"));
+        assert!(line_is_func_like("[dbmodules]"));
+        assert!(line_is_func_like("[otp]"));
+        assert!(line_is_func_like("[login]"));
+        assert!(line_is_func_like("[password_quality]"));
+        assert!(line_is_func_like("[plugins]"));
+        // Wrong case / other tables / key lines stay out of this matcher.
+        assert!(!is_krb5_conf_decl("[Libdefaults]"));
+        assert!(!is_krb5_conf_decl("[REALMS]"));
+        assert!(!is_krb5_conf_decl("[Domain_Realm]"));
+        assert!(!is_krb5_conf_decl("[section]"));
+        assert!(!is_krb5_conf_decl("[[libdefaults]]"));
+        assert!(!is_krb5_conf_decl("[libdefaults"));
+        assert!(!is_krb5_conf_decl("default_realm = EXAMPLE.COM"));
+        assert!(!is_krb5_conf_decl("kdc = kdc.example.com"));
+        // Samba / WireGuard / systemd / PHP capitals stay on their paths.
+        assert!(is_samba_conf_decl("[global]"));
+        assert!(!is_krb5_conf_decl("[global]"));
+        assert!(is_wireguard_config_decl("[Interface]"));
+        assert!(!is_krb5_conf_decl("[Interface]"));
+        assert!(is_systemd_unit_decl("[Unit]"));
+        assert!(!is_krb5_conf_decl("[Unit]"));
+        assert!(is_php_ini_decl("[PHP]"));
+        assert!(!is_krb5_conf_decl("[PHP]"));
+        // AWS `[plugins]` also matches AWS; krb5 matcher accepts the same header.
+        assert!(is_aws_config_decl("[plugins]"));
+        assert!(is_krb5_conf_decl("[plugins]"));
+        assert!(is_aws_config_decl("[profile foo]"));
+        assert!(!is_krb5_conf_decl("[profile foo]"));
     }
 
     #[test]
