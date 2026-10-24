@@ -32296,6 +32296,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_lightdm_conf_decl(s)
             || is_gdm_conf_decl(s)
             || is_sddm_conf_decl(s)
+            || is_nm_connection_decl(s)
         {
             return true;
         }
@@ -32444,6 +32445,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_lightdm_conf_decl(s)
         || is_gdm_conf_decl(s)
         || is_sddm_conf_decl(s)
+        || is_nm_connection_decl(s)
     {
         return true;
     }
@@ -44006,6 +44008,92 @@ fn is_sddm_conf_decl(s: &str) -> bool {
     )
 }
 
+/// NetworkManager connection keyfile sections: `[connection]`, `[ethernet]` /
+/// `[802-3-ethernet]`, `[wifi]` / `[802-11-wireless]`, `[wifi-security]` /
+/// `[802-11-wireless-security]`, `[ipv4]` / `[ipv6]`, `[proxy]`, `[bond]` /
+/// `[team]` / `[bridge]` (+ port/slave aliases), `[vlan]` / `[vxlan]` /
+/// `[macvlan]` / `[tun]` / `[tap]` / `[veth]` / `[vrf]` / `[ip-tunnel]` /
+/// `[dummy]` / `[loopback]` / `[generic]` / `[hsr]`, `[adsl]` / `[bluetooth]` /
+/// `[gsm]` / `[cdma]` / `[serial]` / `[ppp]` / `[pppoe]` / `[infiniband]` /
+/// `[olpc-mesh]` / `[wimax]` / `[wpan]` / `[6lowpan]` / `[wifi-p2p]` /
+/// `[macsec]` / `[wireguard]` / `[vpn]` / `[dcb]` / `[sriov]` / `[tc]` /
+/// `[hostname]` / `[user]` / `[ethtool]`, OVS `[ovs-bridge]` / `[ovs-port]` /
+/// `[ovs-interface]` / `[ovs-patch]` / `[ovs-dpdk]`. Exact lowercase. Optional
+/// `#` / `;` comment. Wrong case, SDDM / LightDM / GDM / AWS / Samba /
+/// Fail2ban / SSSD / Kerberos / WireGuard `[Interface]` / systemd / PHP
+/// capitals, Cargo / Grafana tables, incomplete brackets, and key lines stay
+/// out.
+fn is_nm_connection_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some((header, array, after)) = cargo_toml_header(s) else {
+        return false;
+    };
+    if array || header.is_empty() || !tox_ini_tail_ok(after) {
+        return false;
+    }
+    matches!(
+        header,
+        "connection"
+            | "ethernet"
+            | "802-3-ethernet"
+            | "wifi"
+            | "802-11-wireless"
+            | "wifi-security"
+            | "802-11-wireless-security"
+            | "ipv4"
+            | "ipv6"
+            | "proxy"
+            | "bond"
+            | "bond-port"
+            | "bond-slave"
+            | "team"
+            | "team-port"
+            | "team-slave"
+            | "bridge"
+            | "bridge-port"
+            | "bridge-slave"
+            | "vlan"
+            | "vxlan"
+            | "macvlan"
+            | "tun"
+            | "tap"
+            | "veth"
+            | "vrf"
+            | "ip-tunnel"
+            | "dummy"
+            | "loopback"
+            | "generic"
+            | "hsr"
+            | "adsl"
+            | "bluetooth"
+            | "gsm"
+            | "cdma"
+            | "serial"
+            | "ppp"
+            | "pppoe"
+            | "infiniband"
+            | "olpc-mesh"
+            | "wimax"
+            | "wpan"
+            | "6lowpan"
+            | "wifi-p2p"
+            | "macsec"
+            | "wireguard"
+            | "vpn"
+            | "dcb"
+            | "sriov"
+            | "tc"
+            | "hostname"
+            | "user"
+            | "ethtool"
+            | "ovs-bridge"
+            | "ovs-port"
+            | "ovs-interface"
+            | "ovs-patch"
+            | "ovs-dpdk"
+    )
+}
+
 /// Xorg `xorg.conf` / `xorg.conf.d` section openers: `Section "ServerLayout"`,
 /// `Section "Files"`, `Section "Module"`, `Section "InputDevice"`,
 /// `Section "InputClass"`, `Section "Device"`, `Section "VideoAdaptor"`,
@@ -46393,9 +46481,9 @@ mod func_like_line_tests {
         is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
         is_haproxy_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
         is_lightdm_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_openvpn_decl, is_package_json_decl, is_php_ini_decl,
-        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
-        is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl,
+        is_nginx_conf_decl, is_nm_connection_decl, is_openvpn_decl, is_package_json_decl,
+        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl,
         is_sssd_conf_decl, is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_unit_decl,
         is_telegraf_toml_decl, is_tox_ini_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl,
         is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
@@ -52119,6 +52207,54 @@ mod func_like_line_tests {
         assert!(!is_sddm_conf_decl("[global]"));
         assert!(is_xorg_conf_decl("Section \"Device\""));
         assert!(!is_sddm_conf_decl("Section \"Device\""));
+    }
+
+    #[test]
+    fn nm_connection_keyfile_sections_count() {
+        assert!(line_is_func_like("[connection]"));
+        assert!(line_is_func_like("  [ipv4] # dhcp"));
+        assert!(line_is_func_like("[ipv6]"));
+        assert!(line_is_func_like("[wifi]"));
+        assert!(line_is_func_like("[wifi-security]"));
+        assert!(line_is_func_like("[802-11-wireless]"));
+        assert!(line_is_func_like("[802-3-ethernet]"));
+        assert!(line_is_func_like("[ethernet]"));
+        assert!(line_is_func_like("[bond]"));
+        assert!(line_is_func_like("[bridge-port]"));
+        assert!(line_is_func_like("[vlan]"));
+        assert!(line_is_func_like("[wireguard]"));
+        assert!(line_is_func_like("[vpn]"));
+        assert!(line_is_func_like("[ovs-bridge]"));
+        assert!(line_is_func_like("[proxy]"));
+        assert!(line_is_func_like("[connection] ; comment"));
+        // Wrong case / unknown / key lines.
+        assert!(!is_nm_connection_decl("[Connection]"));
+        assert!(!is_nm_connection_decl("[CONNECTION]"));
+        assert!(!is_nm_connection_decl("[Wifi]"));
+        assert!(!is_nm_connection_decl("[Foo]"));
+        assert!(!is_nm_connection_decl("id=Home"));
+        assert!(!is_nm_connection_decl("type=wifi"));
+        // Neighbouring INI / DM / WireGuard families stay on their paths.
+        assert!(is_sddm_conf_decl("[General]"));
+        assert!(!is_nm_connection_decl("[General]"));
+        assert!(is_gdm_conf_decl("[daemon]"));
+        assert!(!is_nm_connection_decl("[daemon]"));
+        assert!(is_lightdm_conf_decl("[LightDM]"));
+        assert!(!is_nm_connection_decl("[LightDM]"));
+        assert!(is_wireguard_config_decl("[Interface]"));
+        assert!(!is_nm_connection_decl("[Interface]"));
+        assert!(is_wireguard_config_decl("[Peer]"));
+        assert!(!is_nm_connection_decl("[Peer]"));
+        assert!(is_sssd_conf_decl("[sssd]"));
+        assert!(!is_nm_connection_decl("[sssd]"));
+        assert!(is_fail2ban_conf_decl("[DEFAULT]"));
+        assert!(!is_nm_connection_decl("[DEFAULT]"));
+        assert!(is_aws_config_decl("[default]"));
+        assert!(!is_nm_connection_decl("[default]"));
+        assert!(is_samba_conf_decl("[global]"));
+        assert!(!is_nm_connection_decl("[global]"));
+        assert!(is_xorg_conf_decl("Section \"Device\""));
+        assert!(!is_nm_connection_decl("Section \"Device\""));
     }
 
     #[test]

@@ -1,6 +1,10 @@
-# Changelog
-
 ## [Unreleased]
+
+## [0.3.569] — 2026-10-24
+
+View:
+
+- **Function List** lists NetworkManager connection keyfile sections: `[connection]`, `[ethernet]` / `[802-3-ethernet]`, `[wifi]` / `[802-11-wireless]`, `[wifi-security]` / `[802-11-wireless-security]`, `[ipv4]` / `[ipv6]`, `[proxy]`, `[bond]` / `[team]` / `[bridge]` (+ port/slave aliases), `[vlan]` / `[vxlan]` / `[macvlan]` / `[tun]` / `[tap]` / `[veth]` / `[vrf]` / `[ip-tunnel]` / `[dummy]` / `[loopback]` / `[generic]` / `[hsr]`, `[adsl]` / `[bluetooth]` / `[gsm]` / `[cdma]` / `[serial]` / `[ppp]` / `[pppoe]` / `[infiniband]` / `[olpc-mesh]` / `[wimax]` / `[wpan]` / `[6lowpan]` / `[wifi-p2p]` / `[macsec]` / `[wireguard]` / `[vpn]` / `[dcb]` / `[sriov]` / `[tc]` / `[hostname]` / `[user]` / `[ethtool]`, OVS `[ovs-bridge]` / `[ovs-port]` / `[ovs-interface]` / `[ovs-patch]` / `[ovs-dpdk]`. Exact lowercase. Optional `#` / `;` comment. Wrong case, SDDM / LightDM / GDM / AWS / Samba / Fail2ban / SSSD / Kerberos / WireGuard `[Interface]` / systemd / PHP capitals, Cargo / Grafana tables, incomplete brackets, and key lines stay out.
 
 ## [0.3.568] — 2026-10-24
 
