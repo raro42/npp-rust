@@ -32299,6 +32299,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_nm_connection_decl(s)
             || is_systemd_networkd_decl(s)
             || is_rsyslog_decl(s)
+            || is_logrotate_decl(s)
         {
             return true;
         }
@@ -32450,6 +32451,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_nm_connection_decl(s)
         || is_systemd_networkd_decl(s)
         || is_rsyslog_decl(s)
+        || is_logrotate_decl(s)
     {
         return true;
     }
@@ -44181,6 +44183,79 @@ fn is_systemd_networkd_decl(s: &str) -> bool {
     )
 }
 
+/// logrotate path-block openers and `include`: `/var/log/messages {`,
+/// `/var/log/httpd/*log {`, `/var/log/a.log /var/log/b.log {`,
+/// `"/var/log/odd name.log" {`, `include /etc/logrotate.d`. Exact lowercase
+/// `include`. Path blocks must start with `/` or `"` and end with `{`
+/// (optional `#` after). Directives inside blocks (`rotate`, `weekly`,
+/// `postrotate` / `endscript`), nginx `location / {`, syslog-ng / named braces,
+/// rsyslog `include(file=…)`, prose (`include the logs`), and wrong case stay
+/// out.
+fn is_logrotate_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if let Some(rest) = s.strip_prefix("include") {
+        // Not `include(file=…)` (rsyslog) / `Include` / `includes`.
+        if !rest.starts_with(char::is_whitespace) {
+            return false;
+        }
+        let rest = rest.trim_start();
+        if rest.is_empty() || rest.starts_with('#') {
+            return false;
+        }
+        let tok_end = rest
+            .find(|c: char| c.is_whitespace() || c == '#')
+            .unwrap_or(rest.len());
+        if tok_end == 0 {
+            return false;
+        }
+        let path = &rest[..tok_end];
+        // Path-like: absolute, relative with slash/dot, or glob.
+        if !(path.starts_with('/')
+            || path.starts_with('.')
+            || path.contains('/')
+            || path.contains('*'))
+        {
+            return false;
+        }
+        let after = rest[tok_end..].trim_start();
+        return after.is_empty() || after.starts_with('#');
+    }
+    let Some(brace_at) = s.find('{') else {
+        return false;
+    };
+    let before = s[..brace_at].trim();
+    if before.is_empty() {
+        return false;
+    }
+    let after = s[brace_at + 1..].trim_start();
+    if !(after.is_empty() || after.starts_with('#')) {
+        return false;
+    }
+    if let Some(rest) = before.strip_prefix('"') {
+        let Some(end) = rest.find('"') else {
+            return false;
+        };
+        if end == 0 {
+            return false;
+        }
+        let path = &rest[..end];
+        // Quoted targets must look like filesystem paths (not HCL
+        // `data "has space" "name" {` leftovers after a `data` prefix strip).
+        if !(path.starts_with('/') || path.contains('/') || path.contains('*')) {
+            return false;
+        }
+        // Optional further absolute / quoted paths after the first quoted one.
+        let more = rest[end + 1..].trim_start();
+        return more.is_empty() || more.starts_with('/') || more.starts_with('"');
+    }
+    if before.starts_with('/') {
+        let first_end = before.find(char::is_whitespace).unwrap_or(before.len());
+        // Reject bare `/ {`.
+        return first_end >= 2;
+    }
+    false
+}
+
 /// rsyslog RainerScript objects and classic `$ModLoad` / `$IncludeConfig`:
 /// `module(load="imudp")`, `input(type="imudp" port="514")`,
 /// `action(type="omfile" file="…")`, `parser(name="json" type="mmjsonparse")`,
@@ -46649,14 +46724,14 @@ mod func_like_line_tests {
         is_editorconfig_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
         is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
         is_haproxy_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
-        is_lightdm_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nm_connection_decl, is_openvpn_decl, is_package_json_decl,
-        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_ssh_config_decl, is_sssd_conf_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
-        is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, line_is_func_like,
+        is_lightdm_conf_decl, is_logrotate_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_openvpn_decl,
+        is_package_json_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl,
+        is_sddm_conf_decl, is_ssh_config_decl, is_sssd_conf_decl, is_supervisord_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
+        is_tox_ini_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -52533,6 +52608,43 @@ mod func_like_line_tests {
         assert!(!is_rsyslog_decl("log {"));
         assert!(line_is_func_like("input UserInput {"));
         assert!(!is_rsyslog_decl("input UserInput {"));
+    }
+
+    #[test]
+    fn logrotate_blocks_count() {
+        assert!(line_is_func_like("/var/log/messages {"));
+        assert!(line_is_func_like("  /var/log/httpd/*log { # apache"));
+        assert!(line_is_func_like("/var/log/a.log /var/log/b.log {"));
+        assert!(line_is_func_like("\"/var/log/odd name.log\" {"));
+        assert!(line_is_func_like("include /etc/logrotate.d"));
+        assert!(line_is_func_like("include /etc/logrotate.d # drop-ins"));
+        assert!(line_is_func_like("include ./local.d"));
+        assert!(line_is_func_like("include *.d"));
+        // Inside-block directives / bare / wrong case / prose stay out.
+        assert!(!is_logrotate_decl("rotate 5"));
+        assert!(!is_logrotate_decl("weekly"));
+        assert!(!is_logrotate_decl("postrotate"));
+        assert!(!is_logrotate_decl("endscript"));
+        assert!(!is_logrotate_decl("/ {"));
+        assert!(!is_logrotate_decl("{"));
+        assert!(!is_logrotate_decl("Include /etc/logrotate.d"));
+        assert!(!is_logrotate_decl("include the logs"));
+        assert!(!is_logrotate_decl("include"));
+        assert!(!is_logrotate_decl("include # bare"));
+        // Neighbouring families stay on their paths.
+        assert!(is_nginx_conf_decl("location / {"));
+        assert!(!is_logrotate_decl("location / {"));
+        assert!(is_syslog_ng_decl("source s_sys {"));
+        assert!(!is_logrotate_decl("source s_sys {"));
+        assert!(is_rsyslog_decl("include(file=\"/etc/rsyslog.d/*.conf\")"));
+        assert!(!is_logrotate_decl(
+            "include(file=\"/etc/rsyslog.d/*.conf\")"
+        ));
+        assert!(line_is_func_like("include(file=\"/etc/rsyslog.d/*.conf\")"));
+        // HCL `data "type" "name"` with a spaced type must not become a
+        // logrotate hit after the generic `data` prefix strip.
+        assert!(!line_is_func_like("data \"has space\" \"name\" {"));
+        assert!(!is_logrotate_decl("\"has space\" \"name\" {"));
     }
 
     #[test]

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.572] — 2026-10-24
+
+View:
+
+- **Function List** lists logrotate path-block openers and `include`: `/var/log/messages {`, `/var/log/httpd/*log {`, `/var/log/a.log /var/log/b.log {`, `"/var/log/odd name.log" {`, `include /etc/logrotate.d`. Exact lowercase `include`. Path blocks must start with `/` or `"` and end with `{` (optional `#` after). Directives inside blocks (`rotate`, `weekly`, `postrotate` / `endscript`), nginx `location / {`, syslog-ng / named braces, rsyslog `include(file=…)`, prose (`include the logs`), and wrong case stay out.
+
 ## [0.3.571] — 2026-10-24
 
 View:
