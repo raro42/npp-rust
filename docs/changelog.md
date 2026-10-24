@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.581] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/crypttab` entries: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`, `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`, `data /dev/disk/by-uuid/… - luks,discard,nofail`, `vault PARTUUID=… none`. Name, device, key file (`none` / `-` / path), optional options. Optional `#` comment. Bare / prose / incomplete / neighbouring families (incl. fstab) stay out.
+
 ## [0.3.580] — 2026-10-24
 
 View:

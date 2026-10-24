@@ -32313,6 +32313,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_access_conf_decl(s)
             || is_hosts_access_decl(s)
             || is_fstab_decl(s)
+            || is_crypttab_decl(s)
         {
             return true;
         }
@@ -32473,6 +32474,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_access_conf_decl(s)
         || is_hosts_access_decl(s)
         || is_fstab_decl(s)
+        || is_crypttab_decl(s)
     {
         return true;
     }
@@ -45633,6 +45635,141 @@ fn fstab_number_ok(tok: &str) -> bool {
     !tok.is_empty() && tok.bytes().all(|b| b.is_ascii_digit()) && tok.len() <= 3
 }
 
+/// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
+/// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
+/// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
+/// (`none` / `-` / path), optional options. Optional `#` comment. Bare /
+/// prose / incomplete / neighbouring families (incl. fstab) stay out.
+fn is_crypttab_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let mut fields = Vec::with_capacity(4);
+    let mut rest = body;
+    while fields.len() < 4 {
+        let Some((tok, after)) = fstab_next_token(rest) else {
+            break;
+        };
+        fields.push(tok);
+        rest = after;
+    }
+    if !rest.trim_start().is_empty() {
+        return false;
+    }
+    if fields.len() < 3 || fields.len() > 4 {
+        return false;
+    }
+    if !crypttab_name_ok(fields[0]) || !fstab_spec_ok(fields[1]) || !crypttab_key_ok(fields[2]) {
+        return false;
+    }
+    if fields.len() == 4 && !crypttab_opts_ok(fields[3]) {
+        return false;
+    }
+    true
+}
+
+fn crypttab_name_ok(tok: &str) -> bool {
+    if tok.is_empty() || tok.len() > 64 {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team", "note",
+    ];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    // Mapped device name: letters, digits, `_`, `-`. No `=` / `/` (those are
+    // device / path shapes for fstab and would collide).
+    let bytes = tok.as_bytes();
+    if !bytes[0].is_ascii_alphabetic() && bytes[0] != b'_' {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+}
+
+fn crypttab_key_ok(tok: &str) -> bool {
+    if tok == "none" || tok == "-" {
+        return true;
+    }
+    if tok.starts_with('/') {
+        return tok.len() > 1
+            && tok.as_bytes()[1..]
+                .iter()
+                .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/'));
+    }
+    false
+}
+
+fn crypttab_opts_ok(tok: &str) -> bool {
+    if tok.is_empty() {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team",
+    ];
+    if PROSE.iter().any(|w| tok.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    if tok.contains(',') || tok.contains('=') {
+        return tok.bytes().all(|b| {
+            b.is_ascii_alphanumeric()
+                || matches!(
+                    b,
+                    b'_' | b'-' | b'.' | b'/' | b',' | b'=' | b':' | b'+' | b'%'
+                )
+        });
+    }
+    matches!(
+        tok,
+        "luks"
+            | "luks2"
+            | "plain"
+            | "tcrypt"
+            | "bitlk"
+            | "verity"
+            | "integrity"
+            | "swap"
+            | "tmp"
+            | "tmpfs"
+            | "discard"
+            | "nofail"
+            | "noauto"
+            | "readonly"
+            | "read-only"
+            | "read-write"
+            | "tries"
+            | "timeout"
+            | "cipher"
+            | "hash"
+            | "size"
+            | "offset"
+            | "skip"
+            | "sector-size"
+            | "key-slot"
+            | "header"
+            | "keyfile-offset"
+            | "keyfile-size"
+            | "password-echo"
+            | "x-initrd.attach"
+    ) || (tok
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
+        && tok.len() >= 2
+        && tok.len() <= 48
+        && tok.bytes().any(|b| b.is_ascii_alphabetic()))
+}
+
 /// udev rules: `KERNEL=="sda"`, `SUBSYSTEM=="usb", ATTR{idVendor}=="1234",
 /// MODE="0666"`, `ACTION=="add", RUN+="/usr/local/bin/…"`, `LABEL="end"`,
 /// `GOTO="end"`, `ENV{DEVTYPE}=="disk"`. Match/assign keys with `==` / `!=` /
@@ -48312,20 +48449,20 @@ mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
         is_audit_rules_decl, is_aws_config_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl,
-        is_cargo_toml_decl, is_composer_json_decl, is_desktop_entry_decl, is_dhcpd_decl,
-        is_dovecot_decl, is_editorconfig_decl, is_fail2ban_conf_decl, is_fluent_bit_decl,
-        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl,
-        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_logrotate_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_openvpn_decl,
-        is_package_json_decl, is_pam_conf_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl,
-        is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl, is_samba_conf_decl,
-        is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl,
-        is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, line_is_func_like,
+        is_cargo_toml_decl, is_composer_json_decl, is_crypttab_decl, is_desktop_entry_decl,
+        is_dhcpd_decl, is_dovecot_decl, is_editorconfig_decl, is_fail2ban_conf_decl,
+        is_fluent_bit_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_hosts_access_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
+        is_openvpn_decl, is_package_json_decl, is_pam_conf_decl, is_php_ini_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_rsyslog_decl,
+        is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_sudoers_decl, is_supervisord_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -54542,6 +54679,47 @@ mod func_like_line_tests {
         assert!(is_pam_conf_decl("auth required pam_unix.so"));
         assert!(!is_fstab_decl("auth required pam_unix.so"));
         assert!(!line_is_func_like("the / team of tools"));
+        // crypttab stays on its path.
+        assert!(is_crypttab_decl("cr_home UUID=abcd-1234 none luks"));
+        assert!(!is_fstab_decl("cr_home UUID=abcd-1234 none luks"));
+    }
+
+    #[test]
+    fn crypttab_entries_count() {
+        assert!(line_is_func_like("cr_home UUID=abcd-1234 none luks"));
+        assert!(line_is_func_like("home /dev/sda3 /etc/luks-keys/home luks"));
+        assert!(line_is_func_like(
+            "swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256"
+        ));
+        assert!(line_is_func_like(
+            "data /dev/disk/by-uuid/abcd-1234 - luks,discard,nofail"
+        ));
+        assert!(line_is_func_like("  root LABEL=cryptroot none luks # boot"));
+        assert!(line_is_func_like("vault PARTUUID=abcd-1234 none"));
+        assert!(line_is_func_like("tmp /dev/sdb1 none tmp,discard"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_crypttab_decl("cr_home"));
+        assert!(!is_crypttab_decl("cr_home UUID=abcd-1234"));
+        assert!(!is_crypttab_decl("the UUID=abcd-1234 none luks"));
+        assert!(!is_crypttab_decl("cr_home the none luks"));
+        assert!(!is_crypttab_decl("# cr_home UUID=abcd-1234 none luks"));
+        assert!(!is_crypttab_decl("not a crypttab line"));
+        assert!(!is_crypttab_decl("cr_home UUID= none luks"));
+        assert!(!is_crypttab_decl("UUID=abcd-1234 none luks")); // name needs ident
+                                                                // Neighbouring families stay on their paths.
+        assert!(is_fstab_decl("UUID=abcd-1234 / ext4 defaults 0 1"));
+        assert!(!is_crypttab_decl("UUID=abcd-1234 / ext4 defaults 0 1"));
+        assert!(is_hosts_access_decl("ALL: LOCAL"));
+        assert!(!is_crypttab_decl("ALL: LOCAL"));
+        assert!(is_limits_conf_decl("* soft nofile 1024"));
+        assert!(!is_crypttab_decl("* soft nofile 1024"));
+        assert!(is_access_conf_decl("+ : root : LOCAL"));
+        assert!(!is_crypttab_decl("+ : root : LOCAL"));
+        assert!(is_sudoers_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(!is_crypttab_decl("root ALL=(ALL:ALL) ALL"));
+        assert!(is_pam_conf_decl("auth required pam_unix.so"));
+        assert!(!is_crypttab_decl("auth required pam_unix.so"));
+        assert!(!line_is_func_like("the UUID=abcd-1234 none luks"));
     }
 
     #[test]
