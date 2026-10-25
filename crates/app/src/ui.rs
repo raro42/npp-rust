@@ -32316,6 +32316,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_resolv_conf_decl(s)
             || is_nsswitch_conf_decl(s)
             || is_passwd_group_file_decl(s)
+            || is_subuid_subgid_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32481,6 +32482,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_resolv_conf_decl(s)
         || is_nsswitch_conf_decl(s)
         || is_passwd_group_file_decl(s)
+        || is_subuid_subgid_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -46142,6 +46144,30 @@ fn passwd_member_list_ok(list: &str) -> bool {
     })
 }
 
+/// `/etc/subuid` / `/etc/subgid`: `alice:100000:65536`, `root:165536:65536`,
+/// `user1:100000:65536`. Three colon fields: login name, subordinate UID/GID
+/// start, count. Optional `#` comment. Bare / prose / incomplete /
+/// neighbouring families (passwd / group / shadow / gshadow, …) stay out.
+fn is_subuid_subgid_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let parts: Vec<&str> = body.split(':').collect();
+    if parts.len() != 3 {
+        return false;
+    }
+    passwd_account_name_ok(parts[0]) && passwd_id_ok(parts[1]) && passwd_id_ok(parts[2])
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -48967,10 +48993,11 @@ mod func_like_line_tests {
         is_pam_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl,
         is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
         is_resolv_conf_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_ssh_config_decl, is_sssd_conf_decl, is_sudoers_decl, is_supervisord_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_telegraf_toml_decl,
-        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
+        is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
+        is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -55418,6 +55445,42 @@ mod func_like_line_tests {
         assert!(!is_passwd_group_file_decl("nameserver 8.8.8.8"));
         assert!(!line_is_func_like("the:x:0:0:root:/root:/bin/bash"));
         assert!(!line_is_func_like("the:*:19000:0:99999:7:::"));
+        // subuid/subgid stay on their path (3 fields).
+        assert!(is_subuid_subgid_decl("alice:100000:65536"));
+        assert!(!is_passwd_group_file_decl("alice:100000:65536"));
+    }
+
+    #[test]
+    fn subuid_subgid_entries_count() {
+        assert!(line_is_func_like("alice:100000:65536"));
+        assert!(line_is_func_like("root:165536:65536"));
+        assert!(line_is_func_like("user1:100000:65536"));
+        assert!(line_is_func_like("bob:200000:1000"));
+        assert!(line_is_func_like("_uuidd:300000:65536"));
+        assert!(line_is_func_like("  carol:100000:65536 # comment"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_subuid_subgid_decl("alice:100000"));
+        assert!(!is_subuid_subgid_decl("alice"));
+        assert!(!is_subuid_subgid_decl("alice:100000:65536:extra"));
+        assert!(!is_subuid_subgid_decl("the:100000:65536"));
+        assert!(!is_subuid_subgid_decl("alice:start:65536"));
+        assert!(!is_subuid_subgid_decl("alice:100000:count"));
+        assert!(!is_subuid_subgid_decl("1alice:100000:65536"));
+        assert!(!is_subuid_subgid_decl("# alice:100000:65536"));
+        assert!(!is_subuid_subgid_decl("not a subuid line"));
+        // Neighbouring families stay on their paths.
+        assert!(is_passwd_group_file_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(!is_subuid_subgid_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(is_passwd_group_file_decl("sudo:x:27:alice,bob"));
+        assert!(!is_subuid_subgid_decl("sudo:x:27:alice,bob"));
+        assert!(is_passwd_group_file_decl("daemon:*:19000:0:99999:7:::"));
+        assert!(!is_subuid_subgid_decl("daemon:*:19000:0:99999:7:::"));
+        assert!(is_nsswitch_conf_decl("passwd: files systemd"));
+        assert!(!is_subuid_subgid_decl("passwd: files systemd"));
+        assert!(is_hosts_access_decl("ALL: LOCAL"));
+        assert!(!is_subuid_subgid_decl("ALL: LOCAL"));
+        assert!(!line_is_func_like("the:100000:65536"));
+        assert!(!line_is_func_like("alice:start:65536"));
     }
 
     #[test]

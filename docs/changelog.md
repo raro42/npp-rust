@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.587] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/subuid` / `/etc/subgid` entries: `alice:100000:65536`, `root:165536:65536`, `user1:100000:65536`, `bob:200000:1000`, `_uuidd:300000:65536`. Three colon fields (login name, subordinate UID/GID start, count). Optional `#` comment. Bare / prose / incomplete / neighbouring families (passwd / group / shadow / gshadow, …) stay out.
+
 ## [0.3.586] — 2026-10-25
 
 View:
