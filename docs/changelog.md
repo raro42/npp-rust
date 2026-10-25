@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.606] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/makepkg.conf` / `makepkg.conf.d/*.conf` fields: `CARCH="x86_64"`, `CHOST="x86_64-pc-linux-gnu"`, `CFLAGS="…"`, `CXXFLAGS="$CFLAGS"`, `LDFLAGS="…"`, `LTOFLAGS="…"`, `RUSTFLAGS="…"`, `DEBUG_CFLAGS="…"`, `MAKEFLAGS="-j$(nproc)"`, `NPROC=8`, `BUILDENV=(!distcc color !ccache check !sign)`, `OPTIONS=(strip docs !libtool staticlibs emptydirs !zipman !purge !debug lto)`, `INTEGRITY_CHECK=(sha256)`, `STRIP_BINARIES="--"`, `MAN_DIRS=(…)`, `DOC_DIRS=(…)`, `LIB_DIRS=(…)`, `PURGE_TARGETS=(…)`, `DBGSRCDIR="/usr/src/debug"`, `PKGDEST=/var/cache/pacman/pkg`, `SRCDEST=/var/cache/makepkg`, `PACKAGER="Name <user@example.com>"`, `GPGKEY="…"`, `PKGEXT='.pkg.tar.zst'`, `SRCEXT='.src.tar.gz'`, `COMPRESSXZ=(xz -c -z -)`, `COMPRESSZST=(zstd -c -z -q -)`, `DLAGENTS=('http::/usr/bin/curl …')`, `VCSCLIENTS=('git::git' 'hg::mercurial')`. Stock UPPER_SNAKE KEY=`VALUE` (exact case). Optional double-quoted value (escapes ok; empty / `()` / single-quoted ok). Optional `#` comment outside quotes. Bare keys / prose / `PATH=` / grub / mkinitcpio / dracut / neighbouring families stay out.
+
 ## [0.3.605] — 2026-10-25
 
 View:
