@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.595] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/rpc` entries: `portmapper 100000 portmap sunrpc rpcbind`, `nfs 100003 nfsprog`, `ypbind 100007`, `x25.inr 100022`, `3270_mapper 100013`, `rstatd 100001 rstat rup`, `mountd 100005 mount showmount`, `yppasswdd 100009 yppasswd`, `nlockmgr 100021`. Name, RPC program number ≥ 100000, optional aliases. Optional `#` comment. Bare / prose / incomplete / neighbouring families (`/etc/protocols`, `/etc/services`, hosts, nsswitch, …) stay out.
+
 ## [0.3.594] — 2026-10-25
 
 View:
