@@ -46002,12 +46002,16 @@ fn nsswitch_action_ok(tok: &str) -> bool {
         && matches!(action, "return" | "continue" | "merge")
 }
 
-/// `/etc/passwd` / `/etc/group`: `root:x:0:0:root:/root:/bin/bash`,
+/// `/etc/passwd` / `/etc/group` / `/etc/shadow` / `/etc/gshadow`:
+/// `root:x:0:0:root:/root:/bin/bash`,
 /// `alice:x:1000:1000:Alice User,,,:/home/alice:/bin/zsh`,
 /// `nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin`,
-/// `sudo:x:27:alice,bob`, `docker:x:999:`, `root:x:0:`. Optional `#`
-/// comment. Bare / prose / incomplete / neighbouring families (nsswitch
-/// `passwd: files`, hosts.allow, …) stay out.
+/// `sudo:x:27:alice,bob`, `docker:x:999:`, `root:x:0:`,
+/// `root:$6$rounds=5000$saltsalt$…:19000:0:99999:7:::`,
+/// `daemon:*:19000:0:99999:7:::`, `alice:!:19000:0:99999:7:::`,
+/// `sudo:!:alice,bob:alice,bob`, `docker:!:alice:alice`, `root:*::`.
+/// Optional `#` comment. Bare / prose / incomplete / neighbouring families
+/// (nsswitch `passwd: files`, hosts.allow, …) stay out.
 fn is_passwd_group_file_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') {
@@ -46021,7 +46025,8 @@ fn is_passwd_group_file_decl(s: &str) -> bool {
     if body.is_empty() {
         return false;
     }
-    // Colon fields only (passwd = 7, group = 4). Do not use whitespace split.
+    // Colon fields only (passwd = 7, group/gshadow = 4, shadow = 9).
+    // Do not use whitespace split.
     let parts: Vec<&str> = body.split(':').collect();
     match parts.len() {
         7 => {
@@ -46034,12 +46039,32 @@ fn is_passwd_group_file_decl(s: &str) -> bool {
                 && passwd_path_field_ok(parts[5])
                 && passwd_path_field_ok(parts[6])
         }
-        4 => {
-            // name:password:GID:member,list
+        9 => {
+            // name:password:lastchg:min:max:warn:inactive:expire:flag
             passwd_account_name_ok(parts[0])
                 && passwd_password_ok(parts[1])
-                && passwd_id_ok(parts[2])
-                && passwd_member_list_ok(parts[3])
+                && passwd_shadow_num_ok(parts[2])
+                && passwd_shadow_num_ok(parts[3])
+                && passwd_shadow_num_ok(parts[4])
+                && passwd_shadow_num_ok(parts[5])
+                && passwd_shadow_num_ok(parts[6])
+                && passwd_shadow_num_ok(parts[7])
+                && passwd_shadow_num_ok(parts[8])
+        }
+        4 => {
+            // group: name:password:GID:member,list
+            // gshadow: name:password:admins:members
+            if !(passwd_account_name_ok(parts[0])
+                && passwd_password_ok(parts[1])
+                && passwd_member_list_ok(parts[3]))
+            {
+                return false;
+            }
+            if passwd_id_ok(parts[2]) {
+                true
+            } else {
+                passwd_member_list_ok(parts[2])
+            }
         }
         _ => false,
     }
@@ -46066,8 +46091,8 @@ fn passwd_account_name_ok(name: &str) -> bool {
 }
 
 fn passwd_password_ok(pw: &str) -> bool {
-    // Common: `x`, `*`, `!`, `!!`, empty, or `$id$…` hash. No spaces / colons.
-    if pw.len() > 128 || pw.contains(' ') || pw.contains(':') {
+    // Common: `x`, `*`, `!`, `!!`, empty, or `$id$…` hash (shadow). No spaces / colons.
+    if pw.len() > 256 || pw.contains(' ') || pw.contains(':') {
         return false;
     }
     true
@@ -46078,6 +46103,11 @@ fn passwd_id_ok(id: &str) -> bool {
         return false;
     }
     id.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn passwd_shadow_num_ok(n: &str) -> bool {
+    // Empty = default; else non-negative decimal (lastchg/min/max/warn/…).
+    n.is_empty() || passwd_id_ok(n)
 }
 
 fn passwd_gecos_ok(gecos: &str) -> bool {
@@ -55332,6 +55362,22 @@ mod func_like_line_tests {
         assert!(line_is_func_like(
             "_uuidd:x:104:104::/run/uuidd:/usr/sbin/nologin"
         ));
+        // /etc/shadow (9 colon fields)
+        assert!(line_is_func_like(
+            "root:$6$rounds=5000$saltsalt$abcdefghijklmnop:19000:0:99999:7:::"
+        ));
+        assert!(line_is_func_like("daemon:*:19000:0:99999:7:::"));
+        assert!(line_is_func_like("alice:!:19000:0:99999:7:::"));
+        assert!(line_is_func_like("locked:!!:19100:0:99999:7:::"));
+        assert!(line_is_func_like("nobody:*:::::::"));
+        assert!(line_is_func_like(
+            "  bob:$y$j9T$salt$hash:19200:0:99999:7::: # shadow"
+        ));
+        // /etc/gshadow (4 fields; admins not a GID)
+        assert!(line_is_func_like("sudo:!:alice,bob:alice,bob"));
+        assert!(line_is_func_like("docker:!:alice:alice"));
+        assert!(line_is_func_like("root:*::"));
+        assert!(line_is_func_like("users:x::alice"));
         // Bare / prose / incomplete stay out.
         assert!(!is_passwd_group_file_decl("root:x:0:0:root:/root"));
         assert!(!is_passwd_group_file_decl("root:x:0:0"));
@@ -55348,13 +55394,22 @@ mod func_like_line_tests {
         ));
         assert!(!is_passwd_group_file_decl("not a passwd line"));
         assert!(!is_passwd_group_file_decl("sudo:x:27:the"));
-        assert!(!is_passwd_group_file_decl("sudo:x:gid:alice"));
         assert!(!is_passwd_group_file_decl("sudo:x:27:alice,"));
+        assert!(!is_passwd_group_file_decl("sudo:!:the:alice"));
+        assert!(!is_passwd_group_file_decl(
+            "root:$6$salt$hash:19000:0:99999:7::"
+        ));
+        assert!(!is_passwd_group_file_decl(
+            "root:$6$salt$hash:last:0:99999:7:::"
+        ));
+        assert!(!is_passwd_group_file_decl("the:*:19000:0:99999:7:::"));
         // Neighbouring families stay on their paths.
         assert!(is_nsswitch_conf_decl("passwd: files systemd"));
         assert!(!is_passwd_group_file_decl("passwd: files systemd"));
         assert!(is_nsswitch_conf_decl("group: files"));
         assert!(!is_passwd_group_file_decl("group: files"));
+        assert!(is_nsswitch_conf_decl("shadow: files"));
+        assert!(!is_passwd_group_file_decl("shadow: files"));
         assert!(is_hosts_access_decl("ALL: LOCAL"));
         assert!(!is_passwd_group_file_decl("ALL: LOCAL"));
         assert!(is_hosts_file_decl("127.0.0.1 localhost"));
@@ -55362,6 +55417,7 @@ mod func_like_line_tests {
         assert!(is_resolv_conf_decl("nameserver 8.8.8.8"));
         assert!(!is_passwd_group_file_decl("nameserver 8.8.8.8"));
         assert!(!line_is_func_like("the:x:0:0:root:/root:/bin/bash"));
+        assert!(!line_is_func_like("the:*:19000:0:99999:7:::"));
     }
 
     #[test]

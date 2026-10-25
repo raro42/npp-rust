@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.586] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/shadow` / `/etc/gshadow` entries: `root:$6$rounds=5000$saltsalt$…:19000:0:99999:7:::`, `daemon:*:19000:0:99999:7:::`, `alice:!:19000:0:99999:7:::`, `locked:!!:19100:0:99999:7:::`, `nobody:*:::::::`, `sudo:!:alice,bob:alice,bob`, `docker:!:alice:alice`, `root:*::`, `users:x::alice`. Shadow = 9 colon fields (name, password, lastchg, min, max, warn, inactive, expire, flag; numeric fields may be empty); gshadow = 4 (name, password, admins, members; admins/members comma lists, empty OK). Passwd / group lines still match. Optional `#` comment. Bare / prose / incomplete / neighbouring families (nsswitch `shadow: files`, …) stay out.
+
 ## [0.3.585] — 2026-10-25
 
 View:

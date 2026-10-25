@@ -1,3 +1,5 @@
+009 keep: Function List /etc/shadow + /etc/gshadow entries (v0.3.586)
+
 009 keep: Function List /etc/nsswitch.conf databases + [STATUS=ACTION] (v0.3.584)
 
 009 keep: Function List /etc/resolv.conf nameserver/search/domain/options/sortlist (v0.3.583)
