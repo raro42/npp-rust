@@ -32340,6 +32340,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_paru_conf_decl(s)
             || is_apt_sources_decl(s)
             || is_yum_repo_decl(s)
+            || is_pip_conf_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32529,6 +32530,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_paru_conf_decl(s)
         || is_apt_sources_decl(s)
         || is_yum_repo_decl(s)
+        || is_pip_conf_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -49448,6 +49450,220 @@ fn yum_repo_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// pip.conf / pip.ini (`pip.conf`, `pip/pip.conf`, site / user / isolated):
+/// `[global]` / `[install]` / `[download]` / `[list]` / `[freeze]` / `[wheel]` /
+/// `[hash]` / `[search]` / `[uninstall]` / `[debug]`, `index-url = https://…`,
+/// `extra-index-url = https://…`, `trusted-host = pypi.org`, `timeout = 60`,
+/// `require-virtualenv = true`, `no-cache-dir = true`, `find-links = …`,
+/// `no-deps = true`, `user = true`, `upgrade-strategy = only-if-needed`.
+/// Exact lowercase keys (CLI long-option names). Optional `#` / `;` comment.
+/// Bare keys / prose / wrong case / yum `[main]` / pacman `[options]` /
+/// apt `deb` / neighbouring families stay out.
+fn is_pip_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return pip_conf_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if !pip_conf_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    pip_conf_value_ok(key, value)
+}
+
+fn pip_conf_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "global"
+            | "install"
+            | "download"
+            | "list"
+            | "freeze"
+            | "wheel"
+            | "hash"
+            | "search"
+            | "uninstall"
+            | "debug"
+    )
+}
+
+fn pip_conf_key_ok(key: &str) -> bool {
+    const KEYS: &[&str] = &[
+        // [global] / shared
+        "timeout",
+        "retries",
+        "proxy",
+        "cert",
+        "client-cert",
+        "index-url",
+        "extra-index-url",
+        "trusted-host",
+        "find-links",
+        "no-index",
+        "no-cache-dir",
+        "cache-dir",
+        "disable-pip-version-check",
+        "require-virtualenv",
+        "no-input",
+        "exists-action",
+        "log",
+        "pre",
+        "keyring-provider",
+        "use-feature",
+        "use-deprecated",
+        "abort-on-error",
+        "python",
+        "implementation",
+        "abi",
+        "platform",
+        // [install] / [download] / [wheel]
+        "no-deps",
+        "user",
+        "target",
+        "root",
+        "prefix",
+        "src",
+        "upgrade",
+        "upgrade-strategy",
+        "force-reinstall",
+        "ignore-installed",
+        "no-build-isolation",
+        "use-pep517",
+        "check-build-dependencies",
+        "config-settings",
+        "global-option",
+        "compile",
+        "no-compile",
+        "no-warn-script-location",
+        "no-warn-conflicts",
+        "no-clean",
+        "no-binary",
+        "only-binary",
+        "prefer-binary",
+        "constraint",
+        "requirement",
+        "editable",
+        "dry-run",
+        "report",
+        "root-user-action",
+        "break-system-packages",
+        // [list] / [freeze]
+        "format",
+        "path",
+        "local",
+        "not-required",
+        "exclude-editable",
+        "include-editable",
+        "exclude",
+        // [hash]
+        "algorithm",
+    ];
+    KEYS.contains(&key)
+}
+
+fn pip_conf_value_ok(key: &str, value: &str) -> bool {
+    if value.len() > 1024 {
+        return false;
+    }
+    // pip list `--format` vocab is bare words (`columns` / `freeze` / `json`).
+    if key == "format" {
+        let bare = value.trim_matches(|c| c == '"' || c == '\'');
+        if matches!(bare, "columns" | "freeze" | "json") {
+            return true;
+        }
+    }
+    // Generic short keys need a cue so random `user=alice` / `path=tmp` stay out.
+    if matches!(
+        key,
+        "user"
+            | "path"
+            | "root"
+            | "prefix"
+            | "src"
+            | "target"
+            | "proxy"
+            | "cert"
+            | "log"
+            | "format"
+            | "local"
+            | "pre"
+            | "python"
+            | "timeout"
+            | "retries"
+            | "upgrade"
+            | "compile"
+            | "editable"
+            | "exclude"
+            | "constraint"
+            | "requirement"
+            | "report"
+            | "algorithm"
+            | "platform"
+            | "implementation"
+            | "abi"
+    ) {
+        let distinctive = value.contains('/')
+            || value.contains(':')
+            || value.contains('.')
+            || value.contains('-')
+            || value.eq_ignore_ascii_case("true")
+            || value.eq_ignore_ascii_case("false")
+            || value.eq_ignore_ascii_case("yes")
+            || value.eq_ignore_ascii_case("no")
+            || value.eq_ignore_ascii_case("on")
+            || value.eq_ignore_ascii_case("off")
+            || value.chars().all(|c| c.is_ascii_digit());
+        if !distinctive {
+            return false;
+        }
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b'"'
+                    | b'\''
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -52274,16 +52490,16 @@ mod func_like_line_tests {
         is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl, is_nftables_decl,
         is_nginx_conf_decl, is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl,
         is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_samba_conf_decl,
-        is_scons_decl, is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, is_yum_repo_decl,
-        line_is_func_like,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
+        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
+        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -60006,6 +60222,85 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("[custom]"));
         assert!(!line_is_func_like("[env]"));
         assert!(!line_is_func_like("[section]"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn pip_conf_entries_count() {
+        assert!(line_is_func_like("[global]"));
+        assert!(line_is_func_like("[install]"));
+        assert!(line_is_func_like("[download]"));
+        assert!(line_is_func_like("[list]"));
+        assert!(line_is_func_like("[freeze]"));
+        assert!(line_is_func_like("[wheel]"));
+        assert!(line_is_func_like("[hash]"));
+        assert!(line_is_func_like("[search]"));
+        assert!(line_is_func_like("[uninstall]"));
+        assert!(line_is_func_like("[debug]"));
+        assert!(line_is_func_like("  [global] # defaults"));
+        assert!(line_is_func_like("index-url = https://pypi.org/simple"));
+        assert!(line_is_func_like(
+            "extra-index-url = https://download.pytorch.org/whl/cpu"
+        ));
+        assert!(line_is_func_like("trusted-host = pypi.org"));
+        assert!(line_is_func_like("timeout = 60"));
+        assert!(line_is_func_like("retries = 5"));
+        assert!(line_is_func_like("require-virtualenv = true"));
+        assert!(line_is_func_like("no-cache-dir = true"));
+        assert!(line_is_func_like("disable-pip-version-check = true"));
+        assert!(line_is_func_like("find-links = /srv/wheels"));
+        assert!(line_is_func_like("cache-dir = /var/cache/pip"));
+        assert!(line_is_func_like("no-deps = true"));
+        assert!(line_is_func_like("user = true"));
+        assert!(line_is_func_like("upgrade-strategy = only-if-needed"));
+        assert!(line_is_func_like("force-reinstall = true"));
+        assert!(line_is_func_like("break-system-packages = true"));
+        assert!(line_is_func_like("format = columns"));
+        assert!(line_is_func_like(
+            "  index-url = https://pypi.org/simple ; primary"
+        ));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_pip_conf_decl("global"));
+        assert!(!is_pip_conf_decl("[global"));
+        assert!(!is_pip_conf_decl("[]"));
+        assert!(!is_pip_conf_decl("[Global]"));
+        assert!(!is_pip_conf_decl("index-url"));
+        assert!(!is_pip_conf_decl("Index-Url = https://pypi.org/simple"));
+        assert!(!is_pip_conf_decl("INDEX-URL = https://pypi.org/simple"));
+        assert!(!is_pip_conf_decl("user = alice"));
+        assert!(!is_pip_conf_decl("path = tmp"));
+        assert!(!is_pip_conf_decl("timeout the team"));
+        assert!(!is_pip_conf_decl("not a pip line"));
+        assert!(!is_pip_conf_decl("# [global]"));
+        assert!(!is_pip_conf_decl("PATH=/usr/bin"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_pip_conf_decl("[main]"));
+        assert!(is_yum_repo_decl("[main]"));
+        assert!(!is_pip_conf_decl("[fedora]"));
+        assert!(is_yum_repo_decl("[fedora]"));
+        assert!(!is_pip_conf_decl("enabled=1"));
+        assert!(is_yum_repo_decl("enabled=1"));
+        assert!(!is_pip_conf_decl("[options]"));
+        assert!(is_pacman_conf_decl("[options]"));
+        assert!(!is_pip_conf_decl("HoldPkg = pacman glibc"));
+        assert!(is_pacman_conf_decl("HoldPkg = pacman glibc"));
+        assert!(!is_pip_conf_decl("PgpFetch"));
+        assert!(is_paru_conf_decl("PgpFetch"));
+        assert!(!is_pip_conf_decl(
+            "deb http://deb.debian.org/debian bookworm main"
+        ));
+        assert!(is_apt_sources_decl(
+            "deb http://deb.debian.org/debian bookworm main"
+        ));
+        assert!(!is_pip_conf_decl("CARCH=\"x86_64\""));
+        assert!(is_makepkg_conf_decl("CARCH=\"x86_64\""));
+        assert!(!is_pip_conf_decl("baseurl=https://example.com/os/"));
+        assert!(is_yum_repo_decl("baseurl=https://example.com/os/"));
+        // Samba also owns [global]; both may match for Function List.
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!line_is_func_like("index-url"));
+        assert!(!line_is_func_like("user = alice"));
+        assert!(!line_is_func_like("Index-Url = https://pypi.org/simple"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

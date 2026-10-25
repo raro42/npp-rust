@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.611] — 2026-10-26
+
+View:
+
+- **Function List** lists pip.conf / pip.ini sections and fields: `[global]` / `[install]` / `[download]` / `[list]` / `[freeze]` / `[wheel]` / `[hash]` / `[search]` / `[uninstall]` / `[debug]`, `index-url = https://pypi.org/simple`, `extra-index-url = https://…`, `trusted-host = pypi.org`, `timeout = 60`, `retries = 5`, `require-virtualenv = true`, `no-cache-dir = true`, `disable-pip-version-check = true`, `find-links = /srv/wheels`, `cache-dir = /var/cache/pip`, `no-deps = true`, `user = true`, `upgrade-strategy = only-if-needed`, `force-reinstall = true`, `break-system-packages = true`, `format = columns`. Exact lowercase keys (CLI long-option names). Optional `#` / `;` comment. Bare keys / prose / wrong case / `user = alice` / `path = tmp` / yum `[main]` / pacman `[options]` / apt `deb` / neighbouring families stay out.
+
 ## [0.3.610] — 2026-10-26
 
 View:
