@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.601] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/locale.conf` fields: `LANG=en_US.UTF-8`, `LANGUAGE=en_US:en`, `LC_CTYPE=en_US.UTF-8`, `LC_NUMERIC=de_DE.UTF-8`, `LC_TIME=C`, `LC_COLLATE=POSIX`, `LC_MONETARY=fr_FR.UTF-8`, `LC_MESSAGES="en_US.UTF-8"`, `LC_PAPER=en_GB.UTF-8`, `LC_NAME=…`, `LC_ADDRESS=…`, `LC_TELEPHONE=…`, `LC_MEASUREMENT=…`, `LC_IDENTIFICATION=…`, `LC_ALL=C.UTF-8`. Stock locale KEY=`VALUE` (exact case), optional double-quoted value (escapes ok). Optional `#` comment outside quotes. Bare keys / prose / `PATH=` / os-release / machine-info / login.defs / neighbouring families stay out.
+
 ## [0.3.600] — 2026-10-25
 
 View:
