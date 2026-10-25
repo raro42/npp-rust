@@ -887,3 +887,5 @@
 009 keep: Function List /etc/pacman.conf sections+keys (v0.3.607)
 
 009 keep: Function List paru.conf [options]/[bin] (v0.3.608)
+
+009 keep: Function List apt sources.list / deb822 (v0.3.609)
