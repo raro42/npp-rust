@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [0.3.599] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/os-release` / `/usr/lib/os-release` fields: `NAME="Arch Linux"`, `PRETTY_NAME="Arch Linux"`, `ID=arch`, `ID_LIKE="rhel fedora"`, `VERSION_ID="39"`, `VERSION_CODENAME=bookworm`, `BUILD_ID=rolling`, `HOME_URL="https://…"`, `ANSI_COLOR="38;2;23;147;209"`, `LOGO=archlinux-logo`, `VARIANT_ID=server`, `CPE_NAME="cpe:/o:…"`. Stock UPPER_SNAKE key, `=`, optional double-quoted value (escapes ok). Optional `#` comment outside quotes. Bare keys / prose / `PATH=` / `LANG=` / login.defs space form / neighbouring families stay out.
+
+
 ## [0.3.598] — 2026-10-25
 
 View:

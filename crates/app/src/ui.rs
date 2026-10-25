@@ -32328,6 +32328,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_ethers_file_decl(s)
             || is_networks_file_decl(s)
             || is_login_defs_decl(s)
+            || is_os_release_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32505,6 +32506,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_ethers_file_decl(s)
         || is_networks_file_decl(s)
         || is_login_defs_decl(s)
+        || is_os_release_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -47553,6 +47555,132 @@ fn login_defs_value_ok(value: &str) -> bool {
     })
 }
 
+/// `/etc/os-release` / `/usr/lib/os-release`: `NAME="Arch Linux"`, `ID=arch`,
+/// `PRETTY_NAME="Arch Linux"`, `VERSION_ID="39"`, `HOME_URL="https://…"`,
+/// `ANSI_COLOR="38;2;23;147;209"`, `BUILD_ID=rolling`. Stock UPPER_SNAKE key,
+/// `=`, optional double-quoted value. Optional `#` comment outside quotes.
+/// Bare keys / prose / login.defs space form / neighbouring families stay out.
+fn is_os_release_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let Some(eq) = s.find('=') else {
+        return false;
+    };
+    let key = s[..eq].trim();
+    if !os_release_key_ok(key) {
+        return false;
+    }
+    let mut rest = s[eq + 1..].trim_start();
+    if rest.is_empty() {
+        return false;
+    }
+    let value = if rest.starts_with('"') {
+        rest = &rest[1..];
+        let mut out = String::new();
+        let mut chars = rest.chars();
+        loop {
+            match chars.next() {
+                None => return false, // unclosed quote
+                Some('\\') => match chars.next() {
+                    Some(c) => out.push(c),
+                    None => return false,
+                },
+                Some('"') => break,
+                Some(c) => out.push(c),
+            }
+        }
+        let after = chars.as_str().trim_start();
+        if !after.is_empty() && !after.starts_with('#') {
+            return false;
+        }
+        out
+    } else {
+        let body = if let Some(hash) = rest.find('#') {
+            rest[..hash].trim()
+        } else {
+            rest.trim()
+        };
+        if body.is_empty() {
+            return false;
+        }
+        body.to_string()
+    };
+    os_release_value_ok(&value)
+}
+
+fn os_release_key_ok(key: &str) -> bool {
+    // Stock os-release(5) / systemd field names (exact case).
+    const KEYS: &[&str] = &[
+        "ANSI_COLOR",
+        "ARCHITECTURE",
+        "BUG_REPORT_URL",
+        "BUILD_ID",
+        "CPE_NAME",
+        "DEFAULT_HOSTNAME",
+        "DOCUMENTATION_URL",
+        "HOME_URL",
+        "ID",
+        "ID_LIKE",
+        "IMAGE_ID",
+        "IMAGE_VERSION",
+        "LOGO",
+        "NAME",
+        "PORTABLE_PREFIXES",
+        "PRETTY_NAME",
+        "PRIVACY_POLICY_URL",
+        "SUPPORT_URL",
+        "SYSEXT_LEVEL",
+        "SYSEXT_SCOPE",
+        "CONFEXT_LEVEL",
+        "CONFEXT_SCOPE",
+        "VENDOR_NAME",
+        "VENDOR_URL",
+        "VARIANT",
+        "VARIANT_ID",
+        "VERSION",
+        "VERSION_CODENAME",
+        "VERSION_ID",
+        "PLATFORM_ID",
+    ];
+    KEYS.contains(&key)
+}
+
+fn os_release_value_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    // Distro names, URLs, CPE, ANSI sequences, logos. No control chars.
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b' ' | b'\t'
+                    | b'.'
+                    | b'_'
+                    | b'-'
+                    | b'/'
+                    | b':'
+                    | b'+'
+                    | b'='
+                    | b','
+                    | b';'
+                    | b'&'
+                    | b'?'
+                    | b'%'
+                    | b'#'
+                    | b'@'
+                    | b'!'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b'\''
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -50376,16 +50504,16 @@ mod func_like_line_tests {
         is_lightdm_conf_decl, is_limits_conf_decl, is_login_defs_decl, is_logrotate_decl,
         is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl,
         is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_nsswitch_conf_decl,
-        is_openvpn_decl, is_package_json_decl, is_pam_conf_decl, is_passwd_group_file_decl,
-        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
-        line_is_func_like,
+        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pam_conf_decl,
+        is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl,
+        is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl,
+        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -57162,6 +57290,9 @@ mod func_like_line_tests {
         assert!(is_login_defs_decl("FAIL_DELAY\t\t3"));
         assert!(!is_networks_file_decl("FAIL_DELAY\t\t3"));
         assert!(!is_sysctl_conf_decl("FAIL_DELAY\t\t3"));
+        assert!(is_os_release_decl("NAME=\"Arch Linux\""));
+        assert!(!is_login_defs_decl("NAME=\"Arch Linux\""));
+        assert!(!is_binfmt_d_decl("NAME=\"Arch Linux\""));
     }
 
     #[test]
@@ -57362,6 +57493,64 @@ mod func_like_line_tests {
         assert!(!is_login_defs_decl("fail_delay 3"));
         assert!(!line_is_func_like("MOTD_FILE"));
         assert!(!line_is_func_like("THE_DELAY yes"));
+        // os-release KEY=VALUE stays on that path.
+        assert!(is_os_release_decl("NAME=\"Arch Linux\""));
+        assert!(!is_login_defs_decl("NAME=\"Arch Linux\""));
+    }
+
+    #[test]
+    fn os_release_entries_count() {
+        assert!(line_is_func_like("NAME=\"Arch Linux\""));
+        assert!(line_is_func_like("PRETTY_NAME=\"Arch Linux\""));
+        assert!(line_is_func_like("ID=arch"));
+        assert!(line_is_func_like("ID_LIKE=\"rhel fedora\""));
+        assert!(line_is_func_like("VERSION_ID=\"39\""));
+        assert!(line_is_func_like("VERSION_CODENAME=bookworm"));
+        assert!(line_is_func_like("BUILD_ID=rolling"));
+        assert!(line_is_func_like("HOME_URL=\"https://archlinux.org/\""));
+        assert!(line_is_func_like("ANSI_COLOR=\"38;2;23;147;209\""));
+        assert!(line_is_func_like("LOGO=archlinux-logo"));
+        assert!(line_is_func_like("  VARIANT_ID=server # cloud"));
+        assert!(line_is_func_like(
+            "CPE_NAME=\"cpe:/o:fedoraproject:fedora:39\""
+        ));
+        assert!(line_is_func_like(
+            "BUG_REPORT_URL=\"https://bugs.example.com/?q=1\""
+        ));
+        // Bare / prose / incomplete / wrong case / space form stay out.
+        assert!(!is_os_release_decl("NAME"));
+        assert!(!is_os_release_decl("NAME="));
+        assert!(!is_os_release_decl("NAME=\"\""));
+        assert!(!is_os_release_decl("NAME=\"Arch Linux"));
+        assert!(!is_os_release_decl("name=arch"));
+        assert!(!is_os_release_decl("FOO=bar"));
+        assert!(!is_os_release_decl("PATH=/usr/bin"));
+        assert!(!is_os_release_decl("LANG=en_US.UTF-8"));
+        assert!(!is_os_release_decl("NAME Arch Linux"));
+        assert!(!is_os_release_decl("# NAME=\"Arch Linux\""));
+        assert!(!is_os_release_decl("not an os-release line"));
+        assert!(!is_os_release_decl("NAME=\"Arch\" EXTRA"));
+        // Neighbouring families stay on their paths.
+        assert!(is_login_defs_decl("FAIL_DELAY\t\t3"));
+        assert!(!is_os_release_decl("FAIL_DELAY\t\t3"));
+        assert!(is_sysctl_conf_decl("net.ipv4.ip_forward = 1"));
+        assert!(!is_os_release_decl("net.ipv4.ip_forward = 1"));
+        assert!(is_networks_file_decl("loopback 127.0.0.0"));
+        assert!(!is_os_release_decl("loopback 127.0.0.0"));
+        assert!(is_protocols_file_decl("tcp 6 TCP"));
+        assert!(!is_os_release_decl("tcp 6 TCP"));
+        assert!(is_services_file_decl("ssh 22/tcp"));
+        assert!(!is_os_release_decl("ssh 22/tcp"));
+        assert!(is_nsswitch_conf_decl("passwd: files systemd"));
+        assert!(!is_os_release_decl("passwd: files systemd"));
+        assert!(is_modprobe_conf_decl("blacklist nouveau"));
+        assert!(!is_os_release_decl("blacklist nouveau"));
+        assert!(is_hosts_access_decl("sshd: 192.168.1.0/24"));
+        assert!(!is_os_release_decl("sshd: 192.168.1.0/24"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+        assert!(!line_is_func_like("name=arch"));
+        assert!(!line_is_func_like("FOO=bar"));
+        assert!(!line_is_func_like("NAME="));
     }
 
     #[test]
