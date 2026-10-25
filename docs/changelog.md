@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.607] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/pacman.conf` / `/etc/pacman.d` sections and fields: `[options]`, `[core]` / `[extra]` / `[multilib]` / `[community]` / testing / unstable repos, `HoldPkg = pacman glibc`, `IgnorePkg` / `IgnoreGroup`, `Architecture = auto`, `CheckSpace` / `Color` / `ILoveCandy` / `VerbosePkgLists` (flag form), `ParallelDownloads = 5`, `SigLevel = Required DatabaseOptional`, `LocalFileSigLevel` / `RemoteFileSigLevel`, `Include = /etc/pacman.d/mirrorlist`, `Server = https://…/$repo/os/$arch`, `RootDir` / `DBPath` / `CacheDir` / `LogFile` / `GPGDir` / `HookDir`, `CleanMethod`, `Usage`, `DownloadUser`. Exact stock key casing. Optional `#` / `;` comment. Bare keys / prose / wrong case / custom `[reponame]` / `PATH=` / makepkg / neighbouring families stay out.
+
 ## [0.3.606] — 2026-10-25
 
 View:

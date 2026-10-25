@@ -32336,6 +32336,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_mkinitcpio_conf_decl(s)
             || is_dracut_conf_decl(s)
             || is_makepkg_conf_decl(s)
+            || is_pacman_conf_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32521,6 +32522,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_mkinitcpio_conf_decl(s)
         || is_dracut_conf_decl(s)
         || is_makepkg_conf_decl(s)
+        || is_pacman_conf_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -48557,6 +48559,141 @@ fn makepkg_conf_value_ok(value: &str) -> bool {
     })
 }
 
+/// `/etc/pacman.conf` / `/etc/pacman.d/*`: `[options]`, stock Arch repos
+/// (`[core]` / `[extra]` / `[multilib]` / testing / unstable), plus
+/// `HoldPkg = pacman glibc`, `Architecture = auto`, `CheckSpace`,
+/// `SigLevel = Required DatabaseOptional`, `ParallelDownloads = 5`,
+/// `Include = /etc/pacman.d/mirrorlist`,
+/// `Server = https://…/$repo/os/$arch`. Exact stock key casing. Optional
+/// `#` / `;` comment. Bare keys / prose / wrong case / `PATH=` / makepkg /
+/// neighbouring families stay out.
+fn is_pacman_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return pacman_conf_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    if let Some(eq) = body.find('=') {
+        let key = body[..eq].trim();
+        if !pacman_conf_key_ok(key) {
+            return false;
+        }
+        let value = body[eq + 1..].trim();
+        pacman_conf_value_ok(value)
+    } else {
+        pacman_conf_flag_ok(body)
+    }
+}
+
+fn pacman_conf_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "options"
+            | "core"
+            | "extra"
+            | "multilib"
+            | "community"
+            | "testing"
+            | "core-testing"
+            | "extra-testing"
+            | "multilib-testing"
+            | "community-testing"
+            | "gnome-unstable"
+            | "kde-unstable"
+    )
+}
+
+fn pacman_conf_key_ok(key: &str) -> bool {
+    const KEYS: &[&str] = &[
+        "RootDir",
+        "DBPath",
+        "CacheDir",
+        "HookDir",
+        "GPGDir",
+        "LogFile",
+        "HoldPkg",
+        "IgnorePkg",
+        "IgnoreGroup",
+        "NoUpgrade",
+        "NoExtract",
+        "Architecture",
+        "XferCommand",
+        "CleanMethod",
+        "SigLevel",
+        "LocalFileSigLevel",
+        "RemoteFileSigLevel",
+        "UseSyslog",
+        "Color",
+        "NoProgressBar",
+        "CheckSpace",
+        "VerbosePkgLists",
+        "DisableDownloadTimeout",
+        "ParallelDownloads",
+        "DownloadUser",
+        "DisableSandbox",
+        "Include",
+        "Server",
+        "Usage",
+        "ILoveCandy",
+    ];
+    KEYS.contains(&key)
+}
+
+fn pacman_conf_flag_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "UseSyslog"
+            | "Color"
+            | "NoProgressBar"
+            | "CheckSpace"
+            | "VerbosePkgLists"
+            | "DisableDownloadTimeout"
+            | "DisableSandbox"
+            | "ILoveCandy"
+    )
+}
+
+fn pacman_conf_value_ok(value: &str) -> bool {
+    if value.len() > 1024 {
+        return false;
+    }
+    // Paths, URLs with $repo/$arch, space-separated pkg lists, SigLevel words.
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -51382,8 +51519,8 @@ mod func_like_line_tests {
         is_makepkg_conf_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mysql_cnf_decl,
         is_named_conf_decl, is_networks_file_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pam_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
-        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_passwd_group_file_decl,
+        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
         is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl,
         is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
         is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
@@ -58865,10 +59002,93 @@ mod func_like_line_tests {
         assert!(!is_makepkg_conf_decl("PRETTY_HOSTNAME=studio"));
         assert!(is_login_defs_decl("FAIL_DELAY\t\t3"));
         assert!(!is_makepkg_conf_decl("FAIL_DELAY\t\t3"));
+        assert!(is_pacman_conf_decl("HoldPkg = pacman glibc"));
+        assert!(!is_makepkg_conf_decl("HoldPkg = pacman glibc"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
         assert!(!line_is_func_like("carch=\"x86_64\""));
         assert!(!line_is_func_like("FOO=bar"));
         assert!(!line_is_func_like("CARCH"));
+    }
+
+    #[test]
+    fn pacman_conf_entries_count() {
+        assert!(line_is_func_like("[options]"));
+        assert!(line_is_func_like("[core]"));
+        assert!(line_is_func_like("[extra]"));
+        assert!(line_is_func_like("[multilib]"));
+        assert!(line_is_func_like("[core-testing]"));
+        assert!(line_is_func_like("[extra-testing]"));
+        assert!(line_is_func_like("[multilib-testing]"));
+        assert!(line_is_func_like("[gnome-unstable]"));
+        assert!(line_is_func_like("[kde-unstable]"));
+        assert!(line_is_func_like("  [options] # local"));
+        assert!(line_is_func_like("HoldPkg = pacman glibc"));
+        assert!(line_is_func_like("HoldPkg     = pacman glibc"));
+        assert!(line_is_func_like("IgnorePkg = linux linux-lts"));
+        assert!(line_is_func_like("IgnoreGroup = gnome"));
+        assert!(line_is_func_like("Architecture = auto"));
+        assert!(line_is_func_like("Architecture = x86_64"));
+        assert!(line_is_func_like("CheckSpace"));
+        assert!(line_is_func_like("Color"));
+        assert!(line_is_func_like("ILoveCandy"));
+        assert!(line_is_func_like("VerbosePkgLists"));
+        assert!(line_is_func_like("ParallelDownloads = 5"));
+        assert!(line_is_func_like("SigLevel = Required DatabaseOptional"));
+        assert!(line_is_func_like("LocalFileSigLevel = Optional"));
+        assert!(line_is_func_like("RemoteFileSigLevel = Required"));
+        assert!(line_is_func_like("Include = /etc/pacman.d/mirrorlist"));
+        assert!(line_is_func_like(
+            "Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch"
+        ));
+        assert!(line_is_func_like("Server = file:///var/cache/pacman/pkg"));
+        assert!(line_is_func_like("RootDir = /"));
+        assert!(line_is_func_like("DBPath = /var/lib/pacman/"));
+        assert!(line_is_func_like("CacheDir = /var/cache/pacman/pkg/"));
+        assert!(line_is_func_like("LogFile = /var/log/pacman.log"));
+        assert!(line_is_func_like("GPGDir = /etc/pacman.d/gnupg/"));
+        assert!(line_is_func_like("HookDir = /etc/pacman.d/hooks/"));
+        assert!(line_is_func_like("CleanMethod = KeepInstalled"));
+        assert!(line_is_func_like("Usage = Sync Search"));
+        assert!(line_is_func_like("DownloadUser = alpm"));
+        assert!(line_is_func_like("  CheckSpace # prefer free space check"));
+        assert!(line_is_func_like("SigLevel ="));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_pacman_conf_decl("HoldPkg"));
+        assert!(!is_pacman_conf_decl("holdpkg = pacman"));
+        assert!(!is_pacman_conf_decl("FOO = bar"));
+        assert!(!is_pacman_conf_decl("PATH=/usr/bin"));
+        assert!(!is_pacman_conf_decl("CARCH=\"x86_64\""));
+        assert!(!is_pacman_conf_decl("OPTIONS=(strip)"));
+        assert!(!is_pacman_conf_decl("MODULES=()"));
+        assert!(!is_pacman_conf_decl("GRUB_DEFAULT=0"));
+        assert!(!is_pacman_conf_decl("hostonly=\"yes\""));
+        assert!(!is_pacman_conf_decl("[Options]"));
+        assert!(!is_pacman_conf_decl("[custom]"));
+        assert!(!is_pacman_conf_decl("[server]"));
+        assert!(!is_pacman_conf_decl("[Unit]"));
+        assert!(!is_pacman_conf_decl("[global]"));
+        assert!(!is_pacman_conf_decl("# [options]"));
+        assert!(!is_pacman_conf_decl("not a pacman line"));
+        assert!(!is_pacman_conf_decl("HoldPkg pacman glibc"));
+        // Neighbouring families stay on their paths.
+        assert!(is_makepkg_conf_decl("CARCH=\"x86_64\""));
+        assert!(!is_pacman_conf_decl("CARCH=\"x86_64\""));
+        assert!(is_mkinitcpio_conf_decl("MODULES=()"));
+        assert!(!is_pacman_conf_decl("MODULES=()"));
+        assert!(is_default_grub_decl("GRUB_DEFAULT=0"));
+        assert!(!is_pacman_conf_decl("GRUB_DEFAULT=0"));
+        assert!(is_dracut_conf_decl("hostonly=\"yes\""));
+        assert!(!is_pacman_conf_decl("hostonly=\"yes\""));
+        assert!(is_samba_conf_decl("[global]"));
+        assert!(!is_pacman_conf_decl("[global]"));
+        assert!(is_gitconfig_decl("[core]"));
+        // [core] is also a stock Arch repo section — both may match.
+        assert!(is_pacman_conf_decl("[core]"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+        assert!(!line_is_func_like("holdpkg = pacman"));
+        assert!(!line_is_func_like("FOO = bar"));
+        assert!(!line_is_func_like("HoldPkg"));
+        assert!(!line_is_func_like("[custom]"));
     }
 
     #[test]
