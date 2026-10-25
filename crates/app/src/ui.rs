@@ -32319,6 +32319,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_subuid_subgid_decl(s)
             || is_sysctl_conf_decl(s)
             || is_modprobe_conf_decl(s)
+            || is_tmpfiles_d_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32487,6 +32488,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_subuid_subgid_decl(s)
         || is_sysctl_conf_decl(s)
         || is_modprobe_conf_decl(s)
+        || is_tmpfiles_d_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -46495,6 +46497,208 @@ fn modprobe_softdep_ok(rest: &str) -> bool {
     saw_dep
 }
 
+/// systemd `tmpfiles.d` / `tmpfiles.d/*.conf`: `d /run/user 0755 root root -`,
+/// `f /etc/hostname - - - -`, `L /etc/os-release - - - - /usr/lib/os-release`,
+/// `L+ /run/lock - - - -`, `C /etc/pam.d - - - -`, `z /home 0755 - - -`,
+/// `Z /var/lib/machines 0700 - - -`, `e /var/cache - - - -`,
+/// `x /tmp/.X11-unix - - - -`, `X /dev - - - -`, `r! /tmp/foo - - - -`,
+/// `R /tmp/bar - - - -`, `w /etc/motd - - - - Hello`, `p /run/fifo 0660 root root -`,
+/// `c /dev/mynode 0660 root root - 1:2`, `b /dev/myblock 0660 root root - 8:0`,
+/// `v /var/lib/machines/foo - - - -`, `q /var/lib/machines/bar - - - -`,
+/// `Q /var/lib/machines/baz - - - -`, `a+ /home/user - - - - u::rwx`,
+/// `h /srv/www - - - - +i`, `t /var/lib/foo - - - - security.selinux=…`.
+/// Type letter (+ optional `+` / `-` / `=` / `~` / `^` / `!` modifiers) then
+/// absolute path; Mode/User/Group/Age/Argument optional. Optional `#` / `;`
+/// comment. Bare / prose / incomplete / neighbouring families (modprobe,
+/// fstab, …) stay out.
+fn is_tmpfiles_d_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else if let Some(semi) = s.find(';') {
+        // Trailing `; comment` only when preceded by whitespace (paths rarely
+        // embed `;`; keep simple).
+        let before = &s[..semi];
+        if before.ends_with(|c: char| c.is_whitespace()) {
+            before.trim()
+        } else {
+            s.trim()
+        }
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some((ty, rest)) = fstab_next_token(body) else {
+        return false;
+    };
+    if !tmpfiles_type_ok(ty) {
+        return false;
+    }
+    let Some((path, after_path)) = fstab_next_token(rest) else {
+        return false;
+    };
+    if !tmpfiles_path_ok(path) {
+        return false;
+    }
+    // Optional Mode User Group Age Argument (0–5 more tokens).
+    let mut rem = after_path;
+    let mut n = 0usize;
+    while let Some((tok, next)) = fstab_next_token(rem) {
+        n += 1;
+        if n > 5 {
+            return false;
+        }
+        if !tmpfiles_field_ok(tok, n) {
+            return false;
+        }
+        rem = next;
+    }
+    true
+}
+
+fn tmpfiles_type_ok(ty: &str) -> bool {
+    if ty.is_empty() || ty.len() > 8 {
+        return false;
+    }
+    let bytes = ty.as_bytes();
+    let letter = bytes[0];
+    // Stock type letters (systemd.tmpfiles).
+    if !matches!(
+        letter,
+        b'f' | b'F'
+            | b'w'
+            | b'd'
+            | b'D'
+            | b'e'
+            | b'v'
+            | b'q'
+            | b'Q'
+            | b'p'
+            | b'L'
+            | b'c'
+            | b'b'
+            | b'C'
+            | b'x'
+            | b'X'
+            | b'r'
+            | b'R'
+            | b'z'
+            | b'Z'
+            | b't'
+            | b'h'
+            | b'a'
+            | b'A'
+    ) {
+        return false;
+    }
+    bytes[1..]
+        .iter()
+        .all(|b| matches!(b, b'+' | b'-' | b'=' | b'~' | b'^' | b'!'))
+}
+
+fn tmpfiles_path_ok(path: &str) -> bool {
+    if path.len() < 2 || path.len() > 512 {
+        return false;
+    }
+    // Absolute path only (`/run/user`, `/tmp/.X11-unix`).
+    if !path.starts_with('/') {
+        return false;
+    }
+    // Reject prose stopwords as a lone path segment.
+    if path == "/the" || path == "/a" || path == "/an" || path == "/of" || path == "/to" {
+        return false;
+    }
+    path.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'/' | b'.' | b'_' | b'-' | b'+' | b'%' | b'@' | b',' | b'~' | b':' | b'='
+            )
+    })
+}
+
+fn tmpfiles_field_ok(tok: &str, field_n: usize) -> bool {
+    if tok.is_empty() || tok.len() > 512 {
+        return false;
+    }
+    // Mode (1): octal or `-`.
+    if field_n == 1 {
+        if tok == "-" {
+            return true;
+        }
+        return tok.len() <= 5 && tok.bytes().all(|b| matches!(b, b'0'..=b'7')) && !tok.is_empty();
+    }
+    // User / Group (2 / 3): name, numeric id, or `-`.
+    if field_n == 2 || field_n == 3 {
+        if tok == "-" {
+            return true;
+        }
+        if tok.bytes().all(|b| b.is_ascii_digit()) && tok.len() <= 10 {
+            return true;
+        }
+        let bytes = tok.as_bytes();
+        if bytes.is_empty() {
+            return false;
+        }
+        if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+            return false;
+        }
+        return bytes[1..]
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'-');
+    }
+    // Age (4): `-`, `10d`, `1h`, `30s`, `…`.
+    if field_n == 4 {
+        if tok == "-" {
+            return true;
+        }
+        return tok
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b':' | b'+'));
+    }
+    // Argument (5): path, content, major:minor, ACL, attr, …
+    tok.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'/' | b'.'
+                    | b'_'
+                    | b'-'
+                    | b'+'
+                    | b'%'
+                    | b'@'
+                    | b','
+                    | b'~'
+                    | b':'
+                    | b'='
+                    | b'"'
+                    | b'\''
+                    | b'\\'
+                    | b'*'
+                    | b'?'
+                    | b'!'
+                    | b'^'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b'{'
+                    | b'}'
+                    | b';'
+                    | b'|'
+                    | b'&'
+                    | b'$'
+                    | b'#'
+                    | b' '
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -49322,9 +49526,9 @@ mod func_like_line_tests {
         is_resolv_conf_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
         is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
         is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, line_is_func_like,
+        is_systemd_unit_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -55907,6 +56111,74 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("alias the team"));
         assert!(!line_is_func_like("blacklist"));
         assert!(!line_is_func_like("Blacklist nouveau"));
+        assert!(is_tmpfiles_d_decl("d /run/user 0755 root root -"));
+        assert!(!is_modprobe_conf_decl("d /run/user 0755 root root -"));
+    }
+
+    #[test]
+    fn tmpfiles_d_entries_count() {
+        assert!(line_is_func_like("d /run/user 0755 root root -"));
+        assert!(line_is_func_like("d /tmp 1777 root root 10d"));
+        assert!(line_is_func_like("f /etc/hostname - - - -"));
+        assert!(line_is_func_like(
+            "L /etc/os-release - - - - /usr/lib/os-release"
+        ));
+        assert!(line_is_func_like("L+ /run/lock - - - -"));
+        assert!(line_is_func_like("C /etc/pam.d - - - -"));
+        assert!(line_is_func_like("z /home 0755 - - -"));
+        assert!(line_is_func_like("Z /var/lib/machines 0700 - - -"));
+        assert!(line_is_func_like("e /var/cache - - - -"));
+        assert!(line_is_func_like("x /tmp/.X11-unix - - - -"));
+        assert!(line_is_func_like("X /dev - - - -"));
+        assert!(line_is_func_like("r! /tmp/foo - - - -"));
+        assert!(line_is_func_like("R /tmp/bar - - - -"));
+        assert!(line_is_func_like("w /etc/motd - - - - Hello"));
+        assert!(line_is_func_like("p /run/fifo 0660 root root -"));
+        assert!(line_is_func_like("c /dev/mynode 0660 root root - 1:2"));
+        assert!(line_is_func_like("b /dev/myblock 0660 root root - 8:0"));
+        assert!(line_is_func_like("v /var/lib/machines/foo - - - -"));
+        assert!(line_is_func_like("q /var/lib/machines/bar - - - -"));
+        assert!(line_is_func_like("Q /var/lib/machines/baz - - - -"));
+        assert!(line_is_func_like("a+ /home/user - - - - u::rwx"));
+        assert!(line_is_func_like("h /srv/www - - - - +i"));
+        assert!(line_is_func_like(
+            "t /var/lib/foo - - - - security.selinux=system_u:object_r:var_t:s0"
+        ));
+        assert!(line_is_func_like("  d /run/user 0755 root root - # tmp"));
+        assert!(line_is_func_like("D /var/tmp 1777 root root 30d"));
+        assert!(line_is_func_like("F /etc/machine-id - - - -"));
+        assert!(line_is_func_like("A /var - - - -"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_tmpfiles_d_decl("d"));
+        assert!(!is_tmpfiles_d_decl("/run/user 0755 root root -"));
+        assert!(!is_tmpfiles_d_decl("d run/user 0755 root root -"));
+        assert!(!is_tmpfiles_d_decl("d /the 0755 root root -"));
+        assert!(!is_tmpfiles_d_decl("# d /run/user 0755 root root -"));
+        assert!(!is_tmpfiles_d_decl("; d /run/user 0755 root root -"));
+        assert!(!is_tmpfiles_d_decl("not a tmpfiles line"));
+        assert!(!is_tmpfiles_d_decl("dd /run/user 0755 root root -"));
+        assert!(!is_tmpfiles_d_decl("Y /run/user 0755 root root -"));
+        // Type + absolute path alone is enough (optional fields omitted).
+        assert!(is_tmpfiles_d_decl("d /run/user"));
+        assert!(line_is_func_like("d /run/user"));
+        // Neighbouring families stay on their paths.
+        assert!(is_modprobe_conf_decl("blacklist nouveau"));
+        assert!(!is_tmpfiles_d_decl("blacklist nouveau"));
+        assert!(is_sysctl_conf_decl("net.ipv4.ip_forward = 1"));
+        assert!(!is_tmpfiles_d_decl("net.ipv4.ip_forward = 1"));
+        assert!(is_fstab_decl("UUID=abc / ext4 defaults 0 1"));
+        assert!(!is_tmpfiles_d_decl("UUID=abc / ext4 defaults 0 1"));
+        assert!(is_subuid_subgid_decl("alice:100000:65536"));
+        assert!(!is_tmpfiles_d_decl("alice:100000:65536"));
+        assert!(is_passwd_group_file_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(!is_tmpfiles_d_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(is_nsswitch_conf_decl("passwd: files systemd"));
+        assert!(!is_tmpfiles_d_decl("passwd: files systemd"));
+        assert!(is_resolv_conf_decl("nameserver 8.8.8.8"));
+        assert!(!is_tmpfiles_d_decl("nameserver 8.8.8.8"));
+        assert!(!line_is_func_like("d /the 0755 root root -"));
+        assert!(!line_is_func_like("Y /run/user 0755 root root -"));
+        assert!(!line_is_func_like("dd /run/user 0755 root root -"));
     }
 
     #[test]

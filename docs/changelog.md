@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.590] — 2026-10-25
+
+View:
+
+- **Function List** lists systemd `tmpfiles.d` / `tmpfiles.d/*.conf` entries: `d /run/user 0755 root root -`, `f /etc/hostname - - - -`, `L /etc/os-release - - - - /usr/lib/os-release`, `L+ /run/lock - - - -`, `C /etc/pam.d - - - -`, `z /home 0755 - - -`, `Z /var/lib/machines 0700 - - -`, `e /var/cache - - - -`, `x /tmp/.X11-unix - - - -`, `X /dev - - - -`, `r! /tmp/foo - - - -`, `R /tmp/bar - - - -`, `w /etc/motd - - - - Hello`, `p /run/fifo 0660 root root -`, `c /dev/mynode 0660 root root - 1:2`, `b /dev/myblock 0660 root root - 8:0`, `v` / `q` / `Q` machine dirs, `a+ /home/user - - - - u::rwx`, `h /srv/www - - - - +i`, `t /var/lib/foo - - - - security.selinux=…`, `D` / `F` / `A`. Type letter (+ optional `+` / `-` / `=` / `~` / `^` / `!`); absolute path; Mode/User/Group/Age/Argument optional. Optional `#` / `;` comment. Bare / prose / incomplete / neighbouring families (modprobe, fstab, …) stay out.
+
 ## [0.3.589] — 2026-10-25
 
 View:

@@ -848,3 +848,6 @@
 009 keep: Function List /etc/passwd and /etc/group entries (v0.3.585)
 
 009 keep: Function List /etc/modprobe.d alias/blacklist/options/install/remove/softdep (v0.3.589)
+
+009 keep: Function List systemd tmpfiles.d entries (v0.3.590)
+
