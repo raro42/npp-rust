@@ -875,3 +875,5 @@
 009 keep: Function List /etc/locale.conf LANG/LANGUAGE/LC_* (v0.3.601)
 
 009 keep: Function List /etc/vconsole.conf KEYMAP/FONT/XKB* (v0.3.602)
+
+009 keep: Function List /etc/default/grub GRUB_* KEY=VALUE (v0.3.603)
