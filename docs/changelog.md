@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.588] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/sysctl.conf` / `sysctl.d` entries: `net.ipv4.ip_forward = 1`, `vm.swappiness=10`, `kernel.printk = 3 4 1 3`, `fs.inotify.max_user_watches = 524288`, `fs.file-max = 2097152`, `kernel.domainname = example.com`, `user.max_user_namespaces = 15000`, `-net.ipv4.conf.all.rp_filter = 1` (leading `-` ignores missing keys). Stock roots (`abi` / `crypto` / `debug` / `dev` / `fs` / `kernel` / `net` / `sunrpc` / `user.max_*` / `vm`); optional `#` comment. Bare / prose / undotted keys (`PATH=…`) / git-style `user.name` / neighbouring families stay out.
+
 ## [0.3.587] — 2026-10-25
 
 View:

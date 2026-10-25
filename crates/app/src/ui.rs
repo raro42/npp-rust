@@ -32317,6 +32317,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_nsswitch_conf_decl(s)
             || is_passwd_group_file_decl(s)
             || is_subuid_subgid_decl(s)
+            || is_sysctl_conf_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32483,6 +32484,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_nsswitch_conf_decl(s)
         || is_passwd_group_file_decl(s)
         || is_subuid_subgid_decl(s)
+        || is_sysctl_conf_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -46168,6 +46170,93 @@ fn is_subuid_subgid_decl(s: &str) -> bool {
     passwd_account_name_ok(parts[0]) && passwd_id_ok(parts[1]) && passwd_id_ok(parts[2])
 }
 
+/// `/etc/sysctl.conf` / `sysctl.d/*.conf`: `net.ipv4.ip_forward = 1`,
+/// `vm.swappiness=10`, `kernel.printk = 3 4 1 3`,
+/// `fs.inotify.max_user_watches = 524288`, `user.max_user_namespaces = 15000`,
+/// `-net.ipv4.conf.all.rp_filter = 1` (leading `-` = ignore missing key,
+/// systemd.sysctl). Stock `/proc/sys` roots only (`abi` / `crypto` / `debug` /
+/// `dev` / `fs` / `kernel` / `net` / `sunrpc` / `user.max_*` / `vm`). Optional
+/// `#` comment. Bare / prose / undotted / git-style `user.name` /
+/// neighbouring families (`PATH=…`, fstab, nsswitch, …) stay out.
+fn is_sysctl_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let body = body.strip_prefix('-').unwrap_or(body).trim_start();
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    let value = body[eq + 1..].trim();
+    if key.is_empty() || value.is_empty() {
+        return false;
+    }
+    if !sysctl_key_ok(key) {
+        return false;
+    }
+    sysctl_value_ok(value)
+}
+
+fn sysctl_key_ok(key: &str) -> bool {
+    if key.len() > 128 || !key.contains('.') {
+        return false;
+    }
+    let mut saw_dot = false;
+    let mut seg_start = true;
+    for b in key.bytes() {
+        match b {
+            b'.' => {
+                if seg_start {
+                    return false; // `..` or leading `.`
+                }
+                saw_dot = true;
+                seg_start = true;
+            }
+            b if b.is_ascii_alphanumeric() || b == b'_' || b == b'-' => {
+                seg_start = false;
+            }
+            _ => return false,
+        }
+    }
+    if !saw_dot || seg_start {
+        return false;
+    }
+    // Stock /proc/sys roots only. `user.*` is real (user.max_*), but keep
+    // git-style `user.name` / `user.email` out.
+    let mut parts = key.split('.');
+    let Some(root) = parts.next() else {
+        return false;
+    };
+    match root {
+        "abi" | "crypto" | "debug" | "dev" | "fs" | "kernel" | "net" | "sunrpc" | "vm" => true,
+        "user" => parts.next().is_some_and(|p| p.starts_with("max")),
+        _ => false,
+    }
+}
+
+fn sysctl_value_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    // Numbers, tokens, paths, hostnames; no `#` (already stripped) / `=`.
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b' ' | b'.' | b'_' | b'-' | b'/' | b':' | b'+' | b'%' | b'@' | b',' | b'*'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -48994,7 +49083,7 @@ mod func_like_line_tests {
         is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
         is_resolv_conf_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
         is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
-        is_supervisord_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
         is_systemd_unit_decl, is_telegraf_toml_decl, is_tox_ini_decl, is_udev_rule_decl,
         is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
         is_xorg_conf_decl, line_is_func_like,
@@ -55481,6 +55570,50 @@ mod func_like_line_tests {
         assert!(!is_subuid_subgid_decl("ALL: LOCAL"));
         assert!(!line_is_func_like("the:100000:65536"));
         assert!(!line_is_func_like("alice:start:65536"));
+    }
+
+    #[test]
+    fn sysctl_conf_entries_count() {
+        assert!(line_is_func_like("net.ipv4.ip_forward = 1"));
+        assert!(line_is_func_like("vm.swappiness=10"));
+        assert!(line_is_func_like("kernel.printk = 3 4 1 3"));
+        assert!(line_is_func_like("fs.inotify.max_user_watches = 524288"));
+        assert!(line_is_func_like("fs.file-max = 2097152"));
+        assert!(line_is_func_like("kernel.domainname = example.com"));
+        assert!(line_is_func_like("user.max_user_namespaces = 15000"));
+        assert!(line_is_func_like("-net.ipv4.conf.all.rp_filter = 1"));
+        assert!(line_is_func_like(
+            "  net.ipv4.conf.default.rp_filter=1 # lan"
+        ));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_sysctl_conf_decl("net.ipv4.ip_forward"));
+        assert!(!is_sysctl_conf_decl("net.ipv4.ip_forward ="));
+        assert!(!is_sysctl_conf_decl("= 1"));
+        assert!(!is_sysctl_conf_decl("swappiness = 10"));
+        assert!(!is_sysctl_conf_decl("the.team = 1"));
+        assert!(!is_sysctl_conf_decl(".ipv4.ip_forward = 1"));
+        assert!(!is_sysctl_conf_decl("net..ip_forward = 1"));
+        assert!(!is_sysctl_conf_decl("# net.ipv4.ip_forward = 1"));
+        assert!(!is_sysctl_conf_decl("not a sysctl line"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_sysctl_conf_decl("PATH=/usr/bin:/bin"));
+        assert!(!is_sysctl_conf_decl("LANG=en_US.UTF-8"));
+        assert!(!is_sysctl_conf_decl("user.name = Ada"));
+        assert!(!is_sysctl_conf_decl("core.editor = vim"));
+        assert!(!line_is_func_like("user.name = Ada"));
+        assert!(is_subuid_subgid_decl("alice:100000:65536"));
+        assert!(!is_sysctl_conf_decl("alice:100000:65536"));
+        assert!(is_passwd_group_file_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(!is_sysctl_conf_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(is_nsswitch_conf_decl("passwd: files systemd"));
+        assert!(!is_sysctl_conf_decl("passwd: files systemd"));
+        assert!(is_fstab_decl("UUID=abc / ext4 defaults 0 1"));
+        assert!(!is_sysctl_conf_decl("UUID=abc / ext4 defaults 0 1"));
+        assert!(is_resolv_conf_decl("nameserver 8.8.8.8"));
+        assert!(!is_sysctl_conf_decl("nameserver 8.8.8.8"));
+        assert!(!line_is_func_like("the.team = 1"));
+        assert!(!line_is_func_like("swappiness = 10"));
+        assert!(!line_is_func_like("PATH=/usr/bin:/bin"));
     }
 
     #[test]

@@ -1,3 +1,5 @@
+009 keep: Function List /etc/sysctl.conf + sysctl.d dotted key=value (v0.3.588)
+
 009 keep: Function List /etc/subuid + /etc/subgid entries (v0.3.587)
 
 009 keep: Function List /etc/shadow + /etc/gshadow entries (v0.3.586)
