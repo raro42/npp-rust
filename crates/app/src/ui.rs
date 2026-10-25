@@ -32325,6 +32325,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_services_file_decl(s)
             || is_protocols_file_decl(s)
             || is_rpc_file_decl(s)
+            || is_ethers_file_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32499,6 +32500,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_services_file_decl(s)
         || is_protocols_file_decl(s)
         || is_rpc_file_decl(s)
+        || is_ethers_file_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -47227,6 +47229,71 @@ fn rpc_number_ok(tok: &str) -> bool {
     n >= 100_000
 }
 
+/// `/etc/ethers`: `08:00:20:0a:8c:6d basil`, `00-11-22-33-44-55 host`,
+/// `aa:bb:cc:dd:ee:ff host.example.com alias`. Ethernet MAC (six hex octets,
+/// `:` or `-` separator), then hostname (+ optional aliases). Optional `#`
+/// comment. Bare / prose / incomplete / neighbouring families (`/etc/hosts`,
+/// `/etc/rpc`, nsswitch, …) stay out. Distinct from hosts(5): MAC is 6 groups
+/// (IPv6 needs 8 or `::`).
+fn is_ethers_file_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some((mac, rest)) = fstab_next_token(body) else {
+        return false;
+    };
+    if !ethers_mac_ok(mac) {
+        return false;
+    }
+    let Some((name, rest)) = fstab_next_token(rest) else {
+        return false;
+    };
+    if !hosts_file_name_ok(name) {
+        return false;
+    }
+    // Optional aliases (same hostname shape as hosts(5)).
+    let mut rem = rest;
+    while let Some((alias, next)) = fstab_next_token(rem) {
+        if !hosts_file_name_ok(alias) {
+            return false;
+        }
+        rem = next;
+    }
+    true
+}
+
+fn ethers_mac_ok(tok: &str) -> bool {
+    // ethers(5): six hexadecimal numbers separated by `:`. Also accept `-`
+    // (common on some hosts). Exactly one separator style; no mix. Length
+    // 11–17 (`a:b:c:d:e:f` … `aa:bb:cc:dd:ee:ff`).
+    if tok.is_empty() || tok.len() < 11 || tok.len() > 17 {
+        return false;
+    }
+    let has_colon = tok.contains(':');
+    let has_hyphen = tok.contains('-');
+    if has_colon == has_hyphen {
+        // Neither, or mixed.
+        return false;
+    }
+    let sep = if has_colon { ':' } else { '-' };
+    let parts: Vec<&str> = tok.split(sep).collect();
+    if parts.len() != 6 {
+        return false;
+    }
+    parts
+        .iter()
+        .all(|p| (1..=2).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_hexdigit()))
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -50043,22 +50110,22 @@ mod func_like_line_tests {
         is_audit_rules_decl, is_aws_config_decl, is_binfmt_d_decl, is_bitbake_decl,
         is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl, is_composer_json_decl,
         is_crypttab_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl,
-        is_editorconfig_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
-        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
-        is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl, is_hosts_file_decl,
-        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_logrotate_decl, is_modprobe_conf_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
-        is_nsswitch_conf_decl, is_openvpn_decl, is_package_json_decl, is_pam_conf_decl,
-        is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl,
-        is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl,
-        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, line_is_func_like,
+        is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl,
+        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl,
+        is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl, is_modprobe_conf_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_package_json_decl,
+        is_pam_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_samba_conf_decl,
+        is_scons_decl, is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -56826,6 +56893,9 @@ mod func_like_line_tests {
         assert!(is_rpc_file_decl("portmapper 100000 portmap sunrpc"));
         assert!(!is_protocols_file_decl("portmapper 100000 portmap sunrpc"));
         assert!(!is_services_file_decl("portmapper 100000 portmap sunrpc"));
+        assert!(is_ethers_file_decl("08:00:20:0a:8c:6d basil"));
+        assert!(!is_rpc_file_decl("08:00:20:0a:8c:6d basil"));
+        assert!(!is_hosts_file_decl("08:00:20:0a:8c:6d basil"));
     }
 
     #[test]
@@ -56871,9 +56941,60 @@ mod func_like_line_tests {
         assert!(!is_rpc_file_decl("sshd: 192.168.1.0/24"));
         assert!(is_binfmt_d_decl(":DOSWin:M::MZ::/usr/bin/wine:"));
         assert!(!is_rpc_file_decl(":DOSWin:M::MZ::/usr/bin/wine:"));
+        assert!(is_ethers_file_decl("08:00:20:0a:8c:6d basil"));
+        assert!(!is_rpc_file_decl("08:00:20:0a:8c:6d basil"));
         assert!(!line_is_func_like("the 100000 portmap"));
         assert!(!line_is_func_like("portmapper 99999"));
         assert!(!line_is_func_like("portmapper 100000 the"));
+    }
+
+    #[test]
+    fn ethers_file_entries_count() {
+        assert!(line_is_func_like("08:00:20:0a:8c:6d basil"));
+        assert!(line_is_func_like("00:11:22:33:44:55 host.example.com"));
+        assert!(line_is_func_like("aa:bb:cc:dd:ee:ff host alias"));
+        assert!(line_is_func_like("00-11-22-33-44-55 host"));
+        assert!(line_is_func_like("  08:00:2b:00:01:02\tmyhost # ether"));
+        assert!(line_is_func_like("a:b:c:d:e:f short"));
+        assert!(line_is_func_like("FF:EE:DD:CC:BB:AA uppercase"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_ethers_file_decl("08:00:20:0a:8c:6d"));
+        assert!(!is_ethers_file_decl("basil"));
+        assert!(!is_ethers_file_decl("08:00:20:0a:8c basil"));
+        assert!(!is_ethers_file_decl("the 08:00:20:0a:8c:6d"));
+        assert!(!is_ethers_file_decl("08:00:20:0a:8c:6d the"));
+        assert!(!is_ethers_file_decl("08:00:20:0a:8c:6d:00 host"));
+        assert!(!is_ethers_file_decl("08-00:20:0a:8c:6d host"));
+        assert!(!is_ethers_file_decl("0800200a8c6d host"));
+        assert!(!is_ethers_file_decl("# 08:00:20:0a:8c:6d basil"));
+        assert!(!is_ethers_file_decl("not an ethers line"));
+        assert!(!is_ethers_file_decl("gg:00:20:0a:8c:6d host"));
+        // Neighbouring families stay on their paths.
+        assert!(is_hosts_file_decl("127.0.0.1 localhost"));
+        assert!(!is_ethers_file_decl("127.0.0.1 localhost"));
+        assert!(is_hosts_file_decl("::1 localhost ip6-localhost"));
+        assert!(!is_ethers_file_decl("::1 localhost ip6-localhost"));
+        assert!(is_hosts_file_decl("fe80::1%lo0 linklocal"));
+        assert!(!is_ethers_file_decl("fe80::1%lo0 linklocal"));
+        assert!(is_rpc_file_decl("portmapper 100000 portmap sunrpc"));
+        assert!(!is_ethers_file_decl("portmapper 100000 portmap sunrpc"));
+        assert!(is_services_file_decl("ssh 22/tcp"));
+        assert!(!is_ethers_file_decl("ssh 22/tcp"));
+        assert!(is_protocols_file_decl("tcp 6 TCP"));
+        assert!(!is_ethers_file_decl("tcp 6 TCP"));
+        assert!(is_nsswitch_conf_decl("ethers: files"));
+        assert!(!is_ethers_file_decl("ethers: files"));
+        assert!(is_resolv_conf_decl("nameserver 192.168.1.1"));
+        assert!(!is_ethers_file_decl("nameserver 192.168.1.1"));
+        assert!(is_hosts_access_decl("sshd: 192.168.1.0/24"));
+        assert!(!is_ethers_file_decl("sshd: 192.168.1.0/24"));
+        assert!(is_binfmt_d_decl(":DOSWin:M::MZ::/usr/bin/wine:"));
+        assert!(!is_ethers_file_decl(":DOSWin:M::MZ::/usr/bin/wine:"));
+        // MAC must not look like hosts(5) IPv6 (8 groups).
+        assert!(!is_hosts_file_decl("08:00:20:0a:8c:6d basil"));
+        assert!(!line_is_func_like("08:00:20:0a:8c:6d the"));
+        assert!(!line_is_func_like("08:00:20:0a:8c basil"));
+        assert!(!line_is_func_like("gg:00:20:0a:8c:6d host"));
     }
 
     #[test]

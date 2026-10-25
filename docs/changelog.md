@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [0.3.596] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/ethers` entries: `08:00:20:0a:8c:6d basil`, `00-11-22-33-44-55 host`, `aa:bb:cc:dd:ee:ff host.example.com alias`, `08:00:2b:00:01:02 myhost`, `a:b:c:d:e:f short`, `FF:EE:DD:CC:BB:AA uppercase`. Ethernet MAC (six hex octets, `:` or `-` separator), hostname, optional aliases. Optional `#` comment. Bare / prose / incomplete / neighbouring families (`/etc/hosts`, `/etc/rpc`, nsswitch, …) stay out.
+
+
 ## [0.3.595] — 2026-10-25
 
 View:
