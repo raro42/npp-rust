@@ -32337,6 +32337,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_dracut_conf_decl(s)
             || is_makepkg_conf_decl(s)
             || is_pacman_conf_decl(s)
+            || is_paru_conf_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32523,6 +32524,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_dracut_conf_decl(s)
         || is_makepkg_conf_decl(s)
         || is_pacman_conf_decl(s)
+        || is_paru_conf_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -48694,6 +48696,177 @@ fn pacman_conf_value_ok(value: &str) -> bool {
     })
 }
 
+/// `/etc/paru.conf` / `~/.config/paru/paru.conf`: `[options]`, `[bin]`,
+/// `PgpFetch`, `Devel`, `Provides`, `BottomUp`, `CombinedUpgrade`,
+/// `DevelSuffixes = -git -cvs -svn`, `AurUrl = https://aur.archlinux.org`,
+/// `FileManager = vifm`, `MFlags = --skippgpcheck`, `Sudo = doas`. Exact
+/// stock key casing. Optional `#` / `;` comment. Bare keys / prose / wrong
+/// case / free-form `[env]` / PKGBUILD repo sections / `PATH=` / pacman /
+/// makepkg / neighbouring families stay out.
+fn is_paru_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return paru_conf_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    if let Some(eq) = body.find('=') {
+        let key = body[..eq].trim();
+        if !paru_conf_key_ok(key) {
+            return false;
+        }
+        let value = body[eq + 1..].trim();
+        paru_conf_value_ok(value)
+    } else {
+        paru_conf_flag_ok(body)
+    }
+}
+
+fn paru_conf_section_ok(header: &str) -> bool {
+    matches!(header, "options" | "bin")
+}
+
+fn paru_conf_key_ok(key: &str) -> bool {
+    const KEYS: &[&str] = &[
+        // [options]
+        "BottomUp",
+        "AurOnly",
+        "PkgbuildsOnly",
+        "RepoOnly",
+        "Mode",
+        "SudoLoop",
+        "NoCheck",
+        "InstallDebug",
+        "Devel",
+        "IgnoreDevel",
+        "IgnoreDevelSource",
+        "CleanAfter",
+        "Provides",
+        "PgpFetch",
+        "CombinedUpgrade",
+        "BatchInstall",
+        "NewsOnUpgrade",
+        "UseAsk",
+        "SaveChanges",
+        "FailFast",
+        "KeepSrc",
+        "Redownload",
+        "Rebuild",
+        "RemoveMake",
+        "UpgradeMenu",
+        "AurUrl",
+        "AurRpcUrl",
+        "CloneDir",
+        "SortBy",
+        "SearchBy",
+        "Limit",
+        "CompletionInterval",
+        "PacmanConf",
+        "MakepkgConf",
+        "DevelSuffixes",
+        "NoWarn",
+        "LocalRepo",
+        "Chroot",
+        "Sign",
+        "SignDb",
+        "KeepRepoCache",
+        "SkipReview",
+        // [bin]
+        "Makepkg",
+        "Pacman",
+        "Git",
+        "Asp",
+        "Bat",
+        "Sudo",
+        "FileManager",
+        "MFlags",
+        "GitFlags",
+        "GpgFlags",
+        "BatFlags",
+        "SudoFlags",
+        "FileManagerFlags",
+        "ChrootFlags",
+        "RootChrootPkgs",
+        "Pager",
+        "PreBuildCommand",
+    ];
+    KEYS.contains(&key)
+}
+
+fn paru_conf_flag_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "BottomUp"
+            | "AurOnly"
+            | "PkgbuildsOnly"
+            | "RepoOnly"
+            | "SudoLoop"
+            | "NoCheck"
+            | "InstallDebug"
+            | "Devel"
+            | "CleanAfter"
+            | "Provides"
+            | "PgpFetch"
+            | "CombinedUpgrade"
+            | "BatchInstall"
+            | "NewsOnUpgrade"
+            | "UseAsk"
+            | "SaveChanges"
+            | "FailFast"
+            | "KeepSrc"
+            | "Redownload"
+            | "Rebuild"
+            | "RemoveMake"
+            | "UpgradeMenu"
+            | "LocalRepo"
+            | "Chroot"
+            | "Sign"
+            | "SignDb"
+            | "KeepRepoCache"
+            | "SkipReview"
+    )
+}
+
+fn paru_conf_value_ok(value: &str) -> bool {
+    if value.len() > 1024 {
+        return false;
+    }
+    // Paths, URLs, flag args (--skippgpcheck), space-separated lists.
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -51519,16 +51692,16 @@ mod func_like_line_tests {
         is_makepkg_conf_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mysql_cnf_decl,
         is_named_conf_decl, is_networks_file_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_passwd_group_file_decl,
-        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, line_is_func_like,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl,
+        is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl,
+        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -59004,6 +59177,9 @@ mod func_like_line_tests {
         assert!(!is_makepkg_conf_decl("FAIL_DELAY\t\t3"));
         assert!(is_pacman_conf_decl("HoldPkg = pacman glibc"));
         assert!(!is_makepkg_conf_decl("HoldPkg = pacman glibc"));
+        assert!(is_paru_conf_decl("PgpFetch"));
+        assert!(!is_makepkg_conf_decl("PgpFetch"));
+        assert!(!is_pacman_conf_decl("PgpFetch"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
         assert!(!line_is_func_like("carch=\"x86_64\""));
         assert!(!line_is_func_like("FOO=bar"));
@@ -59089,6 +59265,81 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("FOO = bar"));
         assert!(!line_is_func_like("HoldPkg"));
         assert!(!line_is_func_like("[custom]"));
+    }
+
+    #[test]
+    fn paru_conf_entries_count() {
+        assert!(line_is_func_like("[options]"));
+        assert!(line_is_func_like("[bin]"));
+        assert!(line_is_func_like("  [bin] # tools"));
+        assert!(line_is_func_like("PgpFetch"));
+        assert!(line_is_func_like("Devel"));
+        assert!(line_is_func_like("Provides"));
+        assert!(line_is_func_like("BottomUp"));
+        assert!(line_is_func_like("AurOnly"));
+        assert!(line_is_func_like("CombinedUpgrade"));
+        assert!(line_is_func_like("CleanAfter"));
+        assert!(line_is_func_like("BatchInstall"));
+        assert!(line_is_func_like("NewsOnUpgrade"));
+        assert!(line_is_func_like("SkipReview"));
+        assert!(line_is_func_like("SudoLoop"));
+        assert!(line_is_func_like("LocalRepo"));
+        assert!(line_is_func_like("Chroot"));
+        assert!(line_is_func_like("KeepRepoCache"));
+        assert!(line_is_func_like(
+            "DevelSuffixes = -git -cvs -svn -bzr -darcs -always -hg -fossil"
+        ));
+        assert!(line_is_func_like("Mode = aur,repo"));
+        assert!(line_is_func_like("Mode = arp"));
+        assert!(line_is_func_like("RemoveMake = ask"));
+        assert!(line_is_func_like("Redownload = all"));
+        assert!(line_is_func_like("Rebuild = tree"));
+        assert!(line_is_func_like("Provides = all"));
+        assert!(line_is_func_like("AurUrl = https://aur.archlinux.org"));
+        assert!(line_is_func_like("CloneDir = /var/cache/paru"));
+        assert!(line_is_func_like("SortBy = votes"));
+        assert!(line_is_func_like("SearchBy = name-desc"));
+        assert!(line_is_func_like("Limit = 50"));
+        assert!(line_is_func_like("CompletionInterval = 7"));
+        assert!(line_is_func_like("PacmanConf = /etc/pacman.conf"));
+        assert!(line_is_func_like("MakepkgConf = /etc/makepkg.conf"));
+        assert!(line_is_func_like("FileManager = vifm"));
+        assert!(line_is_func_like("MFlags = --skippgpcheck"));
+        assert!(line_is_func_like("Sudo = doas"));
+        assert!(line_is_func_like("Git = /usr/bin/git"));
+        assert!(line_is_func_like("Pager = less"));
+        assert!(line_is_func_like("  PgpFetch # import keys"));
+        assert!(line_is_func_like("AurUrl ="));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_paru_conf_decl("pgpfetch"));
+        assert!(!is_paru_conf_decl("FOO = bar"));
+        assert!(!is_paru_conf_decl("PATH=/usr/bin"));
+        assert!(!is_paru_conf_decl("HoldPkg = pacman glibc"));
+        assert!(!is_paru_conf_decl("CARCH=\"x86_64\""));
+        assert!(!is_paru_conf_decl("OPTIONS=(strip)"));
+        assert!(!is_paru_conf_decl("[Options]"));
+        assert!(!is_paru_conf_decl("[env]"));
+        assert!(!is_paru_conf_decl("[aur]"));
+        assert!(!is_paru_conf_decl("[Unit]"));
+        assert!(!is_paru_conf_decl("[core]"));
+        assert!(!is_paru_conf_decl("# [bin]"));
+        assert!(!is_paru_conf_decl("not a paru line"));
+        assert!(!is_paru_conf_decl("PgpFetch yes"));
+        // Neighbouring families stay on their paths.
+        assert!(is_pacman_conf_decl("HoldPkg = pacman glibc"));
+        assert!(!is_paru_conf_decl("HoldPkg = pacman glibc"));
+        assert!(is_pacman_conf_decl("[core]"));
+        assert!(!is_paru_conf_decl("[core]"));
+        assert!(is_makepkg_conf_decl("CARCH=\"x86_64\""));
+        assert!(!is_paru_conf_decl("CARCH=\"x86_64\""));
+        assert!(is_pacman_conf_decl("[options]"));
+        assert!(is_paru_conf_decl("[options]"));
+        assert!(is_paru_conf_decl("[bin]"));
+        assert!(!is_pacman_conf_decl("[bin]"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+        assert!(!line_is_func_like("pgpfetch"));
+        assert!(!line_is_func_like("FOO = bar"));
+        assert!(!line_is_func_like("[env]"));
     }
 
     #[test]

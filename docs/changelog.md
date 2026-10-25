@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.608] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/paru.conf` / `~/.config/paru/paru.conf` sections and fields: `[options]`, `[bin]`, `PgpFetch`, `Devel`, `Provides`, `BottomUp`, `AurOnly`, `CombinedUpgrade`, `CleanAfter`, `BatchInstall`, `NewsOnUpgrade`, `SkipReview`, `SudoLoop`, `LocalRepo`, `Chroot`, `KeepRepoCache`, `DevelSuffixes = -git -cvs -svn`, `Mode = aur,repo`, `RemoveMake = ask`, `Redownload = all`, `Rebuild = tree`, `AurUrl = https://aur.archlinux.org`, `CloneDir = /var/cache/paru`, `SortBy = votes`, `SearchBy = name-desc`, `Limit = 50`, `CompletionInterval = 7`, `PacmanConf = /etc/pacman.conf`, `MakepkgConf = /etc/makepkg.conf`, `FileManager = vifm`, `MFlags = --skippgpcheck`, `Sudo = doas`, `Git = /usr/bin/git`, `Pager = less`. Exact stock key casing. Optional `#` / `;` comment. Bare keys / prose / wrong case / free-form `[env]` / PKGBUILD repo sections / `PATH=` / pacman / makepkg / neighbouring families stay out.
+
 ## [0.3.607] — 2026-10-25
 
 View:
