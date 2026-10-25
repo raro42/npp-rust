@@ -877,3 +877,5 @@
 009 keep: Function List /etc/vconsole.conf KEYMAP/FONT/XKB* (v0.3.602)
 
 009 keep: Function List /etc/default/grub GRUB_* KEY=VALUE (v0.3.603)
+
+009 keep: Function List mkinitcpio.conf / mkinitcpio.d presets (v0.3.604)
