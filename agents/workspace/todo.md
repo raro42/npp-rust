@@ -871,3 +871,5 @@
 009 keep: Function List /etc/login.defs stock UPPER_SNAKE params (v0.3.598)
 
 009 keep: Function List /etc/os-release stock KEY=VALUE fields (v0.3.599)
+
+009 keep: Function List /etc/locale.conf LANG/LANGUAGE/LC_* (v0.3.601)
