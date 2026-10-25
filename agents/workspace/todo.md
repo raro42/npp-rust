@@ -881,3 +881,5 @@
 009 keep: Function List mkinitcpio.conf / mkinitcpio.d presets (v0.3.604)
 
 009 keep: Function List /etc/dracut.conf add_dracutmodules/hostonly/compress (v0.3.605)
+
+009 keep: Function List /etc/makepkg.conf CARCH/OPTIONS/PKGEXT/DLAGENTS (v0.3.606)
