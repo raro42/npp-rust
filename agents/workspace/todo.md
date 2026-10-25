@@ -873,3 +873,5 @@
 009 keep: Function List /etc/os-release stock KEY=VALUE fields (v0.3.599)
 
 009 keep: Function List /etc/locale.conf LANG/LANGUAGE/LC_* (v0.3.601)
+
+009 keep: Function List /etc/vconsole.conf KEYMAP/FONT/XKB* (v0.3.602)
