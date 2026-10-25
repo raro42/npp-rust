@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [0.3.605] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/dracut.conf` / `dracut.conf.d/*.conf` fields: `add_dracutmodules+=" nfs "`, `omit_dracutmodules+=" plymouth "`, `dracutmodules+=" base "`, `add_drivers+=" ahci "`, `omit_drivers+=" nouveau "`, `filesystems+=" ext4 xfs "`, `install_items+=" /etc/foo /bin/bar "`, `compress="xz"`, `compress=zstd`, `hostonly="yes"`, `hostonly_mode="sloppy"`, `hostonly_cmdline="yes"`, `persistent_policy="by-uuid"`, `tmpdir="/var/tmp"`, `use_fstab="yes"`, `mdadmconf="yes"`, `lvmconf="yes"`, `kernel_cmdline="quiet splash"`, `early_microcode="yes"`, `show_modules="yes"`, `do_strip="yes"`, `uefi="yes"`, `reproducible="yes"`, `stdloglvl="3"`, `sshkey="/root/.ssh/id_rsa"`. Stock lowercase snake_case KEY=`VALUE` (exact case); optional trailing `+` before `=` for append form. Optional double-quoted value (escapes ok; empty allowed). Optional `#` comment outside quotes. Bare keys / prose / `PATH=` / mkinitcpio / grub / neighbouring families stay out.
+
+
 ## [0.3.604] — 2026-10-25
 
 View:
