@@ -32320,6 +32320,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_sysctl_conf_decl(s)
             || is_modprobe_conf_decl(s)
             || is_tmpfiles_d_decl(s)
+            || is_sysusers_d_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32489,6 +32490,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_sysctl_conf_decl(s)
         || is_modprobe_conf_decl(s)
         || is_tmpfiles_d_decl(s)
+        || is_sysusers_d_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -46699,6 +46701,183 @@ fn tmpfiles_field_ok(tok: &str, field_n: usize) -> bool {
     })
 }
 
+/// systemd `sysusers.d` / `sysusers.d/*.conf`: `u httpd 404 "HTTP User"`,
+/// `u! alpm - "Arch Linux Package Management" -`, `u root 0:0 "Super User" /root`,
+/// `g input - - -`, `m cups lp`, `r - 500-999`. Types `u` / `u!` / `g` / `m` / `r`;
+/// Name + ID required; optional GECOS (quoted ok) / Home / Shell. Optional `#` /
+/// `;` comment. Bare / prose / incomplete / neighbouring families (tmpfiles,
+/// passwd, …) stay out.
+fn is_sysusers_d_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else if let Some(semi) = s.find(';') {
+        let before = &s[..semi];
+        if before.ends_with(|c: char| c.is_whitespace()) {
+            before.trim()
+        } else {
+            s.trim()
+        }
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some((ty, rest)) = sysusers_next_token(body) else {
+        return false;
+    };
+    if !sysusers_type_ok(ty) {
+        return false;
+    }
+    let Some((name, rest)) = sysusers_next_token(rest) else {
+        return false;
+    };
+    if !sysusers_name_ok(ty, name) {
+        return false;
+    }
+    let Some((id, rest)) = sysusers_next_token(rest) else {
+        return false;
+    };
+    if !sysusers_id_ok(ty, id) {
+        return false;
+    }
+    // Optional GECOS Home Shell (0–3 more tokens).
+    let mut rem = rest;
+    let mut n = 0usize;
+    while let Some((tok, next)) = sysusers_next_token(rem) {
+        n += 1;
+        if n > 3 {
+            return false;
+        }
+        if !sysusers_tail_ok(tok, n) {
+            return false;
+        }
+        rem = next;
+    }
+    true
+}
+
+fn sysusers_next_token(s: &str) -> Option<(&str, &str)> {
+    let s = s.trim_start();
+    if s.is_empty() {
+        return None;
+    }
+    if s.as_bytes()[0] == b'"' {
+        let rest = &s[1..];
+        let end = rest.find('"')?;
+        // Include surrounding quotes in the token.
+        let tok = &s[..end + 2];
+        return Some((tok, &s[end + 2..]));
+    }
+    fstab_next_token(s)
+}
+
+fn sysusers_type_ok(ty: &str) -> bool {
+    matches!(ty, "u" | "u!" | "g" | "m" | "r")
+}
+
+fn sysusers_name_ok(ty: &str, name: &str) -> bool {
+    if ty == "r" {
+        return name == "-";
+    }
+    if name == "-" {
+        // `u` / `g` / `m` need a real name.
+        return false;
+    }
+    sysusers_ident_ok(name)
+}
+
+fn sysusers_ident_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team", "note", "user",
+    ];
+    if PROSE.iter().any(|w| name.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes[1..]
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'-')
+}
+
+fn sysusers_id_ok(ty: &str, id: &str) -> bool {
+    if id.is_empty() || id.len() > 256 {
+        return false;
+    }
+    match ty {
+        "m" => sysusers_ident_ok(id),
+        "r" => sysusers_range_ok(id),
+        // u / u! / g: `-`, numeric, `uid:gid`, or absolute binary path.
+        _ => {
+            if id == "-" {
+                return true;
+            }
+            if id.starts_with('/') {
+                return tmpfiles_path_ok(id);
+            }
+            if let Some((a, b)) = id.split_once(':') {
+                return sysusers_num_ok(a) && sysusers_num_ok(b);
+            }
+            sysusers_num_ok(id)
+        }
+    }
+}
+
+fn sysusers_num_ok(s: &str) -> bool {
+    !s.is_empty() && s.len() <= 10 && s.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn sysusers_range_ok(s: &str) -> bool {
+    // `500-999` or `500-` (open-ended).
+    let Some((a, b)) = s.split_once('-') else {
+        return false;
+    };
+    if !sysusers_num_ok(a) {
+        return false;
+    }
+    if b.is_empty() {
+        return true;
+    }
+    sysusers_num_ok(b)
+}
+
+fn sysusers_tail_ok(tok: &str, field_n: usize) -> bool {
+    if tok.is_empty() || tok.len() > 512 {
+        return false;
+    }
+    // GECOS (1): `-`, quoted string, or single unquoted word.
+    if field_n == 1 {
+        if tok == "-" {
+            return true;
+        }
+        if tok.starts_with('"') && tok.ends_with('"') && tok.len() >= 2 {
+            let inner = &tok[1..tok.len() - 1];
+            return inner.bytes().all(|b| {
+                b.is_ascii() && b != b'"' && b != 0 && (b.is_ascii_graphic() || b == b' ')
+            });
+        }
+        // Unquoted single-word GECOS (`-` already handled).
+        return tok
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'+' | b'@'));
+    }
+    // Home (2) / Shell (3): `-`, `/`, or absolute path.
+    if tok == "-" || tok == "/" {
+        return true;
+    }
+    tmpfiles_path_ok(tok)
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -49526,9 +49705,9 @@ mod func_like_line_tests {
         is_resolv_conf_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
         is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
         is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -56179,6 +56358,70 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("d /the 0755 root root -"));
         assert!(!line_is_func_like("Y /run/user 0755 root root -"));
         assert!(!line_is_func_like("dd /run/user 0755 root root -"));
+        assert!(is_sysusers_d_decl("u dbus 81 \"System Message Bus\""));
+        assert!(!is_tmpfiles_d_decl("u dbus 81 \"System Message Bus\""));
+    }
+
+    #[test]
+    fn sysusers_d_entries_count() {
+        assert!(line_is_func_like("u httpd 404 \"HTTP User\""));
+        assert!(line_is_func_like(
+            "u! alpm - \"Arch Linux Package Management\" -"
+        ));
+        assert!(line_is_func_like("u root 0:0 \"Super User\" /root"));
+        assert!(line_is_func_like(
+            "u! nobody 65534:65534 \"Kernel Overflow User\" -"
+        ));
+        assert!(line_is_func_like("u avahi - \"Avahi mDNS/DNS-SD daemon\""));
+        assert!(line_is_func_like("u! bin 1 - -"));
+        assert!(line_is_func_like("u! mail 8 - /var/spool/mail"));
+        assert!(line_is_func_like(
+            "u git - \"git daemon user\" / /usr/bin/git-shell"
+        ));
+        assert!(line_is_func_like(
+            "u _authd /usr/bin/authd \"Authorization user\""
+        ));
+        assert!(line_is_func_like("g root 0 - -"));
+        assert!(line_is_func_like("g input - - -"));
+        assert!(line_is_func_like("g docker - -"));
+        assert!(line_is_func_like("g polkitd 102"));
+        assert!(line_is_func_like("m cups lp"));
+        assert!(line_is_func_like("m root root"));
+        assert!(line_is_func_like("m bin daemon"));
+        assert!(line_is_func_like("r - 500-999"));
+        assert!(line_is_func_like("r - 1000-"));
+        assert!(line_is_func_like(
+            "  u dbus 81 \"System Message Bus\" # bus"
+        ));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_sysusers_d_decl("u"));
+        assert!(!is_sysusers_d_decl("u httpd"));
+        assert!(!is_sysusers_d_decl("u the 404"));
+        assert!(!is_sysusers_d_decl("u user 404"));
+        assert!(!is_sysusers_d_decl("# u dbus 81"));
+        assert!(!is_sysusers_d_decl("; u dbus 81"));
+        assert!(!is_sysusers_d_decl("not a sysusers line"));
+        assert!(!is_sysusers_d_decl("U dbus 81"));
+        assert!(!is_sysusers_d_decl("uu dbus 81"));
+        assert!(!is_sysusers_d_decl("r httpd 500-999"));
+        assert!(!is_sysusers_d_decl("m cups"));
+        // Neighbouring families stay on their paths.
+        assert!(is_tmpfiles_d_decl("d /run/user 0755 root root -"));
+        assert!(!is_sysusers_d_decl("d /run/user 0755 root root -"));
+        assert!(is_modprobe_conf_decl("blacklist nouveau"));
+        assert!(!is_sysusers_d_decl("blacklist nouveau"));
+        assert!(is_passwd_group_file_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(!is_sysusers_d_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(is_sysctl_conf_decl("net.ipv4.ip_forward = 1"));
+        assert!(!is_sysusers_d_decl("net.ipv4.ip_forward = 1"));
+        assert!(is_fstab_decl("UUID=abc / ext4 defaults 0 1"));
+        assert!(!is_sysusers_d_decl("UUID=abc / ext4 defaults 0 1"));
+        assert!(is_subuid_subgid_decl("alice:100000:65536"));
+        assert!(!is_sysusers_d_decl("alice:100000:65536"));
+        assert!(!line_is_func_like("u the 404"));
+        assert!(!line_is_func_like("u user 404"));
+        assert!(!line_is_func_like("U dbus 81"));
+        assert!(!line_is_func_like("r httpd 500-999"));
     }
 
     #[test]

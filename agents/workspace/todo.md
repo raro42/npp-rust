@@ -1,3 +1,5 @@
+009 keep: Function List systemd sysusers.d entries (v0.3.591)
+
 009 keep: Function List /etc/sysctl.conf + sysctl.d dotted key=value (v0.3.588)
 
 009 keep: Function List /etc/subuid + /etc/subgid entries (v0.3.587)

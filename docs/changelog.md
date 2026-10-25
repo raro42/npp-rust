@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.591] — 2026-10-25
+
+View:
+
+- **Function List** lists systemd `sysusers.d` / `sysusers.d/*.conf` entries: `u httpd 404 "HTTP User"`, `u! alpm - "Arch Linux Package Management" -`, `u root 0:0 "Super User" /root`, `u! nobody 65534:65534 "Kernel Overflow User" -`, `u _authd /usr/bin/authd "Authorization user"`, `u git - "git daemon user" / /usr/bin/git-shell`, `g input - - -`, `g polkitd 102`, `m cups lp`, `r - 500-999`, `r - 1000-`. Types `u` / `u!` / `g` / `m` / `r`; Name + ID required; optional GECOS (quoted ok) / Home / Shell. Optional `#` / `;` comment. Bare / prose / incomplete / neighbouring families (tmpfiles, passwd, …) stay out.
+
 ## [0.3.590] — 2026-10-25
 
 View:
