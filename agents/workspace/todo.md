@@ -888,4 +888,6 @@
 
 009 keep: Function List paru.conf [options]/[bin] (v0.3.608)
 
+009 keep: Function List yum/dnf .repo + dnf.conf (v0.3.610)
+
 009 keep: Function List apt sources.list / deb822 (v0.3.609)
