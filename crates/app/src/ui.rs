@@ -32338,6 +32338,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_makepkg_conf_decl(s)
             || is_pacman_conf_decl(s)
             || is_paru_conf_decl(s)
+            || is_apt_sources_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32525,6 +32526,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_makepkg_conf_decl(s)
         || is_pacman_conf_decl(s)
         || is_paru_conf_decl(s)
+        || is_apt_sources_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -48867,6 +48869,247 @@ fn paru_conf_value_ok(value: &str) -> bool {
     })
 }
 
+/// `/etc/apt/sources.list` / `sources.list.d/*.list` one-line entries and
+/// deb822 `*.sources` fields: `deb http://… bookworm main`,
+/// `deb-src http://… jammy main`, `deb [arch=amd64 signed-by=…] https://… stable main`,
+/// `Types: deb`, `URIs: http://…`, `Suites: bookworm`, `Components: main`,
+/// `Signed-By: /usr/share/keyrings/…`, `Enabled: yes`. Exact `deb` /
+/// `deb-src` / Title-Case deb822 keys. Optional `#` comment. Bare `deb`,
+/// prose (`deb the team`), wrong case, Dockerfile `FROM`, pacman /
+/// paru / neighbouring families stay out.
+fn is_apt_sources_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    if is_apt_sources_deb822(body) {
+        return true;
+    }
+    is_apt_sources_oneline(body)
+}
+
+fn is_apt_sources_deb822(body: &str) -> bool {
+    let Some((key, rest)) = body.split_once(':') else {
+        return false;
+    };
+    if key.is_empty() || key.chars().any(|c| c.is_whitespace()) {
+        return false;
+    }
+    if !apt_sources_deb822_key_ok(key) {
+        return false;
+    }
+    // DEB822 allows empty values; require a space after `:` when non-empty,
+    // or bare `Key:` / `Key: `.
+    let value = rest.strip_prefix(' ').unwrap_or(rest);
+    if !rest.is_empty() && !rest.starts_with(' ') && !rest.starts_with('\t') {
+        // `Types:deb` without space stays out (stock tools emit `Key: value`).
+        return false;
+    }
+    apt_sources_deb822_value_ok(value.trim())
+}
+
+fn apt_sources_deb822_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "Types"
+            | "URIs"
+            | "Suites"
+            | "Components"
+            | "Architectures"
+            | "Languages"
+            | "Targets"
+            | "Pinned"
+            | "Enabled"
+            | "Allow-Insecure"
+            | "Allow-Weak"
+            | "Allow-Downgrade-To-Insecure"
+            | "Trusted"
+            | "Signed-By"
+            | "Check-Valid-Until"
+            | "Valid-Until-Min"
+            | "Valid-Until-Max"
+            | "Check-Date"
+            | "Date-Max-Valid"
+            | "InRelease-Path"
+            | "Snapshot"
+    )
+}
+
+fn apt_sources_deb822_value_ok(value: &str) -> bool {
+    if value.len() > 1024 {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'['
+                    | b']'
+            )
+    })
+}
+
+fn is_apt_sources_oneline(body: &str) -> bool {
+    let (kind, rest) = if let Some(r) = body.strip_prefix("deb-src") {
+        ("deb-src", r)
+    } else if let Some(r) = body.strip_prefix("deb") {
+        ("deb", r)
+    } else {
+        return false;
+    };
+    let _ = kind;
+    // Word boundary: `debian` / `debug` stay out.
+    if !rest.is_empty() && !rest.starts_with([' ', '\t', '[']) {
+        return false;
+    }
+    let mut rest = rest.trim_start();
+    if rest.is_empty() {
+        return false;
+    }
+    // Optional `[arch=amd64 signed-by=…]` options.
+    if rest.starts_with('[') {
+        let Some(end) = rest.find(']') else {
+            return false;
+        };
+        let opts = &rest[1..end];
+        if opts.is_empty() || !apt_sources_options_ok(opts) {
+            return false;
+        }
+        rest = rest[end + 1..].trim_start();
+        if rest.is_empty() {
+            return false;
+        }
+    }
+    // URI token.
+    let mut parts = rest.split_whitespace();
+    let Some(uri) = parts.next() else {
+        return false;
+    };
+    if !apt_sources_uri_ok(uri) {
+        return false;
+    }
+    // Suite / distribution required.
+    let Some(suite) = parts.next() else {
+        return false;
+    };
+    if !apt_sources_suite_ok(suite) {
+        return false;
+    }
+    // Optional components (main, contrib, …).
+    for comp in parts {
+        if !apt_sources_component_ok(comp) {
+            return false;
+        }
+    }
+    true
+}
+
+fn apt_sources_options_ok(opts: &str) -> bool {
+    if opts.len() > 512 {
+        return false;
+    }
+    opts.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+            )
+    })
+}
+
+fn apt_sources_uri_ok(uri: &str) -> bool {
+    if uri.is_empty() || uri.len() > 512 {
+        return false;
+    }
+    // Common apt URI schemes; `cdrom:[label]/path` and `file:/…` too.
+    if uri.starts_with("cdrom:")
+        || uri.starts_with("file:")
+        || uri.contains("://")
+        || (uri.starts_with('/') && uri.len() > 1)
+    {
+        return uri.bytes().all(|b| {
+            b.is_ascii_alphanumeric()
+                || matches!(
+                    b,
+                    b'.' | b'_'
+                        | b'-'
+                        | b':'
+                        | b'@'
+                        | b'+'
+                        | b','
+                        | b'/'
+                        | b'='
+                        | b'$'
+                        | b'%'
+                        | b'?'
+                        | b'&'
+                        | b'~'
+                        | b'['
+                        | b']'
+                        | b'('
+                        | b')'
+                        | b'!'
+                )
+        });
+    }
+    false
+}
+
+fn apt_sources_suite_ok(suite: &str) -> bool {
+    if suite.is_empty() || suite.len() > 128 {
+        return false;
+    }
+    // `bookworm`, `jammy-updates`, `./` (local), path-ish suites.
+    suite
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-' | b'/' | b'+' | b'*'))
+}
+
+fn apt_sources_component_ok(comp: &str) -> bool {
+    if comp.is_empty() || comp.len() > 64 {
+        return false;
+    }
+    comp.bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-' | b'+'))
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -51680,27 +51923,27 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
-        is_audit_rules_decl, is_aws_config_decl, is_binfmt_d_decl, is_bitbake_decl,
-        is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl, is_composer_json_decl,
-        is_crypttab_decl, is_default_grub_decl, is_desktop_entry_decl, is_dhcpd_decl,
-        is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl,
-        is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl, is_fstab_decl,
-        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
-        is_haproxy_decl, is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl,
-        is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl,
-        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_networks_file_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl,
-        is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl,
-        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_apt_sources_decl, is_audit_rules_decl, is_aws_config_decl, is_binfmt_d_decl,
+        is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
+        is_composer_json_decl, is_crypttab_decl, is_default_grub_decl, is_desktop_entry_decl,
+        is_dhcpd_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
+        is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
+        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
+        is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl, is_hosts_file_decl,
+        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_machine_info_decl, is_makepkg_conf_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl,
+        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_samba_conf_decl,
+        is_scons_decl, is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vconsole_conf_decl, is_vector_toml_decl,
         is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
@@ -59340,6 +59583,84 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("pgpfetch"));
         assert!(!line_is_func_like("FOO = bar"));
         assert!(!line_is_func_like("[env]"));
+    }
+
+    #[test]
+    fn apt_sources_entries_count() {
+        assert!(line_is_func_like(
+            "deb http://deb.debian.org/debian bookworm main"
+        ));
+        assert!(line_is_func_like(
+            "deb-src http://deb.debian.org/debian bookworm main"
+        ));
+        assert!(line_is_func_like(
+            "deb https://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse"
+        ));
+        assert!(line_is_func_like(
+            "deb [arch=amd64] https://dl.google.com/linux/chrome/deb/ stable main"
+        ));
+        assert!(line_is_func_like(
+            "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable"
+        ));
+        assert!(line_is_func_like("deb file:/srv/local-repo ./"));
+        assert!(line_is_func_like(
+            "deb cdrom:[Debian_Bookworm]/debian/ bookworm main"
+        ));
+        assert!(line_is_func_like(
+            "  deb http://security.debian.org/debian-security bookworm-security main # security"
+        ));
+        // cdrom labels with spaces are not one token; stay out.
+        assert!(!is_apt_sources_decl(
+            "deb cdrom:[Debian GNU/Linux]/debian/ bookworm main"
+        ));
+        assert!(line_is_func_like("Types: deb"));
+        assert!(line_is_func_like("Types: deb deb-src"));
+        assert!(line_is_func_like("URIs: http://deb.debian.org/debian"));
+        assert!(line_is_func_like("Suites: bookworm bookworm-updates"));
+        assert!(line_is_func_like(
+            "Components: main contrib non-free-firmware"
+        ));
+        assert!(line_is_func_like(
+            "Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg"
+        ));
+        assert!(line_is_func_like("Architectures: amd64 arm64"));
+        assert!(line_is_func_like("Enabled: yes"));
+        assert!(line_is_func_like("Enabled: no"));
+        assert!(line_is_func_like("Trusted: yes"));
+        assert!(line_is_func_like("Allow-Insecure: yes"));
+        assert!(line_is_func_like("Check-Valid-Until: no"));
+        assert!(line_is_func_like("Snapshot: 20240101T000000Z"));
+        assert!(line_is_func_like("Types:"));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_apt_sources_decl("deb"));
+        assert!(!is_apt_sources_decl("deb-src"));
+        assert!(!is_apt_sources_decl("debian"));
+        assert!(!is_apt_sources_decl("debug http://example.com foo main"));
+        assert!(!is_apt_sources_decl("deb the team main"));
+        assert!(!is_apt_sources_decl("deb http://example.com"));
+        assert!(!is_apt_sources_decl("DEB http://example.com bookworm main"));
+        assert!(!is_apt_sources_decl("types: deb"));
+        assert!(!is_apt_sources_decl("Types:deb"));
+        assert!(!is_apt_sources_decl("X-Repolib-Name: Extra"));
+        assert!(!is_apt_sources_decl("FOO: bar"));
+        assert!(!is_apt_sources_decl(
+            "# deb http://example.com bookworm main"
+        ));
+        assert!(!is_apt_sources_decl("not an apt line"));
+        assert!(!is_apt_sources_decl("HoldPkg = pacman glibc"));
+        assert!(!is_apt_sources_decl("PgpFetch"));
+        assert!(!is_apt_sources_decl("CARCH=\"x86_64\""));
+        // Neighbouring families stay on their paths.
+        assert!(is_pacman_conf_decl("HoldPkg = pacman glibc"));
+        assert!(!is_apt_sources_decl("HoldPkg = pacman glibc"));
+        assert!(is_paru_conf_decl("PgpFetch"));
+        assert!(!is_apt_sources_decl("PgpFetch"));
+        assert!(is_makepkg_conf_decl("CARCH=\"x86_64\""));
+        assert!(!is_apt_sources_decl("CARCH=\"x86_64\""));
+        assert!(!line_is_func_like("deb"));
+        assert!(!line_is_func_like("deb the team main"));
+        assert!(!line_is_func_like("types: deb"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
     #[test]

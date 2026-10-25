@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.609] — 2026-10-26
+
+View:
+
+- **Function List** lists apt `sources.list` / `sources.list.d/*.list` one-line entries and deb822 `*.sources` fields: `deb http://… bookworm main`, `deb-src http://… jammy main`, `deb [arch=amd64 signed-by=…] https://… stable main`, `deb file:/srv/local-repo ./`, `deb cdrom:[label]/debian/ bookworm main` (space-free cdrom labels), `Types: deb`, `URIs: http://…`, `Suites: bookworm`, `Components: main`, `Signed-By: /usr/share/keyrings/…`, `Architectures: amd64`, `Enabled: yes`, `Trusted: yes`, `Allow-Insecure: yes`, `Check-Valid-Until: no`, `Snapshot: …`. Exact `deb` / `deb-src` / Title-Case deb822 keys. Optional `#` comment. Bare `deb`, prose (`deb the team`), wrong case, space-in-cdrom labels, Dockerfile `FROM`, pacman / paru / neighbouring families stay out.
+
 ## [0.3.608] — 2026-10-25
 
 View:
