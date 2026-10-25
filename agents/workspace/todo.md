@@ -1,3 +1,5 @@
+009 keep: Function List /etc/networks name+dotted number (v0.3.597)
+
 009 keep: Function List /etc/ethers MAC+hostname (v0.3.596)
 
 009 keep: Function List /etc/protocols name+number 0–255 (v0.3.594)

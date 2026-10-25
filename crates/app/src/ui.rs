@@ -32326,6 +32326,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_protocols_file_decl(s)
             || is_rpc_file_decl(s)
             || is_ethers_file_decl(s)
+            || is_networks_file_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32501,6 +32502,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_protocols_file_decl(s)
         || is_rpc_file_decl(s)
         || is_ethers_file_decl(s)
+        || is_networks_file_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -47294,6 +47296,130 @@ fn ethers_mac_ok(tok: &str) -> bool {
         .all(|p| (1..=2).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_hexdigit()))
 }
 
+/// `/etc/networks`: `default 0.0.0.0`, `loopback 127.0.0.0`,
+/// `link-local 169.254.0.0`, `localnet 10.0.0.0 local`,
+/// `mynet 192.168.1.0/24`. Name, dotted network number (optional `/prefix`
+/// 0–32), optional aliases. Requires at least one `.` in the number so
+/// `/etc/protocols` `name 0–255` stays on that path. Optional `#` comment.
+/// Bare / prose / incomplete / neighbouring families stay out.
+fn is_networks_file_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some((name, rest)) = fstab_next_token(body) else {
+        return false;
+    };
+    if !networks_name_ok(name) {
+        return false;
+    }
+    let Some((number, rest)) = fstab_next_token(rest) else {
+        return false;
+    };
+    if !networks_number_ok(number) {
+        return false;
+    }
+    // Optional aliases (same shape as network name).
+    let mut rem = rest;
+    while let Some((alias, next)) = fstab_next_token(rem) {
+        if !networks_name_ok(alias) {
+            return false;
+        }
+        rem = next;
+    }
+    true
+}
+
+fn networks_name_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the",
+        "a",
+        "an",
+        "to",
+        "of",
+        "for",
+        "and",
+        "or",
+        "is",
+        "team",
+        "note",
+        "user",
+        // Agda fixity / protocols-style prose guards.
+        "infix",
+        "infixl",
+        "infixr",
+        // resolv.conf keywords that look like `name dotted-addr`.
+        "nameserver",
+        "search",
+        "domain",
+        "options",
+        "sortlist",
+    ];
+    if PROSE.iter().any(|w| name.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    // networks(5): start letter (not digit-led host/IP shapes); then alnum /
+    // `_` / `-` / `+` / `.` (`link-local`, `localnet`).
+    if !bytes[0].is_ascii_alphabetic() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'+' | b'.'))
+}
+
+fn networks_number_ok(tok: &str) -> bool {
+    // Dotted network address, optional CIDR. Must contain `.` so plain
+    // `loopback 127` stays on protocols(5) / classic simple-number path.
+    if tok.is_empty() || tok.len() > 48 || !tok.contains('.') || tok.contains(':') {
+        return false;
+    }
+    let (addr, prefix) = match tok.split_once('/') {
+        Some((a, p)) => (a, Some(p)),
+        None => (tok, None),
+    };
+    if addr.is_empty() || !addr.contains('.') {
+        return false;
+    }
+    if let Some(p) = prefix {
+        if p.is_empty() || p.len() > 2 || !p.bytes().all(|b| b.is_ascii_digit()) {
+            return false;
+        }
+        let Ok(n) = p.parse::<u8>() else {
+            return false;
+        };
+        if n > 32 {
+            return false;
+        }
+    }
+    let parts: Vec<&str> = addr.split('.').collect();
+    // 2–4 dotted octets (Debian uses 4; allow shorter network forms).
+    if !(2..=4).contains(&parts.len()) {
+        return false;
+    }
+    parts.iter().all(|p| {
+        if p.is_empty() || p.len() > 3 || !p.bytes().all(|b| b.is_ascii_digit()) {
+            return false;
+        }
+        if p.len() > 1 && p.starts_with('0') {
+            return false;
+        }
+        p.parse::<u16>().map(|n| n <= 255).unwrap_or(false)
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -50115,17 +50241,18 @@ mod func_like_line_tests {
         is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl,
         is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
         is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl, is_modprobe_conf_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_package_json_decl,
-        is_pam_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_samba_conf_decl,
-        is_scons_decl, is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
+        is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl,
+        is_package_json_decl, is_pam_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
+        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
+        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
+        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -56896,6 +57023,9 @@ mod func_like_line_tests {
         assert!(is_ethers_file_decl("08:00:20:0a:8c:6d basil"));
         assert!(!is_rpc_file_decl("08:00:20:0a:8c:6d basil"));
         assert!(!is_hosts_file_decl("08:00:20:0a:8c:6d basil"));
+        assert!(is_networks_file_decl("loopback 127.0.0.0"));
+        assert!(!is_ethers_file_decl("loopback 127.0.0.0"));
+        assert!(!is_protocols_file_decl("loopback 127.0.0.0"));
     }
 
     #[test]
@@ -56995,6 +57125,57 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("08:00:20:0a:8c:6d the"));
         assert!(!line_is_func_like("08:00:20:0a:8c basil"));
         assert!(!line_is_func_like("gg:00:20:0a:8c:6d host"));
+        assert!(is_networks_file_decl("link-local 169.254.0.0"));
+        assert!(!is_ethers_file_decl("link-local 169.254.0.0"));
+    }
+
+    #[test]
+    fn networks_file_entries_count() {
+        assert!(line_is_func_like("default 0.0.0.0"));
+        assert!(line_is_func_like("loopback 127.0.0.0"));
+        assert!(line_is_func_like("link-local 169.254.0.0"));
+        assert!(line_is_func_like("localnet 10.0.0.0 local"));
+        assert!(line_is_func_like("mynet 192.168.1.0/24"));
+        assert!(line_is_func_like("classb 172.16.0.0/12"));
+        assert!(line_is_func_like("  loopback\t127.0.0.0\t# lo"));
+        assert!(line_is_func_like("shortnet 10.0"));
+        assert!(line_is_func_like("midnet 10.0.0"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_networks_file_decl("loopback"));
+        assert!(!is_networks_file_decl("127.0.0.0"));
+        assert!(!is_networks_file_decl("loopback 127"));
+        assert!(!is_networks_file_decl("the 127.0.0.0"));
+        assert!(!is_networks_file_decl("loopback 127.0.0.0 the"));
+        assert!(!is_networks_file_decl("127.0.0.0 loopback"));
+        assert!(!is_networks_file_decl("# loopback 127.0.0.0"));
+        assert!(!is_networks_file_decl("not a networks line"));
+        assert!(!is_networks_file_decl("loopback 127.0.0.0/33"));
+        assert!(!is_networks_file_decl("loopback 127.0.0.256"));
+        assert!(!is_networks_file_decl("0.0.0.0 default"));
+        // Neighbouring families stay on their paths.
+        assert!(is_protocols_file_decl("tcp 6 TCP"));
+        assert!(!is_networks_file_decl("tcp 6 TCP"));
+        assert!(is_protocols_file_decl("loopback 127"));
+        assert!(!is_networks_file_decl("loopback 127"));
+        assert!(is_services_file_decl("ssh 22/tcp"));
+        assert!(!is_networks_file_decl("ssh 22/tcp"));
+        assert!(is_hosts_file_decl("127.0.0.1 localhost"));
+        assert!(!is_networks_file_decl("127.0.0.1 localhost"));
+        assert!(is_hosts_file_decl("0.0.0.0 ads.example.com"));
+        assert!(!is_networks_file_decl("0.0.0.0 ads.example.com"));
+        assert!(is_rpc_file_decl("portmapper 100000 portmap sunrpc"));
+        assert!(!is_networks_file_decl("portmapper 100000 portmap sunrpc"));
+        assert!(is_ethers_file_decl("08:00:20:0a:8c:6d basil"));
+        assert!(!is_networks_file_decl("08:00:20:0a:8c:6d basil"));
+        assert!(is_nsswitch_conf_decl("networks: files"));
+        assert!(!is_networks_file_decl("networks: files"));
+        assert!(is_resolv_conf_decl("nameserver 192.168.1.1"));
+        assert!(!is_networks_file_decl("nameserver 192.168.1.1"));
+        assert!(is_hosts_access_decl("sshd: 192.168.1.0/24"));
+        assert!(!is_networks_file_decl("sshd: 192.168.1.0/24"));
+        assert!(!line_is_func_like("loopback 127.0.0.0 the"));
+        // `loopback 127` is protocols(5)-shaped (lists via that path), not networks.
+        assert!(!line_is_func_like("the 127.0.0.0"));
     }
 
     #[test]

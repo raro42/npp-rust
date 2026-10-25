@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.597] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/networks` entries: `default 0.0.0.0`, `loopback 127.0.0.0`, `link-local 169.254.0.0`, `localnet 10.0.0.0 local`, `mynet 192.168.1.0/24`, `classb 172.16.0.0/12`, `shortnet 10.0`, `midnet 10.0.0`. Name, dotted network number (optional `/prefix` 0–32), optional aliases. Requires a `.` in the number so `/etc/protocols` `name 0–255` stays on that path. Optional `#` comment. Bare / prose / incomplete / neighbouring families (`/etc/protocols`, hosts, resolv, nsswitch, …) stay out.
+
 ## [0.3.596] — 2026-10-25
 
 View:
