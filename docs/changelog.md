@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.589] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/modprobe.d` / `modprobe.conf` directives: `alias char-major-10-175 thinkpad_acpi`, `alias scsi_hostadapter aic7xxx`, `options snd_hda_intel index=0`, `blacklist nouveau`, `blacklist usb_storage`, `install snd-emu10k1 /sbin/modprobe --ignore-install …`, `remove snd-emu10k1 /sbin/modprobe -r …`, `softdep mlx4_core post: mlx4_en`, `softdep cifs pre: sha512 post: hmac`. Exact lowercase commands (`alias` / `blacklist` / `install` / `remove` / `options` / `softdep`); optional `#` comment. Bare / prose / shell `alias ls=…` / Crystal `alias Name =` / neighbouring families (sysctl, …) stay out.
+
 ## [0.3.588] — 2026-10-25
 
 View:

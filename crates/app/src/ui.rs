@@ -32318,6 +32318,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_passwd_group_file_decl(s)
             || is_subuid_subgid_decl(s)
             || is_sysctl_conf_decl(s)
+            || is_modprobe_conf_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32485,6 +32486,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_passwd_group_file_decl(s)
         || is_subuid_subgid_decl(s)
         || is_sysctl_conf_decl(s)
+        || is_modprobe_conf_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -46257,6 +46259,242 @@ fn sysctl_value_ok(value: &str) -> bool {
     })
 }
 
+/// `/etc/modprobe.d` / `modprobe.conf`: `alias char-major-10-175 thinkpad_acpi`,
+/// `alias scsi_hostadapter aic7xxx`, `options snd_hda_intel index=0`,
+/// `blacklist nouveau`, `blacklist usb_storage`,
+/// `install snd-emu10k1 /sbin/modprobe --ignore-install snd-emu10k1 && …`,
+/// `remove snd-emu10k1 /sbin/modprobe -r …`,
+/// `softdep mlx4_core post: mlx4_en`, `softdep cifs pre: sha512`. Exact
+/// lowercase commands (`alias` / `blacklist` / `install` / `remove` /
+/// `options` / `softdep`). Optional `#` comment. Bare / prose / shell
+/// `alias ls=…` / Crystal `alias Name =` / sysctl / neighbouring families
+/// stay out.
+fn is_modprobe_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some((cmd, rest)) = fstab_next_token(body) else {
+        return false;
+    };
+    match cmd {
+        "alias" => modprobe_alias_ok(rest),
+        "blacklist" => modprobe_blacklist_ok(rest),
+        "options" => modprobe_options_ok(rest),
+        "install" | "remove" => modprobe_install_remove_ok(rest),
+        "softdep" => modprobe_softdep_ok(rest),
+        _ => false,
+    }
+}
+
+fn modprobe_module_ok(name: &str) -> bool {
+    if name.len() < 2 || name.len() > 64 {
+        return false;
+    }
+    // Reject English stopwords used in prose tests (`alias the team`).
+    match name {
+        "the" | "a" | "an" | "of" | "to" | "for" | "in" | "on" | "is" | "and" | "or" | "team"
+        | "name" | "module" => return false,
+        _ => {}
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphabetic() && bytes[0] != b'_' {
+        return false;
+    }
+    bytes[1..]
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'-')
+}
+
+fn modprobe_alias_pattern_ok(pat: &str) -> bool {
+    if pat.len() < 2 || pat.len() > 64 {
+        return false;
+    }
+    match pat {
+        "the" | "a" | "an" | "of" | "to" | "for" | "in" | "on" | "is" | "and" | "or" | "team" => {
+            return false;
+        }
+        _ => {}
+    }
+    let bytes = pat.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() && bytes[0] != b'_' && bytes[0] != b'*' {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'*' | b'+' | b'?' | b'.'))
+}
+
+fn modprobe_alias_ok(rest: &str) -> bool {
+    let Some((pat, after)) = fstab_next_token(rest) else {
+        return false;
+    };
+    let Some((module, after2)) = fstab_next_token(after) else {
+        return false;
+    };
+    if !after2.trim_start().is_empty() {
+        return false;
+    }
+    // Shell `alias ls=…` / Crystal `alias Name = Type` stay out (`=` / quotes).
+    if pat.contains('=') || module.contains('=') {
+        return false;
+    }
+    modprobe_alias_pattern_ok(pat) && modprobe_module_ok(module)
+}
+
+fn modprobe_blacklist_ok(rest: &str) -> bool {
+    let Some((module, after)) = fstab_next_token(rest) else {
+        return false;
+    };
+    if !after.trim_start().is_empty() {
+        return false;
+    }
+    modprobe_module_ok(module)
+}
+
+fn modprobe_options_ok(rest: &str) -> bool {
+    let Some((module, after)) = fstab_next_token(rest) else {
+        return false;
+    };
+    if !modprobe_module_ok(module) {
+        return false;
+    }
+    // At least one option token (`index=0`, `debug`, …).
+    let Some((opt, mut rem)) = fstab_next_token(after) else {
+        return false;
+    };
+    if !modprobe_option_tok_ok(opt) {
+        return false;
+    }
+    while let Some((tok, next)) = fstab_next_token(rem) {
+        if !modprobe_option_tok_ok(tok) {
+            return false;
+        }
+        rem = next;
+    }
+    true
+}
+
+fn modprobe_option_tok_ok(tok: &str) -> bool {
+    if tok.is_empty() || tok.len() > 128 {
+        return false;
+    }
+    // `key=value`, bare flags, numbers; no shell metachar spam.
+    tok.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'=' | b'_' | b'-' | b'.' | b':' | b',' | b'+' | b'/' | b'*' | b'%' | b'@'
+            )
+    })
+}
+
+fn modprobe_install_remove_ok(rest: &str) -> bool {
+    let Some((module, after)) = fstab_next_token(rest) else {
+        return false;
+    };
+    if !modprobe_module_ok(module) {
+        return false;
+    }
+    // Need a command body (at least one more token).
+    let Some((cmd0, mut rem)) = fstab_next_token(after) else {
+        return false;
+    };
+    if !modprobe_cmd_tok_ok(cmd0) {
+        return false;
+    }
+    while let Some((tok, next)) = fstab_next_token(rem) {
+        if !modprobe_cmd_tok_ok(tok) {
+            return false;
+        }
+        rem = next;
+    }
+    true
+}
+
+fn modprobe_cmd_tok_ok(tok: &str) -> bool {
+    if tok.is_empty() || tok.len() > 256 {
+        return false;
+    }
+    // Paths, flags, `&&`, module names; keep `#` out (already stripped).
+    tok.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'/' | b'-'
+                    | b'_'
+                    | b'.'
+                    | b'='
+                    | b':'
+                    | b','
+                    | b'+'
+                    | b'*'
+                    | b'%'
+                    | b'@'
+                    | b'&'
+                    | b'|'
+                    | b';'
+                    | b'\''
+                    | b'"'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b'{'
+                    | b'}'
+                    | b'$'
+                    | b'!'
+                    | b'?'
+                    | b'~'
+            )
+    })
+}
+
+fn modprobe_softdep_ok(rest: &str) -> bool {
+    let Some((module, after)) = fstab_next_token(rest) else {
+        return false;
+    };
+    if !modprobe_module_ok(module) {
+        return false;
+    }
+    let mut rem = after;
+    let mut saw_dep = false;
+    while let Some((tok, next)) = fstab_next_token(rem) {
+        if tok == "pre:" || tok == "post:" {
+            saw_dep = true;
+            rem = next;
+            // At least one module after pre:/post:.
+            let Some((dep, after_dep)) = fstab_next_token(rem) else {
+                return false;
+            };
+            if !modprobe_module_ok(dep) {
+                return false;
+            }
+            rem = after_dep;
+            while let Some((more, after_more)) = fstab_next_token(rem) {
+                if more == "pre:" || more == "post:" {
+                    break;
+                }
+                if !modprobe_module_ok(more) {
+                    return false;
+                }
+                rem = after_more;
+            }
+            continue;
+        }
+        return false;
+    }
+    saw_dep
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -49077,10 +49315,10 @@ mod func_like_line_tests {
         is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
         is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
         is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_package_json_decl,
-        is_pam_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
+        is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl,
+        is_package_json_decl, is_pam_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
+        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
         is_resolv_conf_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
         is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
         is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
@@ -55614,6 +55852,61 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("the.team = 1"));
         assert!(!line_is_func_like("swappiness = 10"));
         assert!(!line_is_func_like("PATH=/usr/bin:/bin"));
+        // modprobe.d stays on its path.
+        assert!(is_modprobe_conf_decl("blacklist nouveau"));
+        assert!(!is_sysctl_conf_decl("blacklist nouveau"));
+    }
+
+    #[test]
+    fn modprobe_conf_entries_count() {
+        assert!(line_is_func_like("alias char-major-10-175 thinkpad_acpi"));
+        assert!(line_is_func_like("alias scsi_hostadapter aic7xxx"));
+        assert!(line_is_func_like("alias char-major-* thinkpad_acpi"));
+        assert!(line_is_func_like("options snd_hda_intel index=0"));
+        assert!(line_is_func_like("options usbcore autosuspend=2"));
+        assert!(line_is_func_like("blacklist nouveau"));
+        assert!(line_is_func_like("blacklist usb_storage"));
+        assert!(line_is_func_like(
+            "install snd-emu10k1 /sbin/modprobe --ignore-install snd-emu10k1"
+        ));
+        assert!(line_is_func_like(
+            "remove snd-emu10k1 /sbin/modprobe -r --ignore-remove snd-emu10k1"
+        ));
+        assert!(line_is_func_like("softdep mlx4_core post: mlx4_en"));
+        assert!(line_is_func_like("softdep cifs pre: sha512 post: hmac"));
+        assert!(line_is_func_like("  blacklist nouveau # nvidia"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_modprobe_conf_decl("blacklist"));
+        assert!(!is_modprobe_conf_decl("alias thinkpad_acpi"));
+        assert!(!is_modprobe_conf_decl("options snd_hda_intel"));
+        assert!(!is_modprobe_conf_decl("install snd-emu10k1"));
+        assert!(!is_modprobe_conf_decl("softdep mlx4_core"));
+        assert!(!is_modprobe_conf_decl("softdep mlx4_core post:"));
+        assert!(!is_modprobe_conf_decl("alias the team"));
+        assert!(!is_modprobe_conf_decl("blacklist the"));
+        assert!(!is_modprobe_conf_decl("# blacklist nouveau"));
+        assert!(!is_modprobe_conf_decl("not a modprobe line"));
+        assert!(!is_modprobe_conf_decl("Blacklist nouveau"));
+        assert!(!is_modprobe_conf_decl("ALIAS scsi_hostadapter aic7xxx"));
+        // Shell / Crystal alias stay out.
+        assert!(!is_modprobe_conf_decl("alias ls='ls -la'"));
+        assert!(!is_modprobe_conf_decl("alias Callback = Int32"));
+        // Neighbouring families stay on their paths.
+        assert!(is_sysctl_conf_decl("net.ipv4.ip_forward = 1"));
+        assert!(!is_modprobe_conf_decl("net.ipv4.ip_forward = 1"));
+        assert!(is_subuid_subgid_decl("alice:100000:65536"));
+        assert!(!is_modprobe_conf_decl("alice:100000:65536"));
+        assert!(is_passwd_group_file_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(!is_modprobe_conf_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(is_nsswitch_conf_decl("passwd: files systemd"));
+        assert!(!is_modprobe_conf_decl("passwd: files systemd"));
+        assert!(is_fstab_decl("UUID=abc / ext4 defaults 0 1"));
+        assert!(!is_modprobe_conf_decl("UUID=abc / ext4 defaults 0 1"));
+        assert!(is_resolv_conf_decl("nameserver 8.8.8.8"));
+        assert!(!is_modprobe_conf_decl("nameserver 8.8.8.8"));
+        assert!(!line_is_func_like("alias the team"));
+        assert!(!line_is_func_like("blacklist"));
+        assert!(!line_is_func_like("Blacklist nouveau"));
     }
 
     #[test]
