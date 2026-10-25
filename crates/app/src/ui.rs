@@ -32332,6 +32332,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_machine_info_decl(s)
             || is_locale_conf_decl(s)
             || is_vconsole_conf_decl(s)
+            || is_default_grub_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32513,6 +32514,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_machine_info_decl(s)
         || is_locale_conf_decl(s)
         || is_vconsole_conf_decl(s)
+        || is_default_grub_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -47971,6 +47973,153 @@ fn vconsole_conf_value_ok(value: &str) -> bool {
     })
 }
 
+/// `/etc/default/grub`: `GRUB_DEFAULT=0`, `GRUB_TIMEOUT=5`,
+/// `GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"`, `GRUB_DISABLE_OS_PROBER=false`,
+/// `GRUB_CMDLINE_LINUX=""`. Stock `GRUB_*` KEY=`VALUE` (exact case). Optional
+/// double-quoted value (escapes ok); empty value allowed. Optional `#` comment
+/// outside quotes. Bare keys / prose / `PATH=` / vconsole / locale /
+/// os-release / neighbouring families stay out.
+fn is_default_grub_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let Some(eq) = s.find('=') else {
+        return false;
+    };
+    let key = s[..eq].trim();
+    if !default_grub_key_ok(key) {
+        return false;
+    }
+    let mut rest = s[eq + 1..].trim_start();
+    let value = if rest.starts_with('"') {
+        rest = &rest[1..];
+        let mut out = String::new();
+        let mut chars = rest.chars();
+        loop {
+            match chars.next() {
+                None => return false, // unclosed quote
+                Some('\\') => match chars.next() {
+                    Some(c) => out.push(c),
+                    None => return false,
+                },
+                Some('"') => break,
+                Some(c) => out.push(c),
+            }
+        }
+        let after = chars.as_str().trim_start();
+        if !after.is_empty() && !after.starts_with('#') {
+            return false;
+        }
+        out
+    } else {
+        let body = if let Some(hash) = rest.find('#') {
+            rest[..hash].trim()
+        } else {
+            rest.trim()
+        };
+        body.to_string()
+    };
+    default_grub_value_ok(&value)
+}
+
+fn default_grub_key_ok(key: &str) -> bool {
+    // Stock grub-mkconfig / `/etc/default/grub` field names (exact case).
+    const KEYS: &[&str] = &[
+        "GRUB_BACKGROUND",
+        "GRUB_BADRAM",
+        "GRUB_BUTTON_CMOS_ADDRESS",
+        "GRUB_BUTTON_CMOS_CLEAN",
+        "GRUB_CMDLINE_GNUMACH",
+        "GRUB_CMDLINE_LINUX",
+        "GRUB_CMDLINE_LINUX_DEFAULT",
+        "GRUB_CMDLINE_LINUX_RECOVERY",
+        "GRUB_CMDLINE_NETBSD",
+        "GRUB_CMDLINE_NETBSD_DEFAULT",
+        "GRUB_CMDLINE_XEN",
+        "GRUB_CMDLINE_XEN_DEFAULT",
+        "GRUB_COLOR_HIGHLIGHT",
+        "GRUB_COLOR_NORMAL",
+        "GRUB_DEFAULT",
+        "GRUB_DEVICE",
+        "GRUB_DEVICE_BOOT",
+        "GRUB_DISABLE_LINUX_PARTUUID",
+        "GRUB_DISABLE_LINUX_UUID",
+        "GRUB_DISABLE_OS_PROBER",
+        "GRUB_DISABLE_RECOVERY",
+        "GRUB_DISABLE_SUBMENU",
+        "GRUB_DISABLE_UUID",
+        "GRUB_DISABLE_VENDOR_INFO",
+        "GRUB_DISTRIBUTOR",
+        "GRUB_EARLY_INITRD_LINUX_CUSTOM",
+        "GRUB_EARLY_INITRD_LINUX_STOCK",
+        "GRUB_ENABLE_CRYPTODISK",
+        "GRUB_FS_UUID",
+        "GRUB_GFXMODE",
+        "GRUB_GFXPAYLOAD_LINUX",
+        "GRUB_HIDDEN_TIMEOUT",
+        "GRUB_HIDDEN_TIMEOUT_QUIET",
+        "GRUB_INIT_TUNE",
+        "GRUB_OS_PROBER_SKIP_LIST",
+        "GRUB_PRELOAD_MODULES",
+        "GRUB_RECORDFAIL_TIMEOUT",
+        "GRUB_SAVEDEFAULT",
+        "GRUB_SERIAL_COMMAND",
+        "GRUB_TERMINAL",
+        "GRUB_TERMINAL_INPUT",
+        "GRUB_TERMINAL_OUTPUT",
+        "GRUB_THEME",
+        "GRUB_TIMEOUT",
+        "GRUB_TIMEOUT_STYLE",
+        "GRUB_TOP_LEVEL",
+        "GRUB_TOP_LEVEL_OS_PROBER",
+        "GRUB_TOP_LEVEL_XEN",
+        "GRUB_VIDEO_BACKEND",
+    ];
+    KEYS.contains(&key)
+}
+
+fn default_grub_value_ok(value: &str) -> bool {
+    if value.len() > 1024 {
+        return false;
+    }
+    // Numbers, bools, paths, cmdline tokens (`quiet splash`, `loglevel=3`).
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b'{'
+                    | b'}'
+                    | b';'
+                    | b'\''
+                    | b'!'
+                    | b'?'
+                    | b'*'
+                    | b'%'
+                    | b'&'
+                    | b'|'
+                    | b'<'
+                    | b'>'
+                    | b'~'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -50786,17 +50935,17 @@ mod func_like_line_tests {
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
         is_audit_rules_decl, is_aws_config_decl, is_binfmt_d_decl, is_bitbake_decl,
         is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl, is_composer_json_decl,
-        is_crypttab_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl,
-        is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl,
-        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl,
-        is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_machine_info_decl, is_modprobe_conf_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_networks_file_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pam_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
-        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
+        is_crypttab_decl, is_default_grub_decl, is_desktop_entry_decl, is_dhcpd_decl,
+        is_dovecot_decl, is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
+        is_fluent_bit_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
+        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_modprobe_conf_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl,
+        is_os_release_decl, is_package_json_decl, is_pam_conf_decl, is_passwd_group_file_decl,
+        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
         is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl,
         is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
         is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
@@ -57993,10 +58142,68 @@ mod func_like_line_tests {
         assert!(!is_vconsole_conf_decl("net.ipv4.ip_forward = 1"));
         assert!(is_modprobe_conf_decl("blacklist nouveau"));
         assert!(!is_vconsole_conf_decl("blacklist nouveau"));
+        assert!(is_default_grub_decl("GRUB_DEFAULT=0"));
+        assert!(!is_vconsole_conf_decl("GRUB_DEFAULT=0"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
         assert!(!line_is_func_like("keymap=us"));
         assert!(!line_is_func_like("FOO=bar"));
         assert!(!line_is_func_like("KEYMAP="));
+    }
+
+    #[test]
+    fn default_grub_entries_count() {
+        assert!(line_is_func_like("GRUB_DEFAULT=0"));
+        assert!(line_is_func_like("GRUB_DEFAULT=saved"));
+        assert!(line_is_func_like("GRUB_TIMEOUT=5"));
+        assert!(line_is_func_like("GRUB_TIMEOUT_STYLE=menu"));
+        assert!(line_is_func_like("GRUB_DISTRIBUTOR=\"Arch\""));
+        assert!(line_is_func_like(
+            "GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\""
+        ));
+        assert!(line_is_func_like("GRUB_CMDLINE_LINUX=\"\""));
+        assert!(line_is_func_like("GRUB_CMDLINE_LINUX="));
+        assert!(line_is_func_like("GRUB_DISABLE_OS_PROBER=false"));
+        assert!(line_is_func_like("GRUB_DISABLE_RECOVERY=true"));
+        assert!(line_is_func_like("GRUB_GFXMODE=auto"));
+        assert!(line_is_func_like(
+            "GRUB_THEME=\"/usr/share/grub/themes/Vimix/theme.txt\""
+        ));
+        assert!(line_is_func_like("GRUB_INIT_TUNE=\"480 440 1\""));
+        assert!(line_is_func_like("GRUB_COLOR_NORMAL=\"light-gray/black\""));
+        assert!(line_is_func_like("GRUB_SAVEDEFAULT=true"));
+        assert!(line_is_func_like("GRUB_ENABLE_CRYPTODISK=y"));
+        assert!(line_is_func_like("  GRUB_TIMEOUT=3 # menu"));
+        assert!(line_is_func_like(
+            "GRUB_CMDLINE_LINUX_DEFAULT=\"loglevel=3 quiet\""
+        ));
+        // Bare / prose / incomplete / wrong case / space form stay out.
+        assert!(!is_default_grub_decl("GRUB_DEFAULT"));
+        assert!(!is_default_grub_decl("GRUB_DEFAULT \"0\""));
+        assert!(!is_default_grub_decl("grub_default=0"));
+        assert!(!is_default_grub_decl("FOO=bar"));
+        assert!(!is_default_grub_decl("PATH=/usr/bin"));
+        assert!(!is_default_grub_decl("KEYMAP=us"));
+        assert!(!is_default_grub_decl("LANG=en_US.UTF-8"));
+        assert!(!is_default_grub_decl("NAME=\"Arch Linux\""));
+        assert!(!is_default_grub_decl("# GRUB_DEFAULT=0"));
+        assert!(!is_default_grub_decl("not a grub line"));
+        assert!(!is_default_grub_decl("GRUB_DEFAULT=\"0\" EXTRA"));
+        assert!(!is_default_grub_decl("GRUB_DEFAULT=\"0"));
+        // Neighbouring families stay on their paths.
+        assert!(is_vconsole_conf_decl("KEYMAP=us"));
+        assert!(!is_default_grub_decl("KEYMAP=us"));
+        assert!(is_locale_conf_decl("LANG=en_US.UTF-8"));
+        assert!(!is_default_grub_decl("LANG=en_US.UTF-8"));
+        assert!(is_os_release_decl("NAME=\"Arch Linux\""));
+        assert!(!is_default_grub_decl("NAME=\"Arch Linux\""));
+        assert!(is_machine_info_decl("PRETTY_HOSTNAME=studio"));
+        assert!(!is_default_grub_decl("PRETTY_HOSTNAME=studio"));
+        assert!(is_login_defs_decl("FAIL_DELAY\t\t3"));
+        assert!(!is_default_grub_decl("FAIL_DELAY\t\t3"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+        assert!(!line_is_func_like("grub_default=0"));
+        assert!(!line_is_func_like("FOO=bar"));
+        assert!(!line_is_func_like("GRUB_DEFAULT"));
     }
 
     #[test]

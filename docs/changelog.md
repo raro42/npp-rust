@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.603] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/default/grub` fields: `GRUB_DEFAULT=0`, `GRUB_DEFAULT=saved`, `GRUB_TIMEOUT=5`, `GRUB_TIMEOUT_STYLE=menu`, `GRUB_DISTRIBUTOR="Arch"`, `GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"`, `GRUB_CMDLINE_LINUX=""`, `GRUB_DISABLE_OS_PROBER=false`, `GRUB_GFXMODE=auto`, `GRUB_THEME="/usr/share/grub/themes/…"`, `GRUB_INIT_TUNE="480 440 1"`, `GRUB_COLOR_NORMAL="light-gray/black"`, `GRUB_SAVEDEFAULT=true`, `GRUB_ENABLE_CRYPTODISK=y`. Stock `GRUB_*` KEY=`VALUE` (exact case), optional double-quoted value (escapes ok; empty value allowed). Optional `#` comment outside quotes. Bare keys / prose / `PATH=` / vconsole / locale / os-release / neighbouring families stay out.
+
 ## [0.3.602] — 2026-10-25
 
 View:
