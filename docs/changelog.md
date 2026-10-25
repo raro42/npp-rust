@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.600] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/machine-info` fields: `PRETTY_HOSTNAME=studio`, `ICON_NAME=computer-laptop`, `CHASSIS=laptop`, `DEPLOYMENT=development`, `LOCATION="Server Room 2"`, `HARDWARE_VENDOR=LENOVO`, `HARDWARE_MODEL="ThinkPad X1"`, `HARDWARE_SKU=20KH`, `HARDWARE_VERSION=1.0`, `FIRMWARE_VENDOR=LENOVO`, `FIRMWARE_VERSION=N23ET76W`, `FIRMWARE_DATE=2024-03-15`. Stock UPPER_SNAKE key, `=`, optional double-quoted value (escapes ok). Optional `#` comment outside quotes. Bare keys / prose / `PATH=` / `LANG=` / os-release / login.defs space form / neighbouring families stay out.
+
 ## [0.3.599] — 2026-10-25
 
 View:
