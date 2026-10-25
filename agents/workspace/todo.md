@@ -885,3 +885,5 @@
 009 keep: Function List /etc/makepkg.conf CARCH/OPTIONS/PKGEXT/DLAGENTS (v0.3.606)
 
 009 keep: Function List /etc/pacman.conf sections+keys (v0.3.607)
+
+009 keep: Function List paru.conf [options]/[bin] (v0.3.608)
