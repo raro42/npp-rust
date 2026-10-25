@@ -879,3 +879,5 @@
 009 keep: Function List /etc/default/grub GRUB_* KEY=VALUE (v0.3.603)
 
 009 keep: Function List mkinitcpio.conf / mkinitcpio.d presets (v0.3.604)
+
+009 keep: Function List /etc/dracut.conf add_dracutmodules/hostonly/compress (v0.3.605)
