@@ -1,3 +1,5 @@
+009 keep: Function List systemd binfmt.d register lines (v0.3.592)
+
 009 keep: Function List systemd sysusers.d entries (v0.3.591)
 
 009 keep: Function List /etc/sysctl.conf + sysctl.d dotted key=value (v0.3.588)

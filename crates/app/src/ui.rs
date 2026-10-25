@@ -32321,6 +32321,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_modprobe_conf_decl(s)
             || is_tmpfiles_d_decl(s)
             || is_sysusers_d_decl(s)
+            || is_binfmt_d_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32491,6 +32492,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_modprobe_conf_decl(s)
         || is_tmpfiles_d_decl(s)
         || is_sysusers_d_decl(s)
+        || is_binfmt_d_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -46878,6 +46880,117 @@ fn sysusers_tail_ok(tok: &str, field_n: usize) -> bool {
     tmpfiles_path_ok(tok)
 }
 
+/// systemd `binfmt.d` / `binfmt.d/*.conf` register lines:
+/// `:DOSWin:M::MZ::/usr/bin/wine:`, `:Python:E::py::/usr/bin/python:`,
+/// `:qemu-i386:M::\x7fELF…:\xff…:/usr/bin/qemu-i386-static:OC`.
+/// Format `:name:type:offset:magic:mask:interpreter:flags` (`type` = `M` /
+/// `E`; offset/mask/flags may be empty; magic required; interpreter absolute).
+/// Optional `#` / `;` comment. Bare / prose / incomplete / neighbouring
+/// families (sysusers, tmpfiles, …) stay out.
+fn is_binfmt_d_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else if let Some(semi) = s.find(';') {
+        let before = &s[..semi];
+        if before.ends_with(|c: char| c.is_whitespace()) {
+            before.trim()
+        } else {
+            // `;` mid-token (unusual) — keep whole line.
+            s.trim()
+        }
+    } else {
+        s.trim()
+    };
+    if body.is_empty() || !body.starts_with(':') {
+        return false;
+    }
+    // `:name:type:offset:magic:mask:interpreter[:flags]`
+    let parts: Vec<&str> = body[1..].split(':').collect();
+    if parts.len() < 6 || parts.len() > 7 {
+        return false;
+    }
+    let name = parts[0];
+    let ty = parts[1];
+    let offset = parts[2];
+    let magic = parts[3];
+    let mask = parts[4];
+    let interpreter = parts[5];
+    let flags = if parts.len() == 7 { parts[6] } else { "" };
+
+    if !binfmt_name_ok(name) {
+        return false;
+    }
+    if ty != "M" && ty != "E" {
+        return false;
+    }
+    if !binfmt_offset_ok(offset) {
+        return false;
+    }
+    if !binfmt_magic_ok(magic) {
+        return false;
+    }
+    if !mask.is_empty() && !binfmt_magic_ok(mask) {
+        return false;
+    }
+    if !tmpfiles_path_ok(interpreter) {
+        return false;
+    }
+    binfmt_flags_ok(flags)
+}
+
+fn binfmt_name_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team", "note", "user",
+    ];
+    if PROSE.iter().any(|w| name.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'-')
+}
+
+fn binfmt_offset_ok(offset: &str) -> bool {
+    if offset.is_empty() {
+        return true;
+    }
+    offset.len() <= 10 && offset.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn binfmt_magic_ok(magic: &str) -> bool {
+    if magic.is_empty() || magic.len() > 512 {
+        return false;
+    }
+    // Printable ASCII / common escapes; no raw colon (field separator).
+    magic
+        .bytes()
+        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+        && !magic.contains(':')
+}
+
+fn binfmt_flags_ok(flags: &str) -> bool {
+    if flags.is_empty() {
+        return true;
+    }
+    if flags.len() > 4 {
+        return false;
+    }
+    flags
+        .bytes()
+        .all(|b| matches!(b, b'P' | b'O' | b'C' | b'F'))
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -49691,23 +49804,24 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
-        is_audit_rules_decl, is_aws_config_decl, is_bitbake_decl, is_brewfile_decl, is_cabal_decl,
-        is_cargo_toml_decl, is_composer_json_decl, is_crypttab_decl, is_desktop_entry_decl,
-        is_dhcpd_decl, is_dovecot_decl, is_editorconfig_decl, is_fail2ban_conf_decl,
-        is_fluent_bit_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
-        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl,
-        is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl,
-        is_package_json_decl, is_pam_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
-        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_pyproject_toml_decl, is_rake_decl,
-        is_resolv_conf_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
-        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
+        is_audit_rules_decl, is_aws_config_decl, is_binfmt_d_decl, is_bitbake_decl,
+        is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl, is_composer_json_decl,
+        is_crypttab_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl,
+        is_editorconfig_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
+        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
+        is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl, is_hosts_file_decl,
+        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_logrotate_decl, is_modprobe_conf_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
+        is_nsswitch_conf_decl, is_openvpn_decl, is_package_json_decl, is_pam_conf_decl,
+        is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl,
+        is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl,
+        is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -56422,6 +56536,51 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("u user 404"));
         assert!(!line_is_func_like("U dbus 81"));
         assert!(!line_is_func_like("r httpd 500-999"));
+        assert!(is_binfmt_d_decl(":DOSWin:M::MZ::/usr/bin/wine:"));
+        assert!(!is_sysusers_d_decl(":DOSWin:M::MZ::/usr/bin/wine:"));
+    }
+
+    #[test]
+    fn binfmt_d_entries_count() {
+        assert!(line_is_func_like(":DOSWin:M::MZ::/usr/bin/wine:"));
+        assert!(line_is_func_like(":Python:E::py::/usr/bin/python:"));
+        assert!(line_is_func_like(":CLR:M::MZ::/usr/bin/mono:"));
+        assert!(line_is_func_like(":WASM:M::\\x00asm::/usr/bin/wasmtime:"));
+        assert!(line_is_func_like(
+            ":qemu-i386:M::\\x7fELF\\x01\\x01\\x01\\x00:\\xff\\xff\\xff\\xff:/usr/bin/qemu-i386-static:OC"
+        ));
+        assert!(line_is_func_like(":Wine:M::MZ::/usr/bin/wine:F"));
+        assert!(line_is_func_like("  :DOSWin:M::MZ::/usr/bin/wine: # win"));
+        assert!(line_is_func_like(":ext-py:E::py::/usr/local/bin/python3:"));
+        // Without trailing empty flags field.
+        assert!(line_is_func_like(":DOSWin:M::MZ::/usr/bin/wine"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_binfmt_d_decl(":"));
+        assert!(!is_binfmt_d_decl(":DOSWin"));
+        assert!(!is_binfmt_d_decl(":DOSWin:M::MZ::"));
+        assert!(!is_binfmt_d_decl(":the:M::MZ::/usr/bin/wine:"));
+        assert!(!is_binfmt_d_decl(":DOSWin:X::MZ::/usr/bin/wine:"));
+        assert!(!is_binfmt_d_decl(":DOSWin:M::MZ::usr/bin/wine:"));
+        assert!(!is_binfmt_d_decl("# :DOSWin:M::MZ::/usr/bin/wine:"));
+        assert!(!is_binfmt_d_decl("; :DOSWin:M::MZ::/usr/bin/wine:"));
+        assert!(!is_binfmt_d_decl("not a binfmt line"));
+        assert!(!is_binfmt_d_decl("DOSWin:M::MZ::/usr/bin/wine:"));
+        assert!(!is_binfmt_d_decl(":DOSWin:M::::/usr/bin/wine:"));
+        assert!(!is_binfmt_d_decl(":DOSWin:M::MZ::/usr/bin/wine:XYZ"));
+        // Neighbouring families stay on their paths.
+        assert!(is_sysusers_d_decl("u dbus 81 \"System Message Bus\""));
+        assert!(!is_binfmt_d_decl("u dbus 81 \"System Message Bus\""));
+        assert!(is_tmpfiles_d_decl("d /run/user 0755 root root -"));
+        assert!(!is_binfmt_d_decl("d /run/user 0755 root root -"));
+        assert!(is_modprobe_conf_decl("blacklist nouveau"));
+        assert!(!is_binfmt_d_decl("blacklist nouveau"));
+        assert!(is_passwd_group_file_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(!is_binfmt_d_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(is_sysctl_conf_decl("net.ipv4.ip_forward = 1"));
+        assert!(!is_binfmt_d_decl("net.ipv4.ip_forward = 1"));
+        assert!(!line_is_func_like(":the:M::MZ::/usr/bin/wine:"));
+        assert!(!line_is_func_like(":DOSWin:X::MZ::/usr/bin/wine:"));
+        assert!(!line_is_func_like("DOSWin:M::MZ::/usr/bin/wine:"));
     }
 
     #[test]

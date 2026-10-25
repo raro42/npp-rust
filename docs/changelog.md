@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.592] — 2026-10-25
+
+View:
+
+- **Function List** lists systemd `binfmt.d` / `binfmt.d/*.conf` register lines: `:DOSWin:M::MZ::/usr/bin/wine:`, `:Python:E::py::/usr/bin/python:`, `:CLR:M::MZ::/usr/bin/mono:`, `:WASM:M::\x00asm::/usr/bin/wasmtime:`, `:qemu-i386:M::\x7fELF…:\xff…:/usr/bin/qemu-i386-static:OC`. Format `:name:type:offset:magic:mask:interpreter:flags` (`type` = `M` / `E`; offset/mask/flags may be empty; magic required; interpreter absolute). Optional `#` / `;` comment. Bare / prose / incomplete / neighbouring families (sysusers, tmpfiles, …) stay out.
+
 ## [0.3.591] — 2026-10-25
 
 View:
