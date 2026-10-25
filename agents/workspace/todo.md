@@ -838,3 +838,5 @@
 009 keep: Function List /etc/security/access.conf pam_access rules (v0.3.578)
 
 009 keep: Function List hosts.allow/hosts.deny tcp_wrappers rules (v0.3.579)
+
+009 keep: Function List /etc/passwd and /etc/group entries (v0.3.585)
