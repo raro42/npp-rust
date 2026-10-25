@@ -855,3 +855,5 @@
 
 009 keep: Function List systemd tmpfiles.d entries (v0.3.590)
 
+009 keep: Function List /etc/services name port/proto entries (v0.3.593)
+

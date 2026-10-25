@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.593] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/services` entries: `ssh 22/tcp`, `http 80/tcp www www-http`, `https 443/tcp`, `domain 53/udp`, `syslog 514/udp`, `echo 7/tcp`, `sctp-test 9899/sctp`, `dccp-test 9899/dccp`. Name, `port/protocol` (`tcp` / `udp` / `sctp` / `dccp`), optional aliases. Optional `#` comment. Bare / prose / incomplete / neighbouring families (hosts, resolv, nsswitch, …) stay out.
+
 ## [0.3.592] — 2026-10-25
 
 View:
