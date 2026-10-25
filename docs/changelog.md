@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.604] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/mkinitcpio.conf` / `mkinitcpio.d/*.preset` fields: `MODULES=()`, `MODULES=(ext4)`, `BINARIES=()`, `FILES=()`, `HOOKS=(base udev autodetect …)`, `COMPRESSION="zstd"`, `COMPRESSION=xz`, `COMPRESSION_OPTIONS=()`, `MODULES_DECOMPRESS="no"`, `PRESETS=('default' 'fallback')`, `ALL_config="/etc/mkinitcpio.conf"`, `ALL_kver="/boot/vmlinuz-linux"`, `default_image="/boot/initramfs-linux.img"`, `fallback_image="/boot/initramfs-linux-fallback.img"`, `fallback_options="-S autodetect"`. Stock mkinitcpio KEY=`VALUE` (exact case), optional double-quoted value (escapes ok; empty / `()` allowed). Optional `#` comment outside quotes. Bare keys / prose / `PATH=` / grub / vconsole / locale / neighbouring families stay out.
+
 ## [0.3.603] — 2026-10-25
 
 View:

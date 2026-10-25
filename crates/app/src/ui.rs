@@ -32333,6 +32333,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_locale_conf_decl(s)
             || is_vconsole_conf_decl(s)
             || is_default_grub_decl(s)
+            || is_mkinitcpio_conf_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32515,6 +32516,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_locale_conf_decl(s)
         || is_vconsole_conf_decl(s)
         || is_default_grub_decl(s)
+        || is_mkinitcpio_conf_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -48120,6 +48122,124 @@ fn default_grub_value_ok(value: &str) -> bool {
     })
 }
 
+/// `/etc/mkinitcpio.conf` / `mkinitcpio.d/*.preset`: `MODULES=()`,
+/// `HOOKS=(base udev autodetect …)`, `COMPRESSION="zstd"`,
+/// `PRESETS=('default' 'fallback')`, `ALL_config="/etc/mkinitcpio.conf"`,
+/// `default_image="/boot/initramfs-linux.img"`. Stock mkinitcpio KEY=`VALUE`
+/// (exact case). Optional double-quoted value (escapes ok); empty / `()` ok.
+/// Optional `#` comment outside quotes. Bare keys / prose / `PATH=` / grub /
+/// vconsole / locale / neighbouring families stay out.
+fn is_mkinitcpio_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let Some(eq) = s.find('=') else {
+        return false;
+    };
+    let key = s[..eq].trim();
+    if !mkinitcpio_conf_key_ok(key) {
+        return false;
+    }
+    let mut rest = s[eq + 1..].trim_start();
+    let value = if rest.starts_with('"') {
+        rest = &rest[1..];
+        let mut out = String::new();
+        let mut chars = rest.chars();
+        loop {
+            match chars.next() {
+                None => return false, // unclosed quote
+                Some('\\') => match chars.next() {
+                    Some(c) => out.push(c),
+                    None => return false,
+                },
+                Some('"') => break,
+                Some(c) => out.push(c),
+            }
+        }
+        let after = chars.as_str().trim_start();
+        if !after.is_empty() && !after.starts_with('#') {
+            return false;
+        }
+        out
+    } else {
+        let body = if let Some(hash) = rest.find('#') {
+            rest[..hash].trim()
+        } else {
+            rest.trim()
+        };
+        body.to_string()
+    };
+    mkinitcpio_conf_value_ok(&value)
+}
+
+fn mkinitcpio_conf_key_ok(key: &str) -> bool {
+    // Stock mkinitcpio.conf + mkinitcpio.d/*.preset field names (exact case).
+    const KEYS: &[&str] = &[
+        "MODULES",
+        "BINARIES",
+        "FILES",
+        "HOOKS",
+        "COMPRESSION",
+        "COMPRESSION_OPTIONS",
+        "MODULES_DECOMPRESS",
+        "PRESETS",
+        "ALL_config",
+        "ALL_kver",
+        "ALL_microcode",
+        "default_config",
+        "default_image",
+        "default_uki",
+        "default_options",
+        "fallback_config",
+        "fallback_image",
+        "fallback_uki",
+        "fallback_options",
+    ];
+    KEYS.contains(&key)
+}
+
+fn mkinitcpio_conf_value_ok(value: &str) -> bool {
+    if value.len() > 1024 {
+        return false;
+    }
+    // Arrays `()`, hook names, paths, compression codecs, preset options.
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b'{'
+                    | b'}'
+                    | b';'
+                    | b'\''
+                    | b'!'
+                    | b'?'
+                    | b'*'
+                    | b'%'
+                    | b'&'
+                    | b'|'
+                    | b'<'
+                    | b'>'
+                    | b'~'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -50941,19 +51061,19 @@ mod func_like_line_tests {
         is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
         is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
         is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_modprobe_conf_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl,
-        is_os_release_decl, is_package_json_decl, is_pam_conf_decl, is_passwd_group_file_decl,
-        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, line_is_func_like,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_mkinitcpio_conf_decl,
+        is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_nsswitch_conf_decl,
+        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pam_conf_decl,
+        is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl,
+        is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl,
+        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -58200,10 +58320,70 @@ mod func_like_line_tests {
         assert!(!is_default_grub_decl("PRETTY_HOSTNAME=studio"));
         assert!(is_login_defs_decl("FAIL_DELAY\t\t3"));
         assert!(!is_default_grub_decl("FAIL_DELAY\t\t3"));
+        assert!(is_mkinitcpio_conf_decl("HOOKS=(base udev)"));
+        assert!(!is_default_grub_decl("HOOKS=(base udev)"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
         assert!(!line_is_func_like("grub_default=0"));
         assert!(!line_is_func_like("FOO=bar"));
         assert!(!line_is_func_like("GRUB_DEFAULT"));
+    }
+
+    #[test]
+    fn mkinitcpio_conf_entries_count() {
+        assert!(line_is_func_like("MODULES=()"));
+        assert!(line_is_func_like("MODULES=(ext4)"));
+        assert!(line_is_func_like("BINARIES=()"));
+        assert!(line_is_func_like("FILES=()"));
+        assert!(line_is_func_like(
+            "HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont block filesystems fsck)"
+        ));
+        assert!(line_is_func_like("COMPRESSION=\"zstd\""));
+        assert!(line_is_func_like("COMPRESSION=xz"));
+        assert!(line_is_func_like("COMPRESSION_OPTIONS=()"));
+        assert!(line_is_func_like("MODULES_DECOMPRESS=\"no\""));
+        assert!(line_is_func_like("PRESETS=('default' 'fallback')"));
+        assert!(line_is_func_like("ALL_config=\"/etc/mkinitcpio.conf\""));
+        assert!(line_is_func_like("ALL_kver=\"/boot/vmlinuz-linux\""));
+        assert!(line_is_func_like(
+            "default_image=\"/boot/initramfs-linux.img\""
+        ));
+        assert!(line_is_func_like(
+            "fallback_image=\"/boot/initramfs-linux-fallback.img\""
+        ));
+        assert!(line_is_func_like("fallback_options=\"-S autodetect\""));
+        assert!(line_is_func_like("  HOOKS=(base udev) # hooks"));
+        assert!(line_is_func_like("MODULES="));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_mkinitcpio_conf_decl("MODULES"));
+        assert!(!is_mkinitcpio_conf_decl("MODULES ()"));
+        assert!(!is_mkinitcpio_conf_decl("modules=()"));
+        assert!(!is_mkinitcpio_conf_decl("HOOKS"));
+        assert!(!is_mkinitcpio_conf_decl("FOO=bar"));
+        assert!(!is_mkinitcpio_conf_decl("PATH=/usr/bin"));
+        assert!(!is_mkinitcpio_conf_decl("KEYMAP=us"));
+        assert!(!is_mkinitcpio_conf_decl("LANG=en_US.UTF-8"));
+        assert!(!is_mkinitcpio_conf_decl("GRUB_DEFAULT=0"));
+        assert!(!is_mkinitcpio_conf_decl("# MODULES=()"));
+        assert!(!is_mkinitcpio_conf_decl("not a mkinitcpio line"));
+        assert!(!is_mkinitcpio_conf_decl("MODULES=\"()\" EXTRA"));
+        assert!(!is_mkinitcpio_conf_decl("COMPRESSION=\"zstd"));
+        // Neighbouring families stay on their paths.
+        assert!(is_default_grub_decl("GRUB_DEFAULT=0"));
+        assert!(!is_mkinitcpio_conf_decl("GRUB_DEFAULT=0"));
+        assert!(is_vconsole_conf_decl("KEYMAP=us"));
+        assert!(!is_mkinitcpio_conf_decl("KEYMAP=us"));
+        assert!(is_locale_conf_decl("LANG=en_US.UTF-8"));
+        assert!(!is_mkinitcpio_conf_decl("LANG=en_US.UTF-8"));
+        assert!(is_os_release_decl("NAME=\"Arch Linux\""));
+        assert!(!is_mkinitcpio_conf_decl("NAME=\"Arch Linux\""));
+        assert!(is_machine_info_decl("PRETTY_HOSTNAME=studio"));
+        assert!(!is_mkinitcpio_conf_decl("PRETTY_HOSTNAME=studio"));
+        assert!(is_login_defs_decl("FAIL_DELAY\t\t3"));
+        assert!(!is_mkinitcpio_conf_decl("FAIL_DELAY\t\t3"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+        assert!(!line_is_func_like("modules=()"));
+        assert!(!line_is_func_like("FOO=bar"));
+        assert!(!line_is_func_like("MODULES"));
     }
 
     #[test]
