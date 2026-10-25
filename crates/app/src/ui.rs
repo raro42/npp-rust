@@ -32323,6 +32323,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_sysusers_d_decl(s)
             || is_binfmt_d_decl(s)
             || is_services_file_decl(s)
+            || is_protocols_file_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32495,6 +32496,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_sysusers_d_decl(s)
         || is_binfmt_d_decl(s)
         || is_services_file_decl(s)
+        || is_protocols_file_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -47074,6 +47076,79 @@ fn services_port_proto_ok(tok: &str) -> bool {
     )
 }
 
+/// `/etc/protocols`: `ip 0 IP`, `icmp 1 ICMP`, `tcp 6 TCP`, `udp 17 UDP`,
+/// `ipv6 41 IPv6`, `sctp 132 SCTP`, `ax.25 93 AX.25`. Name, protocol number
+/// 0–255, optional aliases. Optional `#` comment. Bare / prose / incomplete /
+/// neighbouring families (`/etc/services`, hosts, nsswitch, …) stay out.
+fn is_protocols_file_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some((name, rest)) = fstab_next_token(body) else {
+        return false;
+    };
+    if !protocols_name_ok(name) {
+        return false;
+    }
+    let Some((number, rest)) = fstab_next_token(rest) else {
+        return false;
+    };
+    if !protocols_number_ok(number) {
+        return false;
+    }
+    // Optional aliases (same shape as protocol name).
+    let mut rem = rest;
+    while let Some((alias, next)) = fstab_next_token(rem) {
+        if !protocols_name_ok(alias) {
+            return false;
+        }
+        rem = next;
+    }
+    true
+}
+
+fn protocols_name_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team", "note", "user",
+        // Agda fixity: `infix 4` must not look like protocols(5) `name number`.
+        "infix", "infixl", "infixr",
+    ];
+    if PROSE.iter().any(|w| name.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    // protocols(5) / IANA: start alnum; then alnum / `_` / `-` / `+` / `.`
+    // (`ax.25`, `ipv6-icmp`, `IP-ENCAP`).
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'+' | b'.'))
+}
+
+fn protocols_number_ok(tok: &str) -> bool {
+    if tok.is_empty() || tok.len() > 3 || !tok.bytes().all(|b| b.is_ascii_digit()) {
+        return false;
+    }
+    let Ok(n) = tok.parse::<u32>() else {
+        return false;
+    };
+    n <= 255
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -49898,8 +49973,8 @@ mod func_like_line_tests {
         is_named_conf_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
         is_nsswitch_conf_decl, is_openvpn_decl, is_package_json_decl, is_pam_conf_decl,
         is_passwd_group_file_decl, is_php_ini_decl, is_pipfile_decl, is_podfile_decl,
-        is_premake_decl, is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl,
-        is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
+        is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl,
+        is_resolv_conf_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
         is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
         is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
         is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
@@ -56667,6 +56742,53 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("DOSWin:M::MZ::/usr/bin/wine:"));
         assert!(is_services_file_decl("ssh 22/tcp"));
         assert!(!is_binfmt_d_decl("ssh 22/tcp"));
+        assert!(is_protocols_file_decl("tcp 6 TCP"));
+        assert!(!is_services_file_decl("tcp 6 TCP"));
+        assert!(!is_binfmt_d_decl("tcp 6 TCP"));
+    }
+
+    #[test]
+    fn protocols_file_entries_count() {
+        assert!(line_is_func_like("ip 0 IP"));
+        assert!(line_is_func_like("icmp 1 ICMP"));
+        assert!(line_is_func_like("tcp 6 TCP"));
+        assert!(line_is_func_like("udp 17 UDP"));
+        assert!(line_is_func_like("ipv6 41 IPv6"));
+        assert!(line_is_func_like("sctp 132 SCTP"));
+        assert!(line_is_func_like("ax.25 93 AX.25"));
+        assert!(line_is_func_like("ipv6-icmp 58 IPv6-ICMP"));
+        assert!(line_is_func_like("  tcp\t6\tTCP # transmission"));
+        assert!(line_is_func_like("manet 138"));
+        assert!(line_is_func_like("ipencap 4 IP-ENCAP"));
+        // Bare / prose / incomplete stay out.
+        assert!(!is_protocols_file_decl("tcp"));
+        assert!(!is_protocols_file_decl("6"));
+        assert!(!is_protocols_file_decl("tcp TCP"));
+        assert!(!is_protocols_file_decl("the 6 TCP"));
+        assert!(!is_protocols_file_decl("tcp 256"));
+        assert!(!is_protocols_file_decl("tcp 6/tcp"));
+        assert!(!is_protocols_file_decl("# tcp 6 TCP"));
+        assert!(!is_protocols_file_decl("not a protocols line"));
+        assert!(!is_protocols_file_decl("tcp 6 the"));
+        assert!(!is_protocols_file_decl("infix 4"));
+        assert!(!is_protocols_file_decl("infixl 6"));
+        assert!(!is_protocols_file_decl("infixr 5"));
+        // Neighbouring families stay on their paths.
+        assert!(is_services_file_decl("ssh 22/tcp"));
+        assert!(!is_protocols_file_decl("ssh 22/tcp"));
+        assert!(is_hosts_file_decl("127.0.0.1 localhost"));
+        assert!(!is_protocols_file_decl("127.0.0.1 localhost"));
+        assert!(is_resolv_conf_decl("nameserver 192.168.1.1"));
+        assert!(!is_protocols_file_decl("nameserver 192.168.1.1"));
+        assert!(is_nsswitch_conf_decl("protocols: files"));
+        assert!(!is_protocols_file_decl("protocols: files"));
+        assert!(is_hosts_access_decl("sshd: 192.168.1.0/24"));
+        assert!(!is_protocols_file_decl("sshd: 192.168.1.0/24"));
+        assert!(is_binfmt_d_decl(":DOSWin:M::MZ::/usr/bin/wine:"));
+        assert!(!is_protocols_file_decl(":DOSWin:M::MZ::/usr/bin/wine:"));
+        assert!(!line_is_func_like("the 6 TCP"));
+        assert!(!line_is_func_like("tcp 256"));
+        assert!(!line_is_func_like("tcp 6 the"));
     }
 
     #[test]
@@ -56705,6 +56827,8 @@ mod func_like_line_tests {
         assert!(!is_services_file_decl("sshd: 192.168.1.0/24"));
         assert!(is_binfmt_d_decl(":DOSWin:M::MZ::/usr/bin/wine:"));
         assert!(!is_services_file_decl(":DOSWin:M::MZ::/usr/bin/wine:"));
+        assert!(is_protocols_file_decl("tcp 6 TCP"));
+        assert!(!is_services_file_decl("tcp 6 TCP"));
         assert!(!line_is_func_like("the 22/tcp"));
         assert!(!line_is_func_like("ssh 22/icmp"));
         assert!(!line_is_func_like("ssh 99999/tcp"));

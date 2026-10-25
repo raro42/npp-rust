@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [0.3.594] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/protocols` entries: `ip 0 IP`, `icmp 1 ICMP`, `tcp 6 TCP`, `udp 17 UDP`, `ipv6 41 IPv6`, `sctp 132 SCTP`, `ax.25 93 AX.25`, `ipv6-icmp 58 IPv6-ICMP`, `manet 138`, `ipencap 4 IP-ENCAP`. Name, protocol number 0–255, optional aliases. Optional `#` comment. Bare / prose / incomplete / neighbouring families (`/etc/services`, hosts, nsswitch, …) stay out.
+
+
 ## [0.3.593] — 2026-10-25
 
 View:

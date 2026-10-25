@@ -1,3 +1,5 @@
+009 keep: Function List /etc/protocols name+number 0–255 (v0.3.594)
+
 009 keep: Function List systemd binfmt.d register lines (v0.3.592)
 
 009 keep: Function List systemd sysusers.d entries (v0.3.591)
