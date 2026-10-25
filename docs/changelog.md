@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.602] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/vconsole.conf` fields: `KEYMAP=us`, `KEYMAP_TOGGLE=us`, `FONT=lat9w-16`, `FONT_MAP=8859-2`, `FONT_UNIMAP=latarcyrheb-sun`, `XKBLAYOUT=us,de`, `XKBMODEL=pc105`, `XKBVARIANT=nodeadkeys`, `XKBOPTIONS=grp:alt_shift_toggle`. Stock vconsole KEY=`VALUE` (exact case), optional double-quoted value (escapes ok). Optional `#` comment outside quotes. Bare keys / prose / `PATH=` / locale.conf / os-release / machine-info / neighbouring families stay out.
+
 ## [0.3.601] — 2026-10-25
 
 View:

@@ -32331,6 +32331,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_os_release_decl(s)
             || is_machine_info_decl(s)
             || is_locale_conf_decl(s)
+            || is_vconsole_conf_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32511,6 +32512,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_os_release_decl(s)
         || is_machine_info_decl(s)
         || is_locale_conf_decl(s)
+        || is_vconsole_conf_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -47884,6 +47886,91 @@ fn locale_conf_value_ok(value: &str) -> bool {
     })
 }
 
+/// `/etc/vconsole.conf`: `KEYMAP=us`, `FONT=lat9w-16`, `FONT_MAP=8859-2`,
+/// `XKBLAYOUT=us,de`, `XKBOPTIONS=grp:alt_shift_toggle`. Stock vconsole
+/// KEY=`VALUE` (exact case). Optional double-quoted value. Optional `#`
+/// comment outside quotes. Bare keys / prose / `PATH=` / locale.conf /
+/// os-release / machine-info / neighbouring families stay out.
+fn is_vconsole_conf_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let Some(eq) = s.find('=') else {
+        return false;
+    };
+    let key = s[..eq].trim();
+    if !vconsole_conf_key_ok(key) {
+        return false;
+    }
+    let mut rest = s[eq + 1..].trim_start();
+    if rest.is_empty() {
+        return false;
+    }
+    let value = if rest.starts_with('"') {
+        rest = &rest[1..];
+        let mut out = String::new();
+        let mut chars = rest.chars();
+        loop {
+            match chars.next() {
+                None => return false, // unclosed quote
+                Some('\\') => match chars.next() {
+                    Some(c) => out.push(c),
+                    None => return false,
+                },
+                Some('"') => break,
+                Some(c) => out.push(c),
+            }
+        }
+        let after = chars.as_str().trim_start();
+        if !after.is_empty() && !after.starts_with('#') {
+            return false;
+        }
+        out
+    } else {
+        let body = if let Some(hash) = rest.find('#') {
+            rest[..hash].trim()
+        } else {
+            rest.trim()
+        };
+        if body.is_empty() {
+            return false;
+        }
+        body.to_string()
+    };
+    vconsole_conf_value_ok(&value)
+}
+
+fn vconsole_conf_key_ok(key: &str) -> bool {
+    // Stock vconsole.conf(5) / systemd field names (exact case).
+    const KEYS: &[&str] = &[
+        "KEYMAP",
+        "KEYMAP_TOGGLE",
+        "FONT",
+        "FONT_MAP",
+        "FONT_UNIMAP",
+        "XKBLAYOUT",
+        "XKBMODEL",
+        "XKBVARIANT",
+        "XKBOPTIONS",
+    ];
+    KEYS.contains(&key)
+}
+
+fn vconsole_conf_value_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    // Keymap / font names (`us`, `de-latin1`, `lat9w-16`), XKB lists (`us,de`).
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_' | b'-' | b':' | b'@' | b'+' | b',' | b'/' | b' ' | b'\t'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -50716,8 +50803,8 @@ mod func_like_line_tests {
         is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
         is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
         is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
-        line_is_func_like,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        is_xorg_conf_decl, line_is_func_like,
     };
 
     #[test]
@@ -57856,10 +57943,60 @@ mod func_like_line_tests {
         assert!(!is_locale_conf_decl("net.ipv4.ip_forward = 1"));
         assert!(is_modprobe_conf_decl("blacklist nouveau"));
         assert!(!is_locale_conf_decl("blacklist nouveau"));
+        assert!(is_vconsole_conf_decl("KEYMAP=us"));
+        assert!(!is_locale_conf_decl("KEYMAP=us"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
         assert!(!line_is_func_like("lang=en_US.UTF-8"));
         assert!(!line_is_func_like("FOO=bar"));
         assert!(!line_is_func_like("LANG="));
+    }
+
+    #[test]
+    fn vconsole_conf_entries_count() {
+        assert!(line_is_func_like("KEYMAP=us"));
+        assert!(line_is_func_like("KEYMAP_TOGGLE=us"));
+        assert!(line_is_func_like("FONT=lat9w-16"));
+        assert!(line_is_func_like("FONT_MAP=8859-2"));
+        assert!(line_is_func_like("FONT_UNIMAP=latarcyrheb-sun"));
+        assert!(line_is_func_like("XKBLAYOUT=us,de"));
+        assert!(line_is_func_like("XKBMODEL=pc105"));
+        assert!(line_is_func_like("XKBVARIANT=nodeadkeys"));
+        assert!(line_is_func_like("XKBOPTIONS=grp:alt_shift_toggle"));
+        assert!(line_is_func_like("  KEYMAP=de-latin1 # console"));
+        assert!(line_is_func_like("FONT=\"eurlatgr\""));
+        assert!(line_is_func_like("XKBLAYOUT=\"us,de\""));
+        // Bare / prose / incomplete / wrong case / space form stay out.
+        assert!(!is_vconsole_conf_decl("KEYMAP"));
+        assert!(!is_vconsole_conf_decl("KEYMAP="));
+        assert!(!is_vconsole_conf_decl("KEYMAP=\"\""));
+        assert!(!is_vconsole_conf_decl("KEYMAP=\"us"));
+        assert!(!is_vconsole_conf_decl("keymap=us"));
+        assert!(!is_vconsole_conf_decl("FOO=bar"));
+        assert!(!is_vconsole_conf_decl("PATH=/usr/bin"));
+        assert!(!is_vconsole_conf_decl("LANG=en_US.UTF-8"));
+        assert!(!is_vconsole_conf_decl("NAME=\"Arch Linux\""));
+        assert!(!is_vconsole_conf_decl("PRETTY_HOSTNAME=studio"));
+        assert!(!is_vconsole_conf_decl("KEYMAP us"));
+        assert!(!is_vconsole_conf_decl("# KEYMAP=us"));
+        assert!(!is_vconsole_conf_decl("not a vconsole.conf line"));
+        assert!(!is_vconsole_conf_decl("KEYMAP=\"us\" EXTRA"));
+        // Neighbouring families stay on their paths.
+        assert!(is_locale_conf_decl("LANG=en_US.UTF-8"));
+        assert!(!is_vconsole_conf_decl("LANG=en_US.UTF-8"));
+        assert!(is_os_release_decl("NAME=\"Arch Linux\""));
+        assert!(!is_vconsole_conf_decl("NAME=\"Arch Linux\""));
+        assert!(is_machine_info_decl("PRETTY_HOSTNAME=studio"));
+        assert!(!is_vconsole_conf_decl("PRETTY_HOSTNAME=studio"));
+        assert!(is_login_defs_decl("FAIL_DELAY\t\t3"));
+        assert!(!is_vconsole_conf_decl("FAIL_DELAY\t\t3"));
+        assert!(is_sysctl_conf_decl("net.ipv4.ip_forward = 1"));
+        assert!(!is_vconsole_conf_decl("net.ipv4.ip_forward = 1"));
+        assert!(is_modprobe_conf_decl("blacklist nouveau"));
+        assert!(!is_vconsole_conf_decl("blacklist nouveau"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+        assert!(!line_is_func_like("keymap=us"));
+        assert!(!line_is_func_like("FOO=bar"));
+        assert!(!line_is_func_like("KEYMAP="));
     }
 
     #[test]
