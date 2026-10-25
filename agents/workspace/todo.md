@@ -865,3 +865,5 @@
 
 
 009 keep: Function List /etc/rpc name program≥100000 optional aliases (v0.3.595)
+
+009 keep: Function List /etc/login.defs stock UPPER_SNAKE params (v0.3.598)

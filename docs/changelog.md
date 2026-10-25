@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [0.3.598] — 2026-10-25
+
+View:
+
+- **Function List** lists `/etc/login.defs` parameters: `FAIL_DELAY 3`, `LOG_UNKFAIL_ENAB no`, `MAIL_DIR /var/spool/mail`, `ENCRYPT_METHOD YESCRYPT`, `ENV_PATH PATH=/usr/local/sbin:…`, `UMASK 022`, `UID_MIN 1000`, `USERGROUPS_ENAB yes`, `HOME_MODE 0700`, `PASS_MIN_LEN 5`, `SUB_UID_COUNT 65536`, `YESCRYPT_COST_FACTOR 5`. Stock UPPER_SNAKE key, whitespace, non-empty value (values may contain `=`). Optional `#` comment. Bare keys / `KEY=value` / prose / neighbouring families (sysctl, …) stay out.
+
+
 ## [0.3.597] — 2026-10-25
 
 View:

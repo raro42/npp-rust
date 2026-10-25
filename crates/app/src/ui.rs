@@ -32327,6 +32327,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_rpc_file_decl(s)
             || is_ethers_file_decl(s)
             || is_networks_file_decl(s)
+            || is_login_defs_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32503,6 +32504,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_rpc_file_decl(s)
         || is_ethers_file_decl(s)
         || is_networks_file_decl(s)
+        || is_login_defs_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -47420,6 +47422,137 @@ fn networks_number_ok(tok: &str) -> bool {
     })
 }
 
+/// `/etc/login.defs`: `FAIL_DELAY 3`, `LOG_UNKFAIL_ENAB no`,
+/// `MAIL_DIR /var/spool/mail`, `ENCRYPT_METHOD YESCRYPT`,
+/// `ENV_PATH PATH=/usr/local/sbin:…`, `UMASK 022`. Stock UPPER_SNAKE
+/// key, whitespace, non-empty value (values may contain `=`). Optional
+/// `#` comment. Bare keys / `KEY=value` / prose / neighbouring families
+/// (sysctl dotted `=`, …) stay out.
+fn is_login_defs_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    let body = if let Some(hash) = s.find('#') {
+        s[..hash].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // Separator is whitespace, not `=`. Reject shell / environment style.
+    let Some((key, rest)) = fstab_next_token(body) else {
+        return false;
+    };
+    if !login_defs_key_ok(key) {
+        return false;
+    }
+    let value = rest.trim();
+    if value.is_empty() || !login_defs_value_ok(value) {
+        return false;
+    }
+    true
+}
+
+fn login_defs_key_ok(key: &str) -> bool {
+    // Stock shadow-utils / login.defs(5) parameter names (exact case).
+    const KEYS: &[&str] = &[
+        "CHFN_AUTH",
+        "CHFN_RESTRICT",
+        "CHSH_AUTH",
+        "CONSOLE",
+        "CONSOLE_GROUPS",
+        "CREATE_HOME",
+        "DEFAULT_HOME",
+        "ENCRYPT_METHOD",
+        "ENVIRON_FILE",
+        "ENV_HZ",
+        "ENV_PATH",
+        "ENV_SUPATH",
+        "ERASECHAR",
+        "FAILLOG_ENAB",
+        "FAIL_DELAY",
+        "FAKE_SHELL",
+        "FTMP_FILE",
+        "GID_MAX",
+        "GID_MIN",
+        "HOME_MODE",
+        "HUSHLOGIN_FILE",
+        "KILLCHAR",
+        "LASTLOG_ENAB",
+        "LASTLOG_UID_MAX",
+        "LOGIN_RETRIES",
+        "LOGIN_TIMEOUT",
+        "LOG_OK_LOGINS",
+        "LOG_UNKFAIL_ENAB",
+        "MAIL_DIR",
+        "MAIL_FILE",
+        "MD5_CRYPT_ENAB",
+        "MOTD_FILE",
+        "NONEXISTENT",
+        "PASS_ALWAYS_WARN",
+        "PASS_CHANGE_TRIES",
+        "PASS_MAX_DAYS",
+        "PASS_MAX_LEN",
+        "PASS_MIN_DAYS",
+        "PASS_MIN_LEN",
+        "PASS_WARN_AGE",
+        "SHA_CRYPT_MAX_ROUNDS",
+        "SHA_CRYPT_MIN_ROUNDS",
+        "SUB_GID_COUNT",
+        "SUB_GID_MAX",
+        "SUB_GID_MIN",
+        "SUB_UID_COUNT",
+        "SUB_UID_MAX",
+        "SUB_UID_MIN",
+        "SULOG_FILE",
+        "SU_NAME",
+        "SU_WHEEL_ONLY",
+        "SYSLOG_SG_ENAB",
+        "SYSLOG_SU_ENAB",
+        "SYS_GID_MAX",
+        "SYS_GID_MIN",
+        "SYS_UID_MAX",
+        "SYS_UID_MIN",
+        "TTYGROUP",
+        "TTYPERM",
+        "TTYTYPE_FILE",
+        "UID_MAX",
+        "UID_MIN",
+        "UMASK",
+        "USERDEL_CMD",
+        "USERGROUPS_ENAB",
+        "YESCRYPT_COST_FACTOR",
+    ];
+    KEYS.contains(&key)
+}
+
+fn login_defs_value_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    // Numbers, yes/no, paths, PATH=… lists, method names. No `#` (stripped).
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b' ' | b'\t'
+                    | b'.'
+                    | b'_'
+                    | b'-'
+                    | b'/'
+                    | b':'
+                    | b'+'
+                    | b'='
+                    | b','
+                    | b'*'
+                    | b'@'
+                    | b'%'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -50240,11 +50373,11 @@ mod func_like_line_tests {
         is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
         is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl,
         is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_logrotate_decl, is_modprobe_conf_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl,
-        is_package_json_decl, is_pam_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
-        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_nsswitch_conf_decl,
+        is_openvpn_decl, is_package_json_decl, is_pam_conf_decl, is_passwd_group_file_decl,
+        is_php_ini_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
         is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl,
         is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
         is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
@@ -57026,6 +57159,9 @@ mod func_like_line_tests {
         assert!(is_networks_file_decl("loopback 127.0.0.0"));
         assert!(!is_ethers_file_decl("loopback 127.0.0.0"));
         assert!(!is_protocols_file_decl("loopback 127.0.0.0"));
+        assert!(is_login_defs_decl("FAIL_DELAY\t\t3"));
+        assert!(!is_networks_file_decl("FAIL_DELAY\t\t3"));
+        assert!(!is_sysctl_conf_decl("FAIL_DELAY\t\t3"));
     }
 
     #[test]
@@ -57176,6 +57312,56 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("loopback 127.0.0.0 the"));
         // `loopback 127` is protocols(5)-shaped (lists via that path), not networks.
         assert!(!line_is_func_like("the 127.0.0.0"));
+    }
+
+    #[test]
+    fn login_defs_entries_count() {
+        assert!(line_is_func_like("FAIL_DELAY\t\t3"));
+        assert!(line_is_func_like("LOG_UNKFAIL_ENAB\tno"));
+        assert!(line_is_func_like("MAIL_DIR\t/var/spool/mail"));
+        assert!(line_is_func_like("ENCRYPT_METHOD YESCRYPT"));
+        assert!(line_is_func_like(
+            "ENV_PATH\tPATH=/usr/local/sbin:/usr/local/bin:/usr/bin"
+        ));
+        assert!(line_is_func_like("UMASK\t\t022"));
+        assert!(line_is_func_like("UID_MIN\t\t\t 1000"));
+        assert!(line_is_func_like("USERGROUPS_ENAB yes"));
+        assert!(line_is_func_like("  HOME_MODE\t0700 # mode"));
+        assert!(line_is_func_like("PASS_MIN_LEN\t5"));
+        assert!(line_is_func_like("SUB_UID_COUNT\t\t    65536"));
+        assert!(line_is_func_like("YESCRYPT_COST_FACTOR 5"));
+        // Bare / prose / incomplete / wrong case / KEY=value stay out.
+        assert!(!is_login_defs_decl("FAIL_DELAY"));
+        assert!(!is_login_defs_decl("3"));
+        assert!(!is_login_defs_decl("FAIL_DELAY=3"));
+        assert!(!is_login_defs_decl("fail_delay 3"));
+        assert!(!is_login_defs_decl("THE_DELAY 3"));
+        assert!(!is_login_defs_decl("MOTD_FILE"));
+        assert!(!is_login_defs_decl("# FAIL_DELAY 3"));
+        assert!(!is_login_defs_decl("not a login.defs line"));
+        assert!(!is_login_defs_decl("FAIL_DELAY "));
+        // Neighbouring families stay on their paths.
+        assert!(is_sysctl_conf_decl("net.ipv4.ip_forward = 1"));
+        assert!(!is_login_defs_decl("net.ipv4.ip_forward = 1"));
+        assert!(is_networks_file_decl("loopback 127.0.0.0"));
+        assert!(!is_login_defs_decl("loopback 127.0.0.0"));
+        assert!(is_protocols_file_decl("tcp 6 TCP"));
+        assert!(!is_login_defs_decl("tcp 6 TCP"));
+        assert!(is_services_file_decl("ssh 22/tcp"));
+        assert!(!is_login_defs_decl("ssh 22/tcp"));
+        assert!(is_nsswitch_conf_decl("passwd: files systemd"));
+        assert!(!is_login_defs_decl("passwd: files systemd"));
+        assert!(is_passwd_group_file_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(!is_login_defs_decl("root:x:0:0:root:/root:/bin/bash"));
+        assert!(is_modprobe_conf_decl("blacklist nouveau"));
+        assert!(!is_login_defs_decl("blacklist nouveau"));
+        assert!(is_hosts_access_decl("sshd: 192.168.1.0/24"));
+        assert!(!is_login_defs_decl("sshd: 192.168.1.0/24"));
+        assert!(!line_is_func_like("FAIL_DELAY=3"));
+        // Lowercase KEY is rejected; number-shaped lines may still hit protocols(5).
+        assert!(!is_login_defs_decl("fail_delay 3"));
+        assert!(!line_is_func_like("MOTD_FILE"));
+        assert!(!line_is_func_like("THE_DELAY yes"));
     }
 
     #[test]
