@@ -883,3 +883,5 @@
 009 keep: Function List /etc/dracut.conf add_dracutmodules/hostonly/compress (v0.3.605)
 
 009 keep: Function List /etc/makepkg.conf CARCH/OPTIONS/PKGEXT/DLAGENTS (v0.3.606)
+
+009 keep: Function List /etc/pacman.conf sections+keys (v0.3.607)
