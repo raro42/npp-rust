@@ -891,3 +891,5 @@
 009 keep: Function List yum/dnf .repo + dnf.conf (v0.3.610)
 
 009 keep: Function List apt sources.list / deb822 (v0.3.609)
+
+009 keep: Function List pip.conf / pip.ini (v0.3.611)
