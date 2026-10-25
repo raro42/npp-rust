@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.610] — 2026-10-26
+
+View:
+
+- **Function List** lists yum / dnf `.repo` files (`/etc/yum.repos.d/*.repo`) and `/etc/dnf/dnf.conf` / `/etc/yum.conf`: `[main]`, stock `[fedora]` / `[updates]` / `[epel]` / …, free-form lowercase ids with a separator or digit (`[google-chrome]`, `[docker-ce-stable]`, `[fedora39]`), `name=Fedora $releasever - $basearch` (display names need a space or `$`), `baseurl=` / `metalink=` / `mirrorlist=`, `enabled=1`, `gpgcheck=1`, `gpgkey=file:///etc/pki/rpm-gpg/…`, `repo_gpgcheck=0`, `countme=1`, `skip_if_unavailable=False`, `metadata_expire=7d`, `module_hotfixes=1`, `installonly_limit=3`, `clean_requirements_on_remove=True`, `best=False`, `max_parallel_downloads=10`, `cachedir=/var/cache/dnf`. Exact lowercase keys. Optional `#` / `;` comment. Bare keys / prose / wrong case / `[Main]` / `name=arch` / Cargo `[dev-dependencies]` / pacman `[options]` / apt `deb` / neighbouring families stay out.
+
 ## [0.3.609] — 2026-10-26
 
 View:

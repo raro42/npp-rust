@@ -32339,6 +32339,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pacman_conf_decl(s)
             || is_paru_conf_decl(s)
             || is_apt_sources_decl(s)
+            || is_yum_repo_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32527,6 +32528,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pacman_conf_decl(s)
         || is_paru_conf_decl(s)
         || is_apt_sources_decl(s)
+        || is_yum_repo_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -49110,6 +49112,342 @@ fn apt_sources_component_ok(comp: &str) -> bool {
         .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-' | b'+'))
 }
 
+/// yum / dnf `.repo` files (`/etc/yum.repos.d/*.repo`) and
+/// `/etc/dnf/dnf.conf` / `/etc/yum.conf`: `[main]`, free-form `[fedora]` /
+/// `[updates]` / `[google-chrome]` repo ids, `name=Fedora $releasever - $basearch`,
+/// `baseurl=` / `metalink=` / `mirrorlist=`, `enabled=1`, `gpgcheck=1`,
+/// `gpgkey=file:///etc/pki/rpm-gpg/…`, `repo_gpgcheck=0`, `countme=1`,
+/// `skip_if_unavailable=False`, `metadata_expire=7d`, `module_hotfixes=1`,
+/// `installonly_limit=3`, `clean_requirements_on_remove=True`, `best=False`.
+/// Exact lowercase keys. Optional `#` / `;` comment. Bare keys / prose /
+/// wrong case / pacman `[options]` / apt `deb` / neighbouring families stay out.
+fn is_yum_repo_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return yum_repo_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if !yum_repo_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    yum_repo_value_ok(key, value)
+}
+
+fn yum_repo_section_ok(header: &str) -> bool {
+    if header == "main" {
+        return true;
+    }
+    // Neighbour INI / TOML headers (incl. hyphenated) that must not become
+    // free-form yum repo ids.
+    const DENY: &[&str] = &[
+        "options",
+        "bin",
+        "core",
+        "extra",
+        "multilib",
+        "community",
+        "testing",
+        "core-testing",
+        "extra-testing",
+        "multilib-testing",
+        "community-testing",
+        "gnome-unstable",
+        "kde-unstable",
+        "default",
+        "plugins",
+        "tox",
+        "testenv",
+        "gh-actions",
+        "dependencies",
+        "dev-dependencies",
+        "build-dependencies",
+        "build-system",
+        "dependency-groups",
+        "dev-packages",
+        "global-tags",
+        "domain_realm",
+        "password_quality",
+        "connection",
+        "ethernet",
+        "wifi",
+        "ipv4",
+        "ipv6",
+        "proxy",
+        "custom",
+        "env",
+        "section",
+        "package",
+        "lib",
+        "workspace",
+        "features",
+        "lints",
+        "replace",
+        "project",
+        "tool",
+        "packages",
+        "requires",
+        "scripts",
+        "pipenv",
+        "sssd",
+        "nss",
+        "pam",
+        "sudo",
+        "ssh",
+        "global",
+        "homes",
+        "printers",
+        "netlogon",
+        "sysvol",
+        "libdefaults",
+        "realms",
+        "capaths",
+        "appdefaults",
+        "logging",
+        "kdcdefaults",
+        "dbdefaults",
+        "dbmodules",
+        "otp",
+        "login",
+        "daemon",
+        "security",
+        "xdmcp",
+        "chooser",
+        "debug",
+        "greeter",
+        "server",
+        "database",
+        "auth",
+        "agent",
+        "api",
+        "sources",
+        "transforms",
+        "sinks",
+    ];
+    if DENY.contains(&header) {
+        return false;
+    }
+    if header.contains("dependencies")
+        || header.starts_with("profile ")
+        || header.starts_with("sso-session ")
+        || header.starts_with("services ")
+        || header.starts_with("domain/")
+        || header.starts_with("testenv:")
+        || header.starts_with("gh-actions:")
+        || header.starts_with("workspace.")
+        || header.starts_with("profile.")
+        || header.starts_with("target.")
+        || header.starts_with("patch.")
+        || header.starts_with("project.")
+        || header.starts_with("tool.")
+        || header.starts_with("lints.")
+        || header.starts_with("auth.")
+        || header.starts_with("log.")
+    {
+        return false;
+    }
+    // Plain single-token ids that show up in stock distro .repo files.
+    const STOCK: &[&str] = &[
+        "fedora",
+        "updates",
+        "centos",
+        "epel",
+        "rocky",
+        "alma",
+        "almalinux",
+        "rhel",
+        "base",
+        "appstream",
+        "powertools",
+        "crb",
+        "extras",
+        "plus",
+        "continuous",
+        "debuginfo",
+        "source",
+        "modular",
+        "rpmfusion",
+        "nvidia",
+        "cuda",
+        "chrome",
+        "edge",
+        "opera",
+        "brave",
+        "vscode",
+        "code",
+        "docker",
+        "nodejs",
+        "postgresql",
+        "mysql",
+        "mariadb",
+        "remi",
+        "copr",
+        "local",
+    ];
+    if STOCK.contains(&header) {
+        return true;
+    }
+    yum_repo_id_ok(header)
+}
+
+fn yum_repo_id_ok(id: &str) -> bool {
+    if id.is_empty() || id.len() > 64 {
+        return false;
+    }
+    let bytes = id.as_bytes();
+    // Free-form repo ids are lowercase and must include `-` / `_` / `.` / `:`
+    // or a digit (`google-chrome`, `docker-ce-stable`, `fedora39`) so bare
+    // English words / Cargo / paru / pacman custom section names stay out.
+    if !bytes[0].is_ascii_lowercase() {
+        return false;
+    }
+    let mut has_sep_or_digit = false;
+    for &b in bytes {
+        if b.is_ascii_digit() || matches!(b, b'-' | b'_' | b'.' | b':') {
+            has_sep_or_digit = true;
+        } else if !b.is_ascii_lowercase() {
+            return false;
+        }
+    }
+    has_sep_or_digit
+}
+
+fn yum_repo_key_ok(key: &str) -> bool {
+    const KEYS: &[&str] = &[
+        // .repo + [main] shared
+        "name",
+        "baseurl",
+        "metalink",
+        "mirrorlist",
+        "enabled",
+        "gpgcheck",
+        "repo_gpgcheck",
+        "gpgkey",
+        "sslverify",
+        "sslcacert",
+        "sslclientcert",
+        "sslclientkey",
+        "cost",
+        "priority",
+        "exclude",
+        "excludepkgs",
+        "includepkgs",
+        "include",
+        "failovermethod",
+        "proxy",
+        "proxy_username",
+        "proxy_password",
+        "username",
+        "password",
+        "metadata_expire",
+        "metadata_expire_filter",
+        "skip_if_unavailable",
+        "countme",
+        "type",
+        "module_hotfixes",
+        "throttle",
+        "bandwidth",
+        "timeout",
+        "retries",
+        "http_caching",
+        "deltarpm",
+        "deltarpm_percentage",
+        "keepalive",
+        "enablegroups",
+        // [main] dnf.conf / yum.conf
+        "cachedir",
+        "keepcache",
+        "debuglevel",
+        "errorlevel",
+        "logfile",
+        "exactarch",
+        "obsoletes",
+        "plugins",
+        "installonly_limit",
+        "clean_requirements_on_remove",
+        "best",
+        "install_weak_deps",
+        "max_parallel_downloads",
+        "defaultyes",
+        "assumeyes",
+        "assumeno",
+        "tsflags",
+        "protected_packages",
+        "installonlypkgs",
+        "history_record",
+        "exit_on_lock",
+        "ip_resolve",
+        "color",
+        "reposdir",
+        "diskspacecheck",
+        "overwrite_groups",
+        "enable_group_conditionals",
+        "group_package_types",
+        "optional_metadata_types",
+        "minrate",
+        "check_config_file_age",
+        "upgrade_group_objects_upgrade",
+        "localpkg_gpgcheck",
+    ];
+    KEYS.contains(&key)
+}
+
+fn yum_repo_value_ok(key: &str, value: &str) -> bool {
+    if value.len() > 1024 {
+        return false;
+    }
+    // `name=` is too generic alone (`name=arch`); require a display-name cue.
+    if key == "name" && !(value.contains(' ') || value.contains('$')) {
+        return false;
+    }
+    // URLs with $releasever/$basearch, spaced display names, file:// keys,
+    // True/False/yes/no/1/0, durations (`7d`).
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b';'
+                    | b'\''
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -51944,7 +52282,8 @@ mod func_like_line_tests {
         is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
         is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
         is_udev_rule_decl, is_unbound_nsd_conf_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, line_is_func_like,
+        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, is_yum_repo_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -59583,6 +59922,91 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("pgpfetch"));
         assert!(!line_is_func_like("FOO = bar"));
         assert!(!line_is_func_like("[env]"));
+    }
+
+    #[test]
+    fn yum_repo_entries_count() {
+        assert!(line_is_func_like("[main]"));
+        assert!(line_is_func_like("[fedora]"));
+        assert!(line_is_func_like("[updates]"));
+        assert!(line_is_func_like("[google-chrome]"));
+        assert!(line_is_func_like("[docker-ce-stable]"));
+        assert!(line_is_func_like("  [fedora] # base"));
+        assert!(line_is_func_like("name=Fedora $releasever - $basearch"));
+        assert!(line_is_func_like(
+            "metalink=https://mirrors.fedoraproject.org/metalink?repo=fedora-$releasever&arch=$basearch"
+        ));
+        assert!(line_is_func_like(
+            "mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-$releasever&arch=$basearch"
+        ));
+        assert!(line_is_func_like(
+            "baseurl=https://download.fedoraproject.org/pub/fedora/linux/releases/$releasever/Everything/$basearch/os/"
+        ));
+        assert!(line_is_func_like("enabled=1"));
+        assert!(line_is_func_like("gpgcheck=1"));
+        assert!(line_is_func_like("repo_gpgcheck=0"));
+        assert!(line_is_func_like(
+            "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$releasever-$basearch"
+        ));
+        assert!(line_is_func_like("countme=1"));
+        assert!(line_is_func_like("skip_if_unavailable=False"));
+        assert!(line_is_func_like("metadata_expire=7d"));
+        assert!(line_is_func_like("module_hotfixes=1"));
+        assert!(line_is_func_like("installonly_limit=3"));
+        assert!(line_is_func_like("clean_requirements_on_remove=True"));
+        assert!(line_is_func_like("best=False"));
+        assert!(line_is_func_like("max_parallel_downloads=10"));
+        assert!(line_is_func_like("cachedir=/var/cache/dnf"));
+        assert!(line_is_func_like("  enabled = 1 ; on"));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_yum_repo_decl("main"));
+        assert!(!is_yum_repo_decl("[main"));
+        assert!(!is_yum_repo_decl("[]"));
+        assert!(!is_yum_repo_decl("[Main]"));
+        assert!(!is_yum_repo_decl("enabled"));
+        assert!(!is_yum_repo_decl("ENABLED=1"));
+        assert!(!is_yum_repo_decl("Name=Fedora"));
+        assert!(!is_yum_repo_decl("name=arch"));
+        assert!(!is_yum_repo_decl("name=Fedora"));
+        assert!(!is_yum_repo_decl("name the team"));
+        assert!(!is_yum_repo_decl("not a yum line"));
+        assert!(!is_yum_repo_decl("# [fedora]"));
+        assert!(!is_yum_repo_decl("PATH=/usr/bin"));
+        // Free-form without separator / digit stays out (Cargo / paru / pacman custom).
+        assert!(!is_yum_repo_decl("[dependencies]"));
+        assert!(!is_yum_repo_decl("[dev-dependencies]"));
+        assert!(!is_yum_repo_decl("[build-dependencies]"));
+        assert!(!is_yum_repo_decl("[env]"));
+        assert!(!is_yum_repo_decl("[custom]"));
+        assert!(!is_yum_repo_decl("[section]"));
+        assert!(!is_yum_repo_decl("[gh-actions]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_yum_repo_decl("[options]"));
+        assert!(is_pacman_conf_decl("[options]"));
+        assert!(!is_yum_repo_decl("[core]"));
+        assert!(is_pacman_conf_decl("[core]"));
+        assert!(!is_yum_repo_decl("HoldPkg = pacman glibc"));
+        assert!(is_pacman_conf_decl("HoldPkg = pacman glibc"));
+        assert!(!is_yum_repo_decl("PgpFetch"));
+        assert!(is_paru_conf_decl("PgpFetch"));
+        assert!(!is_yum_repo_decl(
+            "deb http://deb.debian.org/debian bookworm main"
+        ));
+        assert!(is_apt_sources_decl(
+            "deb http://deb.debian.org/debian bookworm main"
+        ));
+        assert!(!is_yum_repo_decl("CARCH=\"x86_64\""));
+        assert!(is_makepkg_conf_decl("CARCH=\"x86_64\""));
+        assert!(!is_yum_repo_decl("[default]"));
+        assert!(is_aws_config_decl("[default]"));
+        assert!(!line_is_func_like("enabled"));
+        assert!(!line_is_func_like("Name=Fedora"));
+        assert!(!line_is_func_like("name=arch"));
+        assert!(!line_is_func_like("[dependencies]"));
+        assert!(!line_is_func_like("[custom]"));
+        assert!(!line_is_func_like("[env]"));
+        assert!(!line_is_func_like("[section]"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
     #[test]
