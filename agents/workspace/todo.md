@@ -893,3 +893,5 @@
 009 keep: Function List apt sources.list / deb822 (v0.3.609)
 
 009 keep: Function List pip.conf / pip.ini (v0.3.611)
+
+009 keep: Function List .npmrc registry/@scope + pnpm keys (v0.3.612)
