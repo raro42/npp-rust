@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.612] — 2026-10-26
+
+View:
+
+- **Function List** lists `.npmrc` fields: `registry=https://registry.npmjs.org/`, `@myorg:registry=https://npm.pkg.github.com`, `always-auth=true`, `save-exact=true`, `engine-strict=true`, `legacy-peer-deps=true`, `fund=false`, `audit=false`, `strict-ssl=true`, `proxy=http://…`, `https-proxy=…`, `noproxy=localhost,127.0.0.1`, `prefix=/usr/local`, `cache=/tmp/npm-cache`, `node-options=--max-old-space-size=4096`, `fetch-retries=2`, `loglevel=warn`, `omit=dev`, `package-lock=true`, plus common pnpm keys (`shamefully-hoist=true`, `node-linker=hoisted`, `auto-install-peers=true`). Exact lowercase keys (npm config / CLI names). Optional `#` / `;` comment. Bare keys / prose / wrong case / `user=alice` / `tag=foo` / pip `index-url` / yum `[main]` / pacman `[options]` / apt `deb` / neighbouring families stay out.
+
 ## [0.3.611] — 2026-10-26
 
 View:

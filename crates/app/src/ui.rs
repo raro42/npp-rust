@@ -32341,6 +32341,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_apt_sources_decl(s)
             || is_yum_repo_decl(s)
             || is_pip_conf_decl(s)
+            || is_npmrc_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32531,6 +32532,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_apt_sources_decl(s)
         || is_yum_repo_decl(s)
         || is_pip_conf_decl(s)
+        || is_npmrc_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -49664,6 +49666,268 @@ fn pip_conf_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// `.npmrc` (project / user / global): `registry=https://registry.npmjs.org/`,
+/// `@myorg:registry=https://npm.pkg.github.com`, `always-auth=true`,
+/// `save-exact=true`, `engine-strict=true`, `legacy-peer-deps=true`,
+/// `fund=false`, `audit=false`, `strict-ssl=true`, `proxy=http://…`,
+/// `https-proxy=…`, `noproxy=localhost,127.0.0.1`, `prefix=/usr/local`,
+/// `cache=/tmp/npm`, `node-options=--max-old-space-size=4096`,
+/// `fetch-retries=2`, plus common pnpm keys (`shamefully-hoist`,
+/// `node-linker=hoisted`). Exact lowercase keys (npm config / CLI names).
+/// Optional `#` / `;` comment. Bare keys / prose / wrong case /
+/// `user=alice` / pip `index-url` / yum / pacman / apt / neighbouring
+/// families stay out.
+fn is_npmrc_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    // npmrc has no INI sections; reject `[…]` so pip/yum/pacman keep theirs.
+    if s.starts_with('[') {
+        return false;
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if !npmrc_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    npmrc_value_ok(key, value)
+}
+
+fn npmrc_key_ok(key: &str) -> bool {
+    // Scoped registry: `@myorg:registry`
+    if let Some(rest) = key.strip_prefix('@') {
+        if let Some((scope, suffix)) = rest.split_once(':') {
+            if !scope.is_empty()
+                && scope
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.')
+                && suffix == "registry"
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    const KEYS: &[&str] = &[
+        "registry",
+        "always-auth",
+        "audit",
+        "audit-level",
+        "bin-links",
+        "browser",
+        "ca",
+        "cafile",
+        "cache",
+        "cert",
+        "color",
+        "engine-strict",
+        "fetch-retries",
+        "fetch-retry-factor",
+        "fetch-retry-maxtimeout",
+        "fetch-retry-mintimeout",
+        "fetch-timeout",
+        "fund",
+        "git",
+        "git-tag-version",
+        "global",
+        "globalconfig",
+        "https-proxy",
+        "if-present",
+        "ignore-scripts",
+        "include",
+        "init-author-email",
+        "init-author-name",
+        "init-author-url",
+        "init-license",
+        "init-module",
+        "init-version",
+        "json",
+        "key",
+        "legacy-peer-deps",
+        "link",
+        "local-address",
+        "location",
+        "lockfile-version",
+        "loglevel",
+        "logs-dir",
+        "logs-max",
+        "long",
+        "maxsockets",
+        "node-options",
+        "node-version",
+        "noproxy",
+        "offline",
+        "omit",
+        "os",
+        "otp",
+        "pack-destination",
+        "package-lock",
+        "package-lock-only",
+        "parseable",
+        "prefer-offline",
+        "prefer-online",
+        "prefix",
+        "preid",
+        "progress",
+        "proxy",
+        "read-only",
+        "rebuild-bundle",
+        "replace-registry-host",
+        "save",
+        "save-bundle",
+        "save-dev",
+        "save-exact",
+        "save-optional",
+        "save-peer",
+        "save-prefix",
+        "save-prod",
+        "script-shell",
+        "shell",
+        "sign-git-commit",
+        "sign-git-tag",
+        "strict-peer-deps",
+        "strict-ssl",
+        "tag",
+        "tag-version-prefix",
+        "timing",
+        "umask",
+        "unicode",
+        "update-notifier",
+        "user",
+        "user-agent",
+        "userconfig",
+        "yes",
+        // Common pnpm keys often stored in .npmrc
+        "shamefully-hoist",
+        "public-hoist-pattern",
+        "auto-install-peers",
+        "strict-peer-dependencies",
+        "node-linker",
+        "hoist-pattern",
+        "shared-workspace-lockfile",
+        "link-workspace-packages",
+        "prefer-workspace-packages",
+        "save-workspace-protocol",
+        "resolution-mode",
+        "package-import-method",
+    ];
+    KEYS.contains(&key)
+}
+
+fn npmrc_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Short / ambiguous keys need a cue so random `user=alice` / `tag=foo` stay out.
+    if matches!(
+        key,
+        "user"
+            | "json"
+            | "long"
+            | "yes"
+            | "global"
+            | "color"
+            | "git"
+            | "key"
+            | "link"
+            | "os"
+            | "otp"
+            | "proxy"
+            | "cert"
+            | "ca"
+            | "cache"
+            | "prefix"
+            | "shell"
+            | "tag"
+            | "browser"
+            | "save"
+            | "omit"
+            | "include"
+            | "location"
+            | "preid"
+            | "umask"
+            | "audit"
+            | "fund"
+            | "timing"
+            | "progress"
+            | "offline"
+            | "parseable"
+            | "unicode"
+    ) {
+        let bare = value.trim_matches(|c| c == '"' || c == '\'');
+        let distinctive = bare.contains('/')
+            || bare.contains(':')
+            || bare.contains('.')
+            || bare.contains('-')
+            || bare.contains(',')
+            || bare.contains('$')
+            || bare.eq_ignore_ascii_case("true")
+            || bare.eq_ignore_ascii_case("false")
+            || bare.eq_ignore_ascii_case("yes")
+            || bare.eq_ignore_ascii_case("no")
+            || bare.eq_ignore_ascii_case("on")
+            || bare.eq_ignore_ascii_case("off")
+            || bare.eq_ignore_ascii_case("null")
+            || bare.eq_ignore_ascii_case("prod")
+            || bare.eq_ignore_ascii_case("dev")
+            || bare.eq_ignore_ascii_case("optional")
+            || bare.eq_ignore_ascii_case("peer")
+            || bare.chars().all(|c| c.is_ascii_digit());
+        if !distinctive {
+            return false;
+        }
+    }
+    // Scoped / registry URLs always need a URL-ish cue.
+    if key == "registry" || key.ends_with(":registry") {
+        let bare = value.trim_matches(|c| c == '"' || c == '\'');
+        if !(bare.starts_with("http://") || bare.starts_with("https://") || bare.starts_with("${"))
+        {
+            return false;
+        }
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b'{'
+                    | b'}'
+                    | b'"'
+                    | b'\''
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -52488,12 +52752,12 @@ mod func_like_line_tests {
         is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
         is_machine_info_decl, is_makepkg_conf_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
         is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nm_connection_decl, is_nsswitch_conf_decl, is_openvpn_decl,
-        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
+        is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
+        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
+        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl,
+        is_rpc_file_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
         is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
         is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
         is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
@@ -60301,6 +60565,82 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("index-url"));
         assert!(!line_is_func_like("user = alice"));
         assert!(!line_is_func_like("Index-Url = https://pypi.org/simple"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn npmrc_entries_count() {
+        assert!(line_is_func_like("registry=https://registry.npmjs.org/"));
+        assert!(line_is_func_like("registry = https://registry.npmjs.org/"));
+        assert!(line_is_func_like(
+            "@myorg:registry=https://npm.pkg.github.com"
+        ));
+        assert!(line_is_func_like(
+            "@scope.with.dots:registry=https://registry.example.com/"
+        ));
+        assert!(line_is_func_like("always-auth=true"));
+        assert!(line_is_func_like("save-exact=true"));
+        assert!(line_is_func_like("engine-strict=true"));
+        assert!(line_is_func_like("legacy-peer-deps=true"));
+        assert!(line_is_func_like("fund=false"));
+        assert!(line_is_func_like("audit=false"));
+        assert!(line_is_func_like("strict-ssl=true"));
+        assert!(line_is_func_like("proxy=http://127.0.0.1:8080"));
+        assert!(line_is_func_like(
+            "https-proxy=https://proxy.example.com:8443"
+        ));
+        assert!(line_is_func_like("noproxy=localhost,127.0.0.1"));
+        assert!(line_is_func_like("prefix=/usr/local"));
+        assert!(line_is_func_like("cache=/tmp/npm-cache"));
+        assert!(line_is_func_like("node-options=--max-old-space-size=4096"));
+        assert!(line_is_func_like("fetch-retries=2"));
+        assert!(line_is_func_like("loglevel=warn"));
+        assert!(line_is_func_like("omit=dev"));
+        assert!(line_is_func_like("package-lock=true"));
+        assert!(line_is_func_like("shamefully-hoist=true"));
+        assert!(line_is_func_like("node-linker=hoisted"));
+        assert!(line_is_func_like("auto-install-peers=true"));
+        assert!(line_is_func_like(
+            "  registry=https://registry.npmjs.org/ # primary"
+        ));
+        assert!(line_is_func_like(
+            "registry=https://registry.npmjs.org/ ; primary"
+        ));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_npmrc_decl("registry"));
+        assert!(!is_npmrc_decl("Registry=https://registry.npmjs.org/"));
+        assert!(!is_npmrc_decl("REGISTRY=https://registry.npmjs.org/"));
+        assert!(!is_npmrc_decl("user=alice"));
+        assert!(!is_npmrc_decl("tag=foo"));
+        assert!(!is_npmrc_decl("registry the team"));
+        assert!(!is_npmrc_decl("not an npmrc line"));
+        assert!(!is_npmrc_decl("# registry=https://registry.npmjs.org/"));
+        assert!(!is_npmrc_decl("PATH=/usr/bin"));
+        assert!(!is_npmrc_decl("registry=ftp://bad.example/"));
+        assert!(!is_npmrc_decl("@:registry=https://registry.npmjs.org/"));
+        assert!(!is_npmrc_decl(
+            "@my org:registry=https://registry.npmjs.org/"
+        ));
+        // Neighbouring families stay on their paths.
+        assert!(!is_npmrc_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_npmrc_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_npmrc_decl("[main]"));
+        assert!(is_yum_repo_decl("[main]"));
+        assert!(!is_npmrc_decl("enabled=1"));
+        assert!(is_yum_repo_decl("enabled=1"));
+        assert!(!is_npmrc_decl("[options]"));
+        assert!(is_pacman_conf_decl("[options]"));
+        assert!(!is_npmrc_decl(
+            "deb http://deb.debian.org/debian bookworm main"
+        ));
+        assert!(is_apt_sources_decl(
+            "deb http://deb.debian.org/debian bookworm main"
+        ));
+        assert!(!line_is_func_like("registry"));
+        assert!(!line_is_func_like("user=alice"));
+        assert!(!line_is_func_like("Registry=https://registry.npmjs.org/"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
