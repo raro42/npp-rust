@@ -32344,6 +32344,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_npmrc_decl(s)
             || is_yarnrc_yml_decl(s)
             || is_bunfig_toml_decl(s)
+            || is_uv_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32537,6 +32538,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_npmrc_decl(s)
         || is_yarnrc_yml_decl(s)
         || is_bunfig_toml_decl(s)
+        || is_uv_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -50403,6 +50405,302 @@ fn bunfig_toml_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// Astral `uv.toml` (project / user / system): `[pip]` / `[build-backend]` /
+/// `[sources]` / `[[index]]`, `native-tls = true`, `offline = false`,
+/// `no-cache = false`, `preview = true`, `python-preference = "managed"`,
+/// `python-downloads = "automatic"`, `concurrent-downloads = 50`,
+/// `concurrent-builds = 16`, `concurrent-installs = 8`,
+/// `keyring-provider = "subprocess"`, `required-version = ">=0.4.0"`,
+/// `resolution = "highest"`, `prerelease = "if-necessary-or-explicit"`,
+/// `link-mode = "clone"`, `compile-bytecode = true`, `package = false`,
+/// `managed = true`, `index-strategy = "first-index"`,
+/// `fork-strategy = "requires-python"`, `torch-backend = "auto"`,
+/// `add-bounds = "lower"`, `exclude-newer = "7 days"`,
+/// `publish-url = "https://…"`, `check-url = "https://…"`,
+/// `trusted-publishing = "always"`, `system-certs = true`,
+/// `allow-insecure-host = "pypi.example.com"`,
+/// `python-install-mirror = "https://…"`, `http-proxy = "http://…"`,
+/// `https-proxy = "https://…"`, `no-proxy = "localhost"`. Exact kebab-case
+/// uv keys. TOML `key = value` with spaces around `=`. Optional `#`
+/// comment. Nested maps / arrays / prose / wrong case / bunfig / yarn /
+/// npmrc / pip (`index-url` / `cache-dir` / `[global]`) stay out. Cargo
+/// `[workspace]` / `[package]` stay on Cargo; pyproject `[tool.uv]` stays
+/// on pyproject.
+fn is_uv_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return uv_toml_section_ok(header, array);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if !uv_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    uv_toml_value_ok(key, value)
+}
+
+fn uv_toml_section_ok(header: &str, array: bool) -> bool {
+    if array {
+        return header == "index";
+    }
+    matches!(header, "pip" | "build-backend" | "sources")
+}
+
+fn uv_toml_key_ok(key: &str) -> bool {
+    const KEYS: &[&str] = &[
+        // Global / project
+        "native-tls",
+        "offline",
+        "no-cache",
+        "preview",
+        "python-preference",
+        "python-downloads",
+        "concurrent-downloads",
+        "concurrent-builds",
+        "concurrent-installs",
+        "keyring-provider",
+        "required-version",
+        "resolution",
+        "prerelease",
+        "link-mode",
+        "compile-bytecode",
+        "package",
+        "managed",
+        "index-strategy",
+        "fork-strategy",
+        "torch-backend",
+        "add-bounds",
+        "exclude-newer",
+        "publish-url",
+        "check-url",
+        "trusted-publishing",
+        "system-certs",
+        "allow-insecure-host",
+        "python-install-mirror",
+        "pypy-install-mirror",
+        "graalpy-install-mirror",
+        "pyodide-install-mirror",
+        "python-downloads-json-url",
+        "minimum-libc-version",
+        "http-proxy",
+        "https-proxy",
+        "no-proxy",
+        "upgrade",
+        "reinstall",
+        "no-build",
+        "no-binary",
+        "no-index",
+        "require-build-hashes",
+        "no-build-isolation",
+        "no-sources",
+        // [pip] namespace (uv-only; index-url / find-links / cache-dir /
+        // no-deps / break-system-packages stay on pip.conf)
+        "all-extras",
+        "allow-empty-requirements",
+        "annotation-style",
+        "python-version",
+        "python-platform",
+        "system",
+        "prefix",
+        "target",
+        "verify-hashes",
+        "require-hashes",
+        "strict",
+        "universal",
+        "emit-index-url",
+        "emit-find-links",
+        "emit-build-options",
+        "emit-marker-expression",
+        "emit-index-annotation",
+    ];
+    KEYS.contains(&key)
+}
+
+fn uv_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out.
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    // Ambiguous / short keys need a cue so random prose stays out.
+    if matches!(
+        key,
+        "python-preference"
+            | "python-downloads"
+            | "keyring-provider"
+            | "resolution"
+            | "prerelease"
+            | "link-mode"
+            | "index-strategy"
+            | "fork-strategy"
+            | "torch-backend"
+            | "add-bounds"
+            | "trusted-publishing"
+            | "annotation-style"
+            | "package"
+            | "managed"
+            | "native-tls"
+            | "offline"
+            | "no-cache"
+            | "preview"
+            | "compile-bytecode"
+            | "system-certs"
+            | "upgrade"
+            | "reinstall"
+            | "no-build"
+            | "no-binary"
+            | "no-index"
+            | "require-build-hashes"
+            | "no-build-isolation"
+            | "no-sources"
+            | "all-extras"
+            | "allow-empty-requirements"
+            | "system"
+            | "verify-hashes"
+            | "require-hashes"
+            | "strict"
+            | "universal"
+            | "emit-index-url"
+            | "emit-find-links"
+            | "emit-build-options"
+            | "emit-marker-expression"
+            | "emit-index-annotation"
+            | "python-platform"
+            | "prefix"
+            | "target"
+            | "allow-insecure-host"
+    ) {
+        let distinctive = bare.contains('/')
+            || bare.contains(':')
+            || bare.contains('.')
+            || bare.contains('-')
+            || bare.contains('_')
+            || bare.eq_ignore_ascii_case("true")
+            || bare.eq_ignore_ascii_case("false")
+            || bare.eq_ignore_ascii_case("managed")
+            || bare.eq_ignore_ascii_case("only-managed")
+            || bare.eq_ignore_ascii_case("system")
+            || bare.eq_ignore_ascii_case("only-system")
+            || bare.eq_ignore_ascii_case("automatic")
+            || bare.eq_ignore_ascii_case("manual")
+            || bare.eq_ignore_ascii_case("never")
+            || bare.eq_ignore_ascii_case("disabled")
+            || bare.eq_ignore_ascii_case("subprocess")
+            || bare.eq_ignore_ascii_case("highest")
+            || bare.eq_ignore_ascii_case("lowest")
+            || bare.eq_ignore_ascii_case("lowest-direct")
+            || bare.eq_ignore_ascii_case("if-necessary")
+            || bare.eq_ignore_ascii_case("if-necessary-or-explicit")
+            || bare.eq_ignore_ascii_case("explicit")
+            || bare.eq_ignore_ascii_case("allow")
+            || bare.eq_ignore_ascii_case("clone")
+            || bare.eq_ignore_ascii_case("copy")
+            || bare.eq_ignore_ascii_case("hardlink")
+            || bare.eq_ignore_ascii_case("symlink")
+            || bare.eq_ignore_ascii_case("first-index")
+            || bare.eq_ignore_ascii_case("unsafe-first-match")
+            || bare.eq_ignore_ascii_case("unsafe-best-match")
+            || bare.eq_ignore_ascii_case("requires-python")
+            || bare.eq_ignore_ascii_case("fewest")
+            || bare.eq_ignore_ascii_case("auto")
+            || bare.eq_ignore_ascii_case("cpu")
+            || bare.eq_ignore_ascii_case("lower")
+            || bare.eq_ignore_ascii_case("major")
+            || bare.eq_ignore_ascii_case("minor")
+            || bare.eq_ignore_ascii_case("exact")
+            || bare.eq_ignore_ascii_case("always")
+            || bare.eq_ignore_ascii_case("line")
+            || bare.eq_ignore_ascii_case("split")
+            || bare.chars().all(|c| c.is_ascii_digit());
+        if !distinctive {
+            return false;
+        }
+    }
+    if matches!(
+        key,
+        "publish-url"
+            | "check-url"
+            | "python-install-mirror"
+            | "pypy-install-mirror"
+            | "graalpy-install-mirror"
+            | "pyodide-install-mirror"
+            | "python-downloads-json-url"
+            | "http-proxy"
+            | "https-proxy"
+    ) && !(bare.starts_with("http://")
+        || bare.starts_with("https://")
+        || bare.starts_with("${")
+        || bare.starts_with('$'))
+    {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b'\\'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'"'
+                    | b'\''
+                    | b'>'
+                    | b'<'
+                    | b'!'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -53237,8 +53535,8 @@ mod func_like_line_tests {
         is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
         is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
         is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -61235,6 +61533,95 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("frozenLockfile"));
         assert!(!line_is_func_like("jsx = \"foo\""));
         assert!(!line_is_func_like("FrozenLockfile = true"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn uv_toml_entries_count() {
+        assert!(line_is_func_like("[pip]"));
+        assert!(line_is_func_like("[build-backend]"));
+        assert!(line_is_func_like("[sources]"));
+        assert!(line_is_func_like("[[index]]"));
+        assert!(line_is_func_like("native-tls = true"));
+        assert!(line_is_func_like("offline = false"));
+        assert!(line_is_func_like("no-cache = true"));
+        assert!(line_is_func_like("preview = true"));
+        assert!(line_is_func_like("python-preference = \"managed\""));
+        assert!(line_is_func_like("python-downloads = \"automatic\""));
+        assert!(line_is_func_like("concurrent-downloads = 50"));
+        assert!(line_is_func_like("concurrent-builds = 16"));
+        assert!(line_is_func_like("concurrent-installs = 8"));
+        assert!(line_is_func_like("keyring-provider = \"subprocess\""));
+        assert!(line_is_func_like("required-version = \">=0.4.0\""));
+        assert!(line_is_func_like("resolution = \"highest\""));
+        assert!(line_is_func_like(
+            "prerelease = \"if-necessary-or-explicit\""
+        ));
+        assert!(line_is_func_like("link-mode = \"clone\""));
+        assert!(line_is_func_like("compile-bytecode = true"));
+        assert!(line_is_func_like("package = false"));
+        assert!(line_is_func_like("managed = true"));
+        assert!(line_is_func_like("index-strategy = \"first-index\""));
+        assert!(line_is_func_like("fork-strategy = \"requires-python\""));
+        assert!(line_is_func_like("torch-backend = \"auto\""));
+        assert!(line_is_func_like("add-bounds = \"lower\""));
+        assert!(line_is_func_like("exclude-newer = \"7 days\""));
+        assert!(line_is_func_like(
+            "publish-url = \"https://upload.pypi.org/legacy/\""
+        ));
+        assert!(line_is_func_like("check-url = \"https://pypi.org/simple\""));
+        assert!(line_is_func_like("trusted-publishing = \"always\""));
+        assert!(line_is_func_like("system-certs = true"));
+        assert!(line_is_func_like(
+            "allow-insecure-host = \"pypi.example.com\""
+        ));
+        assert!(line_is_func_like(
+            "python-install-mirror = \"https://github.com/astral-sh/python-build-standalone/releases/download\""
+        ));
+        assert!(line_is_func_like("http-proxy = \"http://127.0.0.1:8080\""));
+        assert!(line_is_func_like(
+            "https-proxy = \"https://proxy.example.com:8443\""
+        ));
+        assert!(line_is_func_like("no-proxy = \"localhost,127.0.0.1\""));
+        assert!(line_is_func_like("all-extras = true"));
+        assert!(line_is_func_like("allow-empty-requirements = true"));
+        assert!(line_is_func_like("annotation-style = \"line\""));
+        assert!(line_is_func_like("  native-tls = true # ci"));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_uv_toml_decl("native-tls"));
+        assert!(!is_uv_toml_decl("native-tls ="));
+        assert!(!is_uv_toml_decl("Native-Tls = true"));
+        assert!(!is_uv_toml_decl("NATIVE-TLS = true"));
+        assert!(!is_uv_toml_decl("native-tls the team"));
+        assert!(!is_uv_toml_decl("python-preference = \"foo\""));
+        assert!(!is_uv_toml_decl("link-mode = \"magic\""));
+        assert!(!is_uv_toml_decl("# native-tls = true"));
+        assert!(!is_uv_toml_decl("override-dependencies = [\"a\"]"));
+        assert!(!is_uv_toml_decl("PATH=/usr/bin"));
+        assert!(!is_uv_toml_decl("publish-url = \"ftp://bad.example/\""));
+        assert!(!is_uv_toml_decl("[workspace]"));
+        assert!(!is_uv_toml_decl("[package]"));
+        assert!(!is_uv_toml_decl("[[bin]]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_uv_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_uv_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_uv_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_uv_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_uv_toml_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_uv_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_pip_conf_decl("native-tls = true"));
+        assert!(!is_bunfig_toml_decl("native-tls = true"));
+        assert!(!is_npmrc_decl("native-tls = true"));
+        assert!(!is_yarnrc_yml_decl("native-tls = true"));
+        assert!(!line_is_func_like("native-tls"));
+        assert!(!line_is_func_like("python-preference = \"foo\""));
+        assert!(!line_is_func_like("Native-Tls = true"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

@@ -899,3 +899,5 @@
 009 keep: Function List pip.conf / pip.ini (v0.3.611)
 
 009 keep: Function List .npmrc registry/@scope + pnpm keys (v0.3.612)
+
+009 keep: Function List Astral uv.toml (v0.3.615)

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.615] — 2026-10-26
+
+View:
+
+- **Function List** lists Astral `uv.toml` sections and fields: `[pip]` / `[build-backend]` / `[sources]` / `[[index]]`, `native-tls = true`, `offline = false`, `no-cache = true`, `preview = true`, `python-preference = "managed"`, `python-downloads = "automatic"`, `concurrent-downloads = 50`, `concurrent-builds = 16`, `concurrent-installs = 8`, `keyring-provider = "subprocess"`, `required-version = ">=0.4.0"`, `resolution = "highest"`, `prerelease = "if-necessary-or-explicit"`, `link-mode = "clone"`, `compile-bytecode = true`, `package = false`, `managed = true`, `index-strategy = "first-index"`, `fork-strategy = "requires-python"`, `torch-backend = "auto"`, `add-bounds = "lower"`, `exclude-newer = "7 days"`, `publish-url = "https://…"`, `check-url = "https://…"`, `trusted-publishing = "always"`, `system-certs = true`, `allow-insecure-host = "pypi.example.com"`, `python-install-mirror = "https://…"`, `http-proxy = "http://…"`, `https-proxy = "https://…"`, `no-proxy = "localhost"`, `all-extras = true`, `allow-empty-requirements = true`, `annotation-style = "line"`. Exact kebab-case uv keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays / prose / wrong case / bunfig / yarn / npmrc / pip (`index-url` / `[global]`) / Cargo `[package]` stay out.
+
 ## [0.3.614] — 2026-10-26
 
 View:
