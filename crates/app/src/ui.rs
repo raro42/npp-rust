@@ -32342,6 +32342,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_yum_repo_decl(s)
             || is_pip_conf_decl(s)
             || is_npmrc_decl(s)
+            || is_yarnrc_yml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32533,6 +32534,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_yum_repo_decl(s)
         || is_pip_conf_decl(s)
         || is_npmrc_decl(s)
+        || is_yarnrc_yml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -49928,6 +49930,220 @@ fn npmrc_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// Yarn Berry `.yarnrc.yml` (project / home): `nodeLinker: node-modules`,
+/// `yarnPath: .yarn/releases/yarn-4.0.0.cjs`,
+/// `npmRegistryServer: "https://registry.yarnpkg.com"`,
+/// `enableGlobalCache: true`, `compressionLevel: mixed`,
+/// `httpProxy: http://…`, `httpsProxy: https://…`, `preferOffline: true`.
+/// Exact camelCase Yarn config keys. Optional `#` comment. Nested maps /
+/// arrays / prose / wrong case / `.npmrc` `registry=` / pip / neighbouring
+/// families stay out.
+fn is_yarnrc_yml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') {
+        return false;
+    }
+    // No INI / TOML sections; keep pip / yum / Cargo / pacman on their paths.
+    if s.starts_with('[') {
+        return false;
+    }
+    let body = if let Some(idx) = s.find('#') {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // YAML `key: value` (not npmrc `key=value`).
+    let Some(colon) = body.find(':') else {
+        return false;
+    };
+    if body[..colon].contains('=') {
+        return false;
+    }
+    let key = body[..colon].trim();
+    if !yarnrc_yml_key_ok(key) {
+        return false;
+    }
+    let value = body[colon + 1..].trim();
+    // Nested map / empty value / list opener alone: `plugins:` / `npmScopes:` stay out.
+    if value.is_empty() || value == "|" || value == ">" || value.starts_with('-') {
+        return false;
+    }
+    yarnrc_yml_value_ok(key, value)
+}
+
+fn yarnrc_yml_key_ok(key: &str) -> bool {
+    const KEYS: &[&str] = &[
+        "cacheFolder",
+        "checksumBehavior",
+        "compressionLevel",
+        "defaultLanguage",
+        "defaultProtocol",
+        "defaultSemverRangePrefix",
+        "enableColors",
+        "enableGlobalCache",
+        "enableHyperlinks",
+        "enableImmutableCache",
+        "enableImmutableInstalls",
+        "enableInlineBuilds",
+        "enableMessageNames",
+        "enableMirror",
+        "enableNetwork",
+        "enableProgressBars",
+        "enableScripts",
+        "enableStrictSsl",
+        "enableTelemetry",
+        "enableTimers",
+        "globalFolder",
+        "httpProxy",
+        "httpsProxy",
+        "httpRetry",
+        "httpTimeout",
+        "ignorePath",
+        "initScope",
+        "installStatePath",
+        "lastUpdateCheck",
+        "lockfileFilename",
+        "networkConcurrency",
+        "nmHoistingLimits",
+        "nmMode",
+        "nodeLinker",
+        "npmAlwaysAuth",
+        "npmAuthIdent",
+        "npmAuthToken",
+        "npmPublishAccess",
+        "npmPublishRegistry",
+        "npmRegistryServer",
+        "pnpEnableEsmLoader",
+        "pnpEnableInlining",
+        "pnpFallbackMode",
+        "pnpMode",
+        "pnpUnpluggedFolder",
+        "preferInteractive",
+        "preferOffline",
+        "preferTruncatedLines",
+        "progressBarStyle",
+        "telemetryInterval",
+        "winLinkType",
+        "yarnPath",
+    ];
+    KEYS.contains(&key)
+}
+
+fn yarnrc_yml_value_ok(key: &str, value: &str) -> bool {
+    if value.len() > 1024 {
+        return false;
+    }
+    // Inline flow collections: keep simple scalars only.
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    // Ambiguous / short keys need a cue so random prose stays out.
+    if matches!(
+        key,
+        "compressionLevel"
+            | "defaultLanguage"
+            | "defaultProtocol"
+            | "defaultSemverRangePrefix"
+            | "initScope"
+            | "nmHoistingLimits"
+            | "nmMode"
+            | "nodeLinker"
+            | "npmPublishAccess"
+            | "pnpFallbackMode"
+            | "pnpMode"
+            | "progressBarStyle"
+            | "winLinkType"
+            | "checksumBehavior"
+    ) {
+        let distinctive = bare.contains('/')
+            || bare.contains(':')
+            || bare.contains('.')
+            || bare.contains('-')
+            || bare.contains('_')
+            || bare.eq_ignore_ascii_case("true")
+            || bare.eq_ignore_ascii_case("false")
+            || bare.eq_ignore_ascii_case("null")
+            || bare.eq_ignore_ascii_case("mixed")
+            || bare.eq_ignore_ascii_case("node-modules")
+            || bare.eq_ignore_ascii_case("pnp")
+            || bare.eq_ignore_ascii_case("pnpm")
+            || bare.eq_ignore_ascii_case("soft")
+            || bare.eq_ignore_ascii_case("hard")
+            || bare.eq_ignore_ascii_case("throw")
+            || bare.eq_ignore_ascii_case("update")
+            || bare.eq_ignore_ascii_case("ignore")
+            || bare.eq_ignore_ascii_case("reset")
+            || bare.eq_ignore_ascii_case("workspaces")
+            || bare.eq_ignore_ascii_case("dependencies")
+            || bare.eq_ignore_ascii_case("none")
+            || bare.eq_ignore_ascii_case("classic")
+            || bare.eq_ignore_ascii_case("modern")
+            || bare.eq_ignore_ascii_case("public")
+            || bare.eq_ignore_ascii_case("restricted")
+            || bare.eq_ignore_ascii_case("symlinks")
+            || bare.eq_ignore_ascii_case("junctions")
+            || bare.eq_ignore_ascii_case("strict")
+            || bare.eq_ignore_ascii_case("loose")
+            || bare.chars().all(|c| c.is_ascii_digit());
+        if !distinctive {
+            return false;
+        }
+    }
+    if matches!(
+        key,
+        "npmRegistryServer" | "npmPublishRegistry" | "httpProxy" | "httpsProxy"
+    ) && !(bare.starts_with("http://") || bare.starts_with("https://") || bare.starts_with("${"))
+    {
+        return false;
+    }
+    // Path-ish: relative, absolute, or env.
+    if matches!(
+        key,
+        "yarnPath" | "cacheFolder" | "globalFolder" | "installStatePath" | "pnpUnpluggedFolder"
+    ) && !(bare.starts_with('.')
+        || bare.starts_with('/')
+        || bare.starts_with('~')
+        || bare.starts_with("${")
+        || bare.contains('/')
+        || bare.contains('\\'))
+    {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b'\\'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'"'
+                    | b'\''
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -52763,7 +52979,7 @@ mod func_like_line_tests {
         is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
         is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
         is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yum_repo_decl, line_is_func_like,
+        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -60641,6 +60857,65 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("registry"));
         assert!(!line_is_func_like("user=alice"));
         assert!(!line_is_func_like("Registry=https://registry.npmjs.org/"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn yarnrc_yml_entries_count() {
+        assert!(line_is_func_like("nodeLinker: node-modules"));
+        assert!(line_is_func_like("nodeLinker: pnp"));
+        assert!(line_is_func_like("nodeLinker: pnpm"));
+        assert!(line_is_func_like("yarnPath: .yarn/releases/yarn-4.0.0.cjs"));
+        assert!(line_is_func_like(
+            "npmRegistryServer: \"https://registry.yarnpkg.com\""
+        ));
+        assert!(line_is_func_like(
+            "npmRegistryServer: https://registry.npmjs.org"
+        ));
+        assert!(line_is_func_like("enableGlobalCache: true"));
+        assert!(line_is_func_like("enableImmutableInstalls: false"));
+        assert!(line_is_func_like("compressionLevel: mixed"));
+        assert!(line_is_func_like("compressionLevel: 9"));
+        assert!(line_is_func_like("httpProxy: http://127.0.0.1:8080"));
+        assert!(line_is_func_like(
+            "httpsProxy: https://proxy.example.com:8443"
+        ));
+        assert!(line_is_func_like("preferOffline: true"));
+        assert!(line_is_func_like("enableStrictSsl: true"));
+        assert!(line_is_func_like("cacheFolder: ./.yarn/cache"));
+        assert!(line_is_func_like("httpTimeout: 60000"));
+        assert!(line_is_func_like("checksumBehavior: throw"));
+        assert!(line_is_func_like("nmMode: classic"));
+        assert!(line_is_func_like("pnpMode: strict"));
+        assert!(line_is_func_like("npmPublishAccess: public"));
+        assert!(line_is_func_like("winLinkType: junctions"));
+        assert!(line_is_func_like(
+            "  yarnPath: .yarn/releases/yarn-4.1.0.cjs # pinned"
+        ));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_yarnrc_yml_decl("nodeLinker"));
+        assert!(!is_yarnrc_yml_decl("nodeLinker:"));
+        assert!(!is_yarnrc_yml_decl("NodeLinker: node-modules"));
+        assert!(!is_yarnrc_yml_decl("NODELINKER: node-modules"));
+        assert!(!is_yarnrc_yml_decl("nodeLinker the team"));
+        assert!(!is_yarnrc_yml_decl("nodeLinker: foo"));
+        assert!(!is_yarnrc_yml_decl("# nodeLinker: node-modules"));
+        assert!(!is_yarnrc_yml_decl("plugins:"));
+        assert!(!is_yarnrc_yml_decl("npmScopes:"));
+        assert!(!is_yarnrc_yml_decl("packageExtensions: {}"));
+        assert!(!is_yarnrc_yml_decl("PATH=/usr/bin"));
+        assert!(!is_yarnrc_yml_decl("npmRegistryServer: ftp://bad.example/"));
+        assert!(!is_yarnrc_yml_decl("yarnPath: yarn"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_yarnrc_yml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_yarnrc_yml_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_yarnrc_yml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!line_is_func_like("nodeLinker"));
+        assert!(!line_is_func_like("nodeLinker: foo"));
+        assert!(!line_is_func_like("NodeLinker: node-modules"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

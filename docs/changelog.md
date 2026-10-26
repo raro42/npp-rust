@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.613] — 2026-10-26
+
+View:
+
+- **Function List** lists Yarn Berry `.yarnrc.yml` fields: `nodeLinker: node-modules` / `pnp` / `pnpm`, `yarnPath: .yarn/releases/yarn-4.0.0.cjs`, `npmRegistryServer: "https://registry.yarnpkg.com"`, `enableGlobalCache: true`, `enableImmutableInstalls: false`, `compressionLevel: mixed`, `httpProxy: http://…`, `httpsProxy: https://…`, `preferOffline: true`, `enableStrictSsl: true`, `cacheFolder: ./.yarn/cache`, `httpTimeout: 60000`, `checksumBehavior: throw`, `nmMode: classic`, `pnpMode: strict`, `npmPublishAccess: public`, `winLinkType: junctions`. Exact camelCase Yarn config keys. Optional `#` comment. Nested maps / arrays / prose / wrong case / `.npmrc` `registry=` / pip / neighbouring families stay out.
+
 ## [0.3.612] — 2026-10-26
 
 View:
