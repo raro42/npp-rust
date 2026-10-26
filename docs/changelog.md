@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.614] — 2026-10-26
+
+View:
+
+- **Function List** lists Bun `bunfig.toml` sections and fields: `[install]` / `[install.scopes]` / `[install.lockfile]` / `[run]` / `[test]` / `[debug]` / `[define]` / `[loader]` / `[serve.static]`, `telemetry = false`, `jsx = "react"`, `smol = false`, `logLevel = "warn"`, `frozenLockfile = true`, `exact = true`, `registry = "https://registry.npmjs.org"`, `backend = "clonefile"`, `linker = "isolated"`, `concurrentScripts = 16`, `shell = "bun"`, `silent = false`, `coverage = true`, `updateSnapshots = false`, `editor = "code"`, `coverageDir = "coverage"`. Exact camelCase / lowercase Bun keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays / prose / wrong case / `.npmrc` `registry=` / Yarn YAML / pip / neighbouring families stay out.
+
 ## [0.3.613] — 2026-10-26
 
 View:

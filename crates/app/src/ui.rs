@@ -32343,6 +32343,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pip_conf_decl(s)
             || is_npmrc_decl(s)
             || is_yarnrc_yml_decl(s)
+            || is_bunfig_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32535,6 +32536,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pip_conf_decl(s)
         || is_npmrc_decl(s)
         || is_yarnrc_yml_decl(s)
+        || is_bunfig_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -50144,6 +50146,263 @@ fn yarnrc_yml_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// Bun `bunfig.toml` (project / home): `[install]` / `[install.scopes]` /
+/// `[install.lockfile]` / `[run]` / `[test]` / `[debug]` / `[define]` /
+/// `[loader]` / `[serve.static]`, `telemetry = false`, `jsx = "react"`,
+/// `smol = false`, `logLevel = "warn"`, `frozenLockfile = true`,
+/// `exact = true`, `registry = "https://registry.npmjs.org"`,
+/// `backend = "clonefile"`, `linker = "isolated"`, `concurrentScripts = 16`,
+/// `shell = "bun"`, `coverage = true`, `updateSnapshots = false`,
+/// `editor = "code"`. Exact camelCase / lowercase Bun keys. Optional `#`
+/// comment. Nested maps / arrays / prose / wrong case / `.npmrc` `registry=` /
+/// Yarn YAML / pip / neighbouring families stay out.
+fn is_bunfig_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return bunfig_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if !bunfig_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    bunfig_toml_value_ok(key, value)
+}
+
+fn bunfig_toml_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "install"
+            | "install.scopes"
+            | "install.lockfile"
+            | "run"
+            | "test"
+            | "debug"
+            | "define"
+            | "loader"
+            | "serve.static"
+    )
+}
+
+fn bunfig_toml_key_ok(key: &str) -> bool {
+    const KEYS: &[&str] = &[
+        // Top-level
+        "telemetry",
+        "jsx",
+        "jsxFactory",
+        "jsxFragment",
+        "jsxImportSource",
+        "jsxRuntime",
+        "smol",
+        "logLevel",
+        "preload",
+        // [install]
+        "optional",
+        "dev",
+        "peer",
+        "production",
+        "exact",
+        "frozenLockfile",
+        "saveTextLockfile",
+        "auto",
+        "global",
+        "dryRun",
+        "concurrentScripts",
+        "backend",
+        "linker",
+        "registry",
+        "cache",
+        "lockfile",
+        // [install.lockfile]
+        "print",
+        "save",
+        // [run]
+        "bun",
+        "shell",
+        "silent",
+        // [test]
+        "root",
+        "coverage",
+        "coverageThreshold",
+        "coverageReporter",
+        "coverageDir",
+        "timeout",
+        "rerunEach",
+        "bail",
+        "randomize",
+        "seed",
+        "updateSnapshots",
+        "testNamePattern",
+        "reporters",
+        "pathIgnorePatterns",
+        // [debug]
+        "editor",
+    ];
+    KEYS.contains(&key)
+}
+
+fn bunfig_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (`preload = […]`, `reporter = {…}`).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    // Ambiguous / short keys need a cue so random prose stays out.
+    if matches!(
+        key,
+        "jsx"
+            | "jsxFactory"
+            | "jsxFragment"
+            | "jsxImportSource"
+            | "jsxRuntime"
+            | "logLevel"
+            | "backend"
+            | "linker"
+            | "shell"
+            | "bun"
+            | "print"
+            | "editor"
+            | "cache"
+            | "global"
+            | "root"
+            | "auto"
+            | "exact"
+            | "optional"
+            | "peer"
+            | "production"
+            | "dev"
+            | "silent"
+            | "seed"
+            | "bail"
+            | "save"
+            | "lockfile"
+            | "smol"
+            | "telemetry"
+            | "dryRun"
+            | "coverage"
+            | "randomize"
+            | "updateSnapshots"
+            | "frozenLockfile"
+            | "saveTextLockfile"
+    ) {
+        let distinctive = bare.contains('/')
+            || bare.contains(':')
+            || bare.contains('.')
+            || bare.contains('-')
+            || bare.contains('_')
+            || bare.eq_ignore_ascii_case("true")
+            || bare.eq_ignore_ascii_case("false")
+            || bare.eq_ignore_ascii_case("react")
+            || bare.eq_ignore_ascii_case("react-jsx")
+            || bare.eq_ignore_ascii_case("automatic")
+            || bare.eq_ignore_ascii_case("classic")
+            || bare.eq_ignore_ascii_case("debug")
+            || bare.eq_ignore_ascii_case("warn")
+            || bare.eq_ignore_ascii_case("error")
+            || bare.eq_ignore_ascii_case("info")
+            || bare.eq_ignore_ascii_case("clonefile")
+            || bare.eq_ignore_ascii_case("hardlink")
+            || bare.eq_ignore_ascii_case("symlink")
+            || bare.eq_ignore_ascii_case("copyfile")
+            || bare.eq_ignore_ascii_case("isolated")
+            || bare.eq_ignore_ascii_case("hoisted")
+            || bare.eq_ignore_ascii_case("bun")
+            || bare.eq_ignore_ascii_case("system")
+            || bare.eq_ignore_ascii_case("yarn")
+            || bare.eq_ignore_ascii_case("code")
+            || bare.eq_ignore_ascii_case("vscode")
+            || bare.eq_ignore_ascii_case("subl")
+            || bare.eq_ignore_ascii_case("atom")
+            || bare.chars().all(|c| c.is_ascii_digit());
+        if !distinctive {
+            return false;
+        }
+    }
+    if key == "registry"
+        && !(bare.starts_with("http://")
+            || bare.starts_with("https://")
+            || bare.starts_with("${")
+            || bare.starts_with('$'))
+    {
+        return false;
+    }
+    if key == "coverageDir"
+        && !(bare.starts_with('.')
+            || bare.starts_with('/')
+            || bare.starts_with('~')
+            || bare.starts_with("${")
+            || bare.contains('/')
+            || bare.contains('\\')
+            || bare
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-'))
+    {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b'\\'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'"'
+                    | b'\''
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -52958,7 +53217,7 @@ mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
         is_apt_sources_decl, is_audit_rules_decl, is_aws_config_decl, is_binfmt_d_decl,
-        is_bitbake_decl, is_brewfile_decl, is_cabal_decl, is_cargo_toml_decl,
+        is_bitbake_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl, is_cargo_toml_decl,
         is_composer_json_decl, is_crypttab_decl, is_default_grub_decl, is_desktop_entry_decl,
         is_dhcpd_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
         is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
@@ -60916,6 +61175,66 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("nodeLinker"));
         assert!(!line_is_func_like("nodeLinker: foo"));
         assert!(!line_is_func_like("NodeLinker: node-modules"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn bunfig_toml_entries_count() {
+        assert!(line_is_func_like("[install]"));
+        assert!(line_is_func_like("[install.scopes]"));
+        assert!(line_is_func_like("[install.lockfile]"));
+        assert!(line_is_func_like("[run]"));
+        assert!(line_is_func_like("[test]"));
+        assert!(line_is_func_like("[debug]"));
+        assert!(line_is_func_like("[define]"));
+        assert!(line_is_func_like("[loader]"));
+        assert!(line_is_func_like("[serve.static]"));
+        assert!(line_is_func_like("telemetry = false"));
+        assert!(line_is_func_like("jsx = \"react\""));
+        assert!(line_is_func_like("smol = false"));
+        assert!(line_is_func_like("logLevel = \"warn\""));
+        assert!(line_is_func_like("frozenLockfile = true"));
+        assert!(line_is_func_like("exact = true"));
+        assert!(line_is_func_like(
+            "registry = \"https://registry.npmjs.org\""
+        ));
+        assert!(line_is_func_like("backend = \"clonefile\""));
+        assert!(line_is_func_like("linker = \"isolated\""));
+        assert!(line_is_func_like("concurrentScripts = 16"));
+        assert!(line_is_func_like("shell = \"bun\""));
+        assert!(line_is_func_like("silent = false"));
+        assert!(line_is_func_like("coverage = true"));
+        assert!(line_is_func_like("updateSnapshots = false"));
+        assert!(line_is_func_like("editor = \"code\""));
+        assert!(line_is_func_like("coverageDir = \"coverage\""));
+        assert!(line_is_func_like("  frozenLockfile = true # ci"));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_bunfig_toml_decl("frozenLockfile"));
+        assert!(!is_bunfig_toml_decl("frozenLockfile ="));
+        assert!(!is_bunfig_toml_decl("FrozenLockfile = true"));
+        assert!(!is_bunfig_toml_decl("FROZENLOCKFILE = true"));
+        assert!(!is_bunfig_toml_decl("frozenLockfile the team"));
+        assert!(!is_bunfig_toml_decl("jsx = \"foo\""));
+        assert!(!is_bunfig_toml_decl("backend = \"magic\""));
+        assert!(!is_bunfig_toml_decl("# telemetry = false"));
+        assert!(!is_bunfig_toml_decl("preload = [\"./setup.ts\"]"));
+        assert!(!is_bunfig_toml_decl("PATH=/usr/bin"));
+        assert!(!is_bunfig_toml_decl("registry = \"ftp://bad.example/\""));
+        // Neighbouring families stay on their paths.
+        assert!(!is_bunfig_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_bunfig_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_bunfig_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_bunfig_toml_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_pip_conf_decl("frozenLockfile = true"));
+        assert!(!is_npmrc_decl("frozenLockfile = true"));
+        assert!(!is_yarnrc_yml_decl("frozenLockfile = true"));
+        assert!(!line_is_func_like("frozenLockfile"));
+        assert!(!line_is_func_like("jsx = \"foo\""));
+        assert!(!line_is_func_like("FrozenLockfile = true"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
