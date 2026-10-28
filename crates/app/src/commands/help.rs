@@ -93,12 +93,21 @@ fn show_cmdline_arguments(state: &mut EditorState) {
          \n\
          Options\n\
          -------\n\
-           -h, --help         Print usage to stderr and exit (no GUI)\n\
-           -V, --version      Print version and exit\n\
-           -n <N>, --line <N> Go to 1-based line N in the first opened file\n\
-           -n<N>              Same as -n <N> (Notepad++ style)\n\
-           -ro, --read-only   Open argv files as read-only\n\
-           --                 End of options; remaining args are paths\n\
+           -h, --help                Print usage to stderr and exit (no GUI)\n\
+           -V, --version             Print version and exit\n\
+           -n <N>, --line <N>        Go to 1-based line N in the first opened file\n\
+           -n<N>                     Same as -n <N> (Notepad++ style)\n\
+           -c <N>, --column <N>      Go to 1-based column N in the first opened file\n\
+           -c<N>                     Same as -c <N> (Notepad++ style)\n\
+           -ro, --read-only, -readonly  Open argv files as read-only\n\
+           -nosession, --no-session  Skip session restore (empty start)\n\
+           --                        End of options; remaining args are paths\n\
+         \n\
+         Examples\n\
+         --------\n\
+           npp-rs -n42 -c7 path/to/file.txt\n\
+           npp-rs -nosession\n\
+           npp-rs -ro README.md\n\
          \n\
          Other ways to open files\n\
          ------------------------\n\

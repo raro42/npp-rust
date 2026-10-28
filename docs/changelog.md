@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+## [0.3.616] — 2026-10-28
+
+### CLI
+
+- **Column jump:** `-c <N>` / `--column <N>` / `-cN` parks the caret on 1-based column N in the first opened file (with or without `-n`; column alone starts at line 1). Status shows `→ line N col C` when both are set.
+- **Skip session:** `-nosession` / `--no-session` skips opt-in session restore on an empty start (Notepad++-style).
+- **Read-only alias:** `-readonly` accepted beside `-ro` / `--read-only`.
+- `?` → Command Line Arguments and `--help` document the same flags. Unit tests cover parse paths.
+
 ## [0.3.615] — 2026-10-26
 
 View:

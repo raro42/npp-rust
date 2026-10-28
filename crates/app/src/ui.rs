@@ -20,8 +20,12 @@ pub struct CliOptions {
     pub paths: Vec<std::path::PathBuf>,
     /// Jump to this 1-based line in the first opened file.
     pub goto_line: Option<usize>,
+    /// Jump to this 1-based column in the first opened file (with or without `-n`).
+    pub goto_column: Option<usize>,
     /// Mark argv-opened files read-only.
     pub read_only: bool,
+    /// Skip session restore even when no path args (Notepad++ `-nosession`).
+    pub no_session: bool,
 }
 
 /// Which dual-view pane receives keyboard edits.
@@ -1022,9 +1026,10 @@ impl EditorApp {
             app.zoom_sync = true;
         }
         let had_argv = !cli.paths.is_empty();
+        let no_session = cli.no_session;
         app.replace_with = app.state.settings.replace_with.clone();
         app.open_argv_paths(cli);
-        if !had_argv && app.state.settings.restore_session {
+        if !had_argv && !no_session && app.state.settings.restore_session {
             app.state.restore_session_from_disk();
             apply_session_viewport(&mut app);
         }
@@ -1066,16 +1071,24 @@ impl EditorApp {
                 }
             }
         }
-        if let (Some(tab), Some(line_1based)) = (first_opened_tab, cli.goto_line) {
-            if let Some(doc) = self.state.tabs.get_mut(tab) {
-                let line = line_1based.saturating_sub(1);
-                let max_line = doc.buffer.line_count().saturating_sub(1);
-                let line = line.min(max_line);
-                let pos = doc.buffer.line_to_char(line);
-                doc.buffer.set_caret(pos);
-                self.state.tabs.set_active(tab);
-                self.follow_caret = true;
-                self.scroll_line = line as f32;
+        if cli.goto_line.is_some() || cli.goto_column.is_some() {
+            if let Some(tab) = first_opened_tab {
+                if let Some(doc) = self.state.tabs.get_mut(tab) {
+                    let line_1based = cli.goto_line.unwrap_or(1);
+                    let line = line_1based.saturating_sub(1);
+                    let max_line = doc.buffer.line_count().saturating_sub(1);
+                    let line = line.min(max_line);
+                    let mut pos = doc.buffer.line_to_char(line);
+                    if let Some(col_1based) = cli.goto_column {
+                        let col = col_1based.saturating_sub(1);
+                        let max_col = doc.buffer.line_body_len(line);
+                        pos += col.min(max_col);
+                    }
+                    doc.buffer.set_caret(pos);
+                    self.state.tabs.set_active(tab);
+                    self.follow_caret = true;
+                    self.scroll_line = line as f32;
+                }
             }
         }
         if !missing.is_empty() {
@@ -1091,9 +1104,18 @@ impl EditorApp {
         if cli.read_only && opened > 0 {
             self.state.status = format!("{} (read-only)", self.state.status);
         }
-        if let Some(n) = cli.goto_line {
-            if opened > 0 {
-                self.state.status = format!("{} → line {n}", self.state.status);
+        if opened > 0 {
+            match (cli.goto_line, cli.goto_column) {
+                (Some(n), Some(c)) => {
+                    self.state.status = format!("{} → line {n} col {c}", self.state.status);
+                }
+                (Some(n), None) => {
+                    self.state.status = format!("{} → line {n}", self.state.status);
+                }
+                (None, Some(c)) => {
+                    self.state.status = format!("{} → col {c}", self.state.status);
+                }
+                (None, None) => {}
             }
         }
     }

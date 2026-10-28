@@ -49,6 +49,7 @@ fn chrono_stamp() -> String {
         .unwrap_or_else(|| "unknown-time".into())
 }
 
+#[derive(Debug)]
 enum CliAction {
     Help,
     Version,
@@ -56,34 +57,44 @@ enum CliAction {
 }
 
 fn parse_args() -> Result<CliAction, String> {
+    parse_args_iter(std::env::args().skip(1))
+}
+
+fn parse_args_iter<I, S>(args: I) -> Result<CliAction, String>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
     let mut opts = CliOptions::default();
-    let mut args = std::env::args().skip(1).peekable();
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
+    let mut args = args.into_iter().peekable();
+    while let Some(arg_owned) = args.next() {
+        let arg = arg_owned.as_ref();
+        match arg {
             "--help" | "-h" => return Ok(CliAction::Help),
             "--version" | "-V" => return Ok(CliAction::Version),
-            "--read-only" | "-ro" => opts.read_only = true,
+            "--read-only" | "-ro" | "-readonly" => opts.read_only = true,
+            "--no-session" | "-nosession" => opts.no_session = true,
             "--line" | "-n" => {
                 let Some(v) = args.next() else {
                     return Err("missing value for --line / -n".into());
                 };
-                let n: usize = v.parse().map_err(|_| format!("invalid line number: {v}"))?;
-                if n == 0 {
-                    return Err("line number must be >= 1".into());
-                }
-                opts.goto_line = Some(n);
+                opts.goto_line = Some(parse_positive_usize(v.as_ref(), "line number")?);
             }
             a if a.starts_with("-n") && a.len() > 2 && a.as_bytes()[2].is_ascii_digit() => {
-                let v = &a[2..];
-                let n: usize = v.parse().map_err(|_| format!("invalid line number: {v}"))?;
-                if n == 0 {
-                    return Err("line number must be >= 1".into());
-                }
-                opts.goto_line = Some(n);
+                opts.goto_line = Some(parse_positive_usize(&a[2..], "line number")?);
+            }
+            "--column" | "-c" => {
+                let Some(v) = args.next() else {
+                    return Err("missing value for --column / -c".into());
+                };
+                opts.goto_column = Some(parse_positive_usize(v.as_ref(), "column number")?);
+            }
+            a if a.starts_with("-c") && a.len() > 2 && a.as_bytes()[2].is_ascii_digit() => {
+                opts.goto_column = Some(parse_positive_usize(&a[2..], "column number")?);
             }
             "--" => {
                 for p in args {
-                    opts.paths.push(PathBuf::from(p));
+                    opts.paths.push(PathBuf::from(p.as_ref()));
                 }
                 break;
             }
@@ -96,6 +107,14 @@ fn parse_args() -> Result<CliAction, String> {
     Ok(CliAction::Run(opts))
 }
 
+fn parse_positive_usize(v: &str, label: &str) -> Result<usize, String> {
+    let n: usize = v.parse().map_err(|_| format!("invalid {label}: {v}"))?;
+    if n == 0 {
+        return Err(format!("{label} must be >= 1"));
+    }
+    Ok(n)
+}
+
 fn print_usage() {
     eprintln!(
         "Usage: npp-rs [OPTIONS] [FILE]...\n\
@@ -104,12 +123,15 @@ fn print_usage() {
          Missing paths are skipped (status line shows which).\n\
          \n\
          Options:\n\
-           -h, --help         Show this help and exit\n\
-           -V, --version      Print version and exit\n\
-           -n <N>, --line <N> Go to 1-based line N in the first opened file\n\
-           -n<N>              Same as -n <N> (Notepad++ style)\n\
-           -ro, --read-only   Open argv files as read-only\n\
-           --                 End of options; remaining args are paths\n\
+           -h, --help              Show this help and exit\n\
+           -V, --version           Print version and exit\n\
+           -n <N>, --line <N>      Go to 1-based line N in the first opened file\n\
+           -n<N>                   Same as -n <N> (Notepad++ style)\n\
+           -c <N>, --column <N>    Go to 1-based column N in the first opened file\n\
+           -c<N>                   Same as -c <N> (Notepad++ style)\n\
+           -ro, --read-only, -readonly  Open argv files as read-only\n\
+           -nosession, --no-session  Skip session restore (empty start)\n\
+           --                      End of options; remaining args are paths\n\
          \n\
          Also: ? → Command Line Arguments... in the app."
     );
@@ -144,5 +166,57 @@ fn main() -> eframe::Result<()> {
             print_usage();
             std::process::exit(2);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn run_opts(args: &[&str]) -> CliOptions {
+        match parse_args_iter(args.iter().copied()).unwrap() {
+            CliAction::Run(o) => o,
+            CliAction::Help | CliAction::Version => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn parses_line_and_column_glued() {
+        let o = run_opts(&["-n42", "-c7", "file.txt"]);
+        assert_eq!(o.goto_line, Some(42));
+        assert_eq!(o.goto_column, Some(7));
+        assert_eq!(o.paths, vec![PathBuf::from("file.txt")]);
+    }
+
+    #[test]
+    fn parses_line_and_column_spaced() {
+        let o = run_opts(&["--line", "3", "--column", "9", "a.rs"]);
+        assert_eq!(o.goto_line, Some(3));
+        assert_eq!(o.goto_column, Some(9));
+    }
+
+    #[test]
+    fn parses_no_session_and_readonly_aliases() {
+        let o = run_opts(&["-nosession", "-readonly", "x"]);
+        assert!(o.no_session);
+        assert!(o.read_only);
+    }
+
+    #[test]
+    fn rejects_zero_column() {
+        let err = parse_args_iter(["-c0"].iter().copied()).unwrap_err();
+        assert!(err.contains(">= 1"));
+    }
+
+    #[test]
+    fn help_and_version_short_circuit() {
+        assert!(matches!(
+            parse_args_iter(["-h"].iter().copied()).unwrap(),
+            CliAction::Help
+        ));
+        assert!(matches!(
+            parse_args_iter(["--version"].iter().copied()).unwrap(),
+            CliAction::Version
+        ));
     }
 }
