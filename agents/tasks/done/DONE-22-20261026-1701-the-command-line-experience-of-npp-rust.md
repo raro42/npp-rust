@@ -21,3 +21,9 @@ I browsed the introduction to npp-rust and thought its command-line experience m
 - v0.3.616: CLI column jump (`-c` / `--column` / `-cN`), `-nosession` / `--no-session`, `-readonly` alias; help tab + `--help` + unit tests.
 - Commit: 2c41637
 - Hand off: TEST (do not close issue).
+
+## Tester (2026-10-28)
+- Verified commit `2c41637`: `crates/app/src/main.rs` parse for `-c`/`--column`/`-cN`, `-nosession`/`--no-session`, `-readonly`; help in `crates/app/src/commands/help.rs` + unit tests.
+- `./scripts/ci-local.sh` passed (fmt, clippy `-D warnings`, workspace tests, release build).
+- Result: **PASS** → `DONE-`.
+- GitHub issue #22: not found (404); could not post tester comment. No new issue created.

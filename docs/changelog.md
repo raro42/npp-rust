@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.617] — 2026-10-28
+
+View:
+
+- **Function List** lists Astral `ruff.toml` / `.ruff.toml` sections and fields: `[lint]` / `[lint.isort]` / `[lint.pydocstyle]` / `[lint.pycodestyle]` / `[lint.pyflakes]` / `[lint.pylint]` / `[lint.mccabe]` / `[lint.flake8-…]` / `[lint.pep8-naming]` / `[lint.per-file-ignores]` / `[lint.extend-per-file-ignores]` / `[format]` / `[analyze]`, `line-length = 88`, `indent-width = 4`, `target-version = "py39"`, `preview = true`, `fix = true`, `unsafe-fixes = true`, `output-format = "grouped"`, `required-version = ">=0.4.0"`, `extend = "../ruff.toml"`, `cache-dir = ".ruff_cache"`, `respect-gitignore = true`, `force-exclude = true`, `quote-style = "double"`, `indent-style = "space"`, `skip-magic-trailing-comma = false`, `line-ending = "auto"`, `docstring-code-format = true`, `docstring-code-line-length = "dynamic"`, `convention = "google"`, `max-complexity = 10`, `max-line-length = 88`, `force-single-line = true`, `relative-imports-order = "furthest-to-closest"`, `direction = "dependencies"`. Exact kebab-case Ruff keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`select` / `ignore`) / prose / wrong case / uv / bunfig / yarn / npmrc / pip / Cargo stay out.
+
 ## [0.3.616] — 2026-10-28
 
 ### CLI

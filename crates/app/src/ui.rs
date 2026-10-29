@@ -32367,6 +32367,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_yarnrc_yml_decl(s)
             || is_bunfig_toml_decl(s)
             || is_uv_toml_decl(s)
+            || is_ruff_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32561,6 +32562,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_yarnrc_yml_decl(s)
         || is_bunfig_toml_decl(s)
         || is_uv_toml_decl(s)
+        || is_ruff_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -50723,6 +50725,302 @@ fn uv_toml_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// Astral `ruff.toml` / `.ruff.toml` (project): `[lint]` / `[lint.isort]` /
+/// `[lint.pydocstyle]` / `[lint.pycodestyle]` / `[lint.pyflakes]` /
+/// `[lint.pylint]` / `[lint.mccabe]` / `[lint.flake8-…]` /
+/// `[lint.pep8-naming]` / `[lint.per-file-ignores]` /
+/// `[lint.extend-per-file-ignores]` / `[format]` / `[analyze]`,
+/// `line-length = 88`, `indent-width = 4`, `target-version = "py39"`,
+/// `preview = true`, `fix = true`, `unsafe-fixes = true`,
+/// `output-format = "grouped"`, `required-version = ">=0.4.0"`,
+/// `extend = "../ruff.toml"`, `cache-dir = ".ruff_cache"`,
+/// `respect-gitignore = true`, `force-exclude = true`,
+/// `quote-style = "double"`, `indent-style = "space"`,
+/// `skip-magic-trailing-comma = false`, `line-ending = "auto"`,
+/// `docstring-code-format = true`, `docstring-code-line-length = "dynamic"`,
+/// `convention = "google"`, `max-complexity = 10`,
+/// `max-line-length = 88`, `force-single-line = true`,
+/// `relative-imports-order = "furthest-to-closest"`. Exact kebab-case
+/// Ruff keys. TOML `key = value` with spaces around `=`. Optional `#`
+/// comment. Nested maps / arrays / prose / wrong case / uv / bunfig /
+/// yarn / npmrc / pip / Cargo stay out. pyproject `[tool.ruff]` stays on
+/// pyproject.
+fn is_ruff_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return ruff_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if !ruff_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    ruff_toml_value_ok(key, value)
+}
+
+fn ruff_toml_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "lint"
+            | "format"
+            | "analyze"
+            | "lint.isort"
+            | "lint.pydocstyle"
+            | "lint.pycodestyle"
+            | "lint.pyflakes"
+            | "lint.pylint"
+            | "lint.mccabe"
+            | "lint.pep8-naming"
+            | "lint.per-file-ignores"
+            | "lint.extend-per-file-ignores"
+            | "lint.flake8-annotations"
+            | "lint.flake8-bandit"
+            | "lint.flake8-bugbear"
+            | "lint.flake8-builtins"
+            | "lint.flake8-comprehensions"
+            | "lint.flake8-copyright"
+            | "lint.flake8-errmsg"
+            | "lint.flake8-quotes"
+            | "lint.flake8-tidy-imports"
+            | "lint.flake8-type-checking"
+            | "lint.flake8-unused-arguments"
+    )
+}
+
+fn ruff_toml_key_ok(key: &str) -> bool {
+    const KEYS: &[&str] = &[
+        // Top-level / shared
+        "line-length",
+        "indent-width",
+        "target-version",
+        "preview",
+        "fix",
+        "unsafe-fixes",
+        "output-format",
+        "required-version",
+        "extend",
+        "cache-dir",
+        "respect-gitignore",
+        "force-exclude",
+        "show-fixes",
+        // [format]
+        "quote-style",
+        "indent-style",
+        "skip-magic-trailing-comma",
+        "line-ending",
+        "docstring-code-format",
+        "docstring-code-line-length",
+        // [lint] scalars (arrays like select/ignore stay out)
+        "explicit-preview-rules",
+        "ignore-init-module-imports",
+        "dummy-variable-rgx",
+        // [lint.pydocstyle]
+        "convention",
+        // [lint.mccabe] / [lint.pycodestyle]
+        "max-complexity",
+        "max-line-length",
+        "max-doc-length",
+        "ignore-overlong-task-comments",
+        // [lint.isort] scalars
+        "force-single-line",
+        "force-sort-within-sections",
+        "combine-as-imports",
+        "split-on-trailing-comma",
+        "order-by-type",
+        "relative-imports-order",
+        "detect-same-package",
+        "force-wrap-aliases",
+        "length-sort",
+        "from-first",
+        "lines-after-imports",
+        "lines-between-types",
+        // [lint.pylint]
+        "max-args",
+        "max-branches",
+        "max-returns",
+        "max-statements",
+        // [lint.flake8-quotes]
+        "inline-quotes",
+        "multiline-quotes",
+        "docstring-quotes",
+        "avoid-escape",
+        // [lint.flake8-tidy-imports]
+        "ban-relative-imports",
+        // [analyze]
+        "direction",
+    ];
+    KEYS.contains(&key)
+}
+
+fn ruff_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out.
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "preview"
+            | "fix"
+            | "unsafe-fixes"
+            | "respect-gitignore"
+            | "force-exclude"
+            | "show-fixes"
+            | "skip-magic-trailing-comma"
+            | "docstring-code-format"
+            | "explicit-preview-rules"
+            | "ignore-init-module-imports"
+            | "ignore-overlong-task-comments"
+            | "force-single-line"
+            | "force-sort-within-sections"
+            | "combine-as-imports"
+            | "split-on-trailing-comma"
+            | "order-by-type"
+            | "detect-same-package"
+            | "force-wrap-aliases"
+            | "length-sort"
+            | "from-first"
+            | "avoid-escape"
+            | "output-format"
+            | "quote-style"
+            | "indent-style"
+            | "line-ending"
+            | "docstring-code-line-length"
+            | "convention"
+            | "relative-imports-order"
+            | "inline-quotes"
+            | "multiline-quotes"
+            | "docstring-quotes"
+            | "ban-relative-imports"
+            | "direction"
+            | "target-version"
+    ) {
+        let distinctive = bare.contains('/')
+            || bare.contains(':')
+            || bare.contains('.')
+            || bare.contains('-')
+            || bare.contains('_')
+            || bare.eq_ignore_ascii_case("true")
+            || bare.eq_ignore_ascii_case("false")
+            || bare.eq_ignore_ascii_case("full")
+            || bare.eq_ignore_ascii_case("concise")
+            || bare.eq_ignore_ascii_case("grouped")
+            || bare.eq_ignore_ascii_case("json")
+            || bare.eq_ignore_ascii_case("junit")
+            || bare.eq_ignore_ascii_case("github")
+            || bare.eq_ignore_ascii_case("gitlab")
+            || bare.eq_ignore_ascii_case("pylint")
+            || bare.eq_ignore_ascii_case("azure")
+            || bare.eq_ignore_ascii_case("sarif")
+            || bare.eq_ignore_ascii_case("double")
+            || bare.eq_ignore_ascii_case("single")
+            || bare.eq_ignore_ascii_case("preserve")
+            || bare.eq_ignore_ascii_case("space")
+            || bare.eq_ignore_ascii_case("tab")
+            || bare.eq_ignore_ascii_case("auto")
+            || bare.eq_ignore_ascii_case("lf")
+            || bare.eq_ignore_ascii_case("cr-lf")
+            || bare.eq_ignore_ascii_case("crlf")
+            || bare.eq_ignore_ascii_case("native")
+            || bare.eq_ignore_ascii_case("dynamic")
+            || bare.eq_ignore_ascii_case("google")
+            || bare.eq_ignore_ascii_case("numpy")
+            || bare.eq_ignore_ascii_case("pep257")
+            || bare.eq_ignore_ascii_case("furthest-to-closest")
+            || bare.eq_ignore_ascii_case("closest-to-furthest")
+            || bare.eq_ignore_ascii_case("parents")
+            || bare.eq_ignore_ascii_case("all")
+            || bare.eq_ignore_ascii_case("dependencies")
+            || bare.eq_ignore_ascii_case("dependents")
+            || bare.starts_with("py")
+                && bare.len() >= 3
+                && bare.as_bytes()[2..].iter().all(|b| b.is_ascii_digit())
+            || bare.chars().all(|c| c.is_ascii_digit());
+        if !distinctive {
+            return false;
+        }
+    }
+    if matches!(key, "extend" | "cache-dir") {
+        let pathish = bare.contains('/')
+            || bare.contains('\\')
+            || bare.contains('.')
+            || bare.starts_with('$')
+            || bare.starts_with('~');
+        if !pathish {
+            return false;
+        }
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b'\\'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'"'
+                    | b'\''
+                    | b'>'
+                    | b'<'
+                    | b'!'
+                    | b'^'
+                    | b'*'
+                    | b'['
+                    | b']'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -53552,13 +53850,14 @@ mod func_like_line_tests {
         is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
         is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
         is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rsyslog_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_samba_conf_decl, is_scons_decl,
+        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
+        is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -61644,6 +61943,85 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("native-tls"));
         assert!(!line_is_func_like("python-preference = \"foo\""));
         assert!(!line_is_func_like("Native-Tls = true"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn ruff_toml_entries_count() {
+        assert!(line_is_func_like("[lint]"));
+        assert!(line_is_func_like("[format]"));
+        assert!(line_is_func_like("[analyze]"));
+        assert!(line_is_func_like("[lint.isort]"));
+        assert!(line_is_func_like("[lint.pydocstyle]"));
+        assert!(line_is_func_like("[lint.pycodestyle]"));
+        assert!(line_is_func_like("[lint.mccabe]"));
+        assert!(line_is_func_like("[lint.flake8-quotes]"));
+        assert!(line_is_func_like("[lint.per-file-ignores]"));
+        assert!(line_is_func_like("line-length = 88"));
+        assert!(line_is_func_like("indent-width = 4"));
+        assert!(line_is_func_like("target-version = \"py39\""));
+        assert!(line_is_func_like("preview = true"));
+        assert!(line_is_func_like("fix = true"));
+        assert!(line_is_func_like("unsafe-fixes = true"));
+        assert!(line_is_func_like("output-format = \"grouped\""));
+        assert!(line_is_func_like("required-version = \">=0.4.0\""));
+        assert!(line_is_func_like("extend = \"../ruff.toml\""));
+        assert!(line_is_func_like("cache-dir = \".ruff_cache\""));
+        assert!(line_is_func_like("respect-gitignore = true"));
+        assert!(line_is_func_like("force-exclude = true"));
+        assert!(line_is_func_like("quote-style = \"double\""));
+        assert!(line_is_func_like("indent-style = \"space\""));
+        assert!(line_is_func_like("skip-magic-trailing-comma = false"));
+        assert!(line_is_func_like("line-ending = \"auto\""));
+        assert!(line_is_func_like("docstring-code-format = true"));
+        assert!(line_is_func_like(
+            "docstring-code-line-length = \"dynamic\""
+        ));
+        assert!(line_is_func_like("convention = \"google\""));
+        assert!(line_is_func_like("max-complexity = 10"));
+        assert!(line_is_func_like("max-line-length = 88"));
+        assert!(line_is_func_like("force-single-line = true"));
+        assert!(line_is_func_like(
+            "relative-imports-order = \"furthest-to-closest\""
+        ));
+        assert!(line_is_func_like("direction = \"dependencies\""));
+        assert!(line_is_func_like("  line-length = 100 # ci"));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_ruff_toml_decl("line-length"));
+        assert!(!is_ruff_toml_decl("line-length ="));
+        assert!(!is_ruff_toml_decl("Line-Length = 88"));
+        assert!(!is_ruff_toml_decl("LINE-LENGTH = 88"));
+        assert!(!is_ruff_toml_decl("line-length the team"));
+        assert!(!is_ruff_toml_decl("quote-style = \"fancy\""));
+        assert!(!is_ruff_toml_decl("target-version = \"foo\""));
+        assert!(!is_ruff_toml_decl("# line-length = 88"));
+        assert!(!is_ruff_toml_decl("select = [\"E\", \"F\"]"));
+        assert!(!is_ruff_toml_decl("ignore = [\"E501\"]"));
+        assert!(!is_ruff_toml_decl("PATH=/usr/bin"));
+        assert!(!is_ruff_toml_decl("[workspace]"));
+        assert!(!is_ruff_toml_decl("[package]"));
+        assert!(!is_ruff_toml_decl("[[bin]]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_ruff_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_ruff_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_ruff_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_ruff_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_ruff_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_ruff_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_ruff_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_uv_toml_decl("line-length = 88"));
+        assert!(!is_bunfig_toml_decl("line-length = 88"));
+        assert!(!is_pip_conf_decl("line-length = 88"));
+        assert!(!line_is_func_like("line-length"));
+        assert!(!line_is_func_like("quote-style = \"fancy\""));
+        assert!(!line_is_func_like("Line-Length = 88"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
