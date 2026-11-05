@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.623] — 2026-11-05
+
+View:
+
+- **Function List** lists Cross-rs `Cross.toml` sections and fields: `[build]` / `[build.env]` / `[build.dockerfile]` / `[target.TRIPLE]`, `default-target = "x86_64-unknown-linux-gnu"`, `xargo = true`, `build-std = false`, `zig = false` / `zig = "2.17"`, `dockerfile = "./Dockerfile"`, `image = "my/image:latest"` / `":edge"` / `"@sha256:…"`, `runner = "qemu-user"`, `file = "./Dockerfile"`, `context = "."`. Exact kebab-case Cross keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`pre-build = […]`, `build-std = […]`, `image = { … }`) / prose / wrong case / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.622] — 2026-11-05
 
 View:

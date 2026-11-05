@@ -32373,6 +32373,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_deny_toml_decl(s)
             || is_nextest_toml_decl(s)
             || is_cargo_config_toml_decl(s)
+            || is_cross_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32573,6 +32574,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_deny_toml_decl(s)
         || is_nextest_toml_decl(s)
         || is_cargo_config_toml_decl(s)
+        || is_cross_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -52464,6 +52466,179 @@ fn cargo_config_toml_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// Cross-rs `Cross.toml`: `[build]` / `[build.env]` / `[build.dockerfile]` /
+/// `[target.TRIPLE]`, `default-target = "x86_64-unknown-linux-gnu"`,
+/// `xargo = true`, `build-std = false`, `zig = false` / `zig = "2.17"`,
+/// `dockerfile = "./Dockerfile"`, `image = "my/image:latest"` / `":edge"` /
+/// `"@sha256:…"`, `runner = "qemu-user"`, `file = "./Dockerfile"`,
+/// `context = "."`. Exact kebab-case Cross keys. TOML `key = value` with
+/// spaces around `=`. Optional `#` comment. Nested maps / arrays
+/// (`pre-build = […]`, `build-std = […]`, `image = { … }`, `build-args`) /
+/// prose / wrong case / cargo config / nextest / deny / clippy / rustfmt /
+/// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+fn is_cross_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return cross_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if !cross_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    cross_toml_value_ok(key, value)
+}
+
+fn cross_toml_section_ok(header: &str) -> bool {
+    if matches!(header, "build" | "build.env" | "build.dockerfile") {
+        return true;
+    }
+    if let Some(rest) = header.strip_prefix("target.") {
+        // Cross uses target triples only (no `'cfg(…)'` cfg forms).
+        return cargo_config_target_ok(rest) && !rest.starts_with('\'') && !rest.starts_with('"');
+    }
+    false
+}
+
+fn cross_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "default-target"
+            | "xargo"
+            | "build-std"
+            | "zig"
+            | "dockerfile"
+            | "image"
+            | "runner"
+            | "file"
+            | "context"
+    )
+}
+
+fn cross_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (pre-build = […], image = { … }, …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(key, "xargo" | "build-std") {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "zig" {
+        if bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false") {
+            return true;
+        }
+        // Version string cue: digits with optional dots (`2.17`, `0.11.0`).
+        return bare.len() <= 32
+            && bare.chars().next().is_some_and(|c| c.is_ascii_digit())
+            && bare
+                .chars()
+                .all(|c| c.is_ascii_digit() || c == '.' || c == '-' || c == '_');
+    }
+    if key == "runner" {
+        return matches!(bare, "qemu-user" | "qemu-system" | "native");
+    }
+    if key == "default-target" {
+        if bare.len() > 256 || !bare.contains('-') {
+            return false;
+        }
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'));
+    }
+    if matches!(key, "dockerfile" | "file" | "context") {
+        // Path cue: relative / absolute / bare filename with extension.
+        let pathish = bare.starts_with('.')
+            || bare.starts_with('/')
+            || bare.starts_with('~')
+            || bare.contains('/')
+            || bare.contains('\\')
+            || bare.contains('.');
+        if !pathish {
+            return false;
+        }
+    }
+    if key == "image" {
+        // Docker image cue: `/` name, `:tag`, `@digest`, leading `-` subtarget,
+        // or bare registry-less name with alphanumeric/_/-.
+        let imageish = bare.starts_with(':')
+            || bare.starts_with('@')
+            || bare.starts_with('-')
+            || bare.contains('/')
+            || bare.contains(':')
+            || bare.contains('@')
+            || (bare.len() <= 128
+                && bare
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.')));
+        if !imageish {
+            return false;
+        }
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b'\\'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'"'
+                    | b'\''
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -55280,28 +55455,28 @@ mod func_like_line_tests {
         is_apt_sources_decl, is_audit_rules_decl, is_aws_config_decl, is_binfmt_d_decl,
         is_bitbake_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl,
         is_cargo_config_toml_decl, is_cargo_toml_decl, is_clippy_toml_decl, is_composer_json_decl,
-        is_crypttab_decl, is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl,
-        is_dhcpd_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
-        is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
-        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
-        is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl, is_hosts_file_decl,
-        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl, is_nextest_toml_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
-        is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
-        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl, is_deny_toml_decl,
+        is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl, is_dracut_conf_decl,
+        is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl,
+        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl,
+        is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
+        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mkinitcpio_conf_decl,
+        is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl,
+        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
+        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
+        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -63960,6 +64135,109 @@ mod func_like_line_tests {
         assert!(!is_cargo_config_toml_decl("protocol = \"fancy\""));
         assert!(!line_is_func_like("jobs"));
         assert!(!line_is_func_like("Jobs = 8"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn cross_toml_entries_count() {
+        assert!(line_is_func_like("[build]"));
+        assert!(line_is_func_like("[build.env]"));
+        assert!(line_is_func_like("[build.dockerfile]"));
+        assert!(line_is_func_like("[target.aarch64-unknown-linux-gnu]"));
+        assert!(line_is_func_like("[target.x86_64-unknown-linux-musl]"));
+        assert!(line_is_func_like(
+            "default-target = \"x86_64-unknown-linux-gnu\""
+        ));
+        assert!(line_is_func_like("xargo = true"));
+        assert!(line_is_func_like("build-std = false"));
+        assert!(line_is_func_like("zig = false"));
+        assert!(line_is_func_like("zig = \"2.17\""));
+        assert!(line_is_func_like("dockerfile = \"./Dockerfile\""));
+        assert!(line_is_func_like("image = \"my/image:latest\""));
+        assert!(line_is_func_like("image = \":edge\""));
+        assert!(line_is_func_like(
+            "image = \"@sha256:77db671d8356a64ae72a3e1415e63f547f26d374fbe3c4762c1cd36c7eac7b99\""
+        ));
+        assert!(line_is_func_like("image = \"-centos\""));
+        assert!(line_is_func_like("runner = \"qemu-user\""));
+        assert!(line_is_func_like("runner = \"qemu-system\""));
+        assert!(line_is_func_like("runner = \"native\""));
+        assert!(line_is_func_like("file = \"./Dockerfile\""));
+        assert!(line_is_func_like("context = \".\""));
+        assert!(line_is_func_like("  xargo = true # nightly"));
+        // Shared detector for Cross-only keys.
+        assert!(is_cross_toml_decl(
+            "default-target = \"aarch64-unknown-linux-gnu\""
+        ));
+        assert!(is_cross_toml_decl("[build.env]"));
+        assert!(is_cross_toml_decl("[build.dockerfile]"));
+        assert!(!is_cargo_config_toml_decl("[build.env]"));
+        assert!(!is_cargo_config_toml_decl("[build.dockerfile]"));
+        assert!(!is_cargo_config_toml_decl(
+            "default-target = \"x86_64-unknown-linux-gnu\""
+        ));
+        assert!(!is_cargo_config_toml_decl("xargo = true"));
+        assert!(!is_cargo_config_toml_decl("build-std = false"));
+        assert!(!is_cargo_config_toml_decl("image = \"my/image:latest\""));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_cross_toml_decl("xargo"));
+        assert!(!is_cross_toml_decl("xargo ="));
+        assert!(!is_cross_toml_decl("Xargo = true"));
+        assert!(!is_cross_toml_decl("XARGO = true"));
+        assert!(!is_cross_toml_decl("xargo the team"));
+        assert!(!is_cross_toml_decl("# xargo = true"));
+        assert!(!is_cross_toml_decl("pre-build = [\"apt-get update\"]"));
+        assert!(!is_cross_toml_decl("build-std = [\"core\", \"alloc\"]"));
+        assert!(!is_cross_toml_decl("image = { name = \"alpine:edge\" }"));
+        assert!(!is_cross_toml_decl("runner = \"qemu-arm\""));
+        assert!(!is_cross_toml_decl("zig = \"latest\""));
+        assert!(!is_cross_toml_decl("file = \"hello\""));
+        assert!(!is_cross_toml_decl("context = \"none\""));
+        assert!(!is_cross_toml_decl("PATH=/usr/bin"));
+        assert!(!is_cross_toml_decl("[Build]"));
+        assert!(!is_cross_toml_decl("[build.Env]"));
+        assert!(!is_cross_toml_decl("[target]"));
+        assert!(!is_cross_toml_decl("[target.notatriple]"));
+        assert!(!is_cross_toml_decl("[target.'cfg(windows)']"));
+        assert!(!is_cross_toml_decl("[alias]"));
+        assert!(!is_cross_toml_decl("[store]"));
+        assert!(!is_cross_toml_decl("[advisories]"));
+        assert!(!is_cross_toml_decl("[package]"));
+        assert!(!is_cross_toml_decl("[[bin]]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_cross_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_cross_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_cross_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_cross_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_cross_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_cross_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_cross_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_cross_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_cross_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_cross_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_cross_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_cross_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_cross_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_nextest_toml_decl("[build.env]"));
+        assert!(!is_deny_toml_decl("[build.env]"));
+        assert!(!is_cargo_config_toml_decl(
+            "default-target = \"x86_64-unknown-linux-gnu\""
+        ));
+        assert!(!line_is_func_like("xargo"));
+        assert!(!line_is_func_like("Xargo = true"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
