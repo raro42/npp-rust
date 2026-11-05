@@ -32368,6 +32368,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_bunfig_toml_decl(s)
             || is_uv_toml_decl(s)
             || is_ruff_toml_decl(s)
+            || is_rustfmt_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32563,6 +32564,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_bunfig_toml_decl(s)
         || is_uv_toml_decl(s)
         || is_ruff_toml_decl(s)
+        || is_rustfmt_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -51021,6 +51023,347 @@ fn ruff_toml_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// Rust `rustfmt.toml` / `.rustfmt.toml` (project / user): `max_width = 100`,
+/// `hard_tabs = false`, `tab_spaces = 4`, `newline_style = "Unix"`,
+/// `indent_style = "Block"`, `use_small_heuristics = "Default"`,
+/// `reorder_imports = true`, `reorder_modules = true`,
+/// `remove_nested_parens = true`, `edition = "2021"`, `version = "Two"`,
+/// `wrap_comments = false`, `format_code_in_doc_comments = false`,
+/// `normalize_comments = false`, `normalize_doc_attributes = false`,
+/// `format_strings = false`, `format_macro_matchers = false`,
+/// `format_macro_bodies = true`, `empty_item_single_line = true`,
+/// `struct_lit_single_line = true`, `fn_single_line = false`,
+/// `where_single_line = false`, `imports_indent = "Block"`,
+/// `imports_layout = "Mixed"`, `imports_granularity = "Crate"`,
+/// `group_imports = "StdExternalCrate"`, `blank_lines_upper_bound = 1`,
+/// `blank_lines_lower_bound = 0`, `trailing_semicolon = true`,
+/// `trailing_comma = "Vertical"`, `match_block_trailing_comma = false`,
+/// `force_explicit_abi = true`, `condense_wildcard_suffixes = false`,
+/// `color = "Auto"`, `required_version = "1.4.38"`,
+/// `unstable_features = false`, `disable_all_formatting = false`,
+/// `skip_children = false`, `hide_parse_errors = false`,
+/// `error_on_line_overflow = false`, `error_on_unformatted = false`,
+/// `verbose = "Normal"`, `emit_mode = "Files"`, `make_backup = false`.
+/// Exact snake_case rustfmt keys. TOML `key = value` with spaces around
+/// `=`. Optional `#` comment. Nested maps / arrays (`ignore` / `file_lines`)
+/// / prose / wrong case / ruff / uv / bunfig / yarn / npmrc / pip / Cargo
+/// stay out. `Cargo.toml` tables stay on Cargo.
+fn is_rustfmt_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    // rustfmt.toml is flat (no stock sections). Reject bracket headers so
+    // Cargo / ruff / uv / pyproject stay on their paths.
+    if cargo_toml_header(s).is_some() {
+        return false;
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if !rustfmt_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    rustfmt_toml_value_ok(key, value)
+}
+
+fn rustfmt_toml_key_ok(key: &str) -> bool {
+    const KEYS: &[&str] = &[
+        "max_width",
+        "hard_tabs",
+        "tab_spaces",
+        "newline_style",
+        "indent_style",
+        "use_small_heuristics",
+        "reorder_imports",
+        "reorder_modules",
+        "remove_nested_parens",
+        "edition",
+        "version",
+        "wrap_comments",
+        "format_code_in_doc_comments",
+        "comment_width",
+        "normalize_comments",
+        "normalize_doc_attributes",
+        "format_strings",
+        "format_macro_matchers",
+        "format_macro_bodies",
+        "empty_item_single_line",
+        "struct_lit_single_line",
+        "fn_single_line",
+        "where_single_line",
+        "imports_indent",
+        "imports_layout",
+        "imports_granularity",
+        "group_imports",
+        "blank_lines_upper_bound",
+        "blank_lines_lower_bound",
+        "trailing_semicolon",
+        "trailing_comma",
+        "match_block_trailing_comma",
+        "force_explicit_abi",
+        "condense_wildcard_suffixes",
+        "color",
+        "required_version",
+        "unstable_features",
+        "disable_all_formatting",
+        "skip_children",
+        "hide_parse_errors",
+        "error_on_line_overflow",
+        "error_on_unformatted",
+        "verbose",
+        "emit_mode",
+        "make_backup",
+        "backup",
+        "merge_derives",
+        "use_try_shorthand",
+        "use_field_init_shorthand",
+        "force_multiline_blocks",
+        "brace_style",
+        "control_brace_style",
+        "spaces_around_ranges",
+        "binop_separator",
+        "type_punctuation_density",
+        "space_before_fn_sig_paren",
+        "space_after_colon",
+        "space_before_colon",
+        "spaces_within_parens_and_brackets",
+        "struct_field_align_threshold",
+        "enum_discrim_align_threshold",
+        "match_arm_blocks",
+        "match_arm_leading_pipes",
+        "overflow_delimited_expr",
+        "struct_lit_width",
+        "struct_variant_width",
+        "array_width",
+        "chain_width",
+        "single_line_if_else_max_width",
+        "single_line_let_else_max_width",
+        "fn_call_width",
+        "attr_fn_like_width",
+        "fn_params_layout",
+        "inline_attribute_width",
+    ];
+    KEYS.contains(&key)
+}
+
+fn rustfmt_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out.
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "hard_tabs"
+            | "reorder_imports"
+            | "reorder_modules"
+            | "remove_nested_parens"
+            | "wrap_comments"
+            | "format_code_in_doc_comments"
+            | "normalize_comments"
+            | "normalize_doc_attributes"
+            | "format_strings"
+            | "format_macro_matchers"
+            | "format_macro_bodies"
+            | "empty_item_single_line"
+            | "struct_lit_single_line"
+            | "fn_single_line"
+            | "where_single_line"
+            | "trailing_semicolon"
+            | "match_block_trailing_comma"
+            | "force_explicit_abi"
+            | "condense_wildcard_suffixes"
+            | "unstable_features"
+            | "disable_all_formatting"
+            | "skip_children"
+            | "hide_parse_errors"
+            | "error_on_line_overflow"
+            | "error_on_unformatted"
+            | "make_backup"
+            | "backup"
+            | "merge_derives"
+            | "use_try_shorthand"
+            | "use_field_init_shorthand"
+            | "force_multiline_blocks"
+            | "spaces_around_ranges"
+            | "space_before_fn_sig_paren"
+            | "space_after_colon"
+            | "space_before_colon"
+            | "spaces_within_parens_and_brackets"
+            | "match_arm_blocks"
+            | "overflow_delimited_expr"
+            | "newline_style"
+            | "indent_style"
+            | "use_small_heuristics"
+            | "edition"
+            | "version"
+            | "imports_indent"
+            | "imports_layout"
+            | "imports_granularity"
+            | "group_imports"
+            | "trailing_comma"
+            | "color"
+            | "verbose"
+            | "emit_mode"
+            | "brace_style"
+            | "control_brace_style"
+            | "binop_separator"
+            | "type_punctuation_density"
+            | "match_arm_leading_pipes"
+            | "fn_params_layout"
+    ) {
+        let distinctive = bare.contains('.')
+            || bare.contains('-')
+            || bare.contains('_')
+            || bare.eq_ignore_ascii_case("true")
+            || bare.eq_ignore_ascii_case("false")
+            || bare.eq_ignore_ascii_case("unix")
+            || bare.eq_ignore_ascii_case("windows")
+            || bare.eq_ignore_ascii_case("native")
+            || bare.eq_ignore_ascii_case("auto")
+            || bare.eq_ignore_ascii_case("block")
+            || bare.eq_ignore_ascii_case("visual")
+            || bare.eq_ignore_ascii_case("default")
+            || bare.eq_ignore_ascii_case("off")
+            || bare.eq_ignore_ascii_case("max")
+            || bare.eq_ignore_ascii_case("mixed")
+            || bare.eq_ignore_ascii_case("horizontal")
+            || bare.eq_ignore_ascii_case("horizontalvertical")
+            || bare.eq_ignore_ascii_case("vertical")
+            || bare.eq_ignore_ascii_case("preserve")
+            || bare.eq_ignore_ascii_case("crate")
+            || bare.eq_ignore_ascii_case("module")
+            || bare.eq_ignore_ascii_case("item")
+            || bare.eq_ignore_ascii_case("one")
+            || bare.eq_ignore_ascii_case("stdexternalcrate")
+            || bare.eq_ignore_ascii_case("always")
+            || bare.eq_ignore_ascii_case("never")
+            || bare.eq_ignore_ascii_case("normal")
+            || bare.eq_ignore_ascii_case("quiet")
+            || bare.eq_ignore_ascii_case("verbose")
+            || bare.eq_ignore_ascii_case("files")
+            || bare.eq_ignore_ascii_case("stdout")
+            || bare.eq_ignore_ascii_case("coverage")
+            || bare.eq_ignore_ascii_case("checkstyle")
+            || bare.eq_ignore_ascii_case("json")
+            || bare.eq_ignore_ascii_case("modifiedlines")
+            || bare.eq_ignore_ascii_case("samelinewhere")
+            || bare.eq_ignore_ascii_case("alwaysnextline")
+            || bare.eq_ignore_ascii_case("prefersameline")
+            || bare.eq_ignore_ascii_case("alwayssameline")
+            || bare.eq_ignore_ascii_case("closingnextline")
+            || bare.eq_ignore_ascii_case("front")
+            || bare.eq_ignore_ascii_case("back")
+            || bare.eq_ignore_ascii_case("compressed")
+            || bare.eq_ignore_ascii_case("wide")
+            || bare.eq_ignore_ascii_case("tall")
+            || bare.eq_ignore_ascii_case("two")
+            || bare.eq_ignore_ascii_case("one")
+            || bare.eq_ignore_ascii_case("2015")
+            || bare.eq_ignore_ascii_case("2018")
+            || bare.eq_ignore_ascii_case("2021")
+            || bare.eq_ignore_ascii_case("2024")
+            || bare.chars().all(|c| c.is_ascii_digit());
+        if !distinctive {
+            return false;
+        }
+    }
+    if matches!(
+        key,
+        "max_width"
+            | "tab_spaces"
+            | "comment_width"
+            | "blank_lines_upper_bound"
+            | "blank_lines_lower_bound"
+            | "struct_field_align_threshold"
+            | "enum_discrim_align_threshold"
+            | "struct_lit_width"
+            | "struct_variant_width"
+            | "array_width"
+            | "chain_width"
+            | "single_line_if_else_max_width"
+            | "single_line_let_else_max_width"
+            | "fn_call_width"
+            | "attr_fn_like_width"
+            | "inline_attribute_width"
+    ) && !bare.chars().all(|c| c.is_ascii_digit())
+    {
+        return false;
+    }
+    if key == "required_version" {
+        let versionish = bare.contains('.')
+            || bare.chars().all(|c| c.is_ascii_digit())
+            || bare.starts_with('=')
+            || bare.starts_with('^')
+            || bare.starts_with('~')
+            || bare.starts_with('>');
+        if !versionish {
+            return false;
+        }
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b'\\'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'"'
+                    | b'\''
+                    | b'>'
+                    | b'<'
+                    | b'!'
+                    | b'^'
+                    | b'*'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -53850,14 +54193,14 @@ mod func_like_line_tests {
         is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
         is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
         is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_samba_conf_decl, is_scons_decl,
-        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
-        is_yum_repo_decl, line_is_func_like,
+        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
+        is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
+        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -62022,6 +62365,108 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("line-length"));
         assert!(!line_is_func_like("quote-style = \"fancy\""));
         assert!(!line_is_func_like("Line-Length = 88"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn rustfmt_toml_entries_count() {
+        assert!(line_is_func_like("max_width = 100"));
+        assert!(line_is_func_like("hard_tabs = false"));
+        assert!(line_is_func_like("tab_spaces = 4"));
+        assert!(line_is_func_like("newline_style = \"Unix\""));
+        assert!(line_is_func_like("indent_style = \"Block\""));
+        assert!(line_is_func_like("use_small_heuristics = \"Default\""));
+        assert!(line_is_func_like("reorder_imports = true"));
+        assert!(line_is_func_like("reorder_modules = true"));
+        assert!(line_is_func_like("remove_nested_parens = true"));
+        assert!(line_is_func_like("edition = \"2021\""));
+        assert!(line_is_func_like("version = \"Two\""));
+        assert!(line_is_func_like("wrap_comments = false"));
+        assert!(line_is_func_like("format_code_in_doc_comments = false"));
+        assert!(line_is_func_like("normalize_comments = false"));
+        assert!(line_is_func_like("normalize_doc_attributes = false"));
+        assert!(line_is_func_like("format_strings = false"));
+        assert!(line_is_func_like("format_macro_matchers = false"));
+        assert!(line_is_func_like("format_macro_bodies = true"));
+        assert!(line_is_func_like("empty_item_single_line = true"));
+        assert!(line_is_func_like("struct_lit_single_line = true"));
+        assert!(line_is_func_like("fn_single_line = false"));
+        assert!(line_is_func_like("where_single_line = false"));
+        assert!(line_is_func_like("imports_indent = \"Block\""));
+        assert!(line_is_func_like("imports_layout = \"Mixed\""));
+        assert!(line_is_func_like("imports_granularity = \"Crate\""));
+        assert!(line_is_func_like("group_imports = \"StdExternalCrate\""));
+        assert!(line_is_func_like("blank_lines_upper_bound = 1"));
+        assert!(line_is_func_like("blank_lines_lower_bound = 0"));
+        assert!(line_is_func_like("trailing_semicolon = true"));
+        assert!(line_is_func_like("trailing_comma = \"Vertical\""));
+        assert!(line_is_func_like("match_block_trailing_comma = false"));
+        assert!(line_is_func_like("force_explicit_abi = true"));
+        assert!(line_is_func_like("condense_wildcard_suffixes = false"));
+        assert!(line_is_func_like("color = \"Auto\""));
+        assert!(line_is_func_like("required_version = \"1.4.38\""));
+        assert!(line_is_func_like("unstable_features = false"));
+        assert!(line_is_func_like("disable_all_formatting = false"));
+        assert!(line_is_func_like("skip_children = false"));
+        assert!(line_is_func_like("hide_parse_errors = false"));
+        assert!(line_is_func_like("error_on_line_overflow = false"));
+        assert!(line_is_func_like("error_on_unformatted = false"));
+        assert!(line_is_func_like("verbose = \"Normal\""));
+        assert!(line_is_func_like("emit_mode = \"Files\""));
+        assert!(line_is_func_like("make_backup = false"));
+        assert!(line_is_func_like("merge_derives = true"));
+        assert!(line_is_func_like("use_try_shorthand = true"));
+        assert!(line_is_func_like("use_field_init_shorthand = true"));
+        assert!(line_is_func_like("brace_style = \"SameLineWhere\""));
+        assert!(line_is_func_like(
+            "control_brace_style = \"AlwaysSameLine\""
+        ));
+        assert!(line_is_func_like("binop_separator = \"Front\""));
+        assert!(line_is_func_like("fn_params_layout = \"Tall\""));
+        assert!(line_is_func_like("  max_width = 120 # ci"));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_rustfmt_toml_decl("max_width"));
+        assert!(!is_rustfmt_toml_decl("max_width ="));
+        assert!(!is_rustfmt_toml_decl("Max_Width = 100"));
+        assert!(!is_rustfmt_toml_decl("MAX_WIDTH = 100"));
+        assert!(!is_rustfmt_toml_decl("max_width the team"));
+        assert!(!is_rustfmt_toml_decl("newline_style = \"fancy\""));
+        assert!(!is_rustfmt_toml_decl("edition = \"foo\""));
+        assert!(!is_rustfmt_toml_decl("# max_width = 100"));
+        assert!(!is_rustfmt_toml_decl("ignore = [\"target\"]"));
+        assert!(!is_rustfmt_toml_decl("file_lines = []"));
+        assert!(!is_rustfmt_toml_decl("PATH=/usr/bin"));
+        assert!(!is_rustfmt_toml_decl("[workspace]"));
+        assert!(!is_rustfmt_toml_decl("[package]"));
+        assert!(!is_rustfmt_toml_decl("[[bin]]"));
+        assert!(!is_rustfmt_toml_decl("[lint]"));
+        assert!(!is_rustfmt_toml_decl("[format]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_rustfmt_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_rustfmt_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_rustfmt_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_rustfmt_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_rustfmt_toml_decl(
+            "registry=https://registry.npmjs.org/"
+        ));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_rustfmt_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_rustfmt_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_rustfmt_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_ruff_toml_decl("max_width = 100"));
+        assert!(!is_uv_toml_decl("max_width = 100"));
+        assert!(!is_bunfig_toml_decl("max_width = 100"));
+        assert!(!is_pip_conf_decl("max_width = 100"));
+        assert!(!line_is_func_like("max_width"));
+        assert!(!line_is_func_like("newline_style = \"fancy\""));
+        assert!(!line_is_func_like("Max_Width = 100"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

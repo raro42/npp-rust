@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.618] — 2026-11-05
+
+View:
+
+- **Function List** lists Rust `rustfmt.toml` / `.rustfmt.toml` fields: `max_width = 100`, `hard_tabs = false`, `tab_spaces = 4`, `newline_style = "Unix"`, `indent_style = "Block"`, `use_small_heuristics = "Default"`, `reorder_imports = true`, `reorder_modules = true`, `remove_nested_parens = true`, `edition = "2021"`, `version = "Two"`, `wrap_comments = false`, `format_code_in_doc_comments = false`, `normalize_comments = false`, `normalize_doc_attributes = false`, `format_strings = false`, `format_macro_matchers = false`, `format_macro_bodies = true`, `empty_item_single_line = true`, `struct_lit_single_line = true`, `fn_single_line = false`, `where_single_line = false`, `imports_indent = "Block"`, `imports_layout = "Mixed"`, `imports_granularity = "Crate"`, `group_imports = "StdExternalCrate"`, `blank_lines_upper_bound = 1`, `blank_lines_lower_bound = 0`, `trailing_semicolon = true`, `trailing_comma = "Vertical"`, `match_block_trailing_comma = false`, `force_explicit_abi = true`, `condense_wildcard_suffixes = false`, `color = "Auto"`, `required_version = "1.4.38"`, `unstable_features = false`, `disable_all_formatting = false`, `skip_children = false`, `hide_parse_errors = false`, `error_on_line_overflow = false`, `error_on_unformatted = false`, `verbose = "Normal"`, `emit_mode = "Files"`, `make_backup = false`, `merge_derives = true`, `use_try_shorthand = true`, `use_field_init_shorthand = true`, `brace_style = "SameLineWhere"`, `control_brace_style = "AlwaysSameLine"`, `binop_separator = "Front"`, `fn_params_layout = "Tall"`. Exact snake_case rustfmt keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`ignore` / `file_lines`) / prose / wrong case / ruff / uv / bunfig / yarn / npmrc / pip / Cargo stay out.
+
 ## [0.3.617] — 2026-10-28
 
 View:
