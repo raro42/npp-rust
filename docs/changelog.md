@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.622] — 2026-11-05
+
+View:
+
+- **Function List** lists Cargo `.cargo/config.toml` / `config.toml` sections and fields: `[alias]` / `[build]` / `[doc]` / `[future-incompat-report]` / `[cargo-new]` / `[http]` / `[install]` / `[net]` / `[registry]` / `[registries.name]` / `[source.name]` / `[target.TRIPLE]` / `[target.'cfg(…)']` / `[term]` / `[term.progress]` / `[unstable]`, `jobs = 8`, `target-dir = "target"`, `rustflags = "-C target-cpu=native"`, `incremental = true`, `git-fetch-with-cli = true`, `offline = false`, `retry = 3`, `protocol = "sparse"`, `linker = "clang"`, `runner = "qemu-arm"`, `hyperlinks = true`, `unicode = true`, `vcs = "git"`, `check-revoke = true`, `multiplexing = true`, `frequency = "always"`, `proxy = "http://…"`, `cainfo = "/etc/ssl/cert.pem"`, `replace-with = "vendored-sources"`, `local-registry = "vendor"`, `index = "sparse+https://…"`, `credential-provider = "cargo:token"`, `dep-info-basedir = "."`, `low-speed-limit = 10`, `ssl-version = "tlsv1.2"`, `user-agent = "cargo"`, `rustc-wrapper = "sccache"`. Exact kebab-case Cargo config keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`rustflags = […]`, `global-credential-providers`) / free-form `[alias]` / `[env]` keys / generic TOML (`name` / `timeout` / `color`) / prose / wrong case / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.621] — 2026-11-05
 
 View:

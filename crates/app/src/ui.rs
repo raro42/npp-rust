@@ -32372,6 +32372,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_clippy_toml_decl(s)
             || is_deny_toml_decl(s)
             || is_nextest_toml_decl(s)
+            || is_cargo_config_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32571,6 +32572,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_clippy_toml_decl(s)
         || is_deny_toml_decl(s)
         || is_nextest_toml_decl(s)
+        || is_cargo_config_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -52149,6 +52151,319 @@ fn nextest_toml_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// Cargo `.cargo/config.toml` / `config.toml`: `[alias]` / `[build]` /
+/// `[doc]` / `[future-incompat-report]` / `[cargo-new]` /
+/// `[http]` / `[install]` / `[net]` / `[registry]` / `[registries.name]` /
+/// `[source.name]` / `[target.TRIPLE]` / `[target.'cfg(…)']` / `[term]` /
+/// `[term.progress]` / `[unstable]`, `jobs = 8`, `target-dir = "target"`,
+/// `rustflags = "-C target-cpu=native"`, `incremental = true`,
+/// `git-fetch-with-cli = true`, `offline = false`, `retry = 3`,
+/// `protocol = "sparse"`, `linker = "clang"`, `runner = "qemu-arm"`,
+/// `hyperlinks = true`, `unicode = true`, `vcs = "git"`,
+/// `check-revoke = true`, `multiplexing = true`, `frequency = "always"`,
+/// `proxy = "http://…"`, `cainfo = "/etc/ssl/cert.pem"`,
+/// `replace-with = "vendored-sources"`, `local-registry = "vendor"`,
+/// `index = "sparse+https://…"`, `credential-provider = "cargo:token"`,
+/// `dep-info-basedir = "."`, `low-speed-limit = 10`,
+/// `ssl-version = "tlsv1.2"`, `user-agent = "cargo"`,
+/// `rustc-wrapper = "sccache"`. Exact kebab-case Cargo config keys. TOML
+/// `key = value` with spaces around `=`. Optional `#` comment. Nested
+/// maps / arrays (`rustflags = […]`, `global-credential-providers`) /
+/// free-form `[alias]` / `[env]` keys / generic TOML (`name` / `timeout` /
+/// `color`) / prose / wrong case / nextest / deny / clippy / rustfmt /
+/// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+fn is_cargo_config_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return cargo_config_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if !cargo_config_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    cargo_config_toml_value_ok(key, value)
+}
+
+fn cargo_config_toml_section_ok(header: &str) -> bool {
+    if matches!(
+        header,
+        "alias"
+            | "build"
+            | "doc"
+            | "future-incompat-report"
+            | "cargo-new"
+            | "http"
+            | "install"
+            | "net"
+            | "registry"
+            | "term"
+            | "term.progress"
+            | "unstable"
+    ) {
+        return true;
+    }
+    if let Some(name) = header.strip_prefix("registries.") {
+        return cargo_config_named_ok(name);
+    }
+    if let Some(name) = header.strip_prefix("source.") {
+        return cargo_config_named_ok(name);
+    }
+    if let Some(rest) = header.strip_prefix("target.") {
+        return cargo_config_target_ok(rest);
+    }
+    false
+}
+
+fn cargo_config_named_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 128 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+}
+
+fn cargo_config_target_ok(rest: &str) -> bool {
+    if rest.is_empty() || rest.len() > 256 {
+        return false;
+    }
+    // Quoted cfg: `'cfg(windows)'` / `"cfg(all(…))"`.
+    if (rest.starts_with('\'') && rest.ends_with('\'') && rest.len() >= 3)
+        || (rest.starts_with('"') && rest.ends_with('"') && rest.len() >= 3)
+    {
+        let inner = &rest[1..rest.len() - 1];
+        return inner.starts_with("cfg(") && inner.ends_with(')') && inner.len() > 5;
+    }
+    // Target triple: `x86_64-unknown-linux-gnu`, `wasm32-wasi`, …
+    let bytes = rest.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    if !rest.contains('-') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
+}
+
+fn cargo_config_toml_key_ok(key: &str) -> bool {
+    // Stock keys only (no free-form `[alias]` / `[env]` / cargo-new name+email).
+    // Skip generic TOML keys (`name`, `timeout`, `directory`, `color`, …).
+    const KEYS: &[&str] = &[
+        // [build]
+        "jobs",
+        "rustc",
+        "rustc-wrapper",
+        "rustc-workspace-wrapper",
+        "rustdoc",
+        "target",
+        "target-dir",
+        "rustflags",
+        "rustdocflags",
+        "incremental",
+        "dep-info-basedir",
+        // [future-incompat-report]
+        "frequency",
+        // [cargo-new]
+        "vcs",
+        // [http]
+        "proxy",
+        "cainfo",
+        "check-revoke",
+        "multiplexing",
+        "ssl-version",
+        "low-speed-limit",
+        "user-agent",
+        // [net]
+        "retry",
+        "git-fetch-with-cli",
+        "offline",
+        // [registry] / [registries.*]
+        "credential-provider",
+        "index",
+        "protocol",
+        // [source.*]
+        "replace-with",
+        "local-registry",
+        // [target.*]
+        "linker",
+        "runner",
+        // [term]
+        "hyperlinks",
+        "unicode",
+    ];
+    KEYS.contains(&key)
+}
+
+fn cargo_config_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (rustflags = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "incremental"
+            | "check-revoke"
+            | "multiplexing"
+            | "git-fetch-with-cli"
+            | "offline"
+            | "hyperlinks"
+            | "unicode"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "frequency" {
+        return matches!(bare, "always" | "never");
+    }
+    if key == "vcs" {
+        return matches!(bare, "git" | "hg" | "pijul" | "fossil" | "none");
+    }
+    if key == "protocol" {
+        return matches!(bare, "sparse" | "git" | "index");
+    }
+    if matches!(key, "jobs" | "retry" | "low-speed-limit") {
+        return !bare.is_empty() && bare.chars().all(|c| c.is_ascii_digit() || c == '_');
+    }
+    if matches!(
+        key,
+        "target-dir"
+            | "cainfo"
+            | "local-registry"
+            | "dep-info-basedir"
+            | "rustc"
+            | "rustc-wrapper"
+            | "rustc-workspace-wrapper"
+            | "rustdoc"
+            | "linker"
+            | "runner"
+            | "proxy"
+            | "index"
+    ) {
+        // Path / URL / program cue.
+        let pathish = bare.starts_with('~')
+            || bare.starts_with('/')
+            || bare.starts_with('.')
+            || bare.contains('/')
+            || bare.contains('\\')
+            || bare.contains(':')
+            || bare.contains('.')
+            || bare
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'));
+        if !pathish {
+            return false;
+        }
+    }
+    if key == "target" {
+        // Triple-ish or cfg-ish string.
+        if bare.len() > 256 {
+            return false;
+        }
+        let tripleish = bare.contains('-')
+            || bare.starts_with("cfg(")
+            || bare
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'));
+        if !tripleish {
+            return false;
+        }
+    }
+    if matches!(key, "rustflags" | "rustdocflags") {
+        // Flag string cue: leading `-` / `@` or space-separated flags.
+        let flagish = bare.starts_with('-')
+            || bare.starts_with('@')
+            || bare.contains(" -")
+            || bare.contains("--");
+        if !flagish {
+            return false;
+        }
+    }
+    if matches!(
+        key,
+        "credential-provider" | "replace-with" | "user-agent" | "ssl-version"
+    ) && bare.len() > 256
+    {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b'\\'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'"'
+                    | b'\''
+                    | b'>'
+                    | b'<'
+                    | b'!'
+                    | b'^'
+                    | b'*'
+                    | b'|'
+                    | b';'
+                    | b'#'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -54963,30 +55278,30 @@ mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
         is_apt_sources_decl, is_audit_rules_decl, is_aws_config_decl, is_binfmt_d_decl,
-        is_bitbake_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl, is_cargo_toml_decl,
-        is_clippy_toml_decl, is_composer_json_decl, is_crypttab_decl, is_default_grub_decl,
-        is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl,
-        is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
-        is_fluent_bit_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
-        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
-        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rsyslog_decl, is_ruff_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_scons_decl, is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_bitbake_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl,
+        is_cargo_config_toml_decl, is_cargo_toml_decl, is_clippy_toml_decl, is_composer_json_decl,
+        is_crypttab_decl, is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl,
+        is_dhcpd_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
+        is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
+        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
+        is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl, is_hosts_file_decl,
+        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_machine_info_decl, is_makepkg_conf_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl, is_nextest_toml_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl,
+        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
+        is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
+        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -63515,6 +63830,136 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("fail-fast"));
         assert!(!line_is_func_like("status-level = \"fancy\""));
         assert!(!line_is_func_like("Fail-Fast = true"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn cargo_config_toml_entries_count() {
+        assert!(line_is_func_like("[alias]"));
+        assert!(line_is_func_like("[build]"));
+        assert!(line_is_func_like("[doc]"));
+        assert!(!is_cargo_config_toml_decl("[env]"));
+        assert!(line_is_func_like("[future-incompat-report]"));
+        assert!(line_is_func_like("[cargo-new]"));
+        assert!(line_is_func_like("[http]"));
+        assert!(line_is_func_like("[install]"));
+        assert!(line_is_func_like("[net]"));
+        assert!(line_is_func_like("[registry]"));
+        assert!(line_is_func_like("[registries.crates-io]"));
+        assert!(line_is_func_like("[source.crates-io]"));
+        assert!(line_is_func_like("[source.vendored-sources]"));
+        assert!(line_is_func_like("[target.x86_64-unknown-linux-gnu]"));
+        assert!(line_is_func_like("[target.wasm32-wasi]"));
+        assert!(line_is_func_like("[target.'cfg(windows)']"));
+        assert!(line_is_func_like("[term]"));
+        assert!(line_is_func_like("[term.progress]"));
+        assert!(line_is_func_like("[unstable]"));
+        assert!(line_is_func_like("jobs = 8"));
+        assert!(line_is_func_like("target-dir = \"target\""));
+        assert!(line_is_func_like("rustflags = \"-C target-cpu=native\""));
+        assert!(line_is_func_like("incremental = true"));
+        assert!(line_is_func_like("offline = false"));
+        assert!(line_is_func_like("retry = 3"));
+        assert!(line_is_func_like("protocol = \"sparse\""));
+        assert!(line_is_func_like("linker = \"clang\""));
+        assert!(line_is_func_like("runner = \"qemu-arm\""));
+        assert!(line_is_func_like("hyperlinks = true"));
+        assert!(line_is_func_like("unicode = true"));
+        assert!(line_is_func_like("vcs = \"git\""));
+        assert!(line_is_func_like("check-revoke = true"));
+        assert!(line_is_func_like("multiplexing = true"));
+        assert!(line_is_func_like("frequency = \"always\""));
+        assert!(line_is_func_like("proxy = \"http://proxy.example:8080\""));
+        assert!(line_is_func_like("cainfo = \"/etc/ssl/cert.pem\""));
+        assert!(line_is_func_like("replace-with = \"vendored-sources\""));
+        assert!(line_is_func_like("local-registry = \"vendor\""));
+        assert!(line_is_func_like(
+            "index = \"sparse+https://index.crates.io/\""
+        ));
+        assert!(line_is_func_like("credential-provider = \"cargo:token\""));
+        assert!(line_is_func_like("target = \"x86_64-unknown-linux-gnu\""));
+        assert!(line_is_func_like("dep-info-basedir = \".\""));
+        assert!(line_is_func_like("low-speed-limit = 10"));
+        assert!(line_is_func_like("ssl-version = \"tlsv1.2\""));
+        assert!(line_is_func_like("user-agent = \"cargo\""));
+        assert!(line_is_func_like("rustc-wrapper = \"sccache\""));
+        assert!(line_is_func_like("  jobs = 8 # parallel"));
+        // Shared key with deny still parses on this detector.
+        assert!(is_cargo_config_toml_decl("git-fetch-with-cli = true"));
+        // Bare / prose / incomplete / wrong case / generic TOML stay out.
+        assert!(!is_cargo_config_toml_decl("jobs"));
+        assert!(!is_cargo_config_toml_decl("jobs ="));
+        assert!(!is_cargo_config_toml_decl("Jobs = 8"));
+        assert!(!is_cargo_config_toml_decl("JOBS = 8"));
+        assert!(!is_cargo_config_toml_decl("jobs the team"));
+        assert!(!is_cargo_config_toml_decl("protocol = \"fancy\""));
+        assert!(!is_cargo_config_toml_decl("# jobs = 8"));
+        assert!(!is_cargo_config_toml_decl("rustflags = [\"-C\", \"lto\"]"));
+        assert!(!is_cargo_config_toml_decl("PATH=/usr/bin"));
+        assert!(!is_cargo_config_toml_decl("name = \"alice\""));
+        assert!(!is_cargo_config_toml_decl("timeout = 30"));
+        assert!(!is_cargo_config_toml_decl("directory = \"vendor\""));
+        assert!(!is_cargo_config_toml_decl("color = \"auto\""));
+        assert!(!is_cargo_config_toml_decl("[workspace]"));
+        assert!(!is_cargo_config_toml_decl("[package]"));
+        assert!(!is_cargo_config_toml_decl("[[bin]]"));
+        assert!(!is_cargo_config_toml_decl("[Build]"));
+        assert!(!is_cargo_config_toml_decl("[Alias]"));
+        assert!(!is_cargo_config_toml_decl("[target]"));
+        assert!(!is_cargo_config_toml_decl("[target.notatriple]"));
+        assert!(!is_cargo_config_toml_decl("[registries.]"));
+        assert!(!is_cargo_config_toml_decl("[store]"));
+        assert!(!is_cargo_config_toml_decl("[profile.default]"));
+        assert!(!is_cargo_config_toml_decl("[advisories]"));
+        assert!(!is_cargo_config_toml_decl("[graph]"));
+        // Free-form alias / env keys stay out.
+        assert!(!is_cargo_config_toml_decl(
+            "check = \"clippy --all-targets\""
+        ));
+        assert!(!is_cargo_config_toml_decl("CARGO_LOG = \"info\""));
+        // Neighbouring families stay on their paths.
+        assert!(!is_cargo_config_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_cargo_config_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_cargo_config_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_cargo_config_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_cargo_config_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_cargo_config_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_cargo_config_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_cargo_config_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_cargo_config_toml_decl(
+            "registry=https://registry.npmjs.org/"
+        ));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_cargo_config_toml_decl(
+            "index-url = https://pypi.org/simple"
+        ));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_cargo_config_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_cargo_config_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_nextest_toml_decl("[build]"));
+        assert!(!is_deny_toml_decl("[build]"));
+        assert!(!is_clippy_toml_decl("[build]"));
+        assert!(!is_rustfmt_toml_decl("[build]"));
+        assert!(!is_ruff_toml_decl("[build]"));
+        assert!(!is_uv_toml_decl("[build]"));
+        assert!(!is_cargo_toml_decl("[build]"));
+        assert!(!is_nextest_toml_decl("offline = false"));
+        assert!(!is_deny_toml_decl("offline = false"));
+        assert!(!is_clippy_toml_decl("offline = false"));
+        assert!(!is_rustfmt_toml_decl("offline = false"));
+        assert!(!is_cargo_config_toml_decl("protocol = \"fancy\""));
+        assert!(!line_is_func_like("jobs"));
+        assert!(!line_is_func_like("Jobs = 8"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
