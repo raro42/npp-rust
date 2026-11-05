@@ -1,3 +1,5 @@
+009 keep: Function List cargo-nextest nextest.toml (v0.3.621)
+
 009 keep: Function List cargo-deny deny.toml (v0.3.620)
 
 009 keep: Function List clippy.toml / .clippy.toml (v0.3.619)

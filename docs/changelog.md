@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.621] — 2026-11-05
+
+View:
+
+- **Function List** lists cargo-nextest `nextest.toml` / `.config/nextest.toml` sections and fields: `[store]` / `[profile.default]` / `[profile.ci]` / `[profile.name]` / `[profile.name.junit]`, `dir = "target/nextest"`, `retries = 2`, `test-threads = "num-cpus"`, `threads-required = 1`, `slow-timeout = "60s"`, `leak-timeout = "100ms"`, `status-level = "pass"`, `final-status-level = "fail"`, `failure-output = "immediate"`, `success-output = "never"`, `max-fail = 1`, `fail-fast = true`, `run-ignored = "default"`, `default-filter = "all()"`, `no-run = false`, `force-run-flaky = false`, `path = "junit.xml"`, `report-name = "nextest"`. Exact kebab-case nextest keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`retries = { … }`, `slow-timeout = { … }`) / prose / wrong case / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo stay out.
+
 ## [0.3.620] — 2026-11-05
 
 View:

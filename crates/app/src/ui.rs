@@ -32371,6 +32371,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_rustfmt_toml_decl(s)
             || is_clippy_toml_decl(s)
             || is_deny_toml_decl(s)
+            || is_nextest_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32569,6 +32570,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_rustfmt_toml_decl(s)
         || is_clippy_toml_decl(s)
         || is_deny_toml_decl(s)
+        || is_nextest_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -51891,6 +51893,262 @@ fn deny_toml_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// cargo-nextest `nextest.toml` / `.config/nextest.toml`: `[store]` /
+/// `[profile.default]` / `[profile.ci]` / `[profile.name]` /
+/// `[profile.name.junit]`, `dir = "target/nextest"`, `retries = 2`,
+/// `test-threads = "num-cpus"`, `threads-required = 1`,
+/// `slow-timeout = "60s"`, `leak-timeout = "100ms"`,
+/// `status-level = "pass"`, `final-status-level = "fail"`,
+/// `failure-output = "immediate"`, `success-output = "never"`,
+/// `max-fail = 1`, `fail-fast = true`, `run-ignored = "default"`,
+/// `default-filter = "all()"`, `no-run = false`,
+/// `force-run-flaky = false`, `path = "junit.xml"`,
+/// `report-name = "nextest"`. Exact kebab-case nextest keys. TOML
+/// `key = value` with spaces around `=`. Optional `#` comment. Nested
+/// maps / arrays (`retries = { … }`, `slow-timeout = { … }`) / prose /
+/// wrong case / deny / clippy / rustfmt / ruff / uv / bunfig / yarn /
+/// npmrc / pip / Cargo stay out.
+fn is_nextest_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return nextest_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if !nextest_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    nextest_toml_value_ok(key, value)
+}
+
+fn nextest_toml_section_ok(header: &str) -> bool {
+    if header == "store" {
+        return true;
+    }
+    let Some(rest) = header.strip_prefix("profile.") else {
+        return false;
+    };
+    if rest.is_empty() {
+        return false;
+    }
+    // `profile.default`, `profile.ci`, `profile.default.junit`, …
+    let mut parts = rest.split('.');
+    let Some(name) = parts.next() else {
+        return false;
+    };
+    if !nextest_toml_profile_name_ok(name) {
+        return false;
+    }
+    match parts.next() {
+        None => true,
+        Some("junit") => parts.next().is_none(),
+        Some(_) => false,
+    }
+}
+
+fn nextest_toml_profile_name_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+}
+
+fn nextest_toml_key_ok(key: &str) -> bool {
+    const KEYS: &[&str] = &[
+        // [store]
+        "dir",
+        // [profile.*]
+        "retries",
+        "test-threads",
+        "threads-required",
+        "slow-timeout",
+        "leak-timeout",
+        "status-level",
+        "final-status-level",
+        "failure-output",
+        "success-output",
+        "max-fail",
+        "fail-fast",
+        "run-ignored",
+        "default-filter",
+        "no-run",
+        "force-run-flaky",
+        // [profile.*.junit]
+        "path",
+        "report-name",
+    ];
+    KEYS.contains(&key)
+}
+
+fn nextest_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (retries = { … }, slow-timeout = { … }).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(key, "fail-fast" | "no-run" | "force-run-flaky") {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(key, "status-level" | "final-status-level") {
+        return matches!(
+            bare,
+            "none" | "fail" | "retry" | "slow" | "pass" | "skip" | "leak" | "all"
+        );
+    }
+    if matches!(key, "failure-output" | "success-output") {
+        return matches!(bare, "immediate" | "final" | "immediate-final" | "never");
+    }
+    if key == "run-ignored" {
+        return matches!(bare, "default" | "ignored-only" | "all");
+    }
+    if key == "max-fail" {
+        if bare.eq_ignore_ascii_case("all") {
+            return true;
+        }
+        return !bare.is_empty() && bare.chars().all(|c| c.is_ascii_digit() || c == '_');
+    }
+    if matches!(key, "retries" | "threads-required") {
+        return !bare.is_empty() && bare.chars().all(|c| c.is_ascii_digit() || c == '_');
+    }
+    if key == "test-threads" {
+        if bare.eq_ignore_ascii_case("num-cpus") || bare.eq_ignore_ascii_case("num-test-threads") {
+            return true;
+        }
+        return !bare.is_empty() && bare.chars().all(|c| c.is_ascii_digit() || c == '_');
+    }
+    if matches!(key, "slow-timeout" | "leak-timeout") {
+        // Duration string: `60s`, `100ms`, `1m`, `2h`.
+        if bare.len() < 2 {
+            return false;
+        }
+        let (num, unit) = bare.split_at(bare.len() - (if bare.ends_with("ms") { 2 } else { 1 }));
+        if num.is_empty() || !num.chars().all(|c| c.is_ascii_digit()) {
+            return false;
+        }
+        return matches!(unit, "ms" | "s" | "m" | "h");
+    }
+    if key == "default-filter" {
+        // Filter expression cue: parentheses or nextest keywords.
+        let filterish = bare.contains('(')
+            || bare.contains(')')
+            || bare.contains(':')
+            || bare.contains('/')
+            || bare.contains('=')
+            || bare.contains('&')
+            || bare.contains('|')
+            || bare.contains('!')
+            || bare.eq_ignore_ascii_case("all()")
+            || bare.eq_ignore_ascii_case("none()");
+        if !filterish {
+            return false;
+        }
+    }
+    if matches!(key, "dir" | "path") {
+        let pathish = bare.starts_with('~')
+            || bare.starts_with('/')
+            || bare.starts_with('.')
+            || bare.contains('/')
+            || bare.contains('\\')
+            || bare.contains('.')
+            || bare
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'));
+        if !pathish {
+            return false;
+        }
+    }
+    if key == "report-name" {
+        // Report name: letters, digits, `_`, `-`, `.`.
+        if bare.len() > 128 {
+            return false;
+        }
+        let bytes = bare.as_bytes();
+        if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+            return false;
+        }
+        if !bytes
+            .iter()
+            .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
+        {
+            return false;
+        }
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b'\\'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'"'
+                    | b'\''
+                    | b'>'
+                    | b'<'
+                    | b'!'
+                    | b'^'
+                    | b'*'
+                    | b'|'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -54715,19 +54973,20 @@ mod func_like_line_tests {
         is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
         is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
         is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_networks_file_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
+        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rsyslog_decl, is_ruff_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_scons_decl, is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -63162,6 +63421,100 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("vulnerability"));
         assert!(!line_is_func_like("vulnerability = \"fancy\""));
         assert!(!line_is_func_like("Vulnerability = \"deny\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn nextest_toml_entries_count() {
+        assert!(line_is_func_like("[store]"));
+        assert!(line_is_func_like("[profile.default]"));
+        assert!(line_is_func_like("[profile.ci]"));
+        assert!(line_is_func_like("[profile.default.junit]"));
+        assert!(line_is_func_like("[profile.ci.junit]"));
+        assert!(line_is_func_like("dir = \"target/nextest\""));
+        assert!(line_is_func_like("retries = 2"));
+        assert!(line_is_func_like("test-threads = \"num-cpus\""));
+        assert!(line_is_func_like("test-threads = 8"));
+        assert!(line_is_func_like("threads-required = 1"));
+        assert!(line_is_func_like("slow-timeout = \"60s\""));
+        assert!(line_is_func_like("leak-timeout = \"100ms\""));
+        assert!(line_is_func_like("status-level = \"pass\""));
+        assert!(line_is_func_like("final-status-level = \"fail\""));
+        assert!(line_is_func_like("failure-output = \"immediate\""));
+        assert!(line_is_func_like("success-output = \"never\""));
+        assert!(line_is_func_like("max-fail = 1"));
+        assert!(line_is_func_like("max-fail = \"all\""));
+        assert!(line_is_func_like("fail-fast = true"));
+        assert!(line_is_func_like("run-ignored = \"default\""));
+        assert!(line_is_func_like("default-filter = \"all()\""));
+        assert!(line_is_func_like("no-run = false"));
+        assert!(line_is_func_like("force-run-flaky = false"));
+        assert!(line_is_func_like("path = \"junit.xml\""));
+        assert!(line_is_func_like("report-name = \"nextest\""));
+        assert!(line_is_func_like("  fail-fast = true # ci"));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_nextest_toml_decl("fail-fast"));
+        assert!(!is_nextest_toml_decl("fail-fast ="));
+        assert!(!is_nextest_toml_decl("Fail-Fast = true"));
+        assert!(!is_nextest_toml_decl("FAIL-FAST = true"));
+        assert!(!is_nextest_toml_decl("fail-fast the team"));
+        assert!(!is_nextest_toml_decl("status-level = \"fancy\""));
+        assert!(!is_nextest_toml_decl("# fail-fast = true"));
+        assert!(!is_nextest_toml_decl(
+            "retries = { backoff = \"exponential\" }"
+        ));
+        assert!(!is_nextest_toml_decl(
+            "slow-timeout = { period = \"60s\", terminate-after = 1 }"
+        ));
+        assert!(!is_nextest_toml_decl("PATH=/usr/bin"));
+        assert!(!is_nextest_toml_decl("[workspace]"));
+        assert!(!is_nextest_toml_decl("[package]"));
+        assert!(!is_nextest_toml_decl("[[bin]]"));
+        assert!(!is_nextest_toml_decl("[Store]"));
+        assert!(!is_nextest_toml_decl("[Profile.default]"));
+        assert!(!is_nextest_toml_decl("[profile.default.scripts]"));
+        assert!(!is_nextest_toml_decl("[advisories]"));
+        assert!(!is_nextest_toml_decl("[graph]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_nextest_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_nextest_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_nextest_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_nextest_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_nextest_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_nextest_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_nextest_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_nextest_toml_decl(
+            "registry=https://registry.npmjs.org/"
+        ));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_nextest_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_nextest_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_nextest_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_deny_toml_decl("fail-fast = true"));
+        assert!(!is_clippy_toml_decl("fail-fast = true"));
+        assert!(!is_rustfmt_toml_decl("fail-fast = true"));
+        assert!(!is_ruff_toml_decl("fail-fast = true"));
+        assert!(!is_uv_toml_decl("fail-fast = true"));
+        assert!(!is_bunfig_toml_decl("fail-fast = true"));
+        assert!(!is_pip_conf_decl("fail-fast = true"));
+        assert!(!is_deny_toml_decl("[store]"));
+        assert!(!is_clippy_toml_decl("[store]"));
+        assert!(!is_rustfmt_toml_decl("[store]"));
+        assert!(!is_ruff_toml_decl("[store]"));
+        assert!(!is_uv_toml_decl("[store]"));
+        assert!(!line_is_func_like("fail-fast"));
+        assert!(!line_is_func_like("status-level = \"fancy\""));
+        assert!(!line_is_func_like("Fail-Fast = true"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
