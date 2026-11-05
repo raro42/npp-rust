@@ -32370,6 +32370,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_ruff_toml_decl(s)
             || is_rustfmt_toml_decl(s)
             || is_clippy_toml_decl(s)
+            || is_deny_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32567,6 +32568,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_ruff_toml_decl(s)
         || is_rustfmt_toml_decl(s)
         || is_clippy_toml_decl(s)
+        || is_deny_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -51659,6 +51661,236 @@ fn clippy_toml_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// cargo-deny `deny.toml`: `[graph]` / `[output]` / `[advisories]` /
+/// `[licenses]` / `[licenses.private]` / `[bans]` / `[sources]` /
+/// `[sources.allow-org]`, `vulnerability = "deny"`, `unmaintained = "warn"`,
+/// `unsound = "warn"`, `yanked = "warn"`, `notice = "warn"`,
+/// `unlicensed = "deny"`, `copyleft = "warn"`, `allow-osi-fsf-free = "either"`,
+/// `confidence-threshold = 0.8`, `multiple-versions = "warn"`,
+/// `wildcards = "allow"`, `highlight = "all"`,
+/// `workspace-default-features = "deny"`,
+/// `external-default-features = "allow"`, `unknown-registry = "warn"`,
+/// `unknown-git = "warn"`, `all-features = false`,
+/// `no-default-features = false`, `exclude-dev = true`,
+/// `feature-depth = 1`, `git-fetch-with-cli = true`,
+/// `allow-wildcard-paths = true`, `multiple-versions-include-dev = true`.
+/// Exact kebab-case deny keys. TOML `key = value` with spaces around `=`.
+/// Optional `#` comment. Nested maps / arrays (`allow` / `deny` / `ignore` /
+/// `targets`) / prose / wrong case / clippy / rustfmt / ruff / uv / bunfig /
+/// yarn / npmrc / pip / Cargo stay out.
+fn is_deny_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return deny_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if !deny_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    deny_toml_value_ok(key, value)
+}
+
+fn deny_toml_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "graph"
+            | "output"
+            | "advisories"
+            | "licenses"
+            | "licenses.private"
+            | "bans"
+            | "sources"
+            | "sources.allow-org"
+    )
+}
+
+fn deny_toml_key_ok(key: &str) -> bool {
+    const KEYS: &[&str] = &[
+        // [graph]
+        "all-features",
+        "no-default-features",
+        "exclude-dev",
+        // [output]
+        "feature-depth",
+        // [advisories]
+        "db-path",
+        "vulnerability",
+        "unmaintained",
+        "unsound",
+        "yanked",
+        "notice",
+        "git-fetch-with-cli",
+        // [licenses]
+        "unlicensed",
+        "copyleft",
+        "allow-osi-fsf-free",
+        "confidence-threshold",
+        // [licenses.private]
+        "ignore",
+        // [bans]
+        "multiple-versions",
+        "multiple-versions-include-dev",
+        "wildcards",
+        "highlight",
+        "workspace-default-features",
+        "external-default-features",
+        "allow-wildcard-paths",
+        // [sources]
+        "unknown-registry",
+        "unknown-git",
+    ];
+    KEYS.contains(&key)
+}
+
+fn deny_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (allow / deny / ignore / targets / …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    // `ignore = true` under [licenses.private] is a bool; array forms stay out.
+    if key == "ignore" {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(
+        key,
+        "all-features"
+            | "no-default-features"
+            | "exclude-dev"
+            | "git-fetch-with-cli"
+            | "allow-wildcard-paths"
+            | "multiple-versions-include-dev"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(
+        key,
+        "vulnerability"
+            | "unmaintained"
+            | "unsound"
+            | "yanked"
+            | "notice"
+            | "unlicensed"
+            | "copyleft"
+            | "multiple-versions"
+            | "wildcards"
+            | "workspace-default-features"
+            | "external-default-features"
+            | "unknown-registry"
+            | "unknown-git"
+    ) {
+        return bare.eq_ignore_ascii_case("deny")
+            || bare.eq_ignore_ascii_case("warn")
+            || bare.eq_ignore_ascii_case("allow");
+    }
+    if key == "allow-osi-fsf-free" {
+        return bare.eq_ignore_ascii_case("both")
+            || bare.eq_ignore_ascii_case("either")
+            || bare.eq_ignore_ascii_case("osi")
+            || bare.eq_ignore_ascii_case("fsf")
+            || bare.eq_ignore_ascii_case("osi-only")
+            || bare.eq_ignore_ascii_case("fsf-only")
+            || bare.eq_ignore_ascii_case("neither");
+    }
+    if key == "highlight" {
+        return bare.eq_ignore_ascii_case("all")
+            || bare.eq_ignore_ascii_case("lowest-version")
+            || bare.eq_ignore_ascii_case("simplest-path");
+    }
+    if key == "feature-depth" {
+        return !bare.is_empty() && bare.chars().all(|c| c.is_ascii_digit() || c == '_');
+    }
+    if key == "confidence-threshold" {
+        let numeric = !bare.is_empty()
+            && bare
+                .chars()
+                .all(|c| c.is_ascii_digit() || c == '.' || c == '_');
+        if !numeric {
+            return false;
+        }
+        return bare.contains('.') || bare.parse::<u8>().is_ok_and(|n| n <= 1);
+    }
+    if key == "db-path" {
+        // Path-ish: slash, tilde, or dotted segment.
+        let pathish = bare.starts_with('~')
+            || bare.starts_with('/')
+            || bare.starts_with('.')
+            || bare.contains('/')
+            || bare.contains('\\');
+        if !pathish {
+            return false;
+        }
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b'\\'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'"'
+                    | b'\''
+                    | b'>'
+                    | b'<'
+                    | b'!'
+                    | b'^'
+                    | b'*'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -54475,27 +54707,27 @@ mod func_like_line_tests {
         is_apt_sources_decl, is_audit_rules_decl, is_aws_config_decl, is_binfmt_d_decl,
         is_bitbake_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl, is_cargo_toml_decl,
         is_clippy_toml_decl, is_composer_json_decl, is_crypttab_decl, is_default_grub_decl,
-        is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl, is_dracut_conf_decl,
-        is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl,
-        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl,
-        is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mkinitcpio_conf_decl,
-        is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
-        is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
-        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl,
+        is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
+        is_fluent_bit_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
+        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_networks_file_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
+        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
+        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -62838,6 +63070,98 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("msrv"));
         assert!(!line_is_func_like("msrv = \"fancy\""));
         assert!(!line_is_func_like("Msrv = \"1.70.0\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn deny_toml_entries_count() {
+        assert!(line_is_func_like("[graph]"));
+        assert!(line_is_func_like("[output]"));
+        assert!(line_is_func_like("[advisories]"));
+        assert!(line_is_func_like("[licenses]"));
+        assert!(line_is_func_like("[licenses.private]"));
+        assert!(line_is_func_like("[bans]"));
+        assert!(line_is_func_like("[sources]"));
+        assert!(line_is_func_like("[sources.allow-org]"));
+        assert!(line_is_func_like("vulnerability = \"deny\""));
+        assert!(line_is_func_like("unmaintained = \"warn\""));
+        assert!(line_is_func_like("unsound = \"warn\""));
+        assert!(line_is_func_like("yanked = \"warn\""));
+        assert!(line_is_func_like("notice = \"warn\""));
+        assert!(line_is_func_like("unlicensed = \"deny\""));
+        assert!(line_is_func_like("copyleft = \"warn\""));
+        assert!(line_is_func_like("allow-osi-fsf-free = \"either\""));
+        assert!(line_is_func_like("confidence-threshold = 0.8"));
+        assert!(line_is_func_like("multiple-versions = \"warn\""));
+        assert!(line_is_func_like("wildcards = \"allow\""));
+        assert!(line_is_func_like("highlight = \"all\""));
+        assert!(line_is_func_like("workspace-default-features = \"deny\""));
+        assert!(line_is_func_like("external-default-features = \"allow\""));
+        assert!(line_is_func_like("unknown-registry = \"warn\""));
+        assert!(line_is_func_like("unknown-git = \"warn\""));
+        assert!(line_is_func_like("all-features = false"));
+        assert!(line_is_func_like("no-default-features = false"));
+        assert!(line_is_func_like("exclude-dev = true"));
+        assert!(line_is_func_like("feature-depth = 1"));
+        assert!(line_is_func_like("git-fetch-with-cli = true"));
+        assert!(line_is_func_like("allow-wildcard-paths = true"));
+        assert!(line_is_func_like("multiple-versions-include-dev = true"));
+        assert!(line_is_func_like("ignore = true"));
+        assert!(line_is_func_like("db-path = \"~/.cargo/advisory-db\""));
+        assert!(line_is_func_like("  vulnerability = \"deny\" # ci"));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_deny_toml_decl("vulnerability"));
+        assert!(!is_deny_toml_decl("vulnerability ="));
+        assert!(!is_deny_toml_decl("Vulnerability = \"deny\""));
+        assert!(!is_deny_toml_decl("VULNERABILITY = \"deny\""));
+        assert!(!is_deny_toml_decl("vulnerability the team"));
+        assert!(!is_deny_toml_decl("vulnerability = \"fancy\""));
+        assert!(!is_deny_toml_decl("# vulnerability = \"deny\""));
+        assert!(!is_deny_toml_decl("allow = [\"MIT\"]"));
+        assert!(!is_deny_toml_decl("deny = []"));
+        assert!(!is_deny_toml_decl("ignore = [\"RUSTSEC-0000-0000\"]"));
+        assert!(!is_deny_toml_decl("targets = []"));
+        assert!(!is_deny_toml_decl("PATH=/usr/bin"));
+        assert!(!is_deny_toml_decl("[workspace]"));
+        assert!(!is_deny_toml_decl("[package]"));
+        assert!(!is_deny_toml_decl("[[bin]]"));
+        assert!(!is_deny_toml_decl("[lint]"));
+        assert!(!is_deny_toml_decl("[Graph]"));
+        assert!(!is_deny_toml_decl("[Advisories]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_deny_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_deny_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_deny_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_deny_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_deny_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_deny_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_deny_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_deny_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_deny_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_deny_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_clippy_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_rustfmt_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_ruff_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_uv_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_bunfig_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_pip_conf_decl("vulnerability = \"deny\""));
+        assert!(!is_clippy_toml_decl("[advisories]"));
+        assert!(!is_rustfmt_toml_decl("[advisories]"));
+        assert!(!is_ruff_toml_decl("[advisories]"));
+        assert!(!is_uv_toml_decl("[advisories]"));
+        assert!(!line_is_func_like("vulnerability"));
+        assert!(!line_is_func_like("vulnerability = \"fancy\""));
+        assert!(!line_is_func_like("Vulnerability = \"deny\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

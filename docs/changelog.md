@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.620] — 2026-11-05
+
+View:
+
+- **Function List** lists cargo-deny `deny.toml` sections and fields: `[graph]` / `[output]` / `[advisories]` / `[licenses]` / `[licenses.private]` / `[bans]` / `[sources]` / `[sources.allow-org]`, `vulnerability = "deny"`, `unmaintained = "warn"`, `unsound = "warn"`, `yanked = "warn"`, `notice = "warn"`, `unlicensed = "deny"`, `copyleft = "warn"`, `allow-osi-fsf-free = "either"`, `confidence-threshold = 0.8`, `multiple-versions = "warn"`, `wildcards = "allow"`, `highlight = "all"`, `workspace-default-features = "deny"`, `external-default-features = "allow"`, `unknown-registry = "warn"`, `unknown-git = "warn"`, `all-features = false`, `no-default-features = false`, `exclude-dev = true`, `feature-depth = 1`, `git-fetch-with-cli = true`, `allow-wildcard-paths = true`, `multiple-versions-include-dev = true`, `ignore = true`, `db-path = "~/.cargo/advisory-db"`. Exact kebab-case deny keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`allow` / `deny` / `ignore` / `targets`) / prose / wrong case / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo stay out.
+
 ## [0.3.619] — 2026-11-05
 
 View:
