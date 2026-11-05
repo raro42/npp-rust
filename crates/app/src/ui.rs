@@ -32378,6 +32378,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_bacon_toml_decl(s)
             || is_typos_toml_decl(s)
             || is_taplo_toml_decl(s)
+            || is_mdbook_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32583,6 +32584,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_bacon_toml_decl(s)
         || is_typos_toml_decl(s)
         || is_taplo_toml_decl(s)
+        || is_mdbook_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -53445,6 +53447,275 @@ fn taplo_toml_value_ok(key: &str, value: &str) -> bool {
     false
 }
 
+/// mdBook `book.toml`: `[book]` / `[rust]` / `[build]` / `[preprocessor.name]` /
+/// `[output.html]` / `[output.html.search]` / `[output.html.print]` /
+/// `[output.html.fold]` / `[output.html.playground]` / `[output.markdown]` /
+/// `[output.name]`, `title = "Example book"`, `description = "…"`, `src = "src"`,
+/// `language = "en"`, `text-direction = "ltr"` / `"rtl"`, `logo = "static/logo.svg"`,
+/// `edition = "2018"`, `build-dir = "book"`, `create-missing = true`,
+/// `use-default-preprocessors = true`, `theme = "my-theme"`,
+/// `default-theme = "light"`, `preferred-dark-theme = "navy"`,
+/// `smart-punctuation = true`, `definition-lists = true`, `admonitions = true`,
+/// `mathjax-support = false`, `no-section-label = false`,
+/// `git-repository-url = "https://…"`, `git-repository-icon = "fab-github"`,
+/// `edit-url-template = "https://…/{path}"`, `input-404 = "404.md"`,
+/// `site-url = "/book/"`, `canonical-site-url = "https://…"`, `cname = "…"`,
+/// `hash-files = true`, `sidebar-header-nav = true`, `zoomable-images = true`,
+/// `enable = true`, `page-break = true`, `level = 0`, `editable = false`,
+/// `copyable = true`, `copy-js = true`, `line-numbers = false`, `runnable = true`,
+/// `limit-results = 30`, `teaser-word-count = 30`, `use-boolean-and = true`,
+/// `boost-title = 2`, `boost-hierarchy = 1`, `boost-paragraph = 1`,
+/// `expand = true`, `heading-split-level = 3`, `command = "mdbook-foo"`,
+/// `optional = true`. Exact kebab-case / snake_case mdBook keys. TOML
+/// `key = value` with spaces around `=`. Optional `#` comment. Nested maps /
+/// arrays (`authors = […]`, `additional-css = […]`, `extra-watch-dirs = […]`,
+/// `ignore = […]`, `renderers = […]`) / prose / wrong case / taplo / typos /
+/// bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy /
+/// rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+fn is_mdbook_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return mdbook_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if key.contains('.') {
+        return false;
+    }
+    if !mdbook_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    mdbook_toml_value_ok(key, value)
+}
+
+fn mdbook_toml_section_ok(header: &str) -> bool {
+    if matches!(header, "book" | "rust" | "build") {
+        return true;
+    }
+    if let Some(name) = header.strip_prefix("preprocessor.") {
+        return mdbook_toml_plugin_name_ok(name);
+    }
+    if let Some(rest) = header.strip_prefix("output.") {
+        return mdbook_toml_output_section_ok(rest);
+    }
+    false
+}
+
+fn mdbook_toml_plugin_name_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+}
+
+fn mdbook_toml_output_section_ok(rest: &str) -> bool {
+    // Built-in nested HTML tables plus free-form backend names
+    // (`output.wordcount`, `output.html.search`, …).
+    if matches!(
+        rest,
+        "html"
+            | "markdown"
+            | "html.print"
+            | "html.fold"
+            | "html.playground"
+            | "html.search"
+            | "html.search.chapter"
+            | "html.code.hidelines"
+    ) {
+        return true;
+    }
+    // `output.html.*` already covered; free-form `output.name` / `output.name.sub`.
+    let mut parts = rest.split('.');
+    let Some(first) = parts.next() else {
+        return false;
+    };
+    if !mdbook_toml_plugin_name_ok(first) {
+        return false;
+    }
+    for part in parts {
+        if !mdbook_toml_plugin_name_ok(part) {
+            return false;
+        }
+    }
+    true
+}
+
+fn mdbook_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "title"
+            | "description"
+            | "src"
+            | "language"
+            | "text-direction"
+            | "logo"
+            | "edition"
+            | "build-dir"
+            | "create-missing"
+            | "use-default-preprocessors"
+            | "theme"
+            | "default-theme"
+            | "preferred-dark-theme"
+            | "smart-punctuation"
+            | "definition-lists"
+            | "admonitions"
+            | "mathjax-support"
+            | "no-section-label"
+            | "git-repository-url"
+            | "git-repository-icon"
+            | "edit-url-template"
+            | "input-404"
+            | "site-url"
+            | "canonical-site-url"
+            | "cname"
+            | "hash-files"
+            | "sidebar-header-nav"
+            | "zoomable-images"
+            | "enable"
+            | "page-break"
+            | "level"
+            | "editable"
+            | "copyable"
+            | "copy-js"
+            | "line-numbers"
+            | "runnable"
+            | "limit-results"
+            | "teaser-word-count"
+            | "use-boolean-and"
+            | "boost-title"
+            | "boost-hierarchy"
+            | "boost-paragraph"
+            | "expand"
+            | "heading-split-level"
+            | "command"
+            | "optional"
+    )
+}
+
+fn mdbook_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (authors = […], additional-css = […]).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "create-missing"
+            | "use-default-preprocessors"
+            | "smart-punctuation"
+            | "definition-lists"
+            | "admonitions"
+            | "mathjax-support"
+            | "no-section-label"
+            | "hash-files"
+            | "sidebar-header-nav"
+            | "zoomable-images"
+            | "enable"
+            | "page-break"
+            | "editable"
+            | "copyable"
+            | "copy-js"
+            | "line-numbers"
+            | "runnable"
+            | "use-boolean-and"
+            | "expand"
+            | "optional"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(
+        key,
+        "level"
+            | "limit-results"
+            | "teaser-word-count"
+            | "boost-title"
+            | "boost-hierarchy"
+            | "boost-paragraph"
+            | "heading-split-level"
+    ) {
+        return bare.len() <= 8 && bare.bytes().all(|b| b.is_ascii_digit());
+    }
+    if key == "text-direction" {
+        return matches!(bare, "ltr" | "rtl");
+    }
+    if key == "edition" {
+        return matches!(bare, "2015" | "2018" | "2021" | "2024");
+    }
+    if matches!(
+        key,
+        "title"
+            | "description"
+            | "src"
+            | "language"
+            | "logo"
+            | "build-dir"
+            | "theme"
+            | "default-theme"
+            | "preferred-dark-theme"
+            | "git-repository-url"
+            | "git-repository-icon"
+            | "edit-url-template"
+            | "input-404"
+            | "site-url"
+            | "canonical-site-url"
+            | "cname"
+            | "command"
+    ) {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 512 {
+            return false;
+        }
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || matches!(b, b'\t'));
+    }
+    false
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -56268,22 +56539,23 @@ mod func_like_line_tests {
         is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl,
         is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
         is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mkinitcpio_conf_decl,
-        is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl,
-        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl,
-        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
+        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
+        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
+        is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
+        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_tox_ini_decl, is_typos_toml_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
+        is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -65462,6 +65734,157 @@ mod func_like_line_tests {
         assert!(!is_rust_toolchain_toml_decl("reorder_keys = true"));
         assert!(!line_is_func_like("align_entries"));
         assert!(!line_is_func_like("Align_Entries = true"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+        assert!(!is_taplo_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+    }
+
+    #[test]
+    fn mdbook_toml_entries_count() {
+        assert!(line_is_func_like("[book]"));
+        assert!(line_is_func_like("[rust]"));
+        assert!(line_is_func_like("[build]"));
+        assert!(line_is_func_like("[preprocessor.links]"));
+        assert!(line_is_func_like("[preprocessor.index]"));
+        assert!(line_is_func_like("[output.html]"));
+        assert!(line_is_func_like("[output.markdown]"));
+        assert!(line_is_func_like("[output.html.search]"));
+        assert!(line_is_func_like("[output.html.print]"));
+        assert!(line_is_func_like("[output.html.fold]"));
+        assert!(line_is_func_like("[output.html.playground]"));
+        assert!(line_is_func_like("[output.wordcount]"));
+        assert!(line_is_func_like("title = \"Example book\""));
+        assert!(line_is_func_like("description = \"The example book\""));
+        assert!(line_is_func_like("src = \"src\""));
+        assert!(line_is_func_like("language = \"en\""));
+        assert!(line_is_func_like("text-direction = \"ltr\""));
+        assert!(line_is_func_like("text-direction = \"rtl\""));
+        assert!(line_is_func_like("logo = \"static/logo.svg\""));
+        assert!(line_is_func_like("edition = \"2018\""));
+        assert!(line_is_func_like("edition = \"2021\""));
+        assert!(line_is_func_like("build-dir = \"book\""));
+        assert!(line_is_func_like("create-missing = false"));
+        assert!(line_is_func_like("use-default-preprocessors = true"));
+        assert!(line_is_func_like("theme = \"my-theme\""));
+        assert!(line_is_func_like("default-theme = \"light\""));
+        assert!(line_is_func_like("preferred-dark-theme = \"navy\""));
+        assert!(line_is_func_like("smart-punctuation = true"));
+        assert!(line_is_func_like("definition-lists = true"));
+        assert!(line_is_func_like("admonitions = true"));
+        assert!(line_is_func_like("mathjax-support = false"));
+        assert!(line_is_func_like("no-section-label = false"));
+        assert!(line_is_func_like(
+            "git-repository-url = \"https://github.com/rust-lang/mdBook\""
+        ));
+        assert!(line_is_func_like("git-repository-icon = \"fab-github\""));
+        assert!(line_is_func_like(
+            "edit-url-template = \"https://github.com/org/repo/edit/main/{path}\""
+        ));
+        assert!(line_is_func_like("input-404 = \"404.md\""));
+        assert!(line_is_func_like("site-url = \"/book/\""));
+        assert!(line_is_func_like(
+            "canonical-site-url = \"https://example.com/book/\""
+        ));
+        assert!(line_is_func_like("cname = \"docs.example.com\""));
+        assert!(line_is_func_like("hash-files = true"));
+        assert!(line_is_func_like("sidebar-header-nav = true"));
+        assert!(line_is_func_like("zoomable-images = true"));
+        assert!(line_is_func_like("enable = true"));
+        assert!(line_is_func_like("page-break = true"));
+        assert!(line_is_func_like("level = 0"));
+        assert!(line_is_func_like("editable = false"));
+        assert!(line_is_func_like("copyable = true"));
+        assert!(line_is_func_like("copy-js = true"));
+        assert!(line_is_func_like("line-numbers = false"));
+        assert!(line_is_func_like("runnable = true"));
+        assert!(line_is_func_like("limit-results = 30"));
+        assert!(line_is_func_like("teaser-word-count = 30"));
+        assert!(line_is_func_like("use-boolean-and = true"));
+        assert!(line_is_func_like("boost-title = 2"));
+        assert!(line_is_func_like("boost-hierarchy = 1"));
+        assert!(line_is_func_like("boost-paragraph = 1"));
+        assert!(line_is_func_like("expand = true"));
+        assert!(line_is_func_like("heading-split-level = 3"));
+        assert!(line_is_func_like("command = \"mdbook-wordcount\""));
+        assert!(line_is_func_like("optional = true"));
+        assert!(line_is_func_like(
+            "  create-missing = true # skip SUMMARY holes"
+        ));
+        // Shared detector for mdBook-only keys / sections.
+        assert!(is_mdbook_toml_decl("[book]"));
+        assert!(is_mdbook_toml_decl("[preprocessor.links]"));
+        assert!(is_mdbook_toml_decl("[output.html.search]"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("text-direction = \"rtl\""));
+        assert!(is_mdbook_toml_decl("mathjax-support = true"));
+        assert!(is_mdbook_toml_decl("limit-results = 15"));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_mdbook_toml_decl("create-missing"));
+        assert!(!is_mdbook_toml_decl("create-missing ="));
+        assert!(!is_mdbook_toml_decl("Create-Missing = true"));
+        assert!(!is_mdbook_toml_decl("CREATE-MISSING = true"));
+        assert!(!is_mdbook_toml_decl("create-missing the book"));
+        assert!(!is_mdbook_toml_decl("# create-missing = true"));
+        assert!(!is_mdbook_toml_decl("authors = [\"John Doe\"]"));
+        assert!(!is_mdbook_toml_decl("additional-css = [\"custom.css\"]"));
+        assert!(!is_mdbook_toml_decl("extra-watch-dirs = [\"theme\"]"));
+        assert!(!is_mdbook_toml_decl("ignore = [\"tmp\"]"));
+        assert!(!is_mdbook_toml_decl("renderers = [\"html\"]"));
+        assert!(!is_mdbook_toml_decl("text-direction = \"up\""));
+        assert!(!is_mdbook_toml_decl("edition = \"2019\""));
+        assert!(!is_mdbook_toml_decl("title = Example"));
+        assert!(!is_mdbook_toml_decl("PATH=/usr/bin"));
+        assert!(!is_mdbook_toml_decl("[Book]"));
+        assert!(!is_mdbook_toml_decl("[RUST]"));
+        assert!(!is_mdbook_toml_decl("[[book]]"));
+        assert!(!is_mdbook_toml_decl("[package]"));
+        assert!(!is_mdbook_toml_decl("[[bin]]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_mdbook_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_mdbook_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_mdbook_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_mdbook_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_mdbook_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_mdbook_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_mdbook_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_mdbook_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_mdbook_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_mdbook_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_mdbook_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_mdbook_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_mdbook_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_mdbook_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_mdbook_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_mdbook_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_mdbook_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_mdbook_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_taplo_toml_decl("create-missing = true"));
+        assert!(!is_typos_toml_decl("create-missing = true"));
+        assert!(!is_bacon_toml_decl("create-missing = true"));
+        assert!(!is_cross_toml_decl("[book]"));
+        assert!(!is_nextest_toml_decl("[book]"));
+        assert!(!is_deny_toml_decl("[book]"));
+        assert!(!is_rust_toolchain_toml_decl("text-direction = \"ltr\""));
+        assert!(!line_is_func_like("create-missing"));
+        assert!(!line_is_func_like("Create-Missing = true"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

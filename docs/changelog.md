@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.628] — 2026-11-05
+
+View:
+
+- **Function List** lists mdBook `book.toml` sections and fields: `[book]` / `[rust]` / `[build]` / `[preprocessor.name]` / `[output.html]` / `[output.html.search]` / `[output.html.print]` / `[output.html.fold]` / `[output.html.playground]` / `[output.markdown]` / `[output.name]`, `title = "Example book"`, `description = "…"`, `src = "src"`, `language = "en"`, `text-direction = "ltr"` / `"rtl"`, `logo = "static/logo.svg"`, `edition = "2018"`, `build-dir = "book"`, `create-missing = true`, `use-default-preprocessors = true`, `theme = "my-theme"`, `default-theme = "light"`, `preferred-dark-theme = "navy"`, `smart-punctuation = true`, `definition-lists = true`, `admonitions = true`, `mathjax-support = false`, `no-section-label = false`, `git-repository-url = "https://…"`, `git-repository-icon = "fab-github"`, `edit-url-template = "https://…/{path}"`, `input-404 = "404.md"`, `site-url = "/book/"`, `canonical-site-url = "https://…"`, `cname = "…"`, `hash-files = true`, `sidebar-header-nav = true`, `zoomable-images = true`, `enable = true`, `page-break = true`, `level = 0`, `editable = false`, `copyable = true`, `copy-js = true`, `line-numbers = false`, `runnable = true`, `limit-results = 30`, `teaser-word-count = 30`, `use-boolean-and = true`, `boost-title = 2`, `boost-hierarchy = 1`, `boost-paragraph = 1`, `expand = true`, `heading-split-level = 3`, `command = "mdbook-foo"`, `optional = true`. Exact kebab-case / snake_case mdBook keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`authors = […]`, `additional-css = […]`, `extra-watch-dirs = […]`, `ignore = […]`, `renderers = […]`) / prose / wrong case / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.627] — 2026-11-05
 
 View:
