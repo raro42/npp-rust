@@ -915,3 +915,5 @@
 009 keep: Function List Astral uv.toml (v0.3.615)
 
 009 keep: Function List Astral ruff.toml / .ruff.toml (v0.3.617)
+
+009 keep: Function List rust-toolchain.toml channel/profile/path (v0.3.624)
