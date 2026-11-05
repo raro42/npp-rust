@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [0.3.629] — 2026-11-06
+
+View:
+
+- **Function List** lists cargo-dist `Dist.toml` / `dist-workspace.toml` sections and fields: `[dist]` / `[dist.bin-aliases]` / `[dist.azure-windows-sign]` / `[dist.github-action-commits]` / `[dist.github-custom-runners.TRIPLE]` / `[dist.github-custom-runners.TRIPLE.container]` / `[[dist.extra-artifacts]]`, `cargo-dist-version = "0.32.0"`, `ci = "github"`, `pr-run-mode = "plan"` / `"upload"` / `"skip"`, `hosting = "github"` / `"simple"`, `install-updater = false`, `github-attestations = true`, `create-release = true`, `dist = true`, `checksum = "sha256"` / `"sha512"` / `"blake2b"` / `"false"`, `source-tarball = true`, `recursive-tarball = true`, `ssldotcom-windows-sign = "prod"` / `"test"`, `auto-includes = true`, `unix-archive = ".tar.gz"` / `".tar.xz"` / `".tar.zst"` / `".zip"`, `windows-archive = ".zip"` / `".tar.gz"`, `precise-builds = true`, `cache-builds = false`, `build-local-artifacts = true`, `dispatch-releases = false`, `merge-tasks = false`, `force-latest = false`, `publish-prereleases = false`, `msvc-crt-static = true`, `npm-shrinkwrap = true`, `npm-scope = "@axodotdev"`, `npm-package = "mycoolapp"`, `tap = "owner/homebrew-tap"`, `formula = "myformula"`, `install-path = "CARGO_HOME"` / `"~/.my-app/"`, `install-success-msg = "…"`, `tag-namespace = "…"`, `github-releases-repo = "owner/repo"`, `github-releases-branch = "main"`, `simple-download-url = "https://…"`. Exact kebab-case cargo-dist keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`targets = […]`, `installers = […]`, `packages = […]`, `hosting = […]`, `install-path = […]`, `allow-dirty = […]`) / prose / wrong case / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
+
 ## [0.3.628] — 2026-11-05
 
 View:
