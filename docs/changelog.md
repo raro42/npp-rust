@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+## [0.3.631] — 2026-11-06
+
+View:
+
+- **Function List** lists cargo-make `Makefile.toml` sections and fields: `[config]` / `[config.modify_core_tasks]` / `[tasks.build]` / `[tasks.ci-flow]`, `skip_core_tasks = true`, `default_to_workspace = false`, `time_summary = true`, `reduce_input_verbosity = true`, `skip_git_env_info = true`, `skip_rust_env_info = true`, `skip_crate_env_info = true`, `load_cargo_aliases = true`, `load_script = "…"`, `init_task = "…"`, `end_task = "…"`, `on_error_task = "…"`, `main_project_member = "…"`, `skip_tools_install = true`, `disable_color = true`, `min_version = "0.37.0"`, `script_runner = "@duckscript"`, `script_extension = "sh"`, `install_crate = "cargo-outdated"`, `install_script = "…"`, `ignore_errors = true`, `condition_script = "…"`, `CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"`. Exact snake_case cargo-make keys (and `CARGO_MAKE_*` env keys). TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`args = […]`, `dependencies = […]`, `env = {…}`, `run_task = {…}`, `condition = {…}`) / prose / wrong case / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
+
+
 ## [0.3.630] — 2026-11-06
 
 View:

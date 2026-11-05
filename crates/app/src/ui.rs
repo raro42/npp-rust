@@ -32381,6 +32381,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_mdbook_toml_decl(s)
             || is_dist_toml_decl(s)
             || is_release_toml_decl(s)
+            || is_cargo_make_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32589,6 +32590,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_mdbook_toml_decl(s)
         || is_dist_toml_decl(s)
         || is_release_toml_decl(s)
+        || is_cargo_make_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -54265,6 +54267,217 @@ fn release_toml_shared_name_ok(name: &str) -> bool {
         .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
 }
 
+/// cargo-make `Makefile.toml`: `[config]` / `[config.modify_core_tasks]` /
+/// `[tasks.build]` / `[tasks.ci-flow]`, `skip_core_tasks = true`,
+/// `default_to_workspace = false`, `time_summary = true`,
+/// `reduce_input_verbosity = true`, `skip_git_env_info = true`,
+/// `skip_rust_env_info = true`, `skip_crate_env_info = true`,
+/// `load_cargo_aliases = true`, `load_script = "…"`, `init_task = "…"`,
+/// `end_task = "…"`, `on_error_task = "…"`, `main_project_member = "…"`,
+/// `skip_tools_install = true`, `disable_color = true`,
+/// `min_version = "0.37.0"`, `script_runner = "@duckscript"`,
+/// `script_extension = "sh"`, `install_crate = "cargo-outdated"`,
+/// `install_script = "…"`, `ignore_errors = true`,
+/// `condition_script = "…"`, `CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"`.
+/// Exact snake_case cargo-make keys (and `CARGO_MAKE_*` env keys). TOML
+/// `key = value` with spaces around `=`. Optional `#` comment. Nested maps /
+/// arrays (`args = […]`, `dependencies = […]`, `env = {…}`, `run_task = {…}`,
+/// `condition = {…}`) / prose / wrong case / release.toml / Dist.toml /
+/// mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config /
+/// nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc /
+/// pip / Cargo.toml stay out.
+fn is_cargo_make_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // No `[[…]]` tables in stock Makefile.toml config / tasks headers.
+        if array {
+            return false;
+        }
+        return cargo_make_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested dotted free-form keys stay out (env.FOO under tasks is nested).
+    if key.contains('.') {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    if cargo_make_toml_key_ok(key) {
+        return cargo_make_toml_value_ok(key, value);
+    }
+    if cargo_make_env_key_ok(key) {
+        return cargo_make_env_value_ok(value);
+    }
+    false
+}
+
+fn cargo_make_toml_section_ok(header: &str) -> bool {
+    if matches!(header, "config" | "config.modify_core_tasks") {
+        return true;
+    }
+    if let Some(name) = header.strip_prefix("tasks.") {
+        return cargo_make_task_name_ok(name);
+    }
+    false
+}
+
+fn cargo_make_task_name_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+}
+
+fn cargo_make_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "skip_core_tasks"
+            | "default_to_workspace"
+            | "time_summary"
+            | "reduce_input_verbosity"
+            | "skip_git_env_info"
+            | "skip_rust_env_info"
+            | "skip_crate_env_info"
+            | "load_cargo_aliases"
+            | "load_script"
+            | "init_task"
+            | "end_task"
+            | "on_error_task"
+            | "main_project_member"
+            | "skip_tools_install"
+            | "disable_color"
+            | "min_version"
+            | "script_runner"
+            | "script_extension"
+            | "install_crate"
+            | "install_script"
+            | "ignore_errors"
+            | "condition_script"
+    )
+}
+
+fn cargo_make_env_key_ok(key: &str) -> bool {
+    if !key.starts_with("CARGO_MAKE_") || key.len() > 96 {
+        return false;
+    }
+    let rest = &key["CARGO_MAKE_".len()..];
+    if rest.is_empty() {
+        return false;
+    }
+    rest.bytes()
+        .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
+}
+
+fn cargo_make_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (args = […], dependencies = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "skip_core_tasks"
+            | "default_to_workspace"
+            | "time_summary"
+            | "reduce_input_verbosity"
+            | "skip_git_env_info"
+            | "skip_rust_env_info"
+            | "skip_crate_env_info"
+            | "load_cargo_aliases"
+            | "skip_tools_install"
+            | "disable_color"
+            | "ignore_errors"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(
+        key,
+        "load_script"
+            | "init_task"
+            | "end_task"
+            | "on_error_task"
+            | "main_project_member"
+            | "min_version"
+            | "script_runner"
+            | "script_extension"
+            | "install_crate"
+            | "install_script"
+            | "condition_script"
+    ) {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 256 {
+            return false;
+        }
+        // Paths / @runners / task names: graphic ASCII + space/tab.
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
+    }
+    false
+}
+
+fn cargo_make_env_value_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    if bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false") {
+        return true;
+    }
+    // Quoted or bare graphic values (paths, flags, numbers).
+    bare.bytes()
+        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -57080,31 +57293,31 @@ mod func_like_line_tests {
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
         is_apt_sources_decl, is_audit_rules_decl, is_aws_config_decl, is_bacon_toml_decl,
         is_binfmt_d_decl, is_bitbake_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl,
-        is_cargo_config_toml_decl, is_cargo_toml_decl, is_clippy_toml_decl, is_composer_json_decl,
-        is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl, is_deny_toml_decl,
-        is_desktop_entry_decl, is_dhcpd_decl, is_dist_toml_decl, is_dovecot_decl,
-        is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
-        is_fluent_bit_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
-        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mdbook_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
-        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl,
-        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl,
+        is_clippy_toml_decl, is_composer_json_decl, is_cross_toml_decl, is_crypttab_decl,
+        is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl,
+        is_dist_toml_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
+        is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
+        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
+        is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl, is_hosts_file_decl,
+        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mkinitcpio_conf_decl,
+        is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl,
+        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_scons_decl, is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_tox_ini_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -66736,8 +66949,153 @@ mod func_like_line_tests {
         assert!(!is_nextest_toml_decl("enable-all-features = false"));
         assert!(!is_deny_toml_decl("pre-release-commit-message = \"x\""));
         assert!(!is_rust_toolchain_toml_decl("push-remote = \"origin\""));
+        assert!(!is_cargo_make_toml_decl("sign-commit = false"));
+        assert!(!is_cargo_make_toml_decl("[rate-limit]"));
         assert!(!line_is_func_like("sign-commit"));
         assert!(!line_is_func_like("Sign-Commit = false"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn cargo_make_toml_entries_count() {
+        assert!(line_is_func_like("[config]"));
+        assert!(line_is_func_like("[config.modify_core_tasks]"));
+        assert!(line_is_func_like("[tasks.build]"));
+        assert!(line_is_func_like("[tasks.ci-flow]"));
+        assert!(line_is_func_like("skip_core_tasks = true"));
+        assert!(line_is_func_like("default_to_workspace = false"));
+        assert!(line_is_func_like("time_summary = true"));
+        assert!(line_is_func_like("reduce_input_verbosity = true"));
+        assert!(line_is_func_like("skip_git_env_info = true"));
+        assert!(line_is_func_like("skip_rust_env_info = true"));
+        assert!(line_is_func_like("skip_crate_env_info = true"));
+        assert!(line_is_func_like("load_cargo_aliases = true"));
+        assert!(line_is_func_like("load_script = \"./scripts/load.sh\""));
+        assert!(line_is_func_like("init_task = \"setup\""));
+        assert!(line_is_func_like("end_task = \"teardown\""));
+        assert!(line_is_func_like("on_error_task = \"recover\""));
+        assert!(line_is_func_like("main_project_member = \"crates/app\""));
+        assert!(line_is_func_like("skip_tools_install = true"));
+        assert!(line_is_func_like("disable_color = false"));
+        assert!(line_is_func_like("min_version = \"0.37.0\""));
+        assert!(line_is_func_like("script_runner = \"@duckscript\""));
+        assert!(line_is_func_like("script_extension = \"sh\""));
+        assert!(line_is_func_like("install_crate = \"cargo-outdated\""));
+        assert!(line_is_func_like("install_script = \"./install.sh\""));
+        assert!(line_is_func_like("ignore_errors = true"));
+        assert!(line_is_func_like(
+            "condition_script = \"test -f Cargo.toml\""
+        ));
+        assert!(line_is_func_like(
+            "CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = \"true\""
+        ));
+        assert!(line_is_func_like(
+            "CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS = \"app\""
+        ));
+        assert!(line_is_func_like("  skip_core_tasks = true # quiet"));
+        // Shared detector for cargo-make-only keys / sections.
+        assert!(is_cargo_make_toml_decl("[config]"));
+        assert!(is_cargo_make_toml_decl("[tasks.build]"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("script_runner = \"@duckscript\""));
+        assert!(is_cargo_make_toml_decl(
+            "CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = \"true\""
+        ));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_cargo_make_toml_decl("skip_core_tasks"));
+        assert!(!is_cargo_make_toml_decl("skip_core_tasks ="));
+        assert!(!is_cargo_make_toml_decl("Skip_Core_Tasks = true"));
+        assert!(!is_cargo_make_toml_decl("SKIP_CORE_TASKS = true"));
+        assert!(!is_cargo_make_toml_decl("skip_core_tasks the team"));
+        assert!(!is_cargo_make_toml_decl("# skip_core_tasks = true"));
+        assert!(!is_cargo_make_toml_decl("args = [\"build\"]"));
+        assert!(!is_cargo_make_toml_decl("dependencies = [\"format\"]"));
+        assert!(!is_cargo_make_toml_decl("env = { FOO = \"bar\" }"));
+        assert!(!is_cargo_make_toml_decl("run_task = { name = \"build\" }"));
+        assert!(!is_cargo_make_toml_decl(
+            "condition = { files_modified = { input = [\"src/**/*.rs\"] } }"
+        ));
+        assert!(!is_cargo_make_toml_decl("command = \"cargo\""));
+        assert!(!is_cargo_make_toml_decl("description = \"build it\""));
+        assert!(!is_cargo_make_toml_decl("init_task = setup"));
+        assert!(!is_cargo_make_toml_decl("script_runner = duckscript"));
+        assert!(!is_cargo_make_toml_decl("PATH=/usr/bin"));
+        assert!(!is_cargo_make_toml_decl("[Config]"));
+        assert!(!is_cargo_make_toml_decl("[CONFIG]"));
+        assert!(!is_cargo_make_toml_decl("[[tasks.build]]"));
+        assert!(!is_cargo_make_toml_decl("[env]"));
+        assert!(!is_cargo_make_toml_decl("[tasks.]"));
+        assert!(!is_cargo_make_toml_decl("[tasks.the team]"));
+        assert!(!is_cargo_make_toml_decl("[package]"));
+        assert!(!is_cargo_make_toml_decl("[[bin]]"));
+        assert!(!is_cargo_make_toml_decl("[workspace]"));
+        assert!(!is_cargo_make_toml_decl("CARGO_MAKE_ = \"x\""));
+        assert!(!is_cargo_make_toml_decl("cargo_make_foo = \"x\""));
+        // Neighbouring families stay on their paths.
+        assert!(!is_cargo_make_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(!is_cargo_make_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_cargo_make_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_cargo_make_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_cargo_make_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_cargo_make_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_cargo_make_toml_decl("[jobs.check]"));
+        assert!(is_bacon_toml_decl("[jobs.check]"));
+        assert!(!is_cargo_make_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_cargo_make_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_cargo_make_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_cargo_make_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_cargo_make_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_cargo_make_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_cargo_make_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_cargo_make_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_cargo_make_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_cargo_make_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_cargo_make_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_cargo_make_toml_decl(
+            "registry=https://registry.npmjs.org/"
+        ));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_cargo_make_toml_decl(
+            "index-url = https://pypi.org/simple"
+        ));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_cargo_make_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_cargo_make_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_release_toml_decl("skip_core_tasks = true"));
+        assert!(!is_dist_toml_decl("skip_core_tasks = true"));
+        assert!(!is_mdbook_toml_decl("script_runner = \"@duckscript\""));
+        assert!(!is_taplo_toml_decl("install_crate = \"cargo-outdated\""));
+        assert!(!is_typos_toml_decl("ignore_errors = true"));
+        assert!(!is_bacon_toml_decl("[tasks.build]"));
+        assert!(!is_cross_toml_decl(
+            "CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = \"true\""
+        ));
+        assert!(!is_nextest_toml_decl("default_to_workspace = false"));
+        assert!(!is_deny_toml_decl("time_summary = true"));
+        assert!(!is_rust_toolchain_toml_decl(
+            "reduce_input_verbosity = true"
+        ));
+        assert!(!line_is_func_like("skip_core_tasks"));
+        assert!(!line_is_func_like("Skip_Core_Tasks = true"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

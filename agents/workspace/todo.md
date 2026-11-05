@@ -924,3 +924,4 @@
 009 keep: Function List mdBook book.toml book/rust/build/output.html (v0.3.628)
 009 keep: Function List cargo-dist Dist.toml / dist-workspace.toml (v0.3.629)
 009 keep: Function List cargo-release release.toml (v0.3.630)
+009 keep: Function List cargo-make Makefile.toml (v0.3.631)
