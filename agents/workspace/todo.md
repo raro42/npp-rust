@@ -920,3 +920,4 @@
 
 009 keep: Function List bacon.toml jobs/keybindings/default_job (v0.3.625)
 009 keep: Function List typos.toml files/default/check-filename (v0.3.626)
+009 keep: Function List Taplo taplo.toml formatting/schema/rule (v0.3.627)

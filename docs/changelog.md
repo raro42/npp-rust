@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.627] — 2026-11-05
+
+View:
+
+- **Function List** lists Taplo `taplo.toml` / `.taplo.toml` sections and fields: `[formatting]` / `[schema]` / `[[rule]]` / `[rule.formatting]` / `[rule.schema]`, `align_entries = true`, `align_comments = true`, `align_single_comments = true`, `array_trailing_comma = true`, `array_auto_expand = true`, `array_auto_collapse = true`, `compact_arrays = true`, `compact_inline_tables = false`, `inline_table_expand = true`, `compact_entries = false`, `column_width = 80`, `indent_tables = false`, `indent_entries = false`, `indent_string = "  "`, `trailing_newline = true`, `reorder_keys = false`, `reorder_arrays = false`, `reorder_inline_tables = false`, `allowed_blank_lines = 2`, `crlf = false`, `enabled = true`, `path = "taplo://taplo.toml"` / `"./schema.json"` / `"https://…"`. Exact snake_case Taplo keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`include = […]`, `exclude = […]`, `keys = […]`) / prose / wrong case / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.626] — 2026-11-05
 
 View:

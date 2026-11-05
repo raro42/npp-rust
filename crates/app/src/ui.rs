@@ -32377,6 +32377,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_rust_toolchain_toml_decl(s)
             || is_bacon_toml_decl(s)
             || is_typos_toml_decl(s)
+            || is_taplo_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32581,6 +32582,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_rust_toolchain_toml_decl(s)
         || is_bacon_toml_decl(s)
         || is_typos_toml_decl(s)
+        || is_taplo_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -53280,6 +53282,169 @@ fn typos_toml_value_ok(key: &str, value: &str) -> bool {
     false
 }
 
+/// Taplo `taplo.toml` / `.taplo.toml`: `[formatting]` / `[schema]` /
+/// `[[rule]]` / `[rule.formatting]` / `[rule.schema]`, `align_entries = true`,
+/// `align_comments = true`, `align_single_comments = true`,
+/// `array_trailing_comma = true`, `array_auto_expand = true`,
+/// `array_auto_collapse = true`, `compact_arrays = true`,
+/// `compact_inline_tables = false`, `inline_table_expand = true`,
+/// `compact_entries = false`, `column_width = 80`, `indent_tables = false`,
+/// `indent_entries = false`, `indent_string = "  "`, `trailing_newline = true`,
+/// `reorder_keys = false`, `reorder_arrays = false`,
+/// `reorder_inline_tables = false`, `allowed_blank_lines = 2`, `crlf = false`,
+/// `enabled = true`, `path = "taplo://taplo.toml"` / `"./schema.json"` /
+/// `"https://…"`. Exact snake_case Taplo keys. TOML `key = value` with spaces
+/// around `=`. Optional `#` comment. Nested maps / arrays (`include = […]`,
+/// `exclude = […]`, `keys = […]`) / prose / wrong case / typos / bacon /
+/// Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt /
+/// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+fn is_taplo_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        if array {
+            return header == "rule";
+        }
+        return taplo_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if key.contains('.') {
+        return false;
+    }
+    if !taplo_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    taplo_toml_value_ok(key, value)
+}
+
+fn taplo_toml_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "formatting" | "schema" | "rule.formatting" | "rule.schema"
+    )
+}
+
+fn taplo_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "align_entries"
+            | "align_comments"
+            | "align_single_comments"
+            | "array_trailing_comma"
+            | "array_auto_expand"
+            | "array_auto_collapse"
+            | "compact_arrays"
+            | "compact_inline_tables"
+            | "inline_table_expand"
+            | "compact_entries"
+            | "column_width"
+            | "indent_tables"
+            | "indent_entries"
+            | "indent_string"
+            | "trailing_newline"
+            | "reorder_keys"
+            | "reorder_arrays"
+            | "reorder_inline_tables"
+            | "allowed_blank_lines"
+            | "crlf"
+            | "enabled"
+            | "path"
+    )
+}
+
+fn taplo_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (include = […], exclude = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "align_entries"
+            | "align_comments"
+            | "align_single_comments"
+            | "array_trailing_comma"
+            | "array_auto_expand"
+            | "array_auto_collapse"
+            | "compact_arrays"
+            | "compact_inline_tables"
+            | "inline_table_expand"
+            | "compact_entries"
+            | "indent_tables"
+            | "indent_entries"
+            | "trailing_newline"
+            | "reorder_keys"
+            | "reorder_arrays"
+            | "reorder_inline_tables"
+            | "crlf"
+            | "enabled"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(key, "column_width" | "allowed_blank_lines") {
+        return bare.len() <= 8 && bare.bytes().all(|b| b.is_ascii_digit());
+    }
+    if key == "indent_string" {
+        // Quoted whitespace / tabs only (default two spaces). Bare words stay out.
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return bare.bytes().all(|b| matches!(b, b' ' | b'\t'));
+    }
+    if key == "path" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 512 {
+            return false;
+        }
+        return bare.starts_with("taplo://")
+            || bare.starts_with("http://")
+            || bare.starts_with("https://")
+            || bare.starts_with("file://")
+            || bare.starts_with("./")
+            || bare.starts_with("../")
+            || (bare.starts_with('/') && bare.len() > 1);
+    }
+    false
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -56115,10 +56280,10 @@ mod func_like_line_tests {
         is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
         is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -65185,6 +65350,118 @@ mod func_like_line_tests {
         assert!(!is_rust_toolchain_toml_decl("[default]"));
         assert!(!line_is_func_like("check-filename"));
         assert!(!line_is_func_like("Check-Filename = true"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn taplo_toml_entries_count() {
+        assert!(line_is_func_like("[formatting]"));
+        assert!(line_is_func_like("[schema]"));
+        assert!(line_is_func_like("[[rule]]"));
+        assert!(line_is_func_like("[rule.formatting]"));
+        assert!(line_is_func_like("[rule.schema]"));
+        assert!(line_is_func_like("align_entries = true"));
+        assert!(line_is_func_like("align_comments = false"));
+        assert!(line_is_func_like("align_single_comments = true"));
+        assert!(line_is_func_like("array_trailing_comma = true"));
+        assert!(line_is_func_like("array_auto_expand = false"));
+        assert!(line_is_func_like("array_auto_collapse = true"));
+        assert!(line_is_func_like("compact_arrays = true"));
+        assert!(line_is_func_like("compact_inline_tables = false"));
+        assert!(line_is_func_like("inline_table_expand = true"));
+        assert!(line_is_func_like("compact_entries = false"));
+        assert!(line_is_func_like("column_width = 80"));
+        assert!(line_is_func_like("indent_tables = true"));
+        assert!(line_is_func_like("indent_entries = false"));
+        assert!(line_is_func_like("indent_string = \"  \""));
+        assert!(is_taplo_toml_decl("indent_string = \"\t\""));
+        assert!(line_is_func_like("trailing_newline = true"));
+        assert!(line_is_func_like("reorder_keys = true"));
+        assert!(line_is_func_like("reorder_arrays = false"));
+        assert!(line_is_func_like("reorder_inline_tables = true"));
+        assert!(line_is_func_like("allowed_blank_lines = 2"));
+        assert!(line_is_func_like("crlf = false"));
+        assert!(line_is_func_like("enabled = true"));
+        assert!(line_is_func_like("path = \"taplo://taplo.toml\""));
+        assert!(line_is_func_like("path = \"./schema.json\""));
+        assert!(line_is_func_like(
+            "path = \"https://example.com/schema.json\""
+        ));
+        assert!(line_is_func_like(
+            "  reorder_keys = false # Cargo deps only"
+        ));
+        // Shared detector for Taplo-only keys / sections.
+        assert!(is_taplo_toml_decl("[formatting]"));
+        assert!(is_taplo_toml_decl("[[rule]]"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("column_width = 100"));
+        assert!(is_taplo_toml_decl("path = \"file:///tmp/schema.json\""));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_taplo_toml_decl("align_entries"));
+        assert!(!is_taplo_toml_decl("align_entries ="));
+        assert!(!is_taplo_toml_decl("Align_Entries = true"));
+        assert!(!is_taplo_toml_decl("ALIGN_ENTRIES = true"));
+        assert!(!is_taplo_toml_decl("align_entries the team"));
+        assert!(!is_taplo_toml_decl("# align_entries = true"));
+        assert!(!is_taplo_toml_decl("include = [\"**/*.toml\"]"));
+        assert!(!is_taplo_toml_decl("exclude = [\"target\"]"));
+        assert!(!is_taplo_toml_decl("keys = [\"dependencies\"]"));
+        assert!(!is_taplo_toml_decl("indent_string = spaces"));
+        assert!(!is_taplo_toml_decl("indent_string = \"\""));
+        assert!(!is_taplo_toml_decl("indent_string = \"abc\""));
+        assert!(!is_taplo_toml_decl("column_width = wide"));
+        assert!(!is_taplo_toml_decl("path = schema.json"));
+        assert!(!is_taplo_toml_decl("path = \"schema.json\""));
+        assert!(!is_taplo_toml_decl("PATH=/usr/bin"));
+        assert!(!is_taplo_toml_decl("[Formatting]"));
+        assert!(!is_taplo_toml_decl("[SCHEMA]"));
+        assert!(!is_taplo_toml_decl("[[Rule]]"));
+        assert!(!is_taplo_toml_decl("[rule]"));
+        assert!(!is_taplo_toml_decl("[package]"));
+        assert!(!is_taplo_toml_decl("[[bin]]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_taplo_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_taplo_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_taplo_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_taplo_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_taplo_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_taplo_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_taplo_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_taplo_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_taplo_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_taplo_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_taplo_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_taplo_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_taplo_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_taplo_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_taplo_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_taplo_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_taplo_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_typos_toml_decl("align_entries = true"));
+        assert!(!is_bacon_toml_decl("align_entries = true"));
+        assert!(!is_cross_toml_decl("[[rule]]"));
+        assert!(!is_nextest_toml_decl("[formatting]"));
+        assert!(!is_deny_toml_decl("[schema]"));
+        assert!(!is_rust_toolchain_toml_decl("reorder_keys = true"));
+        assert!(!line_is_func_like("align_entries"));
+        assert!(!line_is_func_like("Align_Entries = true"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
