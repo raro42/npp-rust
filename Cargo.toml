@@ -11,7 +11,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.3.618"
+version = "0.3.619"
 edition = "2021"
 license = "MIT"
 

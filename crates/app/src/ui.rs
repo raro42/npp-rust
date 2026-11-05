@@ -32369,6 +32369,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_uv_toml_decl(s)
             || is_ruff_toml_decl(s)
             || is_rustfmt_toml_decl(s)
+            || is_clippy_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32565,6 +32566,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_uv_toml_decl(s)
         || is_ruff_toml_decl(s)
         || is_rustfmt_toml_decl(s)
+        || is_clippy_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -51364,6 +51366,299 @@ fn rustfmt_toml_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// Rust `clippy.toml` / `.clippy.toml` (project / user): `msrv = "1.70.0"`,
+/// `avoid-breaking-exported-api = true`, `cognitive-complexity-threshold = 25`,
+/// `too-many-arguments-threshold = 7`, `too-many-lines-threshold = 100`,
+/// `type-complexity-threshold = 250`, `excessive-nesting-threshold = 0`,
+/// `enum-variant-size-threshold = 200`, `array-size-threshold = 16384`,
+/// `allow-expect-in-tests = false`, `allow-unwrap-in-tests = false`,
+/// `allow-dbg-in-tests = false`, `allow-print-in-tests = false`,
+/// `allow-panic-in-tests = false`, `check-private-items = false`,
+/// `warn-on-all-wildcard-imports = false`,
+/// `upper-case-acronyms-aggressive = false`,
+/// `inherent-impl-lint-scope = "crate"`,
+/// `matches-for-let-else = "well-known-types"`,
+/// `pub-underscore-fields-behavior = "publicly-exported"`.
+/// Exact kebab-case Clippy keys. TOML `key = value` with spaces around `=`.
+/// Optional `#` comment. Nested maps / arrays (`disallowed-names` /
+/// `doc-valid-idents`) / prose / wrong case / rustfmt / ruff / uv / bunfig /
+/// yarn / npmrc / pip / Cargo stay out. `Cargo.toml` tables stay on Cargo.
+fn is_clippy_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    // clippy.toml is flat (no stock sections). Reject bracket headers so
+    // Cargo / ruff / uv / pyproject stay on their paths.
+    if cargo_toml_header(s).is_some() {
+        return false;
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if !clippy_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    clippy_toml_value_ok(key, value)
+}
+
+fn clippy_toml_key_ok(key: &str) -> bool {
+    const KEYS: &[&str] = &[
+        "absolute-paths-max-segments",
+        "accept-comment-above-attributes",
+        "accept-comment-above-statement",
+        "allow-comparison-to-zero",
+        "allow-dbg-in-tests",
+        "allow-exact-repetitions",
+        "allow-expect-in-consts",
+        "allow-expect-in-tests",
+        "allow-indexing-slicing-in-tests",
+        "allow-large-stack-frames-in-tests",
+        "allow-mixed-uninlined-format-args",
+        "allow-one-hash-in-raw-strings",
+        "allow-panic-in-tests",
+        "allow-print-in-tests",
+        "allow-private-module-inception",
+        "allow-unwrap-in-consts",
+        "allow-unwrap-in-tests",
+        "allow-useless-vec-in-tests",
+        "array-size-threshold",
+        "avoid-breaking-exported-api",
+        "cargo-ignore-publish",
+        "check-grouped-late-init",
+        "check-incompatible-msrv-in-tests",
+        "check-inconsistent-struct-field-initializers",
+        "check-private-items",
+        "cognitive-complexity-threshold",
+        "const-literal-digits-threshold",
+        "enable-raw-pointer-heuristic-for-send",
+        "enforce-iter-loop-reborrow",
+        "enum-variant-name-threshold",
+        "enum-variant-size-threshold",
+        "excessive-nesting-threshold",
+        "future-size-threshold",
+        "inherent-impl-lint-scope",
+        "large-error-threshold",
+        "lint-commented-code",
+        "literal-representation-threshold",
+        "matches-for-let-else",
+        "max-fn-params-bools",
+        "max-include-file-size",
+        "max-struct-bools",
+        "max-suggested-slice-pattern-length",
+        "max-trait-bounds",
+        "min-ident-chars-lint-trait-impl",
+        "min-ident-chars-threshold",
+        "missing-docs-allow-unused",
+        "missing-docs-in-crate-items",
+        "msrv",
+        "pass-by-value-size-limit",
+        "pub-underscore-fields-behavior",
+        "recursive-self-in-type-definitions",
+        "semicolon-inside-block-ignore-singleline",
+        "semicolon-outside-block-ignore-multiline",
+        "single-char-binding-names-threshold",
+        "stack-size-threshold",
+        "struct-field-name-threshold",
+        "suppress-restriction-lint-in-const",
+        "too-large-for-stack",
+        "too-many-arguments-threshold",
+        "too-many-lines-threshold",
+        "trait-impl-item-order",
+        "trivial-copy-size-limit",
+        "type-complexity-threshold",
+        "unnecessary-box-size",
+        "unreadable-literal-lint-fractions",
+        "upper-case-acronyms-aggressive",
+        "vec-box-size-threshold",
+        "verbose-bit-mask-threshold",
+        "warn-on-all-wildcard-imports",
+        "warn-unsafe-macro-metavars-in-private-macros",
+    ];
+    KEYS.contains(&key)
+}
+
+fn clippy_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (disallowed-names, doc-valid-idents, …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "accept-comment-above-attributes"
+            | "accept-comment-above-statement"
+            | "allow-comparison-to-zero"
+            | "allow-dbg-in-tests"
+            | "allow-exact-repetitions"
+            | "allow-expect-in-consts"
+            | "allow-expect-in-tests"
+            | "allow-indexing-slicing-in-tests"
+            | "allow-large-stack-frames-in-tests"
+            | "allow-mixed-uninlined-format-args"
+            | "allow-one-hash-in-raw-strings"
+            | "allow-panic-in-tests"
+            | "allow-print-in-tests"
+            | "allow-private-module-inception"
+            | "allow-unwrap-in-consts"
+            | "allow-unwrap-in-tests"
+            | "allow-useless-vec-in-tests"
+            | "avoid-breaking-exported-api"
+            | "cargo-ignore-publish"
+            | "check-grouped-late-init"
+            | "check-incompatible-msrv-in-tests"
+            | "check-inconsistent-struct-field-initializers"
+            | "check-private-items"
+            | "enable-raw-pointer-heuristic-for-send"
+            | "enforce-iter-loop-reborrow"
+            | "lint-commented-code"
+            | "min-ident-chars-lint-trait-impl"
+            | "missing-docs-allow-unused"
+            | "missing-docs-in-crate-items"
+            | "recursive-self-in-type-definitions"
+            | "semicolon-inside-block-ignore-singleline"
+            | "semicolon-outside-block-ignore-multiline"
+            | "suppress-restriction-lint-in-const"
+            | "unreadable-literal-lint-fractions"
+            | "upper-case-acronyms-aggressive"
+            | "warn-on-all-wildcard-imports"
+            | "warn-unsafe-macro-metavars-in-private-macros"
+            | "inherent-impl-lint-scope"
+            | "matches-for-let-else"
+            | "pub-underscore-fields-behavior"
+            | "trait-impl-item-order"
+    ) {
+        let distinctive = bare.contains('.')
+            || bare.contains('-')
+            || bare.contains('_')
+            || bare.eq_ignore_ascii_case("true")
+            || bare.eq_ignore_ascii_case("false")
+            || bare.eq_ignore_ascii_case("crate")
+            || bare.eq_ignore_ascii_case("file")
+            || bare.eq_ignore_ascii_case("module")
+            || bare.eq_ignore_ascii_case("all")
+            || bare.eq_ignore_ascii_case("never")
+            || bare.eq_ignore_ascii_case("wellknowntypes")
+            || bare.eq_ignore_ascii_case("well-known-types")
+            || bare.eq_ignore_ascii_case("publiclyexported")
+            || bare.eq_ignore_ascii_case("publicly-exported")
+            || bare.eq_ignore_ascii_case("alphabetical")
+            || bare.eq_ignore_ascii_case("keep_order")
+            || bare.eq_ignore_ascii_case("keep-order")
+            || bare.chars().all(|c| c.is_ascii_digit());
+        if !distinctive {
+            return false;
+        }
+    }
+    if matches!(
+        key,
+        "absolute-paths-max-segments"
+            | "array-size-threshold"
+            | "cognitive-complexity-threshold"
+            | "const-literal-digits-threshold"
+            | "enum-variant-name-threshold"
+            | "enum-variant-size-threshold"
+            | "excessive-nesting-threshold"
+            | "future-size-threshold"
+            | "large-error-threshold"
+            | "literal-representation-threshold"
+            | "max-fn-params-bools"
+            | "max-include-file-size"
+            | "max-struct-bools"
+            | "max-suggested-slice-pattern-length"
+            | "max-trait-bounds"
+            | "min-ident-chars-threshold"
+            | "pass-by-value-size-limit"
+            | "single-char-binding-names-threshold"
+            | "stack-size-threshold"
+            | "struct-field-name-threshold"
+            | "too-large-for-stack"
+            | "too-many-arguments-threshold"
+            | "too-many-lines-threshold"
+            | "trivial-copy-size-limit"
+            | "type-complexity-threshold"
+            | "unnecessary-box-size"
+            | "vec-box-size-threshold"
+            | "verbose-bit-mask-threshold"
+    ) {
+        let numeric = !bare.is_empty() && bare.chars().all(|c| c.is_ascii_digit() || c == '_');
+        if !numeric {
+            return false;
+        }
+    }
+    if key == "msrv" {
+        let versionish = bare.contains('.')
+            || bare.chars().all(|c| c.is_ascii_digit())
+            || bare.starts_with('=')
+            || bare.starts_with('^')
+            || bare.starts_with('~')
+            || bare.starts_with('>');
+        if !versionish {
+            return false;
+        }
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b'\\'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'"'
+                    | b'\''
+                    | b'>'
+                    | b'<'
+                    | b'!'
+                    | b'^'
+                    | b'*'
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -54179,19 +54474,19 @@ mod func_like_line_tests {
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
         is_apt_sources_decl, is_audit_rules_decl, is_aws_config_decl, is_binfmt_d_decl,
         is_bitbake_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl, is_cargo_toml_decl,
-        is_composer_json_decl, is_crypttab_decl, is_default_grub_decl, is_desktop_entry_decl,
-        is_dhcpd_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
-        is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
-        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
-        is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl, is_hosts_file_decl,
-        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
-        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_clippy_toml_decl, is_composer_json_decl, is_crypttab_decl, is_default_grub_decl,
+        is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl, is_dracut_conf_decl,
+        is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl,
+        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl,
+        is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
+        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mkinitcpio_conf_decl,
+        is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
         is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl,
         is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rustfmt_toml_decl,
         is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
@@ -62464,9 +62759,85 @@ mod func_like_line_tests {
         assert!(!is_uv_toml_decl("max_width = 100"));
         assert!(!is_bunfig_toml_decl("max_width = 100"));
         assert!(!is_pip_conf_decl("max_width = 100"));
+        assert!(!is_clippy_toml_decl("max_width = 100"));
         assert!(!line_is_func_like("max_width"));
         assert!(!line_is_func_like("newline_style = \"fancy\""));
         assert!(!line_is_func_like("Max_Width = 100"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn clippy_toml_entries_count() {
+        assert!(line_is_func_like("msrv = \"1.70.0\""));
+        assert!(line_is_func_like("avoid-breaking-exported-api = true"));
+        assert!(line_is_func_like("cognitive-complexity-threshold = 25"));
+        assert!(line_is_func_like("too-many-arguments-threshold = 7"));
+        assert!(line_is_func_like("too-many-lines-threshold = 100"));
+        assert!(line_is_func_like("type-complexity-threshold = 250"));
+        assert!(line_is_func_like("excessive-nesting-threshold = 0"));
+        assert!(line_is_func_like("enum-variant-size-threshold = 200"));
+        assert!(line_is_func_like("array-size-threshold = 16384"));
+        assert!(line_is_func_like("array-size-threshold = 16_384"));
+        assert!(line_is_func_like("allow-expect-in-tests = false"));
+        assert!(line_is_func_like("allow-unwrap-in-tests = false"));
+        assert!(line_is_func_like("allow-dbg-in-tests = false"));
+        assert!(line_is_func_like("allow-print-in-tests = false"));
+        assert!(line_is_func_like("allow-panic-in-tests = false"));
+        assert!(line_is_func_like("check-private-items = false"));
+        assert!(line_is_func_like("warn-on-all-wildcard-imports = false"));
+        assert!(line_is_func_like("upper-case-acronyms-aggressive = false"));
+        assert!(line_is_func_like("inherent-impl-lint-scope = \"crate\""));
+        assert!(line_is_func_like(
+            "matches-for-let-else = \"well-known-types\""
+        ));
+        assert!(line_is_func_like(
+            "pub-underscore-fields-behavior = \"publicly-exported\""
+        ));
+        assert!(line_is_func_like("trivial-copy-size-limit = 128"));
+        assert!(line_is_func_like("  msrv = \"1.75\" # ci"));
+        // Bare / prose / incomplete / wrong case stay out.
+        assert!(!is_clippy_toml_decl("msrv"));
+        assert!(!is_clippy_toml_decl("msrv ="));
+        assert!(!is_clippy_toml_decl("Msrv = \"1.70.0\""));
+        assert!(!is_clippy_toml_decl("MSRV = \"1.70.0\""));
+        assert!(!is_clippy_toml_decl("msrv the team"));
+        assert!(!is_clippy_toml_decl("msrv = \"fancy\""));
+        assert!(!is_clippy_toml_decl("# msrv = \"1.70.0\""));
+        assert!(!is_clippy_toml_decl("disallowed-names = [\"foo\"]"));
+        assert!(!is_clippy_toml_decl("doc-valid-idents = []"));
+        assert!(!is_clippy_toml_decl("PATH=/usr/bin"));
+        assert!(!is_clippy_toml_decl("[workspace]"));
+        assert!(!is_clippy_toml_decl("[package]"));
+        assert!(!is_clippy_toml_decl("[[bin]]"));
+        assert!(!is_clippy_toml_decl("[lint]"));
+        assert!(!is_clippy_toml_decl("[lints.clippy]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_clippy_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_clippy_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_clippy_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_clippy_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_clippy_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_clippy_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_clippy_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_clippy_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_clippy_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_rustfmt_toml_decl("avoid-breaking-exported-api = true"));
+        assert!(!is_ruff_toml_decl("avoid-breaking-exported-api = true"));
+        assert!(!is_uv_toml_decl("avoid-breaking-exported-api = true"));
+        assert!(!is_bunfig_toml_decl("avoid-breaking-exported-api = true"));
+        assert!(!is_pip_conf_decl("avoid-breaking-exported-api = true"));
+        assert!(!line_is_func_like("msrv"));
+        assert!(!line_is_func_like("msrv = \"fancy\""));
+        assert!(!line_is_func_like("Msrv = \"1.70.0\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

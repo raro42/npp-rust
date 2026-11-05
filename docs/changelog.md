@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.619] — 2026-11-05
+
+View:
+
+- **Function List** lists Rust `clippy.toml` / `.clippy.toml` fields: `msrv = "1.70.0"`, `avoid-breaking-exported-api = true`, `cognitive-complexity-threshold = 25`, `too-many-arguments-threshold = 7`, `too-many-lines-threshold = 100`, `type-complexity-threshold = 250`, `excessive-nesting-threshold = 0`, `enum-variant-size-threshold = 200`, `array-size-threshold = 16384`, `allow-expect-in-tests = false`, `allow-unwrap-in-tests = false`, `allow-dbg-in-tests = false`, `allow-print-in-tests = false`, `allow-panic-in-tests = false`, `check-private-items = false`, `warn-on-all-wildcard-imports = false`, `upper-case-acronyms-aggressive = false`, `inherent-impl-lint-scope = "crate"`, `matches-for-let-else = "well-known-types"`, `pub-underscore-fields-behavior = "publicly-exported"`, `trivial-copy-size-limit = 128`. Exact kebab-case Clippy keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`disallowed-names` / `doc-valid-idents`) / prose / wrong case / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo stay out.
+
 ## [0.3.618] — 2026-11-05
 
 View:

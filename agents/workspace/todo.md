@@ -1,3 +1,5 @@
+009 keep: Function List clippy.toml / .clippy.toml (v0.3.619)
+
 009 keep: Function List rustfmt.toml / .rustfmt.toml (v0.3.618)
 
 009 keep: Function List Bun bunfig.toml (v0.3.614)
