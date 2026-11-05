@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.626] — 2026-11-05
+
+View:
+
+- **Function List** lists crate-ci typos `typos.toml` / `_typos.toml` / `.typos.toml` sections and fields: `[files]` / `[default]` / `[default.extend-words]` / `[default.extend-identifiers]` / `[type.rust]` / `[type.py]`, `ignore-hidden = true`, `ignore-files = true`, `ignore-dot = true`, `ignore-vcs = true`, `ignore-global = true`, `ignore-parent = true`, `check-filename = true`, `check-file = true`, `locale = "en"` / `"en-us"` / `"en-gb"` / `"en-ca"` / `"en-au"`. Exact kebab-case typos keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`extend-exclude = […]`, `extend-ignore-re = […]`, free-form `teh = "teh"` under extend-words) / prose / wrong case / `unicode` / `binary` (cargo config / generic) / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.625] — 2026-11-05
 
 View:

@@ -32376,6 +32376,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_cross_toml_decl(s)
             || is_rust_toolchain_toml_decl(s)
             || is_bacon_toml_decl(s)
+            || is_typos_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32579,6 +32580,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_cross_toml_decl(s)
         || is_rust_toolchain_toml_decl(s)
         || is_bacon_toml_decl(s)
+        || is_typos_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -53146,6 +53148,138 @@ fn bacon_toml_value_chars_ok(value: &str) -> bool {
     })
 }
 
+/// crate-ci typos `typos.toml` / `_typos.toml` / `.typos.toml`:
+/// `[files]` / `[default]` / `[default.extend-words]` /
+/// `[default.extend-identifiers]` / `[type.rust]` / `[type.py]`,
+/// `ignore-hidden = true`, `ignore-files = true`, `ignore-dot = true`,
+/// `ignore-vcs = true`, `ignore-global = true`, `ignore-parent = true`,
+/// `check-filename = true`, `check-file = true`, `locale = "en"` /
+/// `"en-us"` / `"en-gb"` / `"en-ca"` / `"en-au"`. Exact kebab-case typos
+/// keys. TOML `key = value` with spaces around `=`. Optional `#` comment.
+/// Nested maps / arrays (`extend-exclude = […]`, `extend-ignore-re = […]`,
+/// free-form `teh = "teh"` under extend-words) / prose / wrong case /
+/// `unicode` / `binary` (cargo config / generic) / bacon / Cross /
+/// rust-toolchain / cargo config / nextest / deny / clippy / rustfmt /
+/// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+fn is_typos_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return typos_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested `default.extend-words` keys stay as section headers only.
+    if key.contains('.') {
+        return false;
+    }
+    if !typos_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    typos_toml_value_ok(key, value)
+}
+
+fn typos_toml_section_ok(header: &str) -> bool {
+    if matches!(
+        header,
+        "files" | "default" | "default.extend-words" | "default.extend-identifiers"
+    ) {
+        return true;
+    }
+    if let Some(name) = header.strip_prefix("type.") {
+        return typos_toml_type_name_ok(name);
+    }
+    false
+}
+
+fn typos_toml_type_name_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+}
+
+fn typos_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "ignore-hidden"
+            | "ignore-files"
+            | "ignore-dot"
+            | "ignore-vcs"
+            | "ignore-global"
+            | "ignore-parent"
+            | "check-filename"
+            | "check-file"
+            | "locale"
+    )
+}
+
+fn typos_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (extend-exclude = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "ignore-hidden"
+            | "ignore-files"
+            | "ignore-dot"
+            | "ignore-vcs"
+            | "ignore-global"
+            | "ignore-parent"
+            | "check-filename"
+            | "check-file"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "locale" {
+        return matches!(bare, "en" | "en-us" | "en-gb" | "en-ca" | "en-au");
+    }
+    false
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -55981,10 +56115,10 @@ mod func_like_line_tests {
         is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
         is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
-        is_yum_repo_decl, line_is_func_like,
+        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -64957,6 +65091,100 @@ mod func_like_line_tests {
         assert!(!is_rust_toolchain_toml_decl("[keybindings]"));
         assert!(!line_is_func_like("default_job"));
         assert!(!line_is_func_like("Default_Job = \"check\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn typos_toml_entries_count() {
+        assert!(line_is_func_like("[files]"));
+        assert!(line_is_func_like("[default]"));
+        assert!(line_is_func_like("[default.extend-words]"));
+        assert!(line_is_func_like("[default.extend-identifiers]"));
+        assert!(line_is_func_like("[type.rust]"));
+        assert!(line_is_func_like("[type.py]"));
+        assert!(line_is_func_like("[type.go]"));
+        assert!(line_is_func_like("ignore-hidden = true"));
+        assert!(line_is_func_like("ignore-files = true"));
+        assert!(line_is_func_like("ignore-dot = false"));
+        assert!(line_is_func_like("ignore-vcs = true"));
+        assert!(line_is_func_like("ignore-global = true"));
+        assert!(line_is_func_like("ignore-parent = false"));
+        assert!(line_is_func_like("check-filename = true"));
+        assert!(line_is_func_like("check-file = false"));
+        assert!(line_is_func_like("locale = \"en\""));
+        assert!(line_is_func_like("locale = \"en-us\""));
+        assert!(line_is_func_like("locale = \"en-gb\""));
+        assert!(line_is_func_like("locale = \"en-ca\""));
+        assert!(line_is_func_like("locale = \"en-au\""));
+        assert!(line_is_func_like("  check-filename = false # skip names"));
+        // Shared detector for typos-only keys.
+        assert!(is_typos_toml_decl("[files]"));
+        assert!(is_typos_toml_decl("[default.extend-words]"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("ignore-vcs = false"));
+        assert!(is_typos_toml_decl("locale = \"en\""));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_typos_toml_decl("check-filename"));
+        assert!(!is_typos_toml_decl("check-filename ="));
+        assert!(!is_typos_toml_decl("Check-Filename = true"));
+        assert!(!is_typos_toml_decl("CHECK-FILENAME = true"));
+        assert!(!is_typos_toml_decl("check-filename the team"));
+        assert!(!is_typos_toml_decl("# check-filename = true"));
+        assert!(!is_typos_toml_decl("extend-exclude = [\"*\"]"));
+        assert!(!is_typos_toml_decl("extend-ignore-re = [\"foo\"]"));
+        assert!(!is_typos_toml_decl("teh = \"teh\""));
+        assert!(!is_typos_toml_decl("unicode = true"));
+        assert!(!is_typos_toml_decl("binary = false"));
+        assert!(!is_typos_toml_decl("locale = \"fr\""));
+        assert!(!is_typos_toml_decl("PATH=/usr/bin"));
+        assert!(!is_typos_toml_decl("[Files]"));
+        assert!(!is_typos_toml_decl("[DEFAULT]"));
+        assert!(!is_typos_toml_decl("[type.]"));
+        assert!(!is_typos_toml_decl("[type]"));
+        assert!(!is_typos_toml_decl("[package]"));
+        assert!(!is_typos_toml_decl("[[bin]]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_typos_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_typos_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_typos_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_typos_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_typos_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_typos_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_typos_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_typos_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_typos_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_typos_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_typos_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_typos_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_typos_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_typos_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_typos_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_typos_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        // cargo config owns unicode; typos unicode stays out.
+        assert!(is_cargo_config_toml_decl("unicode = true"));
+        assert!(!is_bacon_toml_decl("check-filename = true"));
+        assert!(!is_cross_toml_decl("check-filename = true"));
+        assert!(!is_nextest_toml_decl("[default.extend-words]"));
+        assert!(!is_deny_toml_decl("[files]"));
+        assert!(!is_rust_toolchain_toml_decl("[default]"));
+        assert!(!line_is_func_like("check-filename"));
+        assert!(!line_is_func_like("Check-Filename = true"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

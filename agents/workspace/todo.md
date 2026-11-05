@@ -919,3 +919,4 @@
 009 keep: Function List rust-toolchain.toml channel/profile/path (v0.3.624)
 
 009 keep: Function List bacon.toml jobs/keybindings/default_job (v0.3.625)
+009 keep: Function List typos.toml files/default/check-filename (v0.3.626)
