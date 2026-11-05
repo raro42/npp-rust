@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.625] — 2026-11-05
+
+View:
+
+- **Function List** lists bacon `bacon.toml` sections and fields: `[jobs.check]` / `[jobs.clippy-all]` / `[keybindings]` / `[exports]` / `[exports.name]` / `[skin]`, `default_job = "check"`, `need_stdout = false`, `analyzer = "cargo_json"`, `on_success = "back"`, `allow_warnings = true`, `allow_failures = false`, `kill_before_restart = false`, `hide_scrollbar = true`, `show_help_panel = false`, `on_change_strategy = "wait_then_restart"`, `scrollback_len = 10000`, `apply_gitignore = true`, `workdir = "."`, `summary = true`, `wrap = false`, `reverse = false`, `listen = false`, `background = false`, `notifications = true`, `help_line = true`, `show_system_info = false`, keybinding `c = "job:clippy-all"`. Exact snake_case bacon keys (and chord keys under `[keybindings]`). TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`command = […]`, `watch = […]`, `env.FOO = …`, `sound.enabled`) / prose / wrong case / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.624] — 2026-11-05
 
 View:

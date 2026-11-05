@@ -32375,6 +32375,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_cargo_config_toml_decl(s)
             || is_cross_toml_decl(s)
             || is_rust_toolchain_toml_decl(s)
+            || is_bacon_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32577,6 +32578,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_cargo_config_toml_decl(s)
         || is_cross_toml_decl(s)
         || is_rust_toolchain_toml_decl(s)
+        || is_bacon_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -52774,6 +52776,376 @@ fn rust_toolchain_toml_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// bacon `bacon.toml` / prefs: `[jobs.check]` / `[jobs.clippy-all]` /
+/// `[keybindings]` / `[exports]` / `[exports.name]` / `[skin]`,
+/// `default_job = "check"`, `need_stdout = false`, `analyzer = "cargo_json"`,
+/// `on_success = "back"`, `allow_warnings = true`, `allow_failures = false`,
+/// `kill_before_restart = false`, `hide_scrollbar = true`,
+/// `show_help_panel = false`, `on_change_strategy = "wait_then_restart"`,
+/// `scrollback_len = 10000`, `apply_gitignore = true`, `workdir = "."`,
+/// `summary = true`, `wrap = false`, `reverse = false`, `listen = false`,
+/// `background = false`, `notifications = true`, `help_line = true`,
+/// `show_system_info = false`, keybinding `c = "job:clippy-all"`. Exact
+/// snake_case bacon keys (and chord keys under `[keybindings]`). TOML
+/// `key = value` with spaces around `=`. Optional `#` comment. Nested maps /
+/// arrays (`command = […]`, `watch = […]`, `env.FOO = …`, `sound.enabled`) /
+/// prose / wrong case / Cross / rust-toolchain / cargo config / nextest /
+/// deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
+/// Cargo.toml stay out.
+fn is_bacon_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return bacon_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested `env.FOO` / `sound.enabled` stay out.
+    if key.contains('.') {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    if bacon_toml_key_ok(key) {
+        return bacon_toml_value_ok(key, value);
+    }
+    // Keybinding chord = action (under [keybindings] in real files).
+    bacon_toml_keybinding_ok(key, value)
+}
+
+fn bacon_toml_section_ok(header: &str) -> bool {
+    if matches!(header, "keybindings" | "exports" | "skin") {
+        return true;
+    }
+    if let Some(name) = header.strip_prefix("jobs.") {
+        return bacon_toml_job_name_ok(name);
+    }
+    if let Some(name) = header.strip_prefix("exports.") {
+        return bacon_toml_job_name_ok(name);
+    }
+    false
+}
+
+fn bacon_toml_job_name_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+}
+
+fn bacon_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "default_job"
+            | "need_stdout"
+            | "analyzer"
+            | "on_success"
+            | "on_failure"
+            | "allow_warnings"
+            | "allow_failures"
+            | "kill_before_restart"
+            | "hide_scrollbar"
+            | "show_help_panel"
+            | "on_change_strategy"
+            | "scrollback_len"
+            | "apply_gitignore"
+            | "workdir"
+            | "summary"
+            | "wrap"
+            | "reverse"
+            | "listen"
+            | "background"
+            | "notifications"
+            | "help_line"
+            | "show_system_info"
+    )
+}
+
+fn bacon_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (command = […], watch = […]).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "need_stdout"
+            | "allow_warnings"
+            | "allow_failures"
+            | "kill_before_restart"
+            | "hide_scrollbar"
+            | "show_help_panel"
+            | "apply_gitignore"
+            | "summary"
+            | "wrap"
+            | "reverse"
+            | "listen"
+            | "background"
+            | "notifications"
+            | "help_line"
+            | "show_system_info"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "scrollback_len" {
+        return !bare.is_empty() && bare.len() <= 10 && bare.bytes().all(|b| b.is_ascii_digit());
+    }
+    if key == "on_change_strategy" {
+        return matches!(
+            bare,
+            "wait_then_restart" | "kill_then_restart" | "wait" | "kill"
+        );
+    }
+    if key == "analyzer" {
+        return matches!(
+            bare,
+            "cargo_json"
+                | "cargo_json_nextest"
+                | "nextest"
+                | "python_pytest"
+                | "standard"
+                | "rustc"
+        ) || (bare.len() <= 64
+            && bare
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-')));
+    }
+    if matches!(key, "default_job") {
+        return bacon_toml_job_name_ok(bare);
+    }
+    if matches!(key, "on_success" | "on_failure") {
+        return bacon_toml_action_ok(bare);
+    }
+    if key == "workdir" {
+        let pathish = bare.starts_with('.')
+            || bare.starts_with('/')
+            || bare.starts_with('~')
+            || bare.contains('/')
+            || bare.contains('\\')
+            || bare == ".";
+        if !pathish {
+            return false;
+        }
+    }
+    bacon_toml_value_chars_ok(value)
+}
+
+fn bacon_toml_keybinding_ok(key: &str, value: &str) -> bool {
+    if !bacon_toml_chord_ok(key) {
+        return false;
+    }
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    bacon_toml_action_ok(bare) && bacon_toml_value_chars_ok(value)
+}
+
+fn bacon_toml_chord_ok(key: &str) -> bool {
+    if key.is_empty() || key.len() > 32 {
+        return false;
+    }
+    // Single printable key, or mod-key (`ctrl-c`, `alt-w`, `shift-g`, `cmd-e`,
+    // `shift-F9`). Reject stock config keys from neighbouring families.
+    if matches!(
+        key,
+        "channel"
+            | "profile"
+            | "path"
+            | "jobs"
+            | "xargo"
+            | "dockerfile"
+            | "image"
+            | "runner"
+            | "context"
+            | "file"
+            | "msrv"
+            | "dir"
+            | "retries"
+    ) {
+        return false;
+    }
+    let bytes = key.as_bytes();
+    if key.contains('-') {
+        // mod-key: at least one ascii letter/digit segment separated by `-`.
+        return bytes
+            .iter()
+            .all(|&b| b.is_ascii_alphanumeric() || b == b'-')
+            && key.split('-').all(|p| !p.is_empty())
+            && key.split('-').count() >= 2;
+    }
+    // Single key: letter, digit, or a few named keys.
+    matches!(
+        key,
+        "esc"
+            | "tab"
+            | "backtab"
+            | "enter"
+            | "space"
+            | "home"
+            | "end"
+            | "up"
+            | "down"
+            | "left"
+            | "right"
+            | "?"
+            | "/"
+    ) || (key.len() == 1 && bytes[0].is_ascii_alphanumeric())
+}
+
+fn bacon_toml_action_ok(bare: &str) -> bool {
+    if bare.len() > 256 {
+        return false;
+    }
+    if matches!(
+        bare,
+        "back"
+            | "back-or-quit"
+            | "quit"
+            | "help"
+            | "refresh"
+            | "rerun"
+            | "pause"
+            | "no-op"
+            | "toggle-raw-output"
+            | "toggle-summary"
+            | "toggle-wrap"
+            | "toggle-backtrace"
+            | "toggle-ignore"
+            | "toggle-watch"
+            | "scope-to-failures"
+            | "focus-search"
+            | "next-match"
+            | "previous-match"
+            | "next-item"
+            | "previous-item"
+            | "scroll-to-top"
+            | "scroll-to-bottom"
+            | "copy-unstyled-output"
+            | "reload-config"
+            | "play-sound"
+            | "open-jobs-menu"
+            | "open-undismiss-menu"
+            | "dismiss-top"
+            | "dismiss-top-item"
+            | "dismiss-top-item-type"
+    ) {
+        return true;
+    }
+    if let Some(rest) = bare.strip_prefix("job:") {
+        return bacon_toml_job_name_ok(rest);
+    }
+    if let Some(rest) = bare.strip_prefix("export:") {
+        return bacon_toml_job_name_ok(rest);
+    }
+    // Parameterized actions: toggle-backtrace(1), scroll-lines(-1), …
+    // Only known bacon action names (not arbitrary `funky(y)`).
+    if let Some((name, args)) = bare.split_once('(') {
+        if !args.ends_with(')') {
+            return false;
+        }
+        if !matches!(
+            name,
+            "toggle-backtrace"
+                | "scroll-lines"
+                | "scroll-pages"
+                | "play-sound"
+                | "focus-file"
+                | "show-item"
+                | "open-menu"
+                | "job"
+                | "export"
+        ) {
+            return false;
+        }
+        let inner = &args[..args.len() - 1];
+        return inner.bytes().all(|b| {
+            b.is_ascii_alphanumeric()
+                || matches!(
+                    b,
+                    b'_' | b'-' | b'=' | b',' | b'.' | b'%' | b' ' | b'+' | b'[' | b']' | b':'
+                )
+        });
+    }
+    false
+}
+
+fn bacon_toml_value_chars_ok(value: &str) -> bool {
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b'\\'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b'"'
+                    | b'\''
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -55587,8 +55959,8 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
-        is_apt_sources_decl, is_audit_rules_decl, is_aws_config_decl, is_binfmt_d_decl,
-        is_bitbake_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl,
+        is_apt_sources_decl, is_audit_rules_decl, is_aws_config_decl, is_bacon_toml_decl,
+        is_binfmt_d_decl, is_bitbake_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl,
         is_cargo_config_toml_decl, is_cargo_toml_decl, is_clippy_toml_decl, is_composer_json_decl,
         is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl, is_deny_toml_decl,
         is_desktop_entry_decl, is_dhcpd_decl, is_dovecot_decl, is_dracut_conf_decl,
@@ -64468,6 +64840,123 @@ mod func_like_line_tests {
         assert!(!is_deny_toml_decl("[toolchain]"));
         assert!(!line_is_func_like("channel"));
         assert!(!line_is_func_like("Channel = \"stable\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn bacon_toml_entries_count() {
+        assert!(line_is_func_like("[jobs.check]"));
+        assert!(line_is_func_like("[jobs.clippy-all]"));
+        assert!(line_is_func_like("[jobs.check-all]"));
+        assert!(line_is_func_like("[keybindings]"));
+        assert!(line_is_func_like("[exports]"));
+        assert!(line_is_func_like("[exports.json]"));
+        assert!(line_is_func_like("[skin]"));
+        assert!(line_is_func_like("default_job = \"check\""));
+        assert!(line_is_func_like("default_job = \"check-all\""));
+        assert!(line_is_func_like("need_stdout = false"));
+        assert!(line_is_func_like("need_stdout = true"));
+        assert!(line_is_func_like("analyzer = \"cargo_json\""));
+        assert!(line_is_func_like("analyzer = \"nextest\""));
+        assert!(line_is_func_like("on_success = \"back\""));
+        assert!(line_is_func_like("on_failure = \"play-sound\""));
+        assert!(line_is_func_like("allow_warnings = true"));
+        assert!(line_is_func_like("allow_failures = false"));
+        assert!(line_is_func_like("kill_before_restart = false"));
+        assert!(line_is_func_like("hide_scrollbar = true"));
+        assert!(line_is_func_like("show_help_panel = false"));
+        assert!(line_is_func_like(
+            "on_change_strategy = \"wait_then_restart\""
+        ));
+        assert!(line_is_func_like("scrollback_len = 10000"));
+        assert!(line_is_func_like("apply_gitignore = true"));
+        assert!(line_is_func_like("workdir = \".\""));
+        assert!(line_is_func_like("workdir = \"./crates\""));
+        assert!(line_is_func_like("summary = true"));
+        assert!(line_is_func_like("wrap = false"));
+        assert!(line_is_func_like("c = \"job:clippy-all\""));
+        assert!(line_is_func_like("esc = \"back\""));
+        assert!(line_is_func_like("ctrl-c = \"copy-unstyled-output\""));
+        assert!(line_is_func_like("alt-w = \"job:win\""));
+        assert!(line_is_func_like("shift-g = \"scroll-to-bottom\""));
+        assert!(line_is_func_like("g = \"scroll-to-top\""));
+        assert!(line_is_func_like("b = \"toggle-backtrace(1)\""));
+        assert!(line_is_func_like("k = \"scroll-lines(-1)\""));
+        assert!(line_is_func_like("  need_stdout = false # quiet"));
+        // Arbitrary `name(…)` must not look like a bacon action (avoids
+        // `let x = funky(y)` after attribute/template strip → `x = funky(y)`).
+        assert!(!is_bacon_toml_decl("x = funky(y)"));
+        assert!(!is_bacon_toml_decl("let x = funky(y)"));
+        assert!(!line_is_func_like("let x = funky(y)"));
+        // Shared detector for bacon-only keys.
+        assert!(is_bacon_toml_decl("[jobs.check]"));
+        assert!(is_bacon_toml_decl("default_job = \"clippy\""));
+        assert!(is_bacon_toml_decl("need_stdout = true"));
+        assert!(is_bacon_toml_decl("c = \"job:check\""));
+        assert!(!is_cross_toml_decl("[jobs.check]"));
+        assert!(!is_cross_toml_decl("default_job = \"check\""));
+        assert!(!is_rust_toolchain_toml_decl("[jobs.check]"));
+        assert!(!is_rust_toolchain_toml_decl("default_job = \"check\""));
+        assert!(!is_cargo_config_toml_decl("[jobs.check]"));
+        assert!(!is_cargo_config_toml_decl("default_job = \"check\""));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_bacon_toml_decl("default_job"));
+        assert!(!is_bacon_toml_decl("default_job ="));
+        assert!(!is_bacon_toml_decl("Default_Job = \"check\""));
+        assert!(!is_bacon_toml_decl("DEFAULT_JOB = \"check\""));
+        assert!(!is_bacon_toml_decl("default_job the team"));
+        assert!(!is_bacon_toml_decl("# default_job = \"check\""));
+        assert!(!is_bacon_toml_decl("command = [\"cargo\", \"check\"]"));
+        assert!(!is_bacon_toml_decl("watch = [\"src\", \"tests\"]"));
+        assert!(!is_bacon_toml_decl("env.CARGO_TERM_COLOR = \"always\""));
+        assert!(!is_bacon_toml_decl("sound.enabled = true"));
+        assert!(!is_bacon_toml_decl("on_change_strategy = \"fancy\""));
+        assert!(!is_bacon_toml_decl("scrollback_len = \"many\""));
+        assert!(!is_bacon_toml_decl("workdir = \"hello\""));
+        assert!(!is_bacon_toml_decl("PATH=/usr/bin"));
+        assert!(!is_bacon_toml_decl("[Jobs.check]"));
+        assert!(!is_bacon_toml_decl("[jobs.]"));
+        assert!(!is_bacon_toml_decl("[jobs]"));
+        assert!(!is_bacon_toml_decl("[Keybindings]"));
+        assert!(!is_bacon_toml_decl("[package]"));
+        assert!(!is_bacon_toml_decl("[[bin]]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_bacon_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_bacon_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_bacon_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_bacon_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_bacon_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_bacon_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_bacon_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_bacon_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_bacon_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_bacon_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_bacon_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_bacon_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_bacon_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_bacon_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_bacon_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_cross_toml_decl("default_job = \"check\""));
+        assert!(!is_nextest_toml_decl("[jobs.check]"));
+        assert!(!is_deny_toml_decl("[jobs.check]"));
+        assert!(!is_rust_toolchain_toml_decl("[keybindings]"));
+        assert!(!line_is_func_like("default_job"));
+        assert!(!line_is_func_like("Default_Job = \"check\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

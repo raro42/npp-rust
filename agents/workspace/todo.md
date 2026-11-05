@@ -917,3 +917,5 @@
 009 keep: Function List Astral ruff.toml / .ruff.toml (v0.3.617)
 
 009 keep: Function List rust-toolchain.toml channel/profile/path (v0.3.624)
+
+009 keep: Function List bacon.toml jobs/keybindings/default_job (v0.3.625)
