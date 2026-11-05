@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+## [0.3.630] — 2026-11-06
+
+View:
+
+- **Function List** lists cargo-release `release.toml` / `.release.toml` sections and fields: `[rate-limit]`, `sign-commit = false`, `sign-tag = false`, `release = true`, `shared-version = false` / `"group"`, `dependent-version = "upgrade"` / `"fix"` / `"error"` / `"warn"` / `"ignore"`, `metadata = "optional"` / `"required"` / `"ignore"` / `"persistent"`, `consolidate-commits = true`, `pre-release-commit-message = "chore: Release"`, `tag = true`, `tag-message` / `tag-name` / `tag-prefix`, `push = true`, `push-remote = "origin"`, `publish = true`, `registry = "…"`, `rate-limit.new-packages = 5`, `rate-limit.existing-packages = 30`, `new-packages` / `existing-packages` under `[rate-limit]`, `certs-source = "webpki"` / `"native"`, `verify = true`, `enable-all-features = false`, `target = "x86_64-unknown-linux-gnu"`. Exact kebab-case cargo-release keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Arrays (`allow-branch = […]`, `pre-release-hook = […]`, `owners = […]`, `enable-features = […]`, `push-options = […]`, `pre-release-replacements = […]`) / prose / wrong case / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
+
+
 ## [0.3.629] — 2026-11-06
 
 View:

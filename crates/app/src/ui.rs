@@ -32380,6 +32380,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_taplo_toml_decl(s)
             || is_mdbook_toml_decl(s)
             || is_dist_toml_decl(s)
+            || is_release_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32587,6 +32588,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_taplo_toml_decl(s)
         || is_mdbook_toml_decl(s)
         || is_dist_toml_decl(s)
+        || is_release_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -54061,6 +54063,208 @@ fn dist_toml_semver_ok(v: &str) -> bool {
     true
 }
 
+/// cargo-release `release.toml` / `.release.toml`: `[rate-limit]`,
+/// `sign-commit = false`, `sign-tag = false`, `release = true`,
+/// `shared-version = false` / `"group"`, `dependent-version = "upgrade"`,
+/// `metadata = "optional"`, `consolidate-commits = true`,
+/// `pre-release-commit-message = "chore: Release"`, `tag = true`,
+/// `tag-message` / `tag-name` / `tag-prefix`, `push = true`,
+/// `push-remote = "origin"`, `publish = true`, `registry = "…"`,
+/// `rate-limit.new-packages = 5`, `rate-limit.existing-packages = 30`,
+/// `certs-source = "webpki"`, `verify = true`, `enable-all-features = false`,
+/// `target = "…"`. Exact kebab-case cargo-release keys. TOML `key = value`
+/// with spaces around `=`. Optional `#` comment. Arrays
+/// (`allow-branch = […]`, `pre-release-hook = […]`, `owners = […]`,
+/// `enable-features = […]`, `push-options = […]`,
+/// `pre-release-replacements = […]`) / prose / wrong case / Dist.toml /
+/// mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config /
+/// nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc /
+/// pip / Cargo.toml stay out.
+fn is_release_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // No `[[…]]` tables in stock release.toml.
+        if array {
+            return false;
+        }
+        return release_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Allow dotted rate-limit keys; reject other dotted free-form keys.
+    if key.contains('.')
+        && !matches!(
+            key,
+            "rate-limit.new-packages" | "rate-limit.existing-packages"
+        )
+    {
+        return false;
+    }
+    if !release_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    release_toml_value_ok(key, value)
+}
+
+fn release_toml_section_ok(header: &str) -> bool {
+    matches!(header, "rate-limit")
+}
+
+fn release_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "sign-commit"
+            | "sign-tag"
+            | "release"
+            | "shared-version"
+            | "dependent-version"
+            | "metadata"
+            | "consolidate-commits"
+            | "pre-release-commit-message"
+            | "tag"
+            | "tag-message"
+            | "tag-name"
+            | "tag-prefix"
+            | "push"
+            | "push-remote"
+            | "publish"
+            | "registry"
+            | "certs-source"
+            | "verify"
+            | "enable-all-features"
+            | "target"
+            | "rate-limit.new-packages"
+            | "rate-limit.existing-packages"
+            | "new-packages"
+            | "existing-packages"
+    )
+}
+
+fn release_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (allow-branch = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "sign-commit"
+            | "sign-tag"
+            | "release"
+            | "consolidate-commits"
+            | "tag"
+            | "push"
+            | "publish"
+            | "verify"
+            | "enable-all-features"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "shared-version" {
+        if bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false") {
+            return true;
+        }
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return release_toml_shared_name_ok(bare);
+    }
+    if key == "dependent-version" {
+        return matches!(bare, "upgrade" | "fix" | "error" | "warn" | "ignore");
+    }
+    if key == "metadata" {
+        return matches!(bare, "optional" | "required" | "ignore" | "persistent");
+    }
+    if key == "certs-source" {
+        return matches!(bare, "webpki" | "native");
+    }
+    if matches!(
+        key,
+        "rate-limit.new-packages"
+            | "rate-limit.existing-packages"
+            | "new-packages"
+            | "existing-packages"
+    ) {
+        return !bare.is_empty() && bare.bytes().all(|b| b.is_ascii_digit());
+    }
+    if key == "target" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return dist_toml_target_triple_ok(bare);
+    }
+    if matches!(
+        key,
+        "pre-release-commit-message"
+            | "tag-message"
+            | "tag-name"
+            | "tag-prefix"
+            | "push-remote"
+            | "registry"
+    ) {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 256 {
+            return false;
+        }
+        // Placeholders like `{{prefix}}v{{version}}` are graphic ASCII.
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
+    }
+    false
+}
+
+fn release_toml_shared_name_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -56891,16 +57095,16 @@ mod func_like_line_tests {
         is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
         is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
         is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
-        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl,
+        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -66233,6 +66437,9 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("PATH=/usr/bin"));
         assert!(!is_mdbook_toml_decl("cargo-dist-version = \"0.32.0\""));
         assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_mdbook_toml_decl("sign-commit = false"));
+        assert!(!is_dist_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
     }
 
     #[test]
@@ -66392,8 +66599,145 @@ mod func_like_line_tests {
         assert!(!is_nextest_toml_decl("unix-archive = \".tar.gz\""));
         assert!(!is_deny_toml_decl("windows-archive = \".zip\""));
         assert!(!is_rust_toolchain_toml_decl("npm-scope = \"@axodotdev\""));
+        assert!(!is_release_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_release_toml_decl("[dist]"));
         assert!(!line_is_func_like("cargo-dist-version"));
         assert!(!line_is_func_like("Cargo-Dist-Version = \"0.32.0\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn release_toml_entries_count() {
+        assert!(line_is_func_like("[rate-limit]"));
+        assert!(line_is_func_like("sign-commit = false"));
+        assert!(line_is_func_like("sign-tag = true"));
+        assert!(line_is_func_like("release = true"));
+        assert!(line_is_func_like("shared-version = false"));
+        assert!(line_is_func_like("shared-version = \"workspace\""));
+        assert!(line_is_func_like("dependent-version = \"upgrade\""));
+        assert!(line_is_func_like("dependent-version = \"fix\""));
+        assert!(line_is_func_like("dependent-version = \"error\""));
+        assert!(line_is_func_like("dependent-version = \"warn\""));
+        assert!(line_is_func_like("dependent-version = \"ignore\""));
+        assert!(line_is_func_like("metadata = \"optional\""));
+        assert!(line_is_func_like("metadata = \"required\""));
+        assert!(line_is_func_like("metadata = \"ignore\""));
+        assert!(line_is_func_like("metadata = \"persistent\""));
+        assert!(line_is_func_like("consolidate-commits = true"));
+        assert!(line_is_func_like(
+            "pre-release-commit-message = \"chore: Release\""
+        ));
+        assert!(line_is_func_like("tag = true"));
+        assert!(line_is_func_like(
+            "tag-message = \"chore: Release {{version}}\""
+        ));
+        assert!(line_is_func_like("tag-name = \"{{prefix}}v{{version}}\""));
+        assert!(line_is_func_like("tag-prefix = \"{{crate_name}}-\""));
+        assert!(line_is_func_like("push = true"));
+        assert!(line_is_func_like("push-remote = \"origin\""));
+        assert!(line_is_func_like("publish = false"));
+        assert!(line_is_func_like("registry = \"crates-io\""));
+        assert!(line_is_func_like("rate-limit.new-packages = 5"));
+        assert!(line_is_func_like("rate-limit.existing-packages = 30"));
+        assert!(line_is_func_like("new-packages = 5"));
+        assert!(line_is_func_like("existing-packages = 30"));
+        assert!(line_is_func_like("certs-source = \"webpki\""));
+        assert!(line_is_func_like("certs-source = \"native\""));
+        assert!(line_is_func_like("verify = true"));
+        assert!(line_is_func_like("enable-all-features = false"));
+        assert!(line_is_func_like("target = \"x86_64-unknown-linux-gnu\""));
+        assert!(line_is_func_like("  sign-commit = true # gpg"));
+        // Shared detector for cargo-release-only keys / sections.
+        assert!(is_release_toml_decl("[rate-limit]"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("dependent-version = \"upgrade\""));
+        assert!(is_release_toml_decl("consolidate-commits = true"));
+        assert!(is_release_toml_decl("certs-source = \"webpki\""));
+        assert!(is_release_toml_decl("rate-limit.new-packages = 5"));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_release_toml_decl("sign-commit"));
+        assert!(!is_release_toml_decl("sign-commit ="));
+        assert!(!is_release_toml_decl("Sign-Commit = false"));
+        assert!(!is_release_toml_decl("SIGN-COMMIT = false"));
+        assert!(!is_release_toml_decl("sign-commit the team"));
+        assert!(!is_release_toml_decl("# sign-commit = false"));
+        assert!(!is_release_toml_decl("allow-branch = [\"*\"]"));
+        assert!(!is_release_toml_decl("pre-release-hook = [\"./hook.sh\"]"));
+        assert!(!is_release_toml_decl("owners = [\"alice\"]"));
+        assert!(!is_release_toml_decl("enable-features = [\"default\"]"));
+        assert!(!is_release_toml_decl(
+            "push-options = [\"--force-with-lease\"]"
+        ));
+        assert!(!is_release_toml_decl(
+            "pre-release-replacements = [{ file = \"README.md\" }]"
+        ));
+        assert!(!is_release_toml_decl("dependent-version = \"bump\""));
+        assert!(!is_release_toml_decl("metadata = \"always\""));
+        assert!(!is_release_toml_decl("certs-source = \"system\""));
+        assert!(!is_release_toml_decl("shared-version = workspace"));
+        assert!(!is_release_toml_decl("target = \"NotATriple\""));
+        assert!(!is_release_toml_decl("rate-limit.new-packages = -1"));
+        assert!(!is_release_toml_decl("PATH=/usr/bin"));
+        assert!(!is_release_toml_decl("[Rate-Limit]"));
+        assert!(!is_release_toml_decl("[RATE-LIMIT]"));
+        assert!(!is_release_toml_decl("[[rate-limit]]"));
+        assert!(!is_release_toml_decl("[package]"));
+        assert!(!is_release_toml_decl("[[bin]]"));
+        assert!(!is_release_toml_decl("[workspace]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_release_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_release_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_release_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_release_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_release_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_release_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_release_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_release_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_release_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_release_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_release_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_release_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_release_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_release_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_release_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_release_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_release_toml_decl(
+            "registry=https://registry.npmjs.org/"
+        ));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_release_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_release_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_release_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_dist_toml_decl("sign-commit = false"));
+        assert!(!is_mdbook_toml_decl("dependent-version = \"upgrade\""));
+        assert!(!is_taplo_toml_decl("consolidate-commits = true"));
+        assert!(!is_typos_toml_decl("certs-source = \"webpki\""));
+        assert!(!is_bacon_toml_decl("[rate-limit]"));
+        assert!(!is_cross_toml_decl("rate-limit.new-packages = 5"));
+        assert!(!is_nextest_toml_decl("enable-all-features = false"));
+        assert!(!is_deny_toml_decl("pre-release-commit-message = \"x\""));
+        assert!(!is_rust_toolchain_toml_decl("push-remote = \"origin\""));
+        assert!(!line_is_func_like("sign-commit"));
+        assert!(!line_is_func_like("Sign-Commit = false"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
