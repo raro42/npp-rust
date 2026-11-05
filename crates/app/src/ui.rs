@@ -32374,6 +32374,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_nextest_toml_decl(s)
             || is_cargo_config_toml_decl(s)
             || is_cross_toml_decl(s)
+            || is_rust_toolchain_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32575,6 +32576,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_nextest_toml_decl(s)
         || is_cargo_config_toml_decl(s)
         || is_cross_toml_decl(s)
+        || is_rust_toolchain_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -52639,6 +52641,139 @@ fn cross_toml_value_ok(key: &str, value: &str) -> bool {
     })
 }
 
+/// rust-toolchain.toml: `[toolchain]`, `channel = "stable"` / `"1.70.0"` /
+/// `"nightly-2024-01-01"`, `profile = "minimal"` / `"default"` / `"complete"`,
+/// `path = "./custom-toolchain"`. Exact lowercase keys. TOML `key = value`
+/// with spaces around `=`. Optional `#` comment. Nested maps / arrays
+/// (`components = […]`, `targets = […]`) / prose / wrong case / Cross /
+/// cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig /
+/// yarn / npmrc / pip / Cargo.toml stay out.
+fn is_rust_toolchain_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return header == "toolchain";
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if !rust_toolchain_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    rust_toolchain_toml_value_ok(key, value)
+}
+
+fn rust_toolchain_toml_key_ok(key: &str) -> bool {
+    matches!(key, "channel" | "profile" | "path")
+}
+
+fn rust_toolchain_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (components = […], targets = […]).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if key == "profile" {
+        return matches!(bare, "minimal" | "default" | "complete");
+    }
+    if key == "channel" {
+        // Channel cue: stable/beta/nightly, version `1.70.0`, or dated
+        // `nightly-2024-01-01` / `stable-2024-01-01`.
+        if matches!(bare, "stable" | "beta" | "nightly") {
+            return true;
+        }
+        if let Some(rest) = bare
+            .strip_prefix("nightly-")
+            .or_else(|| bare.strip_prefix("stable-"))
+            .or_else(|| bare.strip_prefix("beta-"))
+        {
+            // Date YYYY-MM-DD.
+            return rest.len() == 10
+                && rest.as_bytes().get(4) == Some(&b'-')
+                && rest.as_bytes().get(7) == Some(&b'-')
+                && rest
+                    .bytes()
+                    .enumerate()
+                    .all(|(i, b)| matches!(i, 4 | 7) || b.is_ascii_digit());
+        }
+        // Semver-ish version: starts with digit, digits/dots only.
+        return bare.len() <= 32
+            && bare.chars().next().is_some_and(|c| c.is_ascii_digit())
+            && bare.chars().all(|c| c.is_ascii_digit() || c == '.');
+    }
+    if key == "path" {
+        // Path cue: relative / absolute / bare dirname.
+        let pathish = bare.starts_with('.')
+            || bare.starts_with('/')
+            || bare.starts_with('~')
+            || bare.contains('/')
+            || bare.contains('\\');
+        if !pathish {
+            return false;
+        }
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'_'
+                    | b'-'
+                    | b':'
+                    | b'@'
+                    | b'+'
+                    | b','
+                    | b'/'
+                    | b'\\'
+                    | b' '
+                    | b'\t'
+                    | b'='
+                    | b'$'
+                    | b'%'
+                    | b'?'
+                    | b'&'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'"'
+                    | b'\''
+            )
+    })
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -55470,13 +55605,14 @@ mod func_like_line_tests {
         is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl,
         is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
         is_rake_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl,
+        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
+        is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -64238,6 +64374,100 @@ mod func_like_line_tests {
         ));
         assert!(!line_is_func_like("xargo"));
         assert!(!line_is_func_like("Xargo = true"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn rust_toolchain_toml_entries_count() {
+        assert!(line_is_func_like("[toolchain]"));
+        assert!(line_is_func_like("channel = \"stable\""));
+        assert!(line_is_func_like("channel = \"beta\""));
+        assert!(line_is_func_like("channel = \"nightly\""));
+        assert!(line_is_func_like("channel = \"1.70.0\""));
+        assert!(line_is_func_like("channel = \"1.75\""));
+        assert!(line_is_func_like("channel = \"nightly-2024-01-01\""));
+        assert!(line_is_func_like("channel = \"stable-2024-06-15\""));
+        assert!(line_is_func_like("channel = \"beta-2023-12-31\""));
+        assert!(line_is_func_like("profile = \"minimal\""));
+        assert!(line_is_func_like("profile = \"default\""));
+        assert!(line_is_func_like("profile = \"complete\""));
+        assert!(line_is_func_like("path = \"./custom-toolchain\""));
+        assert!(line_is_func_like("path = \"/opt/rust\""));
+        assert!(line_is_func_like("path = \"~/.local/rust\""));
+        assert!(line_is_func_like("  channel = \"nightly\" # pin"));
+        // Shared detector for rust-toolchain-only keys.
+        assert!(is_rust_toolchain_toml_decl("[toolchain]"));
+        assert!(is_rust_toolchain_toml_decl("channel = \"1.80.0\""));
+        assert!(is_rust_toolchain_toml_decl("profile = \"minimal\""));
+        assert!(!is_cross_toml_decl("[toolchain]"));
+        assert!(!is_cross_toml_decl("channel = \"stable\""));
+        assert!(!is_cargo_config_toml_decl("[toolchain]"));
+        assert!(!is_cargo_config_toml_decl("channel = \"stable\""));
+        assert!(!is_cargo_config_toml_decl("profile = \"minimal\""));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_rust_toolchain_toml_decl("channel"));
+        assert!(!is_rust_toolchain_toml_decl("channel ="));
+        assert!(!is_rust_toolchain_toml_decl("Channel = \"stable\""));
+        assert!(!is_rust_toolchain_toml_decl("CHANNEL = \"stable\""));
+        assert!(!is_rust_toolchain_toml_decl("channel the team"));
+        assert!(!is_rust_toolchain_toml_decl("# channel = \"stable\""));
+        assert!(!is_rust_toolchain_toml_decl(
+            "components = [\"rustfmt\", \"clippy\"]"
+        ));
+        assert!(!is_rust_toolchain_toml_decl(
+            "targets = [\"wasm32-unknown-unknown\"]"
+        ));
+        assert!(!is_rust_toolchain_toml_decl("profile = \"custom\""));
+        assert!(!is_rust_toolchain_toml_decl("channel = \"latest\""));
+        assert!(!is_rust_toolchain_toml_decl("channel = \"nightly-bad\""));
+        assert!(!is_rust_toolchain_toml_decl(
+            "channel = \"nightly-2024-1-01\""
+        ));
+        assert!(!is_rust_toolchain_toml_decl("path = \"hello\""));
+        assert!(!is_rust_toolchain_toml_decl("PATH=/usr/bin"));
+        assert!(!is_rust_toolchain_toml_decl("[Toolchain]"));
+        assert!(!is_rust_toolchain_toml_decl("[toolchain.env]"));
+        assert!(!is_rust_toolchain_toml_decl("[build]"));
+        assert!(!is_rust_toolchain_toml_decl("[package]"));
+        assert!(!is_rust_toolchain_toml_decl("[[bin]]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_rust_toolchain_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_rust_toolchain_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_rust_toolchain_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_rust_toolchain_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_rust_toolchain_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_rust_toolchain_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_rust_toolchain_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_rust_toolchain_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_rust_toolchain_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_rust_toolchain_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_rust_toolchain_toml_decl(
+            "registry=https://registry.npmjs.org/"
+        ));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_rust_toolchain_toml_decl(
+            "index-url = https://pypi.org/simple"
+        ));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_rust_toolchain_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_rust_toolchain_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_cross_toml_decl("channel = \"stable\""));
+        assert!(!is_nextest_toml_decl("[toolchain]"));
+        assert!(!is_deny_toml_decl("[toolchain]"));
+        assert!(!line_is_func_like("channel"));
+        assert!(!line_is_func_like("Channel = \"stable\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.624] — 2026-11-05
+
+View:
+
+- **Function List** lists rust-toolchain.toml sections and fields: `[toolchain]`, `channel = "stable"` / `"1.70.0"` / `"nightly-2024-01-01"`, `profile = "minimal"` / `"default"` / `"complete"`, `path = "./custom-toolchain"`. Exact lowercase keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`components = […]`, `targets = […]`) / prose / wrong case / Cross / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.623] — 2026-11-05
 
 View:
