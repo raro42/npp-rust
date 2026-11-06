@@ -32137,9 +32137,17 @@ const NOT_TYPED_FN: &[&str] = &[
 /// (`fail-under`, `jobs`, `disable`, `enable`, `max-line-length`,
 /// `good-names`, `max-args`, `output-format`, …). Optional `#` / `;`
 /// comment. Key lines may use `=` with or without spaces. flake8 /
-/// mypy / pytest / isort / coverage / tox / setuptools / Cargo /
-/// Pipfile / pyproject `[tool.pylint]` / Desktop Entry tables,
+/// mypy / pytest / isort / coverage / pycodestyle / tox / setuptools /
+/// Cargo / Pipfile / pyproject `[tool.pylint]` / Desktop Entry tables,
 /// incomplete brackets, wrong case, and prose stay out.
+/// pycodestyle `.pycodestyle` / `setup.cfg` / `tox.ini` `[pycodestyle]`
+/// / legacy `[pep8]` sections and distinctive keys (`max-line-length`,
+/// `ignore`, `select`, `exclude`, `filename`, `show-pep8`, `first`,
+/// `diff`, `benchmark`, …). Optional `#` / `;` comment. Key lines may
+/// use `=` with or without spaces. flake8 / mypy / pytest / isort /
+/// coverage / pylint / tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.pycodestyle]` / Desktop Entry tables, incomplete brackets,
+/// wrong case, and prose stay out.
 /// Desktop Entry sections (`[Desktop Entry]`, `[Desktop Action …]`).
 /// Optional `#` / `;` comment. Key lines (`Name=`), tox / Cargo / Pipfile /
 /// pyproject tables, incomplete brackets, and prose stay out.
@@ -32354,6 +32362,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_isort_ini_decl(s)
             || is_coverage_ini_decl(s)
             || is_pylint_ini_decl(s)
+            || is_pycodestyle_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32589,6 +32598,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_isort_ini_decl(s)
         || is_coverage_ini_decl(s)
         || is_pylint_ini_decl(s)
+        || is_pycodestyle_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -42781,10 +42791,10 @@ fn coverage_ini_value_ok(key: &str, value: &str) -> bool {
 /// `missing-member-hint = yes`, `spelling-dict = `,
 /// `max-spelling-suggestions = 4`, `msg-template = …`. Exact pylint
 /// keys (kebab-case). INI `key = value` or `key=value`. Optional
-/// `#` / `;` comment. flake8 / mypy / pytest / isort / coverage / tox /
-/// setuptools / Cargo / Pipfile / pyproject `[tool.pylint]` / Desktop
-/// Entry / pip.conf tables, incomplete brackets, wrong case, and prose
-/// stay out.
+/// `#` / `;` comment. flake8 / mypy / pytest / isort / coverage /
+/// pycodestyle / tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.pylint]` / Desktop Entry / pip.conf tables, incomplete
+/// brackets, wrong case, and prose stay out.
 fn is_pylint_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -43191,6 +43201,131 @@ fn pylint_ini_value_ok(key: &str, value: &str) -> bool {
         return false;
     }
     // Message ids, names, paths, regexes, templates. Need an ident char.
+    let mut has_ident = false;
+    for b in value.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric() || b == b'_' {
+            has_ident = true;
+        }
+    }
+    has_ident
+}
+
+/// pycodestyle `.pycodestyle` / `setup.cfg` / `tox.ini` `[pycodestyle]`
+/// / legacy `[pep8]`: `[pycodestyle]`, `[pep8]`,
+/// `max-line-length = 88`, `max-doc-length = 72`, `indent-size = 4`,
+/// `ignore = E203,W503`, `select = E,F,W`,
+/// `exclude = .git,.venv,build,dist`, `filename = *.py`,
+/// `format = default` / `pylint` / custom `%(path)s:…`,
+/// `hang-closing = true`, `statistics = true`, `count = true`,
+/// `show-source = true`, `show-pep8 = true`, `first = true`,
+/// `diff = true`, `benchmark = true`, `quiet = 1`, `verbose = 1`.
+/// Exact pycodestyle keys (kebab-case). INI `key = value` or
+/// `key=value`. Optional `#` / `;` comment. flake8 / mypy / pytest /
+/// isort / coverage / pylint / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.pycodestyle]` / Desktop Entry / pip.conf tables,
+/// incomplete brackets, wrong case, and prose stay out.
+fn is_pycodestyle_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return pycodestyle_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !pycodestyle_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    pycodestyle_ini_value_ok(key, value)
+}
+
+fn pycodestyle_ini_section_ok(header: &str) -> bool {
+    matches!(header, "pycodestyle" | "pep8")
+}
+
+fn pycodestyle_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "max-line-length"
+            | "max-doc-length"
+            | "indent-size"
+            | "ignore"
+            | "select"
+            | "exclude"
+            | "filename"
+            | "format"
+            | "hang-closing"
+            | "statistics"
+            | "count"
+            | "show-source"
+            | "show-pep8"
+            | "first"
+            | "diff"
+            | "benchmark"
+            | "quiet"
+            | "verbose"
+    )
+}
+
+fn pycodestyle_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+    )
+}
+
+fn pycodestyle_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if matches!(
+        key,
+        "hang-closing"
+            | "statistics"
+            | "count"
+            | "show-source"
+            | "show-pep8"
+            | "first"
+            | "diff"
+            | "benchmark"
+    ) {
+        return pycodestyle_ini_bool_ok(value);
+    }
+    if matches!(
+        key,
+        "max-line-length" | "max-doc-length" | "indent-size" | "quiet" | "verbose"
+    ) {
+        return !value.is_empty() && value.bytes().all(|b| b.is_ascii_digit());
+    }
+    if key == "format" {
+        return matches!(value, "default" | "pylint")
+            || (value
+                .bytes()
+                .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+                && value.bytes().any(|b| b.is_ascii_alphanumeric()));
+    }
+    // Codes, paths, globs. Require at least one alphanumeric or `_`.
     let mut has_ident = false;
     for b in value.bytes() {
         if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
@@ -63879,10 +64014,10 @@ mod func_like_line_tests {
         is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
         is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
         is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
-        is_premake_decl, is_protocols_file_decl, is_pylint_ini_decl, is_pyproject_toml_decl,
-        is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_premake_decl, is_protocols_file_decl, is_pycodestyle_ini_decl, is_pylint_ini_decl,
+        is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
         is_setup_cfg_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
         is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
@@ -69012,10 +69147,119 @@ mod func_like_line_tests {
         assert!(is_coverage_ini_decl("fail_under = 80"));
         assert!(!is_pylint_ini_decl("python_requires = >=3.8"));
         assert!(is_setup_cfg_decl("python_requires = >=3.8"));
+        assert!(!is_pylint_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_pylint_ini_decl("show-pep8 = true"));
+        assert!(is_pycodestyle_ini_decl("show-pep8 = true"));
         assert!(!line_is_func_like("Fail-under = 10"));
         // flake8 accepts `jobs = auto`; pylint rejects it (checked above).
         assert!(!line_is_func_like("output-format = html"));
         assert!(!line_is_func_like("envlist = py39,py310"));
+    }
+
+    #[test]
+    fn pycodestyle_ini_entries_count() {
+        assert!(line_is_func_like("[pycodestyle]"));
+        assert!(line_is_func_like("  [pycodestyle] # setup.cfg"));
+        assert!(line_is_func_like("[pep8]; legacy"));
+        assert!(line_is_func_like("[pep8]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pep8]"));
+        assert!(is_pycodestyle_ini_decl("max-line-length = 88"));
+        assert!(is_pycodestyle_ini_decl("max-line-length=100"));
+        assert!(is_pycodestyle_ini_decl("max-doc-length = 72"));
+        assert!(is_pycodestyle_ini_decl("indent-size = 4"));
+        assert!(is_pycodestyle_ini_decl("ignore = E203,W503"));
+        assert!(is_pycodestyle_ini_decl("select = E,F,W"));
+        assert!(is_pycodestyle_ini_decl("exclude = .git,.venv,build,dist"));
+        assert!(is_pycodestyle_ini_decl("filename = *.py"));
+        assert!(is_pycodestyle_ini_decl("format = default"));
+        assert!(is_pycodestyle_ini_decl("format = pylint"));
+        assert!(is_pycodestyle_ini_decl(
+            "format = %(path)s:%(row)d:%(col)d: %(code)s %(text)s"
+        ));
+        assert!(is_pycodestyle_ini_decl("hang-closing = true"));
+        assert!(is_pycodestyle_ini_decl("statistics = true"));
+        assert!(is_pycodestyle_ini_decl("count = yes"));
+        assert!(is_pycodestyle_ini_decl("show-source = true"));
+        assert!(is_pycodestyle_ini_decl("show-pep8 = true"));
+        assert!(is_pycodestyle_ini_decl("first = true"));
+        assert!(is_pycodestyle_ini_decl("diff = false"));
+        assert!(is_pycodestyle_ini_decl("benchmark = 1"));
+        assert!(is_pycodestyle_ini_decl("quiet = 1"));
+        assert!(is_pycodestyle_ini_decl("verbose = 1"));
+        assert!(is_pycodestyle_ini_decl("show-pep8 = True # comment"));
+        assert!(is_pycodestyle_ini_decl("first=true; trailing"));
+
+        // Neighbouring formats / wrong case stay out.
+        assert!(!is_pycodestyle_ini_decl("show-pep8"));
+        assert!(!is_pycodestyle_ini_decl("show-pep8 ="));
+        assert!(!is_pycodestyle_ini_decl("Show-pep8 = true"));
+        assert!(!is_pycodestyle_ini_decl("SHOW-PEP8 = true"));
+        assert!(!is_pycodestyle_ini_decl("# show-pep8 = true"));
+        assert!(!is_pycodestyle_ini_decl("show-pep8 = maybe"));
+        assert!(!is_pycodestyle_ini_decl("max-line-length = eighty"));
+        assert!(!is_pycodestyle_ini_decl("quiet = auto"));
+        assert!(!is_pycodestyle_ini_decl("ignore = ***"));
+        assert!(!is_pycodestyle_ini_decl("exclude = ()"));
+        assert!(!is_pycodestyle_ini_decl("[Pycodestyle]"));
+        assert!(!is_pycodestyle_ini_decl("[PEP8]"));
+        assert!(!is_pycodestyle_ini_decl("[Pep8]"));
+        assert!(!is_pycodestyle_ini_decl("[[pycodestyle]]"));
+        assert!(!is_pycodestyle_ini_decl("[pycodestyle"));
+        assert!(!is_pycodestyle_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_pycodestyle_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_pycodestyle_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_pycodestyle_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_pycodestyle_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_pycodestyle_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_pycodestyle_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_pycodestyle_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_pycodestyle_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_pycodestyle_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_pycodestyle_ini_decl("[tool.pycodestyle]"));
+        assert!(is_pyproject_toml_decl("[tool.pycodestyle]"));
+        assert!(!is_pycodestyle_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_pycodestyle_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_pycodestyle_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_pycodestyle_ini_decl("max-complexity = 10"));
+        assert!(is_flake8_ini_decl("max-complexity = 10"));
+        assert!(!is_pycodestyle_ini_decl("extend-ignore = E501"));
+        assert!(is_flake8_ini_decl("extend-ignore = E501"));
+        assert!(!is_pycodestyle_ini_decl("jobs = auto"));
+        assert!(is_flake8_ini_decl("jobs = auto"));
+        assert!(!is_pycodestyle_ini_decl("profile = black"));
+        assert!(is_isort_ini_decl("profile = black"));
+        assert!(!is_pycodestyle_ini_decl("minversion = 6.0"));
+        assert!(is_pytest_ini_decl("minversion = 6.0"));
+        assert!(!is_pycodestyle_ini_decl("python_version = 3.11"));
+        assert!(is_mypy_ini_decl("python_version = 3.11"));
+        assert!(!is_pycodestyle_ini_decl("fail_under = 80"));
+        assert!(is_coverage_ini_decl("fail_under = 80"));
+        assert!(!is_pycodestyle_ini_decl("fail-under = 10"));
+        assert!(is_pylint_ini_decl("fail-under = 10"));
+        assert!(!is_pycodestyle_ini_decl("python_requires = >=3.8"));
+        assert!(is_setup_cfg_decl("python_requires = >=3.8"));
+        assert!(!line_is_func_like("Show-pep8 = true"));
+        assert!(!line_is_func_like("envlist = py39,py310"));
+        // Distinctive pycodestyle keys still list even when flake8 shares others.
+        assert!(line_is_func_like("show-pep8 = true"));
+        assert!(line_is_func_like("first = true"));
+        assert!(line_is_func_like("diff = true"));
+        assert!(line_is_func_like("benchmark = true"));
     }
 
     #[test]

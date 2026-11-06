@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.658] — 2026-11-07
+
+View:
+
+- **Function List** lists pycodestyle `.pycodestyle` / `setup.cfg` / `tox.ini` `[pycodestyle]` / legacy `[pep8]` sections and fields: `[pycodestyle]`, `[pep8]`, `max-line-length = 88`, `max-doc-length = 72`, `indent-size = 4`, `ignore = E203,W503`, `select = E,F,W`, `exclude = .git,.venv,build,dist`, `filename = *.py`, `format = default` / `pylint` / custom `%(path)s:…`, `hang-closing = true`, `statistics = true`, `count = true`, `show-source = true`, `show-pep8 = true`, `first = true`, `diff = true`, `benchmark = true`, `quiet = 1`, `verbose = 1`. Exact pycodestyle keys (kebab-case). INI `key = value` or `key=value`. Optional `#` / `;` comment. flake8 / mypy / pytest / isort / coverage / pylint / tox / setuptools / Cargo / Pipfile / pyproject `[tool.pycodestyle]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.657] — 2026-11-07
 
 View:
