@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.643] — 2026-11-06
+
+View:
+
+- **Function List** lists Nixpacks `nixpacks.toml` sections and fields: `[phases.setup]` / `[phases.install]` / `[phases.build]` / `[phases.name]`, `[start]` / `[variables]` / `[staticAssets]`, `buildImage = "ghcr.io/railwayapp/nixpacks:latest"`, `nixpkgsArchive = "5148520bfab61f99fd25fb9ff7bfbb50dad3c9db"`, `cmd = "yarn run start"`, `runImage = "debian:bullseye-slim"`. Exact Nixpacks keys (camelCase + `cmd` / `nixpkgsArchive`). TOML `key = value` with spaces around `=`. Optional `#` comment (quote-aware). Arrays (`providers = […]`, `cmds = […]`, `nixPkgs = […]`, `nixLibs = […]`, `nixOverlays = […]`, `aptPkgs = […]`, `dependsOn = […]`, `cacheDirectories = […]`, `onlyIncludeFiles = […]`, `paths = […]`) / free-form `[variables]` / `[staticAssets]` entries / nested maps / prose / wrong case / railway / fly / netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.642] — 2026-11-06
 
 View:
