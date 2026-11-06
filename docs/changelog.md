@@ -4,7 +4,7 @@
 
 View:
 
-- **Function List** lists autopep8 `setup.cfg` / `tox.ini` / `.pep8` `[autopep8]` sections and fields: `[autopep8]`, `aggressive = 1`, `experimental = True`, `max_line_length = 120`, `ignore = E226,E24`, `select = E,W`, `hang_closing = True`, `recursive = True`, `jobs = 4`, `verbose = 1`, `diff = True`, `exit_code = True`, `pep8_passes = -1`, `indent_size = 4`, `line_range = 1 10`, `global_config = /etc/autopep8.cfg`, `ignore_local_config = True`. Exact autopep8 keys (snake_case). INI `key = value` or `key=value`. Optional `#` / `;` comment. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / tox / setuptools / Cargo / Pipfile / pyproject `[tool.autopep8]` / Desktop Entry / pip.conf stay out.
+- **Function List** lists autopep8 `setup.cfg` / `tox.ini` / `.pep8` `[autopep8]` sections and fields: `[autopep8]`, `aggressive = 1`, `experimental = True`, `max_line_length = 120`, `ignore = E226,E24`, `select = E,W`, `hang_closing = True`, `recursive = True`, `jobs = 4`, `verbose = 1`, `diff = True`, `exit_code = True`, `pep8_passes = -1`, `line_range = 1 10`, `global_config = /etc/autopep8.cfg`, `ignore_local_config = True`. Exact autopep8 keys (snake_case). `indent_size` stays out so EditorConfig key lines are not claimed. INI `key = value` or `key=value`. Optional `#` / `;` comment. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / tox / setuptools / Cargo / Pipfile / pyproject `[tool.autopep8]` / Desktop Entry / pip.conf stay out.
 
 ## [0.3.658] — 2026-11-07
 

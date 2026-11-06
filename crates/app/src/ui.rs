@@ -43353,9 +43353,10 @@ fn pycodestyle_ini_value_ok(key: &str, value: &str) -> bool {
 /// `max_line_length = 120`, `ignore = E226,E24`, `select = E,W`,
 /// `hang_closing = True`, `recursive = True`, `jobs = 4`,
 /// `verbose = 1`, `diff = True`, `exit_code = True`,
-/// `pep8_passes = -1`, `indent_size = 4`, `line_range = 1 10`,
+/// `pep8_passes = -1`, `line_range = 1 10`,
 /// `global_config = /etc/autopep8`, `ignore_local_config = True`.
-/// Exact autopep8 keys (snake_case). INI `key = value` or
+/// Exact autopep8 keys (snake_case). `indent_size` stays out so
+/// EditorConfig key lines are not claimed. INI `key = value` or
 /// `key=value`. Optional `#` / `;` comment. flake8 / mypy / pytest /
 /// isort / coverage / pylint / pycodestyle / tox / setuptools / Cargo /
 /// Pipfile / pyproject `[tool.autopep8]` / Desktop Entry / pip.conf
@@ -43412,7 +43413,6 @@ fn autopep8_ini_key_ok(key: &str) -> bool {
             | "diff"
             | "exit_code"
             | "pep8_passes"
-            | "indent_size"
             | "line_range"
             | "global_config"
             | "ignore_local_config"
@@ -43458,7 +43458,7 @@ fn autopep8_ini_value_ok(key: &str, value: &str) -> bool {
     }
     if matches!(
         key,
-        "aggressive" | "max_line_length" | "jobs" | "verbose" | "pep8_passes" | "indent_size"
+        "aggressive" | "max_line_length" | "jobs" | "verbose" | "pep8_passes"
     ) {
         return autopep8_ini_int_ok(value);
     }
@@ -69431,7 +69431,8 @@ mod func_like_line_tests {
         assert!(is_autopep8_ini_decl("exit_code = True"));
         assert!(is_autopep8_ini_decl("pep8_passes = -1"));
         assert!(is_autopep8_ini_decl("pep8_passes = 100"));
-        assert!(is_autopep8_ini_decl("indent_size = 4"));
+        assert!(!is_autopep8_ini_decl("indent_size = 4"));
+        assert!(!line_is_func_like("indent_size = 2"));
         assert!(is_autopep8_ini_decl("line_range = 1 10"));
         assert!(is_autopep8_ini_decl("line_range = 1,10"));
         assert!(is_autopep8_ini_decl("global_config = /etc/autopep8.cfg"));
