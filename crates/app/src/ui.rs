@@ -32394,6 +32394,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_fly_toml_decl(s)
             || is_railway_toml_decl(s)
             || is_nixpacks_toml_decl(s)
+            || is_samconfig_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32615,6 +32616,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_fly_toml_decl(s)
         || is_railway_toml_decl(s)
         || is_nixpacks_toml_decl(s)
+        || is_samconfig_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -57232,6 +57234,320 @@ fn nixpacks_toml_value_ok(key: &str, value: &str) -> bool {
     true
 }
 
+/// AWS SAM `samconfig.toml`: `[default]` / `[default.build]` /
+/// `[default.build.parameters]` / `[default.deploy.parameters]` /
+/// `[default.validate.parameters]` / `[default.package.parameters]` /
+/// `[default.sync.parameters]` / `[default.global.parameters]` /
+/// `[default.local_start_api.parameters]` /
+/// `[default.local_start_lambda.parameters]` /
+/// `[default.local_invoke.parameters]` / `[env.command.parameters]`,
+/// `version = 0.1`, `stack_name = "my-app"`, `resolve_s3 = true`,
+/// `s3_bucket = "…"`, `s3_prefix = "my-app"`, `region = "us-east-1"`,
+/// `profile = "default"`, `confirm_changeset = true`,
+/// `capabilities = "CAPABILITY_IAM"`, `parameter_overrides = "…"`,
+/// `template_file = "template.yaml"`, `template = "…"`,
+/// `cached = true`, `parallel = true`, `watch = true`, `lint = true`,
+/// `warm_containers = "EAGER"` / `"LAZY"`, `role_arn = "…"`,
+/// `kms_key_id = "…"`, `on_failure = "DELETE"` / `"ROLLBACK"` /
+/// `"DO_NOTHING"`, `debug_port = 5890`, `host = "127.0.0.1"`,
+/// `static_dir = "public"`, `use_container = true`,
+/// `skip_pull_image = false`, `force_upload = false`,
+/// `disable_rollback = false`, `resolve_image_repos = true`,
+/// `beta_features = true`. Exact SAM keys (snake_case + `version`).
+/// TOML `key = value` with spaces around `=`. Optional `#` comment
+/// (quote-aware). Arrays (`capabilities = […]`,
+/// `image_repositories = […]`, `tags = […]`,
+/// `notification_arns = […]`, `parameter_overrides = […]`) /
+/// nested maps / free-form env / `port = …` (MySQL option-file
+/// collision) / prose / wrong case / nixpacks / railway / fly /
+/// netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants /
+/// audit / cliff / cargo-make / release.toml / Dist.toml / mdBook /
+/// taplo / typos / bacon / Cross / rust-toolchain / cargo config /
+/// nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn /
+/// npmrc / pip / Cargo.toml stay out.
+fn is_samconfig_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // samconfig has no `[[…]]` array-of-tables sections.
+        if array {
+            return false;
+        }
+        return samconfig_toml_section_ok(header);
+    }
+    // Quote-aware `#` / `;` strip so ARNs / paths keep `#` out.
+    let body = samconfig_toml_strip_comment(s);
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested dotted free-form keys stay out.
+    if key.contains('.') {
+        return false;
+    }
+    if !samconfig_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    samconfig_toml_value_ok(key, value)
+}
+
+fn samconfig_toml_strip_comment(s: &str) -> &str {
+    let mut in_single = false;
+    let mut in_double = false;
+    for (i, b) in s.bytes().enumerate() {
+        match b {
+            b'\'' if !in_double => in_single = !in_single,
+            b'"' if !in_single => in_double = !in_double,
+            b'#' | b';' if !in_single && !in_double => {
+                return s[..i].trim_end();
+            }
+            _ => {}
+        }
+    }
+    s.trim()
+}
+
+fn samconfig_toml_section_ok(header: &str) -> bool {
+    // `[default]` / `[default.build]` / `[default.build.parameters]` /
+    // `[prod.deploy.parameters]` / `[env.command.parameters]`.
+    // Bare single headers other than `default` stay out so Cargo /
+    // fly / railway `[build]` / `[package]` / `[deploy]` are not stolen.
+    let parts: Vec<&str> = header.split('.').collect();
+    if parts.is_empty() || parts.len() > 3 {
+        return false;
+    }
+    if !samconfig_toml_env_name_ok(parts[0]) {
+        return false;
+    }
+    match parts.len() {
+        1 => parts[0] == "default",
+        2 => samconfig_toml_command_ok(parts[1]),
+        3 => samconfig_toml_command_ok(parts[1]) && parts[2] == "parameters",
+        _ => false,
+    }
+}
+
+fn samconfig_toml_env_name_ok(name: &str) -> bool {
+    let name = name.trim_matches('"');
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'-' | b'_'))
+}
+
+fn samconfig_toml_command_ok(name: &str) -> bool {
+    matches!(
+        name,
+        "global"
+            | "build"
+            | "validate"
+            | "deploy"
+            | "package"
+            | "sync"
+            | "delete"
+            | "publish"
+            | "local_start_api"
+            | "local_start_lambda"
+            | "local_invoke"
+            | "remote_invoke"
+            | "logs"
+            | "traces"
+            | "pipeline"
+    )
+}
+
+fn samconfig_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "version"
+            | "stack_name"
+            | "resolve_s3"
+            | "s3_bucket"
+            | "s3_prefix"
+            | "region"
+            | "profile"
+            | "confirm_changeset"
+            | "capabilities"
+            | "parameter_overrides"
+            | "role_arn"
+            | "kms_key_id"
+            | "on_failure"
+            | "template_file"
+            | "template"
+            | "config_env"
+            | "config_file"
+            | "cached"
+            | "parallel"
+            | "watch"
+            | "lint"
+            | "warm_containers"
+            | "skip_pull_image"
+            | "docker_network"
+            | "container_host"
+            | "container_host_interface"
+            | "force_upload"
+            | "use_container"
+            | "build_dir"
+            | "base_dir"
+            | "manifest"
+            | "debug_port"
+            | "debug_args"
+            | "debugger_path"
+            | "host"
+            | "static_dir"
+            | "layer_cache_basedir"
+            | "skip_prepare_infra"
+            | "hook_name"
+            | "beta_features"
+            | "fail_on_warnings"
+            | "resolve_image_repos"
+            | "disable_rollback"
+            | "no_execute_changeset"
+            | "no_progressbar"
+            | "guided"
+            | "save_params"
+            | "max_wait_duration"
+    )
+}
+
+fn samconfig_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out.
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "resolve_s3"
+            | "confirm_changeset"
+            | "cached"
+            | "parallel"
+            | "watch"
+            | "lint"
+            | "skip_pull_image"
+            | "force_upload"
+            | "use_container"
+            | "skip_prepare_infra"
+            | "beta_features"
+            | "fail_on_warnings"
+            | "resolve_image_repos"
+            | "disable_rollback"
+            | "no_execute_changeset"
+            | "no_progressbar"
+            | "guided"
+            | "save_params"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "version" {
+        // SAM config schema version: typically `0.1` (unquoted float or quoted).
+        return bare == "0.1" || bare == "0.2";
+    }
+    if key == "debug_port" || key == "max_wait_duration" {
+        return bare.bytes().all(|b| b.is_ascii_digit()) && bare.len() <= 6 && bare != "0";
+    }
+    if key == "warm_containers" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return bare.eq_ignore_ascii_case("EAGER") || bare.eq_ignore_ascii_case("LAZY");
+    }
+    if key == "on_failure" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return bare.eq_ignore_ascii_case("DELETE")
+            || bare.eq_ignore_ascii_case("ROLLBACK")
+            || bare.eq_ignore_ascii_case("DO_NOTHING");
+    }
+    // Remaining keys: quoted strings.
+    if !(value.starts_with('"') || value.starts_with('\'')) {
+        return false;
+    }
+    if bare.len() > 512 {
+        return false;
+    }
+    if !bare
+        .bytes()
+        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+    {
+        return false;
+    }
+    if key == "region" || key == "profile" || key == "config_env" || key == "hook_name" {
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'));
+    }
+    if matches!(
+        key,
+        "template_file"
+            | "template"
+            | "config_file"
+            | "build_dir"
+            | "base_dir"
+            | "manifest"
+            | "debugger_path"
+            | "static_dir"
+            | "layer_cache_basedir"
+            | "s3_prefix"
+            | "s3_bucket"
+            | "stack_name"
+    ) {
+        return bare.contains('/')
+            || bare.contains('.')
+            || bare
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'));
+    }
+    if key == "role_arn" || key == "kms_key_id" {
+        return bare.starts_with("arn:")
+            || bare
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b':' | b'/'));
+    }
+    if key == "host" || key == "container_host" || key == "container_host_interface" {
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b':'));
+    }
+    // capabilities / parameter_overrides / docker_network / debug_args / …
+    true
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -60067,15 +60383,15 @@ mod func_like_line_tests {
         is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
         is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
         is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
-        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
-        is_yum_repo_decl, line_is_func_like,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
+        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
+        is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -71938,10 +72254,243 @@ mod func_like_line_tests {
         assert!(is_railway_toml_decl("[build]"));
         assert!(is_netlify_toml_decl("[build]"));
         assert!(is_trunk_toml_decl("[build]"));
+        assert!(!is_nixpacks_toml_decl("stack_name = \"my-app\""));
+        assert!(is_samconfig_toml_decl("stack_name = \"my-app\""));
+        assert!(!is_nixpacks_toml_decl("[default.deploy.parameters]"));
+        assert!(is_samconfig_toml_decl("[default.deploy.parameters]"));
         assert!(!line_is_func_like("buildImage"));
         assert!(!line_is_func_like(
             "BuildImage = \"ghcr.io/railwayapp/nixpacks:latest\""
         ));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn samconfig_toml_entries_count() {
+        assert!(line_is_func_like("[default]"));
+        assert!(line_is_func_like("[default.build]"));
+        assert!(line_is_func_like("[default.build.parameters]"));
+        assert!(line_is_func_like("[default.deploy.parameters]"));
+        assert!(line_is_func_like("[default.validate.parameters]"));
+        assert!(line_is_func_like("[default.package.parameters]"));
+        assert!(line_is_func_like("[default.sync.parameters]"));
+        assert!(line_is_func_like("[default.global.parameters]"));
+        assert!(line_is_func_like("[default.local_start_api.parameters]"));
+        assert!(line_is_func_like("[default.local_start_lambda.parameters]"));
+        assert!(line_is_func_like("[default.local_invoke.parameters]"));
+        assert!(line_is_func_like("[prod.deploy.parameters]"));
+        assert!(line_is_func_like("version = 0.1"));
+        assert!(line_is_func_like("stack_name = \"my-app\""));
+        assert!(line_is_func_like("resolve_s3 = true"));
+        assert!(line_is_func_like("s3_prefix = \"my-app\""));
+        assert!(line_is_func_like("region = \"us-east-1\""));
+        assert!(line_is_func_like("confirm_changeset = true"));
+        assert!(line_is_func_like("capabilities = \"CAPABILITY_IAM\""));
+        assert!(line_is_func_like("parameter_overrides = \"Key=Value\""));
+        assert!(line_is_func_like("template_file = \"template.yaml\""));
+        assert!(line_is_func_like("cached = true"));
+        assert!(line_is_func_like("parallel = true"));
+        assert!(line_is_func_like("watch = true"));
+        assert!(line_is_func_like("lint = true"));
+        assert!(line_is_func_like("warm_containers = \"EAGER\""));
+        assert!(line_is_func_like("warm_containers = \"LAZY\""));
+        assert!(line_is_func_like("on_failure = \"ROLLBACK\""));
+        assert!(line_is_func_like("debug_port = 5890"));
+        assert!(line_is_func_like("  resolve_s3 = true # keep whitespace"));
+        // Shared detector for samconfig-only keys / sections.
+        assert!(is_samconfig_toml_decl("version = 0.1"));
+        assert!(is_samconfig_toml_decl("version = \"0.1\""));
+        assert!(is_samconfig_toml_decl("stack_name = \"my-app\""));
+        assert!(is_samconfig_toml_decl("resolve_s3 = true"));
+        assert!(is_samconfig_toml_decl("s3_bucket = \"my-bucket\""));
+        assert!(is_samconfig_toml_decl("s3_prefix = \"my-app\""));
+        assert!(is_samconfig_toml_decl("region = \"us-east-1\""));
+        assert!(is_samconfig_toml_decl("profile = \"default\""));
+        assert!(is_samconfig_toml_decl("confirm_changeset = true"));
+        assert!(is_samconfig_toml_decl("capabilities = \"CAPABILITY_IAM\""));
+        assert!(is_samconfig_toml_decl(
+            "parameter_overrides = \"ParameterKey=Key,ParameterValue=Value\""
+        ));
+        assert!(is_samconfig_toml_decl("template_file = \"template.yaml\""));
+        assert!(is_samconfig_toml_decl("template = \"template.yaml\""));
+        assert!(is_samconfig_toml_decl("cached = true"));
+        assert!(is_samconfig_toml_decl("parallel = true"));
+        assert!(is_samconfig_toml_decl("watch = true"));
+        assert!(is_samconfig_toml_decl("lint = true"));
+        assert!(is_samconfig_toml_decl("warm_containers = \"EAGER\""));
+        assert!(is_samconfig_toml_decl(
+            "role_arn = \"arn:aws:iam::123:role/x\""
+        ));
+        assert!(is_samconfig_toml_decl("on_failure = \"DELETE\""));
+        assert!(is_samconfig_toml_decl("debug_port = 5890"));
+        assert!(is_samconfig_toml_decl("host = \"127.0.0.1\""));
+        assert!(is_samconfig_toml_decl("use_container = true"));
+        assert!(is_samconfig_toml_decl("beta_features = false"));
+        assert!(is_samconfig_toml_decl("[default]"));
+        assert!(is_samconfig_toml_decl("[default.build]"));
+        assert!(is_samconfig_toml_decl("[default.build.parameters]"));
+        assert!(is_samconfig_toml_decl("[default.deploy.parameters]"));
+        assert!(is_samconfig_toml_decl("[default.validate.parameters]"));
+        assert!(is_samconfig_toml_decl("[default.package.parameters]"));
+        assert!(is_samconfig_toml_decl("[default.sync.parameters]"));
+        assert!(is_samconfig_toml_decl("[default.global.parameters]"));
+        assert!(is_samconfig_toml_decl(
+            "[default.local_start_api.parameters]"
+        ));
+        assert!(is_samconfig_toml_decl("[prod.deploy.parameters]"));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_samconfig_toml_decl("stack_name"));
+        assert!(!is_samconfig_toml_decl("stack_name ="));
+        assert!(!is_samconfig_toml_decl("Stack_Name = \"my-app\""));
+        assert!(!is_samconfig_toml_decl("STACK_NAME = \"my-app\""));
+        assert!(!is_samconfig_toml_decl("stack_name the team"));
+        assert!(!is_samconfig_toml_decl("# stack_name = \"my-app\""));
+        assert!(!is_samconfig_toml_decl(
+            "capabilities = [\"CAPABILITY_IAM\"]"
+        ));
+        assert!(!is_samconfig_toml_decl("image_repositories = []"));
+        assert!(!is_samconfig_toml_decl("tags = [\"key=value\"]"));
+        assert!(!is_samconfig_toml_decl("notification_arns = [\"arn:…\"]"));
+        assert!(!is_samconfig_toml_decl("parameter_overrides = [\"a=b\"]"));
+        assert!(!is_samconfig_toml_decl("stack_name = my-app"));
+        assert!(!is_samconfig_toml_decl("version = 1.0"));
+        assert!(!is_samconfig_toml_decl("warm_containers = \"HOT\""));
+        assert!(!is_samconfig_toml_decl("on_failure = \"ABORT\""));
+        assert!(!is_samconfig_toml_decl("resolve_s3 = yes"));
+        assert!(!is_samconfig_toml_decl("port = 8080"));
+        assert!(!is_samconfig_toml_decl("PATH=/usr/bin"));
+        assert!(!is_samconfig_toml_decl("[Default]"));
+        assert!(!is_samconfig_toml_decl("[DEFAULT]"));
+        assert!(!is_samconfig_toml_decl("[default.Build.parameters]"));
+        assert!(!is_samconfig_toml_decl("[default.build.Parameters]"));
+        assert!(!is_samconfig_toml_decl("[default.unknown.parameters]"));
+        assert!(!is_samconfig_toml_decl("[default.build.parameters.extra]"));
+        assert!(!is_samconfig_toml_decl("[[default.deploy.parameters]]"));
+        assert!(!is_samconfig_toml_decl("[package]"));
+        assert!(!is_samconfig_toml_decl("[[bin]]"));
+        assert!(!is_samconfig_toml_decl("[workspace]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_samconfig_toml_decl(
+            "buildImage = \"ghcr.io/railwayapp/nixpacks:latest\""
+        ));
+        assert!(is_nixpacks_toml_decl(
+            "buildImage = \"ghcr.io/railwayapp/nixpacks:latest\""
+        ));
+        assert!(!is_samconfig_toml_decl("cmd = \"yarn run start\""));
+        assert!(is_nixpacks_toml_decl("cmd = \"yarn run start\""));
+        assert!(!is_samconfig_toml_decl("[phases.setup]"));
+        assert!(is_nixpacks_toml_decl("[phases.setup]"));
+        assert!(!is_samconfig_toml_decl("startCommand = \"node index.js\""));
+        assert!(is_railway_toml_decl("startCommand = \"node index.js\""));
+        assert!(!is_samconfig_toml_decl("healthcheckPath = \"/health\""));
+        assert!(is_railway_toml_decl("healthcheckPath = \"/health\""));
+        assert!(!is_samconfig_toml_decl("builder = \"RAILPACK\""));
+        assert!(is_railway_toml_decl("builder = \"RAILPACK\""));
+        assert!(!is_samconfig_toml_decl("[environments.production]"));
+        assert!(is_railway_toml_decl("[environments.production]"));
+        assert!(!is_samconfig_toml_decl("primary_region = \"iad\""));
+        assert!(is_fly_toml_decl("primary_region = \"iad\""));
+        assert!(!is_samconfig_toml_decl("auto_stop_machines = \"stop\""));
+        assert!(is_fly_toml_decl("auto_stop_machines = \"stop\""));
+        assert!(!is_samconfig_toml_decl("[http_service]"));
+        assert!(is_fly_toml_decl("[http_service]"));
+        assert!(!is_samconfig_toml_decl("[[mounts]]"));
+        assert!(is_fly_toml_decl("[[mounts]]"));
+        assert!(!is_samconfig_toml_decl("node_bundler = \"esbuild\""));
+        assert!(is_netlify_toml_decl("node_bundler = \"esbuild\""));
+        assert!(!is_samconfig_toml_decl("pretty_urls = true"));
+        assert!(is_netlify_toml_decl("pretty_urls = true"));
+        assert!(!is_samconfig_toml_decl("[[redirects]]"));
+        assert!(is_netlify_toml_decl("[[redirects]]"));
+        assert!(!is_samconfig_toml_decl("[context.production]"));
+        assert!(is_netlify_toml_decl("[context.production]"));
+        assert!(!is_samconfig_toml_decl("workers_dev = true"));
+        assert!(is_wrangler_toml_decl("workers_dev = true"));
+        assert!(!is_samconfig_toml_decl(
+            "compatibility_date = \"2024-01-01\""
+        ));
+        assert!(is_wrangler_toml_decl("compatibility_date = \"2024-01-01\""));
+        assert!(!is_samconfig_toml_decl("[env.staging]"));
+        assert!(is_wrangler_toml_decl("[env.staging]"));
+        assert!(!is_samconfig_toml_decl("[[kv_namespaces]]"));
+        assert!(is_wrangler_toml_decl("[[kv_namespaces]]"));
+        assert!(!is_samconfig_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("reload_html = true"));
+        assert!(!is_samconfig_toml_decl("default_platform = \"web\""));
+        assert!(is_dioxus_toml_decl("default_platform = \"web\""));
+        assert!(!is_samconfig_toml_decl("[web.app]"));
+        assert!(is_dioxus_toml_decl("[web.app]"));
+        assert!(!is_samconfig_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(is_uniffi_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(!is_samconfig_toml_decl("language = \"C++\""));
+        assert!(is_cbindgen_toml_decl("language = \"C++\""));
+        assert!(!is_samconfig_toml_decl("public_url = \"/\""));
+        assert!(is_trunk_toml_decl("public_url = \"/\""));
+        assert!(!is_samconfig_toml_decl("filehash = true"));
+        assert!(is_trunk_toml_decl("filehash = true"));
+        assert!(!is_samconfig_toml_decl("timeout_multiplier = 2.0"));
+        assert!(is_mutants_toml_decl("timeout_multiplier = 2.0"));
+        assert!(!is_samconfig_toml_decl("severity_threshold = \"low\""));
+        assert!(is_audit_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_samconfig_toml_decl("conventional_commits = true"));
+        assert!(is_cliff_toml_decl("conventional_commits = true"));
+        assert!(!is_samconfig_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_samconfig_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(!is_samconfig_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_samconfig_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_samconfig_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_samconfig_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_samconfig_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_samconfig_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_samconfig_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_samconfig_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_samconfig_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_samconfig_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_samconfig_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_samconfig_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_samconfig_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_samconfig_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_samconfig_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_samconfig_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_samconfig_toml_decl(
+            "registry=https://registry.npmjs.org/"
+        ));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_samconfig_toml_decl(
+            "index-url = https://pypi.org/simple"
+        ));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_samconfig_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_samconfig_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        // Shared `[build]` stays on fly / railway / netlify / trunk (not
+        // samconfig's bare `[build]` — SAM needs env prefix).
+        assert!(!is_samconfig_toml_decl("[build]"));
+        assert!(is_fly_toml_decl("[build]"));
+        assert!(is_railway_toml_decl("[build]"));
+        assert!(is_netlify_toml_decl("[build]"));
+        assert!(is_trunk_toml_decl("[build]"));
+        assert!(!line_is_func_like("stack_name"));
+        assert!(!line_is_func_like("Stack_Name = \"my-app\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

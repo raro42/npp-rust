@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.644] — 2026-11-06
+
+View:
+
+- **Function List** lists AWS SAM `samconfig.toml` sections and fields: `[default]` / `[default.build]` / `[default.build.parameters]` / `[default.deploy.parameters]` / `[default.validate.parameters]` / `[default.package.parameters]` / `[default.sync.parameters]` / `[default.global.parameters]` / `[default.local_start_api.parameters]` / `[default.local_start_lambda.parameters]` / `[default.local_invoke.parameters]` / `[env.command.parameters]`, `version = 0.1`, `stack_name = "my-app"`, `resolve_s3 = true`, `s3_bucket = "…"`, `s3_prefix = "my-app"`, `region = "us-east-1"`, `profile = "default"`, `confirm_changeset = true`, `capabilities = "CAPABILITY_IAM"`, `parameter_overrides = "…"`, `template_file = "template.yaml"`, `cached = true`, `parallel = true`, `watch = true`, `lint = true`, `warm_containers = "EAGER"` / `"LAZY"`, `role_arn = "…"`, `on_failure = "DELETE"` / `"ROLLBACK"` / `"DO_NOTHING"`, `debug_port = 5890`, `host = "127.0.0.1"`, `use_container = true`, `beta_features = true`. Exact SAM keys (snake_case + `version`). TOML `key = value` with spaces around `=`. Optional `#` comment (quote-aware). Arrays (`capabilities = […]`, `image_repositories = […]`, `tags = […]`, `notification_arns = […]`, `parameter_overrides = […]`) / nested maps / free-form env / `port = …` (MySQL option-file collision) / bare `[build]` / `[package]` / prose / wrong case / nixpacks / railway / fly / netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.643] — 2026-11-06
 
 View:
