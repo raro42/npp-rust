@@ -32081,6 +32081,15 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `[gh-actions:…]`). Optional `#` / `;` comment. Key lines (`envlist =`),
 /// Cargo / Pipfile / pyproject / Desktop Entry tables, incomplete
 /// brackets, and prose stay out.
+/// setuptools `setup.cfg` sections (`[metadata]`, `[options]`,
+/// `[options.packages.find]`, `[options.extras_require]`,
+/// `[options.entry_points]`, `[bdist_wheel]`, `[egg_info]`, …) and
+/// distinctive keys (`python_requires`, `long_description_content_type`,
+/// `install_requires`, `zip_safe`, …). Optional `#` / `;` comment. Key
+/// lines may use `=` with or without spaces. Free-form `name` / `version` /
+/// `author` / `url` / `license`, flake8 / mypy / tool:pytest / tox / Cargo /
+/// Pipfile / pyproject / Desktop Entry tables, incomplete brackets, and
+/// prose stay out.
 /// Desktop Entry sections (`[Desktop Entry]`, `[Desktop Action …]`).
 /// Optional `#` / `;` comment. Key lines (`Name=`), tox / Cargo / Pipfile /
 /// pyproject tables, incomplete brackets, and prose stay out.
@@ -32288,6 +32297,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_podfile_decl(s)
             || is_pipfile_decl(s)
             || is_tox_ini_decl(s)
+            || is_setup_cfg_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32516,6 +32526,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_podfile_decl(s)
         || is_pipfile_decl(s)
         || is_tox_ini_decl(s)
+        || is_setup_cfg_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -41476,6 +41487,153 @@ fn tox_ini_segment_ok(name: &str) -> bool {
     bytes
         .iter()
         .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
+}
+
+/// setuptools `setup.cfg`: `[metadata]` / `[options]` /
+/// `[options.packages.find]` / `[options.package_data]` /
+/// `[options.exclude_package_data]` / `[options.extras_require]` /
+/// `[options.entry_points]` / `[options.data_files]` / `[sdist]` /
+/// `[bdist_wheel]` / `[egg_info]` / `[aliases]` / `[build_ext]`,
+/// `python_requires = >=3.8`, `long_description_content_type = text/markdown`,
+/// `long_description = file: README.md`, `install_requires = requests`,
+/// `setup_requires = …`, `tests_require = …`, `include_package_data = True`,
+/// `namespace_packages = …`,
+/// `zip_safe = False`, `package_dir = src`, `py_modules = foo`,
+/// `packages = find:`, `license_files = LICENSE`, `license_file = LICENSE`,
+/// `project_urls = …`, `download_url = …`, `author_email = …`,
+/// `maintainer_email = …`, `provides_extras = …`, `universal = 1`,
+/// `py-limited-api = cp38`, `tag_build = …`, `tag_date = false`. Exact
+/// setuptools keys (snake_case; `py-limited-api` kebab). INI `key = value`
+/// or `key=value`. Optional `#` / `;` comment. Free-form `name` / `version` /
+/// `author` / `url` / `license` / `description` / `classifiers` / `keywords` /
+/// `where` / `include` / `exclude` / `scripts`, flake8 / mypy / tool:pytest /
+/// tox / Cargo / Pipfile / pyproject / Desktop Entry / pip.conf tables,
+/// incomplete brackets, and prose stay out.
+fn is_setup_cfg_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return setup_cfg_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !setup_cfg_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    setup_cfg_value_ok(key, value)
+}
+
+fn setup_cfg_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "metadata"
+            | "options"
+            | "options.packages.find"
+            | "options.package_data"
+            | "options.exclude_package_data"
+            | "options.extras_require"
+            | "options.entry_points"
+            | "options.data_files"
+            | "sdist"
+            | "bdist_wheel"
+            | "egg_info"
+            | "aliases"
+            | "build_ext"
+    )
+}
+
+fn setup_cfg_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "python_requires"
+            | "long_description"
+            | "long_description_content_type"
+            | "install_requires"
+            | "setup_requires"
+            | "tests_require"
+            | "include_package_data"
+            | "namespace_packages"
+            | "zip_safe"
+            | "package_dir"
+            | "py_modules"
+            | "packages"
+            | "license_files"
+            | "license_file"
+            | "project_urls"
+            | "download_url"
+            | "author_email"
+            | "maintainer_email"
+            | "provides_extras"
+            | "universal"
+            | "py-limited-api"
+            | "tag_build"
+            | "tag_date"
+    )
+}
+
+fn setup_cfg_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if matches!(key, "include_package_data" | "zip_safe" | "tag_date") {
+        return matches!(
+            value,
+            "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+        );
+    }
+    if key == "universal" {
+        return matches!(value, "1" | "0" | "True" | "False" | "true" | "false");
+    }
+    if key == "packages" {
+        // setuptools `packages = find:` / `find_namespace:` marker, or an
+        // explicit package list. Bare `find` / `find_namespace` (no colon)
+        // stay out.
+        if value == "find:" || value == "find_namespace:" {
+            return true;
+        }
+        if matches!(value, "find" | "find_namespace") {
+            return false;
+        }
+        return value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b',' | b' '));
+    }
+    if key == "long_description_content_type" {
+        // Common stock values; keep ASCII / MIME-ish.
+        return value.bytes().all(|b| {
+            b.is_ascii_alphanumeric() || matches!(b, b'/' | b'-' | b'+' | b'.' | b';' | b'=')
+        }) && value.contains('/');
+    }
+    if key == "python_requires" {
+        // PEP 440 marker text, e.g. `>=3.8`, `>=3.9,<3.13`.
+        return value.bytes().all(|b| {
+            b.is_ascii_alphanumeric()
+                || matches!(b, b'>' | b'<' | b'=' | b'!' | b',' | b'.' | b' ' | b'*')
+        });
+    }
+    // Remaining keys: paths, emails, URLs, requirement pins, file: refs.
+    value
+        .bytes()
+        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
 }
 
 /// FreeDesktop Desktop Entry sections: `[Desktop Entry]`,
@@ -62157,14 +62315,15 @@ mod func_like_line_tests {
         is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
         is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
         is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
-        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_sddm_conf_decl, is_services_file_decl, is_setup_cfg_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
+        is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -66388,6 +66547,7 @@ mod func_like_line_tests {
         assert!(!is_tox_ini_decl("[Desktop Entry]"));
         assert!(!is_tox_ini_decl("[flake8]"));
         assert!(!is_tox_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
         // Cargo / Pipfile / pyproject stay on their paths.
         assert!(is_cargo_toml_decl("[package]"));
         assert!(!is_tox_ini_decl("[package]"));
@@ -66395,6 +66555,117 @@ mod func_like_line_tests {
         assert!(!is_tox_ini_decl("[packages]"));
         assert!(is_pyproject_toml_decl("[project]"));
         assert!(!is_tox_ini_decl("[project]"));
+    }
+
+    #[test]
+    fn setup_cfg_entries_count() {
+        assert!(line_is_func_like("[metadata]"));
+        assert!(line_is_func_like("  [options] # setuptools"));
+        assert!(line_is_func_like("[options]; pkgs"));
+        assert!(line_is_func_like("[options.packages.find]"));
+        assert!(line_is_func_like("[options.package_data]"));
+        assert!(line_is_func_like("[options.exclude_package_data]"));
+        assert!(line_is_func_like("[options.extras_require]"));
+        assert!(line_is_func_like("[options.entry_points]"));
+        assert!(line_is_func_like("[options.data_files]"));
+        assert!(line_is_func_like("[sdist]"));
+        assert!(line_is_func_like("[bdist_wheel]"));
+        assert!(line_is_func_like("[egg_info]"));
+        assert!(line_is_func_like("[aliases]"));
+        assert!(line_is_func_like("[build_ext]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[options]"));
+        assert!(is_setup_cfg_decl("[options.packages.find]"));
+        assert!(is_setup_cfg_decl("[options.extras_require]"));
+        assert!(is_setup_cfg_decl("[options.entry_points]"));
+        assert!(is_setup_cfg_decl("[bdist_wheel]"));
+        assert!(is_setup_cfg_decl("[egg_info]"));
+        assert!(is_setup_cfg_decl("python_requires = >=3.8"));
+        assert!(is_setup_cfg_decl("python_requires=>=3.9,<3.13"));
+        assert!(is_setup_cfg_decl(
+            "long_description_content_type = text/markdown"
+        ));
+        assert!(is_setup_cfg_decl(
+            "long_description_content_type=text/x-rst; charset=UTF-8"
+        ));
+        assert!(is_setup_cfg_decl("long_description = file: README.md"));
+        assert!(is_setup_cfg_decl("install_requires = requests>=2.0"));
+        assert!(is_setup_cfg_decl("setup_requires = wheel"));
+        assert!(is_setup_cfg_decl("tests_require = pytest"));
+        assert!(is_setup_cfg_decl("include_package_data = True"));
+        assert!(is_setup_cfg_decl("include_package_data=false"));
+        assert!(is_setup_cfg_decl("zip_safe = False"));
+        assert!(is_setup_cfg_decl("zip_safe=0"));
+        assert!(is_setup_cfg_decl("packages = find:"));
+        assert!(is_setup_cfg_decl("packages=find_namespace:"));
+        assert!(is_setup_cfg_decl("py_modules = mypkg"));
+        assert!(is_setup_cfg_decl("package_dir = src"));
+        assert!(is_setup_cfg_decl("namespace_packages = a.b"));
+        assert!(is_setup_cfg_decl("license_files = LICENSE"));
+        assert!(is_setup_cfg_decl("license_file = LICENSE.txt"));
+        assert!(is_setup_cfg_decl("author_email = dev@example.com"));
+        assert!(is_setup_cfg_decl("maintainer_email = ops@example.com"));
+        assert!(is_setup_cfg_decl(
+            "download_url = https://example.com/pkg.tgz"
+        ));
+        assert!(is_setup_cfg_decl("provides_extras = fancy"));
+        assert!(is_setup_cfg_decl("universal = 1"));
+        assert!(is_setup_cfg_decl("py-limited-api = cp38"));
+        assert!(is_setup_cfg_decl("tag_build = .dev0"));
+        assert!(is_setup_cfg_decl("tag_date = false"));
+
+        // Free-form / other-tool keys stay out.
+        assert!(!is_setup_cfg_decl("name = mypkg"));
+        assert!(!is_setup_cfg_decl("version = 1.0.0"));
+        assert!(!is_setup_cfg_decl("author = Ada"));
+        assert!(!is_setup_cfg_decl("url = https://example.com"));
+        assert!(!is_setup_cfg_decl("license = MIT"));
+        assert!(!is_setup_cfg_decl("description = A package"));
+        assert!(!is_setup_cfg_decl("classifiers ="));
+        assert!(!is_setup_cfg_decl("keywords = cli,tool"));
+        assert!(!is_setup_cfg_decl("where = src"));
+        assert!(!is_setup_cfg_decl("include = mypkg*"));
+        assert!(!is_setup_cfg_decl("exclude = tests*"));
+        assert!(!is_setup_cfg_decl("scripts = bin/foo"));
+        assert!(!is_setup_cfg_decl("python_requires"));
+        assert!(!is_setup_cfg_decl("python_requires ="));
+        assert!(!is_setup_cfg_decl("Python_Requires = >=3.8"));
+        assert!(!is_setup_cfg_decl("PYTHON_REQUIRES = >=3.8"));
+        assert!(!is_setup_cfg_decl("# python_requires = >=3.8"));
+        assert!(!is_setup_cfg_decl("zip_safe = maybe"));
+        assert!(!is_setup_cfg_decl("packages = find"));
+        assert!(!is_setup_cfg_decl(
+            "long_description_content_type = markdown"
+        ));
+        assert!(!is_setup_cfg_decl("[Metadata]"));
+        assert!(!is_setup_cfg_decl("[OPTIONS]"));
+        assert!(!is_setup_cfg_decl("[options.unknown]"));
+        assert!(!is_setup_cfg_decl("[[options]]"));
+        assert!(!is_setup_cfg_decl("[options"));
+        assert!(!is_setup_cfg_decl("[flake8]"));
+        assert!(!is_setup_cfg_decl("[mypy]"));
+        assert!(!is_setup_cfg_decl("[tool:pytest]"));
+        assert!(!is_setup_cfg_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_setup_cfg_decl("[testenv]"));
+        assert!(!is_setup_cfg_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_setup_cfg_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_setup_cfg_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_setup_cfg_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_setup_cfg_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_setup_cfg_decl("timeout = 15"));
+        assert!(is_pip_conf_decl("timeout = 15"));
+        // PDM TOML `[install]` stays on PDM; setup.cfg skips bare `[install]`.
+        assert!(!is_setup_cfg_decl("[install]"));
+        assert!(is_pdm_toml_decl("[install]"));
+        assert!(!line_is_func_like("name = mypkg"));
+        assert!(!line_is_func_like("Python_Requires = >=3.8"));
+        assert!(!line_is_func_like("envlist = py39,py310"));
     }
 
     #[test]

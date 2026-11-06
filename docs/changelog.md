@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.651] — 2026-11-06
+
+View:
+
+- **Function List** lists setuptools `setup.cfg` sections and fields: `[metadata]` / `[options]` / `[options.packages.find]` / `[options.package_data]` / `[options.exclude_package_data]` / `[options.extras_require]` / `[options.entry_points]` / `[options.data_files]` / `[sdist]` / `[bdist_wheel]` / `[egg_info]` / `[aliases]` / `[build_ext]`, `python_requires = >=3.8`, `long_description_content_type = text/markdown`, `long_description = file: README.md`, `install_requires = requests`, `setup_requires = …`, `tests_require = …`, `include_package_data = True`, `namespace_packages = …`, `zip_safe = False`, `package_dir = src`, `py_modules = foo`, `packages = find:`, `license_files = LICENSE`, `license_file = LICENSE`, `project_urls = …`, `download_url = …`, `author_email = …`, `maintainer_email = …`, `provides_extras = …`, `universal = 1`, `py-limited-api = cp38`, `tag_build = …`, `tag_date = false`. Exact setuptools keys (snake_case; `py-limited-api` kebab). INI `key = value` or `key=value`. Optional `#` / `;` comment. Free-form `name` / `version` / `author` / `url` / `license` / `description` / `classifiers` / `keywords` / `where` / `include` / `exclude` / `scripts`, flake8 / mypy / tool:pytest / tox / Cargo / Pipfile / pyproject / Desktop Entry / pip.conf / PDM `[install]` stay out.
+
 ## [0.3.650] — 2026-11-06
 
 View:
