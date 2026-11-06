@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [0.3.642] — 2026-11-06
+
+View:
+
+- **Function List** lists Railway `railway.toml` sections and fields: `[build]` / `[deploy]` / `[environments.name]` / `[environments.name.build]` / `[environments.name.deploy]`, `builder = "RAILPACK"` / `"DOCKERFILE"` / `"NIXPACKS"` / `"HEROKU"` / `"PAKETO"`, `buildCommand = "npm run build"`, `dockerfilePath = "Dockerfile"`, `nixpacksConfigPath = "nixpacks.toml"`, `nixpacksVersion = "1.21.3"`, `railpackVersion = "0.7.0"`, `buildEnvironment = "V2"` / `"V3"`, `startCommand = "node index.js"`, `preDeployCommand = "…"`, `preDeployTimeoutSeconds = 300`, `numReplicas = 1`, `healthcheckPath = "/health"`, `healthcheckTimeout = 100`, `sleepApplication = false`, `runtime = "V2"` / `"LEGACY"` / `"UNSPECIFIED"`, `restartPolicyType = "ON_FAILURE"` / `"ALWAYS"` / `"NEVER"`, `restartPolicyMaxRetries = 10`, `cronSchedule = "0 * * * *"`, `region = "us-west2"`, `requiredMountPath = "/data"`, `overlapSeconds = 0`, `drainingSeconds = 10`, `ipv6EgressEnabled = false`. Exact Railway keys (camelCase). TOML `key = value` with spaces around `=`. Optional `#` comment (quote-aware). Arrays (`watchPatterns = […]`, `preDeployCommand = […]`) / nested maps (`nixpacksPlan = {…}`, `multiRegionConfig = {…}`, `limitOverride = {…}`, `registryCredentials = {…}`) / `$schema` / prose / wrong case / fly / netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
+
 ## [0.3.641] — 2026-11-06
 
 View:

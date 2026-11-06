@@ -32392,6 +32392,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_wrangler_toml_decl(s)
             || is_netlify_toml_decl(s)
             || is_fly_toml_decl(s)
+            || is_railway_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32611,6 +32612,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_wrangler_toml_decl(s)
         || is_netlify_toml_decl(s)
         || is_fly_toml_decl(s)
+        || is_railway_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -56094,8 +56096,8 @@ fn wrangler_toml_worker_name_ok(s: &str) -> bool {
 /// Netlify keys (snake_case + known camelCase). TOML `key = value` with
 /// spaces around `=`. Optional `#` comment. Arrays
 /// (`included_files = […]`, `external_node_modules = […]`) / nested maps /
-/// `port = …` (MySQL option-file collision) / prose / wrong case / fly /
-/// wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff /
+/// `port = …` (MySQL option-file collision) / prose / wrong case / railway /
+/// fly / wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff /
 /// cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon /
 /// Cross / rust-toolchain / cargo config / nextest / deny / clippy /
 /// rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
@@ -56408,7 +56410,7 @@ fn netlify_toml_value_ok(key: &str, value: &str) -> bool {
 /// Arrays (`processes = […]`, `handlers = […]`, `buildpacks = […]`) /
 /// nested maps (`args = {…}`, `headers = {…}`) / `[env]` / free-form env
 /// keys / `port = …` (MySQL option-file collision) / prose / wrong case /
-/// netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants /
+/// railway / netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants /
 /// audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo /
 /// typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny /
 /// clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml
@@ -56793,6 +56795,289 @@ fn fly_toml_duration_ok(s: &str) -> bool {
         return false;
     }
     matches!(unit, b"s" | b"m" | b"h")
+}
+
+/// Railway `railway.toml`: `[build]` / `[deploy]` /
+/// `[environments.name]` / `[environments.name.build]` /
+/// `[environments.name.deploy]`, `builder = "RAILPACK"` /
+/// `"DOCKERFILE"` / `"NIXPACKS"` / `"HEROKU"` / `"PAKETO"`,
+/// `buildCommand = "npm run build"`, `dockerfilePath = "Dockerfile"`,
+/// `nixpacksConfigPath = "nixpacks.toml"`, `nixpacksVersion = "1.21.3"`,
+/// `railpackVersion = "0.7.0"`, `buildEnvironment = "V2"` / `"V3"`,
+/// `startCommand = "node index.js"`, `preDeployCommand = "…"`,
+/// `preDeployTimeoutSeconds = 300`, `numReplicas = 1`,
+/// `healthcheckPath = "/health"`, `healthcheckTimeout = 100`,
+/// `sleepApplication = false`, `runtime = "V2"` / `"LEGACY"` /
+/// `"UNSPECIFIED"`, `restartPolicyType = "ON_FAILURE"` / `"ALWAYS"` /
+/// `"NEVER"`, `restartPolicyMaxRetries = 10`, `cronSchedule = "0 * * * *"`,
+/// `region = "us-west2"`, `requiredMountPath = "/data"`,
+/// `overlapSeconds = 0`, `drainingSeconds = 10`,
+/// `ipv6EgressEnabled = false`. Exact Railway keys (camelCase). TOML
+/// `key = value` with spaces around `=`. Optional `#` comment.
+/// Arrays (`watchPatterns = […]`, `preDeployCommand = […]`) / nested
+/// maps (`nixpacksPlan = {…}`, `multiRegionConfig = {…}`,
+/// `limitOverride = {…}`, `registryCredentials = {…}`) / `$schema` /
+/// prose / wrong case / fly / netlify / wrangler / dioxus / uniffi /
+/// cbindgen / trunk / mutants / audit / cliff / cargo-make /
+/// release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross /
+/// rust-toolchain / cargo config / nextest / deny / clippy / rustfmt /
+/// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+fn is_railway_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // Railway has no `[[…]]` array-of-tables sections.
+        if array {
+            return false;
+        }
+        return railway_toml_section_ok(header);
+    }
+    // Quote-aware `#` / `;` strip so path / cron strings keep `#` out.
+    let body = railway_toml_strip_comment(s);
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested dotted free-form keys stay out.
+    if key.contains('.') {
+        return false;
+    }
+    if !railway_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    railway_toml_value_ok(key, value)
+}
+
+fn railway_toml_strip_comment(s: &str) -> &str {
+    let mut in_single = false;
+    let mut in_double = false;
+    for (i, b) in s.bytes().enumerate() {
+        match b {
+            b'\'' if !in_double => in_single = !in_single,
+            b'"' if !in_single => in_double = !in_double,
+            b'#' | b';' if !in_single && !in_double => {
+                return s[..i].trim_end();
+            }
+            _ => {}
+        }
+    }
+    s.trim()
+}
+
+fn railway_toml_section_ok(header: &str) -> bool {
+    if matches!(header, "build" | "deploy") {
+        return true;
+    }
+    if let Some(rest) = header.strip_prefix("environments.") {
+        return railway_toml_environments_ok(rest);
+    }
+    false
+}
+
+fn railway_toml_environments_ok(rest: &str) -> bool {
+    let (name, suffix) = match rest.split_once('.') {
+        Some((n, s)) => (n, Some(s)),
+        None => (rest, None),
+    };
+    if !railway_toml_env_name_ok(name) {
+        return false;
+    }
+    match suffix {
+        None => true,
+        Some(s) => matches!(s, "build" | "deploy"),
+    }
+}
+
+fn railway_toml_env_name_ok(name: &str) -> bool {
+    let name = name.trim_matches('"');
+    if name.is_empty() || name.len() > 128 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'-' | b'_'))
+}
+
+fn railway_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "builder"
+            | "buildCommand"
+            | "dockerfilePath"
+            | "nixpacksConfigPath"
+            | "nixpacksVersion"
+            | "railpackVersion"
+            | "buildEnvironment"
+            | "startCommand"
+            | "preDeployCommand"
+            | "preDeployTimeoutSeconds"
+            | "numReplicas"
+            | "healthcheckPath"
+            | "healthcheckTimeout"
+            | "sleepApplication"
+            | "runtime"
+            | "restartPolicyType"
+            | "restartPolicyMaxRetries"
+            | "cronSchedule"
+            | "region"
+            | "requiredMountPath"
+            | "overlapSeconds"
+            | "drainingSeconds"
+            | "ipv6EgressEnabled"
+            | "useLegacyStacker"
+    )
+}
+
+fn railway_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (watchPatterns = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "sleepApplication" | "ipv6EgressEnabled" | "useLegacyStacker"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(
+        key,
+        "preDeployTimeoutSeconds"
+            | "numReplicas"
+            | "healthcheckTimeout"
+            | "restartPolicyMaxRetries"
+            | "overlapSeconds"
+            | "drainingSeconds"
+    ) {
+        if !bare.bytes().all(|b| b.is_ascii_digit()) || bare.len() > 6 {
+            return false;
+        }
+        if matches!(
+            key,
+            "preDeployTimeoutSeconds" | "numReplicas" | "restartPolicyMaxRetries"
+        ) {
+            return bare != "0";
+        }
+        return true;
+    }
+    if key == "builder" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return bare.eq_ignore_ascii_case("RAILPACK")
+            || bare.eq_ignore_ascii_case("DOCKERFILE")
+            || bare.eq_ignore_ascii_case("NIXPACKS")
+            || bare.eq_ignore_ascii_case("HEROKU")
+            || bare.eq_ignore_ascii_case("PAKETO");
+    }
+    if key == "restartPolicyType" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return bare.eq_ignore_ascii_case("ON_FAILURE")
+            || bare.eq_ignore_ascii_case("ALWAYS")
+            || bare.eq_ignore_ascii_case("NEVER");
+    }
+    if key == "runtime" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return bare.eq_ignore_ascii_case("UNSPECIFIED")
+            || bare.eq_ignore_ascii_case("LEGACY")
+            || bare.eq_ignore_ascii_case("V2");
+    }
+    if key == "buildEnvironment" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return bare.eq_ignore_ascii_case("V2") || bare.eq_ignore_ascii_case("V3");
+    }
+    if matches!(
+        key,
+        "buildCommand"
+            | "dockerfilePath"
+            | "nixpacksConfigPath"
+            | "nixpacksVersion"
+            | "railpackVersion"
+            | "startCommand"
+            | "preDeployCommand"
+            | "healthcheckPath"
+            | "cronSchedule"
+            | "region"
+            | "requiredMountPath"
+    ) {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 512 {
+            return false;
+        }
+        if !bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+        {
+            return false;
+        }
+        if key == "healthcheckPath" || key == "requiredMountPath" {
+            return bare.starts_with('/');
+        }
+        if key == "dockerfilePath" || key == "nixpacksConfigPath" {
+            return bare.contains('/')
+                || bare.contains('.')
+                || bare
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'));
+        }
+        if key == "region" {
+            return bare
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'));
+        }
+        if key == "cronSchedule" {
+            // Five-field cron cue (spaces) or @alias.
+            return bare.starts_with('@') || bare.split_whitespace().count() >= 5;
+        }
+        if matches!(key, "nixpacksVersion" | "railpackVersion") {
+            return bare
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'));
+        }
+        // buildCommand / startCommand / preDeployCommand: quoted graphic.
+        return true;
+    }
+    false
 }
 
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
@@ -59627,17 +59912,17 @@ mod func_like_line_tests {
         is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
         is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
         is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl,
-        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_protocols_file_decl, is_pyproject_toml_decl, is_railway_toml_decl, is_rake_decl,
+        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_scons_decl, is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -70659,6 +70944,13 @@ mod func_like_line_tests {
         assert!(is_netlify_toml_decl("[[redirects]]"));
         assert!(!is_wrangler_toml_decl("[context.production]"));
         assert!(is_netlify_toml_decl("[context.production]"));
+        // Neighbouring railway family stays on its path.
+        assert!(!is_wrangler_toml_decl("startCommand = \"node index.js\""));
+        assert!(is_railway_toml_decl("startCommand = \"node index.js\""));
+        assert!(!is_wrangler_toml_decl("healthcheckPath = \"/health\""));
+        assert!(is_railway_toml_decl("healthcheckPath = \"/health\""));
+        assert!(!is_wrangler_toml_decl("[environments.production]"));
+        assert!(is_railway_toml_decl("[environments.production]"));
         // Neighbouring fly family stays on its path.
         assert!(!is_wrangler_toml_decl("primary_region = \"iad\""));
         assert!(is_fly_toml_decl("primary_region = \"iad\""));
@@ -70849,6 +71141,13 @@ mod func_like_line_tests {
         assert!(is_uv_toml_decl("[pip]"));
         assert!(!is_netlify_toml_decl("[package]"));
         assert!(is_cargo_toml_decl("[package]"));
+        // Neighbouring railway family stays on its path.
+        assert!(!is_netlify_toml_decl("startCommand = \"node index.js\""));
+        assert!(is_railway_toml_decl("startCommand = \"node index.js\""));
+        assert!(!is_netlify_toml_decl("healthcheckPath = \"/health\""));
+        assert!(is_railway_toml_decl("healthcheckPath = \"/health\""));
+        assert!(!is_netlify_toml_decl("[environments.production]"));
+        assert!(is_railway_toml_decl("[environments.production]"));
         // Neighbouring fly family stays on its path.
         assert!(!is_netlify_toml_decl("primary_region = \"iad\""));
         assert!(is_fly_toml_decl("primary_region = \"iad\""));
@@ -71072,12 +71371,209 @@ mod func_like_line_tests {
         assert!(is_uv_toml_decl("[pip]"));
         assert!(!is_fly_toml_decl("[package]"));
         assert!(is_cargo_toml_decl("[package]"));
-        // Shared `[build]` with netlify / trunk still list.
+        // Neighbouring railway family stays on its path.
+        assert!(!is_fly_toml_decl("startCommand = \"node index.js\""));
+        assert!(is_railway_toml_decl("startCommand = \"node index.js\""));
+        assert!(!is_fly_toml_decl("healthcheckPath = \"/health\""));
+        assert!(is_railway_toml_decl("healthcheckPath = \"/health\""));
+        assert!(!is_fly_toml_decl("restartPolicyType = \"ON_FAILURE\""));
+        assert!(is_railway_toml_decl("restartPolicyType = \"ON_FAILURE\""));
+        assert!(!is_fly_toml_decl("[environments.production]"));
+        assert!(is_railway_toml_decl("[environments.production]"));
+        // Shared `[build]` / `[deploy]` with railway / netlify / trunk still list.
         assert!(is_fly_toml_decl("[build]"));
         assert!(is_netlify_toml_decl("[build]"));
         assert!(is_trunk_toml_decl("[build]"));
         assert!(!line_is_func_like("primary_region"));
         assert!(!line_is_func_like("Primary_Region = \"iad\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn railway_toml_entries_count() {
+        assert!(line_is_func_like("[build]"));
+        assert!(line_is_func_like("[deploy]"));
+        assert!(line_is_func_like("[environments.production]"));
+        assert!(line_is_func_like("[environments.staging]"));
+        assert!(line_is_func_like("[environments.production.build]"));
+        assert!(line_is_func_like("[environments.production.deploy]"));
+        assert!(line_is_func_like("builder = \"RAILPACK\""));
+        assert!(line_is_func_like("builder = \"railpack\""));
+        assert!(line_is_func_like("builder = \"DOCKERFILE\""));
+        assert!(line_is_func_like("builder = \"NIXPACKS\""));
+        assert!(line_is_func_like("buildCommand = \"npm run build\""));
+        assert!(line_is_func_like("dockerfilePath = \"Dockerfile\""));
+        assert!(line_is_func_like("nixpacksConfigPath = \"nixpacks.toml\""));
+        assert!(line_is_func_like("nixpacksVersion = \"1.21.3\""));
+        assert!(line_is_func_like("railpackVersion = \"0.7.0\""));
+        assert!(line_is_func_like("buildEnvironment = \"V2\""));
+        assert!(line_is_func_like("startCommand = \"node index.js\""));
+        assert!(line_is_func_like(
+            "preDeployCommand = \"npm run db:migrate\""
+        ));
+        assert!(line_is_func_like("preDeployTimeoutSeconds = 300"));
+        assert!(line_is_func_like("numReplicas = 1"));
+        assert!(line_is_func_like("healthcheckPath = \"/health\""));
+        assert!(line_is_func_like("healthcheckTimeout = 100"));
+        assert!(line_is_func_like("sleepApplication = false"));
+        assert!(line_is_func_like("runtime = \"V2\""));
+        assert!(line_is_func_like("restartPolicyType = \"ON_FAILURE\""));
+        assert!(line_is_func_like("restartPolicyType = \"never\""));
+        assert!(line_is_func_like("restartPolicyMaxRetries = 10"));
+        assert!(line_is_func_like("cronSchedule = \"0 * * * *\""));
+        assert!(line_is_func_like("region = \"us-west2\""));
+        assert!(line_is_func_like("requiredMountPath = \"/data\""));
+        assert!(line_is_func_like("overlapSeconds = 0"));
+        assert!(line_is_func_like("drainingSeconds = 10"));
+        assert!(line_is_func_like("ipv6EgressEnabled = false"));
+        assert!(line_is_func_like("useLegacyStacker = false"));
+        assert!(line_is_func_like(
+            "  startCommand = \"npm start\" # keep whitespace"
+        ));
+        // Shared detector for railway-only keys.
+        assert!(is_railway_toml_decl("startCommand = \"node index.js\""));
+        assert!(is_railway_toml_decl("healthcheckPath = \"/health\""));
+        assert!(is_railway_toml_decl("restartPolicyType = \"ALWAYS\""));
+        assert!(is_railway_toml_decl("builder = \"RAILPACK\""));
+        assert!(is_railway_toml_decl("[environments.production]"));
+        assert!(is_railway_toml_decl("[environments.staging.deploy]"));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_railway_toml_decl("startCommand"));
+        assert!(!is_railway_toml_decl("startCommand ="));
+        assert!(!is_railway_toml_decl("StartCommand = \"node index.js\""));
+        assert!(!is_railway_toml_decl("STARTCOMMAND = \"node index.js\""));
+        assert!(!is_railway_toml_decl("startCommand the team"));
+        assert!(!is_railway_toml_decl("# startCommand = \"node index.js\""));
+        assert!(!is_railway_toml_decl("watchPatterns = [\"src/**\"]"));
+        assert!(!is_railway_toml_decl(
+            "preDeployCommand = [\"npm run db:migrate\"]"
+        ));
+        assert!(!is_railway_toml_decl("nixpacksPlan = { providers = [] }"));
+        assert!(!is_railway_toml_decl("startCommand = node index.js"));
+        assert!(!is_railway_toml_decl("builder = \"buildpack\""));
+        assert!(!is_railway_toml_decl("restartPolicyType = \"on-failure\""));
+        assert!(!is_railway_toml_decl("sleepApplication = yes"));
+        assert!(!is_railway_toml_decl("numReplicas = 0"));
+        assert!(!is_railway_toml_decl("healthcheckPath = \"health\""));
+        assert!(!is_railway_toml_decl("port = 8080"));
+        assert!(!is_railway_toml_decl("PATH=/usr/bin"));
+        assert!(!is_railway_toml_decl("[Environments.production]"));
+        assert!(!is_railway_toml_decl("[ENVIRONMENTS]"));
+        assert!(!is_railway_toml_decl("[environments.]"));
+        assert!(!is_railway_toml_decl("[environments. production]"));
+        assert!(!is_railway_toml_decl("[[environments.production]]"));
+        assert!(!is_railway_toml_decl("[package]"));
+        assert!(!is_railway_toml_decl("[[bin]]"));
+        assert!(!is_railway_toml_decl("[workspace]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_railway_toml_decl("primary_region = \"iad\""));
+        assert!(is_fly_toml_decl("primary_region = \"iad\""));
+        assert!(!is_railway_toml_decl("auto_stop_machines = \"stop\""));
+        assert!(is_fly_toml_decl("auto_stop_machines = \"stop\""));
+        assert!(!is_railway_toml_decl("[http_service]"));
+        assert!(is_fly_toml_decl("[http_service]"));
+        assert!(!is_railway_toml_decl("[[mounts]]"));
+        assert!(is_fly_toml_decl("[[mounts]]"));
+        assert!(!is_railway_toml_decl("node_bundler = \"esbuild\""));
+        assert!(is_netlify_toml_decl("node_bundler = \"esbuild\""));
+        assert!(!is_railway_toml_decl("pretty_urls = true"));
+        assert!(is_netlify_toml_decl("pretty_urls = true"));
+        assert!(!is_railway_toml_decl("[[redirects]]"));
+        assert!(is_netlify_toml_decl("[[redirects]]"));
+        assert!(!is_railway_toml_decl("[context.production]"));
+        assert!(is_netlify_toml_decl("[context.production]"));
+        assert!(!is_railway_toml_decl("workers_dev = true"));
+        assert!(is_wrangler_toml_decl("workers_dev = true"));
+        assert!(!is_railway_toml_decl("compatibility_date = \"2024-01-01\""));
+        assert!(is_wrangler_toml_decl("compatibility_date = \"2024-01-01\""));
+        assert!(!is_railway_toml_decl("[env.staging]"));
+        assert!(is_wrangler_toml_decl("[env.staging]"));
+        assert!(!is_railway_toml_decl("[[kv_namespaces]]"));
+        assert!(is_wrangler_toml_decl("[[kv_namespaces]]"));
+        assert!(!is_railway_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("reload_html = true"));
+        assert!(!is_railway_toml_decl("default_platform = \"web\""));
+        assert!(is_dioxus_toml_decl("default_platform = \"web\""));
+        assert!(!is_railway_toml_decl("[web.app]"));
+        assert!(is_dioxus_toml_decl("[web.app]"));
+        assert!(!is_railway_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(is_uniffi_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(!is_railway_toml_decl("language = \"C++\""));
+        assert!(is_cbindgen_toml_decl("language = \"C++\""));
+        assert!(!is_railway_toml_decl("public_url = \"/\""));
+        assert!(is_trunk_toml_decl("public_url = \"/\""));
+        assert!(!is_railway_toml_decl("filehash = true"));
+        assert!(is_trunk_toml_decl("filehash = true"));
+        assert!(!is_railway_toml_decl("timeout_multiplier = 2.0"));
+        assert!(is_mutants_toml_decl("timeout_multiplier = 2.0"));
+        assert!(!is_railway_toml_decl("severity_threshold = \"low\""));
+        assert!(is_audit_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_railway_toml_decl("conventional_commits = true"));
+        assert!(is_cliff_toml_decl("conventional_commits = true"));
+        assert!(!is_railway_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_railway_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(!is_railway_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_railway_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_railway_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_railway_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_railway_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_railway_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_railway_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_railway_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_railway_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_railway_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_railway_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_railway_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_railway_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_railway_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_railway_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_railway_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_railway_toml_decl(
+            "registry=https://registry.npmjs.org/"
+        ));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_railway_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_railway_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_railway_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        // Shared `[build]` / `[deploy]` with fly / netlify / trunk still list.
+        assert!(is_railway_toml_decl("[build]"));
+        assert!(is_fly_toml_decl("[build]"));
+        assert!(is_netlify_toml_decl("[build]"));
+        assert!(is_trunk_toml_decl("[build]"));
+        assert!(is_railway_toml_decl("[deploy]"));
+        assert!(is_fly_toml_decl("[deploy]"));
+        // builder enum is railway; fly builder is a free-form image string.
+        assert!(is_railway_toml_decl("builder = \"RAILPACK\""));
+        assert!(is_fly_toml_decl("builder = \"RAILPACK\""));
+        assert!(is_fly_toml_decl(
+            "builder = \"paketobuildpacks/builder:base\""
+        ));
+        assert!(!is_railway_toml_decl(
+            "builder = \"paketobuildpacks/builder:base\""
+        ));
+        assert!(!line_is_func_like("startCommand"));
+        assert!(!line_is_func_like("StartCommand = \"node index.js\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
