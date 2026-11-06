@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.635] — 2026-11-06
+
+View:
+
+- **Function List** lists Trunk `trunk.toml` sections and fields: `[build]` / `[watch]` / `[serve]` / `[clean]` / `[tools]`, `target = "index.html"`, `html_output = "index.html"`, `dist = "dist"`, `public_url = "/"`, `filehash = true`, `inject_scripts = true`, `no_sri = false`, `open = false`, `no_autoreload = false`, `no_error_reporting = false`, `ws_protocol = "ws"` / `"wss"`, `tls_key_path = "…"`, `tls_cert_path = "…"`, `prefer_address = "127.0.0.1"`, `cargo = false`, `sass = "1.69.5"`, `wasm_bindgen = "0.2.87"`, `wasm_opt = "version_116"`, `tailwindcss = "3.3.5"`. Exact snake_case Trunk keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Arrays (`watch = […]`, `ignore = […]`, `addresses = […]`) / `port = …` (MySQL option-file collision) / `[[hooks]]` / prose / wrong case / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.634] — 2026-11-06
 
 View:

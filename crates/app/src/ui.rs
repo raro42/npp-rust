@@ -32385,6 +32385,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_cliff_toml_decl(s)
             || is_audit_toml_decl(s)
             || is_mutants_toml_decl(s)
+            || is_trunk_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32597,6 +32598,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_cliff_toml_decl(s)
         || is_audit_toml_decl(s)
         || is_mutants_toml_decl(s)
+        || is_trunk_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -54699,10 +54701,10 @@ fn cliff_toml_value_ok(key: &str, value: &str) -> bool {
 /// `update_index = true`. Exact snake_case cargo-audit keys. TOML `key = value`
 /// with spaces around `=`. Optional `#` comment. Arrays (`ignore = […]`,
 /// `informational_warnings = […]`, `deny = […]`, `arch = […]`, `os = […]`) /
-/// prose / wrong case / mutants / cliff / cargo-make / release.toml / Dist.toml /
-/// mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config /
-/// nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
-/// Cargo.toml stay out.
+/// prose / wrong case / trunk / mutants / cliff / cargo-make / release.toml /
+/// Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain /
+/// cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig /
+/// yarn / npmrc / pip / Cargo.toml stay out.
 fn is_audit_toml_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -54832,10 +54834,11 @@ fn audit_toml_value_ok(key: &str, value: &str) -> bool {
 /// `key = value` with spaces around `=`. Optional `#` comment. Arrays
 /// (`error_values = […]`, `exclude_globs = […]`, `examine_re = […]`,
 /// `skip_calls = […]`, `features = […]`, `test_package = […]`,
-/// `additional_cargo_args = […]`) / sections / prose / wrong case / audit /
-/// cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos /
-/// bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy /
-/// rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+/// `additional_cargo_args = […]`) / sections / prose / wrong case / trunk /
+/// audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo /
+/// typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny /
+/// clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml
+/// stay out.
 fn is_mutants_toml_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -54965,6 +54968,172 @@ fn mutants_toml_value_ok(key: &str, value: &str) -> bool {
             return false;
         }
         // Profile name / output dir: graphic ASCII + space/tab.
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
+    }
+    false
+}
+
+/// Trunk `trunk.toml`: `[build]` / `[watch]` / `[serve]` / `[clean]` / `[tools]`,
+/// `target = "index.html"`, `html_output = "index.html"`, `dist = "dist"`,
+/// `public_url = "/"`, `filehash = true`, `inject_scripts = true`,
+/// `no_sri = false`, `open = false`, `no_autoreload = false`,
+/// `no_error_reporting = false`, `ws_protocol = "ws"` / `"wss"`,
+/// `tls_key_path = "…"`, `tls_cert_path = "…"`, `prefer_address = "127.0.0.1"`,
+/// `cargo = false`, `sass = "1.69.5"`, `wasm_bindgen = "0.2.87"`,
+/// `wasm_opt = "version_116"`, `tailwindcss = "3.3.5"`. Exact snake_case Trunk
+/// keys. TOML `key = value` with spaces around `=`. Optional `#` comment.
+/// Arrays (`watch = […]`, `ignore = […]`, `addresses = […]`) / `port = …`
+/// (collides with MySQL option-file keys) / `[[hooks]]` / prose / wrong case /
+/// mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook /
+/// taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest /
+/// deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
+/// Cargo.toml stay out.
+fn is_trunk_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // No `[[…]]` tables in stock trunk.toml section headers (`[[hooks]]`
+        // stays out: nested hook maps).
+        if array {
+            return false;
+        }
+        return trunk_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested dotted free-form keys stay out.
+    if key.contains('.') {
+        return false;
+    }
+    if !trunk_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    trunk_toml_value_ok(key, value)
+}
+
+fn trunk_toml_section_ok(header: &str) -> bool {
+    matches!(header, "build" | "watch" | "serve" | "clean" | "tools")
+}
+
+fn trunk_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "target"
+            | "html_output"
+            | "dist"
+            | "public_url"
+            | "filehash"
+            | "inject_scripts"
+            | "no_sri"
+            | "open"
+            | "no_autoreload"
+            | "no_error_reporting"
+            | "ws_protocol"
+            | "tls_key_path"
+            | "tls_cert_path"
+            | "prefer_address"
+            | "cargo"
+            | "sass"
+            | "wasm_bindgen"
+            | "wasm_opt"
+            | "tailwindcss"
+    )
+}
+
+fn trunk_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (watch = […], addresses = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "filehash"
+            | "inject_scripts"
+            | "no_sri"
+            | "open"
+            | "no_autoreload"
+            | "no_error_reporting"
+            | "cargo"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "ws_protocol" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "ws" | "wss");
+    }
+    if key == "dist" {
+        // Trunk uses a quoted path (`dist = "dist"`). Dist.toml `dist = true`
+        // stays on the cargo-dist path.
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 256 {
+            return false;
+        }
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
+    }
+    if matches!(
+        key,
+        "target"
+            | "html_output"
+            | "public_url"
+            | "tls_key_path"
+            | "tls_cert_path"
+            | "prefer_address"
+            | "sass"
+            | "wasm_bindgen"
+            | "wasm_opt"
+            | "tailwindcss"
+    ) {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 256 {
+            return false;
+        }
+        // Paths / URLs / tool versions: graphic ASCII + space/tab.
         return bare
             .bytes()
             .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
@@ -57810,9 +57979,9 @@ mod func_like_line_tests {
         is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
         is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
         is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -68021,8 +68190,153 @@ mod func_like_line_tests {
         // Shared key name `output` with cliff: both list quoted paths.
         assert!(is_mutants_toml_decl("output = \"mutants.out\""));
         assert!(is_cliff_toml_decl("output = \"CHANGELOG.md\""));
+        assert!(!is_mutants_toml_decl("public_url = \"/\""));
+        assert!(is_trunk_toml_decl("public_url = \"/\""));
+        assert!(!is_mutants_toml_decl("filehash = true"));
+        assert!(is_trunk_toml_decl("filehash = true"));
+        assert!(!is_mutants_toml_decl("[serve]"));
+        assert!(is_trunk_toml_decl("[serve]"));
         assert!(!line_is_func_like("timeout_multiplier"));
         assert!(!line_is_func_like("Timeout_Multiplier = 2.0"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn trunk_toml_entries_count() {
+        assert!(line_is_func_like("[build]"));
+        assert!(line_is_func_like("[watch]"));
+        assert!(line_is_func_like("[serve]"));
+        assert!(line_is_func_like("[clean]"));
+        assert!(line_is_func_like("[tools]"));
+        assert!(line_is_func_like("target = \"index.html\""));
+        assert!(line_is_func_like("html_output = \"index.html\""));
+        assert!(line_is_func_like("dist = \"dist\""));
+        assert!(line_is_func_like("public_url = \"/\""));
+        assert!(line_is_func_like("filehash = true"));
+        assert!(line_is_func_like("inject_scripts = true"));
+        assert!(line_is_func_like("no_sri = false"));
+        assert!(line_is_func_like("open = false"));
+        assert!(line_is_func_like("no_autoreload = false"));
+        assert!(line_is_func_like("no_error_reporting = true"));
+        assert!(line_is_func_like("ws_protocol = \"ws\""));
+        assert!(line_is_func_like("ws_protocol = \"wss\""));
+        assert!(line_is_func_like("tls_key_path = \"./key.pem\""));
+        assert!(line_is_func_like("tls_cert_path = \"./cert.pem\""));
+        assert!(line_is_func_like("prefer_address = \"127.0.0.1\""));
+        assert!(line_is_func_like("cargo = false"));
+        assert!(line_is_func_like("sass = \"1.69.5\""));
+        assert!(line_is_func_like("wasm_bindgen = \"0.2.87\""));
+        assert!(line_is_func_like("wasm_opt = \"version_116\""));
+        assert!(line_is_func_like("tailwindcss = \"3.3.5\""));
+        assert!(line_is_func_like(
+            "  public_url = \"/app/\" # keep whitespace"
+        ));
+        // Shared detector for trunk-only keys.
+        assert!(is_trunk_toml_decl("public_url = \"/\""));
+        assert!(is_trunk_toml_decl("filehash = false"));
+        assert!(is_trunk_toml_decl("inject_scripts = true"));
+        assert!(is_trunk_toml_decl("no_sri = true"));
+        assert!(is_trunk_toml_decl("no_autoreload = true"));
+        assert!(is_trunk_toml_decl("ws_protocol = \"wss\""));
+        assert!(is_trunk_toml_decl("[serve]"));
+        assert!(is_trunk_toml_decl("[tools]"));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_trunk_toml_decl("public_url"));
+        assert!(!is_trunk_toml_decl("public_url ="));
+        assert!(!is_trunk_toml_decl("Public_Url = \"/\""));
+        assert!(!is_trunk_toml_decl("PUBLIC_URL = \"/\""));
+        assert!(!is_trunk_toml_decl("public_url the team"));
+        assert!(!is_trunk_toml_decl("# public_url = \"/\""));
+        assert!(!is_trunk_toml_decl("watch = []"));
+        assert!(!is_trunk_toml_decl("ignore = [\"src\"]"));
+        assert!(!is_trunk_toml_decl("addresses = [\"127.0.0.1\"]"));
+        assert!(!is_trunk_toml_decl("[[hooks]]"));
+        // `port = …` stays out (MySQL option-file keys use the same shape).
+        assert!(!is_trunk_toml_decl("port = 8080"));
+        assert!(!is_trunk_toml_decl("port = 3306"));
+        assert!(!line_is_func_like("port = 3306"));
+        assert!(!is_trunk_toml_decl("filehash = yes"));
+        assert!(!is_trunk_toml_decl("ws_protocol = ws"));
+        assert!(!is_trunk_toml_decl("ws_protocol = \"http\""));
+        assert!(!is_trunk_toml_decl("dist = dist"));
+        assert!(!is_trunk_toml_decl("dist = true"));
+        assert!(!is_trunk_toml_decl("public_url = /"));
+        assert!(!is_trunk_toml_decl("PATH=/usr/bin"));
+        assert!(!is_trunk_toml_decl("[Build]"));
+        assert!(!is_trunk_toml_decl("[BUILD]"));
+        assert!(!is_trunk_toml_decl("[hooks]"));
+        assert!(!is_trunk_toml_decl("[package]"));
+        assert!(!is_trunk_toml_decl("[[bin]]"));
+        assert!(!is_trunk_toml_decl("[workspace]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_trunk_toml_decl("timeout_multiplier = 2.0"));
+        assert!(is_mutants_toml_decl("timeout_multiplier = 2.0"));
+        assert!(!is_trunk_toml_decl("severity_threshold = \"low\""));
+        assert!(is_audit_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_trunk_toml_decl("conventional_commits = true"));
+        assert!(is_cliff_toml_decl("conventional_commits = true"));
+        assert!(!is_trunk_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_trunk_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        // Shared key name `dist`: Dist.toml takes bool; Trunk takes quoted path.
+        assert!(!is_trunk_toml_decl("dist = true"));
+        assert!(is_dist_toml_decl("dist = true"));
+        assert!(is_trunk_toml_decl("dist = \"dist\""));
+        assert!(!is_dist_toml_decl("dist = \"dist\""));
+        assert!(!is_trunk_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_trunk_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_trunk_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_trunk_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_trunk_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_trunk_toml_decl("[jobs.check]"));
+        assert!(is_bacon_toml_decl("[jobs.check]"));
+        assert!(!is_trunk_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_trunk_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        // Shared section name `[build]` with cargo config / Cross.
+        assert!(is_trunk_toml_decl("[build]"));
+        assert!(is_cargo_config_toml_decl("[build]"));
+        assert!(is_cross_toml_decl("[build]"));
+        assert!(!is_trunk_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_trunk_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_trunk_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_trunk_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_trunk_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_trunk_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_trunk_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_trunk_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_trunk_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_trunk_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_trunk_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_trunk_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_trunk_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        // Shared key name `target` with cargo-release: both list quoted triples / paths.
+        assert!(is_trunk_toml_decl("target = \"index.html\""));
+        assert!(is_release_toml_decl(
+            "target = \"x86_64-unknown-linux-gnu\""
+        ));
+        assert!(!line_is_func_like("public_url"));
+        assert!(!line_is_func_like("Public_Url = \"/\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

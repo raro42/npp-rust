@@ -1,3 +1,5 @@
+009 keep: Function List Trunk trunk.toml build/watch/serve/clean/tools (v0.3.635)
+
 009 keep: Function List cargo-mutants mutants.toml (v0.3.634)
 
 009 keep: Function List cargo-audit audit.toml (v0.3.633)
