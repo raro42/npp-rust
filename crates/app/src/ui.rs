@@ -32098,6 +32098,14 @@ const NOT_TYPED_FN: &[&str] = &[
 /// tox / setuptools / Cargo / Pipfile / pyproject
 /// `[tool.pytest.ini_options]` / Desktop Entry tables, incomplete
 /// brackets, and prose stay out.
+/// mypy `mypy.ini` / `.mypy.ini` / `setup.cfg` `[mypy]` sections
+/// (`[mypy]`, `[mypy-…]`) and distinctive keys (`python_version`,
+/// `warn_return_any`, `disallow_untyped_defs`, `ignore_missing_imports`,
+/// `follow_imports`, `strict`, `mypy_path`, …). Optional `#` / `;`
+/// comment. Key lines may use `=` with or without spaces. Flake8 /
+/// pytest / tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.mypy]` / Desktop Entry tables, incomplete brackets, wrong
+/// case, and prose stay out.
 /// Desktop Entry sections (`[Desktop Entry]`, `[Desktop Action …]`).
 /// Optional `#` / `;` comment. Key lines (`Name=`), tox / Cargo / Pipfile /
 /// pyproject tables, incomplete brackets, and prose stay out.
@@ -32307,6 +32315,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_tox_ini_decl(s)
             || is_setup_cfg_decl(s)
             || is_pytest_ini_decl(s)
+            || is_mypy_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32537,6 +32546,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_tox_ini_decl(s)
         || is_setup_cfg_decl(s)
         || is_pytest_ini_decl(s)
+        || is_mypy_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -41836,6 +41846,234 @@ fn pytest_ini_value_ok(key: &str, value: &str) -> bool {
         ) || value.bytes().all(|b| b.is_ascii_digit());
     }
     // Paths, globs, option flags, plugin pins, formats.
+    value
+        .bytes()
+        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+}
+
+/// mypy `mypy.ini` / `.mypy.ini` / `setup.cfg` `[mypy]`: `[mypy]`,
+/// `[mypy-packagename]` / `[mypy-packagename.*]` / `[mypy-foo,bar]`,
+/// `python_version = 3.11`, `warn_return_any = True`,
+/// `warn_unused_configs = True`, `disallow_untyped_defs = True`,
+/// `disallow_incomplete_defs = True`, `disallow_untyped_calls = True`,
+/// `disallow_untyped_decorators = True`, `disallow_any_generics = True`,
+/// `disallow_subclassing_any = True`, `check_untyped_defs = True`,
+/// `ignore_missing_imports = True`, `no_implicit_optional = True`,
+/// `no_implicit_reexport = True`, `strict_optional = True`,
+/// `strict_equality = True`, `strict = True`, `local_partial_types = True`,
+/// `allow_redefinition = True`, `show_error_codes = True`,
+/// `show_column_numbers = True`, `show_error_context = True`,
+/// `pretty = True`, `color_output = True`, `error_summary = True`,
+/// `incremental = True`, `sqlite_cache = True`, `namespace_packages = True`,
+/// `explicit_package_bases = True`, `scripts_are_modules = True`,
+/// `warn_redundant_casts = True`, `warn_unused_ignores = True`,
+/// `warn_no_return = True`, `warn_unreachable = True`,
+/// `follow_imports = normal` / `silent` / `skip` / `error`,
+/// `mypy_path = src`, `cache_dir = .mypy_cache`, `files = src`,
+/// `packages = mypkg`, `modules = mypkg.cli`, `exclude = tests`,
+/// `plugins = pydantic.mypy`, `platform = linux`,
+/// `python_executable = python3`, `custom_typeshed_dir = stubs`,
+/// `custom_typing_module = typing_extensions`,
+/// `always_true = MY_FLAG`, `always_false = DEBUG`,
+/// `enable_error_code = ignore-without-code`,
+/// `disable_error_code = import-untyped`.
+/// Exact mypy keys (snake_case). INI `key = value` or `key=value`.
+/// Optional `#` / `;` comment. Flake8 / pytest / tox / setuptools /
+/// Cargo / Pipfile / pyproject `[tool.mypy]` / Desktop Entry / pip.conf
+/// tables, incomplete brackets, wrong case, and prose stay out.
+fn is_mypy_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return mypy_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !mypy_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    mypy_ini_value_ok(key, value)
+}
+
+fn mypy_ini_section_ok(header: &str) -> bool {
+    if header == "mypy" {
+        return true;
+    }
+    let Some(modules) = header.strip_prefix("mypy-") else {
+        return false;
+    };
+    mypy_ini_module_pattern_ok(modules)
+}
+
+fn mypy_ini_module_pattern_ok(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || matches!(bytes[0], b'_' | b'*' | b'-')) {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'*' | b','))
+}
+
+fn mypy_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "python_version"
+            | "python_executable"
+            | "platform"
+            | "mypy_path"
+            | "files"
+            | "packages"
+            | "modules"
+            | "exclude"
+            | "plugins"
+            | "cache_dir"
+            | "custom_typeshed_dir"
+            | "custom_typing_module"
+            | "always_true"
+            | "always_false"
+            | "enable_error_code"
+            | "disable_error_code"
+            | "follow_imports"
+            | "warn_return_any"
+            | "warn_unused_configs"
+            | "warn_redundant_casts"
+            | "warn_unused_ignores"
+            | "warn_no_return"
+            | "warn_unreachable"
+            | "warn_incomplete_stub"
+            | "disallow_untyped_defs"
+            | "disallow_incomplete_defs"
+            | "disallow_untyped_calls"
+            | "disallow_untyped_decorators"
+            | "disallow_any_generics"
+            | "disallow_subclassing_any"
+            | "check_untyped_defs"
+            | "ignore_missing_imports"
+            | "ignore_errors"
+            | "follow_imports_for_stubs"
+            | "follow_untyped_imports"
+            | "no_implicit_optional"
+            | "no_implicit_reexport"
+            | "strict_optional"
+            | "strict_equality"
+            | "strict"
+            | "local_partial_types"
+            | "allow_redefinition"
+            | "allow_untyped_globals"
+            | "show_error_codes"
+            | "show_column_numbers"
+            | "show_error_context"
+            | "show_error_end"
+            | "show_absolute_path"
+            | "pretty"
+            | "color_output"
+            | "error_summary"
+            | "incremental"
+            | "sqlite_cache"
+            | "cache_fine_grained"
+            | "skip_version_check"
+            | "skip_cache_mtime_checks"
+            | "namespace_packages"
+            | "explicit_package_bases"
+            | "scripts_are_modules"
+            | "force_union_syntax"
+            | "force_uppercase_builtins"
+    )
+}
+
+fn mypy_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+    )
+}
+
+fn mypy_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if matches!(
+        key,
+        "warn_return_any"
+            | "warn_unused_configs"
+            | "warn_redundant_casts"
+            | "warn_unused_ignores"
+            | "warn_no_return"
+            | "warn_unreachable"
+            | "warn_incomplete_stub"
+            | "disallow_untyped_defs"
+            | "disallow_incomplete_defs"
+            | "disallow_untyped_calls"
+            | "disallow_untyped_decorators"
+            | "disallow_any_generics"
+            | "disallow_subclassing_any"
+            | "check_untyped_defs"
+            | "ignore_missing_imports"
+            | "ignore_errors"
+            | "follow_imports_for_stubs"
+            | "follow_untyped_imports"
+            | "no_implicit_optional"
+            | "no_implicit_reexport"
+            | "strict_optional"
+            | "strict_equality"
+            | "strict"
+            | "local_partial_types"
+            | "allow_redefinition"
+            | "allow_untyped_globals"
+            | "show_error_codes"
+            | "show_column_numbers"
+            | "show_error_context"
+            | "show_error_end"
+            | "show_absolute_path"
+            | "pretty"
+            | "color_output"
+            | "error_summary"
+            | "incremental"
+            | "sqlite_cache"
+            | "cache_fine_grained"
+            | "skip_version_check"
+            | "skip_cache_mtime_checks"
+            | "namespace_packages"
+            | "explicit_package_bases"
+            | "scripts_are_modules"
+            | "force_union_syntax"
+            | "force_uppercase_builtins"
+    ) {
+        return mypy_ini_bool_ok(value);
+    }
+    if key == "follow_imports" {
+        return matches!(value, "normal" | "silent" | "skip" | "error");
+    }
+    if key == "python_version" {
+        if value.is_empty() || !value.as_bytes()[0].is_ascii_digit() {
+            return false;
+        }
+        return value.bytes().all(|b| b.is_ascii_digit() || b == b'.');
+    }
+    // Paths, modules, plugins, platforms, error codes.
     value
         .bytes()
         .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
@@ -62510,16 +62748,16 @@ mod func_like_line_tests {
         is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
         is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
         is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
-        is_mutants_toml_decl, is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
-        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
-        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl,
-        is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
-        is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl,
+        is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
         is_setup_cfg_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
         is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
@@ -66986,6 +67224,138 @@ mod func_like_line_tests {
         assert!(is_setup_cfg_decl("python_requires = >=3.8"));
         assert!(!line_is_func_like("markers = slow: marks tests as slow"));
         assert!(!line_is_func_like("Minversion = 6.0"));
+        assert!(!line_is_func_like("envlist = py39,py310"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_pytest_ini_decl("python_version = 3.11"));
+        assert!(is_mypy_ini_decl("python_version = 3.11"));
+    }
+
+    #[test]
+    fn mypy_ini_entries_count() {
+        assert!(line_is_func_like("[mypy]"));
+        assert!(line_is_func_like("  [mypy] # mypy.ini"));
+        assert!(line_is_func_like("[mypy]; root"));
+        assert!(line_is_func_like("[mypy-mypkg]"));
+        assert!(line_is_func_like("[mypy-mypkg.*]"));
+        assert!(line_is_func_like("[mypy-tests.*,-tests.conftest]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy-packagename]"));
+        assert!(is_mypy_ini_decl("[mypy-packagename.mod]"));
+        assert!(is_mypy_ini_decl("[mypy-packagename.*]"));
+        assert!(is_mypy_ini_decl("[mypy-*.modname]"));
+        assert!(is_mypy_ini_decl("[mypy-foo,bar]"));
+        assert!(is_mypy_ini_decl("python_version = 3.11"));
+        assert!(is_mypy_ini_decl("python_version=3.10"));
+        assert!(is_mypy_ini_decl("python_version = 3"));
+        assert!(is_mypy_ini_decl("warn_return_any = True"));
+        assert!(is_mypy_ini_decl("warn_return_any = true"));
+        assert!(is_mypy_ini_decl("warn_unused_configs = True"));
+        assert!(is_mypy_ini_decl("disallow_untyped_defs = True"));
+        assert!(is_mypy_ini_decl("disallow_incomplete_defs = true"));
+        assert!(is_mypy_ini_decl("disallow_untyped_calls = 1"));
+        assert!(is_mypy_ini_decl("disallow_untyped_decorators = yes"));
+        assert!(is_mypy_ini_decl("disallow_any_generics = True"));
+        assert!(is_mypy_ini_decl("disallow_subclassing_any = True"));
+        assert!(is_mypy_ini_decl("check_untyped_defs = True"));
+        assert!(is_mypy_ini_decl("ignore_missing_imports = True"));
+        assert!(is_mypy_ini_decl("no_implicit_optional = True"));
+        assert!(is_mypy_ini_decl("no_implicit_reexport = True"));
+        assert!(is_mypy_ini_decl("strict_optional = True"));
+        assert!(is_mypy_ini_decl("strict_equality = True"));
+        assert!(is_mypy_ini_decl("strict = True"));
+        assert!(is_mypy_ini_decl("local_partial_types = True"));
+        assert!(is_mypy_ini_decl("allow_redefinition = False"));
+        assert!(is_mypy_ini_decl("show_error_codes = True"));
+        assert!(is_mypy_ini_decl("show_column_numbers = True"));
+        assert!(is_mypy_ini_decl("show_error_context = true"));
+        assert!(is_mypy_ini_decl("pretty = True"));
+        assert!(is_mypy_ini_decl("color_output = True"));
+        assert!(is_mypy_ini_decl("error_summary = True"));
+        assert!(is_mypy_ini_decl("incremental = True"));
+        assert!(is_mypy_ini_decl("sqlite_cache = True"));
+        assert!(is_mypy_ini_decl("namespace_packages = True"));
+        assert!(is_mypy_ini_decl("explicit_package_bases = True"));
+        assert!(is_mypy_ini_decl("scripts_are_modules = True"));
+        assert!(is_mypy_ini_decl("warn_redundant_casts = True"));
+        assert!(is_mypy_ini_decl("warn_unused_ignores = True"));
+        assert!(is_mypy_ini_decl("warn_no_return = True"));
+        assert!(is_mypy_ini_decl("warn_unreachable = True"));
+        assert!(is_mypy_ini_decl("follow_imports = normal"));
+        assert!(is_mypy_ini_decl("follow_imports = silent"));
+        assert!(is_mypy_ini_decl("follow_imports = skip"));
+        assert!(is_mypy_ini_decl("follow_imports = error"));
+        assert!(is_mypy_ini_decl("mypy_path = src"));
+        assert!(is_mypy_ini_decl("cache_dir = .mypy_cache"));
+        assert!(is_mypy_ini_decl("files = src,tests"));
+        assert!(is_mypy_ini_decl("packages = mypkg"));
+        assert!(is_mypy_ini_decl("modules = mypkg.cli"));
+        assert!(is_mypy_ini_decl("exclude = (?x)(tests/)"));
+        assert!(is_mypy_ini_decl(
+            "plugins = pydantic.mypy,numpy.typing.mypy_plugin"
+        ));
+        assert!(is_mypy_ini_decl("platform = linux"));
+        assert!(is_mypy_ini_decl("python_executable = python3"));
+        assert!(is_mypy_ini_decl("custom_typeshed_dir = stubs"));
+        assert!(is_mypy_ini_decl("custom_typing_module = typing_extensions"));
+        assert!(is_mypy_ini_decl("always_true = MY_FLAG"));
+        assert!(is_mypy_ini_decl("always_false = DEBUG"));
+        assert!(is_mypy_ini_decl("enable_error_code = ignore-without-code"));
+        assert!(is_mypy_ini_decl("disable_error_code = import-untyped"));
+        assert!(is_mypy_ini_decl("force_union_syntax = True"));
+        assert!(is_mypy_ini_decl("force_uppercase_builtins = True"));
+        assert!(is_mypy_ini_decl("follow_imports_for_stubs = True"));
+        assert!(is_mypy_ini_decl("follow_untyped_imports = True"));
+        assert!(is_mypy_ini_decl("ignore_errors = True"));
+        assert!(is_mypy_ini_decl("allow_untyped_globals = True"));
+        assert!(is_mypy_ini_decl("show_error_end = True"));
+        assert!(is_mypy_ini_decl("show_absolute_path = True"));
+        assert!(is_mypy_ini_decl("cache_fine_grained = True"));
+        assert!(is_mypy_ini_decl("skip_version_check = True"));
+        assert!(is_mypy_ini_decl("skip_cache_mtime_checks = True"));
+        assert!(is_mypy_ini_decl("warn_incomplete_stub = True"));
+
+        // Neighbouring formats / wrong case stay out.
+        assert!(!is_mypy_ini_decl("python_version"));
+        assert!(!is_mypy_ini_decl("python_version ="));
+        assert!(!is_mypy_ini_decl("Python_Version = 3.11"));
+        assert!(!is_mypy_ini_decl("PYTHON_VERSION = 3.11"));
+        assert!(!is_mypy_ini_decl("# python_version = 3.11"));
+        assert!(!is_mypy_ini_decl("strict = maybe"));
+        assert!(!is_mypy_ini_decl("follow_imports = loose"));
+        assert!(!is_mypy_ini_decl("python_version = three"));
+        assert!(!is_mypy_ini_decl("python_version = 3.11-dev"));
+        assert!(!is_mypy_ini_decl("[Mypy]"));
+        assert!(!is_mypy_ini_decl("[MYPY]"));
+        assert!(!is_mypy_ini_decl("[mypy:]"));
+        assert!(!is_mypy_ini_decl("[[mypy]]"));
+        assert!(!is_mypy_ini_decl("[mypy"));
+        assert!(!is_mypy_ini_decl("[flake8]"));
+        assert!(!is_mypy_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_mypy_ini_decl("[tool:pytest]"));
+        assert!(!is_mypy_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_mypy_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_mypy_ini_decl("[testenv]"));
+        assert!(!is_mypy_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_mypy_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_mypy_ini_decl("[tool.mypy]"));
+        assert!(is_pyproject_toml_decl("[tool.mypy]"));
+        assert!(!is_mypy_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_mypy_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_mypy_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_mypy_ini_decl("minversion = 6.0"));
+        assert!(is_pytest_ini_decl("minversion = 6.0"));
+        assert!(!is_mypy_ini_decl("python_requires = >=3.8"));
+        assert!(is_setup_cfg_decl("python_requires = >=3.8"));
+        assert!(!line_is_func_like("Python_Version = 3.11"));
+        assert!(!line_is_func_like("follow_imports = loose"));
         assert!(!line_is_func_like("envlist = py39,py310"));
     }
 

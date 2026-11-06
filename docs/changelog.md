@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.653] — 2026-11-06
+
+View:
+
+- **Function List** lists mypy `mypy.ini` / `.mypy.ini` / `setup.cfg` `[mypy]` sections and fields: `[mypy]` / `[mypy-packagename]` / `[mypy-packagename.*]` / `[mypy-foo,bar]`, `python_version = 3.11`, `warn_return_any = True`, `warn_unused_configs = True`, `disallow_untyped_defs = True`, `disallow_incomplete_defs = True`, `disallow_untyped_calls = True`, `disallow_untyped_decorators = True`, `disallow_any_generics = True`, `disallow_subclassing_any = True`, `check_untyped_defs = True`, `ignore_missing_imports = True`, `no_implicit_optional = True`, `no_implicit_reexport = True`, `strict_optional = True`, `strict_equality = True`, `strict = True`, `local_partial_types = True`, `allow_redefinition = True`, `show_error_codes = True`, `show_column_numbers = True`, `show_error_context = True`, `pretty = True`, `color_output = True`, `error_summary = True`, `incremental = True`, `sqlite_cache = True`, `namespace_packages = True`, `explicit_package_bases = True`, `scripts_are_modules = True`, `warn_redundant_casts = True`, `warn_unused_ignores = True`, `warn_no_return = True`, `warn_unreachable = True`, `follow_imports = normal` / `silent` / `skip` / `error`, `mypy_path = src`, `cache_dir = .mypy_cache`, `files = src`, `packages = mypkg`, `modules = mypkg.cli`, `exclude = …`, `plugins = pydantic.mypy`, `platform = linux`, `python_executable = python3`, `custom_typeshed_dir = stubs`, `custom_typing_module = typing_extensions`, `always_true` / `always_false`, `enable_error_code` / `disable_error_code`, `force_union_syntax` / `force_uppercase_builtins`, `follow_imports_for_stubs` / `follow_untyped_imports`, `ignore_errors`, `allow_untyped_globals`, `show_error_end` / `show_absolute_path`, `cache_fine_grained`, `skip_version_check` / `skip_cache_mtime_checks`, `warn_incomplete_stub`. Exact mypy keys (snake_case). INI `key = value` or `key=value`. Optional `#` / `;` comment. Flake8 / pytest / tox / setuptools / Cargo / Pipfile / pyproject `[tool.mypy]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.652] — 2026-11-06
 
 View:
