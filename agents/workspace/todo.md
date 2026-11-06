@@ -1,3 +1,5 @@
+009 keep: Function List pytest.ini / tool:pytest minversion/addopts/testpaths/asyncio_mode (v0.3.652)
+
 009 keep: Function List setuptools setup.cfg metadata/options/bdist_wheel keys (v0.3.651)
 
 009 keep: Function List mise.toml tools/tasks/settings/min_version/not_found_auto_install (v0.3.646)

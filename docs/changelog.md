@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.652] — 2026-11-06
+
+View:
+
+- **Function List** lists pytest `pytest.ini` / `setup.cfg` `[tool:pytest]` sections and fields: `[pytest]` / `[tool:pytest]`, `minversion = 6.0`, `addopts = -ra -q`, `testpaths = tests`, `python_files = test_*.py`, `python_classes = Test*`, `python_functions = test_*`, `norecursedirs = .* build dist`, `log_cli = true`, `log_cli_level = INFO`, `asyncio_mode = auto` / `strict` / `legacy`, `junit_family = xunit2`, `junit_logging = all`, `junit_log_passing_tests = true`, `junit_duration_report = total` / `call`, `junit_suite_name = pytest`, `xfail_strict = true`, `strict_markers = true`, `strict_config = true`, `consider_namespace_packages = true`, `pythonpath = src`, `confcutdir = tests`, `cache_dir = .pytest_cache`, `importmode = importlib`, `required_plugins = pytest-cov`, `usefixtures = clean_db`, `faulthandler_timeout = 5`, `tmp_path_retention_count = 3`, `tmp_path_retention_policy = failed`, `empty_parameter_set_mark = xfail`, `console_output_style = progress`, `doctest_optionflags = …`, `doctest_encoding = utf-8`, `doctest_glob = test_*.txt`, `log_cli_format` / `log_cli_date_format` / `log_file` / `log_file_level` / `log_file_format` / `log_file_date_format` / `log_level` / `log_format` / `log_date_format`, `asyncio_default_fixture_loop_scope = function`, `disable_test_id_escaping_and_forfeit_all_rights_to_community_support = true`. Exact pytest keys (snake_case). INI `key = value` or `key=value`. Optional `#` / `;` comment. Free-form `markers` / `filterwarnings` blobs, flake8 / mypy / tox / setuptools / Cargo / Pipfile / pyproject `[tool.pytest.ini_options]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.651] — 2026-11-06
 
 View:

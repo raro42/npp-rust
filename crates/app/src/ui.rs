@@ -32090,6 +32090,14 @@ const NOT_TYPED_FN: &[&str] = &[
 /// `author` / `url` / `license`, flake8 / mypy / tool:pytest / tox / Cargo /
 /// Pipfile / pyproject / Desktop Entry tables, incomplete brackets, and
 /// prose stay out.
+/// pytest `pytest.ini` / `setup.cfg` `[tool:pytest]` sections (`[pytest]`,
+/// `[tool:pytest]`) and distinctive keys (`minversion`, `addopts`,
+/// `testpaths`, `python_files`, `asyncio_mode`, `junit_family`, …).
+/// Optional `#` / `;` comment. Key lines may use `=` with or without spaces.
+/// Free-form `markers` / `filterwarnings` prose blobs, flake8 / mypy /
+/// tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.pytest.ini_options]` / Desktop Entry tables, incomplete
+/// brackets, and prose stay out.
 /// Desktop Entry sections (`[Desktop Entry]`, `[Desktop Action …]`).
 /// Optional `#` / `;` comment. Key lines (`Name=`), tox / Cargo / Pipfile /
 /// pyproject tables, incomplete brackets, and prose stay out.
@@ -32298,6 +32306,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pipfile_decl(s)
             || is_tox_ini_decl(s)
             || is_setup_cfg_decl(s)
+            || is_pytest_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32527,6 +32536,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pipfile_decl(s)
         || is_tox_ini_decl(s)
         || is_setup_cfg_decl(s)
+        || is_pytest_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -41631,6 +41641,201 @@ fn setup_cfg_value_ok(key: &str, value: &str) -> bool {
         });
     }
     // Remaining keys: paths, emails, URLs, requirement pins, file: refs.
+    value
+        .bytes()
+        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+}
+
+/// pytest `pytest.ini` / `setup.cfg` `[tool:pytest]`: `[pytest]` /
+/// `[tool:pytest]`, `minversion = 6.0`, `addopts = -ra -q`,
+/// `testpaths = tests`, `python_files = test_*.py`,
+/// `python_classes = Test*`, `python_functions = test_*`,
+/// `norecursedirs = .* build dist`, `log_cli = true`,
+/// `log_cli_level = INFO`, `asyncio_mode = auto`,
+/// `junit_family = xunit2`, `xfail_strict = true`,
+/// `strict_markers = true`, `strict_config = true`,
+/// `consider_namespace_packages = true`, `pythonpath = src`,
+/// `confcutdir = tests`, `cache_dir = .pytest_cache`,
+/// `importmode = importlib`, `required_plugins = pytest-cov`,
+/// `usefixtures = clean_db`, `faulthandler_timeout = 5`,
+/// `tmp_path_retention_count = 3`,
+/// `tmp_path_retention_policy = failed`,
+/// `empty_parameter_set_mark = xfail`,
+/// `console_output_style = progress`,
+/// `doctest_optionflags = NORMALIZE_WHITESPACE`,
+/// `doctest_encoding = utf-8`, `doctest_glob = test_*.txt`,
+/// `junit_logging = all`, `junit_log_passing_tests = true`,
+/// `junit_duration_report = total`, `junit_suite_name = pytest`,
+/// `log_cli_format = …`, `log_cli_date_format = …`,
+/// `log_file = pytest.log`, `log_file_level = DEBUG`,
+/// `log_file_format = …`, `log_file_date_format = …`,
+/// `log_level = INFO`, `log_format = …`, `log_date_format = …`,
+/// `asyncio_default_fixture_loop_scope = function`,
+/// `disable_test_id_escaping_and_forfeit_all_rights_to_community_support = true`.
+/// Exact pytest keys (snake_case). INI `key = value` or `key=value`.
+/// Optional `#` / `;` comment. Free-form `markers` / `filterwarnings`
+/// blobs, flake8 / mypy / tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.pytest.ini_options]` / Desktop Entry / pip.conf tables,
+/// incomplete brackets, and prose stay out.
+fn is_pytest_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return pytest_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !pytest_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    pytest_ini_value_ok(key, value)
+}
+
+fn pytest_ini_section_ok(header: &str) -> bool {
+    matches!(header, "pytest" | "tool:pytest")
+}
+
+fn pytest_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "minversion"
+            | "addopts"
+            | "testpaths"
+            | "python_files"
+            | "python_classes"
+            | "python_functions"
+            | "norecursedirs"
+            | "log_cli"
+            | "log_cli_level"
+            | "log_cli_format"
+            | "log_cli_date_format"
+            | "log_file"
+            | "log_file_level"
+            | "log_file_format"
+            | "log_file_date_format"
+            | "log_level"
+            | "log_format"
+            | "log_date_format"
+            | "console_output_style"
+            | "junit_family"
+            | "junit_logging"
+            | "junit_log_passing_tests"
+            | "junit_duration_report"
+            | "junit_suite_name"
+            | "asyncio_mode"
+            | "asyncio_default_fixture_loop_scope"
+            | "faulthandler_timeout"
+            | "doctest_optionflags"
+            | "doctest_encoding"
+            | "doctest_glob"
+            | "usefixtures"
+            | "required_plugins"
+            | "consider_namespace_packages"
+            | "empty_parameter_set_mark"
+            | "strict_markers"
+            | "strict_config"
+            | "xfail_strict"
+            | "tmp_path_retention_count"
+            | "tmp_path_retention_policy"
+            | "pythonpath"
+            | "confcutdir"
+            | "cache_dir"
+            | "importmode"
+            | "disable_test_id_escaping_and_forfeit_all_rights_to_community_support"
+    )
+}
+
+fn pytest_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if matches!(
+        key,
+        "log_cli"
+            | "junit_log_passing_tests"
+            | "consider_namespace_packages"
+            | "strict_markers"
+            | "strict_config"
+            | "xfail_strict"
+            | "disable_test_id_escaping_and_forfeit_all_rights_to_community_support"
+    ) {
+        return matches!(
+            value,
+            "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+        );
+    }
+    if matches!(key, "faulthandler_timeout" | "tmp_path_retention_count") {
+        return !value.is_empty() && value.bytes().all(|b| b.is_ascii_digit());
+    }
+    if key == "asyncio_mode" {
+        return matches!(value, "auto" | "strict" | "legacy");
+    }
+    if key == "importmode" {
+        return matches!(value, "prepend" | "append" | "importlib");
+    }
+    if key == "tmp_path_retention_policy" {
+        return matches!(value, "all" | "failed" | "none");
+    }
+    if key == "empty_parameter_set_mark" {
+        return matches!(value, "skip" | "xfail" | "fail_at_collect");
+    }
+    if key == "console_output_style" {
+        return matches!(
+            value,
+            "classic" | "progress" | "count" | "progress-even-when-capture-no"
+        );
+    }
+    if key == "junit_family" {
+        return matches!(value, "xunit1" | "xunit2" | "legacy");
+    }
+    if key == "junit_logging" {
+        return matches!(
+            value,
+            "no" | "log" | "system-out" | "system-err" | "out-err" | "all"
+        );
+    }
+    if key == "junit_duration_report" {
+        return matches!(value, "total" | "call");
+    }
+    if matches!(key, "log_cli_level" | "log_file_level" | "log_level") {
+        return matches!(
+            value,
+            "CRITICAL"
+                | "ERROR"
+                | "WARNING"
+                | "WARN"
+                | "INFO"
+                | "DEBUG"
+                | "NOTSET"
+                | "critical"
+                | "error"
+                | "warning"
+                | "warn"
+                | "info"
+                | "debug"
+                | "notset"
+        ) || value.bytes().all(|b| b.is_ascii_digit());
+    }
+    // Paths, globs, option flags, plugin pins, formats.
     value
         .bytes()
         .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
@@ -62312,18 +62517,18 @@ mod func_like_line_tests {
         is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
         is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl,
         is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
-        is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
-        is_sddm_conf_decl, is_services_file_decl, is_setup_cfg_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
-        is_yum_repo_decl, line_is_func_like,
+        is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
+        is_setup_cfg_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
+        is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
+        is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -66645,6 +66850,7 @@ mod func_like_line_tests {
         assert!(!is_setup_cfg_decl("[flake8]"));
         assert!(!is_setup_cfg_decl("[mypy]"));
         assert!(!is_setup_cfg_decl("[tool:pytest]"));
+        assert!(is_pytest_ini_decl("[tool:pytest]"));
         assert!(!is_setup_cfg_decl("[tox]"));
         assert!(is_tox_ini_decl("[tox]"));
         assert!(!is_setup_cfg_decl("[testenv]"));
@@ -66665,6 +66871,121 @@ mod func_like_line_tests {
         assert!(is_pdm_toml_decl("[install]"));
         assert!(!line_is_func_like("name = mypkg"));
         assert!(!line_is_func_like("Python_Requires = >=3.8"));
+        assert!(!line_is_func_like("envlist = py39,py310"));
+    }
+
+    #[test]
+    fn pytest_ini_entries_count() {
+        assert!(line_is_func_like("[pytest]"));
+        assert!(line_is_func_like("  [pytest] # pytest.ini"));
+        assert!(line_is_func_like("[pytest]; root"));
+        assert!(line_is_func_like("[tool:pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[tool:pytest]"));
+        assert!(is_pytest_ini_decl("minversion = 6.0"));
+        assert!(is_pytest_ini_decl("minversion=7.0"));
+        assert!(is_pytest_ini_decl("addopts = -ra -q --strict-markers"));
+        assert!(is_pytest_ini_decl("testpaths = tests"));
+        assert!(is_pytest_ini_decl("python_files = test_*.py"));
+        assert!(is_pytest_ini_decl("python_classes = Test*"));
+        assert!(is_pytest_ini_decl("python_functions = test_*"));
+        assert!(is_pytest_ini_decl("norecursedirs = .* build dist CVS"));
+        assert!(is_pytest_ini_decl("log_cli = true"));
+        assert!(is_pytest_ini_decl("log_cli=1"));
+        assert!(is_pytest_ini_decl("log_cli_level = INFO"));
+        assert!(is_pytest_ini_decl("log_cli_level = debug"));
+        assert!(is_pytest_ini_decl("log_cli_level = 10"));
+        assert!(is_pytest_ini_decl("asyncio_mode = auto"));
+        assert!(is_pytest_ini_decl("asyncio_mode = strict"));
+        assert!(is_pytest_ini_decl("junit_family = xunit2"));
+        assert!(is_pytest_ini_decl("junit_logging = all"));
+        assert!(is_pytest_ini_decl("junit_log_passing_tests = true"));
+        assert!(is_pytest_ini_decl("junit_duration_report = call"));
+        assert!(is_pytest_ini_decl("junit_suite_name = pytest"));
+        assert!(is_pytest_ini_decl("xfail_strict = true"));
+        assert!(is_pytest_ini_decl("strict_markers = True"));
+        assert!(is_pytest_ini_decl("strict_config = false"));
+        assert!(is_pytest_ini_decl("consider_namespace_packages = yes"));
+        assert!(is_pytest_ini_decl("pythonpath = src"));
+        assert!(is_pytest_ini_decl("confcutdir = tests"));
+        assert!(is_pytest_ini_decl("cache_dir = .pytest_cache"));
+        assert!(is_pytest_ini_decl("importmode = importlib"));
+        assert!(is_pytest_ini_decl("required_plugins = pytest-cov>=3.0"));
+        assert!(is_pytest_ini_decl("usefixtures = clean_db"));
+        assert!(is_pytest_ini_decl("faulthandler_timeout = 5"));
+        assert!(is_pytest_ini_decl("tmp_path_retention_count = 3"));
+        assert!(is_pytest_ini_decl("tmp_path_retention_policy = failed"));
+        assert!(is_pytest_ini_decl("empty_parameter_set_mark = xfail"));
+        assert!(is_pytest_ini_decl("console_output_style = progress"));
+        assert!(is_pytest_ini_decl(
+            "doctest_optionflags = NORMALIZE_WHITESPACE ELLIPSIS"
+        ));
+        assert!(is_pytest_ini_decl("doctest_encoding = utf-8"));
+        assert!(is_pytest_ini_decl("doctest_glob = test_*.txt"));
+        assert!(is_pytest_ini_decl(
+            "log_cli_format = %(asctime)s %(levelname)s %(message)s"
+        ));
+        assert!(is_pytest_ini_decl("log_cli_date_format = %H:%M:%S"));
+        assert!(is_pytest_ini_decl("log_file = pytest.log"));
+        assert!(is_pytest_ini_decl("log_file_level = DEBUG"));
+        assert!(is_pytest_ini_decl("log_level = WARNING"));
+        assert!(is_pytest_ini_decl(
+            "asyncio_default_fixture_loop_scope = function"
+        ));
+        assert!(is_pytest_ini_decl(
+            "disable_test_id_escaping_and_forfeit_all_rights_to_community_support = true"
+        ));
+
+        // Free-form / neighbouring formats stay out.
+        assert!(!is_pytest_ini_decl("markers = slow: marks tests as slow"));
+        assert!(!is_pytest_ini_decl("filterwarnings = error"));
+        assert!(!is_pytest_ini_decl("minversion"));
+        assert!(!is_pytest_ini_decl("minversion ="));
+        assert!(!is_pytest_ini_decl("Minversion = 6.0"));
+        assert!(!is_pytest_ini_decl("MINVERSION = 6.0"));
+        assert!(!is_pytest_ini_decl("# minversion = 6.0"));
+        assert!(!is_pytest_ini_decl("log_cli = maybe"));
+        assert!(!is_pytest_ini_decl("asyncio_mode = loose"));
+        assert!(!is_pytest_ini_decl("importmode = relative"));
+        assert!(!is_pytest_ini_decl("tmp_path_retention_policy = keep"));
+        assert!(!is_pytest_ini_decl("empty_parameter_set_mark = skip_all"));
+        assert!(!is_pytest_ini_decl("console_output_style = fancy"));
+        assert!(!is_pytest_ini_decl("junit_family = junit"));
+        assert!(!is_pytest_ini_decl("junit_logging = stdout"));
+        assert!(!is_pytest_ini_decl("junit_duration_report = setup"));
+        assert!(!is_pytest_ini_decl("log_cli_level = TRACE"));
+        assert!(!is_pytest_ini_decl("faulthandler_timeout = 5s"));
+        assert!(!is_pytest_ini_decl("[Pytest]"));
+        assert!(!is_pytest_ini_decl("[PYTEST]"));
+        assert!(!is_pytest_ini_decl("[tool:Pytest]"));
+        assert!(!is_pytest_ini_decl("[[pytest]]"));
+        assert!(!is_pytest_ini_decl("[pytest"));
+        assert!(!is_pytest_ini_decl("[tool:pytest:extra]"));
+        assert!(!is_pytest_ini_decl("[flake8]"));
+        assert!(!is_pytest_ini_decl("[mypy]"));
+        assert!(!is_pytest_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_pytest_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_pytest_ini_decl("[testenv]"));
+        assert!(!is_pytest_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_pytest_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_pytest_ini_decl("[tool.pytest.ini_options]"));
+        assert!(is_pyproject_toml_decl("[tool.pytest.ini_options]"));
+        assert!(!is_pytest_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_pytest_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_pytest_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_pytest_ini_decl("timeout = 15"));
+        assert!(is_pip_conf_decl("timeout = 15"));
+        assert!(!is_pytest_ini_decl("python_requires = >=3.8"));
+        assert!(is_setup_cfg_decl("python_requires = >=3.8"));
+        assert!(!line_is_func_like("markers = slow: marks tests as slow"));
+        assert!(!line_is_func_like("Minversion = 6.0"));
         assert!(!line_is_func_like("envlist = py39,py310"));
     }
 
