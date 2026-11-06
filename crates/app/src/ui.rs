@@ -32395,6 +32395,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_railway_toml_decl(s)
             || is_nixpacks_toml_decl(s)
             || is_samconfig_toml_decl(s)
+            || is_supabase_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32617,6 +32618,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_railway_toml_decl(s)
         || is_nixpacks_toml_decl(s)
         || is_samconfig_toml_decl(s)
+        || is_supabase_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -57548,6 +57550,385 @@ fn samconfig_toml_value_ok(key: &str, value: &str) -> bool {
     true
 }
 
+/// Supabase CLI `supabase/config.toml`: `[api]` / `[db]` / `[db.pooler]` /
+/// `[db.migrations]` / `[db.seed]` / `[realtime]` / `[studio]` / `[inbucket]` /
+/// `[storage]` / `[storage.image_transformation]` / `[auth]` / `[auth.email]` /
+/// `[auth.sms]` / `[auth.external.github]` / `[auth.mfa]` / `[auth.mfa.totp]` /
+/// `[analytics]` / `[experimental]` / `[edge_runtime]` / `[functions]` /
+/// `[functions.hello]` / `[remotes.production]`, `project_id = "my-app"`,
+/// `shadow_port = 54320`, `major_version = 15`, `max_rows = 1000`,
+/// `pool_mode = "transaction"` / `"session"`, `default_pool_size = 20`,
+/// `max_client_conn = 100`, `site_url = "http://127.0.0.1:3000"`,
+/// `jwt_expiry = 3600`, `enable_signup = true`,
+/// `enable_anonymous_sign_ins = false`, `double_confirm_changes = true`,
+/// `enable_confirmations = false`, `file_size_limit = "50MiB"`,
+/// `api_url = "http://127.0.0.1"`, `smtp_port = 54325`, `pop3_port = 54326`,
+/// `backend = "postgres"` / `"bigquery"`, `enable_refresh_token_rotation = true`,
+/// `refresh_token_reuse_interval = 10`, `verify_jwt = true`,
+/// `inspector_port = 8083`. Exact Supabase keys (snake_case). TOML
+/// `key = value` with spaces around `=`. Optional `#` comment (quote-aware).
+/// Arrays (`schemas = […]`, `extra_search_path = […]`,
+/// `additional_redirect_urls = […]`) / nested maps / free-form env /
+/// `port = …` (MySQL option-file collision) / bare `[build]` / `[package]` /
+/// prose / wrong case / samconfig / nixpacks / railway / fly / netlify /
+/// wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff /
+/// cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon /
+/// Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt /
+/// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+fn is_supabase_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // Stock supabase config.toml has no `[[…]]` array-of-tables sections.
+        if array {
+            return false;
+        }
+        return supabase_toml_section_ok(header);
+    }
+    let body = supabase_toml_strip_comment(s);
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if key.contains('.') {
+        return false;
+    }
+    if !supabase_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    supabase_toml_value_ok(key, value)
+}
+
+fn supabase_toml_strip_comment(s: &str) -> &str {
+    let mut in_single = false;
+    let mut in_double = false;
+    for (i, b) in s.bytes().enumerate() {
+        match b {
+            b'\'' if !in_double => in_single = !in_single,
+            b'"' if !in_single => in_double = !in_double,
+            b'#' | b';' if !in_single && !in_double => {
+                return s[..i].trim_end();
+            }
+            _ => {}
+        }
+    }
+    s.trim()
+}
+
+fn supabase_toml_section_ok(header: &str) -> bool {
+    // Top-level: api / db / realtime / studio / inbucket / storage / auth /
+    // analytics / experimental / edge_runtime / functions.
+    // Nested: db.pooler / db.migrations / db.seed / storage.image_transformation /
+    // auth.email / auth.sms / auth.mfa / auth.mfa.totp / auth.external.<prov> /
+    // functions.<name> / remotes.<name> (+ optional .db / .api …).
+    let parts: Vec<&str> = header.split('.').collect();
+    if parts.is_empty() || parts.len() > 3 {
+        return false;
+    }
+    match parts[0] {
+        "api" | "realtime" | "studio" | "inbucket" | "analytics" | "experimental"
+        | "edge_runtime" => parts.len() == 1,
+        "db" => match parts.len() {
+            1 => true,
+            2 => matches!(
+                parts[1],
+                "pooler" | "migrations" | "seed" | "network_restrictions"
+            ),
+            _ => false,
+        },
+        "storage" => match parts.len() {
+            1 => true,
+            2 => parts[1] == "image_transformation" || supabase_toml_name_ok(parts[1]),
+            3 => parts[1] == "buckets" && supabase_toml_name_ok(parts[2]),
+            _ => false,
+        },
+        "auth" => match parts.len() {
+            1 => true,
+            2 => {
+                matches!(
+                    parts[1],
+                    "email" | "sms" | "mfa" | "rate_limit" | "sessions" | "hook" | "third_party"
+                ) || parts[1] == "external"
+            }
+            3 => match parts[1] {
+                "external" => supabase_toml_auth_provider_ok(parts[2]),
+                "mfa" => matches!(parts[2], "totp" | "phone" | "web_authn"),
+                "sms" => matches!(
+                    parts[2],
+                    "twilio" | "twilio_verify" | "messagebird" | "textlocal" | "vonage"
+                ),
+                "email" => matches!(parts[2], "template" | "smtp"),
+                "third_party" => matches!(parts[2], "firebase" | "auth0" | "aws_cognito" | "clerk"),
+                "hook" => supabase_toml_name_ok(parts[2]),
+                _ => false,
+            },
+            _ => false,
+        },
+        "functions" => match parts.len() {
+            1 => true,
+            2 => supabase_toml_name_ok(parts[1]),
+            _ => false,
+        },
+        "remotes" => match parts.len() {
+            2 => supabase_toml_name_ok(parts[1]),
+            3 => {
+                supabase_toml_name_ok(parts[1])
+                    && matches!(
+                        parts[2],
+                        "api" | "db" | "realtime" | "studio" | "storage" | "auth" | "analytics"
+                    )
+            }
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+fn supabase_toml_name_ok(name: &str) -> bool {
+    let name = name.trim_matches('"');
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'-' | b'_'))
+}
+
+fn supabase_toml_auth_provider_ok(name: &str) -> bool {
+    matches!(
+        name,
+        "apple"
+            | "azure"
+            | "bitbucket"
+            | "discord"
+            | "facebook"
+            | "figma"
+            | "github"
+            | "gitlab"
+            | "google"
+            | "keycloak"
+            | "linkedin"
+            | "linkedin_oidc"
+            | "notion"
+            | "twitch"
+            | "twitter"
+            | "slack"
+            | "spotify"
+            | "workos"
+            | "zoom"
+            | "kakao"
+            | "slack_oidc"
+    )
+}
+
+fn supabase_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "project_id"
+            | "shadow_port"
+            | "major_version"
+            | "max_rows"
+            | "pool_mode"
+            | "default_pool_size"
+            | "max_client_conn"
+            | "site_url"
+            | "jwt_expiry"
+            | "enable_signup"
+            | "enable_anonymous_sign_ins"
+            | "enable_manual_linking"
+            | "enable_refresh_token_rotation"
+            | "refresh_token_reuse_interval"
+            | "double_confirm_changes"
+            | "enable_confirmations"
+            | "file_size_limit"
+            | "api_url"
+            | "smtp_port"
+            | "pop3_port"
+            | "backend"
+            | "verify_jwt"
+            | "inspector_port"
+            | "openai_api_key"
+            | "orioledb_version"
+            | "s3_host"
+            | "s3_region"
+            | "s3_protocol"
+            | "s3_access_key"
+            | "s3_secret_key"
+            | "tenant_id"
+            | "webserver_url"
+            | "enable_log_query"
+            | "max_header_length"
+            | "external_url"
+            | "otp_length"
+            | "otp_expiry"
+            | "max_frequency"
+            | "content_path"
+            | "client_id"
+            | "secret"
+            | "redirect_uri"
+            | "skip_nonce_check"
+            | "email_optional"
+            | "enroll_enabled"
+            | "verify_enabled"
+            | "max_enrolled_factors"
+            | "policy"
+            | "deno_version"
+            | "entrypoint"
+            | "import_map"
+            | "enabled"
+            | "minimum_password_length"
+            | "password_requirements"
+            | "enable_phone_confirmations"
+            | "test_otp"
+            | "max_message_length"
+            | "db_max_clients"
+            | "idempotency_token"
+    )
+}
+
+fn supabase_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (schemas / redirect URLs / seed paths).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "enable_signup"
+            | "enable_anonymous_sign_ins"
+            | "enable_manual_linking"
+            | "enable_refresh_token_rotation"
+            | "double_confirm_changes"
+            | "enable_confirmations"
+            | "verify_jwt"
+            | "enable_log_query"
+            | "skip_nonce_check"
+            | "email_optional"
+            | "enroll_enabled"
+            | "verify_enabled"
+            | "enable_phone_confirmations"
+            | "enabled"
+            | "test_otp"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(
+        key,
+        "shadow_port"
+            | "major_version"
+            | "max_rows"
+            | "default_pool_size"
+            | "max_client_conn"
+            | "jwt_expiry"
+            | "refresh_token_reuse_interval"
+            | "smtp_port"
+            | "pop3_port"
+            | "inspector_port"
+            | "otp_length"
+            | "otp_expiry"
+            | "max_enrolled_factors"
+            | "max_header_length"
+            | "minimum_password_length"
+            | "max_message_length"
+            | "db_max_clients"
+    ) {
+        return bare.bytes().all(|b| b.is_ascii_digit()) && bare.len() <= 8 && bare != "0";
+    }
+    if key == "pool_mode" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return bare == "transaction" || bare == "session";
+    }
+    if key == "backend" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return bare == "postgres" || bare == "bigquery";
+    }
+    if key == "s3_protocol" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return bare == "https" || bare == "http";
+    }
+    if key == "password_requirements" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(
+            bare,
+            "lower_upper_letters_digits" | "lower_upper_letters_digits_symbols" | "letters_digits"
+        ) || bare.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_');
+    }
+    if key == "policy" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return bare == "oneshot" || bare == "per_worker" || bare == "hot_reload";
+    }
+    // Remaining keys: quoted strings (or env(...) form).
+    if !(value.starts_with('"') || value.starts_with('\'')) {
+        return false;
+    }
+    if bare.len() > 512 {
+        return false;
+    }
+    if !bare
+        .bytes()
+        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+    {
+        return false;
+    }
+    if key == "project_id" || key == "tenant_id" || key == "s3_region" {
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'));
+    }
+    if matches!(
+        key,
+        "site_url" | "api_url" | "external_url" | "webserver_url" | "redirect_uri" | "s3_host"
+    ) {
+        return bare.starts_with("http://")
+            || bare.starts_with("https://")
+            || bare.starts_with("env(")
+            || bare.bytes().all(|b| {
+                b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b':' | b'/')
+            });
+    }
+    true
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -60385,13 +60766,13 @@ mod func_like_line_tests {
         is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
         is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
         is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -72489,8 +72870,258 @@ mod func_like_line_tests {
         assert!(is_railway_toml_decl("[build]"));
         assert!(is_netlify_toml_decl("[build]"));
         assert!(is_trunk_toml_decl("[build]"));
+        assert!(!is_samconfig_toml_decl("project_id = \"my-app\""));
+        assert!(is_supabase_toml_decl("project_id = \"my-app\""));
+        assert!(!is_samconfig_toml_decl("[db.pooler]"));
+        assert!(is_supabase_toml_decl("[db.pooler]"));
         assert!(!line_is_func_like("stack_name"));
         assert!(!line_is_func_like("Stack_Name = \"my-app\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn supabase_toml_entries_count() {
+        assert!(line_is_func_like("[api]"));
+        assert!(line_is_func_like("[db]"));
+        assert!(line_is_func_like("[db.pooler]"));
+        assert!(line_is_func_like("[db.migrations]"));
+        assert!(line_is_func_like("[db.seed]"));
+        assert!(line_is_func_like("[realtime]"));
+        assert!(line_is_func_like("[studio]"));
+        assert!(line_is_func_like("[inbucket]"));
+        assert!(line_is_func_like("[storage]"));
+        assert!(line_is_func_like("[storage.image_transformation]"));
+        assert!(line_is_func_like("[auth]"));
+        assert!(line_is_func_like("[auth.email]"));
+        assert!(line_is_func_like("[auth.sms]"));
+        assert!(line_is_func_like("[auth.external.github]"));
+        assert!(line_is_func_like("[auth.mfa]"));
+        assert!(line_is_func_like("[auth.mfa.totp]"));
+        assert!(line_is_func_like("[analytics]"));
+        assert!(line_is_func_like("[experimental]"));
+        assert!(line_is_func_like("[edge_runtime]"));
+        assert!(line_is_func_like("[functions]"));
+        assert!(line_is_func_like("[functions.hello]"));
+        assert!(line_is_func_like("[remotes.production]"));
+        assert!(line_is_func_like("project_id = \"my-app\""));
+        assert!(line_is_func_like("shadow_port = 54320"));
+        assert!(line_is_func_like("major_version = 15"));
+        assert!(line_is_func_like("max_rows = 1000"));
+        assert!(line_is_func_like("pool_mode = \"transaction\""));
+        assert!(line_is_func_like("default_pool_size = 20"));
+        assert!(line_is_func_like("max_client_conn = 100"));
+        assert!(line_is_func_like("site_url = \"http://127.0.0.1:3000\""));
+        assert!(line_is_func_like("jwt_expiry = 3600"));
+        assert!(line_is_func_like("enable_signup = true"));
+        assert!(line_is_func_like("enable_anonymous_sign_ins = false"));
+        assert!(line_is_func_like("double_confirm_changes = true"));
+        assert!(line_is_func_like("enable_confirmations = false"));
+        assert!(line_is_func_like("file_size_limit = \"50MiB\""));
+        assert!(line_is_func_like("api_url = \"http://127.0.0.1\""));
+        assert!(line_is_func_like("smtp_port = 54325"));
+        assert!(line_is_func_like("pop3_port = 54326"));
+        assert!(line_is_func_like("backend = \"postgres\""));
+        assert!(line_is_func_like("verify_jwt = true"));
+        assert!(line_is_func_like(
+            "  project_id = \"my-app\" # keep whitespace"
+        ));
+        // Shared detector for supabase-only keys / sections.
+        assert!(is_supabase_toml_decl("project_id = \"my-app\""));
+        assert!(is_supabase_toml_decl("shadow_port = 54320"));
+        assert!(is_supabase_toml_decl("major_version = 15"));
+        assert!(is_supabase_toml_decl("max_rows = 1000"));
+        assert!(is_supabase_toml_decl("pool_mode = \"transaction\""));
+        assert!(is_supabase_toml_decl("pool_mode = \"session\""));
+        assert!(is_supabase_toml_decl("default_pool_size = 20"));
+        assert!(is_supabase_toml_decl("max_client_conn = 100"));
+        assert!(is_supabase_toml_decl(
+            "site_url = \"http://127.0.0.1:3000\""
+        ));
+        assert!(is_supabase_toml_decl("jwt_expiry = 3600"));
+        assert!(is_supabase_toml_decl("enable_signup = true"));
+        assert!(is_supabase_toml_decl("enable_anonymous_sign_ins = false"));
+        assert!(is_supabase_toml_decl("double_confirm_changes = true"));
+        assert!(is_supabase_toml_decl("enable_confirmations = false"));
+        assert!(is_supabase_toml_decl("file_size_limit = \"50MiB\""));
+        assert!(is_supabase_toml_decl("api_url = \"http://127.0.0.1\""));
+        assert!(is_supabase_toml_decl("smtp_port = 54325"));
+        assert!(is_supabase_toml_decl("pop3_port = 54326"));
+        assert!(is_supabase_toml_decl("backend = \"postgres\""));
+        assert!(is_supabase_toml_decl("backend = \"bigquery\""));
+        assert!(is_supabase_toml_decl("verify_jwt = true"));
+        assert!(is_supabase_toml_decl("inspector_port = 8083"));
+        assert!(is_supabase_toml_decl(
+            "enable_refresh_token_rotation = true"
+        ));
+        assert!(is_supabase_toml_decl("refresh_token_reuse_interval = 10"));
+        assert!(is_supabase_toml_decl("[api]"));
+        assert!(is_supabase_toml_decl("[db]"));
+        assert!(is_supabase_toml_decl("[db.pooler]"));
+        assert!(is_supabase_toml_decl("[db.migrations]"));
+        assert!(is_supabase_toml_decl("[db.seed]"));
+        assert!(is_supabase_toml_decl("[realtime]"));
+        assert!(is_supabase_toml_decl("[studio]"));
+        assert!(is_supabase_toml_decl("[inbucket]"));
+        assert!(is_supabase_toml_decl("[storage]"));
+        assert!(is_supabase_toml_decl("[storage.image_transformation]"));
+        assert!(is_supabase_toml_decl("[auth]"));
+        assert!(is_supabase_toml_decl("[auth.email]"));
+        assert!(is_supabase_toml_decl("[auth.sms]"));
+        assert!(is_supabase_toml_decl("[auth.external.github]"));
+        assert!(is_supabase_toml_decl("[auth.external.google]"));
+        assert!(is_supabase_toml_decl("[auth.mfa]"));
+        assert!(is_supabase_toml_decl("[auth.mfa.totp]"));
+        assert!(is_supabase_toml_decl("[auth.sms.twilio]"));
+        assert!(is_supabase_toml_decl("[analytics]"));
+        assert!(is_supabase_toml_decl("[experimental]"));
+        assert!(is_supabase_toml_decl("[edge_runtime]"));
+        assert!(is_supabase_toml_decl("[functions]"));
+        assert!(is_supabase_toml_decl("[functions.hello]"));
+        assert!(is_supabase_toml_decl("[remotes.production]"));
+        assert!(is_supabase_toml_decl("[remotes.production.db]"));
+
+        assert!(!is_supabase_toml_decl("project_id"));
+        assert!(!is_supabase_toml_decl("project_id ="));
+        assert!(!is_supabase_toml_decl("Project_Id = \"my-app\""));
+        assert!(!is_supabase_toml_decl("PROJECT_ID = \"my-app\""));
+        assert!(!is_supabase_toml_decl("project_id the team"));
+        assert!(!is_supabase_toml_decl("# project_id = \"my-app\""));
+        assert!(!is_supabase_toml_decl("schemas = [\"public\"]"));
+        assert!(!is_supabase_toml_decl(
+            "extra_search_path = [\"public\", \"extensions\"]"
+        ));
+        assert!(!is_supabase_toml_decl(
+            "additional_redirect_urls = [\"https://localhost:3000\"]"
+        ));
+        assert!(!is_supabase_toml_decl("project_id = my-app"));
+        assert!(!is_supabase_toml_decl("pool_mode = \"global\""));
+        assert!(!is_supabase_toml_decl("backend = \"mysql\""));
+        assert!(!is_supabase_toml_decl("enable_signup = yes"));
+        assert!(!is_supabase_toml_decl("port = 54321"));
+        assert!(!is_supabase_toml_decl("PATH=/usr/bin"));
+        assert!(!is_supabase_toml_decl("[API]"));
+        assert!(!is_supabase_toml_decl("[Db]"));
+        assert!(!is_supabase_toml_decl("[auth.External.github]"));
+        assert!(!is_supabase_toml_decl("[auth.external.myspace]"));
+        assert!(!is_supabase_toml_decl("[auth.mfa.sms]"));
+        assert!(!is_supabase_toml_decl("[[db.pooler]]"));
+        assert!(!is_supabase_toml_decl("[package]"));
+        assert!(!is_supabase_toml_decl("[[bin]]"));
+        assert!(!is_supabase_toml_decl("[workspace]"));
+        assert!(!is_supabase_toml_decl("[build]"));
+        // Neighbouring deploy / tool TOMLs stay on their detectors.
+        assert!(!is_supabase_toml_decl("stack_name = \"my-app\""));
+        assert!(is_samconfig_toml_decl("stack_name = \"my-app\""));
+        assert!(!is_supabase_toml_decl("[default.deploy.parameters]"));
+        assert!(is_samconfig_toml_decl("[default.deploy.parameters]"));
+        assert!(!is_supabase_toml_decl("cmd = \"yarn run start\""));
+        assert!(is_nixpacks_toml_decl("cmd = \"yarn run start\""));
+        assert!(!is_supabase_toml_decl("[phases.setup]"));
+        assert!(is_nixpacks_toml_decl("[phases.setup]"));
+        assert!(!is_supabase_toml_decl("startCommand = \"node index.js\""));
+        assert!(is_railway_toml_decl("startCommand = \"node index.js\""));
+        assert!(!is_supabase_toml_decl("healthcheckPath = \"/health\""));
+        assert!(is_railway_toml_decl("healthcheckPath = \"/health\""));
+        assert!(!is_supabase_toml_decl("builder = \"RAILPACK\""));
+        assert!(is_railway_toml_decl("builder = \"RAILPACK\""));
+        assert!(!is_supabase_toml_decl("[environments.production]"));
+        assert!(is_railway_toml_decl("[environments.production]"));
+        assert!(!is_supabase_toml_decl("primary_region = \"iad\""));
+        assert!(is_fly_toml_decl("primary_region = \"iad\""));
+        assert!(!is_supabase_toml_decl("auto_stop_machines = \"stop\""));
+        assert!(is_fly_toml_decl("auto_stop_machines = \"stop\""));
+        assert!(!is_supabase_toml_decl("[http_service]"));
+        assert!(is_fly_toml_decl("[http_service]"));
+        assert!(!is_supabase_toml_decl("[[mounts]]"));
+        assert!(is_fly_toml_decl("[[mounts]]"));
+        assert!(!is_supabase_toml_decl("node_bundler = \"esbuild\""));
+        assert!(is_netlify_toml_decl("node_bundler = \"esbuild\""));
+        assert!(!is_supabase_toml_decl("pretty_urls = true"));
+        assert!(is_netlify_toml_decl("pretty_urls = true"));
+        assert!(!is_supabase_toml_decl("[[redirects]]"));
+        assert!(is_netlify_toml_decl("[[redirects]]"));
+        assert!(!is_supabase_toml_decl("[context.production]"));
+        assert!(is_netlify_toml_decl("[context.production]"));
+        assert!(!is_supabase_toml_decl("workers_dev = true"));
+        assert!(is_wrangler_toml_decl("workers_dev = true"));
+        assert!(!is_supabase_toml_decl(
+            "compatibility_date = \"2024-01-01\""
+        ));
+        assert!(is_wrangler_toml_decl("compatibility_date = \"2024-01-01\""));
+        assert!(!is_supabase_toml_decl("[env.staging]"));
+        assert!(is_wrangler_toml_decl("[env.staging]"));
+        assert!(!is_supabase_toml_decl("[[kv_namespaces]]"));
+        assert!(is_wrangler_toml_decl("[[kv_namespaces]]"));
+        assert!(!is_supabase_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("reload_html = true"));
+        assert!(!is_supabase_toml_decl("default_platform = \"web\""));
+        assert!(is_dioxus_toml_decl("default_platform = \"web\""));
+        assert!(!is_supabase_toml_decl("[web.app]"));
+        assert!(is_dioxus_toml_decl("[web.app]"));
+        assert!(!is_supabase_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(is_uniffi_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(!is_supabase_toml_decl("language = \"C++\""));
+        assert!(is_cbindgen_toml_decl("language = \"C++\""));
+        assert!(!is_supabase_toml_decl("public_url = \"/\""));
+        assert!(is_trunk_toml_decl("public_url = \"/\""));
+        assert!(!is_supabase_toml_decl("filehash = true"));
+        assert!(is_trunk_toml_decl("filehash = true"));
+        assert!(!is_supabase_toml_decl("timeout_multiplier = 2.0"));
+        assert!(is_mutants_toml_decl("timeout_multiplier = 2.0"));
+        assert!(!is_supabase_toml_decl("severity_threshold = \"low\""));
+        assert!(is_audit_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_supabase_toml_decl("conventional_commits = true"));
+        assert!(is_cliff_toml_decl("conventional_commits = true"));
+        assert!(!is_supabase_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_supabase_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(!is_supabase_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_supabase_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_supabase_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_supabase_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_supabase_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_supabase_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_supabase_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_supabase_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_supabase_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_supabase_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_supabase_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_supabase_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_supabase_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_supabase_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_supabase_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_supabase_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_supabase_toml_decl(
+            "registry=https://registry.npmjs.org/"
+        ));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_supabase_toml_decl(
+            "index-url = https://pypi.org/simple"
+        ));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_supabase_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_supabase_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!line_is_func_like("project_id"));
+        assert!(!line_is_func_like("Project_Id = \"my-app\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

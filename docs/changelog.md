@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.645] — 2026-11-06
+
+View:
+
+- **Function List** lists Supabase CLI `supabase/config.toml` sections and fields: `[api]` / `[db]` / `[db.pooler]` / `[db.migrations]` / `[db.seed]` / `[realtime]` / `[studio]` / `[inbucket]` / `[storage]` / `[storage.image_transformation]` / `[auth]` / `[auth.email]` / `[auth.sms]` / `[auth.external.github]` / `[auth.mfa]` / `[auth.mfa.totp]` / `[analytics]` / `[experimental]` / `[edge_runtime]` / `[functions]` / `[functions.hello]` / `[remotes.production]`, `project_id = "my-app"`, `shadow_port = 54320`, `major_version = 15`, `max_rows = 1000`, `pool_mode = "transaction"` / `"session"`, `default_pool_size = 20`, `max_client_conn = 100`, `site_url = "http://127.0.0.1:3000"`, `jwt_expiry = 3600`, `enable_signup = true`, `enable_anonymous_sign_ins = false`, `double_confirm_changes = true`, `enable_confirmations = false`, `file_size_limit = "50MiB"`, `api_url = "http://127.0.0.1"`, `smtp_port = 54325`, `pop3_port = 54326`, `backend = "postgres"` / `"bigquery"`, `verify_jwt = true`, `inspector_port = 8083`, `enable_refresh_token_rotation = true`, `refresh_token_reuse_interval = 10`. Exact Supabase keys (snake_case). TOML `key = value` with spaces around `=`. Optional `#` comment (quote-aware). Arrays (`schemas = […]`, `extra_search_path = […]`, `additional_redirect_urls = […]`) / nested maps / free-form env / `port = …` (MySQL option-file collision) / bare `[build]` / `[package]` / prose / wrong case / samconfig / nixpacks / railway / fly / netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.644] — 2026-11-06
 
 View:
