@@ -32382,6 +32382,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_dist_toml_decl(s)
             || is_release_toml_decl(s)
             || is_cargo_make_toml_decl(s)
+            || is_cliff_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32591,6 +32592,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_dist_toml_decl(s)
         || is_release_toml_decl(s)
         || is_cargo_make_toml_decl(s)
+        || is_cliff_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -54478,6 +54480,213 @@ fn cargo_make_env_value_ok(value: &str) -> bool {
         .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
 }
 
+/// git-cliff `cliff.toml`: `[changelog]` / `[git]` / `[bump]` / `[remote]` /
+/// `[remote.github]` / `[remote.gitlab]` / `[remote.gitea]` /
+/// `[remote.bitbucket]` / `[remote.azure_devops]`, `trim = true`,
+/// `render_always = false`, `format = true`, `header_marker = "…"`,
+/// `output = "CHANGELOG.md"`, `conventional_commits = true`,
+/// `require_conventional = false`, `filter_unconventional = true`,
+/// `split_commits = false`, `protect_breaking_commits = false`,
+/// `filter_commits = false`, `fail_on_unmatched_commit = false`,
+/// `tag_pattern = "v[0-9].*"`, `skip_tags = "beta|alpha"`,
+/// `ignore_tags = "rc"`, `count_tags = "…"`, `limit_tags = 10`,
+/// `use_branch_tags = false`, `topo_order = false`,
+/// `topo_order_commits = false`, `sort_commits = "newest"` / `"oldest"`,
+/// `limit_commits = 100`, `recurse_submodules = true`, `offline = false`,
+/// `owner = "orhun"`, `repo = "git-cliff"`, `api_url = "https://…"`,
+/// `native_tls = true`, `features_always_bump_minor = true`,
+/// `breaking_always_bump_major = true`, `initial_tag = "0.1.0"`,
+/// `custom_major_increment_regex = "…"`, `custom_minor_increment_regex = "…"`,
+/// `no_increment_regex = "…"`. Exact snake_case git-cliff keys. TOML
+/// `key = value` with spaces around `=`. Optional `#` comment. Nested maps /
+/// arrays (`postprocessors = […]`, `commit_parsers = […]`,
+/// `commit_preprocessors = […]`, `link_parsers = […]`,
+/// `include_paths = […]`, `exclude_paths = […]`, `processing_order = […]`) /
+/// multiline templates (`header` / `body` / `footer`) / `token` / prose /
+/// wrong case / cargo-make / release.toml / Dist.toml / mdBook / taplo /
+/// typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny /
+/// clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml
+/// stay out.
+fn is_cliff_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // No `[[…]]` tables in stock cliff.toml section headers.
+        if array {
+            return false;
+        }
+        return cliff_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested dotted free-form keys stay out.
+    if key.contains('.') {
+        return false;
+    }
+    if !cliff_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    cliff_toml_value_ok(key, value)
+}
+
+fn cliff_toml_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "changelog"
+            | "git"
+            | "bump"
+            | "remote"
+            | "remote.github"
+            | "remote.gitlab"
+            | "remote.gitea"
+            | "remote.bitbucket"
+            | "remote.azure_devops"
+    )
+}
+
+fn cliff_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "trim"
+            | "render_always"
+            | "format"
+            | "header_marker"
+            | "output"
+            | "conventional_commits"
+            | "require_conventional"
+            | "filter_unconventional"
+            | "split_commits"
+            | "protect_breaking_commits"
+            | "filter_commits"
+            | "fail_on_unmatched_commit"
+            | "tag_pattern"
+            | "skip_tags"
+            | "ignore_tags"
+            | "count_tags"
+            | "limit_tags"
+            | "use_branch_tags"
+            | "topo_order"
+            | "topo_order_commits"
+            | "sort_commits"
+            | "limit_commits"
+            | "recurse_submodules"
+            | "offline"
+            | "owner"
+            | "repo"
+            | "api_url"
+            | "native_tls"
+            | "features_always_bump_minor"
+            | "breaking_always_bump_major"
+            | "initial_tag"
+            | "custom_major_increment_regex"
+            | "custom_minor_increment_regex"
+            | "no_increment_regex"
+    )
+}
+
+fn cliff_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (commit_parsers = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "trim"
+            | "render_always"
+            | "format"
+            | "conventional_commits"
+            | "require_conventional"
+            | "filter_unconventional"
+            | "split_commits"
+            | "protect_breaking_commits"
+            | "filter_commits"
+            | "fail_on_unmatched_commit"
+            | "use_branch_tags"
+            | "topo_order"
+            | "topo_order_commits"
+            | "recurse_submodules"
+            | "offline"
+            | "native_tls"
+            | "features_always_bump_minor"
+            | "breaking_always_bump_major"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(key, "limit_tags" | "limit_commits") {
+        return !bare.is_empty() && bare.bytes().all(|b| b.is_ascii_digit());
+    }
+    if key == "sort_commits" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "newest" | "oldest");
+    }
+    if matches!(
+        key,
+        "header_marker"
+            | "output"
+            | "tag_pattern"
+            | "skip_tags"
+            | "ignore_tags"
+            | "count_tags"
+            | "owner"
+            | "repo"
+            | "api_url"
+            | "initial_tag"
+            | "custom_major_increment_regex"
+            | "custom_minor_increment_regex"
+            | "no_increment_regex"
+    ) {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 256 {
+            return false;
+        }
+        // Paths / regex / owner-repo / markers: graphic ASCII + space/tab.
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
+    }
+    false
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -57293,7 +57502,7 @@ mod func_like_line_tests {
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
         is_apt_sources_decl, is_audit_rules_decl, is_aws_config_decl, is_bacon_toml_decl,
         is_binfmt_d_decl, is_bitbake_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl,
-        is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl,
+        is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl, is_cliff_toml_decl,
         is_clippy_toml_decl, is_composer_json_decl, is_cross_toml_decl, is_crypttab_decl,
         is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl,
         is_dist_toml_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
@@ -67094,8 +67303,172 @@ mod func_like_line_tests {
         assert!(!is_rust_toolchain_toml_decl(
             "reduce_input_verbosity = true"
         ));
+        assert!(!is_cliff_toml_decl("skip_core_tasks = true"));
+        assert!(!is_cliff_toml_decl("[tasks.build]"));
+        assert!(!is_cliff_toml_decl(
+            "CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = \"true\""
+        ));
+        assert!(!is_cargo_make_toml_decl("conventional_commits = true"));
+        assert!(!is_cargo_make_toml_decl("[changelog]"));
+        assert!(!is_cargo_make_toml_decl("sort_commits = \"newest\""));
         assert!(!line_is_func_like("skip_core_tasks"));
         assert!(!line_is_func_like("Skip_Core_Tasks = true"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn cliff_toml_entries_count() {
+        assert!(line_is_func_like("[changelog]"));
+        assert!(line_is_func_like("[git]"));
+        assert!(line_is_func_like("[bump]"));
+        assert!(line_is_func_like("[remote]"));
+        assert!(line_is_func_like("[remote.github]"));
+        assert!(line_is_func_like("[remote.gitlab]"));
+        assert!(line_is_func_like("[remote.gitea]"));
+        assert!(line_is_func_like("[remote.bitbucket]"));
+        assert!(line_is_func_like("[remote.azure_devops]"));
+        assert!(line_is_func_like("trim = true"));
+        assert!(line_is_func_like("render_always = false"));
+        assert!(line_is_func_like("format = true"));
+        assert!(line_is_func_like(
+            "header_marker = \"<!-- git-cliff: end of header -->\""
+        ));
+        assert!(line_is_func_like("output = \"CHANGELOG.md\""));
+        assert!(line_is_func_like("conventional_commits = true"));
+        assert!(line_is_func_like("require_conventional = false"));
+        assert!(line_is_func_like("filter_unconventional = true"));
+        assert!(line_is_func_like("split_commits = false"));
+        assert!(line_is_func_like("protect_breaking_commits = false"));
+        assert!(line_is_func_like("filter_commits = false"));
+        assert!(line_is_func_like("fail_on_unmatched_commit = false"));
+        assert!(line_is_func_like("tag_pattern = \"v[0-9].*\""));
+        assert!(line_is_func_like("skip_tags = \"beta|alpha\""));
+        assert!(line_is_func_like("ignore_tags = \"rc\""));
+        assert!(line_is_func_like("count_tags = \"v[0-9].*\""));
+        assert!(line_is_func_like("limit_tags = 10"));
+        assert!(line_is_func_like("use_branch_tags = false"));
+        assert!(line_is_func_like("topo_order = false"));
+        assert!(line_is_func_like("topo_order_commits = true"));
+        assert!(line_is_func_like("sort_commits = \"newest\""));
+        assert!(line_is_func_like("sort_commits = \"oldest\""));
+        assert!(line_is_func_like("limit_commits = 100"));
+        assert!(line_is_func_like("recurse_submodules = true"));
+        assert!(line_is_func_like("offline = false"));
+        assert!(line_is_func_like("owner = \"orhun\""));
+        assert!(line_is_func_like("repo = \"git-cliff\""));
+        assert!(line_is_func_like("api_url = \"https://api.github.com\""));
+        assert!(line_is_func_like("native_tls = true"));
+        assert!(line_is_func_like("features_always_bump_minor = true"));
+        assert!(line_is_func_like("breaking_always_bump_major = true"));
+        assert!(line_is_func_like("initial_tag = \"0.1.0\""));
+        assert!(line_is_func_like("custom_major_increment_regex = \"feat\""));
+        assert!(line_is_func_like("custom_minor_increment_regex = \"fix\""));
+        assert!(line_is_func_like("no_increment_regex = \"chore|ci\""));
+        assert!(line_is_func_like("  trim = true # keep whitespace"));
+        // Shared detector for cliff-only keys / sections.
+        assert!(is_cliff_toml_decl("[changelog]"));
+        assert!(is_cliff_toml_decl("[remote.github]"));
+        assert!(is_cliff_toml_decl("conventional_commits = true"));
+        assert!(is_cliff_toml_decl("sort_commits = \"newest\""));
+        assert!(is_cliff_toml_decl("owner = \"orhun\""));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_cliff_toml_decl("conventional_commits"));
+        assert!(!is_cliff_toml_decl("conventional_commits ="));
+        assert!(!is_cliff_toml_decl("Conventional_Commits = true"));
+        assert!(!is_cliff_toml_decl("CONVENTIONAL_COMMITS = true"));
+        assert!(!is_cliff_toml_decl("conventional_commits the team"));
+        assert!(!is_cliff_toml_decl("# conventional_commits = true"));
+        assert!(!is_cliff_toml_decl(
+            "commit_parsers = [{ message = \"^feat\" }]"
+        ));
+        assert!(!is_cliff_toml_decl(
+            "commit_preprocessors = [{ pattern = \".*\" }]"
+        ));
+        assert!(!is_cliff_toml_decl("postprocessors = []"));
+        assert!(!is_cliff_toml_decl("link_parsers = []"));
+        assert!(!is_cliff_toml_decl("include_paths = [\"src/**\"]"));
+        assert!(!is_cliff_toml_decl("exclude_paths = [\"tests/**\"]"));
+        assert!(!is_cliff_toml_decl(
+            "processing_order = [\"commit_parsers\"]"
+        ));
+        assert!(!is_cliff_toml_decl("header = \"# Changelog\""));
+        assert!(!is_cliff_toml_decl("body = \"{{ version }}\""));
+        assert!(!is_cliff_toml_decl("footer = \"<!-- end -->\""));
+        assert!(!is_cliff_toml_decl("token = \"secret\""));
+        assert!(!is_cliff_toml_decl("sort_commits = newest"));
+        assert!(!is_cliff_toml_decl("sort_commits = \"random\""));
+        assert!(!is_cliff_toml_decl("owner = orhun"));
+        assert!(!is_cliff_toml_decl("limit_tags = -1"));
+        assert!(!is_cliff_toml_decl("PATH=/usr/bin"));
+        assert!(!is_cliff_toml_decl("[Changelog]"));
+        assert!(!is_cliff_toml_decl("[CHANGELOG]"));
+        assert!(!is_cliff_toml_decl("[[changelog]]"));
+        assert!(!is_cliff_toml_decl("[remote.github.extra]"));
+        assert!(!is_cliff_toml_decl("[package]"));
+        assert!(!is_cliff_toml_decl("[[bin]]"));
+        assert!(!is_cliff_toml_decl("[workspace]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_cliff_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_cliff_toml_decl("[tasks.build]"));
+        assert!(is_cargo_make_toml_decl("[tasks.build]"));
+        assert!(!is_cliff_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(!is_cliff_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_cliff_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_cliff_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_cliff_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_cliff_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_cliff_toml_decl("[jobs.check]"));
+        assert!(is_bacon_toml_decl("[jobs.check]"));
+        assert!(!is_cliff_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_cliff_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_cliff_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_cliff_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_cliff_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_cliff_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_cliff_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_cliff_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_cliff_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_cliff_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_cliff_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_cliff_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_cliff_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_cliff_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_cliff_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_cargo_make_toml_decl("conventional_commits = true"));
+        assert!(!is_release_toml_decl("sort_commits = \"newest\""));
+        assert!(!is_dist_toml_decl("filter_unconventional = true"));
+        assert!(!is_mdbook_toml_decl("topo_order = false"));
+        assert!(!is_taplo_toml_decl("owner = \"orhun\""));
+        assert!(!is_typos_toml_decl("repo = \"git-cliff\""));
+        assert!(!is_bacon_toml_decl("[remote.github]"));
+        assert!(!is_cross_toml_decl("features_always_bump_minor = true"));
+        assert!(!is_nextest_toml_decl("breaking_always_bump_major = true"));
+        assert!(!is_deny_toml_decl("initial_tag = \"0.1.0\""));
+        assert!(!is_rust_toolchain_toml_decl("tag_pattern = \"v[0-9].*\""));
+        assert!(!line_is_func_like("conventional_commits"));
+        assert!(!line_is_func_like("Conventional_Commits = true"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

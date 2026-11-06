@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+## [0.3.632] — 2026-11-06
+
+View:
+
+- **Function List** lists git-cliff `cliff.toml` sections and fields: `[changelog]` / `[git]` / `[bump]` / `[remote]` / `[remote.github]` / `[remote.gitlab]` / `[remote.gitea]` / `[remote.bitbucket]` / `[remote.azure_devops]`, `trim = true`, `render_always = false`, `format = true`, `header_marker = "…"`, `output = "CHANGELOG.md"`, `conventional_commits = true`, `require_conventional = false`, `filter_unconventional = true`, `split_commits = false`, `protect_breaking_commits = false`, `filter_commits = false`, `fail_on_unmatched_commit = false`, `tag_pattern = "v[0-9].*"`, `skip_tags = "beta|alpha"`, `ignore_tags = "rc"`, `count_tags = "…"`, `limit_tags = 10`, `use_branch_tags = false`, `topo_order = false`, `topo_order_commits = false`, `sort_commits = "newest"` / `"oldest"`, `limit_commits = 100`, `recurse_submodules = true`, `offline = false`, `owner = "orhun"`, `repo = "git-cliff"`, `api_url = "https://…"`, `native_tls = true`, `features_always_bump_minor = true`, `breaking_always_bump_major = true`, `initial_tag = "0.1.0"`, `custom_major_increment_regex = "…"`, `custom_minor_increment_regex = "…"`, `no_increment_regex = "…"`. Exact snake_case git-cliff keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Nested maps / arrays (`postprocessors = […]`, `commit_parsers = […]`, `commit_preprocessors = […]`, `link_parsers = […]`, `include_paths = […]`, `exclude_paths = […]`, `processing_order = […]`) / multiline templates (`header` / `body` / `footer`) / `token` / prose / wrong case / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
+
+
 ## [0.3.631] — 2026-11-06
 
 View:
