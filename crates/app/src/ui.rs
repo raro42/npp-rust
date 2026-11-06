@@ -32399,6 +32399,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_mise_toml_decl(s)
             || is_pixi_toml_decl(s)
             || is_hatch_toml_decl(s)
+            || is_poetry_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32625,6 +32626,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_mise_toml_decl(s)
         || is_pixi_toml_decl(s)
         || is_hatch_toml_decl(s)
+        || is_poetry_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -58718,12 +58720,12 @@ fn pixi_toml_value_ok(key: &str, value: &str) -> bool {
 /// `extra-dependencies = […]`, `features = […]`, `platforms = […]`,
 /// `env-include = […]`) / nested maps / free-form `[envs.x.scripts]` /
 /// `[envs.x.env-vars]` entries (`run = "pytest"`, `FOO = "bar"`) /
-/// `python = "3.12"` / `path = "…"` / prose / wrong case / pixi / mise /
-/// supabase / samconfig / nixpacks / railway / fly / netlify / wrangler /
-/// dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff /
-/// cargo-make / release.toml / Dist.toml / mdBook / taplo / typos /
-/// bacon / Cross / rust-toolchain / cargo config / nextest / deny /
-/// clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
+/// `python = "3.12"` / `path = "…"` / prose / wrong case / poetry / pixi /
+/// mise / supabase / samconfig / nixpacks / railway / fly / netlify /
+/// wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit /
+/// cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo /
+/// typos / bacon / Cross / rust-toolchain / cargo config / nextest /
+/// deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
 /// Cargo.toml stay out.
 fn is_hatch_toml_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -58921,6 +58923,171 @@ fn hatch_toml_value_ok(key: &str, value: &str) -> bool {
         return matches!(bare, "virtual" | "container") || hatch_toml_name_ok(bare);
     }
     // Remaining keys: quoted strings (paths, templates, formats).
+    if !(value.starts_with('"') || value.starts_with('\'')) {
+        return false;
+    }
+    if bare.len() > 512 {
+        return false;
+    }
+    bare.bytes()
+        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+}
+
+/// Poetry local `poetry.toml` (project config, not `[tool.poetry]` in
+/// pyproject): `[virtualenvs]` / `[virtualenvs.options]`, `[installer]`,
+/// `[solver]`, `[experimental]`, `[warnings]`, `[keyring]`,
+/// `[repositories.name]` / `[certificates.name]` / `[http-basic.name]`,
+/// `in-project = true`, `prefer-active-python = true`,
+/// `use-poetry-python = false`, `always-copy = false`,
+/// `system-site-packages = false`, `no-pip = false`, `max-workers = 4`,
+/// `no-binary = ":none:"`, `re-resolve = true`,
+/// `system-git-client = false`, `lazy-wheel = true`, `export = false`,
+/// `prompt = "{project_name}-py{python_version}"`,
+/// `cert = "path/to/ca.pem"`, `client-cert = "path/to/client.pem"`.
+/// Exact Poetry keys (kebab-case). TOML `key = value` with spaces around `=`.
+/// Optional `#` comment (quote-aware). Arrays / nested maps / free-form
+/// `[repositories]` package urls as bare `url = "…"` / `username = "…"` /
+/// `password = "…"` / `create = true` / `path = "…"` / `parallel = true` /
+/// `enabled = true` / prose / wrong case / hatch / pixi / mise / supabase /
+/// samconfig / nixpacks / railway / fly / netlify / wrangler / dioxus /
+/// uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make /
+/// release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross /
+/// rust-toolchain / cargo config / nextest / deny / clippy / rustfmt /
+/// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml / pyproject
+/// `[tool.poetry]` stay out.
+fn is_poetry_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || array || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return poetry_toml_section_ok(header);
+    }
+    let body = hatch_toml_strip_comment(s);
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if key.contains('.') {
+        return false;
+    }
+    if !poetry_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    poetry_toml_value_ok(key, value)
+}
+
+fn poetry_toml_section_ok(header: &str) -> bool {
+    let parts: Vec<&str> = header.split('.').collect();
+    if parts.is_empty() || parts.len() > 2 {
+        return false;
+    }
+    match parts[0] {
+        "virtualenvs" => match parts.len() {
+            1 => true,
+            2 => parts[1] == "options",
+            _ => false,
+        },
+        "installer" | "solver" | "experimental" | "warnings" | "keyring" => parts.len() == 1,
+        "repositories" | "certificates" | "http-basic" => {
+            parts.len() == 2 && poetry_toml_name_ok(parts[1])
+        }
+        _ => false,
+    }
+}
+
+fn poetry_toml_name_ok(name: &str) -> bool {
+    let name = name.trim_matches('"');
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    // Repo / cert / http-basic names are lowercase kebab/snake in stock poetry.toml.
+    if !(bytes[0].is_ascii_lowercase() || bytes[0].is_ascii_digit() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(*b, b'-' | b'_'))
+}
+
+fn poetry_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        // Distinctive poetry.toml scalars (kebab-case). Skip generic
+        // `create` / `path` / `url` / `parallel` / `enabled` / `username` /
+        // `password` so neighbouring formats and secrets stay out.
+        "in-project"
+            | "prefer-active-python"
+            | "use-poetry-python"
+            | "always-copy"
+            | "system-site-packages"
+            | "no-pip"
+            | "max-workers"
+            | "no-binary"
+            | "re-resolve"
+            | "system-git-client"
+            | "lazy-wheel"
+            | "export"
+            | "prompt"
+            | "cert"
+            | "client-cert"
+    )
+}
+
+fn poetry_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out.
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "in-project"
+            | "prefer-active-python"
+            | "use-poetry-python"
+            | "always-copy"
+            | "system-site-packages"
+            | "no-pip"
+            | "re-resolve"
+            | "system-git-client"
+            | "lazy-wheel"
+            | "export"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "max-workers" {
+        // Bare unsigned integer only (not quoted).
+        if value.starts_with('"') || value.starts_with('\'') {
+            return false;
+        }
+        return bare.bytes().all(|b| b.is_ascii_digit()) && bare.len() <= 4;
+    }
+    // Remaining keys: quoted strings (paths, prompts, no-binary markers).
     if !(value.starts_with('"') || value.starts_with('\'')) {
         return false;
     }
@@ -61763,9 +61930,9 @@ mod func_like_line_tests {
         is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
         is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
         is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_premake_decl,
-        is_protocols_file_decl, is_pyproject_toml_decl, is_railway_toml_decl, is_rake_decl,
-        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
+        is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl, is_railway_toml_decl,
+        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
         is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
         is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
@@ -74654,6 +74821,146 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("detached"));
         assert!(!line_is_func_like("Detached = true"));
         assert!(!line_is_func_like("run = \"pytest\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn poetry_toml_entries_count() {
+        assert!(line_is_func_like("[virtualenvs]"));
+        assert!(line_is_func_like("[virtualenvs.options]"));
+        assert!(line_is_func_like("[installer]"));
+        assert!(line_is_func_like("[solver]"));
+        assert!(line_is_func_like("[experimental]"));
+        assert!(line_is_func_like("[warnings]"));
+        assert!(line_is_func_like("[keyring]"));
+        assert!(line_is_func_like("[repositories.foo]"));
+        assert!(line_is_func_like("[certificates.pypi]"));
+        assert!(line_is_func_like("[http-basic.foo]"));
+        assert!(line_is_func_like("in-project = true"));
+        assert!(line_is_func_like("prefer-active-python = true"));
+        assert!(line_is_func_like("use-poetry-python = false"));
+        assert!(line_is_func_like("always-copy = false"));
+        assert!(line_is_func_like("system-site-packages = false"));
+        assert!(line_is_func_like("no-pip = false"));
+        assert!(line_is_func_like("max-workers = 4"));
+        assert!(line_is_func_like("no-binary = \":none:\""));
+        assert!(line_is_func_like("re-resolve = true"));
+        assert!(line_is_func_like("system-git-client = false"));
+        assert!(line_is_func_like("lazy-wheel = true"));
+        assert!(line_is_func_like("export = false"));
+        assert!(line_is_func_like(
+            "prompt = \"{project_name}-py{python_version}\""
+        ));
+        assert!(line_is_func_like("cert = \"path/to/ca.pem\""));
+        assert!(line_is_func_like("client-cert = \"path/to/client.pem\""));
+        assert!(line_is_func_like("  in-project = true # local venv"));
+
+        assert!(is_poetry_toml_decl("[virtualenvs]"));
+        assert!(is_poetry_toml_decl("[virtualenvs.options]"));
+        assert!(is_poetry_toml_decl("[installer]"));
+        assert!(is_poetry_toml_decl("[solver]"));
+        assert!(is_poetry_toml_decl("[experimental]"));
+        assert!(is_poetry_toml_decl("[warnings]"));
+        assert!(is_poetry_toml_decl("[keyring]"));
+        assert!(is_poetry_toml_decl("[repositories.foo]"));
+        assert!(is_poetry_toml_decl("[repositories.my-pypi]"));
+        assert!(is_poetry_toml_decl("[certificates.foo]"));
+        assert!(is_poetry_toml_decl("[http-basic.foo]"));
+        assert!(is_poetry_toml_decl("in-project = true"));
+        assert!(is_poetry_toml_decl("in-project = false"));
+        assert!(is_poetry_toml_decl("prefer-active-python = true"));
+        assert!(is_poetry_toml_decl("use-poetry-python = false"));
+        assert!(is_poetry_toml_decl("always-copy = false"));
+        assert!(is_poetry_toml_decl("system-site-packages = false"));
+        assert!(is_poetry_toml_decl("no-pip = false"));
+        assert!(is_poetry_toml_decl("max-workers = 4"));
+        assert!(is_poetry_toml_decl("max-workers = 16"));
+        assert!(is_poetry_toml_decl("no-binary = \":none:\""));
+        assert!(is_poetry_toml_decl("no-binary = \":all:\""));
+        assert!(is_poetry_toml_decl("re-resolve = true"));
+        assert!(is_poetry_toml_decl("system-git-client = false"));
+        assert!(is_poetry_toml_decl("lazy-wheel = true"));
+        assert!(is_poetry_toml_decl("export = false"));
+        assert!(is_poetry_toml_decl(
+            "prompt = \"{project_name}-py{python_version}\""
+        ));
+        assert!(is_poetry_toml_decl("cert = \"path/to/ca.pem\""));
+        assert!(is_poetry_toml_decl("client-cert = \"path/to/client.pem\""));
+
+        // Generic / secret / free-form keys stay out.
+        assert!(!is_poetry_toml_decl("create = true"));
+        assert!(!is_poetry_toml_decl("path = \"{cache-dir}/virtualenvs\""));
+        assert!(!is_poetry_toml_decl("url = \"https://pypi.org/simple/\""));
+        assert!(!is_poetry_toml_decl("parallel = true"));
+        assert!(!is_poetry_toml_decl("enabled = true"));
+        assert!(!is_poetry_toml_decl("username = \"alice\""));
+        assert!(!is_poetry_toml_decl("password = \"secret\""));
+        assert!(!is_poetry_toml_decl("in-project"));
+        assert!(!is_poetry_toml_decl("in-project ="));
+        assert!(!is_poetry_toml_decl("In-Project = true"));
+        assert!(!is_poetry_toml_decl("IN-PROJECT = true"));
+        assert!(!is_poetry_toml_decl("in-project the team"));
+        assert!(!is_poetry_toml_decl("# in-project = true"));
+        assert!(!is_poetry_toml_decl("in-project = yes"));
+        assert!(!is_poetry_toml_decl("max-workers = \"4\""));
+        assert!(!is_poetry_toml_decl("max-workers = -1"));
+        assert!(!is_poetry_toml_decl("no-binary = :none:"));
+        assert!(!is_poetry_toml_decl("prompt = unquoted"));
+        assert!(!is_poetry_toml_decl("PATH=/usr/bin"));
+        assert!(!is_poetry_toml_decl("[Virtualenvs]"));
+        assert!(!is_poetry_toml_decl("[VIRTUALENVS]"));
+        assert!(!is_poetry_toml_decl("[virtualenvs.Options]"));
+        assert!(!is_poetry_toml_decl("[virtualenvs.unknown]"));
+        assert!(!is_poetry_toml_decl("[repositories]"));
+        assert!(!is_poetry_toml_decl("[repositories.Foo]"));
+        assert!(!is_poetry_toml_decl("[[virtualenvs]]"));
+        assert!(!is_poetry_toml_decl("[[repositories.foo]]"));
+        // Neighbouring deploy / tool TOMLs stay on their detectors.
+        assert!(!is_poetry_toml_decl("detached = true"));
+        assert!(is_hatch_toml_decl("detached = true"));
+        assert!(!is_poetry_toml_decl("[envs.default]"));
+        assert!(is_hatch_toml_decl("[envs.default]"));
+        assert!(!is_poetry_toml_decl("channel-priority = \"strict\""));
+        assert!(is_pixi_toml_decl("channel-priority = \"strict\""));
+        assert!(!is_poetry_toml_decl("min_version = \"2024.1.1\""));
+        assert!(is_mise_toml_decl("min_version = \"2024.1.1\""));
+        assert!(!is_poetry_toml_decl("project_id = \"my-app\""));
+        assert!(is_supabase_toml_decl("project_id = \"my-app\""));
+        assert!(!is_poetry_toml_decl("stack_name = \"my-app\""));
+        assert!(is_samconfig_toml_decl("stack_name = \"my-app\""));
+        assert!(!is_poetry_toml_decl("cmd = \"yarn run start\""));
+        assert!(is_nixpacks_toml_decl("cmd = \"yarn run start\""));
+        assert!(!is_poetry_toml_decl("startCommand = \"node index.js\""));
+        assert!(is_railway_toml_decl("startCommand = \"node index.js\""));
+        assert!(!is_poetry_toml_decl("primary_region = \"iad\""));
+        assert!(is_fly_toml_decl("primary_region = \"iad\""));
+        assert!(!is_poetry_toml_decl("node_bundler = \"esbuild\""));
+        assert!(is_netlify_toml_decl("node_bundler = \"esbuild\""));
+        assert!(!is_poetry_toml_decl("workers_dev = true"));
+        assert!(is_wrangler_toml_decl("workers_dev = true"));
+        assert!(!is_poetry_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("reload_html = true"));
+        assert!(!is_poetry_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_poetry_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_poetry_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_poetry_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_poetry_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_poetry_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        // pyproject `[tool.poetry]` stays on the pyproject detector.
+        assert!(!is_poetry_toml_decl("[tool.poetry]"));
+        assert!(is_pyproject_toml_decl("[tool.poetry]"));
+        assert!(!is_poetry_toml_decl("[tool.poetry.dependencies]"));
+        assert!(is_pyproject_toml_decl("[tool.poetry.dependencies]"));
+        assert!(!line_is_func_like("in-project"));
+        assert!(!line_is_func_like("In-Project = true"));
+        assert!(!line_is_func_like("create = true"));
+        assert!(!line_is_func_like("password = \"secret\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

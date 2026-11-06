@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.649] — 2026-11-06
+
+View:
+
+- **Function List** lists Poetry local `poetry.toml` sections and fields: `[virtualenvs]` / `[virtualenvs.options]`, `[installer]`, `[solver]`, `[experimental]`, `[warnings]`, `[keyring]`, `[repositories.name]` / `[certificates.name]` / `[http-basic.name]`, `in-project = true`, `prefer-active-python = true`, `use-poetry-python = false`, `always-copy = false`, `system-site-packages = false`, `no-pip = false`, `max-workers = 4`, `no-binary = ":none:"`, `re-resolve = true`, `system-git-client = false`, `lazy-wheel = true`, `export = false`, `prompt = "{project_name}-py{python_version}"`, `cert = "path/to/ca.pem"`, `client-cert = "path/to/client.pem"`. Exact Poetry keys (kebab-case). TOML `key = value` with spaces around `=`. Optional `#` comment (quote-aware). Arrays / nested maps / free-form `url` / `username` / `password` / `create` / `path` / `parallel` / `enabled` / prose / wrong case / hatch / pixi / mise / supabase / samconfig / nixpacks / railway / fly / netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml / pyproject `[tool.poetry]` stay out.
+
 ## [0.3.648] — 2026-11-06
 
 View:
