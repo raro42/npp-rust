@@ -32387,6 +32387,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_mutants_toml_decl(s)
             || is_trunk_toml_decl(s)
             || is_cbindgen_toml_decl(s)
+            || is_uniffi_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32601,6 +32602,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_mutants_toml_decl(s)
         || is_trunk_toml_decl(s)
         || is_cbindgen_toml_decl(s)
+        || is_uniffi_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -54988,10 +54990,10 @@ fn mutants_toml_value_ok(key: &str, value: &str) -> bool {
 /// keys. TOML `key = value` with spaces around `=`. Optional `#` comment.
 /// Arrays (`watch = […]`, `ignore = […]`, `addresses = […]`) / `port = …`
 /// (collides with MySQL option-file keys) / `[[hooks]]` / prose / wrong case /
-/// cbindgen / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook /
-/// taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest /
-/// deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
-/// Cargo.toml stay out.
+/// uniffi / cbindgen / mutants / audit / cliff / cargo-make / release.toml /
+/// Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain /
+/// cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig /
+/// yarn / npmrc / pip / Cargo.toml stay out.
 fn is_trunk_toml_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -55168,11 +55170,11 @@ fn trunk_toml_value_ok(key: &str, value: &str) -> bool {
 /// `associated_constants_in_body = false`. Exact snake_case cbindgen keys.
 /// TOML `key = value` with spaces around `=`. Optional `#` comment. Arrays
 /// (`namespaces = […]`, `includes = […]`, `exclude = […]`, `features = […]`,
-/// `crates = […]`) / nested rename maps / prose / wrong case / trunk /
-/// mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook /
-/// taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest /
-/// deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
-/// Cargo.toml stay out.
+/// `crates = […]`) / nested rename maps / prose / wrong case / uniffi /
+/// trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml /
+/// mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config /
+/// nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc /
+/// pip / Cargo.toml stay out.
 fn is_cbindgen_toml_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -55477,6 +55479,169 @@ fn cbindgen_toml_value_ok(key: &str, value: &str) -> bool {
             return false;
         }
         // Header snippets / macros / paths: graphic ASCII + space/tab.
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
+    }
+    false
+}
+
+/// Mozilla UniFFI `uniffi.toml`: `[bindings.swift]` / `[bindings.kotlin]` /
+/// `[bindings.python]` / `[bindings.ruby]`, `cdylib_name = "…"`,
+/// `cdylib_path = "…"`, `module_name = "…"`, `ffi_module_name = "…"`,
+/// `ffi_module_filename = "…"`, `package_name = "…"`,
+/// `generate_module_map = true`, `omit_argument_labels = false`,
+/// `generate_immutable_records = false`,
+/// `omit_localized_error_conformance = false`,
+/// `generate_case_iterable_conformance = false`,
+/// `generate_codable_conformance = false`, `omit_checksums = false`,
+/// `android = false`, `android_cleaner = true`,
+/// `disable_java_cleaner = false`, `kotlin_target_version = "1.9.0"`,
+/// `type_name = "URL"`, `into_custom = "…"`, `from_custom = "…"`,
+/// `lift = "…"`, `lower = "…"`. Exact snake_case UniFFI keys. TOML
+/// `key = value` with spaces around `=`. Optional `#` comment. Arrays /
+/// nested maps (`mutable_records = […]`, `link_frameworks = […]`,
+/// `custom_types` / `external_packages` / `rename` / `exclude` /
+/// `[bindings.*.custom_types.*]`) / prose / wrong case / cbindgen /
+/// trunk / mutants / audit / cliff / cargo-make / release.toml /
+/// Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain /
+/// cargo config / nextest / deny / clippy / rustfmt / ruff / uv /
+/// bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+fn is_uniffi_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // No `[[…]]` tables in stock uniffi.toml.
+        if array {
+            return false;
+        }
+        return uniffi_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested dotted free-form keys stay out.
+    if key.contains('.') {
+        return false;
+    }
+    if !uniffi_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    uniffi_toml_value_ok(key, value)
+}
+
+fn uniffi_toml_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "bindings.swift" | "bindings.kotlin" | "bindings.python" | "bindings.ruby"
+    )
+}
+
+fn uniffi_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "cdylib_name"
+            | "cdylib_path"
+            | "module_name"
+            | "ffi_module_name"
+            | "ffi_module_filename"
+            | "package_name"
+            | "generate_module_map"
+            | "omit_argument_labels"
+            | "generate_immutable_records"
+            | "omit_localized_error_conformance"
+            | "generate_case_iterable_conformance"
+            | "generate_codable_conformance"
+            | "omit_checksums"
+            | "android"
+            | "android_cleaner"
+            | "disable_java_cleaner"
+            | "kotlin_target_version"
+            | "type_name"
+            | "into_custom"
+            | "from_custom"
+            | "lift"
+            | "lower"
+    )
+}
+
+fn uniffi_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (mutable_records = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "generate_module_map"
+            | "omit_argument_labels"
+            | "generate_immutable_records"
+            | "omit_localized_error_conformance"
+            | "generate_case_iterable_conformance"
+            | "generate_codable_conformance"
+            | "omit_checksums"
+            | "android"
+            | "android_cleaner"
+            | "disable_java_cleaner"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(
+        key,
+        "cdylib_name"
+            | "cdylib_path"
+            | "module_name"
+            | "ffi_module_name"
+            | "ffi_module_filename"
+            | "package_name"
+            | "kotlin_target_version"
+            | "type_name"
+            | "into_custom"
+            | "from_custom"
+            | "lift"
+            | "lower"
+    ) {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 512 {
+            return false;
+        }
+        // Names / paths / conversion snippets: graphic ASCII + space/tab.
         return bare
             .bytes()
             .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
@@ -58323,9 +58488,9 @@ mod func_like_line_tests {
         is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
         is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
         is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
-        is_yum_repo_decl, line_is_func_like,
+        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -68808,6 +68973,10 @@ mod func_like_line_tests {
         assert!(!is_cbindgen_toml_decl("[[bin]]"));
         assert!(!is_cbindgen_toml_decl("[workspace]"));
         // Neighbouring families stay on their paths.
+        assert!(!is_cbindgen_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(is_uniffi_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(!is_cbindgen_toml_decl("omit_argument_labels = true"));
+        assert!(is_uniffi_toml_decl("omit_argument_labels = true"));
         assert!(!is_cbindgen_toml_decl("public_url = \"/\""));
         assert!(is_trunk_toml_decl("public_url = \"/\""));
         assert!(!is_cbindgen_toml_decl("filehash = true"));
@@ -68875,6 +69044,139 @@ mod func_like_line_tests {
         assert!(is_cbindgen_toml_decl("style = \"both\""));
         assert!(!line_is_func_like("usize_is_size_t"));
         assert!(!line_is_func_like("Usize_Is_Size_T = true"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn uniffi_toml_entries_count() {
+        assert!(line_is_func_like("[bindings.swift]"));
+        assert!(line_is_func_like("[bindings.kotlin]"));
+        assert!(line_is_func_like("[bindings.python]"));
+        assert!(line_is_func_like("[bindings.ruby]"));
+        assert!(line_is_func_like("cdylib_name = \"mycrate_ffi\""));
+        assert!(line_is_func_like("cdylib_path = \"/usr/lib/libfoo.so\""));
+        assert!(line_is_func_like("module_name = \"UniffiOne\""));
+        assert!(line_is_func_like("ffi_module_name = \"UniffiOneFFI\""));
+        assert!(line_is_func_like("ffi_module_filename = \"UniffiOneFFI\""));
+        assert!(line_is_func_like("package_name = \"org.example.uniffi\""));
+        assert!(line_is_func_like("generate_module_map = true"));
+        assert!(line_is_func_like("omit_argument_labels = true"));
+        assert!(line_is_func_like("generate_immutable_records = false"));
+        assert!(line_is_func_like(
+            "omit_localized_error_conformance = false"
+        ));
+        assert!(line_is_func_like(
+            "generate_case_iterable_conformance = true"
+        ));
+        assert!(line_is_func_like("generate_codable_conformance = false"));
+        assert!(line_is_func_like("omit_checksums = false"));
+        assert!(line_is_func_like("android = true"));
+        assert!(line_is_func_like("android_cleaner = false"));
+        assert!(line_is_func_like("disable_java_cleaner = true"));
+        assert!(line_is_func_like("kotlin_target_version = \"1.9.0\""));
+        assert!(line_is_func_like("type_name = \"URL\""));
+        assert!(line_is_func_like("into_custom = \"URI({}).toURL()\""));
+        assert!(line_is_func_like("from_custom = \"{}.toString()\""));
+        assert!(line_is_func_like("lift = \"URI.parse({})\""));
+        assert!(line_is_func_like("lower = \"{}.to_s\""));
+        assert!(line_is_func_like(
+            "  cdylib_name = \"mycrate_ffi\" # keep whitespace"
+        ));
+        // Shared detector for uniffi-only keys.
+        assert!(is_uniffi_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(is_uniffi_toml_decl("omit_argument_labels = true"));
+        assert!(is_uniffi_toml_decl("generate_module_map = false"));
+        assert!(is_uniffi_toml_decl("kotlin_target_version = \"2.0.0\""));
+        assert!(is_uniffi_toml_decl("[bindings.swift]"));
+        assert!(is_uniffi_toml_decl("[bindings.kotlin]"));
+        assert!(is_uniffi_toml_decl("[bindings.python]"));
+        assert!(is_uniffi_toml_decl("[bindings.ruby]"));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_uniffi_toml_decl("cdylib_name"));
+        assert!(!is_uniffi_toml_decl("cdylib_name ="));
+        assert!(!is_uniffi_toml_decl("Cdylib_Name = \"x\""));
+        assert!(!is_uniffi_toml_decl("CDYLIB_NAME = \"x\""));
+        assert!(!is_uniffi_toml_decl("cdylib_name the team"));
+        assert!(!is_uniffi_toml_decl("# cdylib_name = \"x\""));
+        assert!(!is_uniffi_toml_decl("mutable_records = []"));
+        assert!(!is_uniffi_toml_decl("link_frameworks = [\"CoreAudio\"]"));
+        assert!(!is_uniffi_toml_decl("exclude = [\"peer\"]"));
+        assert!(!is_uniffi_toml_decl("imports = [\"uri\"]"));
+        assert!(!is_uniffi_toml_decl("[[bindings.swift]]"));
+        assert!(!is_uniffi_toml_decl("cdylib_name = mycrate_ffi"));
+        assert!(!is_uniffi_toml_decl("omit_argument_labels = yes"));
+        assert!(!is_uniffi_toml_decl("android = 1"));
+        assert!(!is_uniffi_toml_decl("PATH=/usr/bin"));
+        assert!(!is_uniffi_toml_decl("[Bindings.swift]"));
+        assert!(!is_uniffi_toml_decl("[BINDINGS.SWIFT]"));
+        assert!(!is_uniffi_toml_decl("[bindings]"));
+        assert!(!is_uniffi_toml_decl("[bindings.swift.custom_types.Url]"));
+        assert!(!is_uniffi_toml_decl("[bindings.kotlin.external_packages]"));
+        assert!(!is_uniffi_toml_decl("[package]"));
+        assert!(!is_uniffi_toml_decl("[[bin]]"));
+        assert!(!is_uniffi_toml_decl("[workspace]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_uniffi_toml_decl("language = \"C++\""));
+        assert!(is_cbindgen_toml_decl("language = \"C++\""));
+        assert!(!is_uniffi_toml_decl("usize_is_size_t = true"));
+        assert!(is_cbindgen_toml_decl("usize_is_size_t = true"));
+        assert!(!is_uniffi_toml_decl("public_url = \"/\""));
+        assert!(is_trunk_toml_decl("public_url = \"/\""));
+        assert!(!is_uniffi_toml_decl("timeout_multiplier = 2.0"));
+        assert!(is_mutants_toml_decl("timeout_multiplier = 2.0"));
+        assert!(!is_uniffi_toml_decl("severity_threshold = \"low\""));
+        assert!(is_audit_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_uniffi_toml_decl("conventional_commits = true"));
+        assert!(is_cliff_toml_decl("conventional_commits = true"));
+        assert!(!is_uniffi_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_uniffi_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(!is_uniffi_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_uniffi_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_uniffi_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_uniffi_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_uniffi_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_uniffi_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_uniffi_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_uniffi_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_uniffi_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_uniffi_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_uniffi_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_uniffi_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_uniffi_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_uniffi_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_uniffi_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_uniffi_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_uniffi_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_uniffi_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_uniffi_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_uniffi_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        // Shared shape `module_name` stays uniffi-quoted string only.
+        assert!(is_uniffi_toml_decl("module_name = \"UniffiOne\""));
+        assert!(!is_cbindgen_toml_decl("module_name = \"UniffiOne\""));
+        assert!(!line_is_func_like("cdylib_name"));
+        assert!(!line_is_func_like("Cdylib_Name = \"x\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

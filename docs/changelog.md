@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.637] — 2026-11-06
+
+View:
+
+- **Function List** lists Mozilla UniFFI `uniffi.toml` sections and fields: `[bindings.swift]` / `[bindings.kotlin]` / `[bindings.python]` / `[bindings.ruby]`, `cdylib_name = "…"`, `cdylib_path = "…"`, `module_name = "…"`, `ffi_module_name = "…"`, `ffi_module_filename = "…"`, `package_name = "…"`, `generate_module_map = true`, `omit_argument_labels = false`, `generate_immutable_records = false`, `omit_localized_error_conformance = false`, `generate_case_iterable_conformance = false`, `generate_codable_conformance = false`, `omit_checksums = false`, `android = false`, `android_cleaner = true`, `disable_java_cleaner = false`, `kotlin_target_version = "1.9.0"`, `type_name = "URL"`, `into_custom = "…"`, `from_custom = "…"`, `lift = "…"`, `lower = "…"`. Exact snake_case UniFFI keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Arrays / nested maps (`mutable_records = […]`, `link_frameworks = […]`, `custom_types` / `external_packages` / `rename` / `exclude` / `[bindings.*.custom_types.*]`) / prose / wrong case / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.636] — 2026-11-06
 
 View:
