@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.646] — 2026-11-06
+
+View:
+
+- **Function List** lists mise `mise.toml` / `.mise.toml` sections and fields: `[tools]` / `[tasks]` / `[tasks.build]` / `[settings]` / `[settings.upgrade]` / `[settings.cargo]` / `[settings.python]` / `[settings.status]` / `[settings.aqua]` / `[settings.node]` / `[settings.rust]` / `[alias]` / `[plugins]` / `[vars]` / `[hooks]` / `[shell_alias]` / `[tool_alias]` / `[task_config]` / `[deps]` / `[oci]` / `[bootstrap]` / `[history]` / `[secrets]` / `[wrappers]` / `[monorepo]` / `[dotfiles]`, `min_version = "2024.1.1"`, `experimental_monorepo_root = true`, `monorepo_root = true`, `env_file = ".env"`, `dotenv = ".env"`, `not_found_auto_install = true`, `asdf_compat = false`, `always_keep_download = false`, `activate_shims = true`, `legacy_version_file = true`, `plugin_autoupdate_last_check_duration = "7d"`, `default_config_filename = "mise.toml"`, `use_versions_host = true`, `auto_prune = false`, `binstall = true`, `uv_venv_auto = true`, `missing_tools = "if_other_versions_installed"`, `wait_for = "build"`, `depends_post = "lint"`, `run_windows = "…"`. Exact mise keys (snake_case). TOML `key = value` with spaces around `=`. Optional `#` comment (quote-aware). Arrays (`depends = […]`, `idiomatic_version_file_enable_tools = […]`) / nested maps / free-form `[tools]` / `[env]` / `[tasks]` entries (`node = "20"`, `FOO = "bar"`, `build = "cargo build"`) / `port = …` / prose / wrong case / supabase / samconfig / nixpacks / railway / fly / netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.645] — 2026-11-06
 
 View:

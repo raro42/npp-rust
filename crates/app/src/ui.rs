@@ -32396,6 +32396,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_nixpacks_toml_decl(s)
             || is_samconfig_toml_decl(s)
             || is_supabase_toml_decl(s)
+            || is_mise_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32619,6 +32620,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_nixpacks_toml_decl(s)
         || is_samconfig_toml_decl(s)
         || is_supabase_toml_decl(s)
+        || is_mise_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -57570,7 +57572,7 @@ fn samconfig_toml_value_ok(key: &str, value: &str) -> bool {
 /// Arrays (`schemas = […]`, `extra_search_path = […]`,
 /// `additional_redirect_urls = […]`) / nested maps / free-form env /
 /// `port = …` (MySQL option-file collision) / bare `[build]` / `[package]` /
-/// prose / wrong case / samconfig / nixpacks / railway / fly / netlify /
+/// prose / wrong case / mise / samconfig / nixpacks / railway / fly / netlify /
 /// wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff /
 /// cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon /
 /// Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt /
@@ -57925,6 +57927,388 @@ fn supabase_toml_value_ok(key: &str, value: &str) -> bool {
             || bare.bytes().all(|b| {
                 b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b':' | b'/')
             });
+    }
+    true
+}
+
+/// mise `mise.toml` / `.mise.toml` / `mise/config.toml`: `[tools]` /
+/// `[tasks]` / `[tasks.build]` / `[settings]` / `[settings.upgrade]` /
+/// `[settings.cargo]` / `[settings.python]` / `[settings.status]` /
+/// `[settings.aqua]` / `[settings.node]` / `[settings.rust]` /
+/// `[alias]` / `[plugins]` / `[vars]` / `[hooks]` / `[shell_alias]` /
+/// `[tool_alias]` / `[task_config]` / `[deps]` / `[oci]` / `[bootstrap]` /
+/// `[history]` / `[secrets]` / `[wrappers]` / `[monorepo]` / `[dotfiles]`,
+/// `min_version = "2024.1.1"`, `experimental_monorepo_root = true`,
+/// `monorepo_root = true`, `env_file = ".env"`, `dotenv = ".env"`,
+/// `not_found_auto_install = true`, `asdf_compat = false`,
+/// `always_keep_download = false`, `activate_shims = true`,
+/// `legacy_version_file = true`, `plugin_autoupdate_last_check_duration = "7d"`,
+/// `default_config_filename = "mise.toml"`, `use_versions_host = true`,
+/// `auto_prune = false`, `binstall = true`, `uv_venv_auto = true`,
+/// `missing_tools = "if_other_versions_installed"`, `wait_for = "build"`,
+/// `run_windows = "…"`, `depends_post = "lint"`. Exact mise keys
+/// (snake_case). TOML `key = value` with spaces around `=`. Optional `#`
+/// comment (quote-aware). Arrays (`depends = […]`,
+/// `idiomatic_version_file_enable_tools = […]`) / nested maps / free-form
+/// `[tools]` / `[env]` / `[tasks]` entries (`node = "20"`, `FOO = "bar"`,
+/// `build = "cargo build"`) / `port = …` / prose / wrong case / supabase /
+/// samconfig / nixpacks / railway / fly / netlify / wrangler / dioxus /
+/// uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make /
+/// release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross /
+/// rust-toolchain / cargo config / nextest / deny / clippy / rustfmt /
+/// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+fn is_mise_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // Stock mise.toml has no `[[…]]` array-of-tables sections.
+        if array {
+            return false;
+        }
+        return mise_toml_section_ok(header);
+    }
+    let body = mise_toml_strip_comment(s);
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if key.contains('.') {
+        return false;
+    }
+    if !mise_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    mise_toml_value_ok(key, value)
+}
+
+fn mise_toml_strip_comment(s: &str) -> &str {
+    let mut in_single = false;
+    let mut in_double = false;
+    for (i, b) in s.bytes().enumerate() {
+        match b {
+            b'\'' if !in_double => in_single = !in_single,
+            b'"' if !in_single => in_double = !in_double,
+            b'#' | b';' if !in_single && !in_double => {
+                return s[..i].trim_end();
+            }
+            _ => {}
+        }
+    }
+    s.trim()
+}
+
+fn mise_toml_section_ok(header: &str) -> bool {
+    let parts: Vec<&str> = header.split('.').collect();
+    if parts.is_empty() || parts.len() > 3 {
+        return false;
+    }
+    match parts[0] {
+        // Bare `[env]` stays out: other Function List negatives assert it is not a
+        // hit, and free-form mise env entries are not listed anyway.
+        "tools" | "alias" | "plugins" | "vars" | "hooks" | "shell_alias" | "tool_alias"
+        | "tool_config" | "task_config" | "task_templates" | "deps" | "oci" | "bootstrap"
+        | "history" | "secrets" | "wrappers" | "monorepo" | "dotfiles" | "dotfile_groups"
+        | "watch_files" | "redactions" | "doctor" | "daemons" | "daemon_groups"
+        | "daemon_providers" | "daemons_settings" | "include" => parts.len() == 1,
+        "tasks" => match parts.len() {
+            1 => true,
+            2 | 3 => {
+                mise_toml_name_ok(parts[1]) && (parts.len() == 2 || mise_toml_name_ok(parts[2]))
+            }
+            _ => false,
+        },
+        "settings" => match parts.len() {
+            1 => true,
+            2 => mise_toml_settings_group_ok(parts[1]),
+            3 => mise_toml_settings_group_ok(parts[1]) && mise_toml_name_ok(parts[2]),
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+fn mise_toml_settings_group_ok(name: &str) -> bool {
+    matches!(
+        name,
+        "age"
+            | "aqua"
+            | "cargo"
+            | "conda"
+            | "dotfiles"
+            | "dotnet"
+            | "erlang"
+            | "forgejo"
+            | "github"
+            | "github_relay"
+            | "gitlab"
+            | "go"
+            | "history"
+            | "hook_env"
+            | "java"
+            | "node"
+            | "npm"
+            | "oci"
+            | "otel"
+            | "packslip"
+            | "pipx"
+            | "prune"
+            | "pypi"
+            | "python"
+            | "ruby"
+            | "rust"
+            | "sandbox"
+            | "self_update"
+            | "shims"
+            | "skills"
+            | "sops"
+            | "spm"
+            | "status"
+            | "swift"
+            | "system_packages"
+            | "task"
+            | "tool_update"
+            | "upgrade"
+            | "write_targets"
+            | "zig"
+    )
+}
+
+fn mise_toml_name_ok(name: &str) -> bool {
+    let name = name.trim_matches('"');
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'-' | b'_' | b':'))
+}
+
+fn mise_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        // Top-level mise.toml keys
+        "min_version"
+            | "experimental_monorepo_root"
+            | "monorepo_root"
+            | "env_file"
+            | "dotenv"
+            // Distinctive settings (and nested-group leaf keys)
+            | "not_found_auto_install"
+            | "not_found_system_fallback"
+            | "asdf_compat"
+            | "always_keep_download"
+            | "always_keep_install"
+            | "activate_shims"
+            | "activate_aggressive"
+            | "legacy_version_file"
+            | "plugin_autoupdate_last_check_duration"
+            | "default_config_filename"
+            | "default_tool_versions_filename"
+            | "use_versions_host"
+            | "use_versions_host_track"
+            | "use_file_shell_for_executable_tasks"
+            | "unix_default_file_shell_args"
+            | "unix_default_inline_shell_args"
+            | "windows_default_file_shell_args"
+            | "windows_default_inline_shell_args"
+            | "windows_shim_mode"
+            | "windows_powershell_no_profile"
+            | "exec_auto_install"
+            | "env_shell_expand"
+            | "env_cache"
+            | "env_cache_ttl"
+            | "fetch_remote_versions_cache"
+            | "fetch_remote_versions_timeout"
+            | "http_download_timeout"
+            | "auto_update"
+            | "auto_update_check_duration"
+            | "auto_install"
+            | "cache_prune_age"
+            | "system_deps"
+            | "terminal_progress"
+            | "tera_v1"
+            | "lockfile"
+            | "lockfile_auto_prune"
+            | "lockfile_mode"
+            | "idiomatic_version_file"
+            | "github_attestations"
+            | "gix"
+            | "libgit2"
+            | "netrc"
+            | "offline"
+            | "prefer_offline"
+            | "paranoid"
+            | "prereleases"
+            | "slsa"
+            | "auto_prune"
+            | "prune_after"
+            | "binstall"
+            | "binstall_only"
+            | "binstall_quickinstall"
+            | "uv_venv_auto"
+            | "missing_tools"
+            | "show_env"
+            | "show_tools"
+            | "baked_registry"
+            | "cosign"
+            | "minisign"
+            // Distinctive task keys (not free-form run/dir/env)
+            | "depends_post"
+            | "wait_for"
+            | "run_windows"
+            | "skip_if"
+            | "rust_cache"
+            | "pass_through_env"
+            | "raw_args"
+            | "allow_env"
+            | "allow_net"
+            | "allow_read"
+            | "allow_write"
+            | "deny_all"
+            | "deny_env"
+            | "deny_net"
+            | "deny_read"
+            | "deny_write"
+    )
+}
+
+fn mise_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out.
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "experimental_monorepo_root"
+            | "monorepo_root"
+            | "not_found_auto_install"
+            | "not_found_system_fallback"
+            | "asdf_compat"
+            | "always_keep_download"
+            | "always_keep_install"
+            | "activate_shims"
+            | "activate_aggressive"
+            | "legacy_version_file"
+            | "use_versions_host"
+            | "use_versions_host_track"
+            | "use_file_shell_for_executable_tasks"
+            | "windows_powershell_no_profile"
+            | "exec_auto_install"
+            | "env_shell_expand"
+            | "env_cache"
+            | "auto_update"
+            | "auto_install"
+            | "terminal_progress"
+            | "tera_v1"
+            | "lockfile"
+            | "lockfile_auto_prune"
+            | "idiomatic_version_file"
+            | "github_attestations"
+            | "gix"
+            | "libgit2"
+            | "netrc"
+            | "offline"
+            | "prefer_offline"
+            | "paranoid"
+            | "prereleases"
+            | "slsa"
+            | "auto_prune"
+            | "binstall"
+            | "binstall_only"
+            | "binstall_quickinstall"
+            | "uv_venv_auto"
+            | "show_env"
+            | "show_tools"
+            | "baked_registry"
+            | "cosign"
+            | "minisign"
+            | "deny_all"
+            | "rust_cache"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(
+        key,
+        "allow_env"
+            | "allow_net"
+            | "allow_read"
+            | "allow_write"
+            | "deny_env"
+            | "deny_net"
+            | "deny_read"
+            | "deny_write"
+            | "pass_through_env"
+            | "depends_post"
+    ) {
+        // Arrays stay out; a single quoted string is ok.
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return bare.len() <= 256
+            && bare
+                .bytes()
+                .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
+    }
+    // Remaining keys: quoted strings (versions, durations, paths, task refs).
+    if !(value.starts_with('"') || value.starts_with('\'')) {
+        return false;
+    }
+    if bare.len() > 512 {
+        return false;
+    }
+    if !bare
+        .bytes()
+        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+    {
+        return false;
+    }
+    if key == "system_deps" {
+        return matches!(bare, "prompt" | "auto" | "never" | "yes" | "no")
+            || bare.eq_ignore_ascii_case("true")
+            || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "missing_tools" {
+        return matches!(
+            bare,
+            "if_other_versions_installed" | "always" | "never" | "true" | "false"
+        );
+    }
+    if key == "lockfile_mode" {
+        return matches!(bare, "auto" | "strict" | "off" | "soft" | "hard");
+    }
+    if key == "windows_shim_mode" {
+        return matches!(bare, "exe" | "bat" | "symlink" | "hardlink");
     }
     true
 }
@@ -60755,24 +61139,25 @@ mod func_like_line_tests {
         is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
         is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
         is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
-        is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
-        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
+        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
+        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
+        is_pyproject_toml_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
+        is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
+        is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
+        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_trunk_toml_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
+        is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -73010,6 +73395,12 @@ mod func_like_line_tests {
         assert!(!is_supabase_toml_decl("[workspace]"));
         assert!(!is_supabase_toml_decl("[build]"));
         // Neighbouring deploy / tool TOMLs stay on their detectors.
+        assert!(!is_supabase_toml_decl("min_version = \"2024.1.1\""));
+        assert!(is_mise_toml_decl("min_version = \"2024.1.1\""));
+        assert!(!is_supabase_toml_decl("[tools]"));
+        assert!(is_mise_toml_decl("[tools]"));
+        assert!(!is_supabase_toml_decl("not_found_auto_install = true"));
+        assert!(is_mise_toml_decl("not_found_auto_install = true"));
         assert!(!is_supabase_toml_decl("stack_name = \"my-app\""));
         assert!(is_samconfig_toml_decl("stack_name = \"my-app\""));
         assert!(!is_supabase_toml_decl("[default.deploy.parameters]"));
@@ -73122,6 +73513,181 @@ mod func_like_line_tests {
         assert!(is_cargo_toml_decl("[package]"));
         assert!(!line_is_func_like("project_id"));
         assert!(!line_is_func_like("Project_Id = \"my-app\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn mise_toml_entries_count() {
+        assert!(line_is_func_like("[tools]"));
+        assert!(line_is_func_like("[tasks]"));
+        assert!(line_is_func_like("[tasks.build]"));
+        assert!(line_is_func_like("[settings]"));
+        assert!(line_is_func_like("[settings.upgrade]"));
+        assert!(line_is_func_like("[settings.cargo]"));
+        assert!(line_is_func_like("[settings.python]"));
+        assert!(line_is_func_like("[settings.status]"));
+        assert!(line_is_func_like("[alias]"));
+        assert!(line_is_func_like("[plugins]"));
+        assert!(line_is_func_like("[task_config]"));
+        assert!(line_is_func_like("[deps]"));
+        assert!(line_is_func_like("min_version = \"2024.1.1\""));
+        assert!(line_is_func_like("not_found_auto_install = true"));
+        assert!(line_is_func_like("asdf_compat = false"));
+        assert!(line_is_func_like("activate_shims = true"));
+        assert!(line_is_func_like(
+            "plugin_autoupdate_last_check_duration = \"7d\""
+        ));
+        assert!(line_is_func_like("default_config_filename = \"mise.toml\""));
+        assert!(line_is_func_like("auto_prune = false"));
+        assert!(line_is_func_like("binstall = true"));
+        assert!(line_is_func_like("uv_venv_auto = true"));
+        assert!(line_is_func_like(
+            "missing_tools = \"if_other_versions_installed\""
+        ));
+        assert!(line_is_func_like("wait_for = \"build\""));
+        assert!(line_is_func_like("  min_version = \"2024.1.1\" # keep"));
+
+        assert!(is_mise_toml_decl("[tools]"));
+        assert!(!is_mise_toml_decl("[env]"));
+        assert!(!line_is_func_like("[env]"));
+        assert!(is_mise_toml_decl("[tasks]"));
+        assert!(is_mise_toml_decl("[tasks.build]"));
+        assert!(is_mise_toml_decl("[tasks.ci:test]"));
+        assert!(is_mise_toml_decl("[settings]"));
+        assert!(is_mise_toml_decl("[settings.upgrade]"));
+        assert!(is_mise_toml_decl("[settings.cargo]"));
+        assert!(is_mise_toml_decl("[settings.python]"));
+        assert!(is_mise_toml_decl("[settings.status]"));
+        assert!(is_mise_toml_decl("[settings.aqua]"));
+        assert!(is_mise_toml_decl("[settings.node]"));
+        assert!(is_mise_toml_decl("[settings.rust]"));
+        assert!(is_mise_toml_decl("[alias]"));
+        assert!(is_mise_toml_decl("[plugins]"));
+        assert!(is_mise_toml_decl("[vars]"));
+        assert!(is_mise_toml_decl("[hooks]"));
+        assert!(is_mise_toml_decl("[shell_alias]"));
+        assert!(is_mise_toml_decl("[tool_alias]"));
+        assert!(is_mise_toml_decl("[task_config]"));
+        assert!(is_mise_toml_decl("[deps]"));
+        assert!(is_mise_toml_decl("[oci]"));
+        assert!(is_mise_toml_decl("[bootstrap]"));
+        assert!(is_mise_toml_decl("[history]"));
+        assert!(is_mise_toml_decl("[secrets]"));
+        assert!(is_mise_toml_decl("[wrappers]"));
+        assert!(is_mise_toml_decl("[monorepo]"));
+        assert!(is_mise_toml_decl("[dotfiles]"));
+        assert!(is_mise_toml_decl("min_version = \"2024.1.1\""));
+        assert!(is_mise_toml_decl("experimental_monorepo_root = true"));
+        assert!(is_mise_toml_decl("monorepo_root = true"));
+        assert!(is_mise_toml_decl("env_file = \".env\""));
+        assert!(is_mise_toml_decl("dotenv = \".env\""));
+        assert!(is_mise_toml_decl("not_found_auto_install = true"));
+        assert!(is_mise_toml_decl("not_found_system_fallback = true"));
+        assert!(is_mise_toml_decl("asdf_compat = false"));
+        assert!(is_mise_toml_decl("always_keep_download = false"));
+        assert!(is_mise_toml_decl("always_keep_install = false"));
+        assert!(is_mise_toml_decl("activate_shims = true"));
+        assert!(is_mise_toml_decl("activate_aggressive = false"));
+        assert!(is_mise_toml_decl("legacy_version_file = true"));
+        assert!(is_mise_toml_decl(
+            "plugin_autoupdate_last_check_duration = \"7d\""
+        ));
+        assert!(is_mise_toml_decl("default_config_filename = \"mise.toml\""));
+        assert!(is_mise_toml_decl(
+            "default_tool_versions_filename = \".tool-versions\""
+        ));
+        assert!(is_mise_toml_decl("use_versions_host = true"));
+        assert!(is_mise_toml_decl("exec_auto_install = true"));
+        assert!(is_mise_toml_decl("env_shell_expand = true"));
+        assert!(is_mise_toml_decl("auto_update = false"));
+        assert!(is_mise_toml_decl("auto_update_check_duration = \"7d\""));
+        assert!(is_mise_toml_decl("cache_prune_age = \"30d\""));
+        assert!(is_mise_toml_decl("system_deps = \"prompt\""));
+        assert!(is_mise_toml_decl("terminal_progress = true"));
+        assert!(is_mise_toml_decl("lockfile_auto_prune = true"));
+        assert!(is_mise_toml_decl("lockfile_mode = \"auto\""));
+        assert!(is_mise_toml_decl("windows_shim_mode = \"exe\""));
+        assert!(is_mise_toml_decl("auto_prune = false"));
+        assert!(is_mise_toml_decl("binstall = true"));
+        assert!(is_mise_toml_decl("uv_venv_auto = true"));
+        assert!(is_mise_toml_decl(
+            "missing_tools = \"if_other_versions_installed\""
+        ));
+        assert!(is_mise_toml_decl("wait_for = \"build\""));
+        assert!(is_mise_toml_decl("depends_post = \"lint\""));
+        assert!(is_mise_toml_decl("run_windows = \"cargo test\""));
+        assert!(is_mise_toml_decl("skip_if = \"ci\""));
+        assert!(is_mise_toml_decl("rust_cache = true"));
+        assert!(is_mise_toml_decl("deny_all = true"));
+        assert!(is_mise_toml_decl("cosign = true"));
+        assert!(is_mise_toml_decl("baked_registry = true"));
+
+        // Free-form tools/env/tasks values stay out (too generic).
+        assert!(!is_mise_toml_decl("node = \"20\""));
+        assert!(!is_mise_toml_decl("python = \"3.12\""));
+        assert!(!is_mise_toml_decl("FOO = \"bar\""));
+        assert!(!is_mise_toml_decl("build = \"cargo build\""));
+        assert!(!is_mise_toml_decl("run = \"cargo test\""));
+        assert!(!is_mise_toml_decl("min_version"));
+        assert!(!is_mise_toml_decl("min_version ="));
+        assert!(!is_mise_toml_decl("Min_Version = \"2024.1.1\""));
+        assert!(!is_mise_toml_decl("MIN_VERSION = \"2024.1.1\""));
+        assert!(!is_mise_toml_decl("min_version the team"));
+        assert!(!is_mise_toml_decl("# min_version = \"2024.1.1\""));
+        assert!(!is_mise_toml_decl(
+            "idiomatic_version_file_enable_tools = [\"python\"]"
+        ));
+        assert!(!is_mise_toml_decl("depends = [\"lint\", \"test\"]"));
+        assert!(!is_mise_toml_decl("min_version = 2024.1.1"));
+        assert!(!is_mise_toml_decl("not_found_auto_install = yes"));
+        assert!(!is_mise_toml_decl("port = 54321"));
+        assert!(!is_mise_toml_decl("PATH=/usr/bin"));
+        assert!(!is_mise_toml_decl("[Tools]"));
+        assert!(!is_mise_toml_decl("[SETTINGS]"));
+        assert!(!is_mise_toml_decl("[settings.Upgrade]"));
+        assert!(!is_mise_toml_decl("[settings.unknown]"));
+        assert!(!is_mise_toml_decl("[[tools]]"));
+        assert!(!is_mise_toml_decl("[package]"));
+        assert!(!is_mise_toml_decl("[[bin]]"));
+        assert!(!is_mise_toml_decl("[workspace]"));
+        assert!(!is_mise_toml_decl("[build]"));
+        // Neighbouring deploy / tool TOMLs stay on their detectors.
+        assert!(!is_mise_toml_decl("project_id = \"my-app\""));
+        assert!(is_supabase_toml_decl("project_id = \"my-app\""));
+        assert!(!is_mise_toml_decl("[db.pooler]"));
+        assert!(is_supabase_toml_decl("[db.pooler]"));
+        assert!(!is_mise_toml_decl("stack_name = \"my-app\""));
+        assert!(is_samconfig_toml_decl("stack_name = \"my-app\""));
+        assert!(!is_mise_toml_decl("[default.deploy.parameters]"));
+        assert!(is_samconfig_toml_decl("[default.deploy.parameters]"));
+        assert!(!is_mise_toml_decl("cmd = \"yarn run start\""));
+        assert!(is_nixpacks_toml_decl("cmd = \"yarn run start\""));
+        assert!(!is_mise_toml_decl("[phases.setup]"));
+        assert!(is_nixpacks_toml_decl("[phases.setup]"));
+        assert!(!is_mise_toml_decl("startCommand = \"node index.js\""));
+        assert!(is_railway_toml_decl("startCommand = \"node index.js\""));
+        assert!(!is_mise_toml_decl("primary_region = \"iad\""));
+        assert!(is_fly_toml_decl("primary_region = \"iad\""));
+        assert!(!is_mise_toml_decl("node_bundler = \"esbuild\""));
+        assert!(is_netlify_toml_decl("node_bundler = \"esbuild\""));
+        assert!(!is_mise_toml_decl("workers_dev = true"));
+        assert!(is_wrangler_toml_decl("workers_dev = true"));
+        assert!(!is_mise_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("reload_html = true"));
+        assert!(!is_mise_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        // cargo-make also lists [tasks.build]; mise shares the section shape.
+        assert!(is_mise_toml_decl("[tasks.build]"));
+        assert!(is_cargo_make_toml_decl("[tasks.build]"));
+        assert!(!is_mise_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_mise_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_mise_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!line_is_func_like("min_version"));
+        assert!(!line_is_func_like("Min_Version = \"2024.1.1\""));
+        assert!(!line_is_func_like("node = \"20\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
