@@ -32389,6 +32389,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_cbindgen_toml_decl(s)
             || is_uniffi_toml_decl(s)
             || is_dioxus_toml_decl(s)
+            || is_wrangler_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32605,6 +32606,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_cbindgen_toml_decl(s)
         || is_uniffi_toml_decl(s)
         || is_dioxus_toml_decl(s)
+        || is_wrangler_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -55662,11 +55664,11 @@ fn uniffi_toml_value_ok(key: &str, value: &str) -> bool {
 /// Dioxus keys. TOML `key = value` with spaces around `=`. Optional `#`
 /// comment. Arrays (`watch_path = […]`, `style = […]`, `script = […]`,
 /// `icon = […]`) / nested maps / bare `name` / `title` / `enabled` /
-/// prose / wrong case / uniffi / cbindgen / trunk / mutants / audit /
-/// cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo /
-/// typos / bacon / Cross / rust-toolchain / cargo config / nextest /
-/// deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
-/// Cargo.toml stay out.
+/// prose / wrong case / wrangler / uniffi / cbindgen / trunk / mutants /
+/// audit / cliff / cargo-make / release.toml / Dist.toml / mdBook /
+/// taplo / typos / bacon / Cross / rust-toolchain / cargo config /
+/// nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn /
+/// npmrc / pip / Cargo.toml stay out.
 fn is_dioxus_toml_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -55788,6 +55790,285 @@ fn dioxus_toml_value_ok(key: &str, value: &str) -> bool {
             .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
     }
     false
+}
+
+/// Cloudflare Workers Wrangler `wrangler.toml`: `[env.name]` / `[dev]` /
+/// `[triggers]` / `[vars]` / `[assets]` / `[placement]` /
+/// `[observability]` / `[limits]` / `[durable_objects]` / `[queues]` /
+/// `[browser]` / `[ai]` / `[site]`, `[[kv_namespaces]]` /
+/// `[[r2_buckets]]` / `[[d1_databases]]` / `[[vectorize]]` /
+/// `[[services]]` / `[[durable_objects.bindings]]` /
+/// `[[queues.producers]]` / `[[queues.consumers]]` /
+/// `[[tail_consumers]]` / `[[workflows]]` /
+/// `[[analytics_engine_datasets]]` / `[[rules]]` / `[[migrations]]` /
+/// `[[hyperdrive]]` / `[[send_email]]` / `[[mtls_certificates]]` /
+/// `[[ai_search_namespaces]]` / `[[secrets_store_secrets]]`,
+/// `name = "my-worker"`, `main = "src/index.ts"`,
+/// `compatibility_date = "2024-01-01"`, `account_id = "…"`,
+/// `workers_dev = true`, `preview_urls = false`, `no_bundle = false`,
+/// `find_additional_modules = true`, `preserve_file_names = false`,
+/// `keep_names = true`, `logpush = false`, `keep_vars = true`,
+/// `send_metrics = false`, `jsx_factory = "React.createElement"`,
+/// `jsx_fragment = "React.Fragment"`, `usage_model = "bundled"` /
+/// `"unbound"`, `base_dir = "src"`, `tsconfig = "./tsconfig.json"`,
+/// `route = "example.com/*"`. Exact snake_case Wrangler keys. TOML
+/// `key = value` with spaces around `=`. Optional `#` comment. Arrays
+/// (`compatibility_flags = […]`, `routes = […]`, `crons = […]`) /
+/// nested maps / bare `minify` / prose / wrong case / dioxus / uniffi /
+/// cbindgen / trunk / mutants / audit / cliff / cargo-make /
+/// release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross /
+/// rust-toolchain / cargo config / nextest / deny / clippy / rustfmt /
+/// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+fn is_wrangler_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        if array {
+            return wrangler_toml_array_section_ok(header);
+        }
+        return wrangler_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested dotted free-form keys stay out.
+    if key.contains('.') {
+        return false;
+    }
+    if !wrangler_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    wrangler_toml_value_ok(key, value)
+}
+
+fn wrangler_toml_section_ok(header: &str) -> bool {
+    if let Some(env) = header.strip_prefix("env.") {
+        return wrangler_toml_env_name_ok(env);
+    }
+    matches!(
+        header,
+        "dev"
+            | "triggers"
+            | "vars"
+            | "assets"
+            | "placement"
+            | "observability"
+            | "limits"
+            | "durable_objects"
+            | "queues"
+            | "browser"
+            | "ai"
+            | "site"
+    )
+}
+
+fn wrangler_toml_array_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "kv_namespaces"
+            | "r2_buckets"
+            | "d1_databases"
+            | "vectorize"
+            | "services"
+            | "durable_objects.bindings"
+            | "queues.producers"
+            | "queues.consumers"
+            | "tail_consumers"
+            | "workflows"
+            | "analytics_engine_datasets"
+            | "rules"
+            | "migrations"
+            | "hyperdrive"
+            | "send_email"
+            | "mtls_certificates"
+            | "ai_search_namespaces"
+            | "secrets_store_secrets"
+    )
+}
+
+fn wrangler_toml_env_name_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || *b == b'-' || *b == b'_')
+}
+
+fn wrangler_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "name"
+            | "main"
+            | "compatibility_date"
+            | "account_id"
+            | "workers_dev"
+            | "preview_urls"
+            | "no_bundle"
+            | "find_additional_modules"
+            | "preserve_file_names"
+            | "keep_names"
+            | "logpush"
+            | "keep_vars"
+            | "send_metrics"
+            | "jsx_factory"
+            | "jsx_fragment"
+            | "usage_model"
+            | "base_dir"
+            | "tsconfig"
+            | "route"
+    )
+}
+
+fn wrangler_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (compatibility_flags = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "workers_dev"
+            | "preview_urls"
+            | "no_bundle"
+            | "find_additional_modules"
+            | "preserve_file_names"
+            | "keep_names"
+            | "logpush"
+            | "keep_vars"
+            | "send_metrics"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "usage_model" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "bundled" | "unbound");
+    }
+    if key == "compatibility_date" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return wrangler_toml_compat_date_ok(bare);
+    }
+    if key == "name" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return wrangler_toml_worker_name_ok(bare);
+    }
+    if matches!(
+        key,
+        "main" | "account_id" | "jsx_factory" | "jsx_fragment" | "base_dir" | "tsconfig" | "route"
+    ) {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 512 {
+            return false;
+        }
+        // Paths / ids / factories / routes: graphic ASCII + space/tab.
+        if !bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+        {
+            return false;
+        }
+        if key == "main" {
+            // Entrypoint path cue (slash and/or JS/TS suffix).
+            let lower = bare.to_ascii_lowercase();
+            return bare.contains('/')
+                || lower.ends_with(".js")
+                || lower.ends_with(".mjs")
+                || lower.ends_with(".cjs")
+                || lower.ends_with(".ts")
+                || lower.ends_with(".tsx")
+                || lower.ends_with(".jsx");
+        }
+        if key == "route" {
+            // Pattern cue: slash, `*`, or a dotted hostname.
+            return bare.contains('/') || bare.contains('*') || bare.contains('.');
+        }
+        if key == "account_id" {
+            // Cloudflare account ids are hex-like; keep graphic ASCII.
+            return bare.len() >= 8
+                && bare
+                    .bytes()
+                    .all(|b| b.is_ascii_hexdigit() || b.is_ascii_alphanumeric());
+        }
+        return true;
+    }
+    false
+}
+
+fn wrangler_toml_compat_date_ok(s: &str) -> bool {
+    // yyyy-mm-dd
+    let bytes = s.as_bytes();
+    if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
+        return false;
+    }
+    bytes[0..4].iter().all(|b| b.is_ascii_digit())
+        && bytes[5..7].iter().all(|b| b.is_ascii_digit())
+        && bytes[8..10].iter().all(|b| b.is_ascii_digit())
+}
+
+fn wrangler_toml_worker_name_ok(s: &str) -> bool {
+    if s.is_empty() || s.len() > 255 {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team", "note",
+    ];
+    if PROSE.iter().any(|w| s.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    let bytes = s.as_bytes();
+    // Wrangler: alphanumeric + dashes; no underscores; no leading/trailing dash.
+    if bytes[0] == b'-' || bytes[bytes.len() - 1] == b'-' {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || *b == b'-')
 }
 
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
@@ -58631,7 +58912,8 @@ mod func_like_line_tests {
         is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_trunk_toml_decl,
         is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
         is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
+        is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -69460,8 +69742,194 @@ mod func_like_line_tests {
         // Premake needs a quoted name after the keyword on the same line.
         assert!(is_dioxus_toml_decl("[application]"));
         assert!(!is_premake_decl("[application]"));
+        // Neighbouring wrangler family stays on its path.
+        assert!(!is_dioxus_toml_decl("workers_dev = true"));
+        assert!(is_wrangler_toml_decl("workers_dev = true"));
+        assert!(!is_dioxus_toml_decl("compatibility_date = \"2024-01-01\""));
+        assert!(is_wrangler_toml_decl("compatibility_date = \"2024-01-01\""));
+        assert!(!is_dioxus_toml_decl("[env.staging]"));
+        assert!(is_wrangler_toml_decl("[env.staging]"));
         assert!(!line_is_func_like("reload_html"));
         assert!(!line_is_func_like("Reload_Html = true"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn wrangler_toml_entries_count() {
+        assert!(line_is_func_like("[env.staging]"));
+        assert!(line_is_func_like("[env.production]"));
+        assert!(line_is_func_like("[dev]"));
+        assert!(line_is_func_like("[triggers]"));
+        assert!(line_is_func_like("[vars]"));
+        assert!(line_is_func_like("[assets]"));
+        assert!(line_is_func_like("[placement]"));
+        assert!(line_is_func_like("[observability]"));
+        assert!(line_is_func_like("[limits]"));
+        assert!(line_is_func_like("[durable_objects]"));
+        assert!(line_is_func_like("[queues]"));
+        assert!(line_is_func_like("[browser]"));
+        assert!(line_is_func_like("[ai]"));
+        assert!(line_is_func_like("[site]"));
+        assert!(line_is_func_like("[[kv_namespaces]]"));
+        assert!(line_is_func_like("[[r2_buckets]]"));
+        assert!(line_is_func_like("[[d1_databases]]"));
+        assert!(line_is_func_like("[[vectorize]]"));
+        assert!(line_is_func_like("[[services]]"));
+        assert!(line_is_func_like("[[durable_objects.bindings]]"));
+        assert!(line_is_func_like("[[queues.producers]]"));
+        assert!(line_is_func_like("[[queues.consumers]]"));
+        assert!(line_is_func_like("[[tail_consumers]]"));
+        assert!(line_is_func_like("[[workflows]]"));
+        assert!(line_is_func_like("[[analytics_engine_datasets]]"));
+        assert!(line_is_func_like("[[rules]]"));
+        assert!(line_is_func_like("[[migrations]]"));
+        assert!(line_is_func_like("[[hyperdrive]]"));
+        assert!(line_is_func_like("[[send_email]]"));
+        assert!(line_is_func_like("[[mtls_certificates]]"));
+        assert!(line_is_func_like("[[ai_search_namespaces]]"));
+        assert!(line_is_func_like("[[secrets_store_secrets]]"));
+        assert!(line_is_func_like("name = \"my-worker\""));
+        assert!(line_is_func_like("main = \"src/index.ts\""));
+        assert!(line_is_func_like("main = \"./worker.js\""));
+        assert!(line_is_func_like("compatibility_date = \"2024-01-01\""));
+        assert!(line_is_func_like(
+            "account_id = \"0123456789abcdef0123456789abcdef\""
+        ));
+        assert!(line_is_func_like("workers_dev = true"));
+        assert!(line_is_func_like("preview_urls = false"));
+        assert!(line_is_func_like("no_bundle = false"));
+        assert!(line_is_func_like("find_additional_modules = true"));
+        assert!(line_is_func_like("preserve_file_names = false"));
+        assert!(line_is_func_like("keep_names = true"));
+        assert!(line_is_func_like("logpush = false"));
+        assert!(line_is_func_like("keep_vars = true"));
+        assert!(line_is_func_like("send_metrics = false"));
+        assert!(line_is_func_like("jsx_factory = \"React.createElement\""));
+        assert!(line_is_func_like("jsx_fragment = \"React.Fragment\""));
+        assert!(line_is_func_like("usage_model = \"bundled\""));
+        assert!(line_is_func_like("usage_model = \"unbound\""));
+        assert!(line_is_func_like("base_dir = \"src\""));
+        assert!(line_is_func_like("tsconfig = \"./tsconfig.json\""));
+        assert!(line_is_func_like("route = \"example.com/*\""));
+        assert!(line_is_func_like("  workers_dev = true # keep whitespace"));
+        // Shared detector for wrangler-only keys.
+        assert!(is_wrangler_toml_decl("workers_dev = true"));
+        assert!(is_wrangler_toml_decl("compatibility_date = \"2024-09-15\""));
+        assert!(is_wrangler_toml_decl("name = \"api-worker\""));
+        assert!(is_wrangler_toml_decl("main = \"src/index.js\""));
+        assert!(is_wrangler_toml_decl("[env.staging]"));
+        assert!(is_wrangler_toml_decl("[[kv_namespaces]]"));
+        assert!(is_wrangler_toml_decl("[[d1_databases]]"));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_wrangler_toml_decl("workers_dev"));
+        assert!(!is_wrangler_toml_decl("workers_dev ="));
+        assert!(!is_wrangler_toml_decl("Workers_Dev = true"));
+        assert!(!is_wrangler_toml_decl("WORKERS_DEV = true"));
+        assert!(!is_wrangler_toml_decl("workers_dev the team"));
+        assert!(!is_wrangler_toml_decl("# workers_dev = true"));
+        assert!(!is_wrangler_toml_decl(
+            "compatibility_flags = [\"nodejs_compat\"]"
+        ));
+        assert!(!is_wrangler_toml_decl("routes = [\"example.com/*\"]"));
+        assert!(!is_wrangler_toml_decl("crons = [\"0 * * * *\"]"));
+        assert!(!is_wrangler_toml_decl("minify = true"));
+        assert!(!is_wrangler_toml_decl("workers_dev = yes"));
+        assert!(!is_wrangler_toml_decl("usage_model = bundled"));
+        assert!(!is_wrangler_toml_decl("usage_model = \"paid\""));
+        assert!(!is_wrangler_toml_decl("compatibility_date = 2024-01-01"));
+        assert!(!is_wrangler_toml_decl(
+            "compatibility_date = \"2024/01/01\""
+        ));
+        assert!(!is_wrangler_toml_decl("compatibility_date = \"24-01-01\""));
+        assert!(!is_wrangler_toml_decl("name = my-worker"));
+        assert!(!is_wrangler_toml_decl("name = \"my_worker\""));
+        assert!(!is_wrangler_toml_decl("name = \"-worker\""));
+        assert!(!is_wrangler_toml_decl("name = \"the\""));
+        assert!(!is_wrangler_toml_decl("main = index"));
+        assert!(!is_wrangler_toml_decl("main = \"readme.md\""));
+        assert!(!is_wrangler_toml_decl("route = \"example\""));
+        assert!(!is_wrangler_toml_decl("account_id = \"short\""));
+        assert!(!is_wrangler_toml_decl("PATH=/usr/bin"));
+        assert!(!is_wrangler_toml_decl("[Env.staging]"));
+        assert!(!is_wrangler_toml_decl("[ENV]"));
+        assert!(!is_wrangler_toml_decl("[env.]"));
+        assert!(!is_wrangler_toml_decl("[env. staging]"));
+        assert!(!is_wrangler_toml_decl("[[env.staging]]"));
+        assert!(!is_wrangler_toml_decl("[build]"));
+        assert!(!is_wrangler_toml_decl("[package]"));
+        assert!(!is_wrangler_toml_decl("[[bin]]"));
+        assert!(!is_wrangler_toml_decl("[workspace]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_wrangler_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("reload_html = true"));
+        assert!(!is_wrangler_toml_decl("default_platform = \"web\""));
+        assert!(is_dioxus_toml_decl("default_platform = \"web\""));
+        assert!(!is_wrangler_toml_decl("[web.app]"));
+        assert!(is_dioxus_toml_decl("[web.app]"));
+        assert!(!is_wrangler_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(is_uniffi_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(!is_wrangler_toml_decl("language = \"C++\""));
+        assert!(is_cbindgen_toml_decl("language = \"C++\""));
+        assert!(!is_wrangler_toml_decl("public_url = \"/\""));
+        assert!(is_trunk_toml_decl("public_url = \"/\""));
+        assert!(!is_wrangler_toml_decl("filehash = true"));
+        assert!(is_trunk_toml_decl("filehash = true"));
+        assert!(!is_wrangler_toml_decl("timeout_multiplier = 2.0"));
+        assert!(is_mutants_toml_decl("timeout_multiplier = 2.0"));
+        assert!(!is_wrangler_toml_decl("severity_threshold = \"low\""));
+        assert!(is_audit_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_wrangler_toml_decl("conventional_commits = true"));
+        assert!(is_cliff_toml_decl("conventional_commits = true"));
+        assert!(!is_wrangler_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_wrangler_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(!is_wrangler_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_wrangler_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_wrangler_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_wrangler_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_wrangler_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_wrangler_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_wrangler_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_wrangler_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_wrangler_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_wrangler_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_wrangler_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_wrangler_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_wrangler_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_wrangler_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_wrangler_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_wrangler_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_wrangler_toml_decl(
+            "registry=https://registry.npmjs.org/"
+        ));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_wrangler_toml_decl(
+            "index-url = https://pypi.org/simple"
+        ));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_wrangler_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_wrangler_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!line_is_func_like("workers_dev"));
+        assert!(!line_is_func_like("Workers_Dev = true"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

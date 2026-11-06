@@ -1,3 +1,5 @@
+009 keep: Function List wrangler.toml env/kv/d1/workers_dev/compatibility_date (v0.3.639)
+
 009 keep: Function List Dioxus.toml application/web.app/watcher/resource/proxy/https (v0.3.638)
 
 009 keep: Function List Trunk trunk.toml build/watch/serve/clean/tools (v0.3.635)

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.639] — 2026-11-06
+
+View:
+
+- **Function List** lists Cloudflare Workers Wrangler `wrangler.toml` sections and fields: `[env.name]` / `[dev]` / `[triggers]` / `[vars]` / `[assets]` / `[placement]` / `[observability]` / `[limits]` / `[durable_objects]` / `[queues]` / `[browser]` / `[ai]` / `[site]`, `[[kv_namespaces]]` / `[[r2_buckets]]` / `[[d1_databases]]` / `[[vectorize]]` / `[[services]]` / `[[durable_objects.bindings]]` / `[[queues.producers]]` / `[[queues.consumers]]` / `[[tail_consumers]]` / `[[workflows]]` / `[[analytics_engine_datasets]]` / `[[rules]]` / `[[migrations]]` / `[[hyperdrive]]` / `[[send_email]]` / `[[mtls_certificates]]` / `[[ai_search_namespaces]]` / `[[secrets_store_secrets]]`, `name = "my-worker"`, `main = "src/index.ts"`, `compatibility_date = "2024-01-01"`, `account_id = "…"`, `workers_dev = true`, `preview_urls = false`, `no_bundle = false`, `find_additional_modules = true`, `preserve_file_names = false`, `keep_names = true`, `logpush = false`, `keep_vars = true`, `send_metrics = false`, `jsx_factory = "React.createElement"`, `jsx_fragment = "React.Fragment"`, `usage_model = "bundled"` / `"unbound"`, `base_dir = "src"`, `tsconfig = "./tsconfig.json"`, `route = "example.com/*"`. Exact snake_case Wrangler keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Arrays (`compatibility_flags = […]`, `routes = […]`, `crons = […]`) / nested maps / bare `minify` / prose / wrong case / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.638] — 2026-11-06
 
 View:
