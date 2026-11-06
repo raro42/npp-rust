@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.656] — 2026-11-06
+
+View:
+
+- **Function List** lists coverage.py `.coveragerc` / `setup.cfg` `[coverage:…]` sections and fields: `[run]` / `[report]` / `[html]` / `[xml]` / `[json]` / `[lcov]` / `[paths]`, `[coverage:run]` / `[coverage:report]` / `[coverage:html]` / `[coverage:xml]` / `[coverage:json]` / `[coverage:lcov]` / `[coverage:paths]`, `branch = true`, `parallel = true`, `source = src`, `source_pkgs = mypkg`, `omit = */tests/*`, `include = src/*`, `concurrency = multiprocessing` / `thread` / `gevent` / `eventlet` / `greenlet` / `multiprocess` / `threadsafe`, `data_file = .coverage`, `plugins = …`, `cover_pylib = false`, `relative_files = true`, `context = unit`, `dynamic_context = test_function` / `test_method`, `sigterm = true`, `command_line = -m pytest`, `debug = trace`, `disable_warnings = no-data-collected`, `note = nightly`, `fail_under = 80` / `80.5`, `show_missing = true`, `skip_covered = true`, `skip_empty = true`, `precision = 2`, `ignore_errors = true`, `exclude_lines = pragma: no cover`, `exclude_also = def __repr__`, `partial_branches = pragma: no branch`, `include_namespace_packages = true`, `sort = Name` / `Cover` / `-Name`, `directory = htmlcov`, `title = Coverage`, `extra_css = extra.css`, `show_contexts = true`, `output = coverage.xml`, `package_depth = 99`, `pretty_print = true`. Exact coverage keys (snake_case). INI `key = value` or `key=value`. Optional `#` / `;` comment. flake8 / mypy / pytest / isort / tox / setuptools / Cargo / Pipfile / pyproject `[tool.coverage]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.655] — 2026-11-06
 
 View:

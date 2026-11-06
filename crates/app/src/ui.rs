@@ -32122,6 +32122,15 @@ const NOT_TYPED_FN: &[&str] = &[
 /// spaces. flake8 / mypy / pytest / tox / setuptools / Cargo / Pipfile /
 /// pyproject `[tool.isort]` / Desktop Entry tables, incomplete brackets,
 /// wrong case, and prose stay out.
+/// coverage.py `.coveragerc` / `setup.cfg` `[coverage:…]` sections
+/// (`[run]` / `[report]` / `[html]` / `[xml]` / `[json]` / `[lcov]` /
+/// `[paths]`, or `coverage:run` …) and distinctive keys (`branch`,
+/// `source`, `source_pkgs`, `omit`, `include`, `fail_under`,
+/// `show_missing`, `skip_covered`, `exclude_lines`, `concurrency`,
+/// `data_file`, …). Optional `#` / `;` comment. Key lines may use `=`
+/// with or without spaces. flake8 / mypy / pytest / isort / tox /
+/// setuptools / Cargo / Pipfile / pyproject `[tool.coverage]` / Desktop
+/// Entry tables, incomplete brackets, wrong case, and prose stay out.
 /// Desktop Entry sections (`[Desktop Entry]`, `[Desktop Action …]`).
 /// Optional `#` / `;` comment. Key lines (`Name=`), tox / Cargo / Pipfile /
 /// pyproject tables, incomplete brackets, and prose stay out.
@@ -32334,6 +32343,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_mypy_ini_decl(s)
             || is_flake8_ini_decl(s)
             || is_isort_ini_decl(s)
+            || is_coverage_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32567,6 +32577,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_mypy_ini_decl(s)
         || is_flake8_ini_decl(s)
         || is_isort_ini_decl(s)
+        || is_coverage_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -42492,6 +42503,215 @@ fn isort_ini_value_ok(key: &str, value: &str) -> bool {
     }
     // Paths, globs, section names. Require at least one alphanumeric or `_`
     // so bare punctuation / empty tuples stay out.
+    let mut has_ident = false;
+    for b in value.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric() || b == b'_' {
+            has_ident = true;
+        }
+    }
+    has_ident
+}
+
+/// coverage.py `.coveragerc` / `setup.cfg` `[coverage:…]`: `[run]` /
+/// `[report]` / `[html]` / `[xml]` / `[json]` / `[lcov]` / `[paths]`,
+/// `[coverage:run]` / `[coverage:report]` / …, `branch = true`,
+/// `parallel = true`, `source = src`, `source_pkgs = mypkg`,
+/// `omit = */tests/*`, `include = src/*`, `concurrency = multiprocessing`,
+/// `data_file = .coverage`, `plugins = …`, `cover_pylib = false`,
+/// `relative_files = true`, `context = unit`, `dynamic_context = test_function`,
+/// `sigterm = true`, `command_line = -m pytest`, `debug = trace`,
+/// `disable_warnings = no-data-collected`, `note = nightly`,
+/// `fail_under = 80`, `show_missing = true`, `skip_covered = true`,
+/// `skip_empty = true`, `precision = 2`, `ignore_errors = true`,
+/// `exclude_lines = pragma: no cover`, `exclude_also = def __repr__`,
+/// `partial_branches = pragma: no branch`,
+/// `include_namespace_packages = true`, `sort = Name`,
+/// `directory = htmlcov`, `title = Coverage`, `extra_css = extra.css`,
+/// `show_contexts = true`, `output = coverage.xml`, `package_depth = 99`,
+/// `pretty_print = true`. Exact coverage keys (snake_case). INI
+/// `key = value` or `key=value`. Optional `#` / `;` comment. flake8 /
+/// mypy / pytest / isort / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.coverage]` / Desktop Entry / pip.conf tables,
+/// incomplete brackets, wrong case, and prose stay out.
+fn is_coverage_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return coverage_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !coverage_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    coverage_ini_value_ok(key, value)
+}
+
+fn coverage_ini_section_ok(header: &str) -> bool {
+    if matches!(
+        header,
+        "run" | "report" | "html" | "xml" | "json" | "lcov" | "paths"
+    ) {
+        return true;
+    }
+    if let Some(rest) = header.strip_prefix("coverage:") {
+        return matches!(
+            rest,
+            "run" | "report" | "html" | "xml" | "json" | "lcov" | "paths"
+        );
+    }
+    false
+}
+
+fn coverage_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "branch"
+            | "parallel"
+            | "source"
+            | "source_pkgs"
+            | "omit"
+            | "include"
+            | "concurrency"
+            | "data_file"
+            | "plugins"
+            | "cover_pylib"
+            | "relative_files"
+            | "context"
+            | "dynamic_context"
+            | "sigterm"
+            | "command_line"
+            | "debug"
+            | "disable_warnings"
+            | "note"
+            | "fail_under"
+            | "show_missing"
+            | "skip_covered"
+            | "skip_empty"
+            | "precision"
+            | "ignore_errors"
+            | "exclude_lines"
+            | "exclude_also"
+            | "partial_branches"
+            | "include_namespace_packages"
+            | "sort"
+            | "directory"
+            | "title"
+            | "extra_css"
+            | "show_contexts"
+            | "output"
+            | "package_depth"
+            | "pretty_print"
+    )
+}
+
+fn coverage_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+    )
+}
+
+fn coverage_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if matches!(
+        key,
+        "branch"
+            | "parallel"
+            | "cover_pylib"
+            | "relative_files"
+            | "sigterm"
+            | "show_missing"
+            | "skip_covered"
+            | "skip_empty"
+            | "ignore_errors"
+            | "include_namespace_packages"
+            | "show_contexts"
+            | "pretty_print"
+    ) {
+        return coverage_ini_bool_ok(value);
+    }
+    if matches!(key, "fail_under" | "precision" | "package_depth") {
+        // Integers, or fail_under with an optional decimal.
+        if value.bytes().all(|b| b.is_ascii_digit()) {
+            return !value.is_empty();
+        }
+        if key == "fail_under" {
+            let mut seen_dot = false;
+            let mut digits = 0usize;
+            for b in value.bytes() {
+                if b == b'.' {
+                    if seen_dot {
+                        return false;
+                    }
+                    seen_dot = true;
+                    continue;
+                }
+                if !b.is_ascii_digit() {
+                    return false;
+                }
+                digits += 1;
+            }
+            return digits > 0;
+        }
+        return false;
+    }
+    if key == "concurrency" {
+        // Single token or comma-separated: thread, multiprocessing, gevent, …
+        return value.split(',').all(|part| {
+            let p = part.trim();
+            !p.is_empty()
+                && matches!(
+                    p,
+                    "thread"
+                        | "multiprocessing"
+                        | "multiprocess"
+                        | "gevent"
+                        | "eventlet"
+                        | "greenlet"
+                        | "threadsafe"
+                )
+        });
+    }
+    if key == "sort" {
+        return matches!(
+            value,
+            "Name" | "name" | "Stem" | "stem" | "Cover" | "cover" | "Missing" | "missing" | "-"
+        ) || (value.starts_with('-')
+            && matches!(
+                &value[1..],
+                "Name" | "name" | "Stem" | "stem" | "Cover" | "cover" | "Missing" | "missing"
+            ));
+    }
+    if key == "dynamic_context" {
+        return matches!(value, "test_function" | "test_method");
+    }
+    // Paths, globs, plugin names, regex fragments, titles. Require at least
+    // one alphanumeric or `_` so bare punctuation / empty tuples stay out.
     let mut has_ident = false;
     for b in value.bytes() {
         if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
@@ -63163,35 +63383,36 @@ mod func_like_line_tests {
         is_bacon_toml_decl, is_binfmt_d_decl, is_bitbake_decl, is_brewfile_decl,
         is_bunfig_toml_decl, is_cabal_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
         is_cargo_toml_decl, is_cbindgen_toml_decl, is_cliff_toml_decl, is_clippy_toml_decl,
-        is_composer_json_decl, is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl,
-        is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dioxus_toml_decl,
-        is_dist_toml_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
-        is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl,
-        is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_isort_ini_decl,
-        is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl,
-        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
-        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl, is_premake_decl,
-        is_protocols_file_decl, is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl,
-        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
+        is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl,
+        is_dioxus_toml_decl, is_dist_toml_decl, is_dovecot_decl, is_dracut_conf_decl,
+        is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl,
+        is_fluent_bit_decl, is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl,
+        is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
+        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
+        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
+        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
+        is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl, is_pytest_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
+        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
+        is_sddm_conf_decl, is_services_file_decl, is_setup_cfg_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
+        is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -68008,6 +68229,135 @@ mod func_like_line_tests {
         assert!(is_setup_cfg_decl("python_requires = >=3.8"));
         assert!(!line_is_func_like("Profile = black"));
         assert!(!line_is_func_like("force_single_line = maybe"));
+        assert!(!line_is_func_like("envlist = py39,py310"));
+        assert!(!is_isort_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_isort_ini_decl("fail_under = 80"));
+        assert!(is_coverage_ini_decl("fail_under = 80"));
+    }
+
+    #[test]
+    fn coverage_ini_entries_count() {
+        assert!(line_is_func_like("[run]"));
+        assert!(line_is_func_like("  [report] # coveragerc"));
+        assert!(line_is_func_like("[coverage:run]; setup.cfg"));
+        assert!(line_is_func_like("[html]"));
+        assert!(line_is_func_like("[xml]"));
+        assert!(line_is_func_like("[json]"));
+        assert!(line_is_func_like("[lcov]"));
+        assert!(line_is_func_like("[paths]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[report]"));
+        assert!(is_coverage_ini_decl("[html]"));
+        assert!(is_coverage_ini_decl("[xml]"));
+        assert!(is_coverage_ini_decl("[json]"));
+        assert!(is_coverage_ini_decl("[lcov]"));
+        assert!(is_coverage_ini_decl("[paths]"));
+        assert!(is_coverage_ini_decl("[coverage:run]"));
+        assert!(is_coverage_ini_decl("[coverage:report]"));
+        assert!(is_coverage_ini_decl("[coverage:html]"));
+        assert!(is_coverage_ini_decl("[coverage:xml]"));
+        assert!(is_coverage_ini_decl("[coverage:json]"));
+        assert!(is_coverage_ini_decl("[coverage:lcov]"));
+        assert!(is_coverage_ini_decl("[coverage:paths]"));
+        assert!(is_coverage_ini_decl("branch = true"));
+        assert!(is_coverage_ini_decl("branch=True"));
+        assert!(is_coverage_ini_decl("parallel = yes"));
+        assert!(is_coverage_ini_decl("source = src,lib"));
+        assert!(is_coverage_ini_decl("source_pkgs = mypkg"));
+        assert!(is_coverage_ini_decl("omit = */tests/*,*/venv/*"));
+        assert!(is_coverage_ini_decl("include = src/*"));
+        assert!(is_coverage_ini_decl("concurrency = multiprocessing"));
+        assert!(is_coverage_ini_decl("concurrency = thread,gevent"));
+        assert!(is_coverage_ini_decl("data_file = .coverage"));
+        assert!(is_coverage_ini_decl("plugins = covplugins.django"));
+        assert!(is_coverage_ini_decl("cover_pylib = false"));
+        assert!(is_coverage_ini_decl("relative_files = true"));
+        assert!(is_coverage_ini_decl("context = unit"));
+        assert!(is_coverage_ini_decl("dynamic_context = test_function"));
+        assert!(is_coverage_ini_decl("sigterm = 1"));
+        assert!(is_coverage_ini_decl("command_line = -m pytest"));
+        assert!(is_coverage_ini_decl("debug = trace,config"));
+        assert!(is_coverage_ini_decl("disable_warnings = no-data-collected"));
+        assert!(is_coverage_ini_decl("note = nightly"));
+        assert!(is_coverage_ini_decl("fail_under = 80"));
+        assert!(is_coverage_ini_decl("fail_under = 80.5"));
+        assert!(is_coverage_ini_decl("show_missing = true"));
+        assert!(is_coverage_ini_decl("skip_covered = true"));
+        assert!(is_coverage_ini_decl("skip_empty = false"));
+        assert!(is_coverage_ini_decl("precision = 2"));
+        assert!(is_coverage_ini_decl("ignore_errors = true"));
+        assert!(is_coverage_ini_decl("exclude_lines = pragma: no cover"));
+        assert!(is_coverage_ini_decl("exclude_also = def __repr__"));
+        assert!(is_coverage_ini_decl("partial_branches = pragma: no branch"));
+        assert!(is_coverage_ini_decl("include_namespace_packages = true"));
+        assert!(is_coverage_ini_decl("sort = Cover"));
+        assert!(is_coverage_ini_decl("sort = -Name"));
+        assert!(is_coverage_ini_decl("directory = htmlcov"));
+        assert!(is_coverage_ini_decl("title = Coverage report"));
+        assert!(is_coverage_ini_decl("extra_css = extra.css"));
+        assert!(is_coverage_ini_decl("show_contexts = true"));
+        assert!(is_coverage_ini_decl("output = coverage.xml"));
+        assert!(is_coverage_ini_decl("package_depth = 99"));
+        assert!(is_coverage_ini_decl("pretty_print = true"));
+
+        // Neighbouring formats / wrong case stay out.
+        assert!(!is_coverage_ini_decl("branch"));
+        assert!(!is_coverage_ini_decl("branch ="));
+        assert!(!is_coverage_ini_decl("Branch = true"));
+        assert!(!is_coverage_ini_decl("BRANCH = true"));
+        assert!(!is_coverage_ini_decl("# branch = true"));
+        assert!(!is_coverage_ini_decl("branch = maybe"));
+        assert!(!is_coverage_ini_decl("fail_under = high"));
+        assert!(!is_coverage_ini_decl("precision = two"));
+        assert!(!is_coverage_ini_decl("concurrency = async"));
+        assert!(!is_coverage_ini_decl("sort = Random"));
+        assert!(!is_coverage_ini_decl("dynamic_context = class"));
+        assert!(!is_coverage_ini_decl("omit = ***"));
+        assert!(!is_coverage_ini_decl("source = ()"));
+        assert!(!is_coverage_ini_decl("[Run]"));
+        assert!(!is_coverage_ini_decl("[REPORT]"));
+        assert!(!is_coverage_ini_decl("[[run]]"));
+        assert!(!is_coverage_ini_decl("[run"));
+        assert!(!is_coverage_ini_decl("[coverage]"));
+        assert!(!is_coverage_ini_decl("[coverage:]"));
+        assert!(!is_coverage_ini_decl("[coverage:Run]"));
+        assert!(!is_coverage_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_coverage_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_coverage_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_coverage_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_coverage_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_coverage_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_coverage_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_coverage_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_coverage_ini_decl("[tool.coverage.run]"));
+        assert!(is_pyproject_toml_decl("[tool.coverage.run]"));
+        assert!(!is_coverage_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_coverage_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_coverage_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_coverage_ini_decl("max-line-length = 88"));
+        assert!(is_flake8_ini_decl("max-line-length = 88"));
+        assert!(!is_coverage_ini_decl("profile = black"));
+        assert!(is_isort_ini_decl("profile = black"));
+        assert!(!is_coverage_ini_decl("minversion = 6.0"));
+        assert!(is_pytest_ini_decl("minversion = 6.0"));
+        assert!(!is_coverage_ini_decl("python_version = 3.11"));
+        assert!(is_mypy_ini_decl("python_version = 3.11"));
+        assert!(!is_coverage_ini_decl("python_requires = >=3.8"));
+        assert!(is_setup_cfg_decl("python_requires = >=3.8"));
+        assert!(!line_is_func_like("Branch = true"));
+        assert!(!line_is_func_like("fail_under = high"));
         assert!(!line_is_func_like("envlist = py39,py310"));
     }
 
