@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [0.3.647] — 2026-11-06
+
+View:
+
+- **Function List** lists Pixi `pixi.toml` sections and fields: `[workspace]` / `[workspace.build-variants]` / `[workspace.conda-pypi-map]` / `[workspace.exclude-newer]` / `[workspace.exclude-newer.exemptions]` / `[activation]` / `[activation.env]` / `[pypi-dependencies]` / `[pypi-options]` / `[system-requirements]` / `[constraints]` / `[environments]` / `[environments.dev]` / `[environments.dev.dependencies]` / `[feature.cuda]` / `[feature.cuda.dependencies]` / `[feature.cuda.pypi-dependencies]` / `[feature.cuda.tasks]` / `[feature.cuda.activation]` / `[feature.cuda.target.osx-arm64.dependencies]` / `[target.linux-64.dependencies]` / `[target.win-64.activation]` / `[target.win-64.tasks]` / `[target.linux-64.activation.env]` / `[package]` / `[package.build]` / `[package.build.config]` / `[package.build.target.linux-64.config]` / `[package.run-exports]` / `[build-dependencies]` / `[host-dependencies]` / `[run-dependencies]` / `[run-constraints]`, `channel-priority = "strict"` / `"flexible"` / `"disabled"`, `solve-strategy = "highest"` / `"lowest"` / `"lowest-direct"`, `requires-pixi = ">=0.40.0"`, `exclude-newer = "2024-01-01"`, `index-strategy = "first-index"` / `"unsafe-best-match"` / `"unsafe-first-match"`, `prerelease-mode = "disallow"` / `"allow"` / `"if-necessary"` / `"explicit"` / `"if-necessary-or-explicit"`, `skip-wheel-filename-check = true`, `index-url = "https://…"`, `pypi-exclude-newer = "7 days"`, `no-build = true`, `no-binary = true`, `no-build-isolation = true`, `build-variants-files = "variants.yaml"`, `macos = "12.0"`. Exact Pixi keys (kebab-case). TOML `key = value` with spaces around `=`. Optional `#` comment (quote-aware). Arrays (`channels = […]`, `platforms = […]`, `extra-index-urls = […]`, `find-links = […]`, `preview = […]`) / nested maps / free-form `[dependencies]` / `[tasks]` / `[pypi-dependencies]` package entries (`python = "3.12"`, `start = "python main.py"`) / `port = …` / prose / wrong case / mise / supabase / samconfig / nixpacks / railway / fly / netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
+
 ## [0.3.646] — 2026-11-06
 
 View:

@@ -952,3 +952,5 @@
 009 keep: Function List AWS SAM samconfig.toml (v0.3.644)
 
 009 keep: Function List supabase/config.toml api/db/auth/storage/functions (v0.3.645)
+
+009 keep: Function List Pixi pixi.toml workspace/activation/pypi/feature (v0.3.647)

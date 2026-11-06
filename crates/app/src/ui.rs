@@ -32397,6 +32397,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_samconfig_toml_decl(s)
             || is_supabase_toml_decl(s)
             || is_mise_toml_decl(s)
+            || is_pixi_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32621,6 +32622,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_samconfig_toml_decl(s)
         || is_supabase_toml_decl(s)
         || is_mise_toml_decl(s)
+        || is_pixi_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -57572,11 +57574,11 @@ fn samconfig_toml_value_ok(key: &str, value: &str) -> bool {
 /// Arrays (`schemas = […]`, `extra_search_path = […]`,
 /// `additional_redirect_urls = […]`) / nested maps / free-form env /
 /// `port = …` (MySQL option-file collision) / bare `[build]` / `[package]` /
-/// prose / wrong case / mise / samconfig / nixpacks / railway / fly / netlify /
-/// wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff /
-/// cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon /
-/// Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt /
-/// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+/// prose / wrong case / pixi / mise / samconfig / nixpacks / railway / fly /
+/// netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit /
+/// cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos /
+/// bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy /
+/// rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
 fn is_supabase_toml_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -57952,11 +57954,12 @@ fn supabase_toml_value_ok(key: &str, value: &str) -> bool {
 /// `idiomatic_version_file_enable_tools = […]`) / nested maps / free-form
 /// `[tools]` / `[env]` / `[tasks]` entries (`node = "20"`, `FOO = "bar"`,
 /// `build = "cargo build"`) / `port = …` / prose / wrong case / supabase /
-/// samconfig / nixpacks / railway / fly / netlify / wrangler / dioxus /
-/// uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make /
-/// release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross /
-/// rust-toolchain / cargo config / nextest / deny / clippy / rustfmt /
-/// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+/// pixi / samconfig / nixpacks / railway / fly / netlify / wrangler /
+/// dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff /
+/// cargo-make / release.toml / Dist.toml / mdBook / taplo / typos /
+/// bacon / Cross / rust-toolchain / cargo config / nextest / deny /
+/// clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
+/// Cargo.toml stay out.
 fn is_mise_toml_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -58311,6 +58314,385 @@ fn mise_toml_value_ok(key: &str, value: &str) -> bool {
         return matches!(bare, "exe" | "bat" | "symlink" | "hardlink");
     }
     true
+}
+
+/// Pixi `pixi.toml` (and `[tool.pixi.…]` in pyproject): `[workspace]` /
+/// `[workspace.build-variants]` / `[workspace.conda-pypi-map]` /
+/// `[workspace.exclude-newer]` / `[workspace.exclude-newer.exemptions]` /
+/// `[workspace.dependencies]` / `[workspace.target.linux-64.build-variants]`,
+/// `[activation]` / `[activation.env]`, `[pypi-dependencies]` /
+/// `[pypi-options]`, `[system-requirements]`, `[constraints]`,
+/// `[environments]` / `[environments.dev]` /
+/// `[environments.dev.dependencies]`, `[feature.cuda]` /
+/// `[feature.cuda.dependencies]` / `[feature.cuda.pypi-dependencies]` /
+/// `[feature.cuda.tasks]` / `[feature.cuda.activation]` /
+/// `[feature.cuda.pypi-options]` /
+/// `[feature.cuda.target.osx-arm64.dependencies]`,
+/// `[target.linux-64.dependencies]` / `[target.win-64.activation]` /
+/// `[target.win-64.tasks]` / `[target.linux-64.activation.env]` /
+/// `[target.win-64.constraints]` / `[target.win-64.build-dependencies]`,
+/// `[package]` / `[package.build]` / `[package.build.config]` /
+/// `[package.build.target.linux-64.config]` / `[package.run-exports]`,
+/// `[tasks]` / `[dev]`, `[build-dependencies]` / `[host-dependencies]` /
+/// `[run-dependencies]` / `[extra-dependencies]` / `[run-constraints]` /
+/// `[run-exports]`, `channel-priority = "strict"` / `"flexible"` /
+/// `"disabled"`, `solve-strategy = "highest"` / `"lowest"` /
+/// `"lowest-direct"`, `requires-pixi = ">=0.40.0"`,
+/// `exclude-newer = "2024-01-01"`, `index-strategy = "first-index"` /
+/// `"unsafe-best-match"` / `"unsafe-first-match"`,
+/// `prerelease-mode = "disallow"` / `"allow"` / `"if-necessary"` /
+/// `"explicit"` / `"if-necessary-or-explicit"`,
+/// `skip-wheel-filename-check = true`, `index-url = "https://…"`,
+/// `pypi-exclude-newer = "7 days"`, `no-build = true`, `no-binary = true`,
+/// `no-build-isolation = true`, `build-variants-files = "variants.yaml"`.
+/// Exact Pixi keys (kebab-case). TOML `key = value` with spaces around `=`.
+/// Optional `#` comment (quote-aware). Arrays (`channels = […]`,
+/// `platforms = […]`, `extra-index-urls = […]`, `find-links = […]`,
+/// `preview = […]`) / nested maps / free-form `[dependencies]` /
+/// `[tasks]` / `[pypi-dependencies]` package entries (`python = "3.12"`,
+/// `start = "python main.py"`) / `port = …` / prose / wrong case / mise /
+/// supabase / samconfig / nixpacks / railway / fly / netlify / wrangler /
+/// dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff /
+/// cargo-make / release.toml / Dist.toml / mdBook / taplo / typos /
+/// bacon / Cross / rust-toolchain / cargo config / nextest / deny /
+/// clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
+/// Cargo.toml stay out.
+fn is_pixi_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // Stock pixi.toml has no `[[…]]` array-of-tables sections.
+        if array {
+            return false;
+        }
+        return pixi_toml_section_ok(header);
+    }
+    let body = pixi_toml_strip_comment(s);
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if key.contains('.') {
+        return false;
+    }
+    if !pixi_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    pixi_toml_value_ok(key, value)
+}
+
+fn pixi_toml_strip_comment(s: &str) -> &str {
+    let mut in_single = false;
+    let mut in_double = false;
+    for (i, b) in s.bytes().enumerate() {
+        match b {
+            b'\'' if !in_double => in_single = !in_single,
+            b'"' if !in_single => in_double = !in_double,
+            b'#' | b';' if !in_single && !in_double => {
+                return s[..i].trim_end();
+            }
+            _ => {}
+        }
+    }
+    s.trim()
+}
+
+fn pixi_toml_section_ok(header: &str) -> bool {
+    let parts: Vec<&str> = header.split('.').collect();
+    if parts.is_empty() || parts.len() > 5 {
+        return false;
+    }
+    match parts[0] {
+        "activation" => match parts.len() {
+            1 => true,
+            2 => parts[1] == "env",
+            _ => false,
+        },
+        "pypi-dependencies"
+        | "pypi-options"
+        | "system-requirements"
+        | "constraints"
+        | "tasks"
+        | "dev"
+        | "build-dependencies"
+        | "host-dependencies"
+        | "run-dependencies"
+        | "extra-dependencies"
+        | "run-constraints"
+        | "run-exports" => parts.len() == 1,
+        "environments" => match parts.len() {
+            1 => true,
+            2 => pixi_toml_name_ok(parts[1]),
+            3 => pixi_toml_name_ok(parts[1]) && pixi_toml_env_leaf_ok(parts[2]),
+            _ => false,
+        },
+        "feature" => match parts.len() {
+            2 => pixi_toml_name_ok(parts[1]),
+            3 => pixi_toml_name_ok(parts[1]) && pixi_toml_feature_leaf_ok(parts[2]),
+            4 => {
+                pixi_toml_name_ok(parts[1])
+                    && parts[2] == "target"
+                    && pixi_toml_platform_ok(parts[3])
+            }
+            5 => {
+                pixi_toml_name_ok(parts[1])
+                    && parts[2] == "target"
+                    && pixi_toml_platform_ok(parts[3])
+                    && pixi_toml_target_leaf_ok(parts[4])
+            }
+            _ => false,
+        },
+        "target" => match parts.len() {
+            2 => pixi_toml_platform_ok(parts[1]),
+            3 => pixi_toml_platform_ok(parts[1]) && pixi_toml_target_leaf_ok(parts[2]),
+            4 => pixi_toml_platform_ok(parts[1]) && parts[2] == "activation" && parts[3] == "env",
+            _ => false,
+        },
+        "workspace" => match parts.len() {
+            1 => true,
+            2 => matches!(
+                parts[1],
+                "build-variants"
+                    | "conda-pypi-map"
+                    | "exclude-newer"
+                    | "dependencies"
+                    | "pypi-dependencies"
+                    | "pypi-options"
+                    | "activation"
+                    | "tasks"
+                    | "system-requirements"
+                    | "constraints"
+            ),
+            3 => match parts[1] {
+                "exclude-newer" => parts[2] == "exemptions",
+                "target" => pixi_toml_platform_ok(parts[2]),
+                "activation" => parts[2] == "env",
+                _ => false,
+            },
+            4 => {
+                parts[1] == "target"
+                    && pixi_toml_platform_ok(parts[2])
+                    && matches!(parts[3], "build-variants" | "dependencies" | "activation")
+            }
+            _ => false,
+        },
+        "package" => match parts.len() {
+            1 => true,
+            2 => matches!(
+                parts[1],
+                "build"
+                    | "run-exports"
+                    | "build-dependencies"
+                    | "host-dependencies"
+                    | "run-dependencies"
+                    | "run-constraints"
+                    | "extra-dependencies"
+            ),
+            3 => parts[1] == "build" && matches!(parts[2], "config" | "target"),
+            4 => parts[1] == "build" && parts[2] == "target" && pixi_toml_platform_ok(parts[3]),
+            5 => {
+                parts[1] == "build"
+                    && parts[2] == "target"
+                    && pixi_toml_platform_ok(parts[3])
+                    && parts[4] == "config"
+            }
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+fn pixi_toml_env_leaf_ok(name: &str) -> bool {
+    matches!(
+        name,
+        "dependencies"
+            | "pypi-dependencies"
+            | "pypi-options"
+            | "tasks"
+            | "activation"
+            | "system-requirements"
+            | "constraints"
+            | "features"
+    )
+}
+
+fn pixi_toml_feature_leaf_ok(name: &str) -> bool {
+    matches!(
+        name,
+        "dependencies"
+            | "pypi-dependencies"
+            | "pypi-options"
+            | "tasks"
+            | "activation"
+            | "system-requirements"
+            | "constraints"
+            | "platforms"
+            | "channels"
+            | "target"
+    )
+}
+
+fn pixi_toml_target_leaf_ok(name: &str) -> bool {
+    matches!(
+        name,
+        "dependencies"
+            | "pypi-dependencies"
+            | "pypi-options"
+            | "tasks"
+            | "activation"
+            | "system-requirements"
+            | "constraints"
+            | "build-dependencies"
+            | "host-dependencies"
+            | "run-dependencies"
+            | "run-constraints"
+            | "extra-dependencies"
+            | "build-variants"
+    )
+}
+
+fn pixi_toml_platform_ok(name: &str) -> bool {
+    let name = name.trim_matches('"');
+    matches!(
+        name,
+        "linux-64"
+            | "linux-aarch64"
+            | "linux-ppc64le"
+            | "linux-armv7l"
+            | "linux-s390x"
+            | "osx-64"
+            | "osx-arm64"
+            | "win-64"
+            | "win-arm64"
+            | "linux"
+            | "osx"
+            | "win"
+            | "unix"
+            | "noarch"
+            | "emscripten-wasm32"
+            | "wasi-wasm32"
+    ) || pixi_toml_name_ok(name)
+}
+
+fn pixi_toml_name_ok(name: &str) -> bool {
+    let name = name.trim_matches('"');
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    // Feature / environment names are lowercase kebab-case in stock pixi.toml.
+    if !(bytes[0].is_ascii_lowercase() || bytes[0].is_ascii_digit() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(*b, b'-' | b'_'))
+}
+
+fn pixi_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        // Distinctive workspace / pypi-options / build keys (kebab-case).
+        "channel-priority"
+            | "solve-strategy"
+            | "requires-pixi"
+            | "exclude-newer"
+            | "pypi-exclude-newer"
+            | "index-strategy"
+            | "prerelease-mode"
+            | "skip-wheel-filename-check"
+            | "index-url"
+            | "no-build"
+            | "no-binary"
+            | "no-build-isolation"
+            | "build-variants-files"
+            // system-requirements scalars
+            | "macos"
+            | "linux"
+            | "cuda"
+            | "cudnn"
+            | "libc"
+            | "archspec"
+    )
+}
+
+fn pixi_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out.
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "skip-wheel-filename-check" | "no-build" | "no-binary" | "no-build-isolation"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "channel-priority" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "strict" | "flexible" | "disabled");
+    }
+    if key == "solve-strategy" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "highest" | "lowest" | "lowest-direct");
+    }
+    if key == "index-strategy" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(
+            bare,
+            "first-index" | "unsafe-best-match" | "unsafe-first-match"
+        );
+    }
+    if key == "prerelease-mode" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(
+            bare,
+            "disallow" | "allow" | "if-necessary" | "explicit" | "if-necessary-or-explicit"
+        );
+    }
+    // Remaining keys: quoted strings (versions, URLs, timestamps, paths).
+    if !(value.starts_with('"') || value.starts_with('\'')) {
+        return false;
+    }
+    if bare.len() > 512 {
+        return false;
+    }
+    bare.bytes()
+        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
 }
 
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
@@ -61145,10 +61527,10 @@ mod func_like_line_tests {
         is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
         is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
         is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
-        is_pyproject_toml_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_premake_decl,
+        is_protocols_file_decl, is_pyproject_toml_decl, is_railway_toml_decl, is_rake_decl,
+        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
         is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
         is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
@@ -73688,6 +74070,201 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("min_version"));
         assert!(!line_is_func_like("Min_Version = \"2024.1.1\""));
         assert!(!line_is_func_like("node = \"20\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn pixi_toml_entries_count() {
+        assert!(line_is_func_like("[activation]"));
+        assert!(line_is_func_like("[activation.env]"));
+        assert!(line_is_func_like("[pypi-dependencies]"));
+        assert!(line_is_func_like("[pypi-options]"));
+        assert!(line_is_func_like("[system-requirements]"));
+        assert!(line_is_func_like("[constraints]"));
+        assert!(line_is_func_like("[environments]"));
+        assert!(line_is_func_like("[environments.dev]"));
+        assert!(line_is_func_like("[environments.dev.dependencies]"));
+        assert!(line_is_func_like("[feature.cuda]"));
+        assert!(line_is_func_like("[feature.cuda.dependencies]"));
+        assert!(line_is_func_like("[feature.cuda.pypi-dependencies]"));
+        assert!(line_is_func_like("[feature.cuda.tasks]"));
+        assert!(line_is_func_like("[feature.cuda.activation]"));
+        assert!(line_is_func_like(
+            "[feature.cuda.target.osx-arm64.dependencies]"
+        ));
+        assert!(line_is_func_like("[target.linux-64.dependencies]"));
+        assert!(line_is_func_like("[target.win-64.activation]"));
+        assert!(line_is_func_like("[target.win-64.tasks]"));
+        assert!(line_is_func_like("[target.linux-64.activation.env]"));
+        assert!(line_is_func_like("[target.win-64.build-dependencies]"));
+        assert!(line_is_func_like("[workspace]"));
+        assert!(line_is_func_like("[workspace.build-variants]"));
+        assert!(line_is_func_like("[workspace.conda-pypi-map]"));
+        assert!(line_is_func_like("[workspace.exclude-newer]"));
+        assert!(line_is_func_like("[workspace.exclude-newer.exemptions]"));
+        assert!(line_is_func_like(
+            "[workspace.target.linux-64.build-variants]"
+        ));
+        assert!(line_is_func_like("[package]"));
+        assert!(line_is_func_like("[package.build]"));
+        assert!(line_is_func_like("[package.build.config]"));
+        assert!(line_is_func_like("[package.build.target.linux-64.config]"));
+        assert!(line_is_func_like("[package.run-exports]"));
+        assert!(line_is_func_like("[build-dependencies]"));
+        assert!(line_is_func_like("[host-dependencies]"));
+        assert!(line_is_func_like("[run-dependencies]"));
+        assert!(line_is_func_like("[run-constraints]"));
+        assert!(line_is_func_like("channel-priority = \"strict\""));
+        assert!(line_is_func_like("solve-strategy = \"lowest\""));
+        assert!(line_is_func_like("requires-pixi = \">=0.40.0\""));
+        assert!(line_is_func_like("exclude-newer = \"2024-01-01\""));
+        assert!(line_is_func_like("index-strategy = \"first-index\""));
+        assert!(line_is_func_like("prerelease-mode = \"disallow\""));
+        assert!(line_is_func_like("skip-wheel-filename-check = true"));
+        assert!(line_is_func_like("no-build = true"));
+        assert!(line_is_func_like("macos = \"12.0\""));
+        assert!(line_is_func_like(
+            "  channel-priority = \"flexible\" # keep"
+        ));
+
+        assert!(is_pixi_toml_decl("[activation]"));
+        assert!(is_pixi_toml_decl("[activation.env]"));
+        assert!(is_pixi_toml_decl("[pypi-dependencies]"));
+        assert!(is_pixi_toml_decl("[pypi-options]"));
+        assert!(is_pixi_toml_decl("[system-requirements]"));
+        assert!(is_pixi_toml_decl("[constraints]"));
+        assert!(is_pixi_toml_decl("[environments]"));
+        assert!(is_pixi_toml_decl("[environments.dev]"));
+        assert!(is_pixi_toml_decl("[environments.test.dependencies]"));
+        assert!(is_pixi_toml_decl("[feature.cuda]"));
+        assert!(is_pixi_toml_decl("[feature.cuda.dependencies]"));
+        assert!(is_pixi_toml_decl("[feature.cuda.pypi-options]"));
+        assert!(is_pixi_toml_decl(
+            "[feature.cuda.target.osx-arm64.dependencies]"
+        ));
+        assert!(is_pixi_toml_decl("[target.linux-64.dependencies]"));
+        assert!(is_pixi_toml_decl("[target.win-64.activation]"));
+        assert!(is_pixi_toml_decl("[target.unix.activation.env]"));
+        assert!(is_pixi_toml_decl("[workspace]"));
+        assert!(is_pixi_toml_decl("[workspace.build-variants]"));
+        assert!(is_pixi_toml_decl("[workspace.conda-pypi-map]"));
+        assert!(is_pixi_toml_decl("[workspace.exclude-newer.exemptions]"));
+        assert!(is_pixi_toml_decl(
+            "[workspace.target.win-64.build-variants]"
+        ));
+        assert!(is_pixi_toml_decl("[package.build]"));
+        assert!(is_pixi_toml_decl("[package.build.target.win-64.config]"));
+        assert!(is_pixi_toml_decl("[tasks]"));
+        assert!(is_pixi_toml_decl("[dev]"));
+        assert!(is_pixi_toml_decl("channel-priority = \"strict\""));
+        assert!(is_pixi_toml_decl("channel-priority = \"flexible\""));
+        assert!(is_pixi_toml_decl("channel-priority = \"disabled\""));
+        assert!(is_pixi_toml_decl("solve-strategy = \"highest\""));
+        assert!(is_pixi_toml_decl("solve-strategy = \"lowest\""));
+        assert!(is_pixi_toml_decl("solve-strategy = \"lowest-direct\""));
+        assert!(is_pixi_toml_decl("requires-pixi = \">=0.40.0\""));
+        assert!(is_pixi_toml_decl("exclude-newer = \"2024-01-01\""));
+        assert!(is_pixi_toml_decl("exclude-newer = \"7 days\""));
+        assert!(is_pixi_toml_decl("pypi-exclude-newer = \"7 days\""));
+        assert!(is_pixi_toml_decl("index-strategy = \"first-index\""));
+        assert!(is_pixi_toml_decl("index-strategy = \"unsafe-best-match\""));
+        assert!(is_pixi_toml_decl("index-strategy = \"unsafe-first-match\""));
+        assert!(is_pixi_toml_decl("prerelease-mode = \"disallow\""));
+        assert!(is_pixi_toml_decl("prerelease-mode = \"allow\""));
+        assert!(is_pixi_toml_decl("prerelease-mode = \"if-necessary\""));
+        assert!(is_pixi_toml_decl("prerelease-mode = \"explicit\""));
+        assert!(is_pixi_toml_decl(
+            "prerelease-mode = \"if-necessary-or-explicit\""
+        ));
+        assert!(is_pixi_toml_decl("skip-wheel-filename-check = true"));
+        assert!(is_pixi_toml_decl("skip-wheel-filename-check = false"));
+        assert!(is_pixi_toml_decl("no-build = true"));
+        assert!(is_pixi_toml_decl("no-binary = false"));
+        assert!(is_pixi_toml_decl("no-build-isolation = true"));
+        assert!(is_pixi_toml_decl("index-url = \"https://pypi.org/simple\""));
+        assert!(is_pixi_toml_decl(
+            "build-variants-files = \"variants.yaml\""
+        ));
+        assert!(is_pixi_toml_decl("macos = \"12.0\""));
+        assert!(is_pixi_toml_decl("linux = \"4.18\""));
+        assert!(is_pixi_toml_decl("cuda = \"11.8\""));
+
+        // Free-form package / task entries stay out.
+        assert!(!is_pixi_toml_decl("python = \"3.12\""));
+        assert!(!is_pixi_toml_decl("numpy = \"1.26.*\""));
+        assert!(!is_pixi_toml_decl("start = \"python main.py\""));
+        assert!(!is_pixi_toml_decl("channels = [\"conda-forge\"]"));
+        assert!(!is_pixi_toml_decl(
+            "platforms = [\"linux-64\", \"osx-arm64\"]"
+        ));
+        assert!(!is_pixi_toml_decl("preview = [\"pixi-build\"]"));
+        assert!(!is_pixi_toml_decl("channel-priority"));
+        assert!(!is_pixi_toml_decl("channel-priority ="));
+        assert!(!is_pixi_toml_decl("Channel-Priority = \"strict\""));
+        assert!(!is_pixi_toml_decl("CHANNEL_PRIORITY = \"strict\""));
+        assert!(!is_pixi_toml_decl("channel-priority the team"));
+        assert!(!is_pixi_toml_decl("# channel-priority = \"strict\""));
+        assert!(!is_pixi_toml_decl("channel-priority = strict"));
+        assert!(!is_pixi_toml_decl("channel-priority = \"loose\""));
+        assert!(!is_pixi_toml_decl("solve-strategy = \"median\""));
+        assert!(!is_pixi_toml_decl("skip-wheel-filename-check = yes"));
+        assert!(!is_pixi_toml_decl("no-build = [\"pkg\"]"));
+        assert!(!is_pixi_toml_decl("port = 54321"));
+        assert!(!is_pixi_toml_decl("PATH=/usr/bin"));
+        assert!(!is_pixi_toml_decl("[Activation]"));
+        assert!(!is_pixi_toml_decl("[PYPI-DEPENDENCIES]"));
+        assert!(!is_pixi_toml_decl("[feature.Cuda]"));
+        assert!(!is_pixi_toml_decl("[feature.cuda.unknown]"));
+        assert!(!is_pixi_toml_decl("[[activation]]"));
+        assert!(!is_pixi_toml_decl("[build]"));
+        assert!(!is_pixi_toml_decl("[[bin]]"));
+        // Neighbouring deploy / tool TOMLs stay on their detectors.
+        assert!(!is_pixi_toml_decl("min_version = \"2024.1.1\""));
+        assert!(is_mise_toml_decl("min_version = \"2024.1.1\""));
+        assert!(!is_pixi_toml_decl("[tools]"));
+        assert!(is_mise_toml_decl("[tools]"));
+        assert!(!is_pixi_toml_decl("project_id = \"my-app\""));
+        assert!(is_supabase_toml_decl("project_id = \"my-app\""));
+        assert!(!is_pixi_toml_decl("[db.pooler]"));
+        assert!(is_supabase_toml_decl("[db.pooler]"));
+        assert!(!is_pixi_toml_decl("stack_name = \"my-app\""));
+        assert!(is_samconfig_toml_decl("stack_name = \"my-app\""));
+        assert!(!is_pixi_toml_decl("cmd = \"yarn run start\""));
+        assert!(is_nixpacks_toml_decl("cmd = \"yarn run start\""));
+        assert!(!is_pixi_toml_decl("startCommand = \"node index.js\""));
+        assert!(is_railway_toml_decl("startCommand = \"node index.js\""));
+        // Railway also lists [environments.dev]; pixi shares the section shape.
+        assert!(is_pixi_toml_decl("[environments.dev]"));
+        assert!(is_railway_toml_decl("[environments.dev]"));
+        assert!(!is_pixi_toml_decl("primary_region = \"iad\""));
+        assert!(is_fly_toml_decl("primary_region = \"iad\""));
+        assert!(!is_pixi_toml_decl("node_bundler = \"esbuild\""));
+        assert!(is_netlify_toml_decl("node_bundler = \"esbuild\""));
+        assert!(!is_pixi_toml_decl("workers_dev = true"));
+        assert!(is_wrangler_toml_decl("workers_dev = true"));
+        assert!(!is_pixi_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("reload_html = true"));
+        assert!(!is_pixi_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        // mise also lists [tasks]; cargo-make lists nested [tasks.build].
+        assert!(is_pixi_toml_decl("[tasks]"));
+        assert!(is_mise_toml_decl("[tasks]"));
+        assert!(is_cargo_make_toml_decl("[tasks.build]"));
+        assert!(!is_pixi_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_pixi_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        // Cargo also lists [workspace] / [package]; pixi shares those headers.
+        assert!(is_pixi_toml_decl("[workspace]"));
+        assert!(is_cargo_toml_decl("[workspace]"));
+        assert!(is_pixi_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        // pip also lists index-url; pixi pypi-options shares the key.
+        assert!(is_pixi_toml_decl("index-url = \"https://pypi.org/simple\""));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!line_is_func_like("channel-priority"));
+        assert!(!line_is_func_like("Channel-Priority = \"strict\""));
+        assert!(!line_is_func_like("numpy = \"1.26.*\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
