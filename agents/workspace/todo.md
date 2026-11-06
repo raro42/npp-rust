@@ -976,3 +976,5 @@
 009 keep: Function List PDM pdm.toml venv/python/install/pypi/strategy (v0.3.650)
 
 009 keep: Function List pycodestyle / pep8 (v0.3.658)
+
+009 keep: Function List autopep8 (v0.3.659)

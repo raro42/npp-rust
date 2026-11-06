@@ -32148,6 +32148,14 @@ const NOT_TYPED_FN: &[&str] = &[
 /// coverage / pylint / tox / setuptools / Cargo / Pipfile / pyproject
 /// `[tool.pycodestyle]` / Desktop Entry tables, incomplete brackets,
 /// wrong case, and prose stay out.
+/// autopep8 `setup.cfg` / `tox.ini` / `.pep8` `[autopep8]` sections and
+/// distinctive keys (`aggressive`, `experimental`, `max_line_length`,
+/// `hang_closing`, `pep8_passes`, `line_range`, `exit_code`,
+/// `ignore_local_config`, …). Optional `#` / `;` comment. Key lines may
+/// use `=` with or without spaces. flake8 / mypy / pytest / isort /
+/// coverage / pylint / pycodestyle / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.autopep8]` / Desktop Entry tables, incomplete
+/// brackets, wrong case, and prose stay out.
 /// Desktop Entry sections (`[Desktop Entry]`, `[Desktop Action …]`).
 /// Optional `#` / `;` comment. Key lines (`Name=`), tox / Cargo / Pipfile /
 /// pyproject tables, incomplete brackets, and prose stay out.
@@ -32363,6 +32371,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_coverage_ini_decl(s)
             || is_pylint_ini_decl(s)
             || is_pycodestyle_ini_decl(s)
+            || is_autopep8_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32599,6 +32608,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_coverage_ini_decl(s)
         || is_pylint_ini_decl(s)
         || is_pycodestyle_ini_decl(s)
+        || is_autopep8_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -43326,6 +43336,133 @@ fn pycodestyle_ini_value_ok(key: &str, value: &str) -> bool {
                 && value.bytes().any(|b| b.is_ascii_alphanumeric()));
     }
     // Codes, paths, globs. Require at least one alphanumeric or `_`.
+    let mut has_ident = false;
+    for b in value.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric() || b == b'_' {
+            has_ident = true;
+        }
+    }
+    has_ident
+}
+
+/// autopep8 `setup.cfg` / `tox.ini` / `.pep8` `[autopep8]`:
+/// `[autopep8]`, `aggressive = 1`, `experimental = True`,
+/// `max_line_length = 120`, `ignore = E226,E24`, `select = E,W`,
+/// `hang_closing = True`, `recursive = True`, `jobs = 4`,
+/// `verbose = 1`, `diff = True`, `exit_code = True`,
+/// `pep8_passes = -1`, `indent_size = 4`, `line_range = 1 10`,
+/// `global_config = /etc/autopep8`, `ignore_local_config = True`.
+/// Exact autopep8 keys (snake_case). INI `key = value` or
+/// `key=value`. Optional `#` / `;` comment. flake8 / mypy / pytest /
+/// isort / coverage / pylint / pycodestyle / tox / setuptools / Cargo /
+/// Pipfile / pyproject `[tool.autopep8]` / Desktop Entry / pip.conf
+/// tables, incomplete brackets, wrong case, and prose stay out.
+fn is_autopep8_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return autopep8_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !autopep8_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    autopep8_ini_value_ok(key, value)
+}
+
+fn autopep8_ini_section_ok(header: &str) -> bool {
+    header == "autopep8"
+}
+
+fn autopep8_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "aggressive"
+            | "experimental"
+            | "max_line_length"
+            | "ignore"
+            | "select"
+            | "hang_closing"
+            | "recursive"
+            | "jobs"
+            | "verbose"
+            | "diff"
+            | "exit_code"
+            | "pep8_passes"
+            | "indent_size"
+            | "line_range"
+            | "global_config"
+            | "ignore_local_config"
+    )
+}
+
+fn autopep8_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+    )
+}
+
+fn autopep8_ini_int_ok(value: &str) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+    let digits = if let Some(rest) = value.strip_prefix('-') {
+        if rest.is_empty() {
+            return false;
+        }
+        rest
+    } else {
+        value
+    };
+    !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn autopep8_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if matches!(
+        key,
+        "experimental"
+            | "hang_closing"
+            | "recursive"
+            | "diff"
+            | "exit_code"
+            | "ignore_local_config"
+    ) {
+        return autopep8_ini_bool_ok(value);
+    }
+    if matches!(
+        key,
+        "aggressive" | "max_line_length" | "jobs" | "verbose" | "pep8_passes" | "indent_size"
+    ) {
+        return autopep8_ini_int_ok(value);
+    }
+    // Codes, paths, line ranges. Require at least one alphanumeric or `_`.
     let mut has_ident = false;
     for b in value.bytes() {
         if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
@@ -63993,40 +64130,41 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
-        is_apt_sources_decl, is_audit_rules_decl, is_audit_toml_decl, is_aws_config_decl,
-        is_bacon_toml_decl, is_binfmt_d_decl, is_bitbake_decl, is_brewfile_decl,
-        is_bunfig_toml_decl, is_cabal_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
-        is_cargo_toml_decl, is_cbindgen_toml_decl, is_cliff_toml_decl, is_clippy_toml_decl,
-        is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
-        is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl,
-        is_dioxus_toml_decl, is_dist_toml_decl, is_dovecot_decl, is_dracut_conf_decl,
-        is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl,
-        is_fluent_bit_decl, is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
-        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
-        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
-        is_premake_decl, is_protocols_file_decl, is_pycodestyle_ini_decl, is_pylint_ini_decl,
-        is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_apt_sources_decl, is_audit_rules_decl, is_audit_toml_decl, is_autopep8_ini_decl,
+        is_aws_config_decl, is_bacon_toml_decl, is_binfmt_d_decl, is_bitbake_decl,
+        is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl, is_cargo_config_toml_decl,
+        is_cargo_make_toml_decl, is_cargo_toml_decl, is_cbindgen_toml_decl, is_cliff_toml_decl,
+        is_clippy_toml_decl, is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl,
+        is_crypttab_decl, is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl,
+        is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_dovecot_decl,
+        is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
+        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_freeradius_decl,
+        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
+        is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl, is_hosts_access_decl,
+        is_hosts_file_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
+        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
+        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl,
+        is_pycodestyle_ini_decl, is_pylint_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
+        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
+        is_sddm_conf_decl, is_services_file_decl, is_setup_cfg_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
+        is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -69260,6 +69398,127 @@ mod func_like_line_tests {
         assert!(line_is_func_like("first = true"));
         assert!(line_is_func_like("diff = true"));
         assert!(line_is_func_like("benchmark = true"));
+        assert!(!is_pycodestyle_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_pycodestyle_ini_decl("aggressive = 1"));
+        assert!(is_autopep8_ini_decl("aggressive = 1"));
+        assert!(!is_pycodestyle_ini_decl("hang_closing = True"));
+        assert!(is_autopep8_ini_decl("hang_closing = True"));
+        assert!(!is_pycodestyle_ini_decl("pep8_passes = -1"));
+        assert!(is_autopep8_ini_decl("pep8_passes = -1"));
+    }
+
+    #[test]
+    fn autopep8_ini_entries_count() {
+        assert!(line_is_func_like("[autopep8]"));
+        assert!(line_is_func_like("  [autopep8] # setup.cfg"));
+        assert!(line_is_func_like("[autopep8]; tox.ini"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("aggressive = 1"));
+        assert!(is_autopep8_ini_decl("aggressive=2"));
+        assert!(is_autopep8_ini_decl("experimental = True"));
+        assert!(is_autopep8_ini_decl("experimental = true"));
+        assert!(is_autopep8_ini_decl("max_line_length = 120"));
+        assert!(is_autopep8_ini_decl("max_line_length=100"));
+        assert!(is_autopep8_ini_decl("ignore = E226,E24"));
+        assert!(is_autopep8_ini_decl("select = E,W"));
+        assert!(is_autopep8_ini_decl("hang_closing = True"));
+        assert!(is_autopep8_ini_decl("hang_closing = yes"));
+        assert!(is_autopep8_ini_decl("recursive = True"));
+        assert!(is_autopep8_ini_decl("jobs = 4"));
+        assert!(is_autopep8_ini_decl("verbose = 1"));
+        assert!(is_autopep8_ini_decl("diff = True"));
+        assert!(is_autopep8_ini_decl("exit_code = True"));
+        assert!(is_autopep8_ini_decl("pep8_passes = -1"));
+        assert!(is_autopep8_ini_decl("pep8_passes = 100"));
+        assert!(is_autopep8_ini_decl("indent_size = 4"));
+        assert!(is_autopep8_ini_decl("line_range = 1 10"));
+        assert!(is_autopep8_ini_decl("line_range = 1,10"));
+        assert!(is_autopep8_ini_decl("global_config = /etc/autopep8.cfg"));
+        assert!(is_autopep8_ini_decl("ignore_local_config = True"));
+        assert!(is_autopep8_ini_decl("aggressive = 1 # comment"));
+        assert!(is_autopep8_ini_decl("exit_code=true; trailing"));
+
+        // Neighbouring formats / wrong case stay out.
+        assert!(!is_autopep8_ini_decl("aggressive"));
+        assert!(!is_autopep8_ini_decl("aggressive ="));
+        assert!(!is_autopep8_ini_decl("Aggressive = 1"));
+        assert!(!is_autopep8_ini_decl("AGGRESSIVE = 1"));
+        assert!(!is_autopep8_ini_decl("# aggressive = 1"));
+        assert!(!is_autopep8_ini_decl("experimental = maybe"));
+        assert!(!is_autopep8_ini_decl("max_line_length = eighty"));
+        assert!(!is_autopep8_ini_decl("jobs = auto"));
+        assert!(!is_autopep8_ini_decl("pep8_passes = --"));
+        assert!(!is_autopep8_ini_decl("ignore = ***"));
+        assert!(!is_autopep8_ini_decl("line_range = ()"));
+        assert!(!is_autopep8_ini_decl("[Autopep8]"));
+        assert!(!is_autopep8_ini_decl("[AUTOPEP8]"));
+        assert!(!is_autopep8_ini_decl("[[autopep8]]"));
+        assert!(!is_autopep8_ini_decl("[autopep8"));
+        assert!(!is_autopep8_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_autopep8_ini_decl("[pep8]"));
+        assert!(is_pycodestyle_ini_decl("[pep8]"));
+        assert!(!is_autopep8_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_autopep8_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_autopep8_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_autopep8_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_autopep8_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_autopep8_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_autopep8_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_autopep8_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_autopep8_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_autopep8_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_autopep8_ini_decl("[tool.autopep8]"));
+        assert!(is_pyproject_toml_decl("[tool.autopep8]"));
+        assert!(!is_autopep8_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_autopep8_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_autopep8_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_autopep8_ini_decl("max-line-length = 88"));
+        assert!(is_pycodestyle_ini_decl("max-line-length = 88"));
+        assert!(!is_autopep8_ini_decl("hang-closing = true"));
+        assert!(is_pycodestyle_ini_decl("hang-closing = true"));
+        assert!(!is_autopep8_ini_decl("show-pep8 = true"));
+        assert!(is_pycodestyle_ini_decl("show-pep8 = true"));
+        assert!(!is_autopep8_ini_decl("max-complexity = 10"));
+        assert!(is_flake8_ini_decl("max-complexity = 10"));
+        assert!(!is_autopep8_ini_decl("extend-ignore = E501"));
+        assert!(is_flake8_ini_decl("extend-ignore = E501"));
+        assert!(!is_autopep8_ini_decl("profile = black"));
+        assert!(is_isort_ini_decl("profile = black"));
+        assert!(!is_autopep8_ini_decl("minversion = 6.0"));
+        assert!(is_pytest_ini_decl("minversion = 6.0"));
+        assert!(!is_autopep8_ini_decl("python_version = 3.11"));
+        assert!(is_mypy_ini_decl("python_version = 3.11"));
+        assert!(!is_autopep8_ini_decl("fail_under = 80"));
+        assert!(is_coverage_ini_decl("fail_under = 80"));
+        assert!(!is_autopep8_ini_decl("fail-under = 10"));
+        assert!(is_pylint_ini_decl("fail-under = 10"));
+        assert!(!is_autopep8_ini_decl("python_requires = >=3.8"));
+        assert!(is_setup_cfg_decl("python_requires = >=3.8"));
+        assert!(!line_is_func_like("Aggressive = 1"));
+        assert!(!line_is_func_like("envlist = py39,py310"));
+        // Distinctive autopep8 keys still list.
+        assert!(line_is_func_like("aggressive = 1"));
+        assert!(line_is_func_like("experimental = True"));
+        assert!(line_is_func_like("hang_closing = True"));
+        assert!(line_is_func_like("pep8_passes = -1"));
+        assert!(line_is_func_like("exit_code = True"));
+        assert!(line_is_func_like("ignore_local_config = True"));
+        assert!(line_is_func_like("max_line_length = 120"));
     }
 
     #[test]
