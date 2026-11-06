@@ -42073,10 +42073,19 @@ fn mypy_ini_value_ok(key: &str, value: &str) -> bool {
         }
         return value.bytes().all(|b| b.is_ascii_digit() || b == b'.');
     }
-    // Paths, modules, plugins, platforms, error codes.
-    value
-        .bytes()
-        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+    // Paths, modules, plugins, platforms, error codes. Require at least
+    // one alphanumeric so bare `()` / punctuation-only stay out
+    // (e.g. mkinitcpio `modules=()`).
+    let mut has_alnum = false;
+    for b in value.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric() {
+            has_alnum = true;
+        }
+    }
+    has_alnum
 }
 
 /// FreeDesktop Desktop Entry sections: `[Desktop Entry]`,
@@ -67324,6 +67333,9 @@ mod func_like_line_tests {
         assert!(!is_mypy_ini_decl("follow_imports = loose"));
         assert!(!is_mypy_ini_decl("python_version = three"));
         assert!(!is_mypy_ini_decl("python_version = 3.11-dev"));
+        assert!(!is_mypy_ini_decl("modules=()"));
+        assert!(!is_mypy_ini_decl("packages = ()"));
+        assert!(!is_mypy_ini_decl("files = ***"));
         assert!(!is_mypy_ini_decl("[Mypy]"));
         assert!(!is_mypy_ini_decl("[MYPY]"));
         assert!(!is_mypy_ini_decl("[mypy:]"));
