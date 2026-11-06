@@ -32131,6 +32131,15 @@ const NOT_TYPED_FN: &[&str] = &[
 /// with or without spaces. flake8 / mypy / pytest / isort / tox /
 /// setuptools / Cargo / Pipfile / pyproject `[tool.coverage]` / Desktop
 /// Entry tables, incomplete brackets, wrong case, and prose stay out.
+/// pylint `.pylintrc` / `pylintrc` / `setup.cfg` `[pylint.…]` sections
+/// (`[MAIN]` / `[MASTER]` / `[MESSAGES CONTROL]` / `[REPORTS]` /
+/// `[BASIC]` / …, or `pylint.main` …) and distinctive keys
+/// (`fail-under`, `jobs`, `disable`, `enable`, `max-line-length`,
+/// `good-names`, `max-args`, `output-format`, …). Optional `#` / `;`
+/// comment. Key lines may use `=` with or without spaces. flake8 /
+/// mypy / pytest / isort / coverage / tox / setuptools / Cargo /
+/// Pipfile / pyproject `[tool.pylint]` / Desktop Entry tables,
+/// incomplete brackets, wrong case, and prose stay out.
 /// Desktop Entry sections (`[Desktop Entry]`, `[Desktop Action …]`).
 /// Optional `#` / `;` comment. Key lines (`Name=`), tox / Cargo / Pipfile /
 /// pyproject tables, incomplete brackets, and prose stay out.
@@ -32344,6 +32353,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_flake8_ini_decl(s)
             || is_isort_ini_decl(s)
             || is_coverage_ini_decl(s)
+            || is_pylint_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32578,6 +32588,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_flake8_ini_decl(s)
         || is_isort_ini_decl(s)
         || is_coverage_ini_decl(s)
+        || is_pylint_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -42712,6 +42723,474 @@ fn coverage_ini_value_ok(key: &str, value: &str) -> bool {
     }
     // Paths, globs, plugin names, regex fragments, titles. Require at least
     // one alphanumeric or `_` so bare punctuation / empty tuples stay out.
+    let mut has_ident = false;
+    for b in value.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric() || b == b'_' {
+            has_ident = true;
+        }
+    }
+    has_ident
+}
+
+/// pylint `.pylintrc` / `pylintrc` / `setup.cfg` `[pylint.…]`: `[MAIN]` /
+/// `[MASTER]` / `[MESSAGES CONTROL]` / `[REPORTS]` / `[BASIC]` /
+/// `[REFACTORING]` / `[FORMAT]` / `[LOGGING]` / `[MISCELLANEOUS]` /
+/// `[SIMILARITIES]` / `[SPELLING]` / `[TYPECHECK]` / `[CLASSES]` /
+/// `[DESIGN]` / `[IMPORTS]` / `[EXCEPTIONS]` / `[VARIABLES]` /
+/// `[METHOD_ARGS]` / `[STRING]`, `[pylint.main]` / `[pylint.master]` /
+/// `[pylint.messages_control]` / …, `fail-under = 10`, `jobs = 0`,
+/// `disable = C0114,C0115`, `enable = useless-suppression`,
+/// `max-line-length = 100`, `good-names = i,j,k,ex,Run,_`,
+/// `max-args = 5`, `max-locals = 15`, `max-returns = 6`,
+/// `max-branches = 12`, `max-statements = 50`, `max-parents = 7`,
+/// `max-attributes = 7`, `min-public-methods = 2`,
+/// `max-public-methods = 20`, `max-bool-expr = 5`,
+/// `max-nested-blocks = 5`, `output-format = text` / `colorized` /
+/// `json` / `parseable` / `msvs` / `github`, `reports = no`,
+/// `score = yes`, `suggestion-mode = yes`, `persistent = yes`,
+/// `py-version = 3.11`, `ignore = CVS`, `ignore-paths = …`,
+/// `ignore-patterns = …`, `load-plugins = …`,
+/// `extension-pkg-allow-list = …`, `argument-naming-style = snake_case`,
+/// `function-naming-style = snake_case`,
+/// `class-naming-style = PascalCase`,
+/// `const-naming-style = UPPER_CASE`,
+/// `logging-format-style = new` / `old`,
+/// `confidence = HIGH,CONTROL_FLOW`, `evaluation = …`,
+/// `notes = FIXME,TODO`, `min-similarity-lines = 4`,
+/// `ignore-comments = yes`, `ignore-docstrings = yes`,
+/// `ignore-imports = yes`, `ignore-signatures = yes`,
+/// `docstring-min-length = -1`, `indent-string = '    '`,
+/// `indent-after-paren = 4`, `max-module-lines = 1000`,
+/// `expected-line-ending-format = ` / `LF` / `CRLF`,
+/// `single-line-if-stmt = no`, `single-line-class-stmt = no`,
+/// `overgeneral-exceptions = builtins.Exception`,
+/// `ignored-classes = optparse.Values`, `ignored-modules = …`,
+/// `generated-members = …`, `dummy-variables-rgx = _+$|(_[a-zA-Z0-9_]*)$`,
+/// `init-import = no`, `preferred-modules = …`,
+/// `deprecated-modules = …`, `known-third-party = …`,
+/// `allow-wildcard-with-all = no`,
+/// `allow-reexport-from-package = no`,
+/// `check-quote-consistency = no`,
+/// `check-str-concat-over-line-jumps = no`,
+/// `analyse-fallback-blocks = no`, `recursive = no`,
+/// `unsafe-load-any-extension = no`, `clear-cache-post-run = no`,
+/// `limit-inference-results = 100`, `timeout = 0`,
+/// `missing-member-hint = yes`, `spelling-dict = `,
+/// `max-spelling-suggestions = 4`, `msg-template = …`. Exact pylint
+/// keys (kebab-case). INI `key = value` or `key=value`. Optional
+/// `#` / `;` comment. flake8 / mypy / pytest / isort / coverage / tox /
+/// setuptools / Cargo / Pipfile / pyproject `[tool.pylint]` / Desktop
+/// Entry / pip.conf tables, incomplete brackets, wrong case, and prose
+/// stay out.
+fn is_pylint_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return pylint_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !pylint_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    pylint_ini_value_ok(key, value)
+}
+
+fn pylint_ini_section_ok(header: &str) -> bool {
+    if matches!(
+        header,
+        "MAIN"
+            | "MASTER"
+            | "MESSAGES CONTROL"
+            | "REPORTS"
+            | "BASIC"
+            | "REFACTORING"
+            | "FORMAT"
+            | "LOGGING"
+            | "MISCELLANEOUS"
+            | "SIMILARITIES"
+            | "SPELLING"
+            | "TYPECHECK"
+            | "CLASSES"
+            | "DESIGN"
+            | "IMPORTS"
+            | "EXCEPTIONS"
+            | "VARIABLES"
+            | "METHOD_ARGS"
+            | "STRING"
+    ) {
+        return true;
+    }
+    if let Some(rest) = header.strip_prefix("pylint.") {
+        return matches!(
+            rest,
+            "main"
+                | "master"
+                | "messages_control"
+                | "reports"
+                | "basic"
+                | "refactoring"
+                | "format"
+                | "logging"
+                | "miscellaneous"
+                | "similarities"
+                | "spelling"
+                | "typecheck"
+                | "classes"
+                | "design"
+                | "imports"
+                | "exceptions"
+                | "variables"
+                | "method_args"
+                | "string"
+        );
+    }
+    false
+}
+
+fn pylint_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "fail-under"
+            | "fail-on"
+            | "jobs"
+            | "persistent"
+            | "suggestion-mode"
+            | "unsafe-load-any-extension"
+            | "load-plugins"
+            | "ignore"
+            | "ignore-paths"
+            | "ignore-patterns"
+            | "py-version"
+            | "recursive"
+            | "extension-pkg-allow-list"
+            | "extension-pkg-whitelist"
+            | "analyse-fallback-blocks"
+            | "clear-cache-post-run"
+            | "limit-inference-results"
+            | "disable"
+            | "enable"
+            | "confidence"
+            | "output-format"
+            | "reports"
+            | "score"
+            | "evaluation"
+            | "msg-template"
+            | "max-line-length"
+            | "max-module-lines"
+            | "indent-string"
+            | "indent-after-paren"
+            | "expected-line-ending-format"
+            | "ignore-long-lines"
+            | "single-line-if-stmt"
+            | "single-line-class-stmt"
+            | "max-args"
+            | "max-locals"
+            | "max-returns"
+            | "max-branches"
+            | "max-statements"
+            | "max-parents"
+            | "max-attributes"
+            | "min-public-methods"
+            | "max-public-methods"
+            | "max-bool-expr"
+            | "max-nested-blocks"
+            | "good-names"
+            | "bad-names"
+            | "good-names-rgxs"
+            | "bad-names-rgxs"
+            | "name-group"
+            | "include-naming-hint"
+            | "function-rgx"
+            | "variable-rgx"
+            | "const-rgx"
+            | "attr-rgx"
+            | "argument-rgx"
+            | "class-rgx"
+            | "module-rgx"
+            | "method-rgx"
+            | "class-attribute-rgx"
+            | "class-const-rgx"
+            | "inlinevar-rgx"
+            | "argument-naming-style"
+            | "attr-naming-style"
+            | "class-naming-style"
+            | "class-attribute-naming-style"
+            | "class-const-naming-style"
+            | "const-naming-style"
+            | "function-naming-style"
+            | "inlinevar-naming-style"
+            | "method-naming-style"
+            | "module-naming-style"
+            | "variable-naming-style"
+            | "no-docstring-rgx"
+            | "docstring-min-length"
+            | "property-classes"
+            | "exclude-protected"
+            | "defining-attr-methods"
+            | "valid-classmethod-first-arg"
+            | "valid-metaclass-classmethod-first-arg"
+            | "check-protected-access-in-special-methods"
+            | "ignored-classes"
+            | "ignored-modules"
+            | "generated-members"
+            | "contextmanager-decorators"
+            | "missing-member-hint"
+            | "missing-member-hint-distance"
+            | "missing-member-max-choices"
+            | "timeout"
+            | "ignore-none"
+            | "ignore-on-opaque-inference"
+            | "ignore-mixin-members"
+            | "ignore-imports"
+            | "ignore-comments"
+            | "ignore-docstrings"
+            | "ignore-signatures"
+            | "min-similarity-lines"
+            | "max-spelling-suggestions"
+            | "spelling-dict"
+            | "spelling-ignore-comment-directives"
+            | "spelling-ignore-words"
+            | "spelling-private-dict-file"
+            | "notes"
+            | "notes-rgx"
+            | "logging-modules"
+            | "logging-format-style"
+            | "preferred-modules"
+            | "known-standard-library"
+            | "known-third-party"
+            | "deprecated-modules"
+            | "allow-wildcard-with-all"
+            | "allow-reexport-from-package"
+            | "overgeneral-exceptions"
+            | "init-import"
+            | "additional-builtins"
+            | "callbacks"
+            | "dummy-variables-rgx"
+            | "ignored-argument-names"
+            | "redefining-builtins-modules"
+            | "allow-global-unused-variables"
+            | "allowed-redefined-builtins"
+            | "max-string-length"
+            | "check-quote-consistency"
+            | "check-str-concat-over-line-jumps"
+    )
+}
+
+fn pylint_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "yes" | "no" | "true" | "false" | "True" | "False" | "1" | "0" | "y" | "n"
+    )
+}
+
+fn pylint_ini_naming_style_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "snake_case" | "camelCase" | "PascalCase" | "UPPER_CASE" | "any"
+    )
+}
+
+fn pylint_ini_int_ok(value: &str) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    let start = if bytes[0] == b'-' { 1 } else { 0 };
+    if start >= bytes.len() {
+        return false;
+    }
+    bytes[start..].iter().all(|b| b.is_ascii_digit())
+}
+
+fn pylint_ini_float_ok(value: &str) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+    let mut seen_dot = false;
+    let mut digits = 0usize;
+    let bytes = value.as_bytes();
+    let start = if bytes[0] == b'-' { 1 } else { 0 };
+    if start >= bytes.len() {
+        return false;
+    }
+    for b in &bytes[start..] {
+        if *b == b'.' {
+            if seen_dot {
+                return false;
+            }
+            seen_dot = true;
+            continue;
+        }
+        if !b.is_ascii_digit() {
+            return false;
+        }
+        digits += 1;
+    }
+    digits > 0
+}
+
+fn pylint_ini_value_ok(key: &str, value: &str) -> bool {
+    // Empty ok for a few "unset" options (line ending, spelling-dict).
+    if matches!(key, "expected-line-ending-format" | "spelling-dict") && value.is_empty() {
+        return true;
+    }
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if matches!(
+        key,
+        "persistent"
+            | "suggestion-mode"
+            | "unsafe-load-any-extension"
+            | "reports"
+            | "score"
+            | "include-naming-hint"
+            | "single-line-if-stmt"
+            | "single-line-class-stmt"
+            | "check-protected-access-in-special-methods"
+            | "ignore-none"
+            | "ignore-on-opaque-inference"
+            | "ignore-mixin-members"
+            | "ignore-imports"
+            | "ignore-comments"
+            | "ignore-docstrings"
+            | "ignore-signatures"
+            | "init-import"
+            | "allow-wildcard-with-all"
+            | "allow-reexport-from-package"
+            | "allow-global-unused-variables"
+            | "check-quote-consistency"
+            | "check-str-concat-over-line-jumps"
+            | "analyse-fallback-blocks"
+            | "clear-cache-post-run"
+            | "recursive"
+            | "missing-member-hint"
+    ) {
+        return pylint_ini_bool_ok(value);
+    }
+    if matches!(
+        key,
+        "fail-under"
+            | "jobs"
+            | "max-line-length"
+            | "max-module-lines"
+            | "indent-after-paren"
+            | "max-args"
+            | "max-locals"
+            | "max-returns"
+            | "max-branches"
+            | "max-statements"
+            | "max-parents"
+            | "max-attributes"
+            | "min-public-methods"
+            | "max-public-methods"
+            | "max-bool-expr"
+            | "max-nested-blocks"
+            | "docstring-min-length"
+            | "min-similarity-lines"
+            | "max-spelling-suggestions"
+            | "missing-member-hint-distance"
+            | "missing-member-max-choices"
+            | "limit-inference-results"
+            | "max-string-length"
+            | "timeout"
+    ) {
+        if key == "fail-under" || key == "timeout" {
+            return pylint_ini_float_ok(value);
+        }
+        return pylint_ini_int_ok(value);
+    }
+    if key == "output-format" {
+        return matches!(
+            value,
+            "text" | "colorized" | "json" | "parseable" | "msvs" | "github"
+        );
+    }
+    if key == "logging-format-style" {
+        return matches!(value, "old" | "new");
+    }
+    if key == "expected-line-ending-format" {
+        return matches!(value, "LF" | "CR" | "CRLF" | "lf" | "cr" | "crlf");
+    }
+    if matches!(
+        key,
+        "argument-naming-style"
+            | "attr-naming-style"
+            | "class-naming-style"
+            | "class-attribute-naming-style"
+            | "class-const-naming-style"
+            | "const-naming-style"
+            | "function-naming-style"
+            | "inlinevar-naming-style"
+            | "method-naming-style"
+            | "module-naming-style"
+            | "variable-naming-style"
+    ) {
+        return pylint_ini_naming_style_ok(value);
+    }
+    if key == "confidence" {
+        return value.split(',').all(|part| {
+            let p = part.trim();
+            !p.is_empty()
+                && matches!(
+                    p,
+                    "HIGH" | "CONTROL_FLOW" | "INFERENCE" | "INFERENCE_FAILURE" | "UNDEFINED"
+                )
+        });
+    }
+    if key == "py-version" {
+        // 3 / 3.11 / 3.11.0
+        let mut parts = 0usize;
+        for part in value.split('.') {
+            if part.is_empty() || !part.bytes().all(|b| b.is_ascii_digit()) {
+                return false;
+            }
+            parts += 1;
+            if parts > 3 {
+                return false;
+            }
+        }
+        return parts > 0;
+    }
+    if key == "indent-string" {
+        // Quoted spaces/tabs, or `\t` / `\\t`.
+        if matches!(value, r"\t" | "'\\t'" | "\"\\t\"") {
+            return true;
+        }
+        let bytes = value.as_bytes();
+        if bytes.len() >= 3 {
+            let q = bytes[0];
+            if (q == b'\'' || q == b'"') && bytes[bytes.len() - 1] == q {
+                let inner = &bytes[1..bytes.len() - 1];
+                return !inner.is_empty() && inner.iter().all(|b| *b == b' ' || *b == b'\t');
+            }
+        }
+        return false;
+    }
+    // Message ids, names, paths, regexes, templates. Need an ident char.
     let mut has_ident = false;
     for b in value.bytes() {
         if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
@@ -63400,19 +63879,19 @@ mod func_like_line_tests {
         is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
         is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
         is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
-        is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl, is_pytest_ini_decl,
-        is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
-        is_sddm_conf_decl, is_services_file_decl, is_setup_cfg_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
-        is_yum_repo_decl, line_is_func_like,
+        is_premake_decl, is_protocols_file_decl, is_pylint_ini_decl, is_pyproject_toml_decl,
+        is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
+        is_setup_cfg_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
+        is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
+        is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -68358,6 +68837,184 @@ mod func_like_line_tests {
         assert!(is_setup_cfg_decl("python_requires = >=3.8"));
         assert!(!line_is_func_like("Branch = true"));
         assert!(!line_is_func_like("fail_under = high"));
+        assert!(!line_is_func_like("envlist = py39,py310"));
+        assert!(!is_coverage_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_coverage_ini_decl("fail-under = 10"));
+        assert!(is_pylint_ini_decl("fail-under = 10"));
+    }
+
+    #[test]
+    fn pylint_ini_entries_count() {
+        assert!(line_is_func_like("[MAIN]"));
+        assert!(line_is_func_like("  [MASTER] # pylintrc"));
+        assert!(line_is_func_like("[MESSAGES CONTROL]; setup.cfg"));
+        assert!(line_is_func_like("[REPORTS]"));
+        assert!(line_is_func_like("[BASIC]"));
+        assert!(line_is_func_like("[REFACTORING]"));
+        assert!(line_is_func_like("[FORMAT]"));
+        assert!(line_is_func_like("[LOGGING]"));
+        assert!(line_is_func_like("[MISCELLANEOUS]"));
+        assert!(line_is_func_like("[SIMILARITIES]"));
+        assert!(line_is_func_like("[SPELLING]"));
+        assert!(line_is_func_like("[TYPECHECK]"));
+        assert!(line_is_func_like("[CLASSES]"));
+        assert!(line_is_func_like("[DESIGN]"));
+        assert!(line_is_func_like("[IMPORTS]"));
+        assert!(line_is_func_like("[EXCEPTIONS]"));
+        assert!(line_is_func_like("[VARIABLES]"));
+        assert!(line_is_func_like("[METHOD_ARGS]"));
+        assert!(line_is_func_like("[STRING]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MASTER]"));
+        assert!(is_pylint_ini_decl("[MESSAGES CONTROL]"));
+        assert!(is_pylint_ini_decl("[pylint.main]"));
+        assert!(is_pylint_ini_decl("[pylint.master]"));
+        assert!(is_pylint_ini_decl("[pylint.messages_control]"));
+        assert!(is_pylint_ini_decl("[pylint.reports]"));
+        assert!(is_pylint_ini_decl("[pylint.basic]"));
+        assert!(is_pylint_ini_decl("[pylint.format]"));
+        assert!(is_pylint_ini_decl("[pylint.design]"));
+        assert!(is_pylint_ini_decl("[pylint.typecheck]"));
+        assert!(is_pylint_ini_decl("fail-under = 10"));
+        assert!(is_pylint_ini_decl("fail-under=10.0"));
+        assert!(is_pylint_ini_decl("jobs = 0"));
+        assert!(is_pylint_ini_decl("jobs = 4"));
+        assert!(is_pylint_ini_decl("disable = C0114,C0115,R0903"));
+        assert!(is_pylint_ini_decl("enable = useless-suppression"));
+        assert!(is_pylint_ini_decl("max-line-length = 100"));
+        assert!(is_pylint_ini_decl("good-names = i,j,k,ex,Run,_"));
+        assert!(is_pylint_ini_decl("bad-names = foo,bar"));
+        assert!(is_pylint_ini_decl("max-args = 5"));
+        assert!(is_pylint_ini_decl("max-locals = 15"));
+        assert!(is_pylint_ini_decl("max-returns = 6"));
+        assert!(is_pylint_ini_decl("max-branches = 12"));
+        assert!(is_pylint_ini_decl("max-statements = 50"));
+        assert!(is_pylint_ini_decl("max-parents = 7"));
+        assert!(is_pylint_ini_decl("max-attributes = 7"));
+        assert!(is_pylint_ini_decl("min-public-methods = 2"));
+        assert!(is_pylint_ini_decl("max-public-methods = 20"));
+        assert!(is_pylint_ini_decl("max-bool-expr = 5"));
+        assert!(is_pylint_ini_decl("max-nested-blocks = 5"));
+        assert!(is_pylint_ini_decl("output-format = text"));
+        assert!(is_pylint_ini_decl("output-format = colorized"));
+        assert!(is_pylint_ini_decl("output-format = json"));
+        assert!(is_pylint_ini_decl("reports = no"));
+        assert!(is_pylint_ini_decl("score = yes"));
+        assert!(is_pylint_ini_decl("suggestion-mode = yes"));
+        assert!(is_pylint_ini_decl("persistent = yes"));
+        assert!(is_pylint_ini_decl("py-version = 3.11"));
+        assert!(is_pylint_ini_decl("ignore = CVS"));
+        assert!(is_pylint_ini_decl("ignore-paths = ^src/legacy/"));
+        assert!(is_pylint_ini_decl("ignore-patterns = \\.pyc$"));
+        assert!(is_pylint_ini_decl(
+            "load-plugins = pylint.extensions.docparams"
+        ));
+        assert!(is_pylint_ini_decl("argument-naming-style = snake_case"));
+        assert!(is_pylint_ini_decl("function-naming-style = snake_case"));
+        assert!(is_pylint_ini_decl("class-naming-style = PascalCase"));
+        assert!(is_pylint_ini_decl("const-naming-style = UPPER_CASE"));
+        assert!(is_pylint_ini_decl("variable-naming-style = any"));
+        assert!(is_pylint_ini_decl("logging-format-style = new"));
+        assert!(is_pylint_ini_decl("confidence = HIGH,CONTROL_FLOW"));
+        assert!(is_pylint_ini_decl("notes = FIXME,XXX,TODO"));
+        assert!(is_pylint_ini_decl("min-similarity-lines = 4"));
+        assert!(is_pylint_ini_decl("ignore-comments = yes"));
+        assert!(is_pylint_ini_decl("ignore-docstrings = yes"));
+        assert!(is_pylint_ini_decl("ignore-imports = no"));
+        assert!(is_pylint_ini_decl("ignore-signatures = yes"));
+        assert!(is_pylint_ini_decl("docstring-min-length = -1"));
+        assert!(is_pylint_ini_decl("indent-string = '    '"));
+        assert!(is_pylint_ini_decl("indent-after-paren = 4"));
+        assert!(is_pylint_ini_decl("max-module-lines = 1000"));
+        assert!(is_pylint_ini_decl("expected-line-ending-format = LF"));
+        assert!(is_pylint_ini_decl("expected-line-ending-format ="));
+        assert!(is_pylint_ini_decl("single-line-if-stmt = no"));
+        assert!(is_pylint_ini_decl(
+            "overgeneral-exceptions = builtins.BaseException,builtins.Exception"
+        ));
+        assert!(is_pylint_ini_decl(
+            "ignored-classes = optparse.Values,thread._local"
+        ));
+        assert!(is_pylint_ini_decl(
+            "dummy-variables-rgx = _+$|(_[a-zA-Z0-9_]*)$"
+        ));
+        assert!(is_pylint_ini_decl("init-import = no"));
+        assert!(is_pylint_ini_decl("allow-wildcard-with-all = no"));
+        assert!(is_pylint_ini_decl("recursive = no"));
+        assert!(is_pylint_ini_decl("unsafe-load-any-extension = no"));
+        assert!(is_pylint_ini_decl("limit-inference-results = 100"));
+        assert!(is_pylint_ini_decl("timeout = 0"));
+        assert!(is_pylint_ini_decl("missing-member-hint = yes"));
+        assert!(is_pylint_ini_decl("spelling-dict ="));
+        assert!(is_pylint_ini_decl("max-spelling-suggestions = 4"));
+        assert!(is_pylint_ini_decl(
+            "msg-template = {path}:{line}: [{msg_id}({symbol}), {obj}] {msg}"
+        ));
+
+        // Neighbouring formats / wrong case stay out.
+        assert!(!is_pylint_ini_decl("fail-under"));
+        assert!(!is_pylint_ini_decl("fail-under ="));
+        assert!(!is_pylint_ini_decl("Fail-under = 10"));
+        assert!(!is_pylint_ini_decl("FAIL-UNDER = 10"));
+        assert!(!is_pylint_ini_decl("# fail-under = 10"));
+        assert!(!is_pylint_ini_decl("fail-under = high"));
+        assert!(!is_pylint_ini_decl("jobs = auto"));
+        assert!(!is_pylint_ini_decl("output-format = html"));
+        assert!(!is_pylint_ini_decl("logging-format-style = percent"));
+        assert!(!is_pylint_ini_decl("argument-naming-style = kebab-case"));
+        assert!(!is_pylint_ini_decl("confidence = LOW"));
+        assert!(!is_pylint_ini_decl("py-version = py311"));
+        assert!(!is_pylint_ini_decl("disable = ***"));
+        assert!(!is_pylint_ini_decl("good-names = ()"));
+        assert!(!is_pylint_ini_decl("[Main]"));
+        assert!(!is_pylint_ini_decl("[main]"));
+        assert!(!is_pylint_ini_decl("[MESSAGES_CONTROL]"));
+        assert!(!is_pylint_ini_decl("[[MAIN]]"));
+        assert!(!is_pylint_ini_decl("[MAIN"));
+        assert!(!is_pylint_ini_decl("[pylint]"));
+        assert!(!is_pylint_ini_decl("[pylint.]"));
+        assert!(!is_pylint_ini_decl("[pylint.MAIN]"));
+        assert!(!is_pylint_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_pylint_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_pylint_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_pylint_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_pylint_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_pylint_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_pylint_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_pylint_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_pylint_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_pylint_ini_decl("[tool.pylint.main]"));
+        assert!(is_pyproject_toml_decl("[tool.pylint.main]"));
+        assert!(!is_pylint_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_pylint_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_pylint_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_pylint_ini_decl("max-line-length = eighty"));
+        assert!(!is_pylint_ini_decl("profile = black"));
+        assert!(is_isort_ini_decl("profile = black"));
+        assert!(!is_pylint_ini_decl("minversion = 6.0"));
+        assert!(is_pytest_ini_decl("minversion = 6.0"));
+        assert!(!is_pylint_ini_decl("python_version = 3.11"));
+        assert!(is_mypy_ini_decl("python_version = 3.11"));
+        assert!(!is_pylint_ini_decl("fail_under = 80"));
+        assert!(is_coverage_ini_decl("fail_under = 80"));
+        assert!(!is_pylint_ini_decl("python_requires = >=3.8"));
+        assert!(is_setup_cfg_decl("python_requires = >=3.8"));
+        assert!(!line_is_func_like("Fail-under = 10"));
+        // flake8 accepts `jobs = auto`; pylint rejects it (checked above).
+        assert!(!line_is_func_like("output-format = html"));
         assert!(!line_is_func_like("envlist = py39,py310"));
     }
 
