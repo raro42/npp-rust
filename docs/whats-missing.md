@@ -1,7 +1,7 @@
 # What’s missing (after stub sweep)
 
 Date: 2026-10-13  
-**Checkpoint:** Issues #1–#19 closed or handed off. App at **v0.3.637+**. Ranked open gaps: `docs/next-gaps.md`.
+**Checkpoint:** Issues #1–#19 closed or handed off. App at **v0.3.638+**. Ranked open gaps: `docs/next-gaps.md`.
 
 ## Stubs (Coming Soon dialog)
 

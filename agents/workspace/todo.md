@@ -1,3 +1,5 @@
+009 keep: Function List Dioxus.toml application/web.app/watcher/resource/proxy/https (v0.3.638)
+
 009 keep: Function List Trunk trunk.toml build/watch/serve/clean/tools (v0.3.635)
 
 009 keep: Function List cargo-mutants mutants.toml (v0.3.634)

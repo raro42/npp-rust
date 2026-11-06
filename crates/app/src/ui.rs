@@ -32388,6 +32388,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_trunk_toml_decl(s)
             || is_cbindgen_toml_decl(s)
             || is_uniffi_toml_decl(s)
+            || is_dioxus_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32603,6 +32604,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_trunk_toml_decl(s)
         || is_cbindgen_toml_decl(s)
         || is_uniffi_toml_decl(s)
+        || is_dioxus_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -55502,11 +55504,11 @@ fn cbindgen_toml_value_ok(key: &str, value: &str) -> bool {
 /// `key = value` with spaces around `=`. Optional `#` comment. Arrays /
 /// nested maps (`mutable_records = […]`, `link_frameworks = […]`,
 /// `custom_types` / `external_packages` / `rename` / `exclude` /
-/// `[bindings.*.custom_types.*]`) / prose / wrong case / cbindgen /
-/// trunk / mutants / audit / cliff / cargo-make / release.toml /
-/// Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain /
-/// cargo config / nextest / deny / clippy / rustfmt / ruff / uv /
-/// bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+/// `[bindings.*.custom_types.*]`) / prose / wrong case / dioxus /
+/// cbindgen / trunk / mutants / audit / cliff / cargo-make /
+/// release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross /
+/// rust-toolchain / cargo config / nextest / deny / clippy / rustfmt /
+/// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
 fn is_uniffi_toml_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -55642,6 +55644,145 @@ fn uniffi_toml_value_ok(key: &str, value: &str) -> bool {
             return false;
         }
         // Names / paths / conversion snippets: graphic ASCII + space/tab.
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
+    }
+    false
+}
+
+/// Dioxus CLI `Dioxus.toml`: `[application]` / `[web.app]` /
+/// `[web.watcher]` / `[web.resource]` / `[web.resource.dev]`,
+/// `[[web.proxy]]` / `[[web.https]]`, `asset_dir = "public"`,
+/// `sub_package = "my-crate"`, `out_dir = "dist"`,
+/// `public_dir = "public"`, `default_platform = "web"` / `"desktop"` /
+/// `"mobile"`, `base_path = "my_application"`, `reload_html = true`,
+/// `index_on_404 = true`, `backend = "http://localhost:8000/api/"`,
+/// `mkcert = true`, `key_path = "…"`, `cert_path = "…"`. Exact snake_case
+/// Dioxus keys. TOML `key = value` with spaces around `=`. Optional `#`
+/// comment. Arrays (`watch_path = […]`, `style = […]`, `script = […]`,
+/// `icon = […]`) / nested maps / bare `name` / `title` / `enabled` /
+/// prose / wrong case / uniffi / cbindgen / trunk / mutants / audit /
+/// cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo /
+/// typos / bacon / Cross / rust-toolchain / cargo config / nextest /
+/// deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
+/// Cargo.toml stay out.
+fn is_dioxus_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // Only `[[web.proxy]]` / `[[web.https]]` are array tables in stock
+        // Dioxus.toml; other `[[…]]` stay out.
+        if array {
+            return matches!(header, "web.proxy" | "web.https");
+        }
+        return dioxus_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested dotted free-form keys stay out.
+    if key.contains('.') {
+        return false;
+    }
+    if !dioxus_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    dioxus_toml_value_ok(key, value)
+}
+
+fn dioxus_toml_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "application" | "web.app" | "web.watcher" | "web.resource" | "web.resource.dev"
+    )
+}
+
+fn dioxus_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "asset_dir"
+            | "sub_package"
+            | "out_dir"
+            | "public_dir"
+            | "default_platform"
+            | "base_path"
+            | "reload_html"
+            | "index_on_404"
+            | "backend"
+            | "mkcert"
+            | "key_path"
+            | "cert_path"
+    )
+}
+
+fn dioxus_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (watch_path = […], style = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(key, "reload_html" | "index_on_404" | "mkcert") {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "default_platform" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "web" | "desktop" | "mobile");
+    }
+    if matches!(
+        key,
+        "asset_dir"
+            | "sub_package"
+            | "out_dir"
+            | "public_dir"
+            | "base_path"
+            | "backend"
+            | "key_path"
+            | "cert_path"
+    ) {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 512 {
+            return false;
+        }
+        // Paths / package names / URLs: graphic ASCII + space/tab.
         return bare
             .bytes()
             .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
@@ -58467,30 +58608,30 @@ mod func_like_line_tests {
         is_bunfig_toml_decl, is_cabal_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
         is_cargo_toml_decl, is_cbindgen_toml_decl, is_cliff_toml_decl, is_clippy_toml_decl,
         is_composer_json_decl, is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl,
-        is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dist_toml_decl,
-        is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl,
-        is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl, is_fstab_decl,
-        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
-        is_haproxy_decl, is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl,
-        is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl,
-        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
-        is_mutants_toml_decl, is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl,
-        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_scons_decl, is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dioxus_toml_decl,
+        is_dist_toml_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
+        is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
+        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
+        is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl, is_hosts_file_decl,
+        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mkinitcpio_conf_decl,
+        is_modprobe_conf_decl, is_mutants_toml_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
+        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
+        is_pyproject_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
+        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
+        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
+        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
+        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_trunk_toml_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
+        is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -68973,6 +69114,8 @@ mod func_like_line_tests {
         assert!(!is_cbindgen_toml_decl("[[bin]]"));
         assert!(!is_cbindgen_toml_decl("[workspace]"));
         // Neighbouring families stay on their paths.
+        assert!(!is_cbindgen_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("reload_html = true"));
         assert!(!is_cbindgen_toml_decl("cdylib_name = \"mycrate_ffi\""));
         assert!(is_uniffi_toml_decl("cdylib_name = \"mycrate_ffi\""));
         assert!(!is_cbindgen_toml_decl("omit_argument_labels = true"));
@@ -69175,8 +69318,150 @@ mod func_like_line_tests {
         // Shared shape `module_name` stays uniffi-quoted string only.
         assert!(is_uniffi_toml_decl("module_name = \"UniffiOne\""));
         assert!(!is_cbindgen_toml_decl("module_name = \"UniffiOne\""));
+        // Neighbouring dioxus family stays on its path.
+        assert!(!is_uniffi_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("reload_html = true"));
+        assert!(!is_uniffi_toml_decl("default_platform = \"web\""));
+        assert!(is_dioxus_toml_decl("default_platform = \"web\""));
+        assert!(!is_uniffi_toml_decl("[web.app]"));
+        assert!(is_dioxus_toml_decl("[web.app]"));
         assert!(!line_is_func_like("cdylib_name"));
         assert!(!line_is_func_like("Cdylib_Name = \"x\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn dioxus_toml_entries_count() {
+        assert!(line_is_func_like("[application]"));
+        assert!(line_is_func_like("[web.app]"));
+        assert!(line_is_func_like("[web.watcher]"));
+        assert!(line_is_func_like("[web.resource]"));
+        assert!(line_is_func_like("[web.resource.dev]"));
+        assert!(line_is_func_like("[[web.proxy]]"));
+        assert!(line_is_func_like("[[web.https]]"));
+        assert!(line_is_func_like("asset_dir = \"public\""));
+        assert!(line_is_func_like("sub_package = \"my-crate\""));
+        assert!(line_is_func_like("out_dir = \"dist\""));
+        assert!(line_is_func_like("public_dir = \"public\""));
+        assert!(line_is_func_like("default_platform = \"web\""));
+        assert!(line_is_func_like("default_platform = \"desktop\""));
+        assert!(line_is_func_like("default_platform = \"mobile\""));
+        assert!(line_is_func_like("base_path = \"my_application\""));
+        assert!(line_is_func_like("reload_html = true"));
+        assert!(line_is_func_like("index_on_404 = true"));
+        assert!(line_is_func_like(
+            "backend = \"http://localhost:8000/api/\""
+        ));
+        assert!(line_is_func_like("mkcert = true"));
+        assert!(line_is_func_like("key_path = \"./certs/key.pem\""));
+        assert!(line_is_func_like("cert_path = \"./certs/cert.pem\""));
+        assert!(line_is_func_like("  reload_html = true # keep whitespace"));
+        // Shared detector for dioxus-only keys.
+        assert!(is_dioxus_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("index_on_404 = false"));
+        assert!(is_dioxus_toml_decl("default_platform = \"web\""));
+        assert!(is_dioxus_toml_decl("asset_dir = \"assets\""));
+        assert!(is_dioxus_toml_decl("[application]"));
+        assert!(is_dioxus_toml_decl("[web.app]"));
+        assert!(is_dioxus_toml_decl("[web.watcher]"));
+        assert!(is_dioxus_toml_decl("[[web.proxy]]"));
+        assert!(is_dioxus_toml_decl("[[web.https]]"));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_dioxus_toml_decl("reload_html"));
+        assert!(!is_dioxus_toml_decl("reload_html ="));
+        assert!(!is_dioxus_toml_decl("Reload_Html = true"));
+        assert!(!is_dioxus_toml_decl("RELOAD_HTML = true"));
+        assert!(!is_dioxus_toml_decl("reload_html the page"));
+        assert!(!is_dioxus_toml_decl("# reload_html = true"));
+        assert!(!is_dioxus_toml_decl("watch_path = [\"src\"]"));
+        assert!(!is_dioxus_toml_decl("style = [\"./a.css\"]"));
+        assert!(!is_dioxus_toml_decl("script = [\"./a.js\"]"));
+        assert!(!is_dioxus_toml_decl("icon = [\"icons/icon.png\"]"));
+        assert!(!is_dioxus_toml_decl("name = \"project_name\""));
+        assert!(!is_dioxus_toml_decl("title = \"project_name\""));
+        assert!(!is_dioxus_toml_decl("enabled = true"));
+        assert!(!is_dioxus_toml_decl("reload_html = yes"));
+        assert!(!is_dioxus_toml_decl("default_platform = web"));
+        assert!(!is_dioxus_toml_decl("default_platform = \"wasm\""));
+        assert!(!is_dioxus_toml_decl("asset_dir = public"));
+        assert!(!is_dioxus_toml_decl("PATH=/usr/bin"));
+        assert!(!is_dioxus_toml_decl("[Application]"));
+        assert!(!is_dioxus_toml_decl("[APPLICATION]"));
+        assert!(!is_dioxus_toml_decl("[web]"));
+        assert!(!is_dioxus_toml_decl("[web.App]"));
+        assert!(!is_dioxus_toml_decl("[[application]]"));
+        assert!(!is_dioxus_toml_decl("[package]"));
+        assert!(!is_dioxus_toml_decl("[[bin]]"));
+        assert!(!is_dioxus_toml_decl("[workspace]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_dioxus_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(is_uniffi_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(!is_dioxus_toml_decl("omit_argument_labels = true"));
+        assert!(is_uniffi_toml_decl("omit_argument_labels = true"));
+        assert!(!is_dioxus_toml_decl("language = \"C++\""));
+        assert!(is_cbindgen_toml_decl("language = \"C++\""));
+        assert!(!is_dioxus_toml_decl("usize_is_size_t = true"));
+        assert!(is_cbindgen_toml_decl("usize_is_size_t = true"));
+        assert!(!is_dioxus_toml_decl("public_url = \"/\""));
+        assert!(is_trunk_toml_decl("public_url = \"/\""));
+        assert!(!is_dioxus_toml_decl("filehash = true"));
+        assert!(is_trunk_toml_decl("filehash = true"));
+        assert!(!is_dioxus_toml_decl("timeout_multiplier = 2.0"));
+        assert!(is_mutants_toml_decl("timeout_multiplier = 2.0"));
+        assert!(!is_dioxus_toml_decl("severity_threshold = \"low\""));
+        assert!(is_audit_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_dioxus_toml_decl("conventional_commits = true"));
+        assert!(is_cliff_toml_decl("conventional_commits = true"));
+        assert!(!is_dioxus_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_dioxus_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(!is_dioxus_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_dioxus_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_dioxus_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_dioxus_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_dioxus_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_dioxus_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_dioxus_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_dioxus_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_dioxus_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_dioxus_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_dioxus_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_dioxus_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_dioxus_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_dioxus_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_dioxus_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_dioxus_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_dioxus_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_dioxus_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_dioxus_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_dioxus_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        // Shared section name `[application]` vs Premake `application "…"`:
+        // Premake needs a quoted name after the keyword on the same line.
+        assert!(is_dioxus_toml_decl("[application]"));
+        assert!(!is_premake_decl("[application]"));
+        assert!(!line_is_func_like("reload_html"));
+        assert!(!line_is_func_like("Reload_Html = true"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

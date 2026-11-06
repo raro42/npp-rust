@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.638] — 2026-11-06
+
+View:
+
+- **Function List** lists Dioxus CLI `Dioxus.toml` sections and fields: `[application]` / `[web.app]` / `[web.watcher]` / `[web.resource]` / `[web.resource.dev]`, `[[web.proxy]]` / `[[web.https]]`, `asset_dir = "public"`, `sub_package = "my-crate"`, `out_dir = "dist"`, `public_dir = "public"`, `default_platform = "web"` / `"desktop"` / `"mobile"`, `base_path = "my_application"`, `reload_html = true`, `index_on_404 = true`, `backend = "http://localhost:8000/api/"`, `mkcert = true`, `key_path = "…"`, `cert_path = "…"`. Exact snake_case Dioxus keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Arrays (`watch_path = […]`, `style = […]`, `script = […]`, `icon = […]`) / nested maps / bare `name` / `title` / `enabled` / prose / wrong case / uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.637] — 2026-11-06
 
 View:
