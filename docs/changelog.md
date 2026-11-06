@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.648] — 2026-11-06
+
+View:
+
+- **Function List** lists Hatch `hatch.toml` sections and fields: `[envs.default]` / `[envs.hatch-test]` / `[envs.coverage]` / `[envs.docs]` / `[envs.default.scripts]` / `[envs.docs.env-vars]` / `[envs.types.extra-scripts]` / `[envs.test.overrides]` / `[[envs.test.matrix]]`, `[build]` / `[build.targets.wheel]` / `[build.targets.sdist]` / `[build.targets.wheel.force-include]` / `[build.targets.wheel.sources]` / `[build.hooks.custom]` / `[build.targets.wheel.hooks.custom]`, `[version]`, `[publish.index]`, `detached = true`, `skip-install = true`, `dev-mode = false`, `locked = true`, `lock-envs = true`, `installer = "uv"` / `"pip"`, `locker = "uv"` / `"pip"`, `lock-filename = "locks/test.lock"`, `template = "default"`, `type = "virtual"` / `"container"`, `config-path = "ruff_defaults.toml"`, `uv-path = "uv"`, `system-packages = false`, `matrix-name-format = "{variable}_{value}"`, `ignore-vcs = true`, `only-packages = true`, `dev-mode-exact = true`. Exact Hatch keys (kebab-case). TOML `key = value` with spaces around `=`. Optional `#` comment (quote-aware). Arrays (`dependencies = […]`, `extra-dependencies = […]`, `features = […]`, `platforms = […]`) / nested maps / free-form `[envs.x.scripts]` / `[envs.x.env-vars]` entries (`run = "pytest"`, `FOO = "bar"`) / `python = "3.12"` / `path = "…"` / prose / wrong case / pixi / mise / supabase / samconfig / nixpacks / railway / fly / netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.647] — 2026-11-06
 
 View:

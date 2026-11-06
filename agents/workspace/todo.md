@@ -954,3 +954,5 @@
 009 keep: Function List supabase/config.toml api/db/auth/storage/functions (v0.3.645)
 
 009 keep: Function List Pixi pixi.toml workspace/activation/pypi/feature (v0.3.647)
+
+009 keep: Function List hatch.toml envs/build/publish detached/installer/locker (v0.3.648)

@@ -32398,6 +32398,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_supabase_toml_decl(s)
             || is_mise_toml_decl(s)
             || is_pixi_toml_decl(s)
+            || is_hatch_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32623,6 +32624,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_supabase_toml_decl(s)
         || is_mise_toml_decl(s)
         || is_pixi_toml_decl(s)
+        || is_hatch_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -58695,6 +58697,240 @@ fn pixi_toml_value_ok(key: &str, value: &str) -> bool {
         .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
 }
 
+/// Hatch `hatch.toml` (and `[tool.hatch.…]` in pyproject stripped to the
+/// same shape when pasted as `envs.…` / `build.…`): `[envs.default]` /
+/// `[envs.hatch-test]` / `[envs.coverage]` / `[envs.docs]` /
+/// `[envs.default.scripts]` / `[envs.docs.env-vars]` /
+/// `[envs.types.extra-scripts]` / `[envs.test.overrides]` /
+/// `[[envs.test.matrix]]`, `[build]` / `[build.targets.wheel]` /
+/// `[build.targets.sdist]` / `[build.targets.wheel.force-include]` /
+/// `[build.targets.wheel.sources]` / `[build.hooks.custom]` /
+/// `[build.targets.wheel.hooks.custom]`, `[version]`, `[publish.index]`,
+/// `detached = true`, `skip-install = true`, `dev-mode = false`,
+/// `locked = true`, `lock-envs = true`, `installer = "uv"` / `"pip"`,
+/// `locker = "uv"` / `"pip"`, `lock-filename = "locks/test.lock"`,
+/// `template = "default"`, `type = "virtual"` / `"container"`,
+/// `config-path = "ruff_defaults.toml"`, `uv-path = "uv"`,
+/// `system-packages = false`, `matrix-name-format = "{variable}_{value}"`,
+/// `ignore-vcs = true`, `only-packages = true`, `dev-mode-exact = true`.
+/// Exact Hatch keys (kebab-case). TOML `key = value` with spaces around `=`.
+/// Optional `#` comment (quote-aware). Arrays (`dependencies = […]`,
+/// `extra-dependencies = […]`, `features = […]`, `platforms = […]`,
+/// `env-include = […]`) / nested maps / free-form `[envs.x.scripts]` /
+/// `[envs.x.env-vars]` entries (`run = "pytest"`, `FOO = "bar"`) /
+/// `python = "3.12"` / `path = "…"` / prose / wrong case / pixi / mise /
+/// supabase / samconfig / nixpacks / railway / fly / netlify / wrangler /
+/// dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff /
+/// cargo-make / release.toml / Dist.toml / mdBook / taplo / typos /
+/// bacon / Cross / rust-toolchain / cargo config / nextest / deny /
+/// clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
+/// Cargo.toml stay out.
+fn is_hatch_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // Only `[[envs.name.matrix]]` uses array-of-tables in stock hatch.toml.
+        if array {
+            return hatch_toml_matrix_header_ok(header);
+        }
+        return hatch_toml_section_ok(header);
+    }
+    let body = hatch_toml_strip_comment(s);
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if key.contains('.') {
+        return false;
+    }
+    if !hatch_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    hatch_toml_value_ok(key, value)
+}
+
+fn hatch_toml_strip_comment(s: &str) -> &str {
+    let mut in_single = false;
+    let mut in_double = false;
+    for (i, b) in s.bytes().enumerate() {
+        match b {
+            b'\'' if !in_double => in_single = !in_single,
+            b'"' if !in_single => in_double = !in_double,
+            b'#' | b';' if !in_single && !in_double => {
+                return s[..i].trim_end();
+            }
+            _ => {}
+        }
+    }
+    s.trim()
+}
+
+fn hatch_toml_matrix_header_ok(header: &str) -> bool {
+    let parts: Vec<&str> = header.split('.').collect();
+    parts.len() == 3 && parts[0] == "envs" && hatch_toml_name_ok(parts[1]) && parts[2] == "matrix"
+}
+
+fn hatch_toml_section_ok(header: &str) -> bool {
+    let parts: Vec<&str> = header.split('.').collect();
+    if parts.is_empty() || parts.len() > 5 {
+        return false;
+    }
+    match parts[0] {
+        "envs" => match parts.len() {
+            2 => hatch_toml_name_ok(parts[1]),
+            3 => {
+                hatch_toml_name_ok(parts[1])
+                    && matches!(
+                        parts[2],
+                        "scripts" | "env-vars" | "extra-scripts" | "overrides" | "matrix"
+                    )
+            }
+            _ => false,
+        },
+        "build" => match parts.len() {
+            1 => true,
+            2 => matches!(parts[1], "targets" | "hooks"),
+            3 => match parts[1] {
+                "targets" => hatch_toml_target_ok(parts[2]),
+                "hooks" => hatch_toml_name_ok(parts[2]),
+                _ => false,
+            },
+            4 => {
+                parts[1] == "targets"
+                    && hatch_toml_target_ok(parts[2])
+                    && matches!(parts[3], "force-include" | "sources" | "hooks")
+            }
+            5 => {
+                parts[1] == "targets"
+                    && hatch_toml_target_ok(parts[2])
+                    && parts[3] == "hooks"
+                    && hatch_toml_name_ok(parts[4])
+            }
+            _ => false,
+        },
+        "version" => parts.len() == 1,
+        "publish" => match parts.len() {
+            1 => true,
+            2 => matches!(parts[1], "index" | "repo"),
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+fn hatch_toml_target_ok(name: &str) -> bool {
+    let name = name.trim_matches('"');
+    matches!(name, "wheel" | "sdist" | "app" | "zipapp") || hatch_toml_name_ok(name)
+}
+
+fn hatch_toml_name_ok(name: &str) -> bool {
+    let name = name.trim_matches('"');
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    // Env / hook / target names are lowercase kebab-case in stock hatch.toml.
+    if !(bytes[0].is_ascii_lowercase() || bytes[0].is_ascii_digit() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(*b, b'-' | b'_'))
+}
+
+fn hatch_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        // Distinctive environment / build scalars (kebab-case).
+        "detached"
+            | "skip-install"
+            | "dev-mode"
+            | "locked"
+            | "lock-envs"
+            | "installer"
+            | "locker"
+            | "lock-filename"
+            | "template"
+            | "type"
+            | "config-path"
+            | "uv-path"
+            | "system-packages"
+            | "matrix-name-format"
+            | "ignore-vcs"
+            | "only-packages"
+            | "dev-mode-exact"
+    )
+}
+
+fn hatch_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out.
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "detached"
+            | "skip-install"
+            | "dev-mode"
+            | "locked"
+            | "lock-envs"
+            | "system-packages"
+            | "ignore-vcs"
+            | "only-packages"
+            | "dev-mode-exact"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "installer" || key == "locker" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "uv" | "pip");
+    }
+    if key == "type" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "virtual" | "container") || hatch_toml_name_ok(bare);
+    }
+    // Remaining keys: quoted strings (paths, templates, formats).
+    if !(value.starts_with('"') || value.starts_with('\'')) {
+        return false;
+    }
+    if bare.len() > 512 {
+        return false;
+    }
+    bare.bytes()
+        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -61517,17 +61753,17 @@ mod func_like_line_tests {
         is_dist_toml_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
         is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_fly_toml_decl,
         is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl,
-        is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
-        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
-        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_premake_decl,
+        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
+        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
+        is_mutants_toml_decl, is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
+        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
+        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_premake_decl,
         is_protocols_file_decl, is_pyproject_toml_decl, is_railway_toml_decl, is_rake_decl,
         is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
         is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
@@ -74265,6 +74501,159 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("channel-priority"));
         assert!(!line_is_func_like("Channel-Priority = \"strict\""));
         assert!(!line_is_func_like("numpy = \"1.26.*\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn hatch_toml_entries_count() {
+        assert!(line_is_func_like("[envs.default]"));
+        assert!(line_is_func_like("[envs.hatch-test]"));
+        assert!(line_is_func_like("[envs.coverage]"));
+        assert!(line_is_func_like("[envs.docs]"));
+        assert!(line_is_func_like("[envs.default.scripts]"));
+        assert!(line_is_func_like("[envs.docs.env-vars]"));
+        assert!(line_is_func_like("[envs.types.extra-scripts]"));
+        assert!(line_is_func_like("[envs.test.overrides]"));
+        assert!(line_is_func_like("[[envs.test.matrix]]"));
+        assert!(line_is_func_like("[build]"));
+        assert!(line_is_func_like("[build.targets.wheel]"));
+        assert!(line_is_func_like("[build.targets.sdist]"));
+        assert!(line_is_func_like("[build.targets.wheel.force-include]"));
+        assert!(line_is_func_like("[build.targets.wheel.sources]"));
+        assert!(line_is_func_like("[build.hooks.custom]"));
+        assert!(line_is_func_like("[build.targets.wheel.hooks.custom]"));
+        assert!(line_is_func_like("[version]"));
+        assert!(line_is_func_like("[publish.index]"));
+        assert!(line_is_func_like("detached = true"));
+        assert!(line_is_func_like("skip-install = true"));
+        assert!(line_is_func_like("dev-mode = false"));
+        assert!(line_is_func_like("locked = true"));
+        assert!(line_is_func_like("installer = \"uv\""));
+        assert!(line_is_func_like("locker = \"pip\""));
+        assert!(line_is_func_like("config-path = \"ruff_defaults.toml\""));
+        assert!(line_is_func_like("  detached = true # keep"));
+
+        assert!(is_hatch_toml_decl("[envs.default]"));
+        assert!(is_hatch_toml_decl("[envs.hatch-test]"));
+        assert!(is_hatch_toml_decl("[envs.hatch-static-analysis]"));
+        assert!(is_hatch_toml_decl("[envs.coverage]"));
+        assert!(is_hatch_toml_decl("[envs.docs]"));
+        assert!(is_hatch_toml_decl("[envs.types]"));
+        assert!(is_hatch_toml_decl("[envs.default.scripts]"));
+        assert!(is_hatch_toml_decl("[envs.docs.env-vars]"));
+        assert!(is_hatch_toml_decl("[envs.types.extra-scripts]"));
+        assert!(is_hatch_toml_decl("[envs.test.overrides]"));
+        assert!(is_hatch_toml_decl("[[envs.test.matrix]]"));
+        assert!(is_hatch_toml_decl("[build]"));
+        assert!(is_hatch_toml_decl("[build.targets]"));
+        assert!(is_hatch_toml_decl("[build.targets.wheel]"));
+        assert!(is_hatch_toml_decl("[build.targets.sdist]"));
+        assert!(is_hatch_toml_decl("[build.targets.wheel.force-include]"));
+        assert!(is_hatch_toml_decl("[build.targets.wheel.sources]"));
+        assert!(is_hatch_toml_decl("[build.hooks.custom]"));
+        assert!(is_hatch_toml_decl("[build.targets.wheel.hooks.custom]"));
+        assert!(is_hatch_toml_decl("[version]"));
+        assert!(is_hatch_toml_decl("[publish]"));
+        assert!(is_hatch_toml_decl("[publish.index]"));
+        assert!(is_hatch_toml_decl("[publish.repo]"));
+        assert!(is_hatch_toml_decl("detached = true"));
+        assert!(is_hatch_toml_decl("detached = false"));
+        assert!(is_hatch_toml_decl("skip-install = true"));
+        assert!(is_hatch_toml_decl("skip-install = false"));
+        assert!(is_hatch_toml_decl("dev-mode = false"));
+        assert!(is_hatch_toml_decl("locked = true"));
+        assert!(is_hatch_toml_decl("lock-envs = true"));
+        assert!(is_hatch_toml_decl("installer = \"uv\""));
+        assert!(is_hatch_toml_decl("installer = \"pip\""));
+        assert!(is_hatch_toml_decl("locker = \"uv\""));
+        assert!(is_hatch_toml_decl("locker = \"pip\""));
+        assert!(is_hatch_toml_decl("lock-filename = \"locks/test.lock\""));
+        assert!(is_hatch_toml_decl("template = \"default\""));
+        assert!(is_hatch_toml_decl("type = \"virtual\""));
+        assert!(is_hatch_toml_decl("type = \"container\""));
+        assert!(is_hatch_toml_decl("config-path = \"ruff_defaults.toml\""));
+        assert!(is_hatch_toml_decl("uv-path = \"uv\""));
+        assert!(is_hatch_toml_decl("system-packages = false"));
+        assert!(is_hatch_toml_decl(
+            "matrix-name-format = \"{variable}_{value}\""
+        ));
+        assert!(is_hatch_toml_decl("ignore-vcs = true"));
+        assert!(is_hatch_toml_decl("only-packages = true"));
+        assert!(is_hatch_toml_decl("dev-mode-exact = true"));
+
+        // Free-form script / env / python / path / arrays stay out.
+        assert!(!is_hatch_toml_decl("run = \"pytest\""));
+        assert!(!is_hatch_toml_decl("combine = \"coverage combine\""));
+        assert!(!is_hatch_toml_decl("FOO = \"bar\""));
+        assert!(!is_hatch_toml_decl("python = \"3.12\""));
+        assert!(!is_hatch_toml_decl("path = \"./env\""));
+        assert!(!is_hatch_toml_decl("dependencies = [\"pytest\"]"));
+        assert!(!is_hatch_toml_decl("features = [\"server\"]"));
+        assert!(!is_hatch_toml_decl("platforms = [\"linux\"]"));
+        assert!(!is_hatch_toml_decl("detached"));
+        assert!(!is_hatch_toml_decl("detached ="));
+        assert!(!is_hatch_toml_decl("Detached = true"));
+        assert!(!is_hatch_toml_decl("DETACHED = true"));
+        assert!(!is_hatch_toml_decl("detached the team"));
+        assert!(!is_hatch_toml_decl("# detached = true"));
+        assert!(!is_hatch_toml_decl("detached = yes"));
+        assert!(!is_hatch_toml_decl("installer = \"poetry\""));
+        assert!(!is_hatch_toml_decl("installer = uv"));
+        assert!(is_hatch_toml_decl("type = \"conda\"")); // custom plugin type
+        assert!(!is_hatch_toml_decl("type = \"Conda\""));
+        assert!(!is_hatch_toml_decl("type = \"with space\""));
+        assert!(!is_hatch_toml_decl("port = 54321"));
+        assert!(!is_hatch_toml_decl("PATH=/usr/bin"));
+        assert!(!is_hatch_toml_decl("[Envs.default]"));
+        assert!(!is_hatch_toml_decl("[ENVS.default]"));
+        assert!(!is_hatch_toml_decl("[envs.Default]"));
+        assert!(!is_hatch_toml_decl("[envs]"));
+        assert!(!is_hatch_toml_decl("[envs.default.unknown]"));
+        assert!(!is_hatch_toml_decl("[[envs.default.scripts]]"));
+        assert!(!is_hatch_toml_decl("[[build.targets.wheel]]"));
+        // Neighbouring deploy / tool TOMLs stay on their detectors.
+        assert!(!is_hatch_toml_decl("channel-priority = \"strict\""));
+        assert!(is_pixi_toml_decl("channel-priority = \"strict\""));
+        assert!(!is_hatch_toml_decl("[activation]"));
+        assert!(is_pixi_toml_decl("[activation]"));
+        assert!(!is_hatch_toml_decl("min_version = \"2024.1.1\""));
+        assert!(is_mise_toml_decl("min_version = \"2024.1.1\""));
+        assert!(!is_hatch_toml_decl("[tools]"));
+        assert!(is_mise_toml_decl("[tools]"));
+        assert!(!is_hatch_toml_decl("project_id = \"my-app\""));
+        assert!(is_supabase_toml_decl("project_id = \"my-app\""));
+        assert!(!is_hatch_toml_decl("stack_name = \"my-app\""));
+        assert!(is_samconfig_toml_decl("stack_name = \"my-app\""));
+        assert!(!is_hatch_toml_decl("cmd = \"yarn run start\""));
+        assert!(is_nixpacks_toml_decl("cmd = \"yarn run start\""));
+        assert!(!is_hatch_toml_decl("startCommand = \"node index.js\""));
+        assert!(is_railway_toml_decl("startCommand = \"node index.js\""));
+        // Railway also lists [build]; hatch shares the section shape.
+        assert!(is_hatch_toml_decl("[build]"));
+        assert!(is_railway_toml_decl("[build]"));
+        assert!(!is_hatch_toml_decl("primary_region = \"iad\""));
+        assert!(is_fly_toml_decl("primary_region = \"iad\""));
+        assert!(!is_hatch_toml_decl("node_bundler = \"esbuild\""));
+        assert!(is_netlify_toml_decl("node_bundler = \"esbuild\""));
+        assert!(!is_hatch_toml_decl("workers_dev = true"));
+        assert!(is_wrangler_toml_decl("workers_dev = true"));
+        assert!(!is_hatch_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("reload_html = true"));
+        assert!(!is_hatch_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_hatch_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_hatch_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_hatch_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_hatch_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_hatch_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!line_is_func_like("detached"));
+        assert!(!line_is_func_like("Detached = true"));
+        assert!(!line_is_func_like("run = \"pytest\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
