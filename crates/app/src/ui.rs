@@ -32391,6 +32391,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_dioxus_toml_decl(s)
             || is_wrangler_toml_decl(s)
             || is_netlify_toml_decl(s)
+            || is_fly_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32609,6 +32610,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_dioxus_toml_decl(s)
         || is_wrangler_toml_decl(s)
         || is_netlify_toml_decl(s)
+        || is_fly_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -55816,11 +55818,11 @@ fn dioxus_toml_value_ok(key: &str, value: &str) -> bool {
 /// `route = "example.com/*"`. Exact snake_case Wrangler keys. TOML
 /// `key = value` with spaces around `=`. Optional `#` comment. Arrays
 /// (`compatibility_flags = […]`, `routes = […]`, `crons = […]`) /
-/// nested maps / bare `minify` / prose / wrong case / netlify / dioxus /
-/// uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make /
-/// release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross /
-/// rust-toolchain / cargo config / nextest / deny / clippy / rustfmt /
-/// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+/// nested maps / bare `minify` / prose / wrong case / fly / netlify /
+/// dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff /
+/// cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon /
+/// Cross / rust-toolchain / cargo config / nextest / deny / clippy /
+/// rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
 fn is_wrangler_toml_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -56092,8 +56094,8 @@ fn wrangler_toml_worker_name_ok(s: &str) -> bool {
 /// Netlify keys (snake_case + known camelCase). TOML `key = value` with
 /// spaces around `=`. Optional `#` comment. Arrays
 /// (`included_files = […]`, `external_node_modules = […]`) / nested maps /
-/// `port = …` (MySQL option-file collision) / prose / wrong case / wrangler /
-/// dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff /
+/// `port = …` (MySQL option-file collision) / prose / wrong case / fly /
+/// wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff /
 /// cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon /
 /// Cross / rust-toolchain / cargo config / nextest / deny / clippy /
 /// rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
@@ -56374,6 +56376,423 @@ fn netlify_toml_value_ok(key: &str, value: &str) -> bool {
         return true;
     }
     false
+}
+
+/// Fly.io `fly.toml`: `[build]` / `[deploy]` / `[http_service]` /
+/// `[http_service.concurrency]` / `[vm]` / `[metrics]` / `[experimental]` /
+/// `[processes]` / `[checks.name]`, `[[http_service.checks]]` /
+/// `[[services]]` / `[[services.ports]]` / `[[services.tcp_checks]]` /
+/// `[[services.http_checks]]` / `[[vm]]` / `[[mounts]]` / `[[statics]]` /
+/// `[[files]]`, `app = "my-app"`, `primary_region = "iad"`,
+/// `kill_signal = "SIGTERM"`, `kill_timeout = "5s"`, `swap_size_mb = 512`,
+/// `console_command = "/bin/bash"`, `dockerfile = "Dockerfile"`,
+/// `ignorefile = ".dockerignore"`, `image = "registry.fly.io/…"`,
+/// `builder = "paketobuildpacks/builder:base"`, `build-target = "runner"`,
+/// `strategy = "rolling"` / `"bluegreen"` / `"canary"` / `"immediate"`,
+/// `release_command = "…"`, `wait_timeout = "5m"`, `max_unavailable = 1`,
+/// `internal_port = 8080`, `force_https = true`,
+/// `auto_stop_machines = "stop"` / `"suspend"` / `"off"` / true / false,
+/// `auto_start_machines = true`, `min_machines_running = 0`,
+/// `idle_timeout = "60s"`, `type = "requests"` / `"connections"`,
+/// `hard_limit = 25`, `soft_limit = 20`, `interval = "15s"`,
+/// `timeout = "2s"`, `grace_period = "5s"`, `method = "GET"`,
+/// `path = "/health"`, `protocol = "tcp"` / `"udp"` / `"http"` / `"https"`,
+/// `tls_skip_verify = false`, `cpu_kind = "shared"`, `cpus = 1`,
+/// `memory_mb = 256`, `memory = "1gb"`, `size = "shared-cpu-1x"`,
+/// `gpu_kind = "a10"`, `gpus = 1`, `source = "data"`,
+/// `destination = "/data"`, `initial_size = "1gb"`,
+/// `guest_path = "/app/public"`, `url_prefix = "/static"`,
+/// `local_path = "./secret"`, `raw_value = "…"`, `secret_name = "…"`,
+/// `auto_rollback = true`. Exact Fly keys (snake_case + `build-target`).
+/// TOML `key = value` with spaces around `=`. Optional `#` comment.
+/// Arrays (`processes = […]`, `handlers = […]`, `buildpacks = […]`) /
+/// nested maps (`args = {…}`, `headers = {…}`) / `[env]` / free-form env
+/// keys / `port = …` (MySQL option-file collision) / prose / wrong case /
+/// netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants /
+/// audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo /
+/// typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny /
+/// clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml
+/// stay out.
+fn is_fly_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        if array {
+            return fly_toml_array_section_ok(header);
+        }
+        return fly_toml_section_ok(header);
+    }
+    // Quote-aware `#` / `;` strip so duration / path strings keep `#` out.
+    let body = fly_toml_strip_comment(s);
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested dotted free-form keys stay out.
+    if key.contains('.') {
+        return false;
+    }
+    if !fly_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    fly_toml_value_ok(key, value)
+}
+
+fn fly_toml_strip_comment(s: &str) -> &str {
+    let mut in_single = false;
+    let mut in_double = false;
+    for (i, b) in s.bytes().enumerate() {
+        match b {
+            b'\'' if !in_double => in_single = !in_single,
+            b'"' if !in_single => in_double = !in_double,
+            b'#' | b';' if !in_single && !in_double => {
+                return s[..i].trim_end();
+            }
+            _ => {}
+        }
+    }
+    s.trim()
+}
+
+fn fly_toml_section_ok(header: &str) -> bool {
+    if matches!(
+        header,
+        "build"
+            | "deploy"
+            | "http_service"
+            | "http_service.concurrency"
+            | "vm"
+            | "metrics"
+            | "experimental"
+            | "processes"
+    ) {
+        return true;
+    }
+    if let Some(name) = header.strip_prefix("checks.") {
+        return fly_toml_check_name_ok(name);
+    }
+    false
+}
+
+fn fly_toml_array_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "http_service.checks"
+            | "services"
+            | "services.ports"
+            | "services.tcp_checks"
+            | "services.http_checks"
+            | "vm"
+            | "mounts"
+            | "statics"
+            | "files"
+    )
+}
+
+fn fly_toml_check_name_ok(name: &str) -> bool {
+    let name = name.trim_matches('"');
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'-' | b'_'))
+}
+
+fn fly_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "app"
+            | "primary_region"
+            | "kill_signal"
+            | "kill_timeout"
+            | "swap_size_mb"
+            | "console_command"
+            | "dockerfile"
+            | "ignorefile"
+            | "image"
+            | "builder"
+            | "build-target"
+            | "strategy"
+            | "release_command"
+            | "wait_timeout"
+            | "max_unavailable"
+            | "internal_port"
+            | "force_https"
+            | "auto_stop_machines"
+            | "auto_start_machines"
+            | "min_machines_running"
+            | "idle_timeout"
+            | "type"
+            | "hard_limit"
+            | "soft_limit"
+            | "interval"
+            | "timeout"
+            | "grace_period"
+            | "method"
+            | "path"
+            | "protocol"
+            | "tls_skip_verify"
+            | "cpu_kind"
+            | "cpus"
+            | "memory_mb"
+            | "memory"
+            | "size"
+            | "gpu_kind"
+            | "gpus"
+            | "source"
+            | "destination"
+            | "initial_size"
+            | "guest_path"
+            | "url_prefix"
+            | "local_path"
+            | "raw_value"
+            | "secret_name"
+            | "auto_rollback"
+    )
+}
+
+fn fly_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (processes = […], args = {…}, …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "force_https" | "auto_start_machines" | "tls_skip_verify" | "auto_rollback"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "auto_stop_machines" {
+        return bare.eq_ignore_ascii_case("true")
+            || bare.eq_ignore_ascii_case("false")
+            || matches!(bare, "stop" | "suspend" | "off");
+    }
+    if matches!(
+        key,
+        "swap_size_mb"
+            | "max_unavailable"
+            | "internal_port"
+            | "min_machines_running"
+            | "hard_limit"
+            | "soft_limit"
+            | "cpus"
+            | "memory_mb"
+            | "gpus"
+    ) {
+        // Non-negative integer (min_machines_running may be 0).
+        if key == "internal_port" || key == "cpus" || key == "gpus" {
+            return bare.len() <= 5 && bare.bytes().all(|b| b.is_ascii_digit()) && bare != "0";
+        }
+        return bare.len() <= 6 && bare.bytes().all(|b| b.is_ascii_digit());
+    }
+    if key == "strategy" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "rolling" | "bluegreen" | "canary" | "immediate");
+    }
+    if key == "type" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "requests" | "connections");
+    }
+    if key == "protocol" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "tcp" | "udp" | "http" | "https");
+    }
+    if key == "method" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(
+            bare,
+            "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS"
+        );
+    }
+    if key == "app" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return fly_toml_app_name_ok(bare);
+    }
+    if key == "primary_region" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        // Fly region codes: 3–4 lowercase letters (iad, ord, sjc, …).
+        return (3..=4).contains(&bare.len()) && bare.bytes().all(|b| b.is_ascii_lowercase());
+    }
+    if matches!(
+        key,
+        "kill_signal"
+            | "kill_timeout"
+            | "console_command"
+            | "dockerfile"
+            | "ignorefile"
+            | "image"
+            | "builder"
+            | "build-target"
+            | "release_command"
+            | "wait_timeout"
+            | "idle_timeout"
+            | "interval"
+            | "timeout"
+            | "grace_period"
+            | "path"
+            | "cpu_kind"
+            | "memory"
+            | "size"
+            | "gpu_kind"
+            | "source"
+            | "destination"
+            | "initial_size"
+            | "guest_path"
+            | "url_prefix"
+            | "local_path"
+            | "raw_value"
+            | "secret_name"
+    ) {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 512 {
+            return false;
+        }
+        if !bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+        {
+            return false;
+        }
+        if key == "kill_signal" {
+            return bare.starts_with("SIG")
+                && bare.len() >= 4
+                && bare.bytes().all(|b| b.is_ascii_uppercase());
+        }
+        if matches!(
+            key,
+            "kill_timeout"
+                | "wait_timeout"
+                | "idle_timeout"
+                | "interval"
+                | "timeout"
+                | "grace_period"
+        ) {
+            return fly_toml_duration_ok(bare);
+        }
+        if matches!(key, "path" | "url_prefix" | "guest_path" | "destination") {
+            return bare.starts_with('/') || bare.contains('*');
+        }
+        if matches!(key, "dockerfile" | "ignorefile" | "local_path") {
+            return bare.contains('/')
+                || bare.contains('.')
+                || bare
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'));
+        }
+        if key == "source" {
+            return bare
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'));
+        }
+        if key == "cpu_kind" {
+            return matches!(bare, "shared" | "performance");
+        }
+        if matches!(key, "memory" | "initial_size" | "size") {
+            // `1gb` / `256mb` / `shared-cpu-1x` style sizes.
+            return bare
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'));
+        }
+        if key == "gpu_kind" {
+            return bare
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'));
+        }
+        // console_command / image / builder / build-target / release_command /
+        // raw_value / secret_name: quoted graphic string.
+        return true;
+    }
+    false
+}
+
+fn fly_toml_app_name_ok(s: &str) -> bool {
+    if s.is_empty() || s.len() > 63 {
+        return false;
+    }
+    const PROSE: &[&str] = &[
+        "the", "a", "an", "to", "of", "for", "and", "or", "is", "team", "note",
+    ];
+    if PROSE.iter().any(|w| s.eq_ignore_ascii_case(w)) {
+        return false;
+    }
+    let bytes = s.as_bytes();
+    // Fly apps: lowercase alphanumeric + dashes; no leading/trailing dash.
+    if !bytes[0].is_ascii_lowercase() && !bytes[0].is_ascii_digit() {
+        return false;
+    }
+    if bytes[0] == b'-' || bytes[bytes.len() - 1] == b'-' {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-')
+}
+
+fn fly_toml_duration_ok(s: &str) -> bool {
+    // `5s` / `15s` / `2m` / `1h` / bare digits (seconds).
+    if s.is_empty() || s.len() > 8 {
+        return false;
+    }
+    let bytes = s.as_bytes();
+    if bytes.iter().all(|b| b.is_ascii_digit()) {
+        return !s.is_empty() && s != "0";
+    }
+    if bytes.len() < 2 {
+        return false;
+    }
+    let (num, unit) = bytes.split_at(bytes.len() - 1);
+    if num.is_empty() || !num.iter().all(|b| b.is_ascii_digit()) {
+        return false;
+    }
+    matches!(unit, b"s" | b"m" | b"h")
 }
 
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
@@ -59196,18 +59615,18 @@ mod func_like_line_tests {
         is_composer_json_decl, is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl,
         is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dioxus_toml_decl,
         is_dist_toml_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
-        is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
-        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
-        is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl, is_hosts_file_decl,
-        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mkinitcpio_conf_decl,
-        is_modprobe_conf_decl, is_mutants_toml_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
-        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_fly_toml_decl,
+        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl,
+        is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
+        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
+        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
         is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_release_toml_decl,
         is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
         is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl,
@@ -70240,6 +70659,18 @@ mod func_like_line_tests {
         assert!(is_netlify_toml_decl("[[redirects]]"));
         assert!(!is_wrangler_toml_decl("[context.production]"));
         assert!(is_netlify_toml_decl("[context.production]"));
+        // Neighbouring fly family stays on its path.
+        assert!(!is_wrangler_toml_decl("primary_region = \"iad\""));
+        assert!(is_fly_toml_decl("primary_region = \"iad\""));
+        assert!(!is_wrangler_toml_decl("auto_stop_machines = \"stop\""));
+        assert!(is_fly_toml_decl("auto_stop_machines = \"stop\""));
+        assert!(!is_wrangler_toml_decl("[http_service]"));
+        assert!(is_fly_toml_decl("[http_service]"));
+        assert!(!is_wrangler_toml_decl("[[mounts]]"));
+        assert!(is_fly_toml_decl("[[mounts]]"));
+        // Shared `[[services]]` still lists on both.
+        assert!(is_wrangler_toml_decl("[[services]]"));
+        assert!(is_fly_toml_decl("[[services]]"));
         assert!(!line_is_func_like("workers_dev"));
         assert!(!line_is_func_like("Workers_Dev = true"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
@@ -70418,9 +70849,19 @@ mod func_like_line_tests {
         assert!(is_uv_toml_decl("[pip]"));
         assert!(!is_netlify_toml_decl("[package]"));
         assert!(is_cargo_toml_decl("[package]"));
+        // Neighbouring fly family stays on its path.
+        assert!(!is_netlify_toml_decl("primary_region = \"iad\""));
+        assert!(is_fly_toml_decl("primary_region = \"iad\""));
+        assert!(!is_netlify_toml_decl("auto_stop_machines = \"stop\""));
+        assert!(is_fly_toml_decl("auto_stop_machines = \"stop\""));
+        assert!(!is_netlify_toml_decl("[http_service]"));
+        assert!(is_fly_toml_decl("[http_service]"));
+        assert!(!is_netlify_toml_decl("[[mounts]]"));
+        assert!(is_fly_toml_decl("[[mounts]]"));
         // Shared `[build]` / `[dev]` with trunk / wrangler still list.
         assert!(is_netlify_toml_decl("[build]"));
         assert!(is_trunk_toml_decl("[build]"));
+        assert!(is_fly_toml_decl("[build]"));
         assert!(is_netlify_toml_decl("[dev]"));
         assert!(is_wrangler_toml_decl("[dev]"));
         // publish = "dist" is netlify (path); release.toml wants bool.
@@ -70428,6 +70869,215 @@ mod func_like_line_tests {
         assert!(!is_release_toml_decl("publish = \"dist\""));
         assert!(!line_is_func_like("node_bundler"));
         assert!(!line_is_func_like("Node_Bundler = \"esbuild\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn fly_toml_entries_count() {
+        assert!(line_is_func_like("[build]"));
+        assert!(line_is_func_like("[deploy]"));
+        assert!(line_is_func_like("[http_service]"));
+        assert!(line_is_func_like("[http_service.concurrency]"));
+        assert!(line_is_func_like("[vm]"));
+        assert!(line_is_func_like("[metrics]"));
+        assert!(line_is_func_like("[experimental]"));
+        assert!(line_is_func_like("[processes]"));
+        assert!(line_is_func_like("[checks.alive]"));
+        assert!(line_is_func_like("[[http_service.checks]]"));
+        assert!(line_is_func_like("[[services]]"));
+        assert!(line_is_func_like("[[services.ports]]"));
+        assert!(line_is_func_like("[[services.tcp_checks]]"));
+        assert!(line_is_func_like("[[services.http_checks]]"));
+        assert!(line_is_func_like("[[vm]]"));
+        assert!(line_is_func_like("[[mounts]]"));
+        assert!(line_is_func_like("[[statics]]"));
+        assert!(line_is_func_like("[[files]]"));
+        assert!(line_is_func_like("app = \"my-app\""));
+        assert!(line_is_func_like("primary_region = \"iad\""));
+        assert!(line_is_func_like("kill_signal = \"SIGTERM\""));
+        assert!(line_is_func_like("kill_timeout = \"5s\""));
+        assert!(line_is_func_like("swap_size_mb = 512"));
+        assert!(line_is_func_like("console_command = \"/bin/bash\""));
+        assert!(line_is_func_like("dockerfile = \"Dockerfile\""));
+        assert!(line_is_func_like("ignorefile = \".dockerignore\""));
+        assert!(line_is_func_like(
+            "image = \"registry.fly.io/my-app:latest\""
+        ));
+        assert!(line_is_func_like(
+            "builder = \"paketobuildpacks/builder:base\""
+        ));
+        assert!(line_is_func_like("build-target = \"runner\""));
+        assert!(line_is_func_like("strategy = \"rolling\""));
+        assert!(line_is_func_like("strategy = \"bluegreen\""));
+        assert!(line_is_func_like("release_command = \"./migrate\""));
+        assert!(line_is_func_like("wait_timeout = \"5m\""));
+        assert!(line_is_func_like("max_unavailable = 1"));
+        assert!(line_is_func_like("internal_port = 8080"));
+        assert!(line_is_func_like("force_https = true"));
+        assert!(line_is_func_like("auto_stop_machines = \"stop\""));
+        assert!(line_is_func_like("auto_stop_machines = \"suspend\""));
+        assert!(line_is_func_like("auto_stop_machines = false"));
+        assert!(line_is_func_like("auto_start_machines = true"));
+        assert!(line_is_func_like("min_machines_running = 0"));
+        assert!(line_is_func_like("idle_timeout = \"60s\""));
+        assert!(line_is_func_like("type = \"requests\""));
+        assert!(line_is_func_like("hard_limit = 25"));
+        assert!(line_is_func_like("soft_limit = 20"));
+        assert!(line_is_func_like("interval = \"15s\""));
+        assert!(line_is_func_like("timeout = \"2s\""));
+        assert!(line_is_func_like("grace_period = \"5s\""));
+        assert!(line_is_func_like("method = \"GET\""));
+        assert!(line_is_func_like("path = \"/health\""));
+        assert!(line_is_func_like("protocol = \"tcp\""));
+        assert!(line_is_func_like("tls_skip_verify = false"));
+        assert!(line_is_func_like("cpu_kind = \"shared\""));
+        assert!(line_is_func_like("cpus = 1"));
+        assert!(line_is_func_like("memory_mb = 256"));
+        assert!(line_is_func_like("memory = \"1gb\""));
+        assert!(line_is_func_like("size = \"shared-cpu-1x\""));
+        assert!(line_is_func_like("gpu_kind = \"a10\""));
+        assert!(line_is_func_like("gpus = 1"));
+        assert!(line_is_func_like("source = \"data\""));
+        assert!(line_is_func_like("destination = \"/data\""));
+        assert!(line_is_func_like("initial_size = \"1gb\""));
+        assert!(line_is_func_like("guest_path = \"/app/public\""));
+        assert!(line_is_func_like("url_prefix = \"/static\""));
+        assert!(line_is_func_like("local_path = \"./secret\""));
+        assert!(line_is_func_like("raw_value = \"plain\""));
+        assert!(line_is_func_like("secret_name = \"MY_SECRET\""));
+        assert!(line_is_func_like("auto_rollback = true"));
+        assert!(line_is_func_like(
+            "  primary_region = \"ord\" # keep whitespace"
+        ));
+        // Shared detector for fly-only keys.
+        assert!(is_fly_toml_decl("primary_region = \"iad\""));
+        assert!(is_fly_toml_decl("auto_stop_machines = \"stop\""));
+        assert!(is_fly_toml_decl("force_https = true"));
+        assert!(is_fly_toml_decl("[http_service]"));
+        assert!(is_fly_toml_decl("[[mounts]]"));
+        assert!(is_fly_toml_decl("[[statics]]"));
+        assert!(is_fly_toml_decl("[deploy]"));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_fly_toml_decl("primary_region"));
+        assert!(!is_fly_toml_decl("primary_region ="));
+        assert!(!is_fly_toml_decl("Primary_Region = \"iad\""));
+        assert!(!is_fly_toml_decl("PRIMARY_REGION = \"iad\""));
+        assert!(!is_fly_toml_decl("primary_region the team"));
+        assert!(!is_fly_toml_decl("# primary_region = \"iad\""));
+        assert!(!is_fly_toml_decl("processes = [\"app\"]"));
+        assert!(!is_fly_toml_decl("handlers = [\"http\"]"));
+        assert!(!is_fly_toml_decl("args = { NODE_ENV = \"production\" }"));
+        assert!(!is_fly_toml_decl("primary_region = iad"));
+        assert!(!is_fly_toml_decl("primary_region = \"IAD\""));
+        assert!(!is_fly_toml_decl("strategy = rolling"));
+        assert!(!is_fly_toml_decl("strategy = \"blue-green\""));
+        assert!(!is_fly_toml_decl("force_https = yes"));
+        assert!(!is_fly_toml_decl("auto_stop_machines = \"halt\""));
+        assert!(!is_fly_toml_decl("app = my-app"));
+        assert!(!is_fly_toml_decl("app = \"My-App\""));
+        assert!(!is_fly_toml_decl("app = \"the\""));
+        assert!(!is_fly_toml_decl("internal_port = 0"));
+        assert!(!is_fly_toml_decl("port = 8080"));
+        assert!(!is_fly_toml_decl("PATH=/usr/bin"));
+        assert!(!is_fly_toml_decl("[env]"));
+        assert!(!is_fly_toml_decl("[Http_Service]"));
+        assert!(!is_fly_toml_decl("[HTTP_SERVICE]"));
+        assert!(!is_fly_toml_decl("[checks.]"));
+        assert!(!is_fly_toml_decl("[checks. alive]"));
+        assert!(!is_fly_toml_decl("[[http_service]]"));
+        assert!(!is_fly_toml_decl("[package]"));
+        assert!(!is_fly_toml_decl("[[bin]]"));
+        assert!(!is_fly_toml_decl("[workspace]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_fly_toml_decl("node_bundler = \"esbuild\""));
+        assert!(is_netlify_toml_decl("node_bundler = \"esbuild\""));
+        assert!(!is_fly_toml_decl("pretty_urls = true"));
+        assert!(is_netlify_toml_decl("pretty_urls = true"));
+        assert!(!is_fly_toml_decl("[[redirects]]"));
+        assert!(is_netlify_toml_decl("[[redirects]]"));
+        assert!(!is_fly_toml_decl("[context.production]"));
+        assert!(is_netlify_toml_decl("[context.production]"));
+        assert!(!is_fly_toml_decl("workers_dev = true"));
+        assert!(is_wrangler_toml_decl("workers_dev = true"));
+        assert!(!is_fly_toml_decl("compatibility_date = \"2024-01-01\""));
+        assert!(is_wrangler_toml_decl("compatibility_date = \"2024-01-01\""));
+        assert!(!is_fly_toml_decl("[env.staging]"));
+        assert!(is_wrangler_toml_decl("[env.staging]"));
+        assert!(!is_fly_toml_decl("[[kv_namespaces]]"));
+        assert!(is_wrangler_toml_decl("[[kv_namespaces]]"));
+        // Shared `[[services]]` still lists on both wrangler + fly.
+        assert!(is_fly_toml_decl("[[services]]"));
+        assert!(is_wrangler_toml_decl("[[services]]"));
+        assert!(!is_fly_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("reload_html = true"));
+        assert!(!is_fly_toml_decl("default_platform = \"web\""));
+        assert!(is_dioxus_toml_decl("default_platform = \"web\""));
+        assert!(!is_fly_toml_decl("[web.app]"));
+        assert!(is_dioxus_toml_decl("[web.app]"));
+        assert!(!is_fly_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(is_uniffi_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(!is_fly_toml_decl("language = \"C++\""));
+        assert!(is_cbindgen_toml_decl("language = \"C++\""));
+        assert!(!is_fly_toml_decl("public_url = \"/\""));
+        assert!(is_trunk_toml_decl("public_url = \"/\""));
+        assert!(!is_fly_toml_decl("filehash = true"));
+        assert!(is_trunk_toml_decl("filehash = true"));
+        assert!(!is_fly_toml_decl("timeout_multiplier = 2.0"));
+        assert!(is_mutants_toml_decl("timeout_multiplier = 2.0"));
+        assert!(!is_fly_toml_decl("severity_threshold = \"low\""));
+        assert!(is_audit_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_fly_toml_decl("conventional_commits = true"));
+        assert!(is_cliff_toml_decl("conventional_commits = true"));
+        assert!(!is_fly_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_fly_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(!is_fly_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_fly_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_fly_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_fly_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_fly_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_fly_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_fly_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_fly_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_fly_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_fly_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_fly_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_fly_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_fly_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_fly_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_fly_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_fly_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_fly_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_fly_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_fly_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_fly_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        // Shared `[build]` with netlify / trunk still list.
+        assert!(is_fly_toml_decl("[build]"));
+        assert!(is_netlify_toml_decl("[build]"));
+        assert!(is_trunk_toml_decl("[build]"));
+        assert!(!line_is_func_like("primary_region"));
+        assert!(!line_is_func_like("Primary_Region = \"iad\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

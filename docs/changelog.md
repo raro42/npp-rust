@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.641] — 2026-11-06
+
+View:
+
+- **Function List** lists Fly.io `fly.toml` sections and fields: `[build]` / `[deploy]` / `[http_service]` / `[http_service.concurrency]` / `[vm]` / `[metrics]` / `[experimental]` / `[processes]` / `[checks.name]`, `[[http_service.checks]]` / `[[services]]` / `[[services.ports]]` / `[[services.tcp_checks]]` / `[[services.http_checks]]` / `[[vm]]` / `[[mounts]]` / `[[statics]]` / `[[files]]`, `app = "my-app"`, `primary_region = "iad"`, `kill_signal = "SIGTERM"`, `kill_timeout = "5s"`, `swap_size_mb = 512`, `console_command = "/bin/bash"`, `dockerfile = "Dockerfile"`, `ignorefile = ".dockerignore"`, `image = "…"`, `builder = "…"`, `build-target = "runner"`, `strategy = "rolling"` / `"bluegreen"` / `"canary"` / `"immediate"`, `release_command = "…"`, `wait_timeout = "5m"`, `max_unavailable = 1`, `internal_port = 8080`, `force_https = true`, `auto_stop_machines = "stop"` / `"suspend"` / `"off"` / true / false, `auto_start_machines = true`, `min_machines_running = 0`, `idle_timeout = "60s"`, `type = "requests"` / `"connections"`, `hard_limit = 25`, `soft_limit = 20`, `interval = "15s"`, `timeout = "2s"`, `grace_period = "5s"`, `method = "GET"`, `path = "/health"`, `protocol = "tcp"` / `"udp"` / `"http"` / `"https"`, `tls_skip_verify = false`, `cpu_kind = "shared"`, `cpus = 1`, `memory_mb = 256`, `memory = "1gb"`, `size = "shared-cpu-1x"`, `gpu_kind = "a10"`, `gpus = 1`, `source = "data"`, `destination = "/data"`, `initial_size = "1gb"`, `guest_path = "/app/public"`, `url_prefix = "/static"`, `local_path = "./secret"`, `raw_value = "…"`, `secret_name = "…"`, `auto_rollback = true`. Exact Fly keys (snake_case + `build-target`). TOML `key = value` with spaces around `=`. Optional `#` comment (quote-aware). Arrays (`processes = […]`, `handlers = […]`, `buildpacks = […]`) / nested maps (`args = {…}`, `headers = {…}`) / `[env]` / free-form env keys / `port = …` (MySQL option-file collision) / prose / wrong case / netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.640] — 2026-11-06
 
 View:
