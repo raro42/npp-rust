@@ -32390,6 +32390,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_uniffi_toml_decl(s)
             || is_dioxus_toml_decl(s)
             || is_wrangler_toml_decl(s)
+            || is_netlify_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32607,6 +32608,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_uniffi_toml_decl(s)
         || is_dioxus_toml_decl(s)
         || is_wrangler_toml_decl(s)
+        || is_netlify_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -55814,8 +55816,8 @@ fn dioxus_toml_value_ok(key: &str, value: &str) -> bool {
 /// `route = "example.com/*"`. Exact snake_case Wrangler keys. TOML
 /// `key = value` with spaces around `=`. Optional `#` comment. Arrays
 /// (`compatibility_flags = […]`, `routes = […]`, `crons = […]`) /
-/// nested maps / bare `minify` / prose / wrong case / dioxus / uniffi /
-/// cbindgen / trunk / mutants / audit / cliff / cargo-make /
+/// nested maps / bare `minify` / prose / wrong case / netlify / dioxus /
+/// uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make /
 /// release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross /
 /// rust-toolchain / cargo config / nextest / deny / clippy / rustfmt /
 /// ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
@@ -56069,6 +56071,309 @@ fn wrangler_toml_worker_name_ok(s: &str) -> bool {
     bytes
         .iter()
         .all(|b| b.is_ascii_alphanumeric() || *b == b'-')
+}
+
+/// Netlify `netlify.toml`: `[build]` / `[build.environment]` /
+/// `[build.processing]` / `[build.processing.css|js|html|images]`,
+/// `[dev]` / `[functions]` / `[functions.name]`,
+/// `[context.production]` / `[context.deploy-preview]` /
+/// `[context.branch-deploy]` / `[context.name]` /
+/// `[context.name.environment]` / `[context.name.processing…]`,
+/// `[[redirects]]` / `[[headers]]` / `[[plugins]]` / `[[edge_functions]]`,
+/// `command = "npm run build"`, `publish = "dist"`,
+/// `functions = "netlify/functions"`, `edge_functions = "netlify/edge-functions"`,
+/// `base = "."`, `ignore = "git diff …"`, `from = "/*"`, `to = "/index.html"`,
+/// `status = 200`, `force = false`, `for = "/*"`,
+/// `package = "@netlify/plugin-lighthouse"`, `directory = "netlify/functions"`,
+/// `node_bundler = "esbuild"` / `"zisi"`, `skip_processing = false`,
+/// `bundle = true`, `minify = true`, `pretty_urls = true`, `compress = true`,
+/// `framework = "#custom"`, `targetPort = 3000`, `autoLaunch = false`,
+/// `functionsPort = 34567`, `path = "/api/*"`, `function = "api"`. Exact
+/// Netlify keys (snake_case + known camelCase). TOML `key = value` with
+/// spaces around `=`. Optional `#` comment. Arrays
+/// (`included_files = […]`, `external_node_modules = […]`) / nested maps /
+/// `port = …` (MySQL option-file collision) / prose / wrong case / wrangler /
+/// dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff /
+/// cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon /
+/// Cross / rust-toolchain / cargo config / nextest / deny / clippy /
+/// rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+fn is_netlify_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        if array {
+            return netlify_toml_array_section_ok(header);
+        }
+        return netlify_toml_section_ok(header);
+    }
+    // Quote-aware `#` / `;` strip so `framework = "#custom"` survives.
+    let body = netlify_toml_strip_comment(s);
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested dotted free-form keys stay out.
+    if key.contains('.') {
+        return false;
+    }
+    if !netlify_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    netlify_toml_value_ok(key, value)
+}
+
+fn netlify_toml_strip_comment(s: &str) -> &str {
+    let mut in_single = false;
+    let mut in_double = false;
+    for (i, b) in s.bytes().enumerate() {
+        match b {
+            b'\'' if !in_double => in_single = !in_single,
+            b'"' if !in_single => in_double = !in_double,
+            b'#' | b';' if !in_single && !in_double => {
+                return s[..i].trim_end();
+            }
+            _ => {}
+        }
+    }
+    s.trim()
+}
+
+fn netlify_toml_section_ok(header: &str) -> bool {
+    if matches!(header, "build" | "dev" | "functions") {
+        return true;
+    }
+    if matches!(
+        header,
+        "build.environment"
+            | "build.processing"
+            | "build.processing.css"
+            | "build.processing.js"
+            | "build.processing.html"
+            | "build.processing.images"
+    ) {
+        return true;
+    }
+    if let Some(rest) = header.strip_prefix("functions.") {
+        return netlify_toml_fn_name_ok(rest);
+    }
+    if let Some(rest) = header.strip_prefix("context.") {
+        return netlify_toml_context_ok(rest);
+    }
+    false
+}
+
+fn netlify_toml_array_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "redirects" | "headers" | "plugins" | "edge_functions"
+    )
+}
+
+fn netlify_toml_fn_name_ok(name: &str) -> bool {
+    let name = name.trim_matches('"');
+    if name.is_empty() || name.len() > 128 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'-' | b'_'))
+}
+
+fn netlify_toml_context_ok(rest: &str) -> bool {
+    let (name, suffix) = match rest.split_once('.') {
+        Some((n, s)) => (n, Some(s)),
+        None => (rest, None),
+    };
+    if !netlify_toml_context_name_ok(name) {
+        return false;
+    }
+    match suffix {
+        None => true,
+        Some(s) => matches!(
+            s,
+            "environment"
+                | "processing"
+                | "processing.css"
+                | "processing.js"
+                | "processing.html"
+                | "processing.images"
+        ),
+    }
+}
+
+fn netlify_toml_context_name_ok(name: &str) -> bool {
+    let name = name.trim_matches('"');
+    if name.is_empty() || name.len() > 128 {
+        return false;
+    }
+    if matches!(name, "production" | "deploy-preview" | "branch-deploy") {
+        return true;
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'-' | b'_' | b'/' | b'.'))
+}
+
+fn netlify_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "command"
+            | "publish"
+            | "functions"
+            | "edge_functions"
+            | "base"
+            | "ignore"
+            | "from"
+            | "to"
+            | "status"
+            | "force"
+            | "for"
+            | "package"
+            | "directory"
+            | "node_bundler"
+            | "skip_processing"
+            | "bundle"
+            | "minify"
+            | "pretty_urls"
+            | "compress"
+            | "framework"
+            | "targetPort"
+            | "autoLaunch"
+            | "functionsPort"
+            | "path"
+            | "function"
+    )
+}
+
+fn netlify_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (included_files = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "force"
+            | "skip_processing"
+            | "bundle"
+            | "minify"
+            | "pretty_urls"
+            | "compress"
+            | "autoLaunch"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "status" {
+        // HTTP status: unquoted or quoted 3-digit.
+        return bare.len() == 3 && bare.bytes().all(|b| b.is_ascii_digit());
+    }
+    if matches!(key, "targetPort" | "functionsPort") {
+        return bare.len() <= 5 && bare.bytes().all(|b| b.is_ascii_digit()) && bare != "0";
+    }
+    if key == "node_bundler" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "esbuild" | "zisi" | "nft");
+    }
+    if matches!(
+        key,
+        "command"
+            | "publish"
+            | "functions"
+            | "edge_functions"
+            | "base"
+            | "ignore"
+            | "from"
+            | "to"
+            | "for"
+            | "package"
+            | "directory"
+            | "framework"
+            | "path"
+            | "function"
+    ) {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 512 {
+            return false;
+        }
+        if !bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+        {
+            return false;
+        }
+        if key == "publish" || key == "base" || key == "directory" {
+            // Path-ish cue: `.`, `/`, or a simple folder name.
+            return bare == "."
+                || bare.contains('/')
+                || bare
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'));
+        }
+        if key == "from" || key == "to" || key == "path" {
+            // Redirect / edge path cue: slash, `*`, or scheme-ish.
+            return bare.contains('/') || bare.contains('*');
+        }
+        if key == "package" {
+            // npm package cue: `@scope/…` or dotted/slashed name.
+            return bare.starts_with('@')
+                || bare.contains('/')
+                || bare.contains('-')
+                || bare.contains('.');
+        }
+        if key == "function" {
+            return netlify_toml_fn_name_ok(bare);
+        }
+        if key == "framework" {
+            // `#custom` or a framework id.
+            return bare.starts_with('#')
+                || bare
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'));
+        }
+        // command / functions / edge_functions / ignore: quoted graphic string.
+        return true;
+    }
+    false
 }
 
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
@@ -58898,22 +59203,22 @@ mod func_like_line_tests {
         is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
         is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mkinitcpio_conf_decl,
         is_modprobe_conf_decl, is_mutants_toml_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
-        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_podfile_decl, is_premake_decl, is_protocols_file_decl,
-        is_pyproject_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl, is_sddm_conf_decl,
-        is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
-        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
-        is_yum_repo_decl, line_is_func_like,
+        is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
+        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
+        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl,
+        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
+        is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -69928,8 +70233,201 @@ mod func_like_line_tests {
         assert!(is_uv_toml_decl("[pip]"));
         assert!(!is_wrangler_toml_decl("[package]"));
         assert!(is_cargo_toml_decl("[package]"));
+        // Neighbouring netlify family stays on its path.
+        assert!(!is_wrangler_toml_decl("node_bundler = \"esbuild\""));
+        assert!(is_netlify_toml_decl("node_bundler = \"esbuild\""));
+        assert!(!is_wrangler_toml_decl("[[redirects]]"));
+        assert!(is_netlify_toml_decl("[[redirects]]"));
+        assert!(!is_wrangler_toml_decl("[context.production]"));
+        assert!(is_netlify_toml_decl("[context.production]"));
         assert!(!line_is_func_like("workers_dev"));
         assert!(!line_is_func_like("Workers_Dev = true"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn netlify_toml_entries_count() {
+        assert!(line_is_func_like("[build]"));
+        assert!(line_is_func_like("[build.environment]"));
+        assert!(line_is_func_like("[build.processing]"));
+        assert!(line_is_func_like("[build.processing.css]"));
+        assert!(line_is_func_like("[build.processing.js]"));
+        assert!(line_is_func_like("[build.processing.html]"));
+        assert!(line_is_func_like("[build.processing.images]"));
+        assert!(line_is_func_like("[dev]"));
+        assert!(line_is_func_like("[functions]"));
+        assert!(line_is_func_like("[functions.api]"));
+        assert!(line_is_func_like("[context.production]"));
+        assert!(line_is_func_like("[context.deploy-preview]"));
+        assert!(line_is_func_like("[context.branch-deploy]"));
+        assert!(line_is_func_like("[context.production.environment]"));
+        assert!(line_is_func_like("[context.staging]"));
+        assert!(line_is_func_like("[context.\"feat/login\"]"));
+        assert!(line_is_func_like("[[redirects]]"));
+        assert!(line_is_func_like("[[headers]]"));
+        assert!(line_is_func_like("[[plugins]]"));
+        assert!(line_is_func_like("[[edge_functions]]"));
+        assert!(line_is_func_like("command = \"npm run build\""));
+        assert!(line_is_func_like("publish = \"dist\""));
+        assert!(line_is_func_like("functions = \"netlify/functions\""));
+        assert!(line_is_func_like(
+            "edge_functions = \"netlify/edge-functions\""
+        ));
+        assert!(line_is_func_like("base = \".\""));
+        assert!(line_is_func_like(
+            "ignore = \"git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF\""
+        ));
+        assert!(line_is_func_like("from = \"/*\""));
+        assert!(line_is_func_like("to = \"/index.html\""));
+        assert!(line_is_func_like("status = 200"));
+        assert!(line_is_func_like("status = \"301\""));
+        assert!(line_is_func_like("force = false"));
+        assert!(line_is_func_like("for = \"/*\""));
+        assert!(line_is_func_like(
+            "package = \"@netlify/plugin-lighthouse\""
+        ));
+        assert!(line_is_func_like("directory = \"netlify/functions\""));
+        assert!(line_is_func_like("node_bundler = \"esbuild\""));
+        assert!(line_is_func_like("node_bundler = \"zisi\""));
+        assert!(line_is_func_like("skip_processing = false"));
+        assert!(line_is_func_like("bundle = true"));
+        assert!(line_is_func_like("minify = true"));
+        assert!(line_is_func_like("pretty_urls = true"));
+        assert!(line_is_func_like("compress = true"));
+        assert!(line_is_func_like("framework = \"#custom\""));
+        assert!(line_is_func_like("targetPort = 3000"));
+        assert!(line_is_func_like("autoLaunch = false"));
+        assert!(line_is_func_like("functionsPort = 34567"));
+        assert!(line_is_func_like("path = \"/api/*\""));
+        assert!(line_is_func_like("function = \"api\""));
+        assert!(line_is_func_like(
+            "  publish = \"public\" # keep whitespace"
+        ));
+        // Shared detector for netlify-only keys.
+        assert!(is_netlify_toml_decl("node_bundler = \"esbuild\""));
+        assert!(is_netlify_toml_decl("pretty_urls = true"));
+        assert!(is_netlify_toml_decl("publish = \"dist\""));
+        assert!(is_netlify_toml_decl("[[redirects]]"));
+        assert!(is_netlify_toml_decl("[[headers]]"));
+        assert!(is_netlify_toml_decl("[context.production]"));
+        assert!(is_netlify_toml_decl("[build.environment]"));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_netlify_toml_decl("node_bundler"));
+        assert!(!is_netlify_toml_decl("node_bundler ="));
+        assert!(!is_netlify_toml_decl("Node_Bundler = \"esbuild\""));
+        assert!(!is_netlify_toml_decl("NODE_BUNDLER = \"esbuild\""));
+        assert!(!is_netlify_toml_decl("node_bundler the team"));
+        assert!(!is_netlify_toml_decl("# node_bundler = \"esbuild\""));
+        assert!(!is_netlify_toml_decl(
+            "included_files = [\"netlify/functions/**\"]"
+        ));
+        assert!(!is_netlify_toml_decl(
+            "external_node_modules = [\"express\"]"
+        ));
+        assert!(!is_netlify_toml_decl("node_bundler = esbuild"));
+        assert!(!is_netlify_toml_decl("node_bundler = \"webpack\""));
+        assert!(!is_netlify_toml_decl("pretty_urls = yes"));
+        assert!(!is_netlify_toml_decl("publish = dist"));
+        assert!(!is_netlify_toml_decl("publish = true"));
+        assert!(!is_netlify_toml_decl("from = \"example\""));
+        assert!(!is_netlify_toml_decl("status = 20"));
+        assert!(!is_netlify_toml_decl("status = \"ok\""));
+        assert!(!is_netlify_toml_decl("targetPort = 0"));
+        assert!(!is_netlify_toml_decl("port = 8888"));
+        assert!(!is_netlify_toml_decl("PATH=/usr/bin"));
+        assert!(!is_netlify_toml_decl("[Context.production]"));
+        assert!(!is_netlify_toml_decl("[CONTEXT]"));
+        assert!(!is_netlify_toml_decl("[context.]"));
+        assert!(!is_netlify_toml_decl("[context. production]"));
+        assert!(!is_netlify_toml_decl("[[context.production]]"));
+        assert!(!is_netlify_toml_decl("[package]"));
+        assert!(!is_netlify_toml_decl("[[bin]]"));
+        assert!(!is_netlify_toml_decl("[workspace]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_netlify_toml_decl("workers_dev = true"));
+        assert!(is_wrangler_toml_decl("workers_dev = true"));
+        assert!(!is_netlify_toml_decl("compatibility_date = \"2024-01-01\""));
+        assert!(is_wrangler_toml_decl("compatibility_date = \"2024-01-01\""));
+        assert!(!is_netlify_toml_decl("[env.staging]"));
+        assert!(is_wrangler_toml_decl("[env.staging]"));
+        assert!(!is_netlify_toml_decl("[[kv_namespaces]]"));
+        assert!(is_wrangler_toml_decl("[[kv_namespaces]]"));
+        assert!(!is_netlify_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("reload_html = true"));
+        assert!(!is_netlify_toml_decl("default_platform = \"web\""));
+        assert!(is_dioxus_toml_decl("default_platform = \"web\""));
+        assert!(!is_netlify_toml_decl("[web.app]"));
+        assert!(is_dioxus_toml_decl("[web.app]"));
+        assert!(!is_netlify_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(is_uniffi_toml_decl("cdylib_name = \"mycrate_ffi\""));
+        assert!(!is_netlify_toml_decl("language = \"C++\""));
+        assert!(is_cbindgen_toml_decl("language = \"C++\""));
+        assert!(!is_netlify_toml_decl("public_url = \"/\""));
+        assert!(is_trunk_toml_decl("public_url = \"/\""));
+        assert!(!is_netlify_toml_decl("filehash = true"));
+        assert!(is_trunk_toml_decl("filehash = true"));
+        assert!(!is_netlify_toml_decl("timeout_multiplier = 2.0"));
+        assert!(is_mutants_toml_decl("timeout_multiplier = 2.0"));
+        assert!(!is_netlify_toml_decl("severity_threshold = \"low\""));
+        assert!(is_audit_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_netlify_toml_decl("conventional_commits = true"));
+        assert!(is_cliff_toml_decl("conventional_commits = true"));
+        assert!(!is_netlify_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_netlify_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(!is_netlify_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_netlify_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_netlify_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_netlify_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_netlify_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_netlify_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_netlify_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_netlify_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_netlify_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_netlify_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_netlify_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_netlify_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_netlify_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_netlify_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_netlify_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_netlify_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_netlify_toml_decl(
+            "registry=https://registry.npmjs.org/"
+        ));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_netlify_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_netlify_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_netlify_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        // Shared `[build]` / `[dev]` with trunk / wrangler still list.
+        assert!(is_netlify_toml_decl("[build]"));
+        assert!(is_trunk_toml_decl("[build]"));
+        assert!(is_netlify_toml_decl("[dev]"));
+        assert!(is_wrangler_toml_decl("[dev]"));
+        // publish = "dist" is netlify (path); release.toml wants bool.
+        assert!(is_netlify_toml_decl("publish = \"dist\""));
+        assert!(!is_release_toml_decl("publish = \"dist\""));
+        assert!(!line_is_func_like("node_bundler"));
+        assert!(!line_is_func_like("Node_Bundler = \"esbuild\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.640] — 2026-11-06
+
+View:
+
+- **Function List** lists Netlify `netlify.toml` sections and fields: `[build]` / `[build.environment]` / `[build.processing]` / `[build.processing.css|js|html|images]`, `[dev]` / `[functions]` / `[functions.name]`, `[context.production]` / `[context.deploy-preview]` / `[context.branch-deploy]` / `[context.name]` / `[context.name.environment]` / `[context.name.processing…]`, `[[redirects]]` / `[[headers]]` / `[[plugins]]` / `[[edge_functions]]`, `command = "npm run build"`, `publish = "dist"`, `functions = "netlify/functions"`, `edge_functions = "netlify/edge-functions"`, `base = "."`, `ignore = "…"`, `from = "/*"`, `to = "/index.html"`, `status = 200`, `force = false`, `for = "/*"`, `package = "@netlify/plugin-lighthouse"`, `directory = "netlify/functions"`, `node_bundler = "esbuild"` / `"zisi"` / `"nft"`, `skip_processing = false`, `bundle = true`, `minify = true`, `pretty_urls = true`, `compress = true`, `framework = "#custom"`, `targetPort = 3000`, `autoLaunch = false`, `functionsPort = 34567`, `path = "/api/*"`, `function = "api"`. Exact Netlify keys (snake_case + known camelCase). TOML `key = value` with spaces around `=`. Optional `#` comment (quote-aware so `"#custom"` works). Arrays (`included_files = […]`, `external_node_modules = […]`) / nested maps / `port = …` (MySQL option-file collision) / prose / wrong case / wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.639] — 2026-11-06
 
 View:
