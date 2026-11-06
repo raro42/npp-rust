@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.650] — 2026-11-06
+
+View:
+
+- **Function List** lists PDM `pdm.toml` sections and fields: `[venv]` / `[python]` / `[install]` / `[pypi]` / `[pypi.name]` / `[strategy]` / `[scripts]` / `[lock]` / `[global_project]` / `[theme]` / `[repository.name]`, `build_isolation = true`, `use_uv = false`, `check_update = true`, `request_timeout = 15`, `in_project = true`, `with_pip = false`, `backend = "virtualenv"` / `"venv"` / `"conda"`, `cache_method = "symlink"` / `"hardlink"`, `use_pyenv = true`, `use_venv = true`, `use_python_version = true`, `verify_ssl = true`, `ignore_stored_index = false`, `json_api = false`, `show_header = false`, `resolve_max_rounds = 10000`, `inherit_metadata = true`, `fallback = false`, `fallback_verbose = true`, `user_site = false`, `exclude-newer = "2024-01-01"`, `format = "pdm"` / `"pylock"`, `update = "reuse"` / `"eager"` / `"all"`, `save = "minimum"` / `"compatible"` / `"exact"` / `"wildcard"`, `prompt = "{project_name}-{python_version}"`, `install_root = "…"`, `ca_certs = "…"`, `client_cert = "…"`, `client_key = "…"`. Exact PDM keys (snake_case; `exclude-newer` kebab). TOML `key = value` with spaces around `=`. Optional `#` comment (quote-aware). Arrays (`providers = […]`) / nested maps / free-form `url` / `username` / `password` / `path` / `location` / `cache` / `parallel` / `type` / prose / wrong case / poetry / hatch / pixi / mise / supabase / samconfig / nixpacks / railway / fly / netlify / wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml / pyproject `[tool.pdm]` stay out.
+
 ## [0.3.649] — 2026-11-06
 
 View:

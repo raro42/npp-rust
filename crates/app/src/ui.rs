@@ -32400,6 +32400,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pixi_toml_decl(s)
             || is_hatch_toml_decl(s)
             || is_poetry_toml_decl(s)
+            || is_pdm_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32627,6 +32628,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pixi_toml_decl(s)
         || is_hatch_toml_decl(s)
         || is_poetry_toml_decl(s)
+        || is_pdm_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -59098,6 +59100,226 @@ fn poetry_toml_value_ok(key: &str, value: &str) -> bool {
         .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
 }
 
+/// PDM project `pdm.toml` (and user `config.toml` nested form): `[venv]` /
+/// `[python]` / `[install]` / `[pypi]` / `[pypi.name]` / `[strategy]` /
+/// `[scripts]` / `[lock]` / `[global_project]` / `[theme]` /
+/// `[repository.name]`, `build_isolation = true`, `use_uv = false`,
+/// `check_update = true`, `request_timeout = 15`, `in_project = true`,
+/// `with_pip = false`, `backend = "virtualenv"` / `"venv"` / `"conda"`,
+/// `cache_method = "symlink"` / `"hardlink"`, `use_pyenv = true`,
+/// `use_venv = true`, `use_python_version = true`,
+/// `verify_ssl = true`, `ignore_stored_index = false`, `json_api = false`,
+/// `show_header = false`, `resolve_max_rounds = 10000`,
+/// `inherit_metadata = true`, `fallback = false`,
+/// `fallback_verbose = true`, `user_site = false`,
+/// `exclude-newer = "2024-01-01"`, `format = "pdm"` / `"pylock"`,
+/// `update = "reuse"` / `"eager"` / `"all"`,
+/// `save = "minimum"` / `"compatible"` / `"exact"` / `"wildcard"`,
+/// `prompt = "{project_name}-{python_version}"`,
+/// `install_root = "…"`, `ca_certs = "…"`, `client_cert = "…"`,
+/// `client_key = "…"`. Exact PDM keys (snake_case; `exclude-newer` kebab).
+/// TOML `key = value` with spaces around `=`. Optional `#` comment
+/// (quote-aware). Arrays (`providers = […]`) / nested maps / free-form
+/// `url` / `username` / `password` / `path` / `location` / `cache` /
+/// `parallel` / `type` / prose / wrong case / poetry / hatch / pixi /
+/// mise / supabase / samconfig / nixpacks / railway / fly / netlify /
+/// wrangler / dioxus / uniffi / cbindgen / trunk / mutants / audit /
+/// cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo /
+/// typos / bacon / Cross / rust-toolchain / cargo config / nextest /
+/// deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
+/// Cargo.toml / pyproject `[tool.pdm]` stay out.
+fn is_pdm_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || array || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return pdm_toml_section_ok(header);
+    }
+    let body = hatch_toml_strip_comment(s);
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if key.contains('.') {
+        return false;
+    }
+    if !pdm_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    pdm_toml_value_ok(key, value)
+}
+
+fn pdm_toml_section_ok(header: &str) -> bool {
+    let parts: Vec<&str> = header.split('.').collect();
+    if parts.is_empty() || parts.len() > 2 {
+        return false;
+    }
+    match parts[0] {
+        "venv" | "python" | "install" | "strategy" | "scripts" | "lock" | "global_project"
+        | "theme" => parts.len() == 1,
+        "pypi" => match parts.len() {
+            1 => true,
+            2 => pdm_toml_name_ok(parts[1]),
+            _ => false,
+        },
+        "repository" => parts.len() == 2 && pdm_toml_name_ok(parts[1]),
+        _ => false,
+    }
+}
+
+fn pdm_toml_name_ok(name: &str) -> bool {
+    let name = name.trim_matches('"');
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    // Custom index / repository names are lowercase kebab/snake in stock pdm.toml.
+    if !(bytes[0].is_ascii_lowercase() || bytes[0].is_ascii_digit() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(*b, b'-' | b'_'))
+}
+
+fn pdm_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        // Distinctive PDM scalars. Skip generic `url` / `username` /
+        // `password` / `path` / `location` / `cache` / `parallel` / `type`
+        // so neighbouring formats and secrets stay out.
+        "build_isolation"
+            | "use_uv"
+            | "check_update"
+            | "request_timeout"
+            | "in_project"
+            | "with_pip"
+            | "backend"
+            | "cache_method"
+            | "use_pyenv"
+            | "use_venv"
+            | "use_python_version"
+            | "verify_ssl"
+            | "ignore_stored_index"
+            | "json_api"
+            | "show_header"
+            | "resolve_max_rounds"
+            | "inherit_metadata"
+            | "fallback"
+            | "fallback_verbose"
+            | "user_site"
+            | "exclude-newer"
+            | "format"
+            | "update"
+            | "save"
+            | "prompt"
+            | "install_root"
+            | "ca_certs"
+            | "client_cert"
+            | "client_key"
+    )
+}
+
+fn pdm_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out.
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "build_isolation"
+            | "use_uv"
+            | "check_update"
+            | "in_project"
+            | "with_pip"
+            | "use_pyenv"
+            | "use_venv"
+            | "use_python_version"
+            | "verify_ssl"
+            | "ignore_stored_index"
+            | "json_api"
+            | "show_header"
+            | "inherit_metadata"
+            | "fallback"
+            | "fallback_verbose"
+            | "user_site"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(key, "request_timeout" | "resolve_max_rounds") {
+        // Bare unsigned integer only (not quoted).
+        if value.starts_with('"') || value.starts_with('\'') {
+            return false;
+        }
+        return bare.bytes().all(|b| b.is_ascii_digit()) && bare.len() <= 8;
+    }
+    if key == "backend" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "virtualenv" | "venv" | "conda");
+    }
+    if key == "cache_method" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "symlink" | "hardlink");
+    }
+    if key == "format" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "pdm" | "pylock");
+    }
+    if key == "update" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "reuse" | "eager" | "all");
+    }
+    if key == "save" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "minimum" | "compatible" | "exact" | "wildcard");
+    }
+    // Remaining keys: quoted strings (paths, prompts, dates).
+    if !(value.starts_with('"') || value.starts_with('\'')) {
+        return false;
+    }
+    if bare.len() > 512 {
+        return false;
+    }
+    bare.bytes()
+        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -61929,20 +62151,20 @@ mod func_like_line_tests {
         is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
         is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
-        is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl, is_railway_toml_decl,
-        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
-        is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
-        is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
-        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
-        is_yum_repo_decl, line_is_func_like,
+        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
+        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl,
+        is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
+        is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
+        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
+        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -74960,6 +75182,195 @@ mod func_like_line_tests {
         assert!(!line_is_func_like("in-project"));
         assert!(!line_is_func_like("In-Project = true"));
         assert!(!line_is_func_like("create = true"));
+        assert!(!line_is_func_like("password = \"secret\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn pdm_toml_entries_count() {
+        assert!(line_is_func_like("[venv]"));
+        assert!(line_is_func_like("[python]"));
+        assert!(line_is_func_like("[install]"));
+        assert!(line_is_func_like("[pypi]"));
+        assert!(line_is_func_like("[pypi.private]"));
+        assert!(line_is_func_like("[strategy]"));
+        assert!(line_is_func_like("[scripts]"));
+        assert!(line_is_func_like("[lock]"));
+        assert!(line_is_func_like("[global_project]"));
+        assert!(line_is_func_like("[theme]"));
+        assert!(line_is_func_like("[repository.pypi]"));
+        assert!(line_is_func_like("build_isolation = true"));
+        assert!(line_is_func_like("use_uv = false"));
+        assert!(line_is_func_like("check_update = true"));
+        assert!(line_is_func_like("request_timeout = 15"));
+        assert!(line_is_func_like("in_project = true"));
+        assert!(line_is_func_like("with_pip = false"));
+        assert!(line_is_func_like("backend = \"virtualenv\""));
+        assert!(line_is_func_like("cache_method = \"symlink\""));
+        assert!(line_is_func_like("use_pyenv = true"));
+        assert!(line_is_func_like("use_venv = true"));
+        assert!(line_is_func_like("use_python_version = true"));
+        assert!(line_is_func_like("verify_ssl = true"));
+        assert!(line_is_func_like("ignore_stored_index = false"));
+        assert!(line_is_func_like("json_api = false"));
+        assert!(line_is_func_like("show_header = false"));
+        assert!(line_is_func_like("resolve_max_rounds = 10000"));
+        assert!(line_is_func_like("inherit_metadata = true"));
+        assert!(line_is_func_like("fallback = false"));
+        assert!(line_is_func_like("fallback_verbose = true"));
+        assert!(line_is_func_like("user_site = false"));
+        assert!(line_is_func_like("exclude-newer = \"2024-01-01\""));
+        assert!(line_is_func_like("format = \"pdm\""));
+        assert!(line_is_func_like("update = \"reuse\""));
+        assert!(line_is_func_like("save = \"minimum\""));
+        assert!(line_is_func_like(
+            "prompt = \"{project_name}-{python_version}\""
+        ));
+        assert!(line_is_func_like(
+            "install_root = \"~/.local/share/pdm/python\""
+        ));
+        assert!(line_is_func_like("ca_certs = \"path/to/ca.pem\""));
+        assert!(line_is_func_like("client_cert = \"path/to/client.pem\""));
+        assert!(line_is_func_like("client_key = \"path/to/key.pem\""));
+        assert!(line_is_func_like("  in_project = true # local venv"));
+
+        assert!(is_pdm_toml_decl("[venv]"));
+        assert!(is_pdm_toml_decl("[python]"));
+        assert!(is_pdm_toml_decl("[install]"));
+        assert!(is_pdm_toml_decl("[pypi]"));
+        assert!(is_pdm_toml_decl("[pypi.my-index]"));
+        assert!(is_pdm_toml_decl("[strategy]"));
+        assert!(is_pdm_toml_decl("[scripts]"));
+        assert!(is_pdm_toml_decl("[lock]"));
+        assert!(is_pdm_toml_decl("[global_project]"));
+        assert!(is_pdm_toml_decl("[theme]"));
+        assert!(is_pdm_toml_decl("[repository.testpypi]"));
+        assert!(is_pdm_toml_decl("build_isolation = true"));
+        assert!(is_pdm_toml_decl("build_isolation = false"));
+        assert!(is_pdm_toml_decl("use_uv = true"));
+        assert!(is_pdm_toml_decl("check_update = false"));
+        assert!(is_pdm_toml_decl("request_timeout = 15"));
+        assert!(is_pdm_toml_decl("request_timeout = 120"));
+        assert!(is_pdm_toml_decl("in_project = true"));
+        assert!(is_pdm_toml_decl("with_pip = false"));
+        assert!(is_pdm_toml_decl("backend = \"virtualenv\""));
+        assert!(is_pdm_toml_decl("backend = \"venv\""));
+        assert!(is_pdm_toml_decl("backend = \"conda\""));
+        assert!(is_pdm_toml_decl("cache_method = \"symlink\""));
+        assert!(is_pdm_toml_decl("cache_method = \"hardlink\""));
+        assert!(is_pdm_toml_decl("use_pyenv = true"));
+        assert!(is_pdm_toml_decl("use_venv = false"));
+        assert!(is_pdm_toml_decl("use_python_version = true"));
+        assert!(is_pdm_toml_decl("verify_ssl = true"));
+        assert!(is_pdm_toml_decl("ignore_stored_index = false"));
+        assert!(is_pdm_toml_decl("json_api = false"));
+        assert!(is_pdm_toml_decl("show_header = false"));
+        assert!(is_pdm_toml_decl("resolve_max_rounds = 10000"));
+        assert!(is_pdm_toml_decl("inherit_metadata = true"));
+        assert!(is_pdm_toml_decl("fallback = false"));
+        assert!(is_pdm_toml_decl("fallback_verbose = true"));
+        assert!(is_pdm_toml_decl("user_site = false"));
+        assert!(is_pdm_toml_decl("exclude-newer = \"2024-01-01\""));
+        assert!(is_pdm_toml_decl("exclude-newer = \"7 days\""));
+        assert!(is_pdm_toml_decl("format = \"pdm\""));
+        assert!(is_pdm_toml_decl("format = \"pylock\""));
+        assert!(is_pdm_toml_decl("update = \"reuse\""));
+        assert!(is_pdm_toml_decl("update = \"eager\""));
+        assert!(is_pdm_toml_decl("update = \"all\""));
+        assert!(is_pdm_toml_decl("save = \"minimum\""));
+        assert!(is_pdm_toml_decl("save = \"compatible\""));
+        assert!(is_pdm_toml_decl("save = \"exact\""));
+        assert!(is_pdm_toml_decl("save = \"wildcard\""));
+        assert!(is_pdm_toml_decl(
+            "prompt = \"{project_name}-{python_version}\""
+        ));
+        assert!(is_pdm_toml_decl("install_root = \"/opt/pdm/python\""));
+        assert!(is_pdm_toml_decl("ca_certs = \"path/to/ca.pem\""));
+        assert!(is_pdm_toml_decl("client_cert = \"path/to/client.pem\""));
+        assert!(is_pdm_toml_decl("client_key = \"path/to/key.pem\""));
+
+        // Generic / secret / free-form keys stay out.
+        assert!(!is_pdm_toml_decl("url = \"https://pypi.org/simple/\""));
+        assert!(!is_pdm_toml_decl("username = \"alice\""));
+        assert!(!is_pdm_toml_decl("password = \"secret\""));
+        assert!(!is_pdm_toml_decl("path = \"~/.config/pdm/global-project\""));
+        assert!(!is_pdm_toml_decl("location = \"~/.local/share/pdm/venvs\""));
+        assert!(!is_pdm_toml_decl("cache = true"));
+        assert!(!is_pdm_toml_decl("parallel = true"));
+        assert!(!is_pdm_toml_decl("type = \"index\""));
+        assert!(!is_pdm_toml_decl("providers = [\"pyenv\"]"));
+        assert!(!is_pdm_toml_decl("in_project"));
+        assert!(!is_pdm_toml_decl("in_project ="));
+        assert!(!is_pdm_toml_decl("In_Project = true"));
+        assert!(!is_pdm_toml_decl("IN_PROJECT = true"));
+        assert!(!is_pdm_toml_decl("in_project the team"));
+        assert!(!is_pdm_toml_decl("# in_project = true"));
+        assert!(!is_pdm_toml_decl("in_project = yes"));
+        assert!(!is_pdm_toml_decl("request_timeout = \"15\""));
+        assert!(!is_pdm_toml_decl("request_timeout = -1"));
+        assert!(!is_pdm_toml_decl("backend = virtualenv"));
+        assert!(!is_pdm_toml_decl("backend = \"poetry\""));
+        assert!(!is_pdm_toml_decl("cache_method = hardlink"));
+        assert!(!is_pdm_toml_decl("format = pdm"));
+        assert!(!is_pdm_toml_decl("update = \"latest\""));
+        assert!(!is_pdm_toml_decl("save = \"loose\""));
+        assert!(!is_pdm_toml_decl("prompt = unquoted"));
+        assert!(!is_pdm_toml_decl("PATH=/usr/bin"));
+        assert!(!is_pdm_toml_decl("[Venv]"));
+        assert!(!is_pdm_toml_decl("[VENV]"));
+        assert!(!is_pdm_toml_decl("[venv.unknown]"));
+        assert!(!is_pdm_toml_decl("[pypi.Foo]"));
+        assert!(!is_pdm_toml_decl("[repository]"));
+        assert!(!is_pdm_toml_decl("[[venv]]"));
+        assert!(!is_pdm_toml_decl("[[pypi.private]]"));
+        // Poetry kebab `in-project` stays on poetry; PDM snake `in_project` here.
+        assert!(!is_pdm_toml_decl("in-project = true"));
+        assert!(is_poetry_toml_decl("in-project = true"));
+        assert!(!is_poetry_toml_decl("in_project = true"));
+        // Neighbouring deploy / tool TOMLs stay on their detectors.
+        assert!(!is_pdm_toml_decl("detached = true"));
+        assert!(is_hatch_toml_decl("detached = true"));
+        assert!(!is_pdm_toml_decl("[envs.default]"));
+        assert!(is_hatch_toml_decl("[envs.default]"));
+        assert!(!is_pdm_toml_decl("channel-priority = \"strict\""));
+        assert!(is_pixi_toml_decl("channel-priority = \"strict\""));
+        assert!(!is_pdm_toml_decl("min_version = \"2024.1.1\""));
+        assert!(is_mise_toml_decl("min_version = \"2024.1.1\""));
+        assert!(!is_pdm_toml_decl("project_id = \"my-app\""));
+        assert!(is_supabase_toml_decl("project_id = \"my-app\""));
+        assert!(!is_pdm_toml_decl("stack_name = \"my-app\""));
+        assert!(is_samconfig_toml_decl("stack_name = \"my-app\""));
+        assert!(!is_pdm_toml_decl("cmd = \"yarn run start\""));
+        assert!(is_nixpacks_toml_decl("cmd = \"yarn run start\""));
+        assert!(!is_pdm_toml_decl("startCommand = \"node index.js\""));
+        assert!(is_railway_toml_decl("startCommand = \"node index.js\""));
+        assert!(!is_pdm_toml_decl("primary_region = \"iad\""));
+        assert!(is_fly_toml_decl("primary_region = \"iad\""));
+        assert!(!is_pdm_toml_decl("node_bundler = \"esbuild\""));
+        assert!(is_netlify_toml_decl("node_bundler = \"esbuild\""));
+        assert!(!is_pdm_toml_decl("workers_dev = true"));
+        assert!(is_wrangler_toml_decl("workers_dev = true"));
+        assert!(!is_pdm_toml_decl("reload_html = true"));
+        assert!(is_dioxus_toml_decl("reload_html = true"));
+        assert!(!is_pdm_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_pdm_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_pdm_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_pdm_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_pdm_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_pdm_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        // pyproject `[tool.pdm]` stays on the pyproject detector.
+        assert!(!is_pdm_toml_decl("[tool.pdm]"));
+        assert!(is_pyproject_toml_decl("[tool.pdm]"));
+        assert!(!is_pdm_toml_decl("[tool.pdm.dependencies]"));
+        assert!(is_pyproject_toml_decl("[tool.pdm.dependencies]"));
+        assert!(!line_is_func_like("in_project"));
+        assert!(!line_is_func_like("In_Project = true"));
         assert!(!line_is_func_like("password = \"secret\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }

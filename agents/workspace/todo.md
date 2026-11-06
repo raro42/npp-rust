@@ -956,3 +956,7 @@
 009 keep: Function List Pixi pixi.toml workspace/activation/pypi/feature (v0.3.647)
 
 009 keep: Function List hatch.toml envs/build/publish detached/installer/locker (v0.3.648)
+
+009 keep: Function List Poetry poetry.toml virtualenvs/installer/solver (v0.3.649)
+
+009 keep: Function List PDM pdm.toml venv/python/install/pypi/strategy (v0.3.650)
