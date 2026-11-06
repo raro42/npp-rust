@@ -32106,6 +32106,14 @@ const NOT_TYPED_FN: &[&str] = &[
 /// pytest / tox / setuptools / Cargo / Pipfile / pyproject
 /// `[tool.mypy]` / Desktop Entry tables, incomplete brackets, wrong
 /// case, and prose stay out.
+/// flake8 `.flake8` / `setup.cfg` / `tox.ini` `[flake8]` sections
+/// (`[flake8]`) and distinctive keys (`max-line-length`, `ignore`,
+/// `select`, `extend-ignore`, `extend-select`, `exclude`,
+/// `max-complexity`, `per-file-ignores`, …). Optional `#` / `;`
+/// comment. Key lines may use `=` with or without spaces. mypy /
+/// pytest / tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.flake8]` / Desktop Entry tables, incomplete brackets, wrong
+/// case, and prose stay out.
 /// Desktop Entry sections (`[Desktop Entry]`, `[Desktop Action …]`).
 /// Optional `#` / `;` comment. Key lines (`Name=`), tox / Cargo / Pipfile /
 /// pyproject tables, incomplete brackets, and prose stay out.
@@ -32316,6 +32324,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_setup_cfg_decl(s)
             || is_pytest_ini_decl(s)
             || is_mypy_ini_decl(s)
+            || is_flake8_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32547,6 +32556,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_setup_cfg_decl(s)
         || is_pytest_ini_decl(s)
         || is_mypy_ini_decl(s)
+        || is_flake8_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -42086,6 +42096,152 @@ fn mypy_ini_value_ok(key: &str, value: &str) -> bool {
         }
     }
     has_alnum
+}
+
+/// flake8 `.flake8` / `setup.cfg` / `tox.ini` `[flake8]`: `[flake8]`,
+/// `max-line-length = 88`, `max-doc-length = 72`, `indent-size = 4`,
+/// `max-complexity = 10`, `ignore = E203,W503`, `select = E,F,W`,
+/// `extend-ignore = E501`, `extend-select = B950`,
+/// `exclude = .git,.venv,build,dist`, `extend-exclude = docs`,
+/// `filename = *.py`, `format = default` / `pylint`,
+/// `hang-closing = true`, `per-file-ignores = __init__.py:F401`,
+/// `statistics = true`, `count = true`, `show-source = true`,
+/// `jobs = auto` / `4`, `doctests = true`, `builtins = _`,
+/// `disable-noqa = true`, `enable-extensions = G`,
+/// `exit-zero = true`, `tee = true`, `output-file = flake8.out`,
+/// `quiet = 1`, `verbose = 1`. Exact flake8 keys (kebab-case).
+/// INI `key = value` or `key=value`. Optional `#` / `;` comment.
+/// mypy / pytest / tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.flake8]` / Desktop Entry / pip.conf tables, incomplete
+/// brackets, wrong case, and prose stay out.
+fn is_flake8_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return flake8_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !flake8_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    flake8_ini_value_ok(key, value)
+}
+
+fn flake8_ini_section_ok(header: &str) -> bool {
+    header == "flake8"
+}
+
+fn flake8_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "max-line-length"
+            | "max-doc-length"
+            | "indent-size"
+            | "max-complexity"
+            | "ignore"
+            | "select"
+            | "extend-ignore"
+            | "extend-select"
+            | "exclude"
+            | "extend-exclude"
+            | "filename"
+            | "format"
+            | "hang-closing"
+            | "per-file-ignores"
+            | "statistics"
+            | "count"
+            | "show-source"
+            | "jobs"
+            | "doctests"
+            | "builtins"
+            | "disable-noqa"
+            | "enable-extensions"
+            | "exit-zero"
+            | "tee"
+            | "output-file"
+            | "quiet"
+            | "verbose"
+    )
+}
+
+fn flake8_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+    )
+}
+
+fn flake8_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if matches!(
+        key,
+        "hang-closing"
+            | "statistics"
+            | "count"
+            | "show-source"
+            | "doctests"
+            | "disable-noqa"
+            | "exit-zero"
+            | "tee"
+    ) {
+        return flake8_ini_bool_ok(value);
+    }
+    if matches!(
+        key,
+        "max-line-length"
+            | "max-doc-length"
+            | "indent-size"
+            | "max-complexity"
+            | "quiet"
+            | "verbose"
+    ) {
+        return !value.is_empty() && value.bytes().all(|b| b.is_ascii_digit());
+    }
+    if key == "jobs" {
+        return value == "auto" || value.bytes().all(|b| b.is_ascii_digit());
+    }
+    if key == "format" {
+        return matches!(value, "default" | "pylint")
+            || (value
+                .bytes()
+                .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+                && value.bytes().any(|b| b.is_ascii_alphanumeric()));
+    }
+    // Codes, paths, globs, builtins, output paths. Require at least one
+    // alphanumeric or `_` so bare punctuation / empty tuples stay out
+    // (`builtins = _` for gettext is valid).
+    let mut has_ident = false;
+    for b in value.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric() || b == b'_' {
+            has_ident = true;
+        }
+    }
+    has_ident
 }
 
 /// FreeDesktop Desktop Entry sections: `[Desktop Entry]`,
@@ -62750,9 +62906,9 @@ mod func_like_line_tests {
         is_composer_json_decl, is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl,
         is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dioxus_toml_decl,
         is_dist_toml_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
-        is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_fly_toml_decl,
-        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl,
+        is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
         is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
         is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
         is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
@@ -67342,6 +67498,7 @@ mod func_like_line_tests {
         assert!(!is_mypy_ini_decl("[[mypy]]"));
         assert!(!is_mypy_ini_decl("[mypy"));
         assert!(!is_mypy_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
         assert!(!is_mypy_ini_decl("[pytest]"));
         assert!(is_pytest_ini_decl("[pytest]"));
         assert!(!is_mypy_ini_decl("[tool:pytest]"));
@@ -67368,6 +67525,93 @@ mod func_like_line_tests {
         assert!(is_setup_cfg_decl("python_requires = >=3.8"));
         assert!(!line_is_func_like("Python_Version = 3.11"));
         assert!(!line_is_func_like("follow_imports = loose"));
+        assert!(!line_is_func_like("envlist = py39,py310"));
+    }
+
+    #[test]
+    fn flake8_ini_entries_count() {
+        assert!(line_is_func_like("[flake8]"));
+        assert!(line_is_func_like("  [flake8] # setup.cfg"));
+        assert!(line_is_func_like("[flake8]; root"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("max-line-length = 88"));
+        assert!(is_flake8_ini_decl("max-line-length=100"));
+        assert!(is_flake8_ini_decl("max-doc-length = 72"));
+        assert!(is_flake8_ini_decl("indent-size = 4"));
+        assert!(is_flake8_ini_decl("max-complexity = 10"));
+        assert!(is_flake8_ini_decl("ignore = E203,W503"));
+        assert!(is_flake8_ini_decl("select = E,F,W"));
+        assert!(is_flake8_ini_decl("extend-ignore = E501"));
+        assert!(is_flake8_ini_decl("extend-select = B950"));
+        assert!(is_flake8_ini_decl("exclude = .git,.venv,build,dist"));
+        assert!(is_flake8_ini_decl("extend-exclude = docs"));
+        assert!(is_flake8_ini_decl("filename = *.py"));
+        assert!(is_flake8_ini_decl("format = default"));
+        assert!(is_flake8_ini_decl("format = pylint"));
+        assert!(is_flake8_ini_decl("hang-closing = true"));
+        assert!(is_flake8_ini_decl("hang-closing = True"));
+        assert!(is_flake8_ini_decl("per-file-ignores = __init__.py:F401"));
+        assert!(is_flake8_ini_decl("statistics = true"));
+        assert!(is_flake8_ini_decl("count = 1"));
+        assert!(is_flake8_ini_decl("show-source = yes"));
+        assert!(is_flake8_ini_decl("jobs = auto"));
+        assert!(is_flake8_ini_decl("jobs = 4"));
+        assert!(is_flake8_ini_decl("doctests = true"));
+        assert!(is_flake8_ini_decl("builtins = _"));
+        assert!(is_flake8_ini_decl("disable-noqa = true"));
+        assert!(is_flake8_ini_decl("enable-extensions = G"));
+        assert!(is_flake8_ini_decl("exit-zero = true"));
+        assert!(is_flake8_ini_decl("tee = false"));
+        assert!(is_flake8_ini_decl("output-file = flake8.out"));
+        assert!(is_flake8_ini_decl("quiet = 1"));
+        assert!(is_flake8_ini_decl("verbose = 2"));
+
+        // Neighbouring formats / wrong case stay out.
+        assert!(!is_flake8_ini_decl("max-line-length"));
+        assert!(!is_flake8_ini_decl("max-line-length ="));
+        assert!(!is_flake8_ini_decl("Max-Line-Length = 88"));
+        assert!(!is_flake8_ini_decl("MAX-LINE-LENGTH = 88"));
+        assert!(!is_flake8_ini_decl("# max-line-length = 88"));
+        assert!(!is_flake8_ini_decl("hang-closing = maybe"));
+        assert!(!is_flake8_ini_decl("max-line-length = eighty"));
+        assert!(!is_flake8_ini_decl("jobs = four"));
+        assert!(!is_flake8_ini_decl("ignore = ***"));
+        assert!(!is_flake8_ini_decl("exclude = ()"));
+        assert!(!is_flake8_ini_decl("[Flake8]"));
+        assert!(!is_flake8_ini_decl("[FLAKE8]"));
+        assert!(!is_flake8_ini_decl("[[flake8]]"));
+        assert!(!is_flake8_ini_decl("[flake8"));
+        assert!(!is_flake8_ini_decl("[flake8:extra]"));
+        assert!(!is_flake8_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_flake8_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_flake8_ini_decl("[tool:pytest]"));
+        assert!(!is_flake8_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_flake8_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_flake8_ini_decl("[testenv]"));
+        assert!(!is_flake8_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_flake8_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_flake8_ini_decl("[tool.flake8]"));
+        assert!(is_pyproject_toml_decl("[tool.flake8]"));
+        assert!(!is_flake8_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_flake8_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_flake8_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_flake8_ini_decl("minversion = 6.0"));
+        assert!(is_pytest_ini_decl("minversion = 6.0"));
+        assert!(!is_flake8_ini_decl("python_version = 3.11"));
+        assert!(is_mypy_ini_decl("python_version = 3.11"));
+        assert!(!is_flake8_ini_decl("python_requires = >=3.8"));
+        assert!(is_setup_cfg_decl("python_requires = >=3.8"));
+        assert!(!line_is_func_like("Max-Line-Length = 88"));
+        assert!(!line_is_func_like("hang-closing = maybe"));
         assert!(!line_is_func_like("envlist = py39,py310"));
     }
 

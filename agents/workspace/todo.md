@@ -1,3 +1,5 @@
+009 keep: Function List flake8 .flake8 / setup.cfg [flake8] max-line-length/ignore/select (v0.3.654)
+
 009 keep: Function List mypy.ini / setup.cfg [mypy] python_version/strict/follow_imports (v0.3.653)
 
 009 keep: Function List pytest.ini / tool:pytest minversion/addopts/testpaths/asyncio_mode (v0.3.652)

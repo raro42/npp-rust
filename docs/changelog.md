@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.654] — 2026-11-06
+
+View:
+
+- **Function List** lists flake8 `.flake8` / `setup.cfg` / `tox.ini` `[flake8]` sections and fields: `[flake8]`, `max-line-length = 88`, `max-doc-length = 72`, `indent-size = 4`, `max-complexity = 10`, `ignore = E203,W503`, `select = E,F,W`, `extend-ignore = E501`, `extend-select = B950`, `exclude = .git,.venv,build,dist`, `extend-exclude = docs`, `filename = *.py`, `format = default` / `pylint`, `hang-closing = true`, `per-file-ignores = __init__.py:F401`, `statistics = true`, `count = true`, `show-source = true`, `jobs = auto` / `4`, `doctests = true`, `builtins = _`, `disable-noqa = true`, `enable-extensions = G`, `exit-zero = true`, `tee = true`, `output-file = flake8.out`, `quiet = 1`, `verbose = 1`. Exact flake8 keys (kebab-case). INI `key = value` or `key=value`. Optional `#` / `;` comment. mypy / pytest / tox / setuptools / Cargo / Pipfile / pyproject `[tool.flake8]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.653] — 2026-11-06
 
 View:
