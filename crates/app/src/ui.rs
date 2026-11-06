@@ -32114,6 +32114,14 @@ const NOT_TYPED_FN: &[&str] = &[
 /// pytest / tox / setuptools / Cargo / Pipfile / pyproject
 /// `[tool.flake8]` / Desktop Entry tables, incomplete brackets, wrong
 /// case, and prose stay out.
+/// isort `.isort.cfg` / `setup.cfg` / `tox.ini` `[isort]` sections
+/// (`[isort]`) and distinctive keys (`profile`, `multi_line_output`,
+/// `line_length`, `known_first_party`, `known_third_party`,
+/// `force_single_line`, `include_trailing_comma`, `sections`, …).
+/// Optional `#` / `;` comment. Key lines may use `=` with or without
+/// spaces. flake8 / mypy / pytest / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.isort]` / Desktop Entry tables, incomplete brackets,
+/// wrong case, and prose stay out.
 /// Desktop Entry sections (`[Desktop Entry]`, `[Desktop Action …]`).
 /// Optional `#` / `;` comment. Key lines (`Name=`), tox / Cargo / Pipfile /
 /// pyproject tables, incomplete brackets, and prose stay out.
@@ -32325,6 +32333,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pytest_ini_decl(s)
             || is_mypy_ini_decl(s)
             || is_flake8_ini_decl(s)
+            || is_isort_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32557,6 +32566,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pytest_ini_decl(s)
         || is_mypy_ini_decl(s)
         || is_flake8_ini_decl(s)
+        || is_isort_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -42232,6 +42242,256 @@ fn flake8_ini_value_ok(key: &str, value: &str) -> bool {
     // Codes, paths, globs, builtins, output paths. Require at least one
     // alphanumeric or `_` so bare punctuation / empty tuples stay out
     // (`builtins = _` for gettext is valid).
+    let mut has_ident = false;
+    for b in value.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric() || b == b'_' {
+            has_ident = true;
+        }
+    }
+    has_ident
+}
+
+/// isort `.isort.cfg` / `setup.cfg` / `tox.ini` `[isort]`: `[isort]`,
+/// `profile = black` / `django` / `pycharm` / `google` / `open_stack` /
+/// `plone` / `attrs` / `hug` / `wemake` / `appnexus`,
+/// `multi_line_output = 3`, `line_length = 88`,
+/// `known_first_party = mypkg`, `known_third_party = requests`,
+/// `known_standard_library = typing_extensions`,
+/// `known_local_folder = src`, `extra_standard_library = …`,
+/// `sections = FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER`,
+/// `default_section = THIRDPARTY`, `force_single_line = true`,
+/// `force_grid_wrap = 0`, `include_trailing_comma = true`,
+/// `use_parentheses = true`, `ensure_newline_before_comments = true`,
+/// `combine_as_imports = true`, `combine_star = false`,
+/// `force_sort_within_sections = true`, `lexicographical = true`,
+/// `order_by_type = true`, `atomic = true`, `balanced_wrapping = true`,
+/// `color_output = true`, `honor_noqa = true`, `from_first = true`,
+/// `lines_after_imports = 2`, `lines_before_imports = 0`,
+/// `lines_between_types = 1`, `lines_between_sections = 1`,
+/// `skip = .git,.venv`, `skip_glob = */migrations/*`,
+/// `extend_skip = build`, `extend_skip_glob = **/generated/*`,
+/// `src_paths = src,tests`, `filter_files = true`,
+/// `skip_gitignore = true`, `reverse_relative = true`,
+/// `group_by_package = true`, `case_sensitive = true`,
+/// `remove_redundant_aliases = true`, `float_to_top = true`,
+/// `treat_all_comments_as_code = true`, `ignore_whitespace = true`,
+/// `length_sort = true`, `length_sort_straight = true`,
+/// `force_alphabetical_sort = true`,
+/// `force_alphabetical_sort_within_sections = true`,
+/// `honor_case_in_force_sorted_sections = true`,
+/// `sort_reexports_by_module = true`, `only_sections = true`,
+/// `no_lines_before = LOCALFOLDER`, `indent = '    '`,
+/// `py_version = 39`, `virtual_env = .venv`, `conda_env = base`,
+/// `quiet = true`, `verbose = true`, `overwrite_in_place = true`,
+/// `dont_rename_py_typed = true`. Exact isort keys (snake_case).
+/// INI `key = value` or `key=value`. Optional `#` / `;` comment.
+/// flake8 / mypy / pytest / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.isort]` / Desktop Entry / pip.conf tables,
+/// incomplete brackets, wrong case, and prose stay out.
+fn is_isort_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return isort_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !isort_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    isort_ini_value_ok(key, value)
+}
+
+fn isort_ini_section_ok(header: &str) -> bool {
+    header == "isort"
+}
+
+fn isort_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "profile"
+            | "multi_line_output"
+            | "line_length"
+            | "known_first_party"
+            | "known_third_party"
+            | "known_standard_library"
+            | "known_local_folder"
+            | "extra_standard_library"
+            | "sections"
+            | "default_section"
+            | "force_single_line"
+            | "force_grid_wrap"
+            | "include_trailing_comma"
+            | "use_parentheses"
+            | "ensure_newline_before_comments"
+            | "combine_as_imports"
+            | "combine_star"
+            | "force_sort_within_sections"
+            | "lexicographical"
+            | "order_by_type"
+            | "atomic"
+            | "balanced_wrapping"
+            | "color_output"
+            | "honor_noqa"
+            | "from_first"
+            | "lines_after_imports"
+            | "lines_before_imports"
+            | "lines_between_types"
+            | "lines_between_sections"
+            | "skip"
+            | "skip_glob"
+            | "extend_skip"
+            | "extend_skip_glob"
+            | "src_paths"
+            | "filter_files"
+            | "skip_gitignore"
+            | "reverse_relative"
+            | "group_by_package"
+            | "case_sensitive"
+            | "remove_redundant_aliases"
+            | "float_to_top"
+            | "treat_all_comments_as_code"
+            | "ignore_whitespace"
+            | "length_sort"
+            | "length_sort_straight"
+            | "force_alphabetical_sort"
+            | "force_alphabetical_sort_within_sections"
+            | "honor_case_in_force_sorted_sections"
+            | "sort_reexports_by_module"
+            | "only_sections"
+            | "no_lines_before"
+            | "indent"
+            | "py_version"
+            | "virtual_env"
+            | "conda_env"
+            | "quiet"
+            | "verbose"
+            | "overwrite_in_place"
+            | "dont_rename_py_typed"
+    )
+}
+
+fn isort_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+    )
+}
+
+fn isort_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if matches!(
+        key,
+        "force_single_line"
+            | "include_trailing_comma"
+            | "use_parentheses"
+            | "ensure_newline_before_comments"
+            | "combine_as_imports"
+            | "combine_star"
+            | "force_sort_within_sections"
+            | "lexicographical"
+            | "order_by_type"
+            | "atomic"
+            | "balanced_wrapping"
+            | "color_output"
+            | "honor_noqa"
+            | "from_first"
+            | "filter_files"
+            | "skip_gitignore"
+            | "reverse_relative"
+            | "group_by_package"
+            | "case_sensitive"
+            | "remove_redundant_aliases"
+            | "float_to_top"
+            | "treat_all_comments_as_code"
+            | "ignore_whitespace"
+            | "length_sort"
+            | "length_sort_straight"
+            | "force_alphabetical_sort"
+            | "force_alphabetical_sort_within_sections"
+            | "honor_case_in_force_sorted_sections"
+            | "sort_reexports_by_module"
+            | "only_sections"
+            | "quiet"
+            | "verbose"
+            | "overwrite_in_place"
+            | "dont_rename_py_typed"
+    ) {
+        return isort_ini_bool_ok(value);
+    }
+    if matches!(
+        key,
+        "multi_line_output"
+            | "line_length"
+            | "force_grid_wrap"
+            | "lines_after_imports"
+            | "lines_before_imports"
+            | "lines_between_types"
+            | "lines_between_sections"
+            | "py_version"
+    ) {
+        return !value.is_empty() && value.bytes().all(|b| b.is_ascii_digit());
+    }
+    if key == "profile" {
+        return matches!(
+            value,
+            "black"
+                | "django"
+                | "pycharm"
+                | "google"
+                | "open_stack"
+                | "plone"
+                | "attrs"
+                | "hug"
+                | "wemake"
+                | "appnexus"
+                | "pep8"
+        );
+    }
+    if key == "indent" {
+        // Number of spaces, or a quoted whitespace string (`'    '`, `"\t"`).
+        if value.bytes().all(|b| b.is_ascii_digit()) {
+            return !value.is_empty();
+        }
+        let bytes = value.as_bytes();
+        if bytes.len() >= 2 {
+            let q = bytes[0];
+            if (q == b'\'' || q == b'"') && bytes[bytes.len() - 1] == q {
+                let inner = &bytes[1..bytes.len() - 1];
+                return !inner.is_empty()
+                    && inner
+                        .iter()
+                        .all(|b| matches!(*b, b' ' | b'\t' | b'\\' | b't' | b'n'));
+            }
+        }
+        return false;
+    }
+    // Paths, globs, section names. Require at least one alphanumeric or `_`
+    // so bare punctuation / empty tuples stay out.
     let mut has_ident = false;
     for b in value.bytes() {
         if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
@@ -62909,19 +63169,19 @@ mod func_like_line_tests {
         is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl,
         is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
         is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
-        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
-        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl,
-        is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_isort_ini_decl,
+        is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl,
+        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
+        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl, is_premake_decl,
+        is_protocols_file_decl, is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl,
+        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
         is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
         is_setup_cfg_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
@@ -67610,8 +67870,144 @@ mod func_like_line_tests {
         assert!(is_mypy_ini_decl("python_version = 3.11"));
         assert!(!is_flake8_ini_decl("python_requires = >=3.8"));
         assert!(is_setup_cfg_decl("python_requires = >=3.8"));
+        assert!(!is_flake8_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_flake8_ini_decl("profile = black"));
+        assert!(is_isort_ini_decl("profile = black"));
         assert!(!line_is_func_like("Max-Line-Length = 88"));
         assert!(!line_is_func_like("hang-closing = maybe"));
+        assert!(!line_is_func_like("envlist = py39,py310"));
+    }
+
+    #[test]
+    fn isort_ini_entries_count() {
+        assert!(line_is_func_like("[isort]"));
+        assert!(line_is_func_like("  [isort] # setup.cfg"));
+        assert!(line_is_func_like("[isort]; root"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("profile = black"));
+        assert!(is_isort_ini_decl("profile=django"));
+        assert!(is_isort_ini_decl("profile = pep8"));
+        assert!(is_isort_ini_decl("multi_line_output = 3"));
+        assert!(is_isort_ini_decl("line_length = 88"));
+        assert!(is_isort_ini_decl("line_length=100"));
+        assert!(is_isort_ini_decl("known_first_party = mypkg"));
+        assert!(is_isort_ini_decl("known_third_party = requests,flask"));
+        assert!(is_isort_ini_decl(
+            "known_standard_library = typing_extensions"
+        ));
+        assert!(is_isort_ini_decl("known_local_folder = src"));
+        assert!(is_isort_ini_decl("extra_standard_library = tomllib"));
+        assert!(is_isort_ini_decl(
+            "sections = FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER"
+        ));
+        assert!(is_isort_ini_decl("default_section = THIRDPARTY"));
+        assert!(is_isort_ini_decl("force_single_line = true"));
+        assert!(is_isort_ini_decl("force_single_line = True"));
+        assert!(is_isort_ini_decl("force_grid_wrap = 0"));
+        assert!(is_isort_ini_decl("include_trailing_comma = true"));
+        assert!(is_isort_ini_decl("use_parentheses = yes"));
+        assert!(is_isort_ini_decl("ensure_newline_before_comments = 1"));
+        assert!(is_isort_ini_decl("combine_as_imports = true"));
+        assert!(is_isort_ini_decl("combine_star = false"));
+        assert!(is_isort_ini_decl("force_sort_within_sections = true"));
+        assert!(is_isort_ini_decl("lexicographical = true"));
+        assert!(is_isort_ini_decl("order_by_type = true"));
+        assert!(is_isort_ini_decl("atomic = true"));
+        assert!(is_isort_ini_decl("balanced_wrapping = false"));
+        assert!(is_isort_ini_decl("color_output = true"));
+        assert!(is_isort_ini_decl("honor_noqa = true"));
+        assert!(is_isort_ini_decl("from_first = true"));
+        assert!(is_isort_ini_decl("lines_after_imports = 2"));
+        assert!(is_isort_ini_decl("lines_before_imports = 0"));
+        assert!(is_isort_ini_decl("lines_between_types = 1"));
+        assert!(is_isort_ini_decl("lines_between_sections = 1"));
+        assert!(is_isort_ini_decl("skip = .git,.venv,build"));
+        assert!(is_isort_ini_decl("skip_glob = */migrations/*"));
+        assert!(is_isort_ini_decl("extend_skip = dist"));
+        assert!(is_isort_ini_decl("extend_skip_glob = **/generated/*"));
+        assert!(is_isort_ini_decl("src_paths = src,tests"));
+        assert!(is_isort_ini_decl("filter_files = true"));
+        assert!(is_isort_ini_decl("skip_gitignore = true"));
+        assert!(is_isort_ini_decl("reverse_relative = true"));
+        assert!(is_isort_ini_decl("group_by_package = true"));
+        assert!(is_isort_ini_decl("case_sensitive = false"));
+        assert!(is_isort_ini_decl("remove_redundant_aliases = true"));
+        assert!(is_isort_ini_decl("float_to_top = true"));
+        assert!(is_isort_ini_decl("treat_all_comments_as_code = true"));
+        assert!(is_isort_ini_decl("ignore_whitespace = true"));
+        assert!(is_isort_ini_decl("length_sort = true"));
+        assert!(is_isort_ini_decl("length_sort_straight = true"));
+        assert!(is_isort_ini_decl("force_alphabetical_sort = true"));
+        assert!(is_isort_ini_decl(
+            "force_alphabetical_sort_within_sections = true"
+        ));
+        assert!(is_isort_ini_decl(
+            "honor_case_in_force_sorted_sections = true"
+        ));
+        assert!(is_isort_ini_decl("sort_reexports_by_module = true"));
+        assert!(is_isort_ini_decl("only_sections = true"));
+        assert!(is_isort_ini_decl("no_lines_before = LOCALFOLDER"));
+        assert!(is_isort_ini_decl("indent = '    '"));
+        assert!(is_isort_ini_decl("py_version = 39"));
+        assert!(is_isort_ini_decl("virtual_env = .venv"));
+        assert!(is_isort_ini_decl("conda_env = base"));
+        assert!(is_isort_ini_decl("quiet = true"));
+        assert!(is_isort_ini_decl("verbose = false"));
+        assert!(is_isort_ini_decl("overwrite_in_place = true"));
+        assert!(is_isort_ini_decl("dont_rename_py_typed = true"));
+
+        // Neighbouring formats / wrong case stay out.
+        assert!(!is_isort_ini_decl("profile"));
+        assert!(!is_isort_ini_decl("profile ="));
+        assert!(!is_isort_ini_decl("Profile = black"));
+        assert!(!is_isort_ini_decl("PROFILE = black"));
+        assert!(!is_isort_ini_decl("# profile = black"));
+        assert!(!is_isort_ini_decl("force_single_line = maybe"));
+        assert!(!is_isort_ini_decl("line_length = eighty"));
+        assert!(!is_isort_ini_decl("multi_line_output = three"));
+        assert!(!is_isort_ini_decl("profile = custom"));
+        assert!(!is_isort_ini_decl("known_first_party = ***"));
+        assert!(!is_isort_ini_decl("skip = ()"));
+        assert!(!is_isort_ini_decl("[Isort]"));
+        assert!(!is_isort_ini_decl("[ISORT]"));
+        assert!(!is_isort_ini_decl("[[isort]]"));
+        assert!(!is_isort_ini_decl("[isort"));
+        assert!(!is_isort_ini_decl("[isort:extra]"));
+        assert!(!is_isort_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_isort_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_isort_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_isort_ini_decl("[tool:pytest]"));
+        assert!(!is_isort_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_isort_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_isort_ini_decl("[testenv]"));
+        assert!(!is_isort_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_isort_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_isort_ini_decl("[tool.isort]"));
+        assert!(is_pyproject_toml_decl("[tool.isort]"));
+        assert!(!is_isort_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_isort_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_isort_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_isort_ini_decl("max-line-length = 88"));
+        assert!(is_flake8_ini_decl("max-line-length = 88"));
+        assert!(!is_isort_ini_decl("minversion = 6.0"));
+        assert!(is_pytest_ini_decl("minversion = 6.0"));
+        assert!(!is_isort_ini_decl("python_version = 3.11"));
+        assert!(is_mypy_ini_decl("python_version = 3.11"));
+        assert!(!is_isort_ini_decl("python_requires = >=3.8"));
+        assert!(is_setup_cfg_decl("python_requires = >=3.8"));
+        assert!(!line_is_func_like("Profile = black"));
+        assert!(!line_is_func_like("force_single_line = maybe"));
         assert!(!line_is_func_like("envlist = py39,py310"));
     }
 

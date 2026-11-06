@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.655] — 2026-11-06
+
+View:
+
+- **Function List** lists isort `.isort.cfg` / `setup.cfg` / `tox.ini` `[isort]` sections and fields: `[isort]`, `profile = black` / `django` / `pycharm` / `google` / `open_stack` / `plone` / `attrs` / `hug` / `wemake` / `appnexus` / `pep8`, `multi_line_output = 3`, `line_length = 88`, `known_first_party = mypkg`, `known_third_party = requests`, `known_standard_library = typing_extensions`, `known_local_folder = src`, `extra_standard_library = …`, `sections = FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER`, `default_section = THIRDPARTY`, `force_single_line = true`, `force_grid_wrap = 0`, `include_trailing_comma = true`, `use_parentheses = true`, `ensure_newline_before_comments = true`, `combine_as_imports = true`, `combine_star = false`, `force_sort_within_sections = true`, `lexicographical = true`, `order_by_type = true`, `atomic = true`, `balanced_wrapping = true`, `color_output = true`, `honor_noqa = true`, `from_first = true`, `lines_after_imports = 2`, `lines_before_imports = 0`, `lines_between_types = 1`, `lines_between_sections = 1`, `skip = .git,.venv`, `skip_glob = */migrations/*`, `extend_skip = build`, `extend_skip_glob = **/generated/*`, `src_paths = src,tests`, `filter_files = true`, `skip_gitignore = true`, `reverse_relative = true`, `group_by_package = true`, `case_sensitive = true`, `remove_redundant_aliases = true`, `float_to_top = true`, `treat_all_comments_as_code = true`, `ignore_whitespace = true`, `length_sort = true`, `length_sort_straight = true`, `force_alphabetical_sort = true`, `force_alphabetical_sort_within_sections = true`, `honor_case_in_force_sorted_sections = true`, `sort_reexports_by_module = true`, `only_sections = true`, `no_lines_before = LOCALFOLDER`, `indent = '    '`, `py_version = 39`, `virtual_env = .venv`, `conda_env = base`, `quiet = true`, `verbose = true`, `overwrite_in_place = true`, `dont_rename_py_typed = true`. Exact isort keys (snake_case). INI `key = value` or `key=value`. Optional `#` / `;` comment. flake8 / mypy / pytest / tox / setuptools / Cargo / Pipfile / pyproject `[tool.isort]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.654] — 2026-11-06
 
 View:
