@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.634] — 2026-11-06
+
+View:
+
+- **Function List** lists cargo-mutants `.cargo/mutants.toml` / `mutants.toml` fields: `timeout_multiplier = 2.0`, `build_timeout_multiplier = 1.5`, `minimum_test_timeout = 5.0`, `cap_lints = true`, `copy_vcs = false`, `copy_target = true`, `gitignore = true`, `all_features = true`, `no_default_features = false`, `skip_calls_defaults = true`, `test_workspace = true`, `test_tool = "cargo"` / `"nextest"`, `profile = "mutants"`, `output = "mutants.out"`. Exact snake_case cargo-mutants keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Arrays (`error_values = […]`, `exclude_globs = […]`, `examine_re = […]`, `skip_calls = […]`, `features = […]`, `test_package = […]`, `additional_cargo_args = […]`) / sections / prose / wrong case / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.633] — 2026-11-06
 
 View:

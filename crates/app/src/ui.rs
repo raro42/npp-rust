@@ -32384,6 +32384,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_cargo_make_toml_decl(s)
             || is_cliff_toml_decl(s)
             || is_audit_toml_decl(s)
+            || is_mutants_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32595,6 +32596,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_cargo_make_toml_decl(s)
         || is_cliff_toml_decl(s)
         || is_audit_toml_decl(s)
+        || is_mutants_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -54697,10 +54699,10 @@ fn cliff_toml_value_ok(key: &str, value: &str) -> bool {
 /// `update_index = true`. Exact snake_case cargo-audit keys. TOML `key = value`
 /// with spaces around `=`. Optional `#` comment. Arrays (`ignore = […]`,
 /// `informational_warnings = […]`, `deny = […]`, `arch = […]`, `os = […]`) /
-/// prose / wrong case / cliff / cargo-make / release.toml / Dist.toml / mdBook /
-/// taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest /
-/// deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml
-/// stay out.
+/// prose / wrong case / mutants / cliff / cargo-make / release.toml / Dist.toml /
+/// mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config /
+/// nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
+/// Cargo.toml stay out.
 fn is_audit_toml_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -54813,6 +54815,156 @@ fn audit_toml_value_ok(key: &str, value: &str) -> bool {
             return false;
         }
         // Paths / URLs: graphic ASCII + space/tab.
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
+    }
+    false
+}
+
+/// cargo-mutants `.cargo/mutants.toml` / `mutants.toml`: `timeout_multiplier = 2.0`,
+/// `build_timeout_multiplier = 1.5`, `minimum_test_timeout = 5.0`,
+/// `cap_lints = true`, `copy_vcs = false`, `copy_target = true`,
+/// `gitignore = true`, `all_features = true`, `no_default_features = false`,
+/// `skip_calls_defaults = true`, `test_workspace = true`,
+/// `test_tool = "cargo"` / `"nextest"`, `profile = "mutants"`,
+/// `output = "mutants.out"`. Exact snake_case cargo-mutants keys. TOML
+/// `key = value` with spaces around `=`. Optional `#` comment. Arrays
+/// (`error_values = […]`, `exclude_globs = […]`, `examine_re = […]`,
+/// `skip_calls = […]`, `features = […]`, `test_package = […]`,
+/// `additional_cargo_args = […]`) / sections / prose / wrong case / audit /
+/// cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos /
+/// bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy /
+/// rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+fn is_mutants_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, _array, after)) = cargo_toml_header(s) {
+        // Stock mutants.toml is flat (no `[…]` / `[[…]]` tables).
+        let _ = (header, after);
+        return false;
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested dotted free-form keys stay out.
+    if key.contains('.') {
+        return false;
+    }
+    if !mutants_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    mutants_toml_value_ok(key, value)
+}
+
+fn mutants_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "timeout_multiplier"
+            | "build_timeout_multiplier"
+            | "minimum_test_timeout"
+            | "cap_lints"
+            | "copy_vcs"
+            | "copy_target"
+            | "gitignore"
+            | "all_features"
+            | "no_default_features"
+            | "skip_calls_defaults"
+            | "test_workspace"
+            | "test_tool"
+            | "profile"
+            | "output"
+    )
+}
+
+fn mutants_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (error_values = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "cap_lints"
+            | "copy_vcs"
+            | "copy_target"
+            | "gitignore"
+            | "all_features"
+            | "no_default_features"
+            | "skip_calls_defaults"
+            | "test_workspace"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(
+        key,
+        "timeout_multiplier" | "build_timeout_multiplier" | "minimum_test_timeout"
+    ) {
+        // Bare positive decimal (`2`, `2.0`, `1.5`); quoted stay out.
+        if value.starts_with('"') || value.starts_with('\'') {
+            return false;
+        }
+        if bare.starts_with('.') || bare.ends_with('.') {
+            return false;
+        }
+        let mut seen_dot = false;
+        for c in bare.chars() {
+            if c == '.' {
+                if seen_dot {
+                    return false;
+                }
+                seen_dot = true;
+            } else if !c.is_ascii_digit() {
+                return false;
+            }
+        }
+        return bare.chars().any(|c| c.is_ascii_digit());
+    }
+    if key == "test_tool" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "cargo" | "nextest");
+    }
+    if matches!(key, "profile" | "output") {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 256 {
+            return false;
+        }
+        // Profile name / output dir: graphic ASCII + space/tab.
         return bare
             .bytes()
             .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
@@ -57645,12 +57797,12 @@ mod func_like_line_tests {
         is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
         is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
         is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mdbook_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
-        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_mdbook_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl, is_nextest_toml_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
         is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_release_toml_decl,
         is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
         is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl,
@@ -67735,8 +67887,142 @@ mod func_like_line_tests {
         assert!(!is_cliff_toml_decl("severity_threshold = \"low\""));
         assert!(!is_cargo_make_toml_decl("show_tree = true"));
         assert!(!is_release_toml_decl("update_index = true"));
+        assert!(!is_mutants_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_mutants_toml_decl("show_tree = true"));
+        assert!(!is_mutants_toml_decl("update_index = true"));
+        assert!(!is_audit_toml_decl("timeout_multiplier = 2.0"));
+        assert!(is_mutants_toml_decl("timeout_multiplier = 2.0"));
         assert!(!line_is_func_like("severity_threshold"));
         assert!(!line_is_func_like("Severity_Threshold = \"low\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn mutants_toml_entries_count() {
+        assert!(line_is_func_like("timeout_multiplier = 2.0"));
+        assert!(line_is_func_like("timeout_multiplier = 2"));
+        assert!(line_is_func_like("build_timeout_multiplier = 1.5"));
+        assert!(line_is_func_like("minimum_test_timeout = 5.0"));
+        assert!(line_is_func_like("cap_lints = true"));
+        assert!(line_is_func_like("copy_vcs = false"));
+        assert!(line_is_func_like("copy_target = true"));
+        assert!(line_is_func_like("gitignore = true"));
+        assert!(line_is_func_like("all_features = true"));
+        assert!(line_is_func_like("no_default_features = false"));
+        assert!(line_is_func_like("skip_calls_defaults = true"));
+        assert!(line_is_func_like("test_workspace = true"));
+        assert!(line_is_func_like("test_tool = \"cargo\""));
+        assert!(line_is_func_like("test_tool = \"nextest\""));
+        assert!(line_is_func_like("profile = \"mutants\""));
+        assert!(line_is_func_like("output = \"mutants.out\""));
+        assert!(line_is_func_like(
+            "  timeout_multiplier = 2.0 # keep whitespace"
+        ));
+        // Shared detector for mutants-only keys.
+        assert!(is_mutants_toml_decl("timeout_multiplier = 2.0"));
+        assert!(is_mutants_toml_decl("build_timeout_multiplier = 1.5"));
+        assert!(is_mutants_toml_decl("cap_lints = false"));
+        assert!(is_mutants_toml_decl("skip_calls_defaults = true"));
+        assert!(is_mutants_toml_decl("test_tool = \"nextest\""));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_mutants_toml_decl("timeout_multiplier"));
+        assert!(!is_mutants_toml_decl("timeout_multiplier ="));
+        assert!(!is_mutants_toml_decl("Timeout_Multiplier = 2.0"));
+        assert!(!is_mutants_toml_decl("TIMEOUT_MULTIPLIER = 2.0"));
+        assert!(!is_mutants_toml_decl("timeout_multiplier the team"));
+        assert!(!is_mutants_toml_decl("# timeout_multiplier = 2.0"));
+        assert!(!is_mutants_toml_decl("error_values = []"));
+        assert!(!is_mutants_toml_decl(
+            "exclude_globs = [\"src/console.rs\"]"
+        ));
+        assert!(!is_mutants_toml_decl("examine_re = [\"impl Debug\"]"));
+        assert!(!is_mutants_toml_decl("skip_calls = [\"from\"]"));
+        assert!(!is_mutants_toml_decl("features = [\"mutants\"]"));
+        assert!(!is_mutants_toml_decl("test_package = [\"app\"]"));
+        assert!(!is_mutants_toml_decl(
+            "additional_cargo_args = [\"--locked\"]"
+        ));
+        assert!(!is_mutants_toml_decl("timeout_multiplier = 2.0.1"));
+        assert!(!is_mutants_toml_decl("timeout_multiplier = .5"));
+        assert!(!is_mutants_toml_decl("timeout_multiplier = 2."));
+        assert!(!is_mutants_toml_decl("timeout_multiplier = \"2.0\""));
+        assert!(!is_mutants_toml_decl("cap_lints = yes"));
+        assert!(!is_mutants_toml_decl("test_tool = cargo"));
+        assert!(!is_mutants_toml_decl("test_tool = \"pytest\""));
+        assert!(!is_mutants_toml_decl("profile = mutants"));
+        assert!(!is_mutants_toml_decl("output = mutants.out"));
+        assert!(!is_mutants_toml_decl("PATH=/usr/bin"));
+        assert!(!is_mutants_toml_decl("[mutants]"));
+        assert!(!is_mutants_toml_decl("[[mutants]]"));
+        assert!(!is_mutants_toml_decl("[package]"));
+        assert!(!is_mutants_toml_decl("[[bin]]"));
+        assert!(!is_mutants_toml_decl("[workspace]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_mutants_toml_decl("severity_threshold = \"low\""));
+        assert!(is_audit_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_mutants_toml_decl("[database]"));
+        assert!(is_audit_toml_decl("[database]"));
+        assert!(!is_mutants_toml_decl("conventional_commits = true"));
+        assert!(is_cliff_toml_decl("conventional_commits = true"));
+        assert!(!is_mutants_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_mutants_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(!is_mutants_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_mutants_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_mutants_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_mutants_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_mutants_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_mutants_toml_decl("[jobs.check]"));
+        assert!(is_bacon_toml_decl("[jobs.check]"));
+        assert!(!is_mutants_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_mutants_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        // Shared key name `profile`: rust-toolchain only accepts
+        // minimal/default/complete; mutants accepts any cargo profile name.
+        assert!(is_mutants_toml_decl("profile = \"mutants\""));
+        assert!(!is_rust_toolchain_toml_decl("profile = \"mutants\""));
+        assert!(is_mutants_toml_decl("profile = \"minimal\""));
+        assert!(is_rust_toolchain_toml_decl("profile = \"minimal\""));
+        assert!(!is_mutants_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_mutants_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_mutants_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_mutants_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_mutants_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_mutants_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_mutants_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_mutants_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_mutants_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_mutants_toml_decl(
+            "registry=https://registry.npmjs.org/"
+        ));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_mutants_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_mutants_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_mutants_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        // Shared key name `output` with cliff: both list quoted paths.
+        assert!(is_mutants_toml_decl("output = \"mutants.out\""));
+        assert!(is_cliff_toml_decl("output = \"CHANGELOG.md\""));
+        assert!(!line_is_func_like("timeout_multiplier"));
+        assert!(!line_is_func_like("Timeout_Multiplier = 2.0"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
