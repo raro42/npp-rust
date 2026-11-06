@@ -1,3 +1,5 @@
+009 keep: Function List cargo-audit audit.toml (v0.3.633)
+
 009 keep: Function List Cross-rs Cross.toml (v0.3.623)
 
 009 keep: Function List Cargo .cargo/config.toml (v0.3.622)

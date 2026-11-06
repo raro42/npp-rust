@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+## [0.3.633] — 2026-11-06
+
+View:
+
+- **Function List** lists cargo-audit `audit.toml` / `.cargo/audit.toml` sections and fields: `[advisories]` / `[database]` / `[output]` / `[target]` / `[yanked]`, `severity_threshold = "low"` / `"none"` / `"medium"` / `"high"` / `"critical"`, `path = "~/.cargo/advisory-db"`, `url = "https://…"`, `fetch = true`, `stale = false`, `format = "terminal"` / `"json"`, `quiet = false`, `show_tree = true`, `enabled = true`, `update_index = true`. Exact snake_case cargo-audit keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Arrays (`ignore = […]`, `informational_warnings = […]`, `deny = […]`, `arch = […]`, `os = […]`) / prose / wrong case / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
+
+
 ## [0.3.632] — 2026-11-06
 
 View:

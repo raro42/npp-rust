@@ -32383,6 +32383,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_release_toml_decl(s)
             || is_cargo_make_toml_decl(s)
             || is_cliff_toml_decl(s)
+            || is_audit_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32593,6 +32594,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_release_toml_decl(s)
         || is_cargo_make_toml_decl(s)
         || is_cliff_toml_decl(s)
+        || is_audit_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -54687,6 +54689,137 @@ fn cliff_toml_value_ok(key: &str, value: &str) -> bool {
     false
 }
 
+/// cargo-audit `audit.toml` / `.cargo/audit.toml`: `[advisories]` / `[database]` /
+/// `[output]` / `[target]` / `[yanked]`, `severity_threshold = "low"` /
+/// `"none"` / `"medium"` / `"high"` / `"critical"`, `path = "~/.cargo/advisory-db"`,
+/// `url = "https://…"`, `fetch = true`, `stale = false`, `format = "terminal"` /
+/// `"json"`, `quiet = false`, `show_tree = true`, `enabled = true`,
+/// `update_index = true`. Exact snake_case cargo-audit keys. TOML `key = value`
+/// with spaces around `=`. Optional `#` comment. Arrays (`ignore = […]`,
+/// `informational_warnings = […]`, `deny = […]`, `arch = […]`, `os = […]`) /
+/// prose / wrong case / cliff / cargo-make / release.toml / Dist.toml / mdBook /
+/// taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest /
+/// deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml
+/// stay out.
+fn is_audit_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // No `[[…]]` tables in stock audit.toml section headers.
+        if array {
+            return false;
+        }
+        return audit_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested dotted free-form keys stay out.
+    if key.contains('.') {
+        return false;
+    }
+    if !audit_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    audit_toml_value_ok(key, value)
+}
+
+fn audit_toml_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "advisories" | "database" | "output" | "target" | "yanked"
+    )
+}
+
+fn audit_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "severity_threshold"
+            | "path"
+            | "url"
+            | "fetch"
+            | "stale"
+            | "format"
+            | "quiet"
+            | "show_tree"
+            | "enabled"
+            | "update_index"
+    )
+}
+
+fn audit_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (ignore = […], deny = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        key,
+        "fetch" | "stale" | "quiet" | "show_tree" | "enabled" | "update_index"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if key == "severity_threshold" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "none" | "low" | "medium" | "high" | "critical");
+    }
+    if key == "format" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "terminal" | "json");
+    }
+    if matches!(key, "path" | "url") {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 256 {
+            return false;
+        }
+        // Paths / URLs: graphic ASCII + space/tab.
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
+    }
+    false
+}
+
 /// `/etc/crypttab`: `cr_home UUID=… none luks`, `home /dev/sda3 /etc/luks-keys/home luks`,
 /// `swap /dev/sda2 /dev/urandom swap,cipher=aes-xts-plain64,size=256`,
 /// `data /dev/disk/by-uuid/… - luks,discard,nofail`. Name, device, key file
@@ -57500,33 +57633,34 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
-        is_apt_sources_decl, is_audit_rules_decl, is_aws_config_decl, is_bacon_toml_decl,
-        is_binfmt_d_decl, is_bitbake_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl,
-        is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl, is_cliff_toml_decl,
-        is_clippy_toml_decl, is_composer_json_decl, is_cross_toml_decl, is_crypttab_decl,
-        is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl,
-        is_dist_toml_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
-        is_ethers_file_decl, is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl,
-        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
-        is_grafana_ini_decl, is_haproxy_decl, is_hosts_access_decl, is_hosts_file_decl,
-        is_ipsec_conf_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mkinitcpio_conf_decl,
-        is_modprobe_conf_decl, is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl,
-        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl,
-        is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
-        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_scons_decl, is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_tox_ini_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_apt_sources_decl, is_audit_rules_decl, is_audit_toml_decl, is_aws_config_decl,
+        is_bacon_toml_decl, is_binfmt_d_decl, is_bitbake_decl, is_brewfile_decl,
+        is_bunfig_toml_decl, is_cabal_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
+        is_cargo_toml_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_composer_json_decl,
+        is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl, is_deny_toml_decl,
+        is_desktop_entry_decl, is_dhcpd_decl, is_dist_toml_decl, is_dovecot_decl,
+        is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
+        is_fluent_bit_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
+        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mdbook_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
+        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
+        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
+        is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl,
+        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -67469,6 +67603,140 @@ mod func_like_line_tests {
         assert!(!is_rust_toolchain_toml_decl("tag_pattern = \"v[0-9].*\""));
         assert!(!line_is_func_like("conventional_commits"));
         assert!(!line_is_func_like("Conventional_Commits = true"));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+        assert!(!is_cliff_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_cliff_toml_decl("[database]"));
+        assert!(!is_cliff_toml_decl("show_tree = true"));
+        assert!(!is_audit_toml_decl("conventional_commits = true"));
+        assert!(!is_audit_toml_decl("[changelog]"));
+        assert!(!is_audit_toml_decl("sort_commits = \"newest\""));
+    }
+
+    #[test]
+    fn audit_toml_entries_count() {
+        assert!(line_is_func_like("[advisories]"));
+        assert!(line_is_func_like("[database]"));
+        assert!(line_is_func_like("[output]"));
+        assert!(line_is_func_like("[target]"));
+        assert!(line_is_func_like("[yanked]"));
+        assert!(line_is_func_like("severity_threshold = \"low\""));
+        assert!(line_is_func_like("severity_threshold = \"none\""));
+        assert!(line_is_func_like("severity_threshold = \"medium\""));
+        assert!(line_is_func_like("severity_threshold = \"high\""));
+        assert!(line_is_func_like("severity_threshold = \"critical\""));
+        assert!(line_is_func_like("path = \"~/.cargo/advisory-db\""));
+        assert!(line_is_func_like(
+            "url = \"https://github.com/RustSec/advisory-db.git\""
+        ));
+        assert!(line_is_func_like("fetch = true"));
+        assert!(line_is_func_like("stale = false"));
+        assert!(line_is_func_like("format = \"terminal\""));
+        assert!(line_is_func_like("format = \"json\""));
+        assert!(line_is_func_like("quiet = false"));
+        assert!(line_is_func_like("show_tree = true"));
+        assert!(line_is_func_like("enabled = true"));
+        assert!(line_is_func_like("update_index = true"));
+        assert!(line_is_func_like("  fetch = true # keep whitespace"));
+        // Shared detector for audit-only keys / sections.
+        assert!(is_audit_toml_decl("[database]"));
+        assert!(is_audit_toml_decl("[yanked]"));
+        assert!(is_audit_toml_decl("severity_threshold = \"low\""));
+        assert!(is_audit_toml_decl("show_tree = true"));
+        assert!(is_audit_toml_decl("update_index = false"));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_audit_toml_decl("severity_threshold"));
+        assert!(!is_audit_toml_decl("severity_threshold ="));
+        assert!(!is_audit_toml_decl("Severity_Threshold = \"low\""));
+        assert!(!is_audit_toml_decl("SEVERITY_THRESHOLD = \"low\""));
+        assert!(!is_audit_toml_decl("severity_threshold the team"));
+        assert!(!is_audit_toml_decl("# severity_threshold = \"low\""));
+        assert!(!is_audit_toml_decl("ignore = []"));
+        assert!(!is_audit_toml_decl(
+            "informational_warnings = [\"unmaintained\"]"
+        ));
+        assert!(!is_audit_toml_decl("deny = [\"unmaintained\"]"));
+        assert!(!is_audit_toml_decl("arch = [\"x86_64\"]"));
+        assert!(!is_audit_toml_decl("os = [\"linux\"]"));
+        assert!(!is_audit_toml_decl("severity_threshold = low"));
+        assert!(!is_audit_toml_decl("severity_threshold = \"extreme\""));
+        assert!(!is_audit_toml_decl("format = terminal"));
+        assert!(!is_audit_toml_decl("format = \"xml\""));
+        assert!(!is_audit_toml_decl("path = ~/.cargo/advisory-db"));
+        assert!(!is_audit_toml_decl("fetch = yes"));
+        assert!(!is_audit_toml_decl("PATH=/usr/bin"));
+        assert!(!is_audit_toml_decl("[Advisories]"));
+        assert!(!is_audit_toml_decl("[ADVISORIES]"));
+        assert!(!is_audit_toml_decl("[[advisories]]"));
+        assert!(!is_audit_toml_decl("[database.extra]"));
+        assert!(!is_audit_toml_decl("[package]"));
+        assert!(!is_audit_toml_decl("[[bin]]"));
+        assert!(!is_audit_toml_decl("[workspace]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_audit_toml_decl("conventional_commits = true"));
+        assert!(is_cliff_toml_decl("conventional_commits = true"));
+        assert!(!is_audit_toml_decl("[changelog]"));
+        assert!(is_cliff_toml_decl("[changelog]"));
+        assert!(!is_audit_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_audit_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(!is_audit_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_audit_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_audit_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_audit_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_audit_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_audit_toml_decl("[jobs.check]"));
+        assert!(is_bacon_toml_decl("[jobs.check]"));
+        assert!(!is_audit_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_audit_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_audit_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_audit_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_audit_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_audit_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        assert!(!is_audit_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_audit_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_audit_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_audit_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_audit_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_audit_toml_decl("registry=https://registry.npmjs.org/"));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_audit_toml_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_audit_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_audit_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        // Shared section names with deny stay listed; audit-only keys stay audit.
+        assert!(is_audit_toml_decl("[advisories]"));
+        assert!(is_deny_toml_decl("[advisories]"));
+        assert!(is_audit_toml_decl("[output]"));
+        assert!(is_deny_toml_decl("[output]"));
+        assert!(!is_deny_toml_decl("[database]"));
+        assert!(!is_deny_toml_decl("[yanked]"));
+        assert!(!is_deny_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_deny_toml_decl("show_tree = true"));
+        assert!(!is_deny_toml_decl("update_index = true"));
+        assert!(!is_cliff_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_cargo_make_toml_decl("show_tree = true"));
+        assert!(!is_release_toml_decl("update_index = true"));
+        assert!(!line_is_func_like("severity_threshold"));
+        assert!(!line_is_func_like("Severity_Threshold = \"low\""));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
