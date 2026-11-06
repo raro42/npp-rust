@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.636] — 2026-11-06
+
+View:
+
+- **Function List** lists cbindgen `cbindgen.toml` sections and fields: `[defines]` / `[export]` / `[export.rename]` / `[export.body]` / `[export.mangle]` / `[export.pre_body]` / `[fn]` / `[struct]` / `[enum]` / `[const]` / `[macro_expansion]` / `[parse]` / `[parse.expand]` / `[layout]` / `[ptr]` / `[cython]` / `[cython.cimports]`, `language = "C"` / `"C++"` / `"Cython"`, `include_version = false`, `pragma_once = true`, `cpp_compat = true`, `no_includes = false`, `braces = "SameLine"` / `"NextLine"`, `line_length = 100`, `tab_width = 2`, `documentation = true`, `documentation_style = "auto"` / `"c"` / `"c99"` / `"c++"` / `"doxy"`, `documentation_length = "full"` / `"short"`, `line_endings = "LF"` / `"CR"` / `"CRLF"` / `"Native"`, `style = "both"` / `"tag"` / `"type"`, `sort_by = "Name"` / `"None"`, `usize_is_size_t = true`, `include_guard = "…"`, `namespace = "…"`, `header = "…"`, `trailer = "…"`, `autogen_warning = "…"`, `after_includes = "…"`, `renaming_overrides_prefixing = false`, `rename_args = "None"`, `args = "auto"`, `rename_fields = "None"`, `rename_variants = "None"`, `rename_associated_constant = "None"`, `derive_constructor = false`, `derive_eq = false`, `enum_class = true`, `add_sentinel = false`, `prefix_with_name = false`, `allow_static_const = true`, `allow_constexpr = false`, `bitflags = false`, `parse_deps = false`, `clean = false`, `all_features = false`, `default_features = true`, `packed = "…"`, `aligned_n = "…"`, `non_null_attribute = "…"`, `swift_name_macro = "…"`, `associated_constants_in_body = false`. Exact snake_case cbindgen keys. TOML `key = value` with spaces around `=`. Optional `#` comment. Arrays (`namespaces = […]`, `includes = […]`, `exclude = […]`, `features = […]`, `crates = […]`) / nested rename maps / prose / wrong case / trunk / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook / taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest / deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip / Cargo.toml stay out.
+
 ## [0.3.635] — 2026-11-06
 
 View:

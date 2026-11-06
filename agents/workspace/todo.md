@@ -932,3 +932,4 @@
 009 keep: Function List cargo-release release.toml (v0.3.630)
 009 keep: Function List cargo-make Makefile.toml (v0.3.631)
 009 keep: Function List git-cliff cliff.toml changelog/git/bump/remote (v0.3.632)
+009 keep: Function List cbindgen.toml language/export/parse (v0.3.636)

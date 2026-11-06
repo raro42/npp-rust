@@ -32386,6 +32386,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_audit_toml_decl(s)
             || is_mutants_toml_decl(s)
             || is_trunk_toml_decl(s)
+            || is_cbindgen_toml_decl(s)
             || is_fstab_decl(s)
             || is_crypttab_decl(s)
         {
@@ -32599,6 +32600,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_audit_toml_decl(s)
         || is_mutants_toml_decl(s)
         || is_trunk_toml_decl(s)
+        || is_cbindgen_toml_decl(s)
         || is_fstab_decl(s)
         || is_crypttab_decl(s)
     {
@@ -54986,7 +54988,7 @@ fn mutants_toml_value_ok(key: &str, value: &str) -> bool {
 /// keys. TOML `key = value` with spaces around `=`. Optional `#` comment.
 /// Arrays (`watch = […]`, `ignore = […]`, `addresses = […]`) / `port = …`
 /// (collides with MySQL option-file keys) / `[[hooks]]` / prose / wrong case /
-/// mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook /
+/// cbindgen / mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook /
 /// taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest /
 /// deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
 /// Cargo.toml stay out.
@@ -55134,6 +55136,347 @@ fn trunk_toml_value_ok(key: &str, value: &str) -> bool {
             return false;
         }
         // Paths / URLs / tool versions: graphic ASCII + space/tab.
+        return bare
+            .bytes()
+            .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
+    }
+    false
+}
+
+/// cbindgen `cbindgen.toml`: `[defines]` / `[export]` / `[export.rename]` /
+/// `[export.body]` / `[export.mangle]` / `[export.pre_body]` / `[fn]` /
+/// `[struct]` / `[enum]` / `[const]` / `[macro_expansion]` / `[parse]` /
+/// `[parse.expand]` / `[layout]` / `[ptr]` / `[cython]` / `[cython.cimports]`,
+/// `language = "C"` / `"C++"` / `"Cython"`, `include_version = false`,
+/// `pragma_once = true`, `cpp_compat = true`, `no_includes = false`,
+/// `braces = "SameLine"` / `"NextLine"`, `line_length = 100`, `tab_width = 2`,
+/// `documentation = true`, `documentation_style = "auto"` / `"c"` / `"c99"` /
+/// `"c++"` / `"doxy"`, `documentation_length = "full"` / `"short"`,
+/// `line_endings = "LF"` / `"CR"` / `"CRLF"` / `"Native"`,
+/// `style = "both"` / `"tag"` / `"type"`, `sort_by = "Name"` / `"None"`,
+/// `usize_is_size_t = true`, `include_guard = "…"`, `namespace = "…"`,
+/// `header = "…"`, `trailer = "…"`, `autogen_warning = "…"`,
+/// `after_includes = "…"`, `renaming_overrides_prefixing = false`,
+/// `rename_args = "None"`, `args = "auto"`, `rename_fields = "None"`,
+/// `rename_variants = "None"`, `rename_associated_constant = "None"`,
+/// `derive_constructor = false`, `derive_eq = false`, `enum_class = true`,
+/// `add_sentinel = false`, `prefix_with_name = false`,
+/// `allow_static_const = true`, `allow_constexpr = false`, `bitflags = false`,
+/// `parse_deps = false`, `clean = false`, `all_features = false`,
+/// `default_features = true`, `packed = "…"`, `aligned_n = "…"`,
+/// `non_null_attribute = "…"`, `swift_name_macro = "…"`,
+/// `associated_constants_in_body = false`. Exact snake_case cbindgen keys.
+/// TOML `key = value` with spaces around `=`. Optional `#` comment. Arrays
+/// (`namespaces = […]`, `includes = […]`, `exclude = […]`, `features = […]`,
+/// `crates = […]`) / nested rename maps / prose / wrong case / trunk /
+/// mutants / audit / cliff / cargo-make / release.toml / Dist.toml / mdBook /
+/// taplo / typos / bacon / Cross / rust-toolchain / cargo config / nextest /
+/// deny / clippy / rustfmt / ruff / uv / bunfig / yarn / npmrc / pip /
+/// Cargo.toml stay out.
+fn is_cbindgen_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        // No `[[…]]` tables in stock cbindgen.toml.
+        if array {
+            return false;
+        }
+        return cbindgen_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not npmrc `key=value`,
+    // and not Yarn YAML `key: value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    // Nested dotted free-form keys stay out.
+    if key.contains('.') {
+        return false;
+    }
+    if !cbindgen_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    cbindgen_toml_value_ok(key, value)
+}
+
+fn cbindgen_toml_section_ok(header: &str) -> bool {
+    matches!(
+        header,
+        "defines"
+            | "export"
+            | "export.rename"
+            | "export.body"
+            | "export.mangle"
+            | "export.pre_body"
+            | "fn"
+            | "struct"
+            | "enum"
+            | "const"
+            | "macro_expansion"
+            | "parse"
+            | "parse.expand"
+            | "layout"
+            | "ptr"
+            | "cython"
+            | "cython.cimports"
+    )
+}
+
+fn cbindgen_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "language"
+            | "header"
+            | "trailer"
+            | "include_guard"
+            | "pragma_once"
+            | "autogen_warning"
+            | "include_version"
+            | "namespace"
+            | "no_includes"
+            | "cpp_compat"
+            | "after_includes"
+            | "braces"
+            | "line_length"
+            | "tab_width"
+            | "documentation"
+            | "documentation_style"
+            | "documentation_length"
+            | "line_endings"
+            | "style"
+            | "sort_by"
+            | "usize_is_size_t"
+            | "prefix"
+            | "renaming_overrides_prefixing"
+            | "rename_types"
+            | "remove_underscores"
+            | "packed"
+            | "aligned_n"
+            | "rename_args"
+            | "must_use"
+            | "deprecated"
+            | "deprecated_with_note"
+            | "deprecated_variant"
+            | "deprecated_variant_with_note"
+            | "no_return"
+            | "postfix"
+            | "args"
+            | "swift_name_macro"
+            | "rename_fields"
+            | "rename_associated_constant"
+            | "associated_constants_in_body"
+            | "derive_constructor"
+            | "derive_eq"
+            | "derive_neq"
+            | "derive_lt"
+            | "derive_lte"
+            | "derive_gt"
+            | "derive_gte"
+            | "rename_variants"
+            | "add_sentinel"
+            | "prefix_with_name"
+            | "derive_helper_methods"
+            | "derive_const_casts"
+            | "derive_mut_casts"
+            | "cast_assert_name"
+            | "derive_tagged_enum_destructor"
+            | "derive_tagged_enum_copy_constructor"
+            | "derive_tagged_enum_copy_assignment"
+            | "enum_class"
+            | "private_default_tagged_enum_constructor"
+            | "allow_static_const"
+            | "allow_constexpr"
+            | "bitflags"
+            | "parse_deps"
+            | "clean"
+            | "all_features"
+            | "default_features"
+            | "non_null_attribute"
+            | "module"
+    )
+}
+
+fn cbindgen_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    // Nested tables / arrays stay out (namespaces = […], includes = […], …).
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    let bare = value.trim_matches(|c| c == '"' || c == '\'');
+    // `after_includes = ""` is valid; other empty values stay out.
+    if bare.is_empty() && key != "after_includes" {
+        return false;
+    }
+    if matches!(
+        key,
+        "pragma_once"
+            | "include_version"
+            | "no_includes"
+            | "cpp_compat"
+            | "documentation"
+            | "usize_is_size_t"
+            | "renaming_overrides_prefixing"
+            | "remove_underscores"
+            | "rename_types"
+            | "associated_constants_in_body"
+            | "derive_constructor"
+            | "derive_eq"
+            | "derive_neq"
+            | "derive_lt"
+            | "derive_lte"
+            | "derive_gt"
+            | "derive_gte"
+            | "add_sentinel"
+            | "prefix_with_name"
+            | "derive_helper_methods"
+            | "derive_const_casts"
+            | "derive_mut_casts"
+            | "derive_tagged_enum_destructor"
+            | "derive_tagged_enum_copy_constructor"
+            | "derive_tagged_enum_copy_assignment"
+            | "enum_class"
+            | "private_default_tagged_enum_constructor"
+            | "allow_static_const"
+            | "allow_constexpr"
+            | "bitflags"
+            | "parse_deps"
+            | "clean"
+            | "all_features"
+            | "default_features"
+    ) {
+        return bare.eq_ignore_ascii_case("true") || bare.eq_ignore_ascii_case("false");
+    }
+    if matches!(key, "line_length" | "tab_width") {
+        if value.starts_with('"') || value.starts_with('\'') {
+            return false;
+        }
+        return !bare.is_empty() && bare.bytes().all(|b| b.is_ascii_digit()) && bare.len() <= 6;
+    }
+    if key == "language" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "C" | "C++" | "Cython");
+    }
+    if key == "braces" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "SameLine" | "NextLine");
+    }
+    if key == "documentation_style" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "auto" | "c" | "c99" | "c++" | "doxy");
+    }
+    if key == "documentation_length" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "full" | "short");
+    }
+    if key == "line_endings" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "LF" | "CR" | "CRLF" | "Native");
+    }
+    if key == "style" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "both" | "tag" | "type" | "Both" | "Tag" | "Type");
+    }
+    if key == "sort_by" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "Name" | "None");
+    }
+    if key == "args" {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(bare, "auto" | "horizontal" | "vertical");
+    }
+    if matches!(
+        key,
+        "rename_args" | "rename_fields" | "rename_variants" | "rename_associated_constant"
+    ) {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        return matches!(
+            bare,
+            "None"
+                | "CamelCase"
+                | "PascalCase"
+                | "SnakeCase"
+                | "ScreamingSnakeCase"
+                | "GeckoCase"
+                | "LowerCase"
+                | "UpperCase"
+                | "QualifiedScreamingSnakeCase"
+        );
+    }
+    if matches!(
+        key,
+        "header"
+            | "trailer"
+            | "include_guard"
+            | "autogen_warning"
+            | "namespace"
+            | "after_includes"
+            | "prefix"
+            | "packed"
+            | "aligned_n"
+            | "must_use"
+            | "deprecated"
+            | "deprecated_with_note"
+            | "deprecated_variant"
+            | "deprecated_variant_with_note"
+            | "no_return"
+            | "postfix"
+            | "swift_name_macro"
+            | "cast_assert_name"
+            | "non_null_attribute"
+            | "module"
+    ) {
+        if !(value.starts_with('"') || value.starts_with('\'')) {
+            return false;
+        }
+        if bare.len() > 512 {
+            return false;
+        }
+        // Header snippets / macros / paths: graphic ASCII + space/tab.
         return bare
             .bytes()
             .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t');
@@ -57957,31 +58300,32 @@ mod func_like_line_tests {
         is_apt_sources_decl, is_audit_rules_decl, is_audit_toml_decl, is_aws_config_decl,
         is_bacon_toml_decl, is_binfmt_d_decl, is_bitbake_decl, is_brewfile_decl,
         is_bunfig_toml_decl, is_cabal_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
-        is_cargo_toml_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_composer_json_decl,
-        is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl, is_deny_toml_decl,
-        is_desktop_entry_decl, is_dhcpd_decl, is_dist_toml_decl, is_dovecot_decl,
-        is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
-        is_fluent_bit_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl, is_keepalived_decl,
-        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mdbook_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl, is_nextest_toml_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_podfile_decl, is_premake_decl,
-        is_protocols_file_decl, is_pyproject_toml_decl, is_rake_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl, is_scons_decl,
-        is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_wireguard_config_decl,
-        is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_cargo_toml_decl, is_cbindgen_toml_decl, is_cliff_toml_decl, is_clippy_toml_decl,
+        is_composer_json_decl, is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl,
+        is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dist_toml_decl,
+        is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl,
+        is_fail2ban_conf_decl, is_fluent_bit_decl, is_freeradius_decl, is_fstab_decl,
+        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
+        is_haproxy_decl, is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl,
+        is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl,
+        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
+        is_mutants_toml_decl, is_mysql_cnf_decl, is_named_conf_decl, is_networks_file_decl,
+        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl,
+        is_podfile_decl, is_premake_decl, is_protocols_file_decl, is_pyproject_toml_decl,
+        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_scons_decl, is_sddm_conf_decl, is_services_file_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_wireguard_config_decl, is_xmake_decl, is_xorg_conf_decl, is_yarnrc_yml_decl,
+        is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -68337,6 +68681,200 @@ mod func_like_line_tests {
         ));
         assert!(!line_is_func_like("public_url"));
         assert!(!line_is_func_like("Public_Url = \"/\""));
+        assert!(!line_is_func_like("PATH=/usr/bin"));
+    }
+
+    #[test]
+    fn cbindgen_toml_entries_count() {
+        assert!(line_is_func_like("[defines]"));
+        assert!(line_is_func_like("[export]"));
+        assert!(line_is_func_like("[export.rename]"));
+        assert!(line_is_func_like("[export.body]"));
+        assert!(line_is_func_like("[export.mangle]"));
+        assert!(line_is_func_like("[export.pre_body]"));
+        assert!(line_is_func_like("[fn]"));
+        assert!(line_is_func_like("[struct]"));
+        assert!(line_is_func_like("[enum]"));
+        assert!(line_is_func_like("[const]"));
+        assert!(line_is_func_like("[macro_expansion]"));
+        assert!(line_is_func_like("[parse]"));
+        assert!(line_is_func_like("[parse.expand]"));
+        assert!(line_is_func_like("[layout]"));
+        assert!(line_is_func_like("[ptr]"));
+        assert!(line_is_func_like("[cython]"));
+        assert!(line_is_func_like("[cython.cimports]"));
+        assert!(line_is_func_like("language = \"C++\""));
+        assert!(line_is_func_like("language = \"C\""));
+        assert!(line_is_func_like("language = \"Cython\""));
+        assert!(line_is_func_like("include_version = false"));
+        assert!(line_is_func_like("pragma_once = true"));
+        assert!(line_is_func_like("cpp_compat = true"));
+        assert!(line_is_func_like("no_includes = false"));
+        assert!(line_is_func_like("braces = \"SameLine\""));
+        assert!(line_is_func_like("braces = \"NextLine\""));
+        assert!(line_is_func_like("line_length = 100"));
+        assert!(line_is_func_like("tab_width = 2"));
+        assert!(line_is_func_like("documentation = true"));
+        assert!(line_is_func_like("documentation_style = \"auto\""));
+        assert!(line_is_func_like("documentation_style = \"c99\""));
+        assert!(line_is_func_like("documentation_style = \"c++\""));
+        assert!(line_is_func_like("documentation_style = \"doxy\""));
+        assert!(line_is_func_like("documentation_length = \"full\""));
+        assert!(line_is_func_like("documentation_length = \"short\""));
+        assert!(line_is_func_like("line_endings = \"LF\""));
+        assert!(line_is_func_like("line_endings = \"CRLF\""));
+        assert!(line_is_func_like("line_endings = \"Native\""));
+        assert!(line_is_func_like("style = \"both\""));
+        assert!(line_is_func_like("style = \"tag\""));
+        assert!(line_is_func_like("style = \"type\""));
+        assert!(line_is_func_like("sort_by = \"Name\""));
+        assert!(line_is_func_like("sort_by = \"None\""));
+        assert!(line_is_func_like("usize_is_size_t = true"));
+        assert!(line_is_func_like("include_guard = \"my_bindings_h\""));
+        assert!(line_is_func_like("namespace = \"my_namespace\""));
+        assert!(line_is_func_like("header = \"/* license */\""));
+        assert!(line_is_func_like("trailer = \"/* end */\""));
+        assert!(line_is_func_like(
+            "autogen_warning = \"/* Warning, autogenerated */\""
+        ));
+        assert!(line_is_func_like("after_includes = \"\""));
+        assert!(line_is_func_like("renaming_overrides_prefixing = false"));
+        assert!(line_is_func_like("rename_args = \"None\""));
+        assert!(line_is_func_like("rename_args = \"CamelCase\""));
+        assert!(line_is_func_like("args = \"auto\""));
+        assert!(line_is_func_like("args = \"horizontal\""));
+        assert!(line_is_func_like("rename_fields = \"None\""));
+        assert!(line_is_func_like("rename_variants = \"SnakeCase\""));
+        assert!(line_is_func_like("rename_associated_constant = \"None\""));
+        assert!(line_is_func_like("derive_constructor = false"));
+        assert!(line_is_func_like("derive_eq = true"));
+        assert!(line_is_func_like("enum_class = true"));
+        assert!(line_is_func_like("add_sentinel = false"));
+        assert!(line_is_func_like("prefix_with_name = true"));
+        assert!(line_is_func_like("allow_static_const = true"));
+        assert!(line_is_func_like("allow_constexpr = false"));
+        assert!(line_is_func_like("bitflags = false"));
+        assert!(line_is_func_like("parse_deps = false"));
+        assert!(line_is_func_like("clean = true"));
+        assert!(line_is_func_like("all_features = false"));
+        assert!(line_is_func_like("default_features = true"));
+        assert!(line_is_func_like("packed = \"PACKED\""));
+        assert!(line_is_func_like("aligned_n = \"ALIGNED\""));
+        assert!(line_is_func_like("non_null_attribute = \"_Nonnull\""));
+        assert!(line_is_func_like("swift_name_macro = \"CF_SWIFT_NAME\""));
+        assert!(line_is_func_like("associated_constants_in_body = false"));
+        assert!(line_is_func_like(
+            "  usize_is_size_t = true # keep whitespace"
+        ));
+        // Shared detector for cbindgen-only keys.
+        assert!(is_cbindgen_toml_decl("language = \"C++\""));
+        assert!(is_cbindgen_toml_decl("usize_is_size_t = false"));
+        assert!(is_cbindgen_toml_decl("documentation_style = \"auto\""));
+        assert!(is_cbindgen_toml_decl("braces = \"NextLine\""));
+        assert!(is_cbindgen_toml_decl("line_endings = \"CR\""));
+        assert!(is_cbindgen_toml_decl("[export]"));
+        assert!(is_cbindgen_toml_decl("[parse.expand]"));
+        assert!(is_cbindgen_toml_decl("[cython.cimports]"));
+        // Bare / prose / incomplete / wrong case / nested stay out.
+        assert!(!is_cbindgen_toml_decl("language"));
+        assert!(!is_cbindgen_toml_decl("language ="));
+        assert!(!is_cbindgen_toml_decl("Language = \"C++\""));
+        assert!(!is_cbindgen_toml_decl("LANGUAGE = \"C++\""));
+        assert!(!is_cbindgen_toml_decl("language the team"));
+        assert!(!is_cbindgen_toml_decl("# language = \"C++\""));
+        assert!(!is_cbindgen_toml_decl("namespaces = []"));
+        assert!(!is_cbindgen_toml_decl("includes = [\"foo.h\"]"));
+        assert!(!is_cbindgen_toml_decl("exclude = [\"Bad\"]"));
+        assert!(!is_cbindgen_toml_decl("features = [\"serde\"]"));
+        assert!(!is_cbindgen_toml_decl("crates = [\"euclid\"]"));
+        assert!(!is_cbindgen_toml_decl("item_types = [\"functions\"]"));
+        assert!(!is_cbindgen_toml_decl("[[export]]"));
+        assert!(!is_cbindgen_toml_decl("language = C++"));
+        assert!(!is_cbindgen_toml_decl("language = \"Java\""));
+        assert!(!is_cbindgen_toml_decl("braces = \"same_line\""));
+        assert!(!is_cbindgen_toml_decl("documentation_style = \"javadoc\""));
+        assert!(!is_cbindgen_toml_decl("line_endings = \"lf\""));
+        assert!(!is_cbindgen_toml_decl("style = \"class\""));
+        assert!(!is_cbindgen_toml_decl("sort_by = \"Date\""));
+        assert!(!is_cbindgen_toml_decl("args = \"none\""));
+        assert!(!is_cbindgen_toml_decl("rename_args = \"kebab-case\""));
+        assert!(!is_cbindgen_toml_decl("line_length = \"100\""));
+        assert!(!is_cbindgen_toml_decl("line_length = -1"));
+        assert!(!is_cbindgen_toml_decl("usize_is_size_t = yes"));
+        assert!(!is_cbindgen_toml_decl("PATH=/usr/bin"));
+        assert!(!is_cbindgen_toml_decl("[Export]"));
+        assert!(!is_cbindgen_toml_decl("[EXPORT]"));
+        assert!(!is_cbindgen_toml_decl("[package]"));
+        assert!(!is_cbindgen_toml_decl("[[bin]]"));
+        assert!(!is_cbindgen_toml_decl("[workspace]"));
+        // Neighbouring families stay on their paths.
+        assert!(!is_cbindgen_toml_decl("public_url = \"/\""));
+        assert!(is_trunk_toml_decl("public_url = \"/\""));
+        assert!(!is_cbindgen_toml_decl("filehash = true"));
+        assert!(is_trunk_toml_decl("filehash = true"));
+        assert!(!is_cbindgen_toml_decl("timeout_multiplier = 2.0"));
+        assert!(is_mutants_toml_decl("timeout_multiplier = 2.0"));
+        assert!(!is_cbindgen_toml_decl("severity_threshold = \"low\""));
+        assert!(is_audit_toml_decl("severity_threshold = \"low\""));
+        assert!(!is_cbindgen_toml_decl("conventional_commits = true"));
+        assert!(is_cliff_toml_decl("conventional_commits = true"));
+        assert!(!is_cbindgen_toml_decl("skip_core_tasks = true"));
+        assert!(is_cargo_make_toml_decl("skip_core_tasks = true"));
+        assert!(!is_cbindgen_toml_decl("sign-commit = false"));
+        assert!(is_release_toml_decl("sign-commit = false"));
+        assert!(!is_cbindgen_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(is_dist_toml_decl("cargo-dist-version = \"0.32.0\""));
+        assert!(!is_cbindgen_toml_decl("create-missing = true"));
+        assert!(is_mdbook_toml_decl("create-missing = true"));
+        assert!(!is_cbindgen_toml_decl("align_entries = true"));
+        assert!(is_taplo_toml_decl("align_entries = true"));
+        assert!(!is_cbindgen_toml_decl("check-filename = true"));
+        assert!(is_typos_toml_decl("check-filename = true"));
+        assert!(!is_cbindgen_toml_decl("default_job = \"check\""));
+        assert!(is_bacon_toml_decl("default_job = \"check\""));
+        assert!(!is_cbindgen_toml_decl("xargo = true"));
+        assert!(is_cross_toml_decl("xargo = true"));
+        assert!(!is_cbindgen_toml_decl("channel = \"stable\""));
+        assert!(is_rust_toolchain_toml_decl("channel = \"stable\""));
+        assert!(!is_cbindgen_toml_decl("jobs = 8"));
+        assert!(is_cargo_config_toml_decl("jobs = 8"));
+        assert!(!is_cbindgen_toml_decl("fail-fast = true"));
+        assert!(is_nextest_toml_decl("fail-fast = true"));
+        assert!(!is_cbindgen_toml_decl("vulnerability = \"deny\""));
+        assert!(is_deny_toml_decl("vulnerability = \"deny\""));
+        assert!(!is_cbindgen_toml_decl("max_width = 100"));
+        assert!(is_rustfmt_toml_decl("max_width = 100"));
+        // Shared shape `line_length` vs ruff kebab `line-length`.
+        assert!(is_cbindgen_toml_decl("line_length = 100"));
+        assert!(!is_cbindgen_toml_decl("line-length = 88"));
+        assert!(is_ruff_toml_decl("line-length = 88"));
+        assert!(!is_cbindgen_toml_decl("msrv = \"1.70.0\""));
+        assert!(is_clippy_toml_decl("msrv = \"1.70.0\""));
+        assert!(!is_cbindgen_toml_decl("native-tls = true"));
+        assert!(is_uv_toml_decl("native-tls = true"));
+        assert!(!is_cbindgen_toml_decl("frozenLockfile = true"));
+        assert!(is_bunfig_toml_decl("frozenLockfile = true"));
+        assert!(!is_cbindgen_toml_decl("nodeLinker: node-modules"));
+        assert!(is_yarnrc_yml_decl("nodeLinker: node-modules"));
+        assert!(!is_cbindgen_toml_decl(
+            "registry=https://registry.npmjs.org/"
+        ));
+        assert!(is_npmrc_decl("registry=https://registry.npmjs.org/"));
+        assert!(!is_cbindgen_toml_decl(
+            "index-url = https://pypi.org/simple"
+        ));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_cbindgen_toml_decl("[pip]"));
+        assert!(is_uv_toml_decl("[pip]"));
+        assert!(!is_cbindgen_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        // Shared key name `all_features` with cargo-mutants: both list bools.
+        assert!(is_cbindgen_toml_decl("all_features = false"));
+        assert!(is_mutants_toml_decl("all_features = true"));
+        // Shared key name `style` stays cbindgen-quoted enum only.
+        assert!(is_cbindgen_toml_decl("style = \"both\""));
+        assert!(!line_is_func_like("usize_is_size_t"));
+        assert!(!line_is_func_like("Usize_Is_Size_T = true"));
         assert!(!line_is_func_like("PATH=/usr/bin"));
     }
 
