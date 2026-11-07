@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.677] — 2026-11-07
+
+View:
+
+- **Function List** lists Commitizen `setup.cfg` / `.cz.cfg` / `tox.ini` `[tool:commitizen]` / `[commitizen]` sections and fields: `[tool:commitizen]`, `[commitizen]`, `name = cz_conventional_commits` / `cz_jira`, `version_provider = commitizen` / `pep621` / `poetry` / `scm` / `uv` / `cargo` / `npm` / `composer`, `version_scheme = pep440` / `semver` / `semver2`, `version_files = src/__version__.py` / `setup.cfg:version`, `tag_format = $version` / `v$version` / `v${version}`, `bump_message = bump: version $current_version → $new_version`, `update_changelog_on_bump = true`, `changelog_file = CHANGELOG.md` / `docs/HISTORY.rst`, `changelog_incremental = false`, `changelog_start_rev = v1.0.0`, `changelog_merge_prerelease = true`, `annotated_tag = true`, `gpg_sign = false`, `major_version_zero = yes`, `use_shortcuts = 1`, `allow_abort = no`, `retry_after_failure = on`, `encoding = utf-8`, `prerelease_offset = 0`, `message_length_limit = 72`, `breaking_change_exclamation_in_title = true`. Exact snake_case keys. INI / TOML `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. `name` needs a `cz_` plugin id. `tag_format` / `bump_message` need `$version` / `${version}` / `$current_version` / `$new_version` (unicode arrow ok). Bare `version` / `style` / hook arrays stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / tox / setuptools / Cargo / Pipfile / pyproject `[tool.commitizen]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.676] — 2026-11-07
 
 View:

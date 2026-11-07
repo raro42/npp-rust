@@ -32397,6 +32397,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_cibuildwheel_ini_decl(s)
             || is_check_wheel_contents_ini_decl(s)
             || is_pypirc_ini_decl(s)
+            || is_commitizen_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32651,6 +32652,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_cibuildwheel_ini_decl(s)
         || is_check_wheel_contents_ini_decl(s)
         || is_pypirc_ini_decl(s)
+        || is_commitizen_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -45844,8 +45846,8 @@ fn check_wheel_contents_ini_value_ok(key: &str, value: &str) -> bool {
 /// black / yapf / pydocstyle / bandit / codespell / docformatter /
 /// vulture / interrogate / check-manifest / bumpversion / versioneer /
 /// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
-/// check-wheel-contents / tox / setuptools / Cargo / Pipfile /
-/// pyproject / Desktop Entry / pip.conf stay out.
+/// check-wheel-contents / commitizen / tox / setuptools / Cargo /
+/// Pipfile / pyproject / Desktop Entry / pip.conf stay out.
 fn is_pypirc_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -45942,6 +45944,292 @@ fn pypirc_ini_value_ok(key: &str, value: &str) -> bool {
         "index-servers" => pypirc_ini_index_servers_ok(value),
         "repository" => pypirc_ini_repository_ok(value),
         "username" => pypirc_ini_username_ok(value),
+        _ => false,
+    }
+}
+
+/// Commitizen `setup.cfg` / `.cz.cfg` / tox.ini `[tool:commitizen]` /
+/// `[commitizen]` sections and distinctive keys: `[tool:commitizen]`,
+/// `[commitizen]`, `name = cz_conventional_commits`,
+/// `version_provider = commitizen` / `pep621` / `poetry` / `scm` / `uv` /
+/// `cargo` / `npm` / `composer`, `version_scheme = pep440` / `semver` /
+/// `semver2`, `version_files = src/__version__.py` /
+/// `setup.cfg:version`, `tag_format = $version` / `v$version` /
+/// `v${version}`, `bump_message = bump: version $current_version →
+/// $new_version`, `update_changelog_on_bump = true`,
+/// `changelog_file = CHANGELOG.md`, `changelog_incremental = false`,
+/// `changelog_start_rev = v1.0.0`, `changelog_merge_prerelease = true`,
+/// `annotated_tag = true`, `gpg_sign = false`, `major_version_zero =
+/// true`, `use_shortcuts = true`, `allow_abort = false`,
+/// `retry_after_failure = true`, `encoding = utf-8`,
+/// `prerelease_offset = 0`, `message_length_limit = 72`,
+/// `breaking_change_exclamation_in_title = true`. Exact snake_case
+/// keys. INI / TOML `key = value` or `key=value`. Optional quotes on
+/// values. Optional `#` / `;` comment. Bare `version` / `style` /
+/// hook arrays stay out. flake8 / mypy / pytest / isort / coverage /
+/// pylint / pycodestyle / autopep8 / black / yapf / pydocstyle /
+/// bandit / codespell / docformatter / vulture / interrogate /
+/// check-manifest / bumpversion / versioneer / setuptools_scm /
+/// towncrier / zest.releaser / cibuildwheel / check-wheel-contents /
+/// Twine `.pypirc` / tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.commitizen]` tables / Desktop Entry / pip.conf stay out.
+fn is_commitizen_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return commitizen_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !commitizen_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    commitizen_ini_value_ok(key, value)
+}
+
+fn commitizen_ini_section_ok(header: &str) -> bool {
+    matches!(header, "tool:commitizen" | "commitizen")
+}
+
+fn commitizen_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "name"
+            | "version_provider"
+            | "version_scheme"
+            | "version_files"
+            | "tag_format"
+            | "bump_message"
+            | "update_changelog_on_bump"
+            | "changelog_file"
+            | "changelog_incremental"
+            | "changelog_start_rev"
+            | "changelog_merge_prerelease"
+            | "annotated_tag"
+            | "gpg_sign"
+            | "major_version_zero"
+            | "use_shortcuts"
+            | "allow_abort"
+            | "retry_after_failure"
+            | "encoding"
+            | "prerelease_offset"
+            | "message_length_limit"
+            | "breaking_change_exclamation_in_title"
+    )
+}
+
+fn commitizen_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn commitizen_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        commitizen_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn commitizen_ini_name_ok(value: &str) -> bool {
+    let bare = commitizen_ini_bare(value);
+    if bare.len() < 3 || bare.len() > 64 {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !bare.starts_with("cz_") {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-'))
+}
+
+fn commitizen_ini_provider_ok(value: &str) -> bool {
+    matches!(
+        commitizen_ini_bare(value),
+        "commitizen" | "scm" | "pep621" | "poetry" | "uv" | "cargo" | "npm" | "composer"
+    )
+}
+
+fn commitizen_ini_scheme_ok(value: &str) -> bool {
+    matches!(commitizen_ini_bare(value), "pep440" | "semver" | "semver2")
+}
+
+fn commitizen_ini_tag_format_ok(value: &str) -> bool {
+    let bare = commitizen_ini_bare(value);
+    if bare.is_empty() || bare.len() > 128 {
+        return false;
+    }
+    // Commitizen uses `$version` / `${version}`; zest.releaser
+    // `tag-format` wants `{version}` / `%(version)s` instead.
+    let has_var = bare.contains("$version")
+        || bare.contains("${version}")
+        || bare.contains("$current_version")
+        || bare.contains("$new_version");
+    if !has_var {
+        return false;
+    }
+    bare.chars().all(|c| !c.is_control())
+}
+
+fn commitizen_ini_bump_message_ok(value: &str) -> bool {
+    let bare = commitizen_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    let has_var = bare.contains("$version")
+        || bare.contains("$current_version")
+        || bare.contains("$new_version")
+        || bare.contains("${version}")
+        || bare.contains("${current_version}")
+        || bare.contains("${new_version}");
+    if !has_var {
+        return false;
+    }
+    // Stock bump templates may use a unicode arrow (→).
+    bare.chars().all(|c| !c.is_control())
+}
+
+fn commitizen_ini_files_ok(value: &str) -> bool {
+    let bare = commitizen_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    // Path-ish or `file:key` so bare prose stays out. Arrays stay out.
+    if bare.starts_with('[') {
+        return false;
+    }
+    let pathish = bare.contains('/')
+        || bare.contains('.')
+        || bare.contains(':')
+        || bare.contains(',')
+        || bare.contains('\\');
+    if !pathish {
+        return false;
+    }
+    let mut any = false;
+    for raw in bare.split(',') {
+        let tok = raw.trim();
+        if tok.is_empty() {
+            return false;
+        }
+        let bytes = tok.as_bytes();
+        if !(bytes[0].is_ascii_alphanumeric() || matches!(bytes[0], b'_' | b'.')) {
+            return false;
+        }
+        if !bytes.iter().all(|b| {
+            b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/' | b'\\' | b':')
+        }) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn commitizen_ini_changelog_file_ok(value: &str) -> bool {
+    let bare = commitizen_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    let lower = bare.to_ascii_lowercase();
+    let cue = lower.contains("changelog")
+        || lower.contains("changes")
+        || lower.contains("history")
+        || lower.contains("news")
+        || lower.ends_with(".md")
+        || lower.ends_with(".rst")
+        || lower.ends_with(".txt");
+    if !cue {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_' || bytes[0] == b'.') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+}
+
+fn commitizen_ini_rev_ok(value: &str) -> bool {
+    let bare = commitizen_ini_bare(value);
+    if bare.is_empty() || bare.len() > 128 {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'v' || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+}
+
+fn commitizen_ini_encoding_ok(value: &str) -> bool {
+    let bare = commitizen_ini_bare(value);
+    let lower = bare.to_ascii_lowercase();
+    matches!(
+        lower.as_str(),
+        "utf-8" | "utf8" | "ascii" | "latin-1" | "latin1" | "iso-8859-1" | "cp1252"
+    )
+}
+
+fn commitizen_ini_number_ok(value: &str) -> bool {
+    let bare = commitizen_ini_bare(value);
+    if bare.is_empty() || bare.len() > 8 {
+        return false;
+    }
+    bare.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn commitizen_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    // Nested tables / arrays stay out.
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "name" => commitizen_ini_name_ok(value),
+        "version_provider" => commitizen_ini_provider_ok(value),
+        "version_scheme" => commitizen_ini_scheme_ok(value),
+        "version_files" => commitizen_ini_files_ok(value),
+        "tag_format" => commitizen_ini_tag_format_ok(value),
+        "bump_message" => commitizen_ini_bump_message_ok(value),
+        "update_changelog_on_bump"
+        | "changelog_incremental"
+        | "changelog_merge_prerelease"
+        | "annotated_tag"
+        | "gpg_sign"
+        | "major_version_zero"
+        | "use_shortcuts"
+        | "allow_abort"
+        | "retry_after_failure"
+        | "breaking_change_exclamation_in_title" => commitizen_ini_bool_ok(value),
+        "changelog_file" => commitizen_ini_changelog_file_ok(value),
+        "changelog_start_rev" => commitizen_ini_rev_ok(value),
+        "encoding" => commitizen_ini_encoding_ok(value),
+        "prerelease_offset" | "message_length_limit" => commitizen_ini_number_ok(value),
         _ => false,
     }
 }
@@ -66607,39 +66895,40 @@ mod func_like_line_tests {
         is_bunfig_toml_decl, is_cabal_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
         is_cargo_toml_decl, is_cbindgen_toml_decl, is_check_manifest_ini_decl,
         is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl, is_cliff_toml_decl,
-        is_clippy_toml_decl, is_codespell_ini_decl, is_composer_json_decl, is_coverage_ini_decl,
-        is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl, is_deny_toml_decl,
-        is_desktop_entry_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
-        is_docformatter_ini_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
-        is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl,
-        is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_interrogate_ini_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
-        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
-        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
-        is_premake_decl, is_protocols_file_decl, is_pycodestyle_ini_decl, is_pydocstyle_ini_decl,
-        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl,
-        is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
-        is_sddm_conf_decl, is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl,
-        is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
-        is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
-        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
+        is_clippy_toml_decl, is_codespell_ini_decl, is_commitizen_ini_decl, is_composer_json_decl,
+        is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl,
+        is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dioxus_toml_decl,
+        is_dist_toml_decl, is_docformatter_ini_decl, is_dovecot_decl, is_dracut_conf_decl,
+        is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl,
+        is_fluent_bit_decl, is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_interrogate_ini_decl,
+        is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
+        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
+        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
+        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
+        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
+        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
+        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl,
+        is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl, is_pycodestyle_ini_decl,
+        is_pydocstyle_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
+        is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
+        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -74343,6 +74632,10 @@ mod func_like_line_tests {
         assert!(!is_pypirc_ini_decl("[flake8]"));
         assert!(is_flake8_ini_decl("[flake8]"));
         assert!(!is_pypirc_ini_decl("indent_size = 4"));
+        assert!(!is_pypirc_ini_decl("[tool:commitizen]"));
+        assert!(is_commitizen_ini_decl("[tool:commitizen]"));
+        assert!(!is_pypirc_ini_decl("version_provider = pep621"));
+        assert!(is_commitizen_ini_decl("version_provider = pep621"));
         // Plain `username = alice` / `password = secret` are yum/dnf
         // repo keys, not Twine; only `__token__` is ours.
         assert!(is_yum_repo_decl("username = alice"));
@@ -74357,6 +74650,114 @@ mod func_like_line_tests {
         assert!(line_is_func_like("[pypi]"));
         assert!(line_is_func_like("[testpypi]"));
         assert!(line_is_func_like("[server-login]"));
+    }
+
+    #[test]
+    fn commitizen_ini_entries_count() {
+        assert!(line_is_func_like("[tool:commitizen]"));
+        assert!(line_is_func_like("  [tool:commitizen] # bump"));
+        assert!(line_is_func_like("[commitizen]; cz"));
+        assert!(is_commitizen_ini_decl("[tool:commitizen]"));
+        assert!(is_commitizen_ini_decl("[commitizen]"));
+        assert!(is_commitizen_ini_decl("name = cz_conventional_commits"));
+        assert!(is_commitizen_ini_decl("name=cz_jira"));
+        assert!(is_commitizen_ini_decl("name = \"cz_conventional_commits\""));
+        assert!(is_commitizen_ini_decl("version_provider = commitizen"));
+        assert!(is_commitizen_ini_decl("version_provider = pep621"));
+        assert!(is_commitizen_ini_decl("version_provider=\"poetry\""));
+        assert!(is_commitizen_ini_decl("version_provider = scm"));
+        assert!(is_commitizen_ini_decl("version_provider = uv"));
+        assert!(is_commitizen_ini_decl("version_provider = cargo"));
+        assert!(is_commitizen_ini_decl("version_provider = npm"));
+        assert!(is_commitizen_ini_decl("version_provider = composer"));
+        assert!(is_commitizen_ini_decl("version_scheme = pep440"));
+        assert!(is_commitizen_ini_decl("version_scheme = semver"));
+        assert!(is_commitizen_ini_decl("version_scheme = \"semver2\""));
+        assert!(is_commitizen_ini_decl("version_files = src/__version__.py"));
+        assert!(is_commitizen_ini_decl(
+            "version_files = setup.cfg:version,pyproject.toml:version"
+        ));
+        assert!(is_commitizen_ini_decl("tag_format = $version"));
+        assert!(is_commitizen_ini_decl("tag_format = v$version"));
+        assert!(is_commitizen_ini_decl("tag_format = \"v${version}\""));
+        assert!(is_commitizen_ini_decl(
+            "bump_message = bump: version $current_version → $new_version"
+        ));
+        assert!(is_commitizen_ini_decl("update_changelog_on_bump = true"));
+        assert!(is_commitizen_ini_decl("changelog_file = CHANGELOG.md"));
+        assert!(is_commitizen_ini_decl("changelog_file = docs/HISTORY.rst"));
+        assert!(is_commitizen_ini_decl("changelog_incremental = false"));
+        assert!(is_commitizen_ini_decl("changelog_start_rev = v1.0.0"));
+        assert!(is_commitizen_ini_decl("changelog_merge_prerelease = true"));
+        assert!(is_commitizen_ini_decl("annotated_tag = true"));
+        assert!(is_commitizen_ini_decl("gpg_sign = false"));
+        assert!(is_commitizen_ini_decl("major_version_zero = yes"));
+        assert!(is_commitizen_ini_decl("use_shortcuts = 1"));
+        assert!(is_commitizen_ini_decl("allow_abort = no"));
+        assert!(is_commitizen_ini_decl("retry_after_failure = on"));
+        assert!(is_commitizen_ini_decl("encoding = utf-8"));
+        assert!(is_commitizen_ini_decl("encoding = \"utf8\""));
+        assert!(is_commitizen_ini_decl("prerelease_offset = 0"));
+        assert!(is_commitizen_ini_decl("message_length_limit = 72"));
+        assert!(is_commitizen_ini_decl(
+            "breaking_change_exclamation_in_title = true"
+        ));
+        assert!(is_commitizen_ini_decl(
+            "version_provider = pep621 # comment"
+        ));
+
+        // Neighbouring formats / generics / wrong case stay out.
+        assert!(!is_commitizen_ini_decl("name"));
+        assert!(!is_commitizen_ini_decl("name ="));
+        assert!(!is_commitizen_ini_decl("name = conventional_commits"));
+        assert!(!is_commitizen_ini_decl("Name = cz_conventional_commits"));
+        assert!(!is_commitizen_ini_decl("# name = cz_conventional_commits"));
+        assert!(!is_commitizen_ini_decl("version = 1.2.3"));
+        assert!(!is_commitizen_ini_decl("version_provider = unknown"));
+        assert!(!is_commitizen_ini_decl("version_scheme = guess-next-dev"));
+        assert!(is_setuptools_scm_ini_decl(
+            "version_scheme = guess-next-dev"
+        ));
+        assert!(!is_commitizen_ini_decl("tag_format = v{version}"));
+        assert!(!is_commitizen_ini_decl("tag-format = v{version}"));
+        assert!(is_zest_releaser_ini_decl("tag-format = v{version}"));
+        assert!(!is_commitizen_ini_decl("bump_message = bump release"));
+        assert!(!is_commitizen_ini_decl("version_files = myproject"));
+        assert!(!is_commitizen_ini_decl("changelog_file = notes"));
+        assert!(!is_commitizen_ini_decl("[Commitizen]"));
+        assert!(!is_commitizen_ini_decl("[[commitizen]]"));
+        assert!(!is_commitizen_ini_decl("[commitizen"));
+        assert!(!is_commitizen_ini_decl("[tool.commitizen]"));
+        assert!(is_pyproject_toml_decl("[tool.commitizen]"));
+        assert!(!is_commitizen_ini_decl("[distutils]"));
+        assert!(is_pypirc_ini_decl("[distutils]"));
+        assert!(!is_commitizen_ini_decl("[zest.releaser]"));
+        assert!(is_zest_releaser_ini_decl("[zest.releaser]"));
+        assert!(!is_commitizen_ini_decl("[tool:setuptools_scm]"));
+        assert!(is_setuptools_scm_ini_decl("[tool:setuptools_scm]"));
+        assert!(!is_commitizen_ini_decl("[tool:towncrier]"));
+        assert!(is_towncrier_ini_decl("[tool:towncrier]"));
+        assert!(!is_commitizen_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_commitizen_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_commitizen_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_commitizen_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_commitizen_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_commitizen_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_commitizen_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_commitizen_ini_decl("indent_size = 4"));
+        // Distinctive commitizen keys still list.
+        assert!(line_is_func_like("version_provider = pep621"));
+        assert!(line_is_func_like("tag_format = v$version"));
+        assert!(line_is_func_like("name = cz_conventional_commits"));
+        assert!(line_is_func_like("[tool:commitizen]"));
+        assert!(line_is_func_like("[commitizen]"));
     }
 
     #[test]

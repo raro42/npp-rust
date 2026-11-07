@@ -1012,3 +1012,5 @@
 009 keep: Function List check-manifest (v0.3.668)
 
 009 keep: Function List check-wheel-contents (v0.3.675)
+
+009 keep: Function List Commitizen setup.cfg/.cz.cfg [tool:commitizen]/[commitizen] version_provider/tag_format/$version (v0.3.677)
