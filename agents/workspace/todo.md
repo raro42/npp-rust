@@ -1024,3 +1024,5 @@
 009 keep: Function List scriv setup.cfg [scriv]/[tool:scriv] format/version literal|call|parse/insert_marker (v0.3.679)
 
 009 keep: Function List import-linter [importlinter]/[importlinter:contract:…] root_package/type/forbidden_modules (v0.3.680)
+
+009 keep: Function List doc8 setup.cfg/tox.ini/doc8.ini [doc8]/[tool:doc8] allow-long-titles/ignore-path/ignore-path-errors/D### (v0.3.683)

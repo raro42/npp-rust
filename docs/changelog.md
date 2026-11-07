@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.683] — 2026-11-07
+
+View:
+
+- **Function List** lists doc8 `setup.cfg` / `tox.ini` / `doc8.ini` / `pep8.ini` `[doc8]` / `[tool:doc8]` sections and fields: `[doc8]`, `[tool:doc8]`, `allow-long-titles = True` / `false`, `ignore-path = .tox,docs/_build` / `*.egg-info`, `ignore-path-errors = docs/odd.rst;D001;D002`, `default-extension = .rst` / `.txt`, `extension = .rst,.txt`, `file-encoding = utf-8` / `latin-1` / `cp1252`, `max-line-length = 99` / `120`, `ignore = D000,D001` / `D002`, `sphinx = True` / `yes`. Exact kebab-case keys. INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. Bare `verbose` / `quiet` stay out. `ignore` needs comma-separated `D` / `D0`…`D9` / `D###` check ids (no flake8 `E`/`F`/`W` codes). flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / tox / setuptools / Cargo / Pipfile / pyproject `[tool.doc8]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.682] — 2026-11-07
 
 View:

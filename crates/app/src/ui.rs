@@ -32403,6 +32403,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_importlinter_ini_decl(s)
             || is_darglint_ini_decl(s)
             || is_pydoclint_ini_decl(s)
+            || is_doc8_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32663,6 +32664,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_importlinter_ini_decl(s)
         || is_darglint_ini_decl(s)
         || is_pydoclint_ini_decl(s)
+        || is_doc8_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -47704,6 +47706,278 @@ fn pydoclint_ini_value_ok(key: &str, value: &str) -> bool {
         "baseline" => pydoclint_baseline_ok(value),
         "native-mode-noqa-location" => pydoclint_noqa_location_ok(value),
         _ => pydoclint_ini_bool_ok(value),
+    }
+}
+
+/// doc8 `setup.cfg` / `tox.ini` / `doc8.ini` / `pep8.ini` `[doc8]` /
+/// `[tool:doc8]` sections and distinctive keys: `[doc8]`, `[tool:doc8]`,
+/// `allow-long-titles = True` / `false`, `ignore-path = .tox,docs/_build`
+/// / `*.egg-info`, `ignore-path-errors = docs/odd.rst;D001;D002`,
+/// `default-extension = .rst` / `.txt`, `extension = .rst,.txt`,
+/// `file-encoding = utf-8` / `latin-1`, `max-line-length = 99` / `120`,
+/// `ignore = D000,D001` / `D002`, `sphinx = True` / `yes`. Exact
+/// kebab-case keys. INI `key = value` or `key=value`. Optional quotes on
+/// values. Optional `#` / `;` comment. Bare `verbose` / `quiet` stay out
+/// (shared). `ignore` needs comma-separated `D` / `D0`…`D9` / `D###`
+/// check ids (no flake8 `E`/`F`/`W` codes). flake8 / mypy / pytest /
+/// isort / coverage / pylint / pycodestyle / autopep8 / black / yapf /
+/// pydocstyle / bandit / codespell / docformatter / vulture /
+/// interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.doc8]` tables / Desktop Entry / pip.conf stay out.
+fn is_doc8_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return doc8_ini_section_ok(header);
+    }
+    let body = doc8_ini_strip_comment(s);
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !doc8_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    doc8_ini_value_ok(key, value)
+}
+
+/// Trailing `#` / `;` comments need a preceding whitespace so
+/// `ignore-path-errors = file.rst;D001` keeps its `;` delimiters.
+fn doc8_ini_strip_comment(s: &str) -> &str {
+    let mut in_quote: Option<char> = None;
+    let mut prev_ws = false;
+    for (i, c) in s.char_indices() {
+        if let Some(q) = in_quote {
+            if c == q {
+                in_quote = None;
+            }
+            prev_ws = false;
+            continue;
+        }
+        if c == '"' || c == '\'' {
+            in_quote = Some(c);
+            prev_ws = false;
+            continue;
+        }
+        if (c == '#' || c == ';') && prev_ws {
+            return s[..i].trim();
+        }
+        prev_ws = c.is_whitespace();
+    }
+    s.trim()
+}
+
+fn doc8_ini_section_ok(header: &str) -> bool {
+    matches!(header, "doc8" | "tool:doc8")
+}
+
+fn doc8_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "allow-long-titles"
+            | "ignore-path"
+            | "ignore-path-errors"
+            | "default-extension"
+            | "extension"
+            | "file-encoding"
+            | "max-line-length"
+            | "ignore"
+            | "sphinx"
+    )
+}
+
+fn doc8_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn doc8_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        doc8_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn doc8_max_line_length_ok(value: &str) -> bool {
+    let bare = doc8_ini_bare(value);
+    !bare.is_empty() && bare.len() <= 4 && bare.bytes().all(|b| b.is_ascii_digit()) && bare != "0"
+}
+
+fn doc8_d_code_ok(token: &str) -> bool {
+    let t = token.trim();
+    if t.is_empty() || t.len() > 8 {
+        return false;
+    }
+    let bytes = t.as_bytes();
+    if bytes[0] != b'D' && bytes[0] != b'd' {
+        return false;
+    }
+    if bytes.len() == 1 {
+        return true;
+    }
+    bytes[1..].iter().all(|b| b.is_ascii_digit())
+}
+
+fn doc8_ignore_ok(value: &str) -> bool {
+    let bare = doc8_ini_bare(value);
+    if bare.is_empty() || bare.len() > 128 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        let t = part.trim();
+        if t.is_empty() {
+            return false;
+        }
+        if !doc8_d_code_ok(t) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn doc8_path_token_ok(token: &str) -> bool {
+    let t = token.trim();
+    if t.is_empty() || t.len() > 256 {
+        return false;
+    }
+    let mut has_token = false;
+    for b in t.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric()
+            || matches!(b, b'_' | b'-' | b'.' | b'/' | b'*' | b'?' | b'[' | b']')
+        {
+            has_token = true;
+        }
+    }
+    has_token
+}
+
+fn doc8_ignore_path_ok(value: &str) -> bool {
+    let bare = doc8_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        if !doc8_path_token_ok(part) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn doc8_ignore_path_errors_ok(value: &str) -> bool {
+    let bare = doc8_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 || !bare.contains(';') {
+        return false;
+    }
+    let mut parts = bare.split(';');
+    let Some(path) = parts.next() else {
+        return false;
+    };
+    if !doc8_path_token_ok(path) {
+        return false;
+    }
+    let mut any_code = false;
+    for code in parts {
+        let t = code.trim();
+        if t.is_empty() || !doc8_d_code_ok(t) {
+            return false;
+        }
+        any_code = true;
+    }
+    any_code
+}
+
+fn doc8_extension_token_ok(token: &str) -> bool {
+    let t = token.trim();
+    if t.len() < 2 || t.len() > 16 {
+        return false;
+    }
+    let bytes = t.as_bytes();
+    if bytes[0] != b'.' {
+        return false;
+    }
+    bytes[1..]
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'-')
+        && bytes[1].is_ascii_alphanumeric()
+}
+
+fn doc8_extension_ok(value: &str) -> bool {
+    let bare = doc8_ini_bare(value);
+    if bare.is_empty() || bare.len() > 64 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        if !doc8_extension_token_ok(part) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn doc8_file_encoding_ok(value: &str) -> bool {
+    let bare = doc8_ini_bare(value);
+    if bare.is_empty() || bare.len() > 32 {
+        return false;
+    }
+    let lower = bare.to_ascii_lowercase();
+    // Common encodings; hyphen / digit ok (`utf-8`, `iso-8859-1`, `cp1252`).
+    let bytes = lower.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || *b == b'-' || *b == b'_')
+        && (lower.contains("utf")
+            || lower.contains("latin")
+            || lower.contains("ascii")
+            || lower.contains("iso")
+            || lower.starts_with("cp")
+            || lower == "utf8"
+            || lower == "utf-8")
+}
+
+fn doc8_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "allow-long-titles" | "sphinx" => doc8_ini_bool_ok(value),
+        "max-line-length" => doc8_max_line_length_ok(value),
+        "ignore" => doc8_ignore_ok(value),
+        "ignore-path" => doc8_ignore_path_ok(value),
+        "ignore-path-errors" => doc8_ignore_path_errors_ok(value),
+        "default-extension" | "extension" => doc8_extension_ok(value),
+        "file-encoding" => doc8_file_encoding_ok(value),
+        _ => false,
     }
 }
 
@@ -68371,27 +68645,27 @@ mod func_like_line_tests {
         is_clippy_toml_decl, is_codespell_ini_decl, is_commitizen_ini_decl, is_composer_json_decl,
         is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl, is_darglint_ini_decl,
         is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl,
-        is_dioxus_toml_decl, is_dist_toml_decl, is_docformatter_ini_decl, is_dovecot_decl,
-        is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
-        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_freeradius_decl,
-        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
-        is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl, is_hosts_access_decl,
-        is_hosts_file_decl, is_importlinter_ini_decl, is_interrogate_ini_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
-        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
-        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
-        is_premake_decl, is_protocols_file_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
-        is_pydocstyle_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
-        is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl,
+        is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl,
+        is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
+        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_importlinter_ini_decl,
+        is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
+        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
+        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl,
+        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylint_ini_decl,
+        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl,
+        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
         is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
@@ -76858,6 +77132,97 @@ mod func_like_line_tests {
         assert!(line_is_func_like("native-mode-noqa-location = docstring"));
         assert!(line_is_func_like("[pydoclint]"));
         assert!(line_is_func_like("[tool:pydoclint]"));
+    }
+
+    #[test]
+    fn doc8_ini_sections_and_keys_count() {
+        assert!(is_doc8_ini_decl("[doc8]"));
+        assert!(is_doc8_ini_decl("  [doc8] # docs"));
+        assert!(is_doc8_ini_decl("[doc8] ; docs"));
+        assert!(is_doc8_ini_decl("[tool:doc8]"));
+        assert!(is_doc8_ini_decl("allow-long-titles = True"));
+        assert!(is_doc8_ini_decl("allow-long-titles=false"));
+        assert!(is_doc8_ini_decl("allow-long-titles = yes"));
+        assert!(is_doc8_ini_decl("ignore-path = .tox,docs/_build"));
+        assert!(is_doc8_ini_decl("ignore-path=.tox,*.egg-info"));
+        assert!(is_doc8_ini_decl("ignore-path = \"docs/_build\""));
+        assert!(is_doc8_ini_decl(
+            "ignore-path-errors = docs/odd.rst;D001;D002"
+        ));
+        assert!(is_doc8_ini_decl(
+            "ignore-path-errors=/tmp/other_thing.rst;D001"
+        ));
+        assert!(is_doc8_ini_decl("default-extension = .rst"));
+        assert!(is_doc8_ini_decl("default-extension=.txt"));
+        assert!(is_doc8_ini_decl("extension = .rst,.txt"));
+        assert!(is_doc8_ini_decl("file-encoding = utf-8"));
+        assert!(is_doc8_ini_decl("file-encoding = latin-1"));
+        assert!(is_doc8_ini_decl("file-encoding=cp1252"));
+        assert!(is_doc8_ini_decl("max-line-length = 99"));
+        assert!(is_doc8_ini_decl("max-line-length=120"));
+        assert!(is_doc8_ini_decl("ignore = D000,D001"));
+        assert!(is_doc8_ini_decl("ignore = D002"));
+        assert!(is_doc8_ini_decl("ignore=D"));
+        assert!(is_doc8_ini_decl("sphinx = True"));
+        assert!(is_doc8_ini_decl("sphinx = yes"));
+        assert!(is_doc8_ini_decl("allow-long-titles = True # comment"));
+
+        // Neighbouring formats / generics / wrong case stay out.
+        assert!(!is_doc8_ini_decl("allow-long-titles"));
+        assert!(!is_doc8_ini_decl("allow-long-titles ="));
+        assert!(!is_doc8_ini_decl("Allow-Long-Titles = True"));
+        assert!(!is_doc8_ini_decl("# allow-long-titles = True"));
+        assert!(!is_doc8_ini_decl("verbose = 1"));
+        assert!(!is_doc8_ini_decl("quiet = True"));
+        assert!(!is_doc8_ini_decl("ignore = E501,W503"));
+        assert!(!is_doc8_ini_decl("ignore = DAR101"));
+        assert!(!is_doc8_ini_decl("ignore-path = "));
+        assert!(!is_doc8_ini_decl("ignore-path-errors = docs/odd.rst"));
+        assert!(!is_doc8_ini_decl("ignore-path-errors = docs/odd.rst;E501"));
+        assert!(!is_doc8_ini_decl("default-extension = rst"));
+        assert!(!is_doc8_ini_decl("extension = rst,txt"));
+        assert!(!is_doc8_ini_decl("file-encoding = emoji"));
+        assert!(!is_doc8_ini_decl("max-line-length = 0"));
+        assert!(!is_doc8_ini_decl("max-line-length = eighty"));
+        assert!(!is_doc8_ini_decl("allow-long-titles = maybe"));
+        assert!(!is_doc8_ini_decl("[Doc8]"));
+        assert!(!is_doc8_ini_decl("[[doc8]]"));
+        assert!(!is_doc8_ini_decl("[doc8"));
+        assert!(!is_doc8_ini_decl("[tool.doc8]"));
+        assert!(is_pyproject_toml_decl("[tool.doc8]"));
+        assert!(!is_doc8_ini_decl("[pydoclint]"));
+        assert!(is_pydoclint_ini_decl("[pydoclint]"));
+        assert!(!is_doc8_ini_decl("[darglint]"));
+        assert!(is_darglint_ini_decl("[darglint]"));
+        assert!(!is_doc8_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(!is_doc8_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_doc8_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_doc8_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_doc8_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_doc8_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_doc8_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_doc8_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_doc8_ini_decl("arg-type-hints-in-docstring = True"));
+        assert!(is_pydoclint_ini_decl("arg-type-hints-in-docstring = True"));
+        assert!(!is_doc8_ini_decl("docstring_style = google"));
+        assert!(is_darglint_ini_decl("docstring_style = google"));
+        // Distinctive doc8 keys still list.
+        assert!(line_is_func_like("allow-long-titles = True"));
+        assert!(line_is_func_like("ignore-path = .tox,docs/_build"));
+        assert!(line_is_func_like(
+            "ignore-path-errors = docs/odd.rst;D001;D002"
+        ));
+        assert!(line_is_func_like("default-extension = .rst"));
+        assert!(line_is_func_like("[doc8]"));
+        assert!(line_is_func_like("[tool:doc8]"));
     }
 
     #[test]
