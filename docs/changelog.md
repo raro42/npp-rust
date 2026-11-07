@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.673] — 2026-11-07
+
+View:
+
+- **Function List** lists zest.releaser `setup.cfg` / `.pypirc` `[zest.releaser]` sections and fields: `[zest.releaser]`, `create-wheel = yes` / `false`, `upload-pypi = no`, `release = True`, `no-input = on`, `register = OFF`, `push-changes = 1`, `less-zeroes = true`, `tag-signing = yes`, `run-pre-commit = false`, `extra-message = [ci skip]`, `prefix-message = [TAG]`, `development-marker = .dev0`, `tag-format = v{version}` / `%(version)s`, `tag-message = Tagging {version}`, `date-format = %%Y-%%m-%%d`, `history-file = CHANGES.rst` / `docs/HISTORY.md`, `history_format = md` / `rst`, `version-levels = 3`. Exact zest.releaser keys (mostly kebab-case; `history_format` keeps its underscore). INI `key = value` or `key=value`. Optional `#` / `;` comment. Bool values accept yes/true/on/1 / no/false/off/0 (case-insensitive). `tag-format` / `tag-message` need `{version}` or `%(version)s`; `date-format` needs `%`; `history-file` needs a changelog-ish path; `history_format` is `md` / `rst`; `version-levels` is 0–10; `development-marker` needs a leading `.` or `dev`. Bare `name` / `version` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / tox / setuptools / Cargo / Pipfile / pyproject `[tool.zest-releaser]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.672] — 2026-11-07
 
 View:

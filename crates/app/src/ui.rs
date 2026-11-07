@@ -32393,6 +32393,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_versioneer_ini_decl(s)
             || is_setuptools_scm_ini_decl(s)
             || is_towncrier_ini_decl(s)
+            || is_zest_releaser_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32643,6 +32644,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_versioneer_ini_decl(s)
         || is_setuptools_scm_ini_decl(s)
         || is_towncrier_ini_decl(s)
+        || is_zest_releaser_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -45082,8 +45084,9 @@ fn setuptools_scm_ini_value_ok(key: &str, value: &str) -> bool {
 /// flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle /
 /// autopep8 / black / yapf / pydocstyle / bandit / codespell /
 /// docformatter / vulture / interrogate / check-manifest / bumpversion /
-/// versioneer / setuptools_scm / tox / setuptools / Cargo / Pipfile /
-/// pyproject `[tool.towncrier]` / Desktop Entry / pip.conf stay out.
+/// versioneer / setuptools_scm / zest.releaser / tox / setuptools /
+/// Cargo / Pipfile / pyproject `[tool.towncrier]` / Desktop Entry /
+/// pip.conf stay out.
 fn is_towncrier_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -45257,6 +45260,178 @@ fn towncrier_ini_value_ok(key: &str, value: &str) -> bool {
         "start_string" => towncrier_ini_start_string_ok(value),
         "orphan_prefix" => towncrier_ini_orphan_prefix_ok(value),
         "all_bullets" | "single_file" | "wrap" => towncrier_ini_bool_ok(value),
+        _ => false,
+    }
+}
+
+/// zest.releaser `setup.cfg` / `.pypirc` `[zest.releaser]` sections and
+/// distinctive keys (`create-wheel`, `upload-pypi`, `release`,
+/// `no-input`, `register`, `push-changes`, `less-zeroes`, `tag-signing`,
+/// `run-pre-commit`, `extra-message`, `prefix-message`,
+/// `development-marker`, `tag-format`, `tag-message`, `date-format`,
+/// `history-file`, `history_format`, `version-levels`). Exact
+/// zest.releaser keys (mostly kebab-case; `history_format` keeps its
+/// underscore). INI `key = value` or `key=value`. Optional `#` / `;`
+/// comment. Bool values accept yes/true/on/1 / no/false/off/0
+/// (case-insensitive). `tag-format` / `tag-message` need `{version}` or
+/// `%(version)s`; `date-format` needs `%`; `history-file` needs a
+/// changelog-ish path; `history_format` is `md` / `rst`;
+/// `version-levels` is 0–10; `development-marker` needs a leading `.`
+/// or `dev`. Bare `name` / `version` stay out. flake8 / mypy / pytest /
+/// isort / coverage / pylint / pycodestyle / autopep8 / black / yapf /
+/// pydocstyle / bandit / codespell / docformatter / vulture /
+/// interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.zest-releaser]` / Desktop Entry / pip.conf stay out.
+fn is_zest_releaser_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return header == "zest.releaser";
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !zest_releaser_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    zest_releaser_ini_value_ok(key, value)
+}
+
+fn zest_releaser_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "release"
+            | "upload-pypi"
+            | "create-wheel"
+            | "extra-message"
+            | "prefix-message"
+            | "no-input"
+            | "register"
+            | "push-changes"
+            | "less-zeroes"
+            | "version-levels"
+            | "development-marker"
+            | "tag-format"
+            | "tag-message"
+            | "tag-signing"
+            | "date-format"
+            | "history-file"
+            | "history_format"
+            | "run-pre-commit"
+    )
+}
+
+fn zest_releaser_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value.to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn zest_releaser_ini_message_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    value.chars().all(|c| c.is_ascii_graphic() || c == ' ')
+}
+
+fn zest_releaser_ini_marker_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 64 {
+        return false;
+    }
+    let lower = value.to_ascii_lowercase();
+    (value.starts_with('.') || lower.contains("dev"))
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+}
+
+fn zest_releaser_ini_version_token_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    value.contains("{version}") || value.contains("%(version)s")
+}
+
+fn zest_releaser_ini_date_format_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 64 {
+        return false;
+    }
+    value.contains('%')
+        && value.bytes().all(|b| {
+            b.is_ascii_alphanumeric() || matches!(b, b'%' | b'-' | b'_' | b'/' | b' ' | b'.')
+        })
+}
+
+fn zest_releaser_ini_history_file_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_' || bytes[0] == b'.') {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+    {
+        return false;
+    }
+    let lower = value.to_ascii_lowercase();
+    let base = lower.rsplit('/').next().unwrap_or(lower.as_str());
+    base.starts_with("news")
+        || base.starts_with("changes")
+        || base.starts_with("changelog")
+        || base.starts_with("history")
+        || lower.ends_with(".rst")
+        || lower.ends_with(".md")
+        || lower.ends_with(".txt")
+}
+
+fn zest_releaser_ini_history_format_ok(value: &str) -> bool {
+    matches!(value, "md" | "rst" | "MD" | "RST")
+}
+
+fn zest_releaser_ini_version_levels_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 2 {
+        return false;
+    }
+    value.parse::<u8>().is_ok_and(|n| n <= 10)
+}
+
+fn zest_releaser_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    match key {
+        "release" | "upload-pypi" | "create-wheel" | "no-input" | "register" | "push-changes"
+        | "less-zeroes" | "tag-signing" | "run-pre-commit" => zest_releaser_ini_bool_ok(value),
+        "extra-message" | "prefix-message" => zest_releaser_ini_message_ok(value),
+        "development-marker" => zest_releaser_ini_marker_ok(value),
+        "tag-format" | "tag-message" => zest_releaser_ini_version_token_ok(value),
+        "date-format" => zest_releaser_ini_date_format_ok(value),
+        "history-file" => zest_releaser_ini_history_file_ok(value),
+        "history_format" => zest_releaser_ini_history_format_ok(value),
+        "version-levels" => zest_releaser_ini_version_levels_ok(value),
         _ => false,
     }
 }
@@ -65952,7 +66127,8 @@ mod func_like_line_tests {
         is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
         is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
         is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -73056,6 +73232,164 @@ mod func_like_line_tests {
         assert!(line_is_func_like("wrap = true"));
         assert!(line_is_func_like("[tool:towncrier]"));
         assert!(line_is_func_like("[towncrier]"));
+        assert!(!is_towncrier_ini_decl("[zest.releaser]"));
+        assert!(is_zest_releaser_ini_decl("[zest.releaser]"));
+        assert!(!is_towncrier_ini_decl("create-wheel = yes"));
+        assert!(is_zest_releaser_ini_decl("create-wheel = yes"));
+    }
+
+    #[test]
+    fn zest_releaser_ini_entries_count() {
+        assert!(line_is_func_like("[zest.releaser]"));
+        assert!(line_is_func_like("  [zest.releaser] # setup.cfg"));
+        assert!(line_is_func_like("[zest.releaser]; .pypirc"));
+        assert!(is_zest_releaser_ini_decl("[zest.releaser]"));
+        assert!(is_zest_releaser_ini_decl("create-wheel = yes"));
+        assert!(is_zest_releaser_ini_decl("create-wheel = false"));
+        assert!(is_zest_releaser_ini_decl("upload-pypi = no"));
+        assert!(is_zest_releaser_ini_decl("release = True"));
+        assert!(is_zest_releaser_ini_decl("no-input = on"));
+        assert!(is_zest_releaser_ini_decl("register = OFF"));
+        assert!(is_zest_releaser_ini_decl("push-changes = 1"));
+        assert!(is_zest_releaser_ini_decl("less-zeroes = true"));
+        assert!(is_zest_releaser_ini_decl("tag-signing = yes"));
+        assert!(is_zest_releaser_ini_decl("run-pre-commit = false"));
+        assert!(is_zest_releaser_ini_decl("extra-message = [ci skip]"));
+        assert!(is_zest_releaser_ini_decl("prefix-message = [TAG]"));
+        assert!(is_zest_releaser_ini_decl("development-marker = .dev0"));
+        assert!(is_zest_releaser_ini_decl("development-marker = .dev"));
+        assert!(is_zest_releaser_ini_decl("tag-format = v{version}"));
+        assert!(is_zest_releaser_ini_decl("tag-format = %(version)s"));
+        assert!(is_zest_releaser_ini_decl("tag-message = Tagging {version}"));
+        assert!(is_zest_releaser_ini_decl("date-format = %%Y-%%m-%%d"));
+        assert!(is_zest_releaser_ini_decl("history-file = CHANGES.rst"));
+        assert!(is_zest_releaser_ini_decl("history-file = docs/HISTORY.md"));
+        assert!(is_zest_releaser_ini_decl("history_format = md"));
+        assert!(is_zest_releaser_ini_decl("history_format = rst"));
+        assert!(is_zest_releaser_ini_decl("version-levels = 3"));
+        assert!(is_zest_releaser_ini_decl("version-levels = 0"));
+        assert!(is_zest_releaser_ini_decl("create-wheel = yes # comment"));
+        assert!(is_zest_releaser_ini_decl("tag-format=v{version}; trail"));
+
+        // Neighbouring formats / wrong case / bare generics stay out.
+        assert!(!is_zest_releaser_ini_decl("create-wheel"));
+        assert!(!is_zest_releaser_ini_decl("create-wheel ="));
+        assert!(!is_zest_releaser_ini_decl("Create-wheel = yes"));
+        assert!(!is_zest_releaser_ini_decl("# create-wheel = yes"));
+        assert!(!is_zest_releaser_ini_decl("create-wheel = maybe"));
+        assert!(!is_zest_releaser_ini_decl("tag-format = release"));
+        assert!(!is_zest_releaser_ini_decl("tag-message = bump"));
+        assert!(!is_zest_releaser_ini_decl("date-format = Y-m-d"));
+        assert!(!is_zest_releaser_ini_decl("history-file = setup.py"));
+        assert!(!is_zest_releaser_ini_decl(
+            "history-file = /abs/CHANGES.rst"
+        ));
+        assert!(!is_zest_releaser_ini_decl("history_format = markdown"));
+        assert!(!is_zest_releaser_ini_decl("version-levels = 11"));
+        assert!(!is_zest_releaser_ini_decl("development-marker = final"));
+        assert!(!is_zest_releaser_ini_decl("name = My Project"));
+        assert!(!is_zest_releaser_ini_decl("version = 1.0.0"));
+        assert!(!is_zest_releaser_ini_decl("[Zest.releaser]"));
+        assert!(!is_zest_releaser_ini_decl("[ZEST.RELEASER]"));
+        assert!(!is_zest_releaser_ini_decl("[[zest.releaser]]"));
+        assert!(!is_zest_releaser_ini_decl("[zest.releaser"));
+        assert!(!is_zest_releaser_ini_decl("[tool.zest-releaser]"));
+        assert!(is_pyproject_toml_decl("[tool.zest-releaser]"));
+        assert!(!is_zest_releaser_ini_decl("[tool:towncrier]"));
+        assert!(is_towncrier_ini_decl("[tool:towncrier]"));
+        assert!(!is_zest_releaser_ini_decl("title_format = {version}"));
+        assert!(is_towncrier_ini_decl("title_format = {version}"));
+        assert!(!is_zest_releaser_ini_decl("[tool:setuptools_scm]"));
+        assert!(is_setuptools_scm_ini_decl("[tool:setuptools_scm]"));
+        assert!(!is_zest_releaser_ini_decl(
+            "version_scheme = guess-next-dev"
+        ));
+        assert!(is_setuptools_scm_ini_decl(
+            "version_scheme = guess-next-dev"
+        ));
+        assert!(!is_zest_releaser_ini_decl("[versioneer]"));
+        assert!(is_versioneer_ini_decl("[versioneer]"));
+        assert!(!is_zest_releaser_ini_decl("VCS = git"));
+        assert!(is_versioneer_ini_decl("VCS = git"));
+        assert!(!is_zest_releaser_ini_decl("[bumpversion]"));
+        assert!(is_bumpversion_ini_decl("[bumpversion]"));
+        assert!(!is_zest_releaser_ini_decl("current_version = 1.2.3"));
+        assert!(is_bumpversion_ini_decl("current_version = 1.2.3"));
+        assert!(!is_zest_releaser_ini_decl("[check-manifest]"));
+        assert!(is_check_manifest_ini_decl("[check-manifest]"));
+        assert!(!is_zest_releaser_ini_decl("[interrogate]"));
+        assert!(is_interrogate_ini_decl("[interrogate]"));
+        assert!(!is_zest_releaser_ini_decl("[vulture]"));
+        assert!(is_vulture_ini_decl("[vulture]"));
+        assert!(!is_zest_releaser_ini_decl("[docformatter]"));
+        assert!(is_docformatter_ini_decl("[docformatter]"));
+        assert!(!is_zest_releaser_ini_decl("[codespell]"));
+        assert!(is_codespell_ini_decl("[codespell]"));
+        assert!(!is_zest_releaser_ini_decl("[bandit]"));
+        assert!(is_bandit_ini_decl("[bandit]"));
+        assert!(!is_zest_releaser_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(!is_zest_releaser_ini_decl("[yapf]"));
+        assert!(is_yapf_ini_decl("[yapf]"));
+        assert!(!is_zest_releaser_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_zest_releaser_ini_decl("line-length = 88"));
+        assert!(is_black_ini_decl("line-length = 88"));
+        assert!(!is_zest_releaser_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_zest_releaser_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_zest_releaser_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_zest_releaser_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_zest_releaser_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_zest_releaser_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_zest_releaser_ini_decl("[tool:pytest]"));
+        assert!(is_pytest_ini_decl("[tool:pytest]"));
+        assert!(!is_zest_releaser_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_zest_releaser_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_zest_releaser_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_zest_releaser_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_zest_releaser_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_zest_releaser_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_zest_releaser_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_zest_releaser_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_zest_releaser_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_zest_releaser_ini_decl("indent_size = 4"));
+        assert!(!line_is_func_like("tag-format = release"));
+        assert!(!line_is_func_like("history_format = markdown"));
+        // Distinctive zest.releaser keys still list.
+        assert!(line_is_func_like("create-wheel = yes"));
+        assert!(line_is_func_like("upload-pypi = no"));
+        assert!(line_is_func_like("release = false"));
+        assert!(line_is_func_like("no-input = true"));
+        assert!(line_is_func_like("register = yes"));
+        assert!(line_is_func_like("push-changes = on"));
+        assert!(line_is_func_like("less-zeroes = true"));
+        assert!(line_is_func_like("tag-signing = yes"));
+        assert!(line_is_func_like("run-pre-commit = false"));
+        assert!(line_is_func_like("extra-message = [ci skip]"));
+        assert!(line_is_func_like("prefix-message = [TAG]"));
+        assert!(line_is_func_like("development-marker = .dev0"));
+        assert!(line_is_func_like("tag-format = v{version}"));
+        assert!(line_is_func_like("tag-message = Tagging {version}"));
+        assert!(line_is_func_like("date-format = %%Y-%%m-%%d"));
+        assert!(line_is_func_like("history-file = CHANGES.rst"));
+        assert!(line_is_func_like("history_format = md"));
+        assert!(line_is_func_like("version-levels = 3"));
+        assert!(line_is_func_like("[zest.releaser]"));
     }
 
     #[test]
