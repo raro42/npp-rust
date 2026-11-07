@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.667] — 2026-11-07
+
+View:
+
+- **Function List** lists interrogate `setup.cfg` / `tox.ini` `[tool:interrogate]` / `[interrogate]` sections and fields: `[tool:interrogate]`, `[interrogate]`, `ignore-init-method = true`, `ignore-init-module = false`, `ignore-magic = true`, `ignore-semiprivate` / `ignore-private` / `ignore-property-decorators` / `ignore-module` / `ignore-nested-functions` / `ignore-nested-classes` / `ignore-setters` / `ignore-overloaded-functions`, `fail-under = 80` / `95.0`, `ignore-regex = ^get$,^mock_.*`, `whitelist-regex = ^test_`, `omit-covered-files = true`, `generate-badge = .` / `docs/_static`, `badge-format = svg` / `png`. Exact interrogate keys (kebab-case). INI `key = value` or `key=value`. Optional `#` / `;` comment. Bare `exclude` / `verbose` / `quiet` / `color` / `ext` / `style` stay out (flake8 / shared / docformatter). flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / tox / setuptools / Cargo / Pipfile / pyproject `[tool.interrogate]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.666] — 2026-11-07
 
 View:
