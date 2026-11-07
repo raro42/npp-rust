@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.660] — 2026-11-07
+
+View:
+
+- **Function List** lists Black `setup.cfg` / `tox.ini` `[black]` sections and fields: `[black]`, `line-length = 88`, `target-version = py39` / `py37,py38,py39`, `skip-string-normalization = true`, `skip-magic-trailing-comma = true`, `preview = true`, `check = true`, `diff = true`, `color = true`, `fast = true`, `quiet = true`, `verbose = true`, `include = \.pyi?$`, `exclude = /(\.git|\.venv)/`, `extend-exclude = docs`, `force-exclude = migrations`, `required-version = 24.3.0`, `workers = 4`. Exact Black keys (kebab-case). INI `key = value` or `key=value`. Optional `#` / `;` comment. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / tox / setuptools / Cargo / Pipfile / pyproject `[tool.black]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.659] — 2026-11-07
 
 View:
