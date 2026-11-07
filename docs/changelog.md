@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.676] — 2026-11-07
+
+View:
+
+- **Function List** lists Twine / distutils `.pypirc` sections and fields: `[distutils]`, `[pypi]`, `[testpypi]`, `[server-login]`, `index-servers = pypi testpypi` / `pypi,testpypi`, `repository = https://upload.pypi.org/legacy/` / `https://test.pypi.org/legacy/` / `http://pypi.example.com/`, `username = __token__`. Exact stock section names (no free-form private-index headers). INI `key = value` or `key=value`. Optional `#` / `;` comment. `repository` needs an `http://` / `https://` URL with a `.` host. `username` only matches Twine's `__token__` API-token convention. `password` / `cert` / `client_cert` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / tox / setuptools / Cargo / Pipfile / pyproject / Desktop Entry / pip.conf / yum `.repo` stay out.
+
 ## [0.3.675] — 2026-11-07
 
 View:

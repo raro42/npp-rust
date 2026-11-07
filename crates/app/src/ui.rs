@@ -32396,6 +32396,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_zest_releaser_ini_decl(s)
             || is_cibuildwheel_ini_decl(s)
             || is_check_wheel_contents_ini_decl(s)
+            || is_pypirc_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32649,6 +32650,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_zest_releaser_ini_decl(s)
         || is_cibuildwheel_ini_decl(s)
         || is_check_wheel_contents_ini_decl(s)
+        || is_pypirc_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -45825,6 +45827,121 @@ fn check_wheel_contents_ini_value_ok(key: &str, value: &str) -> bool {
         "package" => check_wheel_contents_ini_path_list_ok(value, true),
         "src_dir" => check_wheel_contents_ini_path_list_ok(value, false),
         "package_omit" => check_wheel_contents_ini_omit_ok(value),
+        _ => false,
+    }
+}
+
+/// Twine / distutils `.pypirc` sections and distinctive keys:
+/// `[distutils]`, `[pypi]`, `[testpypi]`, `[server-login]`,
+/// `index-servers = pypi testpypi`, `repository = https://…`,
+/// `username = __token__`. Exact stock section names (no free-form
+/// private-index headers). INI `key = value` or `key=value`. Optional
+/// `#` / `;` comment. `repository` needs an `http://` / `https://`
+/// URL so generic prose stays out. `username` only matches Twine's
+/// `__token__` API-token convention. `password` / `cert` /
+/// `client_cert` stay out (secrets / collide with pip.conf). flake8 /
+/// mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 /
+/// black / yapf / pydocstyle / bandit / codespell / docformatter /
+/// vulture / interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / tox / setuptools / Cargo / Pipfile /
+/// pyproject / Desktop Entry / pip.conf stay out.
+fn is_pypirc_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return pypirc_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !pypirc_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    pypirc_ini_value_ok(key, value)
+}
+
+fn pypirc_ini_section_ok(header: &str) -> bool {
+    matches!(header, "distutils" | "pypi" | "testpypi" | "server-login")
+}
+
+fn pypirc_ini_key_ok(key: &str) -> bool {
+    matches!(key, "index-servers" | "repository" | "username")
+}
+
+fn pypirc_ini_index_servers_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    let mut any = false;
+    for raw in value.split(|c: char| c.is_ascii_whitespace() || c == ',') {
+        let tok = raw.trim();
+        if tok.is_empty() {
+            continue;
+        }
+        let bytes = tok.as_bytes();
+        if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+            return false;
+        }
+        if !bytes
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
+        {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn pypirc_ini_repository_ok(value: &str) -> bool {
+    if value.len() < 8 || value.len() > 512 {
+        return false;
+    }
+    let lower = value.to_ascii_lowercase();
+    let rest = if let Some(r) = lower.strip_prefix("https://") {
+        r
+    } else if let Some(r) = lower.strip_prefix("http://") {
+        r
+    } else {
+        return false;
+    };
+    if rest.is_empty() || !rest.contains('.') {
+        return false;
+    }
+    value.chars().all(|c| c.is_ascii_graphic())
+}
+
+fn pypirc_ini_username_ok(value: &str) -> bool {
+    value == "__token__"
+}
+
+fn pypirc_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    match key {
+        "index-servers" => pypirc_ini_index_servers_ok(value),
+        "repository" => pypirc_ini_repository_ok(value),
+        "username" => pypirc_ini_username_ok(value),
         _ => false,
     }
 }
@@ -66509,20 +66626,20 @@ mod func_like_line_tests {
         is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
         is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
         is_premake_decl, is_protocols_file_decl, is_pycodestyle_ini_decl, is_pydocstyle_ini_decl,
-        is_pylint_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl,
-        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        line_is_func_like,
+        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
+        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
+        is_sddm_conf_decl, is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl,
+        is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl,
+        is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
+        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
+        is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -74139,6 +74256,12 @@ mod func_like_line_tests {
         assert!(is_desktop_entry_decl("[Desktop Entry]"));
         assert!(!is_check_wheel_contents_ini_decl("[global]"));
         assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_check_wheel_contents_ini_decl("[distutils]"));
+        assert!(is_pypirc_ini_decl("[distutils]"));
+        assert!(!is_check_wheel_contents_ini_decl(
+            "index-servers = pypi testpypi"
+        ));
+        assert!(is_pypirc_ini_decl("index-servers = pypi testpypi"));
         assert!(!is_check_wheel_contents_ini_decl("indent_size = 4"));
         assert!(line_is_func_like("select = E,F,W"));
         assert!(line_is_func_like("package = myproject"));
@@ -74151,6 +74274,89 @@ mod func_like_line_tests {
         assert!(line_is_func_like("package_omit = *.pyc,*.pyo"));
         assert!(line_is_func_like("[tool:check-wheel-contents]"));
         assert!(line_is_func_like("[check-wheel-contents]"));
+    }
+
+    #[test]
+    fn pypirc_ini_entries_count() {
+        assert!(line_is_func_like("[distutils]"));
+        assert!(line_is_func_like("  [distutils] # .pypirc"));
+        assert!(line_is_func_like("[pypi]; upload"));
+        assert!(line_is_func_like("[testpypi]"));
+        assert!(line_is_func_like("[server-login]"));
+        assert!(is_pypirc_ini_decl("[distutils]"));
+        assert!(is_pypirc_ini_decl("[pypi]"));
+        assert!(is_pypirc_ini_decl("[testpypi]"));
+        assert!(is_pypirc_ini_decl("[server-login]"));
+        assert!(is_pypirc_ini_decl("index-servers = pypi testpypi"));
+        assert!(is_pypirc_ini_decl("index-servers = pypi,testpypi"));
+        assert!(is_pypirc_ini_decl("index-servers=pypi"));
+        assert!(is_pypirc_ini_decl(
+            "repository = https://upload.pypi.org/legacy/"
+        ));
+        assert!(is_pypirc_ini_decl(
+            "repository = https://test.pypi.org/legacy/"
+        ));
+        assert!(is_pypirc_ini_decl("repository=http://pypi.example.com/"));
+        assert!(is_pypirc_ini_decl("username = __token__"));
+        assert!(is_pypirc_ini_decl("username=__token__"));
+        assert!(is_pypirc_ini_decl(
+            "repository = https://upload.pypi.org/legacy/ # comment"
+        ));
+        assert!(is_pypirc_ini_decl("index-servers = pypi; trail"));
+
+        // Neighbouring formats / secrets / wrong case / bare generics stay out.
+        assert!(!is_pypirc_ini_decl("index-servers"));
+        assert!(!is_pypirc_ini_decl("index-servers ="));
+        assert!(!is_pypirc_ini_decl("Index-Servers = pypi"));
+        assert!(!is_pypirc_ini_decl("# index-servers = pypi"));
+        assert!(!is_pypirc_ini_decl("username = alice"));
+        assert!(!is_pypirc_ini_decl("password = secret"));
+        assert!(!is_pypirc_ini_decl("repository = /legacy/"));
+        assert!(!is_pypirc_ini_decl("repository = upload.pypi.org"));
+        assert!(!is_pypirc_ini_decl("[Distutils]"));
+        assert!(!is_pypirc_ini_decl("[PYPI]"));
+        assert!(!is_pypirc_ini_decl("[[pypi]]"));
+        assert!(!is_pypirc_ini_decl("[pypi"));
+        assert!(!is_pypirc_ini_decl("[my-private-index]"));
+        assert!(!is_pypirc_ini_decl("[zest.releaser]"));
+        assert!(is_zest_releaser_ini_decl("[zest.releaser]"));
+        assert!(!is_pypirc_ini_decl("[tool:check-wheel-contents]"));
+        assert!(is_check_wheel_contents_ini_decl(
+            "[tool:check-wheel-contents]"
+        ));
+        assert!(!is_pypirc_ini_decl("[tool:cibuildwheel]"));
+        assert!(is_cibuildwheel_ini_decl("[tool:cibuildwheel]"));
+        assert!(!is_pypirc_ini_decl("index-url = https://pypi.org/simple"));
+        assert!(is_pip_conf_decl("index-url = https://pypi.org/simple"));
+        assert!(!is_pypirc_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_pypirc_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_pypirc_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_pypirc_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_pypirc_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_pypirc_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_pypirc_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_pypirc_ini_decl("indent_size = 4"));
+        // Plain `username = alice` / `password = secret` are yum/dnf
+        // repo keys, not Twine; only `__token__` is ours.
+        assert!(is_yum_repo_decl("username = alice"));
+        assert!(is_yum_repo_decl("password = secret"));
+        // Distinctive .pypirc / Twine keys still list.
+        assert!(line_is_func_like("index-servers = pypi testpypi"));
+        assert!(line_is_func_like(
+            "repository = https://upload.pypi.org/legacy/"
+        ));
+        assert!(line_is_func_like("username = __token__"));
+        assert!(line_is_func_like("[distutils]"));
+        assert!(line_is_func_like("[pypi]"));
+        assert!(line_is_func_like("[testpypi]"));
+        assert!(line_is_func_like("[server-login]"));
     }
 
     #[test]
