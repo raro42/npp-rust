@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.675] — 2026-11-07
+
+View:
+
+- **Function List** lists check-wheel-contents `setup.cfg` / `tox.ini` / `check-wheel-contents.cfg` `[tool:check-wheel-contents]` / `[check-wheel-contents]` sections and fields: `[tool:check-wheel-contents]`, `[check-wheel-contents]`, `select = W001,W002` / `W0` / `W`, `ignore = W009,W101`, `toplevel = foo.py,bar/`, `package = src/mypkg`, `src_dir = src`, `package_omit = .*,CVS,*.pyc,*.pyo,*.egg-info`. Exact check-wheel-contents keys (`src_dir` / `package_omit` keep underscores). INI `key = value` or `key=value`. Optional `#` / `;` comment. `select` / `ignore` need comma-separated `W` / `W0`…`W2` / `W###` check ids (no flake8 `E`/`F` codes). `package` needs a path-ish value so towncrier `package = myproject` stays out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / tox / setuptools / Cargo / Pipfile / pyproject `[tool.check-wheel-contents]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.674] — 2026-11-07
 
 View:

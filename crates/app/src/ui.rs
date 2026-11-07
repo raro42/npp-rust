@@ -32395,6 +32395,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_towncrier_ini_decl(s)
             || is_zest_releaser_ini_decl(s)
             || is_cibuildwheel_ini_decl(s)
+            || is_check_wheel_contents_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32647,6 +32648,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_towncrier_ini_decl(s)
         || is_zest_releaser_ini_decl(s)
         || is_cibuildwheel_ini_decl(s)
+        || is_check_wheel_contents_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -45646,6 +45648,183 @@ fn cibuildwheel_ini_value_ok(key: &str, value: &str) -> bool {
         "build-verbosity" => cibuildwheel_ini_verbosity_ok(value),
         "container-engine" => cibuildwheel_ini_container_engine_ok(value),
         "dependency-versions" => cibuildwheel_ini_dependency_versions_ok(value),
+        _ => false,
+    }
+}
+
+/// check-wheel-contents `setup.cfg` / `tox.ini` /
+/// `check-wheel-contents.cfg` / `.check-wheel-contents.cfg`
+/// `[tool:check-wheel-contents]` / `[check-wheel-contents]` sections
+/// and distinctive keys (`select`, `ignore`, `toplevel`, `package`,
+/// `src_dir`, `package_omit`). Optional `#` / `;` comment. Key lines
+/// may use `=` with or without spaces. Exact check-wheel-contents keys
+/// (`src_dir` / `package_omit` keep underscores; setup.cfg uses the
+/// `tool:` section prefix). `select` / `ignore` need comma-separated
+/// `W` / `W0`…`W2` / `W###` check ids (no flake8 `E`/`F` codes).
+/// `package` needs a path-ish value (`/` / `.` / trailing `/` /
+/// comma list) so towncrier `package = myproject` stays out; `src_dir`
+/// accepts a plain directory name.
+/// Bare `select` / `ignore` without values stay out. flake8 / mypy /
+/// pytest / isort / coverage / pylint / pycodestyle / autopep8 /
+/// black / yapf / pydocstyle / bandit / codespell / docformatter /
+/// vulture / interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel / tox /
+/// setuptools / Cargo / Pipfile / pyproject
+/// `[tool.check-wheel-contents]` / Desktop Entry / pip.conf stay out.
+fn is_check_wheel_contents_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return check_wheel_contents_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !check_wheel_contents_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    check_wheel_contents_ini_value_ok(key, value)
+}
+
+fn check_wheel_contents_ini_section_ok(header: &str) -> bool {
+    header == "tool:check-wheel-contents" || header == "check-wheel-contents"
+}
+
+fn check_wheel_contents_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "select" | "ignore" | "toplevel" | "package" | "src_dir" | "package_omit"
+    )
+}
+
+fn check_wheel_contents_ini_checks_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    let mut any = false;
+    for raw in value.split(',') {
+        let tok = raw.trim();
+        if tok.is_empty() {
+            return false;
+        }
+        let bytes = tok.as_bytes();
+        if bytes[0] != b'W' {
+            return false;
+        }
+        let digits = &bytes[1..];
+        if digits.len() > 3 || !digits.iter().all(u8::is_ascii_digit) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn check_wheel_contents_ini_toplevel_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    let mut any = false;
+    for raw in value.split(',') {
+        let tok = raw.trim();
+        if tok.is_empty() {
+            return false;
+        }
+        let bytes = tok.as_bytes();
+        if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+            return false;
+        }
+        if !bytes
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+        {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn check_wheel_contents_ini_path_list_ok(value: &str, require_pathish: bool) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    // For `package`, require path-ish cues so towncrier
+    // `package = myproject` stays out. `src_dir = src` is fine alone.
+    if require_pathish {
+        let pathish = value.contains('/')
+            || value.contains('.')
+            || value.contains(',')
+            || value.ends_with('/');
+        if !pathish {
+            return false;
+        }
+    }
+    let mut any = false;
+    for raw in value.split(',') {
+        let tok = raw.trim();
+        if tok.is_empty() {
+            return false;
+        }
+        let bytes = tok.as_bytes();
+        if !(bytes[0].is_ascii_alphanumeric() || matches!(bytes[0], b'_' | b'.')) {
+            return false;
+        }
+        if !bytes
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+        {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn check_wheel_contents_ini_omit_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    let mut has_globish = false;
+    for b in value.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if matches!(b, b'*' | b'?' | b'.' | b'/' | b',') {
+            has_globish = true;
+        }
+    }
+    has_globish
+}
+
+fn check_wheel_contents_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    match key {
+        "select" | "ignore" => check_wheel_contents_ini_checks_ok(value),
+        "toplevel" => check_wheel_contents_ini_toplevel_ok(value),
+        "package" => check_wheel_contents_ini_path_list_ok(value, true),
+        "src_dir" => check_wheel_contents_ini_path_list_ok(value, false),
+        "package_omit" => check_wheel_contents_ini_omit_ok(value),
         _ => false,
     }
 }
@@ -66310,26 +66489,26 @@ mod func_like_line_tests {
         is_bitbake_decl, is_black_ini_decl, is_brewfile_decl, is_bumpversion_ini_decl,
         is_bunfig_toml_decl, is_cabal_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
         is_cargo_toml_decl, is_cbindgen_toml_decl, is_check_manifest_ini_decl,
-        is_cibuildwheel_ini_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_codespell_ini_decl,
-        is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
-        is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl,
-        is_dioxus_toml_decl, is_dist_toml_decl, is_docformatter_ini_decl, is_dovecot_decl,
-        is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
-        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_freeradius_decl,
-        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
-        is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl, is_hosts_access_decl,
-        is_hosts_file_decl, is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl,
-        is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl,
-        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
-        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl, is_premake_decl,
-        is_protocols_file_decl, is_pycodestyle_ini_decl, is_pydocstyle_ini_decl,
+        is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl, is_cliff_toml_decl,
+        is_clippy_toml_decl, is_codespell_ini_decl, is_composer_json_decl, is_coverage_ini_decl,
+        is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl, is_deny_toml_decl,
+        is_desktop_entry_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
+        is_docformatter_ini_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
+        is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl,
+        is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_interrogate_ini_decl, is_ipsec_conf_decl,
+        is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
+        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
+        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
+        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
+        is_premake_decl, is_protocols_file_decl, is_pycodestyle_ini_decl, is_pydocstyle_ini_decl,
         is_pylint_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl,
         is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
         is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
@@ -73790,6 +73969,13 @@ mod func_like_line_tests {
         assert!(!is_cibuildwheel_ini_decl("[global]"));
         assert!(is_pip_conf_decl("[global]"));
         assert!(!is_cibuildwheel_ini_decl("indent_size = 4"));
+        assert!(!is_cibuildwheel_ini_decl("[tool:check-wheel-contents]"));
+        assert!(is_check_wheel_contents_ini_decl(
+            "[tool:check-wheel-contents]"
+        ));
+        assert!(!is_cibuildwheel_ini_decl("toplevel = foo.py,bar/"));
+        assert!(is_check_wheel_contents_ini_decl("toplevel = foo.py,bar/"));
+
         assert!(!line_is_func_like("build = cp39-*"));
         assert!(!line_is_func_like("container-engine = kubernetes"));
         // Distinctive cibuildwheel keys still list.
@@ -73824,6 +74010,147 @@ mod func_like_line_tests {
         assert!(line_is_func_like(
             "[tool:cibuildwheel:cp39-manylinux_x86_64]"
         ));
+    }
+
+    #[test]
+    fn check_wheel_contents_ini_entries_count() {
+        assert!(line_is_func_like("[tool:check-wheel-contents]"));
+        assert!(line_is_func_like(
+            "  [tool:check-wheel-contents] # setup.cfg"
+        ));
+        assert!(line_is_func_like("[check-wheel-contents]; tox.ini"));
+        assert!(is_check_wheel_contents_ini_decl(
+            "[tool:check-wheel-contents]"
+        ));
+        assert!(is_check_wheel_contents_ini_decl("[check-wheel-contents]"));
+        assert!(is_check_wheel_contents_ini_decl("select = W001,W002"));
+        assert!(is_check_wheel_contents_ini_decl("select = W0"));
+        assert!(is_check_wheel_contents_ini_decl("select = W"));
+        assert!(is_check_wheel_contents_ini_decl("ignore = W009,W101"));
+        assert!(is_check_wheel_contents_ini_decl("ignore=W201,W202"));
+        assert!(is_check_wheel_contents_ini_decl("toplevel = foo.py,bar/"));
+        assert!(is_check_wheel_contents_ini_decl("toplevel = mypkg"));
+        assert!(is_check_wheel_contents_ini_decl("package = src/mypkg"));
+        assert!(is_check_wheel_contents_ini_decl(
+            "package = mypkg/,other.py"
+        ));
+        assert!(is_check_wheel_contents_ini_decl("src_dir = src"));
+        assert!(is_check_wheel_contents_ini_decl("src_dir = src/pkg"));
+        assert!(is_check_wheel_contents_ini_decl(
+            "package_omit = .*,CVS,*.pyc,*.pyo,*.egg-info"
+        ));
+        assert!(is_check_wheel_contents_ini_decl(
+            "toplevel = foo.py,bar/ # comment"
+        ));
+        assert!(is_check_wheel_contents_ini_decl("ignore=W001; trail"));
+
+        // Neighbouring formats / wrong case / bare generics stay out.
+        assert!(!is_check_wheel_contents_ini_decl("select"));
+        assert!(!is_check_wheel_contents_ini_decl("select ="));
+        assert!(!is_check_wheel_contents_ini_decl("Select = W001"));
+        assert!(!is_check_wheel_contents_ini_decl("# select = W001"));
+        assert!(!is_check_wheel_contents_ini_decl("ignore = E203,W503"));
+        assert!(is_flake8_ini_decl("ignore = E203,W503"));
+        assert!(!is_check_wheel_contents_ini_decl("select = E,F,W"));
+        assert!(is_flake8_ini_decl("select = E,F,W"));
+        assert!(!is_check_wheel_contents_ini_decl("package = myproject"));
+        assert!(is_towncrier_ini_decl("package = myproject"));
+        assert!(!is_check_wheel_contents_ini_decl("package_omit = "));
+        assert!(!is_check_wheel_contents_ini_decl("package_omit = plain"));
+        assert!(!is_check_wheel_contents_ini_decl(
+            "[Tool:check-wheel-contents]"
+        ));
+        assert!(!is_check_wheel_contents_ini_decl("[CHECK-WHEEL-CONTENTS]"));
+        assert!(!is_check_wheel_contents_ini_decl(
+            "[[check-wheel-contents]]"
+        ));
+        assert!(!is_check_wheel_contents_ini_decl("[check-wheel-contents"));
+        assert!(!is_check_wheel_contents_ini_decl(
+            "[tool.check-wheel-contents]"
+        ));
+        assert!(is_pyproject_toml_decl("[tool.check-wheel-contents]"));
+        assert!(!is_check_wheel_contents_ini_decl("[tool:cibuildwheel]"));
+        assert!(is_cibuildwheel_ini_decl("[tool:cibuildwheel]"));
+        assert!(!is_check_wheel_contents_ini_decl(
+            "test-command = pytest {project}/tests"
+        ));
+        assert!(is_cibuildwheel_ini_decl(
+            "test-command = pytest {project}/tests"
+        ));
+        assert!(!is_check_wheel_contents_ini_decl("[zest.releaser]"));
+        assert!(is_zest_releaser_ini_decl("[zest.releaser]"));
+        assert!(!is_check_wheel_contents_ini_decl("[tool:towncrier]"));
+        assert!(is_towncrier_ini_decl("[tool:towncrier]"));
+        assert!(!is_check_wheel_contents_ini_decl("[tool:setuptools_scm]"));
+        assert!(is_setuptools_scm_ini_decl("[tool:setuptools_scm]"));
+        assert!(!is_check_wheel_contents_ini_decl("[versioneer]"));
+        assert!(is_versioneer_ini_decl("[versioneer]"));
+        assert!(!is_check_wheel_contents_ini_decl("[bumpversion]"));
+        assert!(is_bumpversion_ini_decl("[bumpversion]"));
+        assert!(!is_check_wheel_contents_ini_decl("[check-manifest]"));
+        assert!(is_check_manifest_ini_decl("[check-manifest]"));
+        assert!(!is_check_wheel_contents_ini_decl("[interrogate]"));
+        assert!(is_interrogate_ini_decl("[interrogate]"));
+        assert!(!is_check_wheel_contents_ini_decl("[vulture]"));
+        assert!(is_vulture_ini_decl("[vulture]"));
+        assert!(!is_check_wheel_contents_ini_decl("[docformatter]"));
+        assert!(is_docformatter_ini_decl("[docformatter]"));
+        assert!(!is_check_wheel_contents_ini_decl("[codespell]"));
+        assert!(is_codespell_ini_decl("[codespell]"));
+        assert!(!is_check_wheel_contents_ini_decl("[bandit]"));
+        assert!(is_bandit_ini_decl("[bandit]"));
+        assert!(!is_check_wheel_contents_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(!is_check_wheel_contents_ini_decl("[yapf]"));
+        assert!(is_yapf_ini_decl("[yapf]"));
+        assert!(!is_check_wheel_contents_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_check_wheel_contents_ini_decl("line-length = 88"));
+        assert!(is_black_ini_decl("line-length = 88"));
+        assert!(!is_check_wheel_contents_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_check_wheel_contents_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_check_wheel_contents_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_check_wheel_contents_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_check_wheel_contents_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_check_wheel_contents_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_check_wheel_contents_ini_decl("[tool:pytest]"));
+        assert!(is_pytest_ini_decl("[tool:pytest]"));
+        assert!(!is_check_wheel_contents_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_check_wheel_contents_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_check_wheel_contents_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_check_wheel_contents_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_check_wheel_contents_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_check_wheel_contents_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_check_wheel_contents_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_check_wheel_contents_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_check_wheel_contents_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_check_wheel_contents_ini_decl("indent_size = 4"));
+        assert!(line_is_func_like("select = E,F,W"));
+        assert!(line_is_func_like("package = myproject"));
+        // Distinctive check-wheel-contents keys still list.
+        assert!(line_is_func_like("select = W001,W002"));
+        assert!(line_is_func_like("ignore = W009"));
+        assert!(line_is_func_like("toplevel = foo.py,bar/"));
+        assert!(line_is_func_like("package = src/mypkg"));
+        assert!(line_is_func_like("src_dir = src"));
+        assert!(line_is_func_like("package_omit = *.pyc,*.pyo"));
+        assert!(line_is_func_like("[tool:check-wheel-contents]"));
+        assert!(line_is_func_like("[check-wheel-contents]"));
     }
 
     #[test]
