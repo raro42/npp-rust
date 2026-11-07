@@ -32382,6 +32382,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_autopep8_ini_decl(s)
             || is_black_ini_decl(s)
             || is_yapf_ini_decl(s)
+            || is_pydocstyle_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32621,6 +32622,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_autopep8_ini_decl(s)
         || is_black_ini_decl(s)
         || is_yapf_ini_decl(s)
+        || is_pydocstyle_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -43493,8 +43495,9 @@ fn autopep8_ini_value_ok(key: &str, value: &str) -> bool {
 /// `required-version`, `workers`, …). Optional `#` / `;` comment. Key
 /// lines may use `=` with or without spaces. Exact kebab-case Black
 /// keys. flake8 / mypy / pytest / isort / coverage / pylint /
-/// pycodestyle / autopep8 / yapf / tox / setuptools / Cargo / Pipfile /
-/// pyproject `[tool.black]` / Desktop Entry / pip.conf stay out.
+/// pycodestyle / autopep8 / yapf / pydocstyle / tox / setuptools /
+/// Cargo / Pipfile / pyproject `[tool.black]` / Desktop Entry /
+/// pip.conf stay out.
 fn is_black_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -43613,7 +43616,7 @@ fn black_ini_value_ok(key: &str, value: &str) -> bool {
 /// UPPER_SNAKE knobs). `.style.yapf` `[style]` section headers stay
 /// out (too generic); distinctive keys still list. flake8 / mypy /
 /// pytest / isort / coverage / pylint / pycodestyle / autopep8 /
-/// black / tox / setuptools / Cargo / Pipfile / pyproject
+/// black / pydocstyle / tox / setuptools / Cargo / Pipfile / pyproject
 /// `[tool.yapf]` / Desktop Entry / pip.conf stay out.
 fn is_yapf_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -43744,6 +43747,127 @@ fn yapf_ini_value_ok(key: &str, value: &str) -> bool {
     }
     // Remaining knobs are booleans in YAPF.
     yapf_ini_bool_ok(value)
+}
+
+/// pydocstyle `setup.cfg` / `tox.ini` / `.pydocstyle` `[pydocstyle]` /
+/// legacy `[pep257]` sections and distinctive keys (`convention`,
+/// `add_ignore` / `add-ignore`, `add_select` / `add-select`, `ignore`,
+/// `select`, `match`, `match_dir` / `match-dir`, `ignore_decorators` /
+/// `ignore-decorators`). Optional `#` / `;` comment. Key lines may use
+/// `=` with or without spaces. Exact pydocstyle keys (snake_case +
+/// kebab aliases). flake8 / mypy / pytest / isort / coverage / pylint /
+/// pycodestyle / autopep8 / black / yapf / tox / setuptools / Cargo /
+/// Pipfile / pyproject `[tool.pydocstyle]` / Desktop Entry / pip.conf
+/// stay out.
+fn is_pydocstyle_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return pydocstyle_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !pydocstyle_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    pydocstyle_ini_value_ok(key, value)
+}
+
+fn pydocstyle_ini_section_ok(header: &str) -> bool {
+    matches!(header, "pydocstyle" | "pep257")
+}
+
+fn pydocstyle_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "convention"
+            | "select"
+            | "ignore"
+            | "add_select"
+            | "add-select"
+            | "add_ignore"
+            | "add-ignore"
+            | "match"
+            | "match_dir"
+            | "match-dir"
+            | "ignore_decorators"
+            | "ignore-decorators"
+    )
+}
+
+fn pydocstyle_ini_codes_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    // Comma / space separated D### codes or bare D / D1 family prefixes.
+    let mut saw = false;
+    for part in value.split([',', ' ', '\t']) {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let bytes = part.as_bytes();
+        if bytes.first() != Some(&b'D') && bytes.first() != Some(&b'd') {
+            return false;
+        }
+        if bytes.len() == 1 {
+            saw = true;
+            continue;
+        }
+        if !bytes[1..].iter().all(|b| b.is_ascii_digit()) {
+            return false;
+        }
+        if bytes.len() > 4 {
+            return false;
+        }
+        saw = true;
+    }
+    saw
+}
+
+fn pydocstyle_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if key == "convention" {
+        return matches!(value, "pep257" | "numpy" | "google");
+    }
+    if matches!(
+        key,
+        "select" | "ignore" | "add_select" | "add-select" | "add_ignore" | "add-ignore"
+    ) {
+        return pydocstyle_ini_codes_ok(value);
+    }
+    // match / match_dir / ignore_decorators: regex or decorator names.
+    let mut has_ident = false;
+    for b in value.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric() || b == b'_' {
+            has_ident = true;
+        }
+    }
+    has_ident
 }
 
 /// FreeDesktop Desktop Entry sections: `[Desktop Entry]`,
@@ -64423,9 +64547,9 @@ mod func_like_line_tests {
         is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
         is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
         is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl, is_premake_decl,
-        is_protocols_file_decl, is_pycodestyle_ini_decl, is_pylint_ini_decl,
-        is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
+        is_protocols_file_decl, is_pycodestyle_ini_decl, is_pydocstyle_ini_decl,
+        is_pylint_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl,
+        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
         is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
         is_setup_cfg_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
@@ -70082,6 +70206,118 @@ mod func_like_line_tests {
         assert!(line_is_func_like("COALESCE_BRACKETS = true"));
         assert!(line_is_func_like("ALLOW_MULTILINE_LAMBDAS = true"));
         assert!(line_is_func_like("USE_TABS = false"));
+        assert!(!is_yapf_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(!is_yapf_ini_decl("convention = google"));
+        assert!(is_pydocstyle_ini_decl("convention = google"));
+        assert!(!is_yapf_ini_decl("add_ignore = D100,D104"));
+        assert!(is_pydocstyle_ini_decl("add_ignore = D100,D104"));
+    }
+
+    #[test]
+    fn pydocstyle_ini_entries_count() {
+        assert!(line_is_func_like("[pydocstyle]"));
+        assert!(line_is_func_like("  [pydocstyle] # setup.cfg"));
+        assert!(line_is_func_like("[pydocstyle]; tox.ini"));
+        assert!(line_is_func_like("[pep257]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pep257]"));
+        assert!(is_pydocstyle_ini_decl("convention = pep257"));
+        assert!(is_pydocstyle_ini_decl("convention = google"));
+        assert!(is_pydocstyle_ini_decl("convention = numpy"));
+        assert!(is_pydocstyle_ini_decl("convention=google"));
+        assert!(is_pydocstyle_ini_decl("add_ignore = D100,D104"));
+        assert!(is_pydocstyle_ini_decl("add-ignore = D100, D104"));
+        assert!(is_pydocstyle_ini_decl("add_select = D212"));
+        assert!(is_pydocstyle_ini_decl("add-select = D2"));
+        assert!(is_pydocstyle_ini_decl("ignore = D203"));
+        assert!(is_pydocstyle_ini_decl("select = D"));
+        assert!(is_pydocstyle_ini_decl("select = D1,D2"));
+        assert!(is_pydocstyle_ini_decl("match = (?!test_).*\\.py"));
+        assert!(is_pydocstyle_ini_decl("match_dir = (?!tests).*"));
+        assert!(is_pydocstyle_ini_decl("match-dir = (?!tests).*"));
+        assert!(is_pydocstyle_ini_decl(
+            "ignore_decorators = property|cached_property"
+        ));
+        assert!(is_pydocstyle_ini_decl(
+            "ignore-decorators = property|cached_property"
+        ));
+        assert!(is_pydocstyle_ini_decl("convention = google # comment"));
+        assert!(is_pydocstyle_ini_decl("add_ignore=D100; trailing"));
+
+        // Neighbouring formats / wrong case stay out.
+        assert!(!is_pydocstyle_ini_decl("convention"));
+        assert!(!is_pydocstyle_ini_decl("convention ="));
+        assert!(!is_pydocstyle_ini_decl("Convention = google"));
+        assert!(!is_pydocstyle_ini_decl("# convention = google"));
+        assert!(!is_pydocstyle_ini_decl("convention = pep8"));
+        assert!(!is_pydocstyle_ini_decl("convention = black"));
+        assert!(!is_pydocstyle_ini_decl("add_ignore = E501"));
+        assert!(!is_pydocstyle_ini_decl("add_ignore = C0114"));
+        assert!(!is_pydocstyle_ini_decl("select = F"));
+        assert!(!is_pydocstyle_ini_decl("add_ignore = D10000"));
+        assert!(!is_pydocstyle_ini_decl("[Pydocstyle]"));
+        assert!(!is_pydocstyle_ini_decl("[PYDOCSTYLE]"));
+        assert!(!is_pydocstyle_ini_decl("[[pydocstyle]]"));
+        assert!(!is_pydocstyle_ini_decl("[pydocstyle"));
+        assert!(!is_pydocstyle_ini_decl("[PEP257]"));
+        assert!(!is_pydocstyle_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_pydocstyle_ini_decl("[yapf]"));
+        assert!(is_yapf_ini_decl("[yapf]"));
+        assert!(!is_pydocstyle_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_pydocstyle_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_pydocstyle_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_pydocstyle_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_pydocstyle_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_pydocstyle_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_pydocstyle_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_pydocstyle_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_pydocstyle_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_pydocstyle_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_pydocstyle_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_pydocstyle_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_pydocstyle_ini_decl("[tool.pydocstyle]"));
+        assert!(is_pyproject_toml_decl("[tool.pydocstyle]"));
+        assert!(!is_pydocstyle_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_pydocstyle_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_pydocstyle_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_pydocstyle_ini_decl("line-length = 88"));
+        assert!(is_black_ini_decl("line-length = 88"));
+        assert!(!is_pydocstyle_ini_decl("based_on_style = pep8"));
+        assert!(is_yapf_ini_decl("based_on_style = pep8"));
+        assert!(!is_pydocstyle_ini_decl("max-line-length = 88"));
+        assert!(is_pycodestyle_ini_decl("max-line-length = 88"));
+        assert!(!is_pydocstyle_ini_decl("aggressive = 1"));
+        assert!(is_autopep8_ini_decl("aggressive = 1"));
+        assert!(!is_pydocstyle_ini_decl("profile = black"));
+        assert!(is_isort_ini_decl("profile = black"));
+        assert!(!is_pydocstyle_ini_decl("indent_size = 4"));
+        assert!(!line_is_func_like("Convention = google"));
+        assert!(!line_is_func_like("add_ignore = E501"));
+        // Distinctive pydocstyle keys still list.
+        assert!(line_is_func_like("convention = google"));
+        assert!(line_is_func_like("add_ignore = D100,D104"));
+        assert!(line_is_func_like("add-select = D212"));
+        assert!(line_is_func_like("match = (?!test_).*\\.py"));
+        assert!(line_is_func_like(
+            "ignore_decorators = property|cached_property"
+        ));
     }
 
     #[test]

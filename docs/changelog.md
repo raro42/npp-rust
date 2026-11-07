@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.662] — 2026-11-07
+
+View:
+
+- **Function List** lists pydocstyle `setup.cfg` / `tox.ini` / `.pydocstyle` `[pydocstyle]` / legacy `[pep257]` sections and fields: `[pydocstyle]`, `[pep257]`, `convention = pep257` / `google` / `numpy`, `add_ignore = D100,D104` / `add-ignore`, `add_select = D212` / `add-select`, `ignore = D203`, `select = D` / `D1,D2`, `match = (?!test_).*\.py`, `match_dir` / `match-dir`, `ignore_decorators` / `ignore-decorators = property|cached_property`. Exact pydocstyle keys (snake_case + kebab aliases). INI `key = value` or `key=value`. Optional `#` / `;` comment. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / tox / setuptools / Cargo / Pipfile / pyproject `[tool.pydocstyle]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.661] — 2026-11-07
 
 View:
