@@ -32389,6 +32389,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_vulture_ini_decl(s)
             || is_interrogate_ini_decl(s)
             || is_check_manifest_ini_decl(s)
+            || is_bumpversion_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32635,6 +32636,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_vulture_ini_decl(s)
         || is_interrogate_ini_decl(s)
         || is_check_manifest_ini_decl(s)
+        || is_bumpversion_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -44501,9 +44503,9 @@ fn interrogate_ini_value_ok(key: &str, value: &str) -> bool {
 /// `/` / `*` / `?`) so flake8 error-code `ignore = E203,W503` stays on
 /// flake8. flake8 / mypy / pytest / isort / coverage / pylint /
 /// pycodestyle / autopep8 / black / yapf / pydocstyle / bandit /
-/// codespell / docformatter / vulture / interrogate / tox / setuptools /
-/// Cargo / Pipfile / pyproject `[tool.check-manifest]` / Desktop Entry /
-/// pip.conf stay out.
+/// codespell / docformatter / vulture / interrogate / bumpversion /
+/// tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.check-manifest]` / Desktop Entry / pip.conf stay out.
 fn is_check_manifest_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -44577,6 +44579,175 @@ fn check_manifest_ini_value_ok(key: &str, value: &str) -> bool {
     }
     // ignore / ignore-bad-ideas: filename / glob patterns.
     check_manifest_ini_path_glob_ok(value)
+}
+
+/// bumpversion / bump2version `setup.cfg` / `.bumpversion.cfg`
+/// `[bumpversion]` / `[bumpversion:file:…]` / `[bumpversion:part:…]`
+/// sections and distinctive keys (`current_version`, `parse`,
+/// `serialize`, `search`, `replace`, `tag_name`, `tag_message`,
+/// `allow_dirty`, `sign_tags`, `optional_value`, `first_value`).
+/// Optional `#` / `;` comment. Key lines may use `=` with or without
+/// spaces. Exact bumpversion keys (snake_case). Bare `commit` / `tag` /
+/// `message` / `files` / `values` stay out (too generic alone).
+/// `parse` needs a named-group or `{…}` token; `serialize` / `search` /
+/// `replace` need `{…}`; `current_version` needs a dotted version token.
+/// flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle /
+/// autopep8 / black / yapf / pydocstyle / bandit / codespell /
+/// docformatter / vulture / interrogate / check-manifest / tox /
+/// setuptools / Cargo / Pipfile / pyproject `[tool.bumpversion]` /
+/// Desktop Entry / pip.conf stay out.
+fn is_bumpversion_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return bumpversion_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !bumpversion_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    bumpversion_ini_value_ok(key, value)
+}
+
+fn bumpversion_ini_section_ok(header: &str) -> bool {
+    if header == "bumpversion" {
+        return true;
+    }
+    if let Some(path) = header.strip_prefix("bumpversion:file:") {
+        return bumpversion_file_path_ok(path);
+    }
+    if let Some(name) = header.strip_prefix("bumpversion:part:") {
+        return bumpversion_part_name_ok(name);
+    }
+    false
+}
+
+fn bumpversion_file_path_ok(path: &str) -> bool {
+    if path.is_empty() || path.len() > 256 {
+        return false;
+    }
+    let bytes = path.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_' || bytes[0] == b'.') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+}
+
+fn bumpversion_part_name_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-'))
+}
+
+fn bumpversion_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "current_version"
+            | "parse"
+            | "serialize"
+            | "search"
+            | "replace"
+            | "tag_name"
+            | "tag_message"
+            | "allow_dirty"
+            | "sign_tags"
+            | "optional_value"
+            | "first_value"
+    )
+}
+
+fn bumpversion_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+    )
+}
+
+fn bumpversion_ini_version_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 64 {
+        return false;
+    }
+    let mut has_digit = false;
+    for b in value.bytes() {
+        if b.is_ascii_digit() {
+            has_digit = true;
+            continue;
+        }
+        if !(b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'+')) {
+            return false;
+        }
+    }
+    has_digit
+}
+
+fn bumpversion_ini_brace_ok(value: &str) -> bool {
+    value.contains('{') && value.contains('}')
+}
+
+fn bumpversion_ini_parse_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    // Named group `(?P<…>` or serialize-style `{major}` token.
+    value.contains("(?P<") || bumpversion_ini_brace_ok(value)
+}
+
+fn bumpversion_ini_ident_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 64 {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-'))
+}
+
+fn bumpversion_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    match key {
+        "current_version" => bumpversion_ini_version_ok(value),
+        "parse" => bumpversion_ini_parse_ok(value),
+        "serialize" | "search" | "replace" | "tag_name" | "tag_message" => {
+            bumpversion_ini_brace_ok(value)
+        }
+        "allow_dirty" | "sign_tags" => bumpversion_ini_bool_ok(value),
+        "optional_value" | "first_value" => bumpversion_ini_ident_ok(value),
+        _ => false,
+    }
 }
 
 /// FreeDesktop Desktop Entry sections: `[Desktop Entry]`,
@@ -65236,16 +65407,16 @@ mod func_like_line_tests {
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
         is_apt_sources_decl, is_audit_rules_decl, is_audit_toml_decl, is_autopep8_ini_decl,
         is_aws_config_decl, is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl,
-        is_bitbake_decl, is_black_ini_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl,
-        is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl,
-        is_cbindgen_toml_decl, is_check_manifest_ini_decl, is_cliff_toml_decl, is_clippy_toml_decl,
-        is_codespell_ini_decl, is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl,
-        is_crypttab_decl, is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl,
-        is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_docformatter_ini_decl,
-        is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl,
-        is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
-        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_bitbake_decl, is_black_ini_decl, is_brewfile_decl, is_bumpversion_ini_decl,
+        is_bunfig_toml_decl, is_cabal_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
+        is_cargo_toml_decl, is_cbindgen_toml_decl, is_check_manifest_ini_decl, is_cliff_toml_decl,
+        is_clippy_toml_decl, is_codespell_ini_decl, is_composer_json_decl, is_coverage_ini_decl,
+        is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl, is_deny_toml_decl,
+        is_desktop_entry_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
+        is_docformatter_ini_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
+        is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl,
+        is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
         is_hosts_access_decl, is_hosts_file_decl, is_interrogate_ini_decl, is_ipsec_conf_decl,
         is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
         is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
@@ -71750,6 +71921,141 @@ mod func_like_line_tests {
         assert!(line_is_func_like("ignore = *.egg-info/*"));
         assert!(line_is_func_like("ignore-default-rules = true"));
         assert!(line_is_func_like("ignore-bad-ideas = *.c"));
+        assert!(!is_check_manifest_ini_decl("[bumpversion]"));
+        assert!(is_bumpversion_ini_decl("[bumpversion]"));
+        assert!(!is_check_manifest_ini_decl("current_version = 1.2.3"));
+        assert!(is_bumpversion_ini_decl("current_version = 1.2.3"));
+    }
+
+    #[test]
+    fn bumpversion_ini_entries_count() {
+        assert!(line_is_func_like("[bumpversion]"));
+        assert!(line_is_func_like("  [bumpversion] # setup.cfg"));
+        assert!(line_is_func_like("[bumpversion]; .bumpversion.cfg"));
+        assert!(line_is_func_like("[bumpversion:file:setup.py]"));
+        assert!(line_is_func_like("[bumpversion:file:src/pkg/__init__.py]"));
+        assert!(line_is_func_like("[bumpversion:file:VERSION]"));
+        assert!(line_is_func_like("[bumpversion:part:release]"));
+        assert!(line_is_func_like("[bumpversion:part:pre_n]"));
+        assert!(is_bumpversion_ini_decl("[bumpversion]"));
+        assert!(is_bumpversion_ini_decl("current_version = 1.2.3"));
+        assert!(is_bumpversion_ini_decl("current_version=0.3.668"));
+        assert!(is_bumpversion_ini_decl("current_version = 1.0.0-alpha"));
+        assert!(is_bumpversion_ini_decl(
+            "parse = (?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+        ));
+        assert!(is_bumpversion_ini_decl(
+            "serialize = {major}.{minor}.{patch}"
+        ));
+        assert!(is_bumpversion_ini_decl(
+            "search = version='{current_version}'"
+        ));
+        assert!(is_bumpversion_ini_decl("replace = version='{new_version}'"));
+        assert!(is_bumpversion_ini_decl("tag_name = v{new_version}"));
+        assert!(is_bumpversion_ini_decl(
+            "tag_message = Bump version: {current_version} → {new_version}"
+        ));
+        assert!(is_bumpversion_ini_decl("allow_dirty = False"));
+        assert!(is_bumpversion_ini_decl("allow_dirty = true"));
+        assert!(is_bumpversion_ini_decl("sign_tags = True"));
+        assert!(is_bumpversion_ini_decl("sign_tags = 0"));
+        assert!(is_bumpversion_ini_decl("optional_value = gamma"));
+        assert!(is_bumpversion_ini_decl("first_value = alpha"));
+        assert!(is_bumpversion_ini_decl("current_version = 1.2.3 # comment"));
+        assert!(is_bumpversion_ini_decl("allow_dirty=False; trailing"));
+
+        // Neighbouring formats / wrong case / bare generics stay out.
+        assert!(!is_bumpversion_ini_decl("current_version"));
+        assert!(!is_bumpversion_ini_decl("current_version ="));
+        assert!(!is_bumpversion_ini_decl("Current_Version = 1.2.3"));
+        assert!(!is_bumpversion_ini_decl("# current_version = 1.2.3"));
+        assert!(!is_bumpversion_ini_decl("current_version = not-a-version"));
+        assert!(!is_bumpversion_ini_decl("parse = just text"));
+        assert!(!is_bumpversion_ini_decl("serialize = major.minor.patch"));
+        assert!(!is_bumpversion_ini_decl("search = version="));
+        assert!(!is_bumpversion_ini_decl("allow_dirty = maybe"));
+        assert!(!is_bumpversion_ini_decl("commit = True"));
+        assert!(!is_bumpversion_ini_decl("tag = True"));
+        assert!(!is_bumpversion_ini_decl("message = Bump"));
+        assert!(!is_bumpversion_ini_decl("files = setup.py"));
+        assert!(!is_bumpversion_ini_decl("values = alpha,beta"));
+        assert!(!is_bumpversion_ini_decl("[Bumpversion]"));
+        assert!(!is_bumpversion_ini_decl("[BUMPVERSION]"));
+        assert!(!is_bumpversion_ini_decl("[[bumpversion]]"));
+        assert!(!is_bumpversion_ini_decl("[bumpversion"));
+        assert!(!is_bumpversion_ini_decl("[bumpversion:]"));
+        assert!(!is_bumpversion_ini_decl("[bumpversion:file:]"));
+        assert!(!is_bumpversion_ini_decl("[bumpversion:file:/abs]"));
+        assert!(!is_bumpversion_ini_decl("[bumpversion:part:]"));
+        assert!(!is_bumpversion_ini_decl("[bumpversion:part:-bad]"));
+        assert!(!is_bumpversion_ini_decl("[check-manifest]"));
+        assert!(is_check_manifest_ini_decl("[check-manifest]"));
+        assert!(!is_bumpversion_ini_decl("ignore-default-rules = true"));
+        assert!(is_check_manifest_ini_decl("ignore-default-rules = true"));
+        assert!(!is_bumpversion_ini_decl("[interrogate]"));
+        assert!(is_interrogate_ini_decl("[interrogate]"));
+        assert!(!is_bumpversion_ini_decl("[vulture]"));
+        assert!(is_vulture_ini_decl("[vulture]"));
+        assert!(!is_bumpversion_ini_decl("[docformatter]"));
+        assert!(is_docformatter_ini_decl("[docformatter]"));
+        assert!(!is_bumpversion_ini_decl("[codespell]"));
+        assert!(is_codespell_ini_decl("[codespell]"));
+        assert!(!is_bumpversion_ini_decl("[bandit]"));
+        assert!(is_bandit_ini_decl("[bandit]"));
+        assert!(!is_bumpversion_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(!is_bumpversion_ini_decl("[yapf]"));
+        assert!(is_yapf_ini_decl("[yapf]"));
+        assert!(!is_bumpversion_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_bumpversion_ini_decl("line-length = 88"));
+        assert!(is_black_ini_decl("line-length = 88"));
+        assert!(!is_bumpversion_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_bumpversion_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_bumpversion_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_bumpversion_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_bumpversion_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_bumpversion_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_bumpversion_ini_decl("[tool:pytest]"));
+        assert!(is_pytest_ini_decl("[tool:pytest]"));
+        assert!(!is_bumpversion_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_bumpversion_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_bumpversion_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_bumpversion_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_bumpversion_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_bumpversion_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_bumpversion_ini_decl("[tool.bumpversion]"));
+        assert!(is_pyproject_toml_decl("[tool.bumpversion]"));
+        assert!(!is_bumpversion_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_bumpversion_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_bumpversion_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_bumpversion_ini_decl("indent_size = 4"));
+        assert!(!line_is_func_like("Current_Version = 1.2.3"));
+        assert!(!line_is_func_like("commit = True"));
+        assert!(!line_is_func_like("allow_dirty = maybe"));
+        // Distinctive bumpversion keys still list.
+        assert!(line_is_func_like("current_version = 1.2.3"));
+        assert!(line_is_func_like("serialize = {major}.{minor}.{patch}"));
+        assert!(line_is_func_like("search = version='{current_version}'"));
+        assert!(line_is_func_like("allow_dirty = False"));
+        assert!(line_is_func_like("optional_value = gamma"));
+        assert!(line_is_func_like("[bumpversion:file:setup.py]"));
+        assert!(line_is_func_like("[bumpversion:part:release]"));
     }
 
     #[test]

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.669] — 2026-11-07
+
+View:
+
+- **Function List** lists bumpversion / bump2version `setup.cfg` / `.bumpversion.cfg` `[bumpversion]` / `[bumpversion:file:…]` / `[bumpversion:part:…]` sections and fields: `[bumpversion]`, `[bumpversion:file:setup.py]` / `[bumpversion:file:src/pkg/__init__.py]`, `[bumpversion:part:release]`, `current_version = 1.2.3`, `parse = (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)`, `serialize = {major}.{minor}.{patch}`, `search = version='{current_version}'`, `replace = version='{new_version}'`, `tag_name = v{new_version}`, `tag_message = Bump version: {current_version} → {new_version}`, `allow_dirty = False` / `true`, `sign_tags = True` / `0`, `optional_value = gamma`, `first_value = alpha`. Exact bumpversion keys (snake_case). INI `key = value` or `key=value`. Optional `#` / `;` comment. Bare `commit` / `tag` / `message` / `files` / `values` stay out. `parse` needs `(?P<…>` or `{…}`; `serialize` / `search` / `replace` / `tag_name` / `tag_message` need `{…}`; `current_version` needs a dotted version token. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / tox / setuptools / Cargo / Pipfile / pyproject `[tool.bumpversion]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.668] — 2026-11-07
 
 View:
