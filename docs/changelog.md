@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.682] — 2026-11-07
+
+View:
+
+- **Function List** lists pydoclint `setup.cfg` / `tox.ini` `[pydoclint]` / `[tool:pydoclint]` sections and fields: `[pydoclint]`, `[tool:pydoclint]`, `arg-type-hints-in-docstring = True` / `false`, `arg-type-hints-in-signature = yes`, `check-arg-order = True`, `skip-checking-short-docstrings = false`, `skip-checking-raises = True`, `skip-checking-private-functions = yes`, `allow-init-docstring = True`, `require-return-section-when-returning-nothing = True`, `check-return-types = false`, `require-yield-section-when-yielding-nothing = True`, `check-yield-types = yes`, `ignore-underscore-only-args = True`, `ignore-private-args = false`, `ignore-special-dunder-args = True`, `check-class-attributes = yes`, `ignore-private-class-attributes = True`, `ignore-underscore-only-class-attributes = false`, `ignore-special-dunder-class-attributes = True`, `treat-property-methods-as-class-attributes = yes`, `only-attrs-with-ClassVar-are-treated-as-class-attrs = True`, `require-inline-class-var-docs = false`, `should-document-star-arguments = True`, `omit-stars-when-documenting-varargs = yes`, `check-style-mismatch = True`, `check-arg-defaults = false`, `baseline = pydoclint-baseline.txt` / `./baseline.txt`, `generate-baseline = True`, `auto-regenerate-baseline = false`, `show-filenames-in-every-violation-message = True`, `native-mode-noqa-location = docstring` / `definition`, `include-stub-files = True`. Exact kebab-case keys (ClassVar casing preserved). INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. Bare `style` / `exclude` / `quiet` / `config` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / tox / setuptools / Cargo / Pipfile / pyproject `[tool.pydoclint]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.681] — 2026-11-07
 
 View:
