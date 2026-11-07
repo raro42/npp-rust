@@ -1,3 +1,5 @@
+009 keep: Function List Bandit setup.cfg/tox.ini/.bandit [bandit] skips/tests/exclude_dirs (v0.3.663)
+
 009 keep: Function List pydocstyle setup.cfg/tox.ini [pydocstyle]/[pep257] convention/add_ignore (v0.3.662)
 
 009 keep: Function List YAPF setup.cfg / tox.ini [yapf] based_on_style/COLUMN_LIMIT (v0.3.661)

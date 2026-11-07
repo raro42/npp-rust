@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.663] — 2026-11-07
+
+View:
+
+- **Function List** lists Bandit `setup.cfg` / `tox.ini` / `.bandit` `[bandit]` sections and fields: `[bandit]`, `skips = B101,B601`, `tests = B201,B301`, `exclude_dirs = /tests,/path/to/other` / `exclude-dirs`. Exact bandit keys (snake_case + kebab `exclude-dirs`). INI `key = value` or `key=value`. Optional `#` / `;` comment. Bare `exclude` stays out (flake8). flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / tox / setuptools / Cargo / Pipfile / pyproject `[tool.bandit]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.662] — 2026-11-07
 
 View:

@@ -32383,6 +32383,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_black_ini_decl(s)
             || is_yapf_ini_decl(s)
             || is_pydocstyle_ini_decl(s)
+            || is_bandit_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32623,6 +32624,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_black_ini_decl(s)
         || is_yapf_ini_decl(s)
         || is_pydocstyle_ini_decl(s)
+        || is_bandit_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -43858,6 +43860,101 @@ fn pydocstyle_ini_value_ok(key: &str, value: &str) -> bool {
         return pydocstyle_ini_codes_ok(value);
     }
     // match / match_dir / ignore_decorators: regex or decorator names.
+    let mut has_ident = false;
+    for b in value.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric() || b == b'_' {
+            has_ident = true;
+        }
+    }
+    has_ident
+}
+
+/// Bandit `setup.cfg` / `tox.ini` / `.bandit` `[bandit]` sections and
+/// distinctive keys (`skips`, `tests` with B### codes; `exclude_dirs` /
+/// `exclude-dirs`). Optional `#` / `;` comment. Key lines may use `=`
+/// with or without spaces. Exact bandit keys (snake_case + kebab
+/// alias). flake8 / mypy / pytest / isort / coverage / pylint /
+/// pycodestyle / autopep8 / black / yapf / pydocstyle / tox /
+/// setuptools / Cargo / Pipfile / pyproject `[tool.bandit]` / Desktop
+/// Entry / pip.conf stay out. Bare `exclude` stays out (flake8 owns it).
+fn is_bandit_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return bandit_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !bandit_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    bandit_ini_value_ok(key, value)
+}
+
+fn bandit_ini_section_ok(header: &str) -> bool {
+    header == "bandit"
+}
+
+fn bandit_ini_key_ok(key: &str) -> bool {
+    matches!(key, "skips" | "tests" | "exclude_dirs" | "exclude-dirs")
+}
+
+fn bandit_ini_codes_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    // Comma / space separated B### plugin ids (e.g. B101, B601).
+    let mut saw = false;
+    for part in value.split([',', ' ', '\t']) {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let bytes = part.as_bytes();
+        if bytes.first() != Some(&b'B') && bytes.first() != Some(&b'b') {
+            return false;
+        }
+        if bytes.len() < 2 || bytes.len() > 4 {
+            return false;
+        }
+        if !bytes[1..].iter().all(|b| b.is_ascii_digit()) {
+            return false;
+        }
+        saw = true;
+    }
+    saw
+}
+
+fn bandit_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if matches!(key, "skips" | "tests") {
+        return bandit_ini_codes_ok(value);
+    }
+    // exclude_dirs / exclude-dirs: path-like list.
     let mut has_ident = false;
     for b in value.bytes() {
         if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
@@ -64526,8 +64623,8 @@ mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
         is_apt_sources_decl, is_audit_rules_decl, is_audit_toml_decl, is_autopep8_ini_decl,
-        is_aws_config_decl, is_bacon_toml_decl, is_binfmt_d_decl, is_bitbake_decl,
-        is_black_ini_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl,
+        is_aws_config_decl, is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl,
+        is_bitbake_decl, is_black_ini_decl, is_brewfile_decl, is_bunfig_toml_decl, is_cabal_decl,
         is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl,
         is_cbindgen_toml_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_composer_json_decl,
         is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl,
@@ -70212,6 +70309,10 @@ mod func_like_line_tests {
         assert!(is_pydocstyle_ini_decl("convention = google"));
         assert!(!is_yapf_ini_decl("add_ignore = D100,D104"));
         assert!(is_pydocstyle_ini_decl("add_ignore = D100,D104"));
+        assert!(!is_yapf_ini_decl("[bandit]"));
+        assert!(is_bandit_ini_decl("[bandit]"));
+        assert!(!is_yapf_ini_decl("skips = B101,B601"));
+        assert!(is_bandit_ini_decl("skips = B101,B601"));
     }
 
     #[test]
@@ -70308,6 +70409,10 @@ mod func_like_line_tests {
         assert!(!is_pydocstyle_ini_decl("profile = black"));
         assert!(is_isort_ini_decl("profile = black"));
         assert!(!is_pydocstyle_ini_decl("indent_size = 4"));
+        assert!(!is_pydocstyle_ini_decl("[bandit]"));
+        assert!(is_bandit_ini_decl("[bandit]"));
+        assert!(!is_pydocstyle_ini_decl("skips = B101,B601"));
+        assert!(is_bandit_ini_decl("skips = B101,B601"));
         assert!(!line_is_func_like("Convention = google"));
         assert!(!line_is_func_like("add_ignore = E501"));
         // Distinctive pydocstyle keys still list.
@@ -70318,6 +70423,101 @@ mod func_like_line_tests {
         assert!(line_is_func_like(
             "ignore_decorators = property|cached_property"
         ));
+    }
+
+    #[test]
+    fn bandit_ini_entries_count() {
+        assert!(line_is_func_like("[bandit]"));
+        assert!(line_is_func_like("  [bandit] # setup.cfg"));
+        assert!(line_is_func_like("[bandit]; tox.ini"));
+        assert!(is_bandit_ini_decl("[bandit]"));
+        assert!(is_bandit_ini_decl("skips = B101,B601"));
+        assert!(is_bandit_ini_decl("skips = B101, B601"));
+        assert!(is_bandit_ini_decl("skips=B101"));
+        assert!(is_bandit_ini_decl("tests = B201,B301"));
+        assert!(is_bandit_ini_decl("tests = B101"));
+        assert!(is_bandit_ini_decl("exclude_dirs = /tests,/path/to/other"));
+        assert!(is_bandit_ini_decl("exclude-dirs = tests,venv"));
+        assert!(is_bandit_ini_decl("skips = B101 # comment"));
+        assert!(is_bandit_ini_decl("tests=B201; trailing"));
+
+        // Neighbouring formats / wrong case stay out.
+        assert!(!is_bandit_ini_decl("skips"));
+        assert!(!is_bandit_ini_decl("skips ="));
+        assert!(!is_bandit_ini_decl("Skips = B101"));
+        assert!(!is_bandit_ini_decl("# skips = B101"));
+        assert!(!is_bandit_ini_decl("skips = E501"));
+        assert!(!is_bandit_ini_decl("skips = D100"));
+        assert!(!is_bandit_ini_decl("skips = C0114"));
+        assert!(!is_bandit_ini_decl("tests = F"));
+        assert!(!is_bandit_ini_decl("skips = B10000"));
+        assert!(!is_bandit_ini_decl("skips = B"));
+        assert!(!is_bandit_ini_decl("[Bandit]"));
+        assert!(!is_bandit_ini_decl("[BANDIT]"));
+        assert!(!is_bandit_ini_decl("[[bandit]]"));
+        assert!(!is_bandit_ini_decl("[bandit"));
+        assert!(!is_bandit_ini_decl("exclude = /tests"));
+        assert!(!is_bandit_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(!is_bandit_ini_decl("[yapf]"));
+        assert!(is_yapf_ini_decl("[yapf]"));
+        assert!(!is_bandit_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_bandit_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_bandit_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_bandit_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_bandit_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_bandit_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_bandit_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_bandit_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_bandit_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_bandit_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_bandit_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_bandit_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_bandit_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_bandit_ini_decl("[tool.bandit]"));
+        assert!(is_pyproject_toml_decl("[tool.bandit]"));
+        assert!(!is_bandit_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_bandit_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_bandit_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_bandit_ini_decl("line-length = 88"));
+        assert!(is_black_ini_decl("line-length = 88"));
+        assert!(!is_bandit_ini_decl("based_on_style = pep8"));
+        assert!(is_yapf_ini_decl("based_on_style = pep8"));
+        assert!(!is_bandit_ini_decl("convention = google"));
+        assert!(is_pydocstyle_ini_decl("convention = google"));
+        assert!(!is_bandit_ini_decl("max-line-length = 88"));
+        assert!(is_pycodestyle_ini_decl("max-line-length = 88"));
+        assert!(!is_bandit_ini_decl("aggressive = 1"));
+        assert!(is_autopep8_ini_decl("aggressive = 1"));
+        assert!(!is_bandit_ini_decl("profile = black"));
+        assert!(is_isort_ini_decl("profile = black"));
+        assert!(!is_bandit_ini_decl("indent_size = 4"));
+        assert!(!line_is_func_like("Skips = B101"));
+        assert!(!line_is_func_like("skips = E501"));
+        // Bare `exclude` is flake8's, not bandit's.
+        assert!(is_flake8_ini_decl("exclude = /tests"));
+        assert!(line_is_func_like("exclude = /tests"));
+        // Distinctive bandit keys still list.
+        assert!(line_is_func_like("skips = B101,B601"));
+        assert!(line_is_func_like("tests = B201,B301"));
+        assert!(line_is_func_like("exclude_dirs = /tests"));
+        assert!(line_is_func_like("exclude-dirs = tests,venv"));
     }
 
     #[test]
