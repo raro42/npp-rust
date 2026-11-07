@@ -32385,6 +32385,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pydocstyle_ini_decl(s)
             || is_bandit_ini_decl(s)
             || is_codespell_ini_decl(s)
+            || is_docformatter_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32627,6 +32628,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pydocstyle_ini_decl(s)
         || is_bandit_ini_decl(s)
         || is_codespell_ini_decl(s)
+        || is_docformatter_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -43981,7 +43983,8 @@ fn bandit_ini_value_ok(key: &str, value: &str) -> bool {
 /// flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle /
 /// autopep8 / black / yapf / pydocstyle / bandit / tox / setuptools /
 /// Cargo / Pipfile / pyproject `[tool.codespell]` / Desktop Entry /
-/// pip.conf stay out. Bare `exclude` stays out (flake8 owns it).
+/// pip.conf / docformatter stay out. Bare `exclude` stays out (flake8
+/// owns it).
 fn is_codespell_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -44083,6 +44086,133 @@ fn codespell_ini_value_ok(key: &str, value: &str) -> bool {
         return codespell_ini_int_ok(value);
     }
     // Word lists, skip globs, builtin dict names, regex, exclude paths.
+    let mut has_ident = false;
+    for b in value.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric() || b == b'_' {
+            has_ident = true;
+        }
+    }
+    has_ident
+}
+
+/// docformatter `setup.cfg` / `tox.ini` `[docformatter]` sections and
+/// distinctive keys (`wrap-summaries`, `wrap-descriptions`,
+/// `pre-summary-newline`, `pre-summary-space`,
+/// `make-summary-multi-line`, `close-quotes-on-newline`, `force-wrap`,
+/// `rest-section-adorns`, `non-cap`, `blank`, `style`, `black`,
+/// `tab-width` / `tab_width`, `docstring-length`, `non-strict`).
+/// Optional `#` / `;` comment. Key lines may use `=` with or without
+/// spaces. Exact docformatter keys (kebab-case; `tab_width` snake
+/// alias). `recursive` stays out (autopep8 owns it). flake8 / mypy /
+/// pytest / isort / coverage / pylint / pycodestyle / autopep8 / black /
+/// yapf / pydocstyle / bandit / codespell / tox / setuptools / Cargo /
+/// Pipfile / pyproject `[tool.docformatter]` / Desktop Entry / pip.conf
+/// stay out. Bare `exclude` / `check` / `diff` stay out (flake8 / black
+/// own those).
+fn is_docformatter_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return docformatter_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !docformatter_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    docformatter_ini_value_ok(key, value)
+}
+
+fn docformatter_ini_section_ok(header: &str) -> bool {
+    header == "docformatter"
+}
+
+fn docformatter_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "wrap-summaries"
+            | "wrap-descriptions"
+            | "pre-summary-newline"
+            | "pre-summary-space"
+            | "make-summary-multi-line"
+            | "close-quotes-on-newline"
+            | "force-wrap"
+            | "rest-section-adorns"
+            | "non-cap"
+            | "blank"
+            | "style"
+            | "black"
+            | "tab-width"
+            | "tab_width"
+            | "docstring-length"
+            | "non-strict"
+    )
+}
+
+fn docformatter_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+    )
+}
+
+fn docformatter_ini_int_ok(value: &str) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+    value.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn docformatter_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if matches!(
+        key,
+        "wrap-summaries" | "wrap-descriptions" | "tab-width" | "tab_width"
+    ) {
+        return docformatter_ini_int_ok(value);
+    }
+    if key == "style" {
+        return matches!(value, "sphinx" | "epytext" | "numpy" | "google");
+    }
+    if matches!(
+        key,
+        "pre-summary-newline"
+            | "pre-summary-space"
+            | "make-summary-multi-line"
+            | "close-quotes-on-newline"
+            | "force-wrap"
+            | "blank"
+            | "black"
+            | "non-strict"
+    ) {
+        return docformatter_ini_bool_ok(value);
+    }
+    // rest-section-adorns / non-cap / docstring-length: regex, word list,
+    // or "min max" length range.
     let mut has_ident = false;
     for b in value.bytes() {
         if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
@@ -64757,24 +64887,25 @@ mod func_like_line_tests {
         is_cbindgen_toml_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_codespell_ini_decl,
         is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
         is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl,
-        is_dioxus_toml_decl, is_dist_toml_decl, is_dovecot_decl, is_dracut_conf_decl,
-        is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl,
-        is_fluent_bit_decl, is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
-        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
-        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
-        is_premake_decl, is_protocols_file_decl, is_pycodestyle_ini_decl, is_pydocstyle_ini_decl,
-        is_pylint_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl,
-        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
+        is_dioxus_toml_decl, is_dist_toml_decl, is_docformatter_ini_decl, is_dovecot_decl,
+        is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
+        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_freeradius_decl,
+        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
+        is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl, is_hosts_access_decl,
+        is_hosts_file_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
+        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
+        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl,
+        is_pycodestyle_ini_decl, is_pydocstyle_ini_decl, is_pylint_ini_decl,
+        is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
         is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
         is_setup_cfg_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
@@ -70783,6 +70914,128 @@ mod func_like_line_tests {
         assert!(is_isort_ini_decl("skip = .git,.venv"));
         assert!(is_codespell_ini_decl("skip = .git,*.pdf"));
         assert!(line_is_func_like("skip = .git,*.pdf"));
+        assert!(!is_codespell_ini_decl("[docformatter]"));
+        assert!(is_docformatter_ini_decl("[docformatter]"));
+        assert!(!is_codespell_ini_decl("wrap-summaries = 82"));
+        assert!(is_docformatter_ini_decl("wrap-summaries = 82"));
+        assert!(!is_codespell_ini_decl("pre-summary-newline = true"));
+        assert!(is_docformatter_ini_decl("pre-summary-newline = true"));
+    }
+
+    #[test]
+    fn docformatter_ini_entries_count() {
+        assert!(line_is_func_like("[docformatter]"));
+        assert!(line_is_func_like("  [docformatter] # setup.cfg"));
+        assert!(line_is_func_like("[docformatter]; tox.ini"));
+        assert!(is_docformatter_ini_decl("[docformatter]"));
+        assert!(is_docformatter_ini_decl("wrap-summaries = 82"));
+        assert!(is_docformatter_ini_decl("wrap-summaries=0"));
+        assert!(is_docformatter_ini_decl("wrap-descriptions = 81"));
+        assert!(is_docformatter_ini_decl("wrap-descriptions = 88"));
+        assert!(is_docformatter_ini_decl("pre-summary-newline = true"));
+        assert!(is_docformatter_ini_decl("pre-summary-space = True"));
+        assert!(is_docformatter_ini_decl("make-summary-multi-line = false"));
+        assert!(is_docformatter_ini_decl("close-quotes-on-newline = 1"));
+        assert!(is_docformatter_ini_decl("force-wrap = yes"));
+        assert!(is_docformatter_ini_decl("blank = true"));
+        assert!(is_docformatter_ini_decl("black = true"));
+        assert!(is_docformatter_ini_decl("non-strict = false"));
+        assert!(is_docformatter_ini_decl("style = sphinx"));
+        assert!(is_docformatter_ini_decl("style = epytext"));
+        assert!(is_docformatter_ini_decl("style = numpy"));
+        assert!(is_docformatter_ini_decl("style = google"));
+        assert!(is_docformatter_ini_decl("tab-width = 4"));
+        assert!(is_docformatter_ini_decl("tab_width = 1"));
+        assert!(is_docformatter_ini_decl("non-cap = http,https,url"));
+        assert!(is_docformatter_ini_decl(
+            "rest-section-adorns = [!\\\"$%]{4,}"
+        ));
+        assert!(is_docformatter_ini_decl("docstring-length = 10 200"));
+        assert!(is_docformatter_ini_decl("wrap-summaries = 82 # comment"));
+        assert!(is_docformatter_ini_decl("blank=true; trailing"));
+
+        // Neighbouring formats / wrong case stay out.
+        assert!(!is_docformatter_ini_decl("wrap-summaries"));
+        assert!(!is_docformatter_ini_decl("wrap-summaries ="));
+        assert!(!is_docformatter_ini_decl("Wrap-summaries = 82"));
+        assert!(!is_docformatter_ini_decl("# wrap-summaries = 82"));
+        assert!(!is_docformatter_ini_decl("wrap-summaries = wide"));
+        assert!(!is_docformatter_ini_decl("blank = maybe"));
+        assert!(!is_docformatter_ini_decl("style = pep257"));
+        assert!(!is_docformatter_ini_decl("[Docformatter]"));
+        assert!(!is_docformatter_ini_decl("[DOCFORMATTER]"));
+        assert!(!is_docformatter_ini_decl("[[docformatter]]"));
+        assert!(!is_docformatter_ini_decl("[docformatter"));
+        assert!(!is_docformatter_ini_decl("exclude = tests"));
+        assert!(!is_docformatter_ini_decl("check = true"));
+        assert!(!is_docformatter_ini_decl("diff = true"));
+        assert!(!is_docformatter_ini_decl("recursive = true"));
+        assert!(is_autopep8_ini_decl("recursive = True"));
+        assert!(!is_docformatter_ini_decl("[codespell]"));
+        assert!(is_codespell_ini_decl("[codespell]"));
+        assert!(!is_docformatter_ini_decl("ignore-words-list = foobar"));
+        assert!(is_codespell_ini_decl("ignore-words-list = foobar"));
+        assert!(!is_docformatter_ini_decl("[bandit]"));
+        assert!(is_bandit_ini_decl("[bandit]"));
+        assert!(!is_docformatter_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(!is_docformatter_ini_decl("convention = google"));
+        assert!(is_pydocstyle_ini_decl("convention = google"));
+        assert!(!is_docformatter_ini_decl("[yapf]"));
+        assert!(is_yapf_ini_decl("[yapf]"));
+        assert!(!is_docformatter_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_docformatter_ini_decl("line-length = 88"));
+        assert!(is_black_ini_decl("line-length = 88"));
+        assert!(!is_docformatter_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_docformatter_ini_decl("aggressive = 1"));
+        assert!(is_autopep8_ini_decl("aggressive = 1"));
+        assert!(!is_docformatter_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_docformatter_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_docformatter_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_docformatter_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_docformatter_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_docformatter_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_docformatter_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_docformatter_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_docformatter_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_docformatter_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_docformatter_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_docformatter_ini_decl("[tool.docformatter]"));
+        assert!(is_pyproject_toml_decl("[tool.docformatter]"));
+        assert!(!is_docformatter_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_docformatter_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_docformatter_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_docformatter_ini_decl("indent_size = 4"));
+        assert!(!line_is_func_like("Wrap-summaries = 82"));
+        assert!(!line_is_func_like("blank = maybe"));
+        // Bare `exclude` is flake8's; `check`/`diff` are black's.
+        assert!(is_flake8_ini_decl("exclude = /tests"));
+        assert!(line_is_func_like("exclude = /tests"));
+        assert!(is_black_ini_decl("check = true"));
+        assert!(line_is_func_like("check = true"));
+        // Distinctive docformatter keys still list.
+        assert!(line_is_func_like("wrap-summaries = 82"));
+        assert!(line_is_func_like("wrap-descriptions = 81"));
+        assert!(line_is_func_like("pre-summary-newline = true"));
+        assert!(line_is_func_like("make-summary-multi-line = false"));
+        assert!(line_is_func_like("style = sphinx"));
+        assert!(line_is_func_like("black = true"));
     }
 
     #[test]

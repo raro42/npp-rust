@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.665] — 2026-11-07
+
+View:
+
+- **Function List** lists docformatter `setup.cfg` / `tox.ini` `[docformatter]` sections and fields: `[docformatter]`, `wrap-summaries = 82`, `wrap-descriptions = 81`, `pre-summary-newline = true`, `pre-summary-space = true`, `make-summary-multi-line = false`, `close-quotes-on-newline = true`, `force-wrap = true`, `blank = true`, `black = true`, `non-strict = false`, `style = sphinx` / `epytext` / `numpy` / `google`, `tab-width = 4` / `tab_width`, `non-cap = http,https`, `rest-section-adorns = …`, `docstring-length = 10 200`. Exact docformatter keys (kebab-case + `tab_width`). INI `key = value` or `key=value`. Optional `#` / `;` comment. `recursive` / bare `exclude` / `check` / `diff` stay out (autopep8 / flake8 / black). flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / tox / setuptools / Cargo / Pipfile / pyproject `[tool.docformatter]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.664] — 2026-11-07
 
 View:
