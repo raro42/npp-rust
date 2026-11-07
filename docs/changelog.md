@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.681] — 2026-11-07
+
+View:
+
+- **Function List** lists darglint `setup.cfg` / `tox.ini` / `.darglint` `[darglint]` sections and fields: `[darglint]`, `docstring_style = google` / `sphinx` / `numpy`, `strictness = short` / `long` / `full`, `ignore = DAR101,DAR201` / `DAR1` / `DAR`, `enable = DAR103`, `ignore_regex = ^test_` / `^_(.*)`, `ignore_raise = ValueError,TypeError` / `builtins.ValueError`, `message_template = {path}:{line} {msg_id} {msg}`, `indentation = 4`. Exact snake_case keys. INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. `ignore` / `enable` need comma-separated `DAR` / `DAR0`…`DAR9` / `DAR###` check ids (no flake8 `E`/`F`/`W` codes). Bare `message_template` without `{…}` stays out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / tox / setuptools / Cargo / Pipfile / pyproject `[tool.darglint]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.680] — 2026-11-07
 
 View:

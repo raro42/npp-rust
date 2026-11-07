@@ -32401,6 +32401,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_semantic_release_ini_decl(s)
             || is_scriv_ini_decl(s)
             || is_importlinter_ini_decl(s)
+            || is_darglint_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32659,6 +32660,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_semantic_release_ini_decl(s)
         || is_scriv_ini_decl(s)
         || is_importlinter_ini_decl(s)
+        || is_darglint_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -47310,6 +47312,226 @@ fn importlinter_ini_value_ok(key: &str, value: &str) -> bool {
         | "exhaustive" => importlinter_ini_bool_ok(value),
         "unmatched_ignore_imports_alerting" => importlinter_ini_alerting_ok(value),
         "type" => importlinter_ini_type_ok(value),
+        _ => false,
+    }
+}
+
+/// darglint `setup.cfg` / `tox.ini` / `.darglint` `[darglint]` section
+/// and fields: `[darglint]`, `docstring_style = google` / `sphinx` /
+/// `numpy`, `strictness = short` / `long` / `full`,
+/// `ignore = DAR101,DAR201` / `DAR1`, `enable = DAR103`,
+/// `ignore_regex = ^test_`, `ignore_raise = ValueError,TypeError`,
+/// `message_template = {path}:{line} {msg_id} {msg}`,
+/// `indentation = 4`. Exact snake_case keys. INI `key = value` or
+/// `key=value`. Optional quotes on values. Optional `#` / `;` comment.
+/// `ignore` / `enable` need comma-separated `DAR` / `DAR0`…`DAR9` /
+/// `DAR###` check ids (no flake8 `E`/`F`/`W` codes). Bare
+/// `message_template` without `{…}` stays out. flake8 / mypy / pytest /
+/// isort / coverage / pylint / pycodestyle / autopep8 / black / yapf /
+/// pydocstyle / bandit / codespell / docformatter / vulture /
+/// interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / tox / setuptools /
+/// Cargo / Pipfile / pyproject `[tool.darglint]` tables / Desktop Entry /
+/// pip.conf stay out.
+fn is_darglint_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return darglint_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !darglint_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    darglint_ini_value_ok(key, value)
+}
+
+fn darglint_ini_section_ok(header: &str) -> bool {
+    header == "darglint"
+}
+
+fn darglint_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "docstring_style"
+            | "strictness"
+            | "ignore"
+            | "enable"
+            | "ignore_regex"
+            | "ignore_raise"
+            | "message_template"
+            | "indentation"
+    )
+}
+
+fn darglint_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn darglint_ini_style_ok(value: &str) -> bool {
+    matches!(
+        darglint_ini_bare(value).to_ascii_lowercase().as_str(),
+        "google" | "sphinx" | "numpy"
+    )
+}
+
+fn darglint_ini_strictness_ok(value: &str) -> bool {
+    matches!(
+        darglint_ini_bare(value).to_ascii_lowercase().as_str(),
+        "short" | "long" | "full"
+    )
+}
+
+fn darglint_dar_token_ok(tok: &str) -> bool {
+    // DAR / DAR0…DAR9 / DAR101 / DAR201 / DAR402 …
+    let bytes = tok.as_bytes();
+    if bytes.len() < 3 || bytes.len() > 6 {
+        return false;
+    }
+    if !tok.starts_with("DAR") {
+        return false;
+    }
+    if bytes.len() == 3 {
+        return true;
+    }
+    bytes[3..].iter().all(|b| b.is_ascii_digit())
+}
+
+fn darglint_dar_list_ok(value: &str) -> bool {
+    let bare = darglint_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    let mut any = false;
+    for raw in bare.split([',', ' ']) {
+        let tok = raw.trim();
+        if tok.is_empty() {
+            continue;
+        }
+        if !darglint_dar_token_ok(tok) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn darglint_ignore_raise_ok(value: &str) -> bool {
+    let bare = darglint_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    let mut any = false;
+    for raw in bare.split([',', ' ']) {
+        let tok = raw.trim();
+        if tok.is_empty() {
+            continue;
+        }
+        let bytes = tok.as_bytes();
+        if bytes.is_empty() || bytes.len() > 64 {
+            return false;
+        }
+        // Exception / dotted path: ValueError, builtins.ValueError
+        if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+            return false;
+        }
+        if !bytes
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'.'))
+        {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn darglint_ignore_regex_ok(value: &str) -> bool {
+    let bare = darglint_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    // Keep ASCII / common regex punctuation; require at least one
+    // regex-ish marker so prose stays out.
+    let mut has_re = false;
+    for b in bare.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if matches!(
+            b,
+            b'^' | b'$' | b'*' | b'+' | b'?' | b'.' | b'[' | b']' | b'(' | b')' | b'|' | b'\\'
+        ) {
+            has_re = true;
+        }
+    }
+    has_re
+}
+
+fn darglint_message_template_ok(value: &str) -> bool {
+    let bare = darglint_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    if !bare.contains('{') || !bare.contains('}') {
+        return false;
+    }
+    bare.bytes()
+        .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
+}
+
+fn darglint_indentation_ok(value: &str) -> bool {
+    let bare = darglint_ini_bare(value);
+    if bare.is_empty() || bare.len() > 2 {
+        return false;
+    }
+    if !bare.bytes().all(|b| b.is_ascii_digit()) {
+        return false;
+    }
+    matches!(bare.parse::<u8>(), Ok(0..=16))
+}
+
+fn darglint_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        // Bare JSON/TOML blobs stay out; `{msg}` templates are handled
+        // after stripping is not needed (template starts with letter).
+        if key != "message_template" {
+            return false;
+        }
+    }
+    match key {
+        "docstring_style" => darglint_ini_style_ok(value),
+        "strictness" => darglint_ini_strictness_ok(value),
+        "ignore" | "enable" => darglint_dar_list_ok(value),
+        "ignore_regex" => darglint_ignore_regex_ok(value),
+        "ignore_raise" => darglint_ignore_raise_ok(value),
+        "message_template" => darglint_message_template_ok(value),
+        "indentation" => darglint_indentation_ok(value),
         _ => false,
     }
 }
@@ -67976,39 +68198,40 @@ mod func_like_line_tests {
         is_cargo_toml_decl, is_cbindgen_toml_decl, is_check_manifest_ini_decl,
         is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl, is_cliff_toml_decl,
         is_clippy_toml_decl, is_codespell_ini_decl, is_commitizen_ini_decl, is_composer_json_decl,
-        is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl,
-        is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl, is_dioxus_toml_decl,
-        is_dist_toml_decl, is_docformatter_ini_decl, is_dovecot_decl, is_dracut_conf_decl,
-        is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl,
-        is_fluent_bit_decl, is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_importlinter_ini_decl,
-        is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
-        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
-        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl,
-        is_pycodestyle_ini_decl, is_pydocstyle_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
-        is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
-        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
-        is_setuptools_scm_ini_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl,
-        is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
+        is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl, is_darglint_ini_decl,
+        is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl,
+        is_dioxus_toml_decl, is_dist_toml_decl, is_docformatter_ini_decl, is_dovecot_decl,
+        is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
+        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_freeradius_decl,
+        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
+        is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl, is_hosts_access_decl,
+        is_hosts_file_decl, is_importlinter_ini_decl, is_interrogate_ini_decl, is_ipsec_conf_decl,
+        is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
+        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
+        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
+        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
+        is_premake_decl, is_protocols_file_decl, is_pycodestyle_ini_decl, is_pydocstyle_ini_decl,
+        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
+        is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
+        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -76257,6 +76480,84 @@ mod func_like_line_tests {
         ));
         assert!(line_is_func_like("[importlinter]"));
         assert!(line_is_func_like("[importlinter:contract:layers]"));
+    }
+
+    #[test]
+    fn darglint_ini_sections_and_keys_count() {
+        assert!(is_darglint_ini_decl("[darglint]"));
+        assert!(is_darglint_ini_decl("  [darglint] # docs"));
+        assert!(is_darglint_ini_decl("[darglint] ; docs"));
+        assert!(is_darglint_ini_decl("docstring_style = google"));
+        assert!(is_darglint_ini_decl("docstring_style=sphinx"));
+        assert!(is_darglint_ini_decl("docstring_style = numpy"));
+        assert!(is_darglint_ini_decl("docstring_style = \"Google\""));
+        assert!(is_darglint_ini_decl("strictness = short"));
+        assert!(is_darglint_ini_decl("strictness = long"));
+        assert!(is_darglint_ini_decl("strictness = full"));
+        assert!(is_darglint_ini_decl("strictness=FULL"));
+        assert!(is_darglint_ini_decl("ignore = DAR101,DAR201"));
+        assert!(is_darglint_ini_decl("ignore = DAR1 DAR2"));
+        assert!(is_darglint_ini_decl("ignore = DAR"));
+        assert!(is_darglint_ini_decl("enable = DAR103"));
+        assert!(is_darglint_ini_decl("ignore_regex = ^test_"));
+        assert!(is_darglint_ini_decl("ignore_regex = \"^_(.*)\""));
+        assert!(is_darglint_ini_decl("ignore_raise = ValueError,TypeError"));
+        assert!(is_darglint_ini_decl("ignore_raise = builtins.ValueError"));
+        assert!(is_darglint_ini_decl(
+            "message_template = {path}:{line} {msg_id} {msg}"
+        ));
+        assert!(is_darglint_ini_decl("indentation = 4"));
+        assert!(is_darglint_ini_decl("indentation=0"));
+        assert!(is_darglint_ini_decl("docstring_style = google # comment"));
+
+        // Neighbouring formats / generics / wrong case stay out.
+        assert!(!is_darglint_ini_decl("docstring_style"));
+        assert!(!is_darglint_ini_decl("docstring_style ="));
+        assert!(!is_darglint_ini_decl("Docstring_Style = google"));
+        assert!(!is_darglint_ini_decl("# docstring_style = google"));
+        assert!(!is_darglint_ini_decl("docstring_style = pep257"));
+        assert!(!is_darglint_ini_decl("strictness = medium"));
+        assert!(!is_darglint_ini_decl("ignore = E203,W503"));
+        assert!(!is_darglint_ini_decl("ignore = F401"));
+        assert!(!is_darglint_ini_decl("enable = W001"));
+        assert!(!is_darglint_ini_decl("ignore_regex = test"));
+        assert!(!is_darglint_ini_decl("ignore_raise = 1ValueError"));
+        assert!(!is_darglint_ini_decl("message_template = path line msg"));
+        assert!(!is_darglint_ini_decl("indentation = 32"));
+        assert!(!is_darglint_ini_decl("indentation = -1"));
+        assert!(!is_darglint_ini_decl("[Darglint]"));
+        assert!(!is_darglint_ini_decl("[[darglint]]"));
+        assert!(!is_darglint_ini_decl("[darglint"));
+        assert!(!is_darglint_ini_decl("[tool.darglint]"));
+        assert!(is_pyproject_toml_decl("[tool.darglint]"));
+        assert!(!is_darglint_ini_decl("[tool:darglint]"));
+        assert!(!is_darglint_ini_decl("[importlinter]"));
+        assert!(is_importlinter_ini_decl("[importlinter]"));
+        assert!(!is_darglint_ini_decl("[scriv]"));
+        assert!(is_scriv_ini_decl("[scriv]"));
+        assert!(!is_darglint_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(!is_darglint_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_darglint_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_darglint_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_darglint_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_darglint_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_darglint_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_darglint_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_darglint_ini_decl("indent_size = 4"));
+        assert!(!is_darglint_ini_decl("convention = google"));
+        // Distinctive darglint keys still list.
+        assert!(line_is_func_like("docstring_style = google"));
+        assert!(line_is_func_like("strictness = full"));
+        assert!(line_is_func_like("ignore = DAR101,DAR201"));
+        assert!(line_is_func_like("[darglint]"));
     }
 
     #[test]

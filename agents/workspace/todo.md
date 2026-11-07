@@ -1,3 +1,5 @@
+009 keep: Function List darglint setup.cfg/tox.ini/.darglint [darglint] docstring_style/strictness/DAR ignore|enable (v0.3.681)
+
 009 keep: Function List Twine/distutils .pypirc [distutils]/[pypi]/[testpypi] index-servers/repository/__token__ (v0.3.676)
 
 009 keep: Function List cibuildwheel setup.cfg/tox.ini [tool:cibuildwheel] test-command/manylinux-*-image (v0.3.674)
