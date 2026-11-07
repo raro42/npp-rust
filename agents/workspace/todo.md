@@ -1,3 +1,5 @@
+009 keep: Function List Hypothesis pytest.ini/setup.cfg/tox.ini [hypothesis]/[tool:hypothesis] max_examples/derandomize/deadline/suppress_health_check/phases (v0.3.686)
+
 009 keep: Function List SQLFluff .sqlfluff/setup.cfg/tox.ini [sqlfluff]/[sqlfluff:indentation|rules:L###|templater:jinja|layout:type:…] dialect/templater/exclude_rules/indented_*/capitalisation_policy (v0.3.685)
 
 009 keep: Function List pydoclint setup.cfg/tox.ini [pydoclint]/[tool:pydoclint] arg-type-hints/require-return-section/ClassVar/baseline/noqa-location (v0.3.682)

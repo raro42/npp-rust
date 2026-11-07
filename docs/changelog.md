@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.686] — 2026-11-08
+
+View:
+
+- **Function List** lists Hypothesis `pytest.ini` / `setup.cfg` / `tox.ini` `[hypothesis]` / `[tool:hypothesis]` sections and fields: `[hypothesis]`, `[tool:hypothesis]`, `max_examples = 100` / `1000`, `derandomize = True` / `false`, `deadline = 500` / `500.0` / `none`, `suppress_health_check = too_slow,filter_too_much` / `data_too_large` / `return_value` / `large_base_example` / `not_a_test_method` / `function_scoped_fixture` / `differing_executors`, `phases = explicit,reuse,generate,target,shrink` / `explain`, `verbosity = verbose` / `quiet` / `normal` / `debug`, `database = .hypothesis/examples` / `none`, `print_blob = True`, `report_multiple_bugs = false`, `stateful_step_count = 50`, `backend = hypothesis.internal.conjecture`. Exact snake_case keys. INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. Trailing commas on lists ok. Bare `verbose` / `seed` / `timeout` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / doc8 / rstcheck / sqlfluff / tox / setuptools / Cargo / Pipfile / pyproject `[tool.hypothesis]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.685] — 2026-11-08
 
 View:

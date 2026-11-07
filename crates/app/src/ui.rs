@@ -32406,6 +32406,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_doc8_ini_decl(s)
             || is_rstcheck_ini_decl(s)
             || is_sqlfluff_ini_decl(s)
+            || is_hypothesis_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32669,6 +32670,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_doc8_ini_decl(s)
         || is_rstcheck_ini_decl(s)
         || is_sqlfluff_ini_decl(s)
+        || is_hypothesis_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -48648,6 +48650,259 @@ fn sqlfluff_ini_value_ok(key: &str, value: &str) -> bool {
         "preferred_quoted_literal_style" => sqlfluff_quoted_literal_ok(value),
         "group_by_and_order_by_style" => sqlfluff_group_by_style_ok(value),
         "load_macros_from_path" | "library_path" => sqlfluff_path_ok(value),
+        _ => false,
+    }
+}
+
+/// Hypothesis `pytest.ini` / `setup.cfg` / `tox.ini` `[hypothesis]` /
+/// `[tool:hypothesis]` sections and distinctive keys: `[hypothesis]`,
+/// `[tool:hypothesis]`, `max_examples = 100` / `1000`,
+/// `derandomize = True` / `false`, `deadline = 500` / `none`,
+/// `suppress_health_check = too_slow,filter_too_much` / `data_too_large`,
+/// `phases = explicit,reuse,generate,target,shrink` / `explain`,
+/// `verbosity = verbose` / `quiet` / `normal` / `debug`,
+/// `database = .hypothesis/examples` / `none`,
+/// `print_blob = True`, `report_multiple_bugs = false`,
+/// `stateful_step_count = 50`, `backend = hypothesis.internal.conjecture`.
+/// Exact snake_case keys. INI `key = value` or `key=value`. Optional
+/// quotes on values. Optional `#` / `;` comment. Trailing commas on
+/// lists ok. Bare `verbose` / `seed` / `timeout` stay out. flake8 /
+/// mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 /
+/// black / yapf / pydocstyle / bandit / codespell / docformatter /
+/// vulture / interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / doc8 / rstcheck / sqlfluff / tox / setuptools / Cargo /
+/// Pipfile / pyproject `[tool.hypothesis]` tables / Desktop Entry /
+/// pip.conf stay out.
+fn is_hypothesis_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return hypothesis_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !hypothesis_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    hypothesis_ini_value_ok(key, value)
+}
+
+fn hypothesis_ini_section_ok(header: &str) -> bool {
+    matches!(header, "hypothesis" | "tool:hypothesis")
+}
+
+fn hypothesis_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "max_examples"
+            | "derandomize"
+            | "database"
+            | "verbosity"
+            | "phases"
+            | "stateful_step_count"
+            | "report_multiple_bugs"
+            | "suppress_health_check"
+            | "deadline"
+            | "print_blob"
+            | "backend"
+    )
+}
+
+fn hypothesis_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn hypothesis_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        hypothesis_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn hypothesis_u32_ok(value: &str, min: u32, max: u32) -> bool {
+    let bare = hypothesis_ini_bare(value);
+    if bare.is_empty() || bare.len() > 10 {
+        return false;
+    }
+    let Ok(n) = bare.parse::<u32>() else {
+        return false;
+    };
+    n >= min && n <= max
+}
+
+fn hypothesis_verbosity_ok(value: &str) -> bool {
+    matches!(
+        hypothesis_ini_bare(value).to_ascii_lowercase().as_str(),
+        "quiet" | "normal" | "verbose" | "debug"
+    )
+}
+
+fn hypothesis_phase_ok(token: &str) -> bool {
+    matches!(
+        token.trim().to_ascii_lowercase().as_str(),
+        "explicit" | "reuse" | "generate" | "target" | "shrink" | "explain"
+    )
+}
+
+fn hypothesis_phases_ok(value: &str) -> bool {
+    let bare = hypothesis_ini_bare(value);
+    if bare.is_empty() {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        let t = part.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if !hypothesis_phase_ok(t) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn hypothesis_health_ok(token: &str) -> bool {
+    matches!(
+        token.trim().to_ascii_lowercase().as_str(),
+        "data_too_large"
+            | "filter_too_much"
+            | "too_slow"
+            | "return_value"
+            | "large_base_example"
+            | "not_a_test_method"
+            | "function_scoped_fixture"
+            | "differing_executors"
+    )
+}
+
+fn hypothesis_health_list_ok(value: &str) -> bool {
+    let bare = hypothesis_ini_bare(value);
+    if bare.is_empty() {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        let t = part.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if !hypothesis_health_ok(t) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn hypothesis_deadline_ok(value: &str) -> bool {
+    let bare = hypothesis_ini_bare(value);
+    if bare.eq_ignore_ascii_case("none") {
+        return true;
+    }
+    // Milliseconds: int or simple float (`500`, `500.0`, `12.5`).
+    if bare.is_empty() || bare.len() > 16 {
+        return false;
+    }
+    let mut seen_dot = false;
+    let mut digits = 0u32;
+    for b in bare.bytes() {
+        if b.is_ascii_digit() {
+            digits += 1;
+            continue;
+        }
+        if b == b'.' && !seen_dot {
+            seen_dot = true;
+            continue;
+        }
+        return false;
+    }
+    digits > 0
+}
+
+fn hypothesis_database_ok(value: &str) -> bool {
+    let bare = hypothesis_ini_bare(value);
+    if bare.eq_ignore_ascii_case("none") {
+        return true;
+    }
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    let mut has_token = false;
+    for b in bare.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/' | b':') {
+            has_token = true;
+        }
+    }
+    has_token
+        && (bare.contains('/')
+            || bare.contains('.')
+            || bare.contains('-')
+            || bare.contains(':')
+            || bare.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+}
+
+fn hypothesis_backend_ok(value: &str) -> bool {
+    let bare = hypothesis_ini_bare(value);
+    if bare.is_empty() || bare.len() > 128 {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !bytes[0].is_ascii_alphabetic() {
+        return false;
+    }
+    // Dotted module path so bare words stay out.
+    if !bare.contains('.') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'.'))
+}
+
+fn hypothesis_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "max_examples" => hypothesis_u32_ok(value, 1, 1_000_000),
+        "stateful_step_count" => hypothesis_u32_ok(value, 1, 100_000),
+        "derandomize" | "report_multiple_bugs" | "print_blob" => hypothesis_ini_bool_ok(value),
+        "verbosity" => hypothesis_verbosity_ok(value),
+        "phases" => hypothesis_phases_ok(value),
+        "suppress_health_check" => hypothesis_health_list_ok(value),
+        "deadline" => hypothesis_deadline_ok(value),
+        "database" => hypothesis_database_ok(value),
+        "backend" => hypothesis_backend_ok(value),
         _ => false,
     }
 }
@@ -69321,7 +69576,7 @@ mod func_like_line_tests {
         is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
         is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
         is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_importlinter_ini_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
         is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
         is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
         is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
@@ -78131,6 +78386,10 @@ mod func_like_line_tests {
         assert!(is_rstcheck_ini_decl("report_level = WARNING"));
         assert!(!is_sqlfluff_ini_decl("allow-long-titles = True"));
         assert!(is_doc8_ini_decl("allow-long-titles = True"));
+        assert!(!is_sqlfluff_ini_decl("[hypothesis]"));
+        assert!(is_hypothesis_ini_decl("[hypothesis]"));
+        assert!(!is_sqlfluff_ini_decl("max_examples = 100"));
+        assert!(is_hypothesis_ini_decl("max_examples = 100"));
         // Distinctive sqlfluff keys still list.
         assert!(line_is_func_like("dialect = postgres"));
         assert!(line_is_func_like("templater = jinja"));
@@ -78142,6 +78401,105 @@ mod func_like_line_tests {
         assert!(line_is_func_like("[sqlfluff:rules:L010]"));
         assert!(line_is_func_like("[sqlfluff:templater:jinja]"));
         assert!(line_is_func_like("[sqlfluff:layout:type:comma]"));
+    }
+
+    #[test]
+    fn hypothesis_ini_sections_and_keys_count() {
+        assert!(is_hypothesis_ini_decl("[hypothesis]"));
+        assert!(is_hypothesis_ini_decl("  [hypothesis] # props"));
+        assert!(is_hypothesis_ini_decl("[hypothesis] ; props"));
+        assert!(is_hypothesis_ini_decl("[tool:hypothesis]"));
+        assert!(is_hypothesis_ini_decl("max_examples = 100"));
+        assert!(is_hypothesis_ini_decl("max_examples=1000"));
+        assert!(is_hypothesis_ini_decl("derandomize = True"));
+        assert!(is_hypothesis_ini_decl("derandomize=false"));
+        assert!(is_hypothesis_ini_decl("deadline = 500"));
+        assert!(is_hypothesis_ini_decl("deadline=500.0"));
+        assert!(is_hypothesis_ini_decl("deadline = none"));
+        assert!(is_hypothesis_ini_decl("deadline = None"));
+        assert!(is_hypothesis_ini_decl(
+            "suppress_health_check = too_slow,filter_too_much"
+        ));
+        assert!(is_hypothesis_ini_decl(
+            "suppress_health_check=data_too_large,"
+        ));
+        assert!(is_hypothesis_ini_decl(
+            "phases = explicit,reuse,generate,target,shrink"
+        ));
+        assert!(is_hypothesis_ini_decl("phases=explain"));
+        assert!(is_hypothesis_ini_decl("verbosity = verbose"));
+        assert!(is_hypothesis_ini_decl("verbosity=quiet"));
+        assert!(is_hypothesis_ini_decl("verbosity = normal"));
+        assert!(is_hypothesis_ini_decl("verbosity = debug"));
+        assert!(is_hypothesis_ini_decl("database = .hypothesis/examples"));
+        assert!(is_hypothesis_ini_decl("database=none"));
+        assert!(is_hypothesis_ini_decl("print_blob = True"));
+        assert!(is_hypothesis_ini_decl("report_multiple_bugs = false"));
+        assert!(is_hypothesis_ini_decl("stateful_step_count = 50"));
+        assert!(is_hypothesis_ini_decl(
+            "backend = hypothesis.internal.conjecture"
+        ));
+        assert!(is_hypothesis_ini_decl("max_examples = 100 # comment"));
+
+        // Neighbouring formats / generics / wrong case stay out.
+        assert!(!is_hypothesis_ini_decl("max_examples"));
+        assert!(!is_hypothesis_ini_decl("max_examples ="));
+        assert!(!is_hypothesis_ini_decl("Max_Examples = 100"));
+        assert!(!is_hypothesis_ini_decl("# max_examples = 100"));
+        assert!(!is_hypothesis_ini_decl("verbose = 1"));
+        assert!(!is_hypothesis_ini_decl("seed = 1"));
+        assert!(!is_hypothesis_ini_decl("timeout = 5"));
+        assert!(!is_hypothesis_ini_decl("max_examples = 0"));
+        assert!(!is_hypothesis_ini_decl("verbosity = loud"));
+        assert!(!is_hypothesis_ini_decl("phases = compile"));
+        assert!(!is_hypothesis_ini_decl("suppress_health_check = E501"));
+        assert!(!is_hypothesis_ini_decl("suppress_health_check = "));
+        assert!(!is_hypothesis_ini_decl("deadline = forever"));
+        assert!(!is_hypothesis_ini_decl("database = "));
+        assert!(!is_hypothesis_ini_decl("backend = hypothesis"));
+        assert!(!is_hypothesis_ini_decl("[Hypothesis]"));
+        assert!(!is_hypothesis_ini_decl("[[hypothesis]]"));
+        assert!(!is_hypothesis_ini_decl("[hypothesis"));
+        assert!(!is_hypothesis_ini_decl("[tool.hypothesis]"));
+        assert!(is_pyproject_toml_decl("[tool.hypothesis]"));
+        assert!(!is_hypothesis_ini_decl("[sqlfluff]"));
+        assert!(is_sqlfluff_ini_decl("[sqlfluff]"));
+        assert!(!is_hypothesis_ini_decl("dialect = postgres"));
+        assert!(is_sqlfluff_ini_decl("dialect = postgres"));
+        assert!(!is_hypothesis_ini_decl("[rstcheck]"));
+        assert!(is_rstcheck_ini_decl("[rstcheck]"));
+        assert!(!is_hypothesis_ini_decl("[doc8]"));
+        assert!(is_doc8_ini_decl("[doc8]"));
+        assert!(!is_hypothesis_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_hypothesis_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_hypothesis_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_hypothesis_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_hypothesis_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_hypothesis_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_hypothesis_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_hypothesis_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_hypothesis_ini_decl("report_level = WARNING"));
+        assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        // Distinctive hypothesis keys still list.
+        assert!(line_is_func_like("max_examples = 100"));
+        assert!(line_is_func_like(
+            "suppress_health_check = too_slow,filter_too_much"
+        ));
+        assert!(line_is_func_like(
+            "phases = explicit,reuse,generate,target,shrink"
+        ));
+        assert!(line_is_func_like("derandomize = True"));
+        assert!(line_is_func_like("print_blob = True"));
+        assert!(line_is_func_like("[hypothesis]"));
+        assert!(line_is_func_like("[tool:hypothesis]"));
     }
 
     #[test]
