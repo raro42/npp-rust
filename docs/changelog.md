@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.679] — 2026-11-07
+
+View:
+
+- **Function List** lists scriv `setup.cfg` / `tox.ini` `[scriv]` / `[tool:scriv]` sections and fields: `[scriv]`, `[tool:scriv]`, `format = md` / `rst` / `text`, `output_file = CHANGELOG.md` / `CHANGELOG.${format}` / `docs/HISTORY.rst`, `insert_marker = scriv-insert-here` / `changelog-insert`, `end_marker = scriv-end-here`, `version = literal: 1.2.3` / `call: pkg:get_version` / `parse: setup.py:version = "([^"]+)"`, `entry_directory = changelog.d` / `news/fragments`, `main_branches = master, main`, `new_path_template = {{ version }}.md`, `entry_title_template = {{ version }} — {{ date }}` / `{% if version %}…{% endif %}`, `rst_header_chars = "#*="` / `"*=-"`, `md_header_level = 1`…`6`, `keep_fragments = false`, `skip_fragments = yes`. Exact snake_case keys. INI / TOML `key = value` or `key=value`. Optional quotes on values (needed for `#` in `rst_header_chars`). Optional `#` / `;` comment outside quotes. Free-form `categories =` blobs stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / tox / setuptools / Cargo / Pipfile / pyproject `[tool.scriv]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.678] — 2026-11-07
 
 View:

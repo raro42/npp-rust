@@ -32399,6 +32399,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pypirc_ini_decl(s)
             || is_commitizen_ini_decl(s)
             || is_semantic_release_ini_decl(s)
+            || is_scriv_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32655,6 +32656,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pypirc_ini_decl(s)
         || is_commitizen_ini_decl(s)
         || is_semantic_release_ini_decl(s)
+        || is_scriv_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -46774,6 +46776,357 @@ fn semantic_release_ini_value_ok(key: &str, value: &str) -> bool {
         "dist_glob_patterns" | "upload_to_pypi_glob_patterns" => {
             semantic_release_ini_glob_ok(value)
         }
+        _ => false,
+    }
+}
+
+/// scriv `setup.cfg` / `tox.ini` `[scriv]` / `[tool:scriv]` sections and
+/// distinctive keys: `[scriv]`, `[tool:scriv]`, `format = md` / `rst` /
+/// `text`, `output_file = CHANGELOG.md` / `CHANGELOG.${format}`,
+/// `insert_marker = scriv-insert-here`, `end_marker = scriv-end-here`,
+/// `version = literal: 1.2.3` / `call: pkg:get_version` /
+/// `parse: setup.py:version = "([^"]+)"`, `entry_directory = changelog.d`,
+/// `main_branches = master, main`, `new_path_template = {{ version }}.md`,
+/// `entry_title_template = {{ version }} — {{ date }}`,
+/// `rst_header_chars = #*=`, `md_header_level = 2`,
+/// `keep_fragments = false`, `skip_fragments = true`. Exact snake_case
+/// keys. INI / TOML `key = value` or `key=value`. Optional quotes on
+/// values. Optional `#` / `;` comment. Free-form `categories =` blobs
+/// stay out. flake8 / mypy / pytest / isort / coverage / pylint /
+/// pycodestyle / autopep8 / black / yapf / pydocstyle / bandit /
+/// codespell / docformatter / vulture / interrogate / check-manifest /
+/// bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser /
+/// cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.scriv]` tables / Desktop Entry / pip.conf stay out.
+fn is_scriv_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return scriv_ini_section_ok(header);
+    }
+    // Quote-aware comment strip so `rst_header_chars = "#*="` keeps `#`.
+    let body = scriv_ini_strip_comment(s);
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !scriv_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    scriv_ini_value_ok(key, value)
+}
+
+fn scriv_ini_strip_comment(s: &str) -> &str {
+    let mut in_quote: Option<char> = None;
+    for (i, c) in s.char_indices() {
+        if let Some(q) = in_quote {
+            if c == q {
+                in_quote = None;
+            }
+            continue;
+        }
+        if c == '"' || c == '\'' {
+            in_quote = Some(c);
+            continue;
+        }
+        if c == '#' || c == ';' {
+            return s[..i].trim();
+        }
+    }
+    s.trim()
+}
+
+fn scriv_ini_section_ok(header: &str) -> bool {
+    matches!(header, "scriv" | "tool:scriv")
+}
+
+fn scriv_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "format"
+            | "output_file"
+            | "insert_marker"
+            | "end_marker"
+            | "version"
+            | "entry_directory"
+            | "main_branches"
+            | "new_path_template"
+            | "entry_title_template"
+            | "rst_header_chars"
+            | "md_header_level"
+            | "keep_fragments"
+            | "skip_fragments"
+    )
+}
+
+fn scriv_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn scriv_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        scriv_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn scriv_ini_format_ok(value: &str) -> bool {
+    matches!(
+        scriv_ini_bare(value).to_ascii_lowercase().as_str(),
+        "md" | "rst" | "text"
+    )
+}
+
+fn scriv_ini_output_file_ok(value: &str) -> bool {
+    let bare = scriv_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    let lower = bare.to_ascii_lowercase();
+    let cue = lower.contains("changelog")
+        || lower.contains("changes")
+        || lower.contains("history")
+        || lower.contains("news")
+        || lower.contains("${format}")
+        || lower.ends_with(".md")
+        || lower.ends_with(".rst")
+        || lower.ends_with(".txt");
+    if !cue {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || matches!(bytes[0], b'_' | b'.')) {
+        return false;
+    }
+    // Allow `${format}` placeholder plus path chars.
+    bare.chars().all(|c| {
+        c.is_ascii_alphanumeric()
+            || matches!(c, '_' | '-' | '.' | '/' | '$' | '{' | '}' | '(' | ')')
+    })
+}
+
+fn scriv_ini_marker_ok(value: &str) -> bool {
+    let bare = scriv_ini_bare(value);
+    if bare.is_empty() || bare.len() > 128 {
+        return false;
+    }
+    let lower = bare.to_ascii_lowercase();
+    // Default markers contain `scriv`; custom markers need a hyphen /
+    // underscore so prose stays out.
+    let cue = lower.contains("scriv")
+        || bare.contains('-')
+        || bare.contains('_')
+        || lower.contains("insert")
+        || lower.contains("marker")
+        || lower.contains("end");
+    if !cue {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-'))
+}
+
+fn scriv_ini_version_ok(value: &str) -> bool {
+    let bare = scriv_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let lower = bare.to_ascii_lowercase();
+    // `literal: 1.2.3`, `call: pkg:get_version`, `parse: file:regex`.
+    let Some((kind, rest)) = lower.split_once(':') else {
+        return false;
+    };
+    let rest = rest.trim();
+    if rest.is_empty() {
+        return false;
+    }
+    match kind {
+        "literal" => {
+            // Semver-ish or dotted token; reject bare words without digits.
+            rest.chars().any(|c| c.is_ascii_digit())
+                && rest
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '+' | ' '))
+        }
+        "call" => {
+            // `module:attr` or `module.sub:attr`.
+            let orig = scriv_ini_bare(value);
+            let Some((_, call_rest)) = orig.split_once(':') else {
+                return false;
+            };
+            let call_rest = call_rest.trim();
+            let Some((module, attr)) = call_rest.split_once(':') else {
+                return false;
+            };
+            let module = module.trim();
+            let attr = attr.trim();
+            if module.is_empty() || attr.is_empty() {
+                return false;
+            }
+            let mod_ok = module
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.'));
+            let attr_ok = attr.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_');
+            mod_ok && attr_ok
+        }
+        "parse" => {
+            // `file:regex` — regex needs a meta so prose stays out.
+            let orig = scriv_ini_bare(value);
+            let Some((_, parse_rest)) = orig.split_once(':') else {
+                return false;
+            };
+            let parse_rest = parse_rest.trim();
+            let Some((path, pat)) = parse_rest.split_once(':') else {
+                return false;
+            };
+            let path = path.trim();
+            let pat = pat.trim();
+            if path.is_empty() || pat.is_empty() {
+                return false;
+            }
+            let path_bytes = path.as_bytes();
+            if !(path_bytes[0].is_ascii_alphanumeric() || matches!(path_bytes[0], b'_' | b'.')) {
+                return false;
+            }
+            if !path_bytes
+                .iter()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+            {
+                return false;
+            }
+            pat.chars().any(|c| {
+                matches!(
+                    c,
+                    '(' | ')' | '[' | ']' | '\\' | '+' | '*' | '?' | '|' | '"'
+                )
+            })
+        }
+        _ => false,
+    }
+}
+
+fn scriv_ini_entry_directory_ok(value: &str) -> bool {
+    let bare = scriv_ini_bare(value);
+    if bare.is_empty() || bare.len() > 128 {
+        return false;
+    }
+    let lower = bare.to_ascii_lowercase();
+    // Prefer stock `changelog.d` / `news/` / dotted dirs; bare `fragments`
+    // alone stays out.
+    let cue = lower.contains("changelog")
+        || lower.contains("changes")
+        || lower.contains("news")
+        || lower.contains('/')
+        || lower.contains('.')
+        || lower.ends_with(".d");
+    if !cue {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || matches!(bytes[0], b'_' | b'.')) {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+}
+
+fn scriv_ini_branches_ok(value: &str) -> bool {
+    let bare = scriv_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    let mut any = false;
+    for raw in bare.split(',') {
+        let tok = raw.trim();
+        if tok.is_empty() {
+            return false;
+        }
+        let bytes = tok.as_bytes();
+        if !bytes[0].is_ascii_alphanumeric() {
+            return false;
+        }
+        if !bytes
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'/' | b'.'))
+        {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn scriv_ini_template_ok(value: &str) -> bool {
+    let bare = scriv_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    // Jinja-style `{{ version }}` / `{% if … %}` placeholders.
+    if !(bare.contains("{{") || bare.contains("{%") || bare.contains("{version}")) {
+        return false;
+    }
+    bare.chars().all(|c| !c.is_control())
+}
+
+fn scriv_ini_rst_header_chars_ok(value: &str) -> bool {
+    let bare = scriv_ini_bare(value);
+    if bare.is_empty() || bare.len() > 16 {
+        return false;
+    }
+    // Stock default `#*=`; allow common RST adornment chars.
+    bare.chars().all(|c| {
+        matches!(
+            c,
+            '#' | '*' | '=' | '-' | '~' | '^' | '"' | '\'' | '+' | ':' | '.'
+        )
+    }) && bare.chars().count() >= 2
+}
+
+fn scriv_ini_md_header_level_ok(value: &str) -> bool {
+    let bare = scriv_ini_bare(value);
+    matches!(bare, "1" | "2" | "3" | "4" | "5" | "6")
+}
+
+fn scriv_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        // Templates may start with `{{` — allow those keys through.
+        if !matches!(key, "new_path_template" | "entry_title_template") {
+            return false;
+        }
+    }
+    match key {
+        "format" => scriv_ini_format_ok(value),
+        "output_file" => scriv_ini_output_file_ok(value),
+        "insert_marker" | "end_marker" => scriv_ini_marker_ok(value),
+        "version" => scriv_ini_version_ok(value),
+        "entry_directory" => scriv_ini_entry_directory_ok(value),
+        "main_branches" => scriv_ini_branches_ok(value),
+        "new_path_template" | "entry_title_template" => scriv_ini_template_ok(value),
+        "rst_header_chars" => scriv_ini_rst_header_chars_ok(value),
+        "md_header_level" => scriv_ini_md_header_level_ok(value),
+        "keep_fragments" | "skip_fragments" => scriv_ini_bool_ok(value),
         _ => false,
     }
 }
@@ -67462,17 +67815,17 @@ mod func_like_line_tests {
         is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
         is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
         is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
-        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl,
-        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
+        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_setuptools_scm_ini_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
+        is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl,
+        is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -75482,6 +75835,123 @@ mod func_like_line_tests {
         assert!(line_is_func_like("hvcs = github"));
         assert!(line_is_func_like("[semantic_release]"));
         assert!(line_is_func_like("[tool:semantic_release]"));
+    }
+
+    #[test]
+    fn scriv_ini_entries_count() {
+        assert!(line_is_func_like("[scriv]"));
+        assert!(line_is_func_like("  [scriv] # fragments"));
+        assert!(line_is_func_like("[tool:scriv]; changelog"));
+        assert!(is_scriv_ini_decl("[scriv]"));
+        assert!(is_scriv_ini_decl("[tool:scriv]"));
+        assert!(is_scriv_ini_decl("format = md"));
+        assert!(is_scriv_ini_decl("format = rst"));
+        assert!(is_scriv_ini_decl("format = text"));
+        assert!(is_scriv_ini_decl("format=md"));
+        assert!(is_scriv_ini_decl("output_file = CHANGELOG.md"));
+        assert!(is_scriv_ini_decl("output_file = CHANGELOG.${format}"));
+        assert!(is_scriv_ini_decl("output_file = docs/HISTORY.rst"));
+        assert!(is_scriv_ini_decl("insert_marker = scriv-insert-here"));
+        assert!(is_scriv_ini_decl("end_marker = scriv-end-here"));
+        assert!(is_scriv_ini_decl("insert_marker = changelog-insert"));
+        assert!(is_scriv_ini_decl("version = literal: 1.2.3"));
+        assert!(is_scriv_ini_decl("version = literal:1.2.3-alpha"));
+        assert!(is_scriv_ini_decl("version = call: pkg:get_version"));
+        assert!(is_scriv_ini_decl(
+            "version = call:mypkg.version:__version__"
+        ));
+        assert!(is_scriv_ini_decl(
+            "version = parse: setup.py:version = \"([^\"]+)\""
+        ));
+        assert!(is_scriv_ini_decl(
+            "version = parse:pyproject.toml:version\\s*=\\s*\"([^\"]+)\""
+        ));
+        assert!(is_scriv_ini_decl("entry_directory = changelog.d"));
+        assert!(is_scriv_ini_decl("entry_directory = news/fragments"));
+        assert!(is_scriv_ini_decl("main_branches = master, main"));
+        assert!(is_scriv_ini_decl("main_branches = main"));
+        assert!(is_scriv_ini_decl(
+            "new_path_template = \"{{ version }}.md\""
+        ));
+        assert!(is_scriv_ini_decl("new_path_template = {{ version }}.rst"));
+        assert!(is_scriv_ini_decl(
+            "entry_title_template = \"{{ version }} — {{ date }}\""
+        ));
+        assert!(is_scriv_ini_decl(
+            "entry_title_template = {% if version %}{{ version }}{% endif %}"
+        ));
+        assert!(is_scriv_ini_decl("rst_header_chars = \"#*=\""));
+        assert!(is_scriv_ini_decl("rst_header_chars = \"*=-\""));
+        // Unquoted `#…` is an INI comment, so the value never reaches the key.
+        assert!(!is_scriv_ini_decl("rst_header_chars = #*="));
+        assert!(is_scriv_ini_decl("md_header_level = 1"));
+        assert!(is_scriv_ini_decl("md_header_level = 2"));
+        assert!(is_scriv_ini_decl("keep_fragments = false"));
+        assert!(is_scriv_ini_decl("keep_fragments = true"));
+        assert!(is_scriv_ini_decl("skip_fragments = yes"));
+        assert!(is_scriv_ini_decl("skip_fragments = 0"));
+        assert!(is_scriv_ini_decl("format = md # comment"));
+
+        // Neighbouring formats / generics / wrong case stay out.
+        assert!(!is_scriv_ini_decl("format"));
+        assert!(!is_scriv_ini_decl("format ="));
+        assert!(!is_scriv_ini_decl("Format = md"));
+        assert!(!is_scriv_ini_decl("# format = md"));
+        assert!(!is_scriv_ini_decl("format = markdown"));
+        assert!(!is_scriv_ini_decl("format = html"));
+        assert!(!is_scriv_ini_decl("output_file = notes"));
+        assert!(!is_scriv_ini_decl("insert_marker = here"));
+        assert!(!is_scriv_ini_decl("version = 1.2.3"));
+        assert!(!is_scriv_ini_decl("version = literal:"));
+        assert!(!is_scriv_ini_decl("version = literal: alpha"));
+        assert!(!is_scriv_ini_decl("version = call: get_version"));
+        assert!(!is_scriv_ini_decl("version = parse: setup.py"));
+        assert!(!is_scriv_ini_decl("version = parse: setup.py:version"));
+        assert!(!is_scriv_ini_decl("entry_directory = fragments"));
+        assert!(!is_scriv_ini_decl("main_branches ="));
+        assert!(!is_scriv_ini_decl("new_path_template = version.md"));
+        assert!(!is_scriv_ini_decl("entry_title_template = title"));
+        assert!(!is_scriv_ini_decl("rst_header_chars = #"));
+        assert!(!is_scriv_ini_decl("md_header_level = 0"));
+        assert!(!is_scriv_ini_decl("md_header_level = 7"));
+        assert!(!is_scriv_ini_decl("keep_fragments = maybe"));
+        assert!(!is_scriv_ini_decl("categories = Added, Fixed"));
+        assert!(!is_scriv_ini_decl("[Scriv]"));
+        assert!(!is_scriv_ini_decl("[[scriv]]"));
+        assert!(!is_scriv_ini_decl("[scriv"));
+        assert!(!is_scriv_ini_decl("[tool.scriv]"));
+        assert!(is_pyproject_toml_decl("[tool.scriv]"));
+        assert!(!is_scriv_ini_decl("[semantic_release]"));
+        assert!(is_semantic_release_ini_decl("[semantic_release]"));
+        assert!(!is_scriv_ini_decl("[tool:towncrier]"));
+        assert!(is_towncrier_ini_decl("[tool:towncrier]"));
+        assert!(!is_scriv_ini_decl("[tool:commitizen]"));
+        assert!(is_commitizen_ini_decl("[tool:commitizen]"));
+        assert!(!is_scriv_ini_decl("[zest.releaser]"));
+        assert!(is_zest_releaser_ini_decl("[zest.releaser]"));
+        assert!(!is_scriv_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_scriv_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_scriv_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_scriv_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_scriv_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_scriv_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_scriv_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_scriv_ini_decl("indent_size = 4"));
+        assert!(!is_scriv_ini_decl("tag_format = v{version}"));
+        assert!(is_semantic_release_ini_decl("tag_format = v{version}"));
+        // Distinctive scriv keys still list.
+        assert!(line_is_func_like("format = md"));
+        assert!(line_is_func_like("version = literal: 1.2.3"));
+        assert!(line_is_func_like("insert_marker = scriv-insert-here"));
+        assert!(line_is_func_like("[scriv]"));
+        assert!(line_is_func_like("[tool:scriv]"));
     }
 
     #[test]

@@ -1016,3 +1016,5 @@
 009 keep: Function List Commitizen setup.cfg/.cz.cfg [tool:commitizen]/[commitizen] version_provider/tag_format/$version (v0.3.677)
 
 009 keep: Function List python-semantic-release setup.cfg [semantic_release]/[tool:semantic_release] version_variable/hvcs/tag_format/{version} (v0.3.678)
+
+009 keep: Function List scriv setup.cfg [scriv]/[tool:scriv] format/version literal|call|parse/insert_marker (v0.3.679)
