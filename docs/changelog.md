@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.671] — 2026-11-07
+
+View:
+
+- **Function List** lists setuptools_scm `setup.cfg` `[tool:setuptools_scm]` / `[setuptools_scm]` sections and fields: `[tool:setuptools_scm]`, `[setuptools_scm]`, `version_scheme = guess-next-dev` / `post-release` / `python-simplified-semver` / `release-branch-semver` / `no-guess-dev` / `calver-by-date`, `local_scheme = node-and-date` / `node-and-timestamp` / `dirty-tag` / `no-local-version`, `write_to = pkg/_version.py`, `version_file = src/pkg/_version.py`, `write_to_template = version = '{version}'`, `version_file_template = __version__ = %s`, `fallback_version = 0.0.0`, `tag_regex = …(?P<version>…)…`, `git_describe_command = git describe …`, `parentdir_prefix_version = myproject-`, `relative_to = setup.py` / `pyproject.toml`, `root = .` / `..`, `normalize = true`, `search_parent_directories = False`. Exact snake_case keys. INI `key = value` or `key=value`. Optional `#` / `;` comment. Stock `version_scheme` / `local_scheme` presets only. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / tox / setuptools / Cargo / Pipfile / pyproject `[tool.setuptools_scm]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.670] — 2026-11-07
 
 View:

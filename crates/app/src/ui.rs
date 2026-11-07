@@ -32391,6 +32391,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_check_manifest_ini_decl(s)
             || is_bumpversion_ini_decl(s)
             || is_versioneer_ini_decl(s)
+            || is_setuptools_scm_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32639,6 +32640,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_check_manifest_ini_decl(s)
         || is_bumpversion_ini_decl(s)
         || is_versioneer_ini_decl(s)
+        || is_setuptools_scm_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -44762,8 +44764,8 @@ fn bumpversion_ini_value_ok(key: &str, value: &str) -> bool {
 /// flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle /
 /// autopep8 / black / yapf / pydocstyle / bandit / codespell /
 /// docformatter / vulture / interrogate / check-manifest / bumpversion /
-/// tox / setuptools / Cargo / Pipfile / pyproject `[tool.versioneer]` /
-/// Desktop Entry / pip.conf stay out.
+/// setuptools_scm / tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.versioneer]` / Desktop Entry / pip.conf stay out.
 fn is_versioneer_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -44874,6 +44876,192 @@ fn versioneer_ini_value_ok(key: &str, value: &str) -> bool {
         "versionfile_source" | "versionfile_build" => versioneer_ini_path_ok(value),
         "tag_prefix" | "parentdir_prefix" => versioneer_ini_prefix_ok(value),
         "verbose" => versioneer_ini_bool_ok(value),
+        _ => false,
+    }
+}
+
+/// setuptools_scm `setup.cfg` `[tool:setuptools_scm]` /
+/// `[setuptools_scm]` sections and distinctive keys (`version_scheme`,
+/// `local_scheme`, `write_to`, `write_to_template`, `version_file`,
+/// `version_file_template`, `fallback_version`, `tag_regex`,
+/// `git_describe_command`, `parentdir_prefix_version`, `relative_to`,
+/// `root`, `normalize`, `search_parent_directories`). Optional `#` / `;`
+/// comment. Key lines may use `=` with or without spaces. Exact
+/// snake_case keys. `version_scheme` / `local_scheme` restricted to
+/// stock presets so neighbouring tools stay out. flake8 / mypy / pytest /
+/// isort / coverage / pylint / pycodestyle / autopep8 / black / yapf /
+/// pydocstyle / bandit / codespell / docformatter / vulture / interrogate /
+/// check-manifest / bumpversion / versioneer / tox / setuptools / Cargo /
+/// Pipfile / pyproject `[tool.setuptools_scm]` / Desktop Entry / pip.conf
+/// stay out.
+fn is_setuptools_scm_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return header == "tool:setuptools_scm" || header == "setuptools_scm";
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !setuptools_scm_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    setuptools_scm_ini_value_ok(key, value)
+}
+
+fn setuptools_scm_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "version_scheme"
+            | "local_scheme"
+            | "write_to"
+            | "write_to_template"
+            | "version_file"
+            | "version_file_template"
+            | "fallback_version"
+            | "tag_regex"
+            | "git_describe_command"
+            | "parentdir_prefix_version"
+            | "relative_to"
+            | "root"
+            | "normalize"
+            | "search_parent_directories"
+    )
+}
+
+fn setuptools_scm_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+    )
+}
+
+fn setuptools_scm_ini_version_scheme_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "guess-next-dev"
+            | "post-release"
+            | "python-simplified-semver"
+            | "release-branch-semver"
+            | "no-guess-dev"
+            | "calver-by-date"
+    )
+}
+
+fn setuptools_scm_ini_local_scheme_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "node-and-date" | "node-and-timestamp" | "dirty-tag" | "no-local-version"
+    )
+}
+
+fn setuptools_scm_ini_path_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_' || bytes[0] == b'.') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+}
+
+fn setuptools_scm_ini_root_ok(value: &str) -> bool {
+    if value == "." || value == ".." {
+        return true;
+    }
+    setuptools_scm_ini_path_ok(value)
+}
+
+fn setuptools_scm_ini_version_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 64 {
+        return false;
+    }
+    let mut has_digit = false;
+    for b in value.bytes() {
+        if b.is_ascii_digit() {
+            has_digit = true;
+            continue;
+        }
+        if !(b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'+')) {
+            return false;
+        }
+    }
+    has_digit
+}
+
+fn setuptools_scm_ini_prefix_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_' || bytes[0] == b'.') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
+}
+
+fn setuptools_scm_ini_tag_regex_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    // Need a capture-ish cue so prose / bare tokens stay out.
+    value.contains("(?P<") || value.contains("(?<") || (value.contains('(') && value.contains('\\'))
+}
+
+fn setuptools_scm_ini_git_describe_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    let trimmed = value.trim_start_matches(['\'', '"']);
+    trimmed.starts_with("git describe") || trimmed.starts_with("git-describe")
+}
+
+fn setuptools_scm_ini_template_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    // Template must reference version (setuptools_scm write_to_template).
+    value.contains("{version}") || value.contains("{version_tuple}") || value.contains("%s")
+}
+
+fn setuptools_scm_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    match key {
+        "version_scheme" => setuptools_scm_ini_version_scheme_ok(value),
+        "local_scheme" => setuptools_scm_ini_local_scheme_ok(value),
+        "write_to" | "version_file" | "relative_to" => setuptools_scm_ini_path_ok(value),
+        "write_to_template" | "version_file_template" => setuptools_scm_ini_template_ok(value),
+        "fallback_version" => setuptools_scm_ini_version_ok(value),
+        "tag_regex" => setuptools_scm_ini_tag_regex_ok(value),
+        "git_describe_command" => setuptools_scm_ini_git_describe_ok(value),
+        "parentdir_prefix_version" => setuptools_scm_ini_prefix_ok(value),
+        "root" => setuptools_scm_ini_root_ok(value),
+        "normalize" | "search_parent_directories" => setuptools_scm_ini_bool_ok(value),
         _ => false,
     }
 }
@@ -65561,13 +65749,13 @@ mod func_like_line_tests {
         is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
         is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
+        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
         is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
         is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
@@ -72320,6 +72508,202 @@ mod func_like_line_tests {
         assert!(line_is_func_like("parentdir_prefix = myproject-"));
         assert!(line_is_func_like("verbose = True"));
         assert!(line_is_func_like("[versioneer]"));
+        assert!(!is_versioneer_ini_decl("[tool:setuptools_scm]"));
+        assert!(is_setuptools_scm_ini_decl("[tool:setuptools_scm]"));
+        assert!(!is_versioneer_ini_decl("version_scheme = guess-next-dev"));
+        assert!(is_setuptools_scm_ini_decl(
+            "version_scheme = guess-next-dev"
+        ));
+        assert!(!is_versioneer_ini_decl(
+            "parentdir_prefix_version = myproject-"
+        ));
+        assert!(is_setuptools_scm_ini_decl(
+            "parentdir_prefix_version = myproject-"
+        ));
+    }
+
+    #[test]
+    fn setuptools_scm_ini_entries_count() {
+        assert!(line_is_func_like("[tool:setuptools_scm]"));
+        assert!(line_is_func_like("  [setuptools_scm] # setup.cfg"));
+        assert!(line_is_func_like("[tool:setuptools_scm]; setup.cfg"));
+        assert!(is_setuptools_scm_ini_decl("[tool:setuptools_scm]"));
+        assert!(is_setuptools_scm_ini_decl("[setuptools_scm]"));
+        assert!(is_setuptools_scm_ini_decl(
+            "version_scheme = guess-next-dev"
+        ));
+        assert!(is_setuptools_scm_ini_decl("version_scheme = post-release"));
+        assert!(is_setuptools_scm_ini_decl(
+            "version_scheme = python-simplified-semver"
+        ));
+        assert!(is_setuptools_scm_ini_decl(
+            "version_scheme = release-branch-semver"
+        ));
+        assert!(is_setuptools_scm_ini_decl("version_scheme = no-guess-dev"));
+        assert!(is_setuptools_scm_ini_decl(
+            "version_scheme = calver-by-date"
+        ));
+        assert!(is_setuptools_scm_ini_decl("local_scheme = node-and-date"));
+        assert!(is_setuptools_scm_ini_decl(
+            "local_scheme = node-and-timestamp"
+        ));
+        assert!(is_setuptools_scm_ini_decl("local_scheme = dirty-tag"));
+        assert!(is_setuptools_scm_ini_decl(
+            "local_scheme = no-local-version"
+        ));
+        assert!(is_setuptools_scm_ini_decl("write_to = pkg/_version.py"));
+        assert!(is_setuptools_scm_ini_decl(
+            "version_file = src/pkg/_version.py"
+        ));
+        assert!(is_setuptools_scm_ini_decl(
+            "write_to_template = version = '{version}'"
+        ));
+        assert!(is_setuptools_scm_ini_decl(
+            "version_file_template = __version__ = %s"
+        ));
+        assert!(is_setuptools_scm_ini_decl("fallback_version = 0.0.0"));
+        assert!(is_setuptools_scm_ini_decl(
+            "tag_regex = ^(?:[\\w-]+-)?(?P<version>[vV]?\\d+(?:\\.\\d+){0,2}[^\\+]*)(?:\\+.*)?$"
+        ));
+        assert!(is_setuptools_scm_ini_decl(
+            "git_describe_command = git describe --dirty --tags --long --match *.*"
+        ));
+        assert!(is_setuptools_scm_ini_decl(
+            "parentdir_prefix_version = myproject-"
+        ));
+        assert!(is_setuptools_scm_ini_decl("relative_to = setup.py"));
+        assert!(is_setuptools_scm_ini_decl("relative_to = pyproject.toml"));
+        assert!(is_setuptools_scm_ini_decl("root = ."));
+        assert!(is_setuptools_scm_ini_decl("root = .."));
+        assert!(is_setuptools_scm_ini_decl("normalize = true"));
+        assert!(is_setuptools_scm_ini_decl(
+            "search_parent_directories = False"
+        ));
+        assert!(is_setuptools_scm_ini_decl(
+            "version_scheme = guess-next-dev # comment"
+        ));
+        assert!(is_setuptools_scm_ini_decl(
+            "local_scheme=node-and-date; trail"
+        ));
+
+        // Neighbouring formats / wrong case / bare generics stay out.
+        assert!(!is_setuptools_scm_ini_decl("version_scheme"));
+        assert!(!is_setuptools_scm_ini_decl("version_scheme ="));
+        assert!(!is_setuptools_scm_ini_decl(
+            "Version_Scheme = guess-next-dev"
+        ));
+        assert!(!is_setuptools_scm_ini_decl(
+            "# version_scheme = guess-next-dev"
+        ));
+        assert!(!is_setuptools_scm_ini_decl("version_scheme = custom"));
+        assert!(!is_setuptools_scm_ini_decl("local_scheme = custom"));
+        assert!(!is_setuptools_scm_ini_decl("write_to ="));
+        assert!(!is_setuptools_scm_ini_decl("write_to = /abs/path.py"));
+        assert!(!is_setuptools_scm_ini_decl(
+            "write_to_template = no placeholders"
+        ));
+        assert!(!is_setuptools_scm_ini_decl("fallback_version ="));
+        assert!(!is_setuptools_scm_ini_decl(
+            "fallback_version = not-a-version"
+        ));
+        assert!(!is_setuptools_scm_ini_decl("tag_regex = just text"));
+        assert!(!is_setuptools_scm_ini_decl(
+            "git_describe_command = describe"
+        ));
+        assert!(!is_setuptools_scm_ini_decl("parentdir_prefix_version ="));
+        assert!(!is_setuptools_scm_ini_decl("normalize = maybe"));
+        assert!(!is_setuptools_scm_ini_decl("root ="));
+        assert!(!is_setuptools_scm_ini_decl("root = /abs"));
+        assert!(!is_setuptools_scm_ini_decl("[Setuptools_scm]"));
+        assert!(!is_setuptools_scm_ini_decl("[SETUPTOOLS_SCM]"));
+        assert!(!is_setuptools_scm_ini_decl("[[setuptools_scm]]"));
+        assert!(!is_setuptools_scm_ini_decl("[setuptools_scm"));
+        assert!(!is_setuptools_scm_ini_decl("[tool.setuptools_scm]"));
+        assert!(is_pyproject_toml_decl("[tool.setuptools_scm]"));
+        assert!(!is_setuptools_scm_ini_decl("[versioneer]"));
+        assert!(is_versioneer_ini_decl("[versioneer]"));
+        assert!(!is_setuptools_scm_ini_decl("VCS = git"));
+        assert!(is_versioneer_ini_decl("VCS = git"));
+        assert!(!is_setuptools_scm_ini_decl(
+            "versionfile_source = pkg/_version.py"
+        ));
+        assert!(is_versioneer_ini_decl(
+            "versionfile_source = pkg/_version.py"
+        ));
+        assert!(!is_setuptools_scm_ini_decl("parentdir_prefix = myproject-"));
+        assert!(is_versioneer_ini_decl("parentdir_prefix = myproject-"));
+        assert!(!is_setuptools_scm_ini_decl("[bumpversion]"));
+        assert!(is_bumpversion_ini_decl("[bumpversion]"));
+        assert!(!is_setuptools_scm_ini_decl("current_version = 1.2.3"));
+        assert!(is_bumpversion_ini_decl("current_version = 1.2.3"));
+        assert!(!is_setuptools_scm_ini_decl("[check-manifest]"));
+        assert!(is_check_manifest_ini_decl("[check-manifest]"));
+        assert!(!is_setuptools_scm_ini_decl("[interrogate]"));
+        assert!(is_interrogate_ini_decl("[interrogate]"));
+        assert!(!is_setuptools_scm_ini_decl("[vulture]"));
+        assert!(is_vulture_ini_decl("[vulture]"));
+        assert!(!is_setuptools_scm_ini_decl("[docformatter]"));
+        assert!(is_docformatter_ini_decl("[docformatter]"));
+        assert!(!is_setuptools_scm_ini_decl("[codespell]"));
+        assert!(is_codespell_ini_decl("[codespell]"));
+        assert!(!is_setuptools_scm_ini_decl("[bandit]"));
+        assert!(is_bandit_ini_decl("[bandit]"));
+        assert!(!is_setuptools_scm_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(!is_setuptools_scm_ini_decl("[yapf]"));
+        assert!(is_yapf_ini_decl("[yapf]"));
+        assert!(!is_setuptools_scm_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_setuptools_scm_ini_decl("line-length = 88"));
+        assert!(is_black_ini_decl("line-length = 88"));
+        assert!(!is_setuptools_scm_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_setuptools_scm_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_setuptools_scm_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_setuptools_scm_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_setuptools_scm_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_setuptools_scm_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_setuptools_scm_ini_decl("[tool:pytest]"));
+        assert!(is_pytest_ini_decl("[tool:pytest]"));
+        assert!(!is_setuptools_scm_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_setuptools_scm_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_setuptools_scm_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_setuptools_scm_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_setuptools_scm_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_setuptools_scm_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_setuptools_scm_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_setuptools_scm_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_setuptools_scm_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_setuptools_scm_ini_decl("indent_size = 4"));
+        assert!(!line_is_func_like("version_scheme = custom"));
+        assert!(!line_is_func_like("local_scheme = custom"));
+        assert!(!line_is_func_like("write_to_template = no placeholders"));
+        // Distinctive setuptools_scm keys still list.
+        assert!(line_is_func_like("version_scheme = guess-next-dev"));
+        assert!(line_is_func_like("local_scheme = node-and-date"));
+        assert!(line_is_func_like("write_to = pkg/_version.py"));
+        assert!(line_is_func_like("version_file = src/pkg/_version.py"));
+        assert!(line_is_func_like("fallback_version = 0.0.0"));
+        assert!(line_is_func_like("parentdir_prefix_version = myproject-"));
+        assert!(line_is_func_like("relative_to = setup.py"));
+        assert!(line_is_func_like("root = ."));
+        assert!(line_is_func_like("normalize = true"));
+        assert!(line_is_func_like("[tool:setuptools_scm]"));
+        assert!(line_is_func_like("[setuptools_scm]"));
     }
 
     #[test]

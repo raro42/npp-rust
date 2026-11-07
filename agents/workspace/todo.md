@@ -1,3 +1,5 @@
+009 keep: Function List setuptools_scm setup.cfg [tool:setuptools_scm] version_scheme/local_scheme/write_to (v0.3.671)
+
 009 keep: Function List versioneer setup.cfg [versioneer] VCS/style/versionfile_source/tag_prefix (v0.3.670)
 
 009 keep: Function List bumpversion setup.cfg/.bumpversion.cfg [bumpversion]/file:/part: current_version/parse/serialize (v0.3.669)
