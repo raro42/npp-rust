@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.680] — 2026-11-07
+
+View:
+
+- **Function List** lists import-linter `.importlinter` / `setup.cfg` / `tox.ini` `[importlinter]` / `[importlinter:contract:…]` sections and fields: `[importlinter]`, `[importlinter:contract:layers]` / `my-forbidden` / `acyclic_1`, `root_package = mypackage` / `mypackage.core`, `root_packages = pkg.a, pkg.b`, `include_external_packages = True` / `false`, `exclude_type_checking_imports = yes` / `0`, `unmatched_ignore_imports_alerting = error` / `warn` / `none`, `allow_indirect_imports = false`, `as_packages = true`, `exhaustive = True`, `type = layers` / `independence` / `forbidden` / `protected` / `acyclic_siblings`, `forbidden_modules = pkg.legacy` / `pkg.a, pkg.b.*`, `protected_modules = pkg.api`, `allowed_importers = pkg.cli`, `source_modules = pkg.ui`, `exhaustive_ignores = pkg.legacy`. Exact snake_case keys. INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. Bare `name` / `layers` / `modules` / `containers` / `ignore_imports` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / tox / setuptools / Cargo / Pipfile / pyproject `[tool.importlinter]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.679] — 2026-11-07
 
 View:

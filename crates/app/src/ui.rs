@@ -32400,6 +32400,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_commitizen_ini_decl(s)
             || is_semantic_release_ini_decl(s)
             || is_scriv_ini_decl(s)
+            || is_importlinter_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32657,6 +32658,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_commitizen_ini_decl(s)
         || is_semantic_release_ini_decl(s)
         || is_scriv_ini_decl(s)
+        || is_importlinter_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -47127,6 +47129,187 @@ fn scriv_ini_value_ok(key: &str, value: &str) -> bool {
         "rst_header_chars" => scriv_ini_rst_header_chars_ok(value),
         "md_header_level" => scriv_ini_md_header_level_ok(value),
         "keep_fragments" | "skip_fragments" => scriv_ini_bool_ok(value),
+        _ => false,
+    }
+}
+
+/// import-linter `.importlinter` / `setup.cfg` / `tox.ini`
+/// `[importlinter]` / `[importlinter:contract:…]` sections and fields:
+/// `[importlinter]`, `[importlinter:contract:layers]`,
+/// `root_package = mypackage`, `root_packages = pkg.a, pkg.b`,
+/// `include_external_packages = True`,
+/// `exclude_type_checking_imports = yes`,
+/// `unmatched_ignore_imports_alerting = error` / `warn` / `none`,
+/// `allow_indirect_imports = false`, `as_packages = true`,
+/// `exhaustive = True`, `type = layers` / `independence` / `forbidden` /
+/// `protected` / `acyclic_siblings`, `forbidden_modules = pkg.x`,
+/// `protected_modules = pkg.y`, `allowed_importers = pkg.z`,
+/// `source_modules = pkg.a`, `exhaustive_ignores = pkg.legacy`. Exact
+/// snake_case keys. INI `key = value` or `key=value`. Optional quotes on
+/// values. Optional `#` / `;` comment. Bare `name` / `layers` /
+/// `modules` / `containers` / `ignore_imports` stay out (too generic /
+/// usually multi-line). flake8 / mypy / pytest / isort / coverage /
+/// pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit /
+/// codespell / docformatter / vulture / interrogate / check-manifest /
+/// bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser /
+/// cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.importlinter]` tables / Desktop Entry / pip.conf stay
+/// out.
+fn is_importlinter_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return importlinter_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !importlinter_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    importlinter_ini_value_ok(key, value)
+}
+
+fn importlinter_ini_section_ok(header: &str) -> bool {
+    if header == "importlinter" {
+        return true;
+    }
+    if let Some(id) = header.strip_prefix("importlinter:contract:") {
+        return importlinter_contract_id_ok(id);
+    }
+    false
+}
+
+fn importlinter_contract_id_ok(id: &str) -> bool {
+    if id.is_empty() || id.len() > 128 {
+        return false;
+    }
+    let bytes = id.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-'))
+}
+
+fn importlinter_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "root_package"
+            | "root_packages"
+            | "include_external_packages"
+            | "exclude_type_checking_imports"
+            | "unmatched_ignore_imports_alerting"
+            | "allow_indirect_imports"
+            | "as_packages"
+            | "exhaustive"
+            | "type"
+            | "forbidden_modules"
+            | "protected_modules"
+            | "allowed_importers"
+            | "source_modules"
+            | "exhaustive_ignores"
+    )
+}
+
+fn importlinter_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn importlinter_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        importlinter_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn importlinter_ini_alerting_ok(value: &str) -> bool {
+    matches!(
+        importlinter_ini_bare(value).to_ascii_lowercase().as_str(),
+        "error" | "warn" | "none"
+    )
+}
+
+fn importlinter_ini_type_ok(value: &str) -> bool {
+    matches!(
+        importlinter_ini_bare(value),
+        "layers" | "independence" | "forbidden" | "protected" | "acyclic_siblings"
+    )
+}
+
+fn importlinter_module_token_ok(tok: &str) -> bool {
+    if tok.is_empty() || tok.len() > 128 {
+        return false;
+    }
+    let bytes = tok.as_bytes();
+    // Python dotted package / module path (or `*` wildcards import-linter
+    // accepts in some list fields).
+    if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_' || bytes[0] == b'*') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'.' | b'*'))
+        && tok.contains(|c: char| c.is_ascii_alphanumeric() || c == '_')
+}
+
+fn importlinter_module_list_ok(value: &str) -> bool {
+    let bare = importlinter_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let mut any = false;
+    for raw in bare.split([',', ' ']) {
+        let tok = raw.trim();
+        if tok.is_empty() {
+            continue;
+        }
+        if !importlinter_module_token_ok(tok) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn importlinter_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "root_package" => importlinter_module_token_ok(importlinter_ini_bare(value)),
+        "root_packages" | "forbidden_modules" | "protected_modules" | "allowed_importers"
+        | "source_modules" | "exhaustive_ignores" => importlinter_module_list_ok(value),
+        "include_external_packages"
+        | "exclude_type_checking_imports"
+        | "allow_indirect_imports"
+        | "as_packages"
+        | "exhaustive" => importlinter_ini_bool_ok(value),
+        "unmatched_ignore_imports_alerting" => importlinter_ini_alerting_ok(value),
+        "type" => importlinter_ini_type_ok(value),
         _ => false,
     }
 }
@@ -67799,22 +67982,22 @@ mod func_like_line_tests {
         is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl,
         is_fluent_bit_decl, is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_interrogate_ini_decl,
-        is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
-        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
-        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
-        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl,
-        is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl, is_pycodestyle_ini_decl,
-        is_pydocstyle_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
-        is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_importlinter_ini_decl,
+        is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
+        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
+        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl,
+        is_pycodestyle_ini_decl, is_pydocstyle_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
+        is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
         is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
@@ -75952,6 +76135,128 @@ mod func_like_line_tests {
         assert!(line_is_func_like("insert_marker = scriv-insert-here"));
         assert!(line_is_func_like("[scriv]"));
         assert!(line_is_func_like("[tool:scriv]"));
+    }
+
+    #[test]
+    fn importlinter_ini_entries_count() {
+        assert!(line_is_func_like("[importlinter]"));
+        assert!(line_is_func_like("  [importlinter] # architecture"));
+        assert!(line_is_func_like(
+            "[importlinter:contract:layers]; contracts"
+        ));
+        assert!(is_importlinter_ini_decl("[importlinter]"));
+        assert!(is_importlinter_ini_decl("[importlinter:contract:layers]"));
+        assert!(is_importlinter_ini_decl(
+            "[importlinter:contract:my-forbidden]"
+        ));
+        assert!(is_importlinter_ini_decl(
+            "[importlinter:contract:acyclic_1]"
+        ));
+        assert!(is_importlinter_ini_decl("root_package = mypackage"));
+        assert!(is_importlinter_ini_decl("root_package=mypackage.core"));
+        assert!(is_importlinter_ini_decl("root_packages = pkg.a, pkg.b"));
+        assert!(is_importlinter_ini_decl("root_packages = mypackage"));
+        assert!(is_importlinter_ini_decl("include_external_packages = True"));
+        assert!(is_importlinter_ini_decl(
+            "include_external_packages = false"
+        ));
+        assert!(is_importlinter_ini_decl(
+            "exclude_type_checking_imports = yes"
+        ));
+        assert!(is_importlinter_ini_decl(
+            "exclude_type_checking_imports = 0"
+        ));
+        assert!(is_importlinter_ini_decl(
+            "unmatched_ignore_imports_alerting = error"
+        ));
+        assert!(is_importlinter_ini_decl(
+            "unmatched_ignore_imports_alerting = warn"
+        ));
+        assert!(is_importlinter_ini_decl(
+            "unmatched_ignore_imports_alerting = none"
+        ));
+        assert!(is_importlinter_ini_decl("allow_indirect_imports = false"));
+        assert!(is_importlinter_ini_decl("as_packages = true"));
+        assert!(is_importlinter_ini_decl("exhaustive = True"));
+        assert!(is_importlinter_ini_decl("type = layers"));
+        assert!(is_importlinter_ini_decl("type = independence"));
+        assert!(is_importlinter_ini_decl("type = forbidden"));
+        assert!(is_importlinter_ini_decl("type = protected"));
+        assert!(is_importlinter_ini_decl("type = acyclic_siblings"));
+        assert!(is_importlinter_ini_decl("forbidden_modules = pkg.legacy"));
+        assert!(is_importlinter_ini_decl(
+            "forbidden_modules = pkg.a, pkg.b.*"
+        ));
+        assert!(is_importlinter_ini_decl("protected_modules = pkg.api"));
+        assert!(is_importlinter_ini_decl("allowed_importers = pkg.cli"));
+        assert!(is_importlinter_ini_decl("source_modules = pkg.ui"));
+        assert!(is_importlinter_ini_decl("exhaustive_ignores = pkg.legacy"));
+        assert!(is_importlinter_ini_decl(
+            "root_package = mypackage # comment"
+        ));
+
+        // Neighbouring formats / generics / wrong case stay out.
+        assert!(!is_importlinter_ini_decl("root_package"));
+        assert!(!is_importlinter_ini_decl("root_package ="));
+        assert!(!is_importlinter_ini_decl("Root_Package = mypackage"));
+        assert!(!is_importlinter_ini_decl("# root_package = mypackage"));
+        assert!(!is_importlinter_ini_decl("root_package = 1bad"));
+        assert!(!is_importlinter_ini_decl("root_package = -mypackage"));
+        assert!(!is_importlinter_ini_decl("root_packages ="));
+        assert!(!is_importlinter_ini_decl(
+            "include_external_packages = maybe"
+        ));
+        assert!(!is_importlinter_ini_decl(
+            "unmatched_ignore_imports_alerting = silent"
+        ));
+        assert!(!is_importlinter_ini_decl("type = layer"));
+        assert!(!is_importlinter_ini_decl("type = Layer"));
+        assert!(!is_importlinter_ini_decl("name = My layers contract"));
+        assert!(!is_importlinter_ini_decl("layers = high"));
+        assert!(!is_importlinter_ini_decl("modules = pkg.a"));
+        assert!(!is_importlinter_ini_decl("containers = mypackage"));
+        assert!(!is_importlinter_ini_decl("ignore_imports = pkg.x -> pkg.y"));
+        assert!(!is_importlinter_ini_decl("[ImportLinter]"));
+        assert!(!is_importlinter_ini_decl("[[importlinter]]"));
+        assert!(!is_importlinter_ini_decl("[importlinter"));
+        assert!(!is_importlinter_ini_decl("[importlinter:contract:]"));
+        assert!(!is_importlinter_ini_decl("[importlinter:contract:bad id]"));
+        assert!(!is_importlinter_ini_decl("[tool.importlinter]"));
+        assert!(is_pyproject_toml_decl("[tool.importlinter]"));
+        assert!(!is_importlinter_ini_decl("[tool:importlinter]"));
+        assert!(!is_importlinter_ini_decl("[scriv]"));
+        assert!(is_scriv_ini_decl("[scriv]"));
+        assert!(!is_importlinter_ini_decl("[semantic_release]"));
+        assert!(is_semantic_release_ini_decl("[semantic_release]"));
+        assert!(!is_importlinter_ini_decl("[tool:towncrier]"));
+        assert!(is_towncrier_ini_decl("[tool:towncrier]"));
+        assert!(!is_importlinter_ini_decl("[tool:commitizen]"));
+        assert!(is_commitizen_ini_decl("[tool:commitizen]"));
+        assert!(!is_importlinter_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_importlinter_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_importlinter_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_importlinter_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_importlinter_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_importlinter_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_importlinter_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_importlinter_ini_decl("indent_size = 4"));
+        assert!(!is_importlinter_ini_decl("format = md"));
+        assert!(is_scriv_ini_decl("format = md"));
+        // Distinctive import-linter keys still list.
+        assert!(line_is_func_like("root_package = mypackage"));
+        assert!(line_is_func_like("type = layers"));
+        assert!(line_is_func_like(
+            "unmatched_ignore_imports_alerting = error"
+        ));
+        assert!(line_is_func_like("[importlinter]"));
+        assert!(line_is_func_like("[importlinter:contract:layers]"));
     }
 
     #[test]
