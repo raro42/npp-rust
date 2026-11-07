@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.678] — 2026-11-07
+
+View:
+
+- **Function List** lists python-semantic-release `setup.cfg` / `tox.ini` `[semantic_release]` / `[tool:semantic_release]` sections and fields: `[semantic_release]`, `[tool:semantic_release]`, `version_variable = pkg/__init__.py:__version__` / comma lists, `version_pattern = setup.py:version=(\d+\.\d+\.\d+)`, `version_toml = pyproject.toml:project.version` / `tool.poetry.version`, `version_source = commit` / `tag` / `tag_only`, `prerelease_tag = beta`, `tag_commit = true`, `patch_without_tag = false`, `major_on_zero = yes`, `commit_parser = angular` / `emoji` / `scipy` / `tag`, `commit_version_number = true`, `commit_subject = chore(release): {version}`, `commit_author = semantic-release <semantic-release>` / email, `changelog_file = CHANGELOG.md` / `docs/HISTORY.rst`, `changelog_placeholder = <!-- next-version -->`, `changelog_scope = true`, `changelog_capitalize = false`, `upload_to_pypi = true`, `upload_to_repository = false`, `upload_to_release = 1`, `dist_path = dist/`, `remove_dist = true`, `build_command = python -m build` / `python setup.py sdist bdist_wheel` / `false`, `hvcs = github` / `gitlab` / `gitea`, `hvcs_domain = git.example.com`, `hvcs_api_domain = git.example.com/api/v4`, `check_build_status = true`, `tag_format = v{version}` / `release-{version}`, `ignore_token_for_push = true`, `include_additional_files = README.md,CHANGELOG.md`, `pre_commit_command = ./scripts/check.sh`, `use_textual_changelog_sections = true`, `dist_glob_patterns = *.whl`, `upload_to_pypi_glob_patterns = *`. Exact snake_case keys. INI / TOML `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. `tag_format` / `commit_subject` need `{version}` (Commitizen `$version` stays out). Bare `branch` / `repository` / `commit_message` / hook arrays stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / tox / setuptools / Cargo / Pipfile / pyproject `[tool.semantic_release]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.677] — 2026-11-07
 
 View:

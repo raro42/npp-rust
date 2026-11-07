@@ -32398,6 +32398,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_check_wheel_contents_ini_decl(s)
             || is_pypirc_ini_decl(s)
             || is_commitizen_ini_decl(s)
+            || is_semantic_release_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32653,6 +32654,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_check_wheel_contents_ini_decl(s)
         || is_pypirc_ini_decl(s)
         || is_commitizen_ini_decl(s)
+        || is_semantic_release_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -46230,6 +46232,548 @@ fn commitizen_ini_value_ok(key: &str, value: &str) -> bool {
         "changelog_start_rev" => commitizen_ini_rev_ok(value),
         "encoding" => commitizen_ini_encoding_ok(value),
         "prerelease_offset" | "message_length_limit" => commitizen_ini_number_ok(value),
+        _ => false,
+    }
+}
+
+/// python-semantic-release `setup.cfg` / `tox.ini` `[semantic_release]` /
+/// `[tool:semantic_release]` sections and distinctive keys:
+/// `[semantic_release]`, `[tool:semantic_release]`,
+/// `version_variable = pkg/__init__.py:__version__`,
+/// `version_pattern = setup.py:version=(\d+\.\d+\.\d+)`,
+/// `version_toml = pyproject.toml:project.version`,
+/// `version_source = commit` / `tag` / `tag_only`,
+/// `prerelease_tag = beta`, `tag_commit = true`,
+/// `patch_without_tag = false`, `major_on_zero = true`,
+/// `commit_parser = angular` / `emoji` / `scipy` / `tag`,
+/// `commit_version_number = true`,
+/// `commit_subject = chore(release): {version}`,
+/// `commit_author = semantic-release <semantic-release>`,
+/// `changelog_file = CHANGELOG.md`, `changelog_placeholder = <!-- next -->`,
+/// `changelog_scope = true`, `changelog_capitalize = false`,
+/// `upload_to_pypi = true`, `upload_to_repository = false`,
+/// `upload_to_release = true`, `dist_path = dist/`,
+/// `remove_dist = true`, `build_command = python -m build`,
+/// `hvcs = github` / `gitlab` / `gitea`, `hvcs_domain = git.example.com`,
+/// `hvcs_api_domain = git.example.com/api/v4`,
+/// `check_build_status = true`, `tag_format = v{version}`,
+/// `ignore_token_for_push = true`,
+/// `include_additional_files = README.md,CHANGELOG.md`,
+/// `pre_commit_command = ./scripts/check.sh`,
+/// `use_textual_changelog_sections = true`,
+/// `dist_glob_patterns = *.whl,*.tar.gz`,
+/// `upload_to_pypi_glob_patterns = *`. Exact snake_case keys. INI /
+/// TOML `key = value` or `key=value`. Optional quotes on values.
+/// Optional `#` / `;` comment. `tag_format` / `commit_subject` need
+/// `{version}` (Commitizen `$version` stays out). Bare `branch` /
+/// `repository` / `commit_message` / hook arrays stay out. flake8 /
+/// mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 /
+/// black / yapf / pydocstyle / bandit / codespell / docformatter /
+/// vulture / interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / Twine `.pypirc` / Commitizen / tox /
+/// setuptools / Cargo / Pipfile / pyproject `[tool.semantic_release]`
+/// tables / Desktop Entry / pip.conf stay out.
+fn is_semantic_release_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return semantic_release_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !semantic_release_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    semantic_release_ini_value_ok(key, value)
+}
+
+fn semantic_release_ini_section_ok(header: &str) -> bool {
+    matches!(header, "semantic_release" | "tool:semantic_release")
+}
+
+fn semantic_release_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "version_variable"
+            | "version_pattern"
+            | "version_toml"
+            | "version_source"
+            | "prerelease_tag"
+            | "tag_commit"
+            | "patch_without_tag"
+            | "major_on_zero"
+            | "commit_parser"
+            | "commit_version_number"
+            | "commit_subject"
+            | "commit_author"
+            | "changelog_file"
+            | "changelog_placeholder"
+            | "changelog_scope"
+            | "changelog_capitalize"
+            | "upload_to_pypi"
+            | "upload_to_repository"
+            | "upload_to_release"
+            | "dist_path"
+            | "remove_dist"
+            | "build_command"
+            | "hvcs"
+            | "hvcs_domain"
+            | "hvcs_api_domain"
+            | "check_build_status"
+            | "tag_format"
+            | "ignore_token_for_push"
+            | "include_additional_files"
+            | "pre_commit_command"
+            | "use_textual_changelog_sections"
+            | "dist_glob_patterns"
+            | "upload_to_pypi_glob_patterns"
+    )
+}
+
+fn semantic_release_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn semantic_release_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        semantic_release_ini_bare(value)
+            .to_ascii_lowercase()
+            .as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn semantic_release_ini_path_attr_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    // `path.py:attr` or comma-separated list; arrays stay out.
+    if bare.starts_with('[') {
+        return false;
+    }
+    let mut any = false;
+    for raw in bare.split(',') {
+        let tok = raw.trim();
+        if tok.is_empty() {
+            return false;
+        }
+        let Some((path, attr)) = tok.split_once(':') else {
+            return false;
+        };
+        if path.is_empty() || attr.is_empty() {
+            return false;
+        }
+        let path_bytes = path.as_bytes();
+        if !(path_bytes[0].is_ascii_alphanumeric() || matches!(path_bytes[0], b'_' | b'.')) {
+            return false;
+        }
+        if !path_bytes
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+        {
+            return false;
+        }
+        let attr_bytes = attr.as_bytes();
+        if !attr_bytes[0].is_ascii_alphabetic() && attr_bytes[0] != b'_' {
+            return false;
+        }
+        if !attr_bytes
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn semantic_release_ini_pattern_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    if bare.starts_with('[') {
+        return false;
+    }
+    // `file:pattern` — pattern needs a regex meta so prose stays out.
+    let Some((path, pat)) = bare.split_once(':') else {
+        return false;
+    };
+    if path.is_empty() || pat.is_empty() {
+        return false;
+    }
+    let path_bytes = path.as_bytes();
+    if !(path_bytes[0].is_ascii_alphanumeric() || matches!(path_bytes[0], b'_' | b'.')) {
+        return false;
+    }
+    if !path_bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+    {
+        return false;
+    }
+    pat.chars()
+        .any(|c| matches!(c, '(' | ')' | '[' | ']' | '\\' | '+' | '*' | '?' | '|'))
+}
+
+fn semantic_release_ini_toml_path_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    if bare.starts_with('[') {
+        return false;
+    }
+    // `pyproject.toml:project.version` (dotted key path after `:`).
+    let Some((path, keypath)) = bare.split_once(':') else {
+        return false;
+    };
+    if path.is_empty() || keypath.is_empty() {
+        return false;
+    }
+    let lower = path.to_ascii_lowercase();
+    if !(lower.ends_with(".toml") || lower.contains('/')) {
+        return false;
+    }
+    let path_bytes = path.as_bytes();
+    if !(path_bytes[0].is_ascii_alphanumeric() || matches!(path_bytes[0], b'_' | b'.')) {
+        return false;
+    }
+    if !path_bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+    {
+        return false;
+    }
+    let key_bytes = keypath.as_bytes();
+    if !key_bytes[0].is_ascii_alphabetic() {
+        return false;
+    }
+    key_bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
+        && keypath.contains('.')
+}
+
+fn semantic_release_ini_source_ok(value: &str) -> bool {
+    matches!(
+        semantic_release_ini_bare(value),
+        "commit" | "tag" | "tag_only"
+    )
+}
+
+fn semantic_release_ini_parser_ok(value: &str) -> bool {
+    matches!(
+        semantic_release_ini_bare(value),
+        "angular" | "emoji" | "scipy" | "tag"
+    )
+}
+
+fn semantic_release_ini_hvcs_ok(value: &str) -> bool {
+    matches!(
+        semantic_release_ini_bare(value)
+            .to_ascii_lowercase()
+            .as_str(),
+        "github" | "gitlab" | "gitea"
+    )
+}
+
+fn semantic_release_ini_tag_format_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 128 {
+        return false;
+    }
+    // Brace `{version}` (Commitizen `$version` / `${version}` stay out).
+    if !(bare.contains("{version}") || bare.contains("{new_version}")) {
+        return false;
+    }
+    if bare.contains('$') {
+        return false;
+    }
+    bare.chars().all(|c| !c.is_control())
+}
+
+fn semantic_release_ini_commit_subject_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    if !bare.contains("{version}") {
+        return false;
+    }
+    bare.chars().all(|c| !c.is_control())
+}
+
+fn semantic_release_ini_commit_author_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    // `Name <email>` or contains `@` / `semantic-release`.
+    let lower = bare.to_ascii_lowercase();
+    let cue = bare.contains('@')
+        || bare.contains('<')
+        || lower.contains("semantic-release")
+        || lower.contains("semantic_release");
+    if !cue {
+        return false;
+    }
+    bare.chars().all(|c| !c.is_control())
+}
+
+fn semantic_release_ini_changelog_file_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    let lower = bare.to_ascii_lowercase();
+    let cue = lower.contains("changelog")
+        || lower.contains("changes")
+        || lower.contains("history")
+        || lower.contains("news")
+        || lower.ends_with(".md")
+        || lower.ends_with(".rst")
+        || lower.ends_with(".txt");
+    if !cue {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_' || bytes[0] == b'.') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+}
+
+fn semantic_release_ini_placeholder_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 128 {
+        return false;
+    }
+    // HTML / markdown comment or braced token.
+    let cue = bare.contains("<!--")
+        || bare.contains("-->")
+        || bare.contains('{')
+        || bare.contains('}')
+        || bare.contains("next")
+        || bare.contains("NEXT")
+        || bare.contains("changelog");
+    if !cue {
+        return false;
+    }
+    bare.chars().all(|c| !c.is_control())
+}
+
+fn semantic_release_ini_prerelease_tag_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 32 {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !bytes[0].is_ascii_alphabetic() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-'))
+}
+
+fn semantic_release_ini_dist_path_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 128 {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || matches!(bytes[0], b'_' | b'.' | b'/')) {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+}
+
+fn semantic_release_ini_build_command_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    if semantic_release_ini_bool_ok(value) {
+        // `build_command = false` disables the build step.
+        return matches!(
+            bare.to_ascii_lowercase().as_str(),
+            "false" | "no" | "off" | "0"
+        );
+    }
+    let lower = bare.to_ascii_lowercase();
+    let cue = lower.contains("build")
+        || lower.contains("setup.py")
+        || lower.contains("flit")
+        || lower.contains("poetry")
+        || lower.contains("hatch")
+        || lower.contains("pdm")
+        || lower.contains("twine")
+        || lower.contains("wheel")
+        || lower.contains("sdist")
+        || lower.contains("python");
+    if !cue {
+        return false;
+    }
+    bare.chars().all(|c| !c.is_control())
+}
+
+fn semantic_release_ini_domain_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    // Host or host/path without scheme.
+    if bare.contains("://") {
+        return false;
+    }
+    if !bare.contains('.') && !bare.contains('/') {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'.' | b'-' | b'_' | b'/' | b':'))
+}
+
+fn semantic_release_ini_files_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    if bare.starts_with('[') {
+        return false;
+    }
+    let mut any = false;
+    for raw in bare.split(',') {
+        let tok = raw.trim();
+        if tok.is_empty() {
+            return false;
+        }
+        let bytes = tok.as_bytes();
+        if !(bytes[0].is_ascii_alphanumeric() || matches!(bytes[0], b'_' | b'.' | b'/')) {
+            return false;
+        }
+        if !bytes
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+        {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn semantic_release_ini_glob_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    // Glob cue: `*` / `?` / `[` or a path-ish token.
+    if !(bare.contains('*')
+        || bare.contains('?')
+        || bare.contains('[')
+        || bare.contains('.')
+        || bare.contains('/'))
+    {
+        return false;
+    }
+    bare.chars().all(|c| !c.is_control())
+}
+
+fn semantic_release_ini_pre_commit_ok(value: &str) -> bool {
+    let bare = semantic_release_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    // Command / path cue so prose stays out.
+    let cue = bare.contains('/')
+        || bare.contains('.')
+        || bare.contains(' ')
+        || bare.starts_with("./")
+        || bare.starts_with("python");
+    if !cue {
+        return false;
+    }
+    if !(bytes[0].is_ascii_alphanumeric() || matches!(bytes[0], b'_' | b'.' | b'/' | b'~')) {
+        return false;
+    }
+    bare.chars().all(|c| !c.is_control())
+}
+
+fn semantic_release_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    // Nested tables / arrays stay out.
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "version_variable" => semantic_release_ini_path_attr_ok(value),
+        "version_pattern" => semantic_release_ini_pattern_ok(value),
+        "version_toml" => semantic_release_ini_toml_path_ok(value),
+        "version_source" => semantic_release_ini_source_ok(value),
+        "prerelease_tag" => semantic_release_ini_prerelease_tag_ok(value),
+        "tag_commit"
+        | "patch_without_tag"
+        | "major_on_zero"
+        | "commit_version_number"
+        | "changelog_scope"
+        | "changelog_capitalize"
+        | "upload_to_pypi"
+        | "upload_to_repository"
+        | "upload_to_release"
+        | "remove_dist"
+        | "check_build_status"
+        | "ignore_token_for_push"
+        | "use_textual_changelog_sections" => semantic_release_ini_bool_ok(value),
+        "commit_parser" => semantic_release_ini_parser_ok(value),
+        "commit_subject" => semantic_release_ini_commit_subject_ok(value),
+        "commit_author" => semantic_release_ini_commit_author_ok(value),
+        "changelog_file" => semantic_release_ini_changelog_file_ok(value),
+        "changelog_placeholder" => semantic_release_ini_placeholder_ok(value),
+        "dist_path" => semantic_release_ini_dist_path_ok(value),
+        "build_command" => semantic_release_ini_build_command_ok(value),
+        "hvcs" => semantic_release_ini_hvcs_ok(value),
+        "hvcs_domain" | "hvcs_api_domain" => semantic_release_ini_domain_ok(value),
+        "tag_format" => semantic_release_ini_tag_format_ok(value),
+        "include_additional_files" => semantic_release_ini_files_ok(value),
+        "pre_commit_command" => semantic_release_ini_pre_commit_ok(value),
+        "dist_glob_patterns" | "upload_to_pypi_glob_patterns" => {
+            semantic_release_ini_glob_ok(value)
+        }
         _ => false,
     }
 }
@@ -66918,17 +67462,17 @@ mod func_like_line_tests {
         is_pytest_ini_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
         is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl, is_ruff_toml_decl,
         is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        line_is_func_like,
+        is_samconfig_toml_decl, is_scons_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
+        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl,
+        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -74719,6 +75263,7 @@ mod func_like_line_tests {
             "version_scheme = guess-next-dev"
         ));
         assert!(!is_commitizen_ini_decl("tag_format = v{version}"));
+        assert!(is_semantic_release_ini_decl("tag_format = v{version}"));
         assert!(!is_commitizen_ini_decl("tag-format = v{version}"));
         assert!(is_zest_releaser_ini_decl("tag-format = v{version}"));
         assert!(!is_commitizen_ini_decl("bump_message = bump release"));
@@ -74737,6 +75282,8 @@ mod func_like_line_tests {
         assert!(is_setuptools_scm_ini_decl("[tool:setuptools_scm]"));
         assert!(!is_commitizen_ini_decl("[tool:towncrier]"));
         assert!(is_towncrier_ini_decl("[tool:towncrier]"));
+        assert!(!is_commitizen_ini_decl("[semantic_release]"));
+        assert!(is_semantic_release_ini_decl("[semantic_release]"));
         assert!(!is_commitizen_ini_decl("[metadata]"));
         assert!(is_setup_cfg_decl("[metadata]"));
         assert!(!is_commitizen_ini_decl("[tox]"));
@@ -74758,6 +75305,183 @@ mod func_like_line_tests {
         assert!(line_is_func_like("name = cz_conventional_commits"));
         assert!(line_is_func_like("[tool:commitizen]"));
         assert!(line_is_func_like("[commitizen]"));
+    }
+
+    #[test]
+    fn semantic_release_ini_entries_count() {
+        assert!(line_is_func_like("[semantic_release]"));
+        assert!(line_is_func_like("  [semantic_release] # bump"));
+        assert!(line_is_func_like("[tool:semantic_release]; psr"));
+        assert!(is_semantic_release_ini_decl("[semantic_release]"));
+        assert!(is_semantic_release_ini_decl("[tool:semantic_release]"));
+        assert!(is_semantic_release_ini_decl(
+            "version_variable = pkg/__init__.py:__version__"
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "version_variable=src/foo.py:__version__,docs/conf.py:version"
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "version_variable = \"pkg/__init__.py:__version__\""
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "version_pattern = setup.py:version=(\\d+\\.\\d+\\.\\d+)"
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "version_toml = pyproject.toml:project.version"
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "version_toml = pyproject.toml:tool.poetry.version"
+        ));
+        assert!(is_semantic_release_ini_decl("version_source = commit"));
+        assert!(is_semantic_release_ini_decl("version_source = tag"));
+        assert!(is_semantic_release_ini_decl("version_source = tag_only"));
+        assert!(is_semantic_release_ini_decl("prerelease_tag = beta"));
+        assert!(is_semantic_release_ini_decl("prerelease_tag = \"rc\""));
+        assert!(is_semantic_release_ini_decl("tag_commit = true"));
+        assert!(is_semantic_release_ini_decl("patch_without_tag = false"));
+        assert!(is_semantic_release_ini_decl("major_on_zero = yes"));
+        assert!(is_semantic_release_ini_decl("commit_parser = angular"));
+        assert!(is_semantic_release_ini_decl("commit_parser = emoji"));
+        assert!(is_semantic_release_ini_decl("commit_parser = scipy"));
+        assert!(is_semantic_release_ini_decl("commit_parser = tag"));
+        assert!(is_semantic_release_ini_decl("commit_version_number = true"));
+        assert!(is_semantic_release_ini_decl(
+            "commit_subject = chore(release): {version}"
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "commit_author = semantic-release <semantic-release>"
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "commit_author = \"bot@example.com\""
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "changelog_file = CHANGELOG.md"
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "changelog_file = docs/HISTORY.rst"
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "changelog_placeholder = <!-- next-version -->"
+        ));
+        assert!(is_semantic_release_ini_decl("changelog_scope = true"));
+        assert!(is_semantic_release_ini_decl("changelog_capitalize = false"));
+        assert!(is_semantic_release_ini_decl("upload_to_pypi = true"));
+        assert!(is_semantic_release_ini_decl("upload_to_repository = false"));
+        assert!(is_semantic_release_ini_decl("upload_to_release = 1"));
+        assert!(is_semantic_release_ini_decl("dist_path = dist/"));
+        assert!(is_semantic_release_ini_decl("dist_path = \"build/dist\""));
+        assert!(is_semantic_release_ini_decl("remove_dist = true"));
+        assert!(is_semantic_release_ini_decl(
+            "build_command = python -m build"
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "build_command = python setup.py sdist bdist_wheel"
+        ));
+        assert!(is_semantic_release_ini_decl("build_command = false"));
+        assert!(is_semantic_release_ini_decl("hvcs = github"));
+        assert!(is_semantic_release_ini_decl("hvcs = gitlab"));
+        assert!(is_semantic_release_ini_decl("hvcs = gitea"));
+        assert!(is_semantic_release_ini_decl(
+            "hvcs_domain = git.example.com"
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "hvcs_api_domain = git.example.com/api/v4"
+        ));
+        assert!(is_semantic_release_ini_decl("check_build_status = true"));
+        assert!(is_semantic_release_ini_decl("tag_format = v{version}"));
+        assert!(is_semantic_release_ini_decl(
+            "tag_format = \"release-{version}\""
+        ));
+        assert!(is_semantic_release_ini_decl("ignore_token_for_push = true"));
+        assert!(is_semantic_release_ini_decl(
+            "include_additional_files = README.md,CHANGELOG.md"
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "pre_commit_command = ./scripts/check.sh"
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "use_textual_changelog_sections = true"
+        ));
+        assert!(is_semantic_release_ini_decl("dist_glob_patterns = *.whl"));
+        assert!(is_semantic_release_ini_decl(
+            "upload_to_pypi_glob_patterns = *"
+        ));
+        assert!(is_semantic_release_ini_decl(
+            "version_variable = pkg/__init__.py:__version__ # comment"
+        ));
+
+        // Neighbouring formats / generics / wrong case stay out.
+        assert!(!is_semantic_release_ini_decl("version_variable"));
+        assert!(!is_semantic_release_ini_decl("version_variable ="));
+        assert!(!is_semantic_release_ini_decl(
+            "version_variable = __version__"
+        ));
+        assert!(!is_semantic_release_ini_decl(
+            "Version_Variable = pkg/__init__.py:__version__"
+        ));
+        assert!(!is_semantic_release_ini_decl(
+            "# version_variable = pkg/__init__.py:__version__"
+        ));
+        assert!(!is_semantic_release_ini_decl("version_source = unknown"));
+        assert!(!is_semantic_release_ini_decl(
+            "commit_parser = conventional"
+        ));
+        assert!(!is_semantic_release_ini_decl("hvcs = bitbucket"));
+        assert!(!is_semantic_release_ini_decl("tag_format = v$version"));
+        assert!(is_commitizen_ini_decl("tag_format = v$version"));
+        assert!(!is_semantic_release_ini_decl("tag_format = v${version}"));
+        assert!(!is_semantic_release_ini_decl("tag-format = v{version}"));
+        assert!(is_zest_releaser_ini_decl("tag-format = v{version}"));
+        assert!(!is_semantic_release_ini_decl(
+            "commit_subject = chore release"
+        ));
+        assert!(!is_semantic_release_ini_decl("commit_author = bot"));
+        assert!(!is_semantic_release_ini_decl("changelog_file = notes"));
+        assert!(!is_semantic_release_ini_decl("build_command = true"));
+        assert!(!is_semantic_release_ini_decl("build_command = do stuff"));
+        assert!(!is_semantic_release_ini_decl("hvcs_domain = localhost"));
+        assert!(!is_semantic_release_ini_decl("branch = main"));
+        assert!(!is_semantic_release_ini_decl("repository = pypi"));
+        assert!(!is_semantic_release_ini_decl("[Semantic_Release]"));
+        assert!(!is_semantic_release_ini_decl("[[semantic_release]]"));
+        assert!(!is_semantic_release_ini_decl("[semantic_release"));
+        assert!(!is_semantic_release_ini_decl("[tool.semantic_release]"));
+        assert!(is_pyproject_toml_decl("[tool.semantic_release]"));
+        assert!(!is_semantic_release_ini_decl("[tool:commitizen]"));
+        assert!(is_commitizen_ini_decl("[tool:commitizen]"));
+        assert!(!is_semantic_release_ini_decl("version_provider = pep621"));
+        assert!(is_commitizen_ini_decl("version_provider = pep621"));
+        assert!(!is_semantic_release_ini_decl("[zest.releaser]"));
+        assert!(is_zest_releaser_ini_decl("[zest.releaser]"));
+        assert!(!is_semantic_release_ini_decl("[tool:setuptools_scm]"));
+        assert!(is_setuptools_scm_ini_decl("[tool:setuptools_scm]"));
+        assert!(!is_semantic_release_ini_decl("[tool:towncrier]"));
+        assert!(is_towncrier_ini_decl("[tool:towncrier]"));
+        assert!(!is_semantic_release_ini_decl("[distutils]"));
+        assert!(is_pypirc_ini_decl("[distutils]"));
+        assert!(!is_semantic_release_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_semantic_release_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_semantic_release_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_semantic_release_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_semantic_release_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_semantic_release_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_semantic_release_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_semantic_release_ini_decl("indent_size = 4"));
+        // Distinctive python-semantic-release keys still list.
+        assert!(line_is_func_like(
+            "version_variable = pkg/__init__.py:__version__"
+        ));
+        assert!(line_is_func_like("tag_format = v{version}"));
+        assert!(line_is_func_like("hvcs = github"));
+        assert!(line_is_func_like("[semantic_release]"));
+        assert!(line_is_func_like("[tool:semantic_release]"));
     }
 
     #[test]
