@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.668] — 2026-11-07
+
+View:
+
+- **Function List** lists check-manifest `setup.cfg` / `tox.ini` `[check-manifest]` sections and fields: `[check-manifest]`, `ignore = .travis.yml` / `.github/*,*.mo` / `*.egg-info/*`, `ignore-default-rules = true` / `false`, `ignore-bad-ideas = *.c` / `generated/*.py,*.so`. Exact check-manifest keys (kebab-case). INI `key = value` or `key=value`. Optional `#` / `;` comment. `ignore` / `ignore-bad-ideas` values need a path/glob token (`.` / `/` / `*` / `?`) so flake8 error-code `ignore = E203,W503` stays on flake8. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / tox / setuptools / Cargo / Pipfile / pyproject `[tool.check-manifest]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.667] — 2026-11-07
 
 View:
