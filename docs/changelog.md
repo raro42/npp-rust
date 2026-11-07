@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.664] — 2026-11-07
+
+View:
+
+- **Function List** lists codespell `setup.cfg` / `tox.ini` / `.codespellrc` `[codespell]` sections and fields: `[codespell]`, `ignore-words-list = foobar,bizbaz` / `ignore_words_list`, `ignore-words` / `ignore_words`, `quiet-level = 3` / `quiet_level`, `check-filenames` / `check_filenames`, `check-hidden` / `check_hidden`, `uri-ignore-words-list` / `uri_ignore_words_list`, `ignore-regex` / `ignore_regex`, `write-changes` / `write_changes`, `exclude-file` / `exclude_file`, `builtin = clear,rare,code`, `interactive = 3`, `summary`, `skip`, `count`. Exact codespell keys (kebab + snake aliases). INI `key = value` or `key=value`. Optional `#` / `;` comment. Bare `exclude` stays out (flake8). flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / tox / setuptools / Cargo / Pipfile / pyproject `[tool.codespell]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.663] — 2026-11-07
 
 View:

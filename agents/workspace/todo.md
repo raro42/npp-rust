@@ -1,3 +1,5 @@
+009 keep: Function List codespell setup.cfg/tox.ini/.codespellrc [codespell] ignore-words-list/quiet-level (v0.3.664)
+
 009 keep: Function List Bandit setup.cfg/tox.ini/.bandit [bandit] skips/tests/exclude_dirs (v0.3.663)
 
 009 keep: Function List pydocstyle setup.cfg/tox.ini [pydocstyle]/[pep257] convention/add_ignore (v0.3.662)
