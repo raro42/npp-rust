@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.670] — 2026-11-07
+
+View:
+
+- **Function List** lists versioneer `setup.cfg` `[versioneer]` sections and fields: `[versioneer]`, `VCS = git` / `mercurial` / `darcs` / `fossil` / `bazaar`, `style = pep440` / `pep440-branch` / `pep440-pre` / `pep440-post` / `pep440-old` / `git-describe` / `git-describe-long`, `versionfile_source = src/pkg/_version.py`, `versionfile_build = pkg/_version.py`, `tag_prefix =` / `tag_prefix = v`, `parentdir_prefix = myproject-`, `verbose = True` / `false`. Exact versioneer keys (`VCS` / `style` casing; snake_case path keys). INI `key = value` or `key=value`. Optional `#` / `;` comment. `tag_prefix` may be empty. `style = sphinx` stays on docformatter. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / tox / setuptools / Cargo / Pipfile / pyproject `[tool.versioneer]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.669] — 2026-11-07
 
 View:

@@ -1,3 +1,5 @@
+009 keep: Function List versioneer setup.cfg [versioneer] VCS/style/versionfile_source/tag_prefix (v0.3.670)
+
 009 keep: Function List bumpversion setup.cfg/.bumpversion.cfg [bumpversion]/file:/part: current_version/parse/serialize (v0.3.669)
 
 009 keep: Function List vulture setup.cfg/tox.ini [vulture] min_confidence/ignore_names/paths (v0.3.666)

@@ -32390,6 +32390,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_interrogate_ini_decl(s)
             || is_check_manifest_ini_decl(s)
             || is_bumpversion_ini_decl(s)
+            || is_versioneer_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32637,6 +32638,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_interrogate_ini_decl(s)
         || is_check_manifest_ini_decl(s)
         || is_bumpversion_ini_decl(s)
+        || is_versioneer_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -44593,8 +44595,8 @@ fn check_manifest_ini_value_ok(key: &str, value: &str) -> bool {
 /// `replace` need `{…}`; `current_version` needs a dotted version token.
 /// flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle /
 /// autopep8 / black / yapf / pydocstyle / bandit / codespell /
-/// docformatter / vulture / interrogate / check-manifest / tox /
-/// setuptools / Cargo / Pipfile / pyproject `[tool.bumpversion]` /
+/// docformatter / vulture / interrogate / check-manifest / versioneer /
+/// tox / setuptools / Cargo / Pipfile / pyproject `[tool.bumpversion]` /
 /// Desktop Entry / pip.conf stay out.
 fn is_bumpversion_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -44746,6 +44748,132 @@ fn bumpversion_ini_value_ok(key: &str, value: &str) -> bool {
         }
         "allow_dirty" | "sign_tags" => bumpversion_ini_bool_ok(value),
         "optional_value" | "first_value" => bumpversion_ini_ident_ok(value),
+        _ => false,
+    }
+}
+
+/// versioneer `setup.cfg` `[versioneer]` sections and distinctive keys
+/// (`VCS`, `style`, `versionfile_source`, `versionfile_build`,
+/// `tag_prefix`, `parentdir_prefix`, `verbose`). Optional `#` / `;`
+/// comment. Key lines may use `=` with or without spaces. Exact
+/// versioneer keys (`VCS` / `style` casing; snake_case path keys).
+/// `tag_prefix` may be empty. `style` is restricted to stock
+/// versioneer styles so docformatter `style = sphinx` stays out.
+/// flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle /
+/// autopep8 / black / yapf / pydocstyle / bandit / codespell /
+/// docformatter / vulture / interrogate / check-manifest / bumpversion /
+/// tox / setuptools / Cargo / Pipfile / pyproject `[tool.versioneer]` /
+/// Desktop Entry / pip.conf stay out.
+fn is_versioneer_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return header == "versioneer";
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !versioneer_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    versioneer_ini_value_ok(key, value)
+}
+
+fn versioneer_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "VCS"
+            | "style"
+            | "versionfile_source"
+            | "versionfile_build"
+            | "tag_prefix"
+            | "parentdir_prefix"
+            | "verbose"
+    )
+}
+
+fn versioneer_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+    )
+}
+
+fn versioneer_ini_vcs_ok(value: &str) -> bool {
+    matches!(value, "git" | "mercurial" | "darcs" | "fossil" | "bazaar")
+}
+
+fn versioneer_ini_style_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "pep440"
+            | "pep440-branch"
+            | "pep440-pre"
+            | "pep440-post"
+            | "pep440-old"
+            | "git-describe"
+            | "git-describe-long"
+    )
+}
+
+fn versioneer_ini_path_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_' || bytes[0] == b'.') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+}
+
+fn versioneer_ini_prefix_ok(value: &str) -> bool {
+    if value.len() > 128 {
+        return false;
+    }
+    if value.is_empty() {
+        return true;
+    }
+    let bytes = value.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_' || bytes[0] == b'.') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
+}
+
+fn versioneer_ini_value_ok(key: &str, value: &str) -> bool {
+    // `tag_prefix =` (empty) is valid; other keys need a value.
+    if key != "tag_prefix" && (value.is_empty() || value.len() > 256) {
+        return false;
+    }
+    match key {
+        "VCS" => versioneer_ini_vcs_ok(value),
+        "style" => versioneer_ini_style_ok(value),
+        "versionfile_source" | "versionfile_build" => versioneer_ini_path_ok(value),
+        "tag_prefix" | "parentdir_prefix" => versioneer_ini_prefix_ok(value),
+        "verbose" => versioneer_ini_bool_ok(value),
         _ => false,
     }
 }
@@ -65439,9 +65567,9 @@ mod func_like_line_tests {
         is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
         is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
         is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        line_is_func_like,
+        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -71992,6 +72120,14 @@ mod func_like_line_tests {
         assert!(is_check_manifest_ini_decl("[check-manifest]"));
         assert!(!is_bumpversion_ini_decl("ignore-default-rules = true"));
         assert!(is_check_manifest_ini_decl("ignore-default-rules = true"));
+        assert!(!is_bumpversion_ini_decl("[versioneer]"));
+        assert!(is_versioneer_ini_decl("[versioneer]"));
+        assert!(!is_bumpversion_ini_decl(
+            "versionfile_source = pkg/_version.py"
+        ));
+        assert!(is_versioneer_ini_decl(
+            "versionfile_source = pkg/_version.py"
+        ));
         assert!(!is_bumpversion_ini_decl("[interrogate]"));
         assert!(is_interrogate_ini_decl("[interrogate]"));
         assert!(!is_bumpversion_ini_decl("[vulture]"));
@@ -72056,6 +72192,134 @@ mod func_like_line_tests {
         assert!(line_is_func_like("optional_value = gamma"));
         assert!(line_is_func_like("[bumpversion:file:setup.py]"));
         assert!(line_is_func_like("[bumpversion:part:release]"));
+    }
+
+    #[test]
+    fn versioneer_ini_entries_count() {
+        assert!(line_is_func_like("[versioneer]"));
+        assert!(line_is_func_like("  [versioneer] # setup.cfg"));
+        assert!(line_is_func_like("[versioneer]; setup.cfg"));
+        assert!(is_versioneer_ini_decl("[versioneer]"));
+        assert!(is_versioneer_ini_decl("VCS = git"));
+        assert!(is_versioneer_ini_decl("VCS=mercurial"));
+        assert!(is_versioneer_ini_decl("VCS = darcs"));
+        assert!(is_versioneer_ini_decl("VCS = fossil"));
+        assert!(is_versioneer_ini_decl("VCS = bazaar"));
+        assert!(is_versioneer_ini_decl("style = pep440"));
+        assert!(is_versioneer_ini_decl("style = pep440-branch"));
+        assert!(is_versioneer_ini_decl("style = pep440-pre"));
+        assert!(is_versioneer_ini_decl("style = pep440-post"));
+        assert!(is_versioneer_ini_decl("style = pep440-old"));
+        assert!(is_versioneer_ini_decl("style = git-describe"));
+        assert!(is_versioneer_ini_decl("style = git-describe-long"));
+        assert!(is_versioneer_ini_decl(
+            "versionfile_source = src/pkg/_version.py"
+        ));
+        assert!(is_versioneer_ini_decl(
+            "versionfile_build = pkg/_version.py"
+        ));
+        assert!(is_versioneer_ini_decl("tag_prefix ="));
+        assert!(is_versioneer_ini_decl("tag_prefix = v"));
+        assert!(is_versioneer_ini_decl("parentdir_prefix = myproject-"));
+        assert!(is_versioneer_ini_decl("verbose = True"));
+        assert!(is_versioneer_ini_decl("verbose = false"));
+        assert!(is_versioneer_ini_decl("VCS = git # comment"));
+        assert!(is_versioneer_ini_decl("style=pep440; trailing"));
+
+        // Neighbouring formats / wrong case / bare generics stay out.
+        assert!(!is_versioneer_ini_decl("VCS"));
+        assert!(!is_versioneer_ini_decl("VCS ="));
+        assert!(!is_versioneer_ini_decl("vcs = git"));
+        assert!(!is_versioneer_ini_decl("# VCS = git"));
+        assert!(!is_versioneer_ini_decl("VCS = svn"));
+        assert!(!is_versioneer_ini_decl("style = sphinx"));
+        assert!(is_docformatter_ini_decl("style = sphinx"));
+        assert!(!is_versioneer_ini_decl("style = google"));
+        assert!(!is_versioneer_ini_decl("versionfile_source ="));
+        assert!(!is_versioneer_ini_decl("versionfile_source = /abs/path"));
+        assert!(!is_versioneer_ini_decl("parentdir_prefix ="));
+        assert!(!is_versioneer_ini_decl("verbose = maybe"));
+        assert!(!is_versioneer_ini_decl("current_version = 1.2.3"));
+        assert!(is_bumpversion_ini_decl("current_version = 1.2.3"));
+        assert!(!is_versioneer_ini_decl("[Versioneer]"));
+        assert!(!is_versioneer_ini_decl("[VERSIONEER]"));
+        assert!(!is_versioneer_ini_decl("[[versioneer]]"));
+        assert!(!is_versioneer_ini_decl("[versioneer"));
+        assert!(!is_versioneer_ini_decl("[bumpversion]"));
+        assert!(is_bumpversion_ini_decl("[bumpversion]"));
+        assert!(!is_versioneer_ini_decl("[check-manifest]"));
+        assert!(is_check_manifest_ini_decl("[check-manifest]"));
+        assert!(!is_versioneer_ini_decl("[interrogate]"));
+        assert!(is_interrogate_ini_decl("[interrogate]"));
+        assert!(!is_versioneer_ini_decl("[vulture]"));
+        assert!(is_vulture_ini_decl("[vulture]"));
+        assert!(!is_versioneer_ini_decl("[docformatter]"));
+        assert!(is_docformatter_ini_decl("[docformatter]"));
+        assert!(!is_versioneer_ini_decl("[codespell]"));
+        assert!(is_codespell_ini_decl("[codespell]"));
+        assert!(!is_versioneer_ini_decl("[bandit]"));
+        assert!(is_bandit_ini_decl("[bandit]"));
+        assert!(!is_versioneer_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(!is_versioneer_ini_decl("[yapf]"));
+        assert!(is_yapf_ini_decl("[yapf]"));
+        assert!(!is_versioneer_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_versioneer_ini_decl("line-length = 88"));
+        assert!(is_black_ini_decl("line-length = 88"));
+        assert!(!is_versioneer_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_versioneer_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_versioneer_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_versioneer_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_versioneer_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_versioneer_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_versioneer_ini_decl("[tool:pytest]"));
+        assert!(is_pytest_ini_decl("[tool:pytest]"));
+        assert!(!is_versioneer_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_versioneer_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_versioneer_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_versioneer_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_versioneer_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_versioneer_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_versioneer_ini_decl("[tool.versioneer]"));
+        assert!(is_pyproject_toml_decl("[tool.versioneer]"));
+        assert!(!is_versioneer_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_versioneer_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_versioneer_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_versioneer_ini_decl("indent_size = 4"));
+        // Lowercase `vcs = git` is Cargo `.cargo/config.toml` (`cargo-new`),
+        // not versioneer (`VCS` exact case).
+        assert!(!is_versioneer_ini_decl("vcs = git"));
+        assert!(is_cargo_config_toml_decl("vcs = git"));
+        assert!(line_is_func_like("vcs = git"));
+        assert!(!is_versioneer_ini_decl("style = sphinx"));
+        assert!(is_docformatter_ini_decl("style = sphinx"));
+        assert!(line_is_func_like("style = sphinx")); // lists via docformatter
+        assert!(!line_is_func_like("VCS = svn"));
+        assert!(!line_is_func_like("verbose = maybe"));
+        // Distinctive versioneer keys still list.
+        assert!(line_is_func_like("VCS = git"));
+        assert!(line_is_func_like("style = pep440"));
+        assert!(line_is_func_like("versionfile_source = pkg/_version.py"));
+        assert!(line_is_func_like("tag_prefix ="));
+        assert!(line_is_func_like("parentdir_prefix = myproject-"));
+        assert!(line_is_func_like("verbose = True"));
+        assert!(line_is_func_like("[versioneer]"));
     }
 
     #[test]
