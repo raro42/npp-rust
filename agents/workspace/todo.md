@@ -1,3 +1,5 @@
+009 keep: Function List SQLFluff .sqlfluff/setup.cfg/tox.ini [sqlfluff]/[sqlfluff:indentation|rules:L###|templater:jinja|layout:type:…] dialect/templater/exclude_rules/indented_*/capitalisation_policy (v0.3.685)
+
 009 keep: Function List pydoclint setup.cfg/tox.ini [pydoclint]/[tool:pydoclint] arg-type-hints/require-return-section/ClassVar/baseline/noqa-location (v0.3.682)
 
 009 keep: Function List darglint setup.cfg/tox.ini/.darglint [darglint] docstring_style/strictness/DAR ignore|enable (v0.3.681)

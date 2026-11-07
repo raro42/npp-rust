@@ -32405,6 +32405,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pydoclint_ini_decl(s)
             || is_doc8_ini_decl(s)
             || is_rstcheck_ini_decl(s)
+            || is_sqlfluff_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32667,6 +32668,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pydoclint_ini_decl(s)
         || is_doc8_ini_decl(s)
         || is_rstcheck_ini_decl(s)
+        || is_sqlfluff_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -48175,6 +48177,477 @@ fn rstcheck_ini_value_ok(key: &str, value: &str) -> bool {
         }
         "ignore_messages" => rstcheck_ignore_messages_ok(value),
         "sphinx_source_dir" => rstcheck_sphinx_source_dir_ok(value),
+        _ => false,
+    }
+}
+
+/// SQLFluff `.sqlfluff` / `setup.cfg` / `tox.ini` `[sqlfluff]` /
+/// `[sqlfluff:…]` sections and distinctive keys: `[sqlfluff]`,
+/// `[sqlfluff:indentation]`, `[sqlfluff:rules]`, `[sqlfluff:rules:L010]`,
+/// `[sqlfluff:templater]` / `[sqlfluff:templater:jinja]` /
+/// `[sqlfluff:templater:dbt]`, `[sqlfluff:layout]` /
+/// `[sqlfluff:layout:type:comma]`,
+/// `dialect = postgres` / `ansi` / `bigquery` / `snowflake`,
+/// `templater = jinja` / `dbt` / `raw` / `python` / `placeholder`,
+/// `rules = L001,L010` / `ALL`, `exclude_rules = L031,L011`,
+/// `max_line_length = 120`, `large_file_skip_byte_limit = 20000`,
+/// `large_file_skip_char_limit = 10000`, `runaway_limit = 10`,
+/// `processes = 4` / `-1`, `disable_noqa = True`, `nocolor = false`,
+/// `fix_even_unparsable = True`, `warn_unused_ignores = yes`,
+/// `ignore = parsing,templating` / `lexing`,
+/// `sql_file_exts = .sql,.sql.j2`, `output_line_length = 80`,
+/// `indent_unit = space` / `tab`, `tab_space_size = 4`,
+/// `indented_joins = False`, `indented_ctes = True`,
+/// `indented_using_on = True`, `indented_on_contents = True`,
+/// `indented_then = True`, `indented_then_contents = false`,
+/// `allow_implicit_indents = False`, `template_blocks_indent = True`,
+/// `skip_indentation_in = script_style_expression`,
+/// `spacing_before = touch` / `single` / `touch:inline`,
+/// `spacing_after = touch`, `line_position = trailing` / `leading` /
+/// `alone`, `allow_scalar = True`,
+/// `single_table_references = consistent` / `qualified` / `unqualified`,
+/// `unquoted_identifiers_policy = all` / `aliases` / `column_aliases`,
+/// `quoted_identifiers_policy = all` / `aliases` / `column_aliases` /
+/// `none`, `capitalisation_policy = consistent` / `upper` / `lower` /
+/// `pascal`, `extended_capitalisation_policy = consistent`,
+/// `preferred_quoted_literal_style = consistent` / `single_quotes` /
+/// `double_quotes`, `force_enable = True`,
+/// `group_by_and_order_by_style = consistent` / `implicit` / `explicit`,
+/// `apply_dbt_builtins = True`, `load_macros_from_path = macros`,
+/// `library_path = ./libs`. Exact snake_case keys. INI `key = value` or
+/// `key=value`. Optional quotes on values. Optional `#` / `;` comment.
+/// Trailing commas on rule lists ok. Bare `verbose` / `encoding` /
+/// `exclude` stay out. `ignore` needs sqlfluff stages (`parsing` /
+/// `templating` / `lexing`), not flake8 codes. flake8 / mypy / pytest /
+/// isort / coverage / pylint / pycodestyle / autopep8 / black / yapf /
+/// pydocstyle / bandit / codespell / docformatter / vulture /
+/// interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / doc8 / rstcheck / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.sqlfluff]` tables / Desktop Entry / pip.conf stay
+/// out.
+fn is_sqlfluff_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return sqlfluff_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !sqlfluff_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    sqlfluff_ini_value_ok(key, value)
+}
+
+fn sqlfluff_ini_section_ok(header: &str) -> bool {
+    if header == "sqlfluff" {
+        return true;
+    }
+    let Some(rest) = header.strip_prefix("sqlfluff:") else {
+        return false;
+    };
+    if rest.is_empty() || rest.len() > 128 {
+        return false;
+    }
+    match rest {
+        "indentation" | "rules" | "templater" | "layout" => true,
+        r if r.starts_with("rules:") => {
+            let code = &r["rules:".len()..];
+            sqlfluff_rule_code_ok(code)
+        }
+        r if r.starts_with("templater:") => {
+            let name = &r["templater:".len()..];
+            sqlfluff_templater_ok_token(name)
+        }
+        r if r.starts_with("layout:type:") => {
+            let name = &r["layout:type:".len()..];
+            sqlfluff_layout_type_ok(name)
+        }
+        _ => false,
+    }
+}
+
+fn sqlfluff_rule_code_ok(code: &str) -> bool {
+    let t = code.trim();
+    if t.len() < 2 || t.len() > 8 {
+        return false;
+    }
+    let bytes = t.as_bytes();
+    if bytes[0] != b'L' && bytes[0] != b'l' {
+        return false;
+    }
+    let digits = &bytes[1..];
+    !digits.is_empty() && digits.iter().all(|b| b.is_ascii_digit())
+}
+
+fn sqlfluff_templater_ok_token(name: &str) -> bool {
+    matches!(name, "raw" | "jinja" | "python" | "placeholder" | "dbt")
+}
+
+fn sqlfluff_layout_type_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphabetic() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || *b == b'_')
+}
+
+fn sqlfluff_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "dialect"
+            | "templater"
+            | "rules"
+            | "exclude_rules"
+            | "max_line_length"
+            | "large_file_skip_byte_limit"
+            | "large_file_skip_char_limit"
+            | "runaway_limit"
+            | "processes"
+            | "disable_noqa"
+            | "nocolor"
+            | "fix_even_unparsable"
+            | "warn_unused_ignores"
+            | "ignore"
+            | "sql_file_exts"
+            | "output_line_length"
+            | "indent_unit"
+            | "tab_space_size"
+            | "indented_joins"
+            | "indented_ctes"
+            | "indented_using_on"
+            | "indented_on_contents"
+            | "indented_then"
+            | "indented_then_contents"
+            | "allow_implicit_indents"
+            | "template_blocks_indent"
+            | "skip_indentation_in"
+            | "spacing_before"
+            | "spacing_after"
+            | "line_position"
+            | "allow_scalar"
+            | "single_table_references"
+            | "unquoted_identifiers_policy"
+            | "quoted_identifiers_policy"
+            | "capitalisation_policy"
+            | "extended_capitalisation_policy"
+            | "preferred_quoted_literal_style"
+            | "force_enable"
+            | "group_by_and_order_by_style"
+            | "apply_dbt_builtins"
+            | "load_macros_from_path"
+            | "library_path"
+    )
+}
+
+fn sqlfluff_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn sqlfluff_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        sqlfluff_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn sqlfluff_dialect_ok(value: &str) -> bool {
+    matches!(
+        sqlfluff_ini_bare(value).to_ascii_lowercase().as_str(),
+        "ansi"
+            | "athena"
+            | "bigquery"
+            | "clickhouse"
+            | "databricks"
+            | "db2"
+            | "duckdb"
+            | "exasol"
+            | "greenplum"
+            | "hive"
+            | "materialize"
+            | "mysql"
+            | "oracle"
+            | "postgres"
+            | "redshift"
+            | "snowflake"
+            | "soql"
+            | "sparksql"
+            | "sqlite"
+            | "starrocks"
+            | "teradata"
+            | "trino"
+            | "tsql"
+            | "vertica"
+    )
+}
+
+fn sqlfluff_templater_ok(value: &str) -> bool {
+    let lower = sqlfluff_ini_bare(value).to_ascii_lowercase();
+    sqlfluff_templater_ok_token(&lower)
+}
+
+fn sqlfluff_rule_list_ok(value: &str) -> bool {
+    let bare = sqlfluff_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    if bare.eq_ignore_ascii_case("all") {
+        return true;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        let t = part.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if !sqlfluff_rule_code_ok(t) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn sqlfluff_u32_ok(value: &str, min: u32, max: u32) -> bool {
+    let bare = sqlfluff_ini_bare(value);
+    if bare.is_empty() || bare.len() > 10 {
+        return false;
+    }
+    if !bare.bytes().all(|b| b.is_ascii_digit()) {
+        return false;
+    }
+    match bare.parse::<u32>() {
+        Ok(n) => n >= min && n <= max,
+        Err(_) => false,
+    }
+}
+
+fn sqlfluff_ignore_stages_ok(value: &str) -> bool {
+    let bare = sqlfluff_ini_bare(value);
+    if bare.is_empty() || bare.len() > 128 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        let t = part.trim().to_ascii_lowercase();
+        if t.is_empty() {
+            continue;
+        }
+        if !matches!(t.as_str(), "parsing" | "templating" | "lexing") {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn sqlfluff_exts_ok(value: &str) -> bool {
+    let bare = sqlfluff_ini_bare(value);
+    if bare.is_empty() || bare.len() > 128 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        let t = part.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if !t.starts_with('.') || t.len() < 2 || t.len() > 32 {
+            return false;
+        }
+        if !t
+            .bytes()
+            .skip(1)
+            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'_' || b == b'-')
+        {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn sqlfluff_indent_unit_ok(value: &str) -> bool {
+    matches!(
+        sqlfluff_ini_bare(value).to_ascii_lowercase().as_str(),
+        "space" | "tab"
+    )
+}
+
+fn sqlfluff_skip_indentation_ok(value: &str) -> bool {
+    let bare = sqlfluff_ini_bare(value);
+    if bare.is_empty() || bare.len() > 128 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        let t = part.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if t.len() > 64 {
+            return false;
+        }
+        let bytes = t.as_bytes();
+        if !bytes[0].is_ascii_alphabetic() {
+            return false;
+        }
+        if !bytes
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn sqlfluff_spacing_ok(value: &str) -> bool {
+    matches!(
+        sqlfluff_ini_bare(value).to_ascii_lowercase().as_str(),
+        "touch" | "single" | "touch:inline" | "single:inline" | "any"
+    )
+}
+
+fn sqlfluff_line_position_ok(value: &str) -> bool {
+    matches!(
+        sqlfluff_ini_bare(value).to_ascii_lowercase().as_str(),
+        "leading" | "trailing" | "alone" | "alone:strict"
+    )
+}
+
+fn sqlfluff_single_table_refs_ok(value: &str) -> bool {
+    matches!(
+        sqlfluff_ini_bare(value).to_ascii_lowercase().as_str(),
+        "consistent" | "qualified" | "unqualified"
+    )
+}
+
+fn sqlfluff_identifiers_policy_ok(value: &str) -> bool {
+    matches!(
+        sqlfluff_ini_bare(value).to_ascii_lowercase().as_str(),
+        "all" | "aliases" | "column_aliases" | "none"
+    )
+}
+
+fn sqlfluff_capitalisation_ok(value: &str) -> bool {
+    matches!(
+        sqlfluff_ini_bare(value).to_ascii_lowercase().as_str(),
+        "consistent" | "upper" | "lower" | "pascal"
+    )
+}
+
+fn sqlfluff_quoted_literal_ok(value: &str) -> bool {
+    matches!(
+        sqlfluff_ini_bare(value).to_ascii_lowercase().as_str(),
+        "consistent" | "single_quotes" | "double_quotes"
+    )
+}
+
+fn sqlfluff_group_by_style_ok(value: &str) -> bool {
+    matches!(
+        sqlfluff_ini_bare(value).to_ascii_lowercase().as_str(),
+        "consistent" | "implicit" | "explicit"
+    )
+}
+
+fn sqlfluff_path_ok(value: &str) -> bool {
+    let bare = sqlfluff_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    let mut has_token = false;
+    for b in bare.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/') {
+            has_token = true;
+        }
+    }
+    has_token
+}
+
+fn sqlfluff_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "dialect" => sqlfluff_dialect_ok(value),
+        "templater" => sqlfluff_templater_ok(value),
+        "rules" | "exclude_rules" => sqlfluff_rule_list_ok(value),
+        "max_line_length" | "output_line_length" => sqlfluff_u32_ok(value, 1, 10_000),
+        "large_file_skip_byte_limit" | "large_file_skip_char_limit" => {
+            sqlfluff_u32_ok(value, 0, 100_000_000)
+        }
+        "runaway_limit" => sqlfluff_u32_ok(value, 1, 10_000),
+        "processes" => {
+            let bare = sqlfluff_ini_bare(value);
+            bare == "-1" || sqlfluff_u32_ok(value, 1, 512)
+        }
+        "tab_space_size" => sqlfluff_u32_ok(value, 1, 32),
+        "disable_noqa"
+        | "nocolor"
+        | "fix_even_unparsable"
+        | "warn_unused_ignores"
+        | "indented_joins"
+        | "indented_ctes"
+        | "indented_using_on"
+        | "indented_on_contents"
+        | "indented_then"
+        | "indented_then_contents"
+        | "allow_implicit_indents"
+        | "template_blocks_indent"
+        | "allow_scalar"
+        | "force_enable"
+        | "apply_dbt_builtins" => sqlfluff_ini_bool_ok(value),
+        "ignore" => sqlfluff_ignore_stages_ok(value),
+        "sql_file_exts" => sqlfluff_exts_ok(value),
+        "indent_unit" => sqlfluff_indent_unit_ok(value),
+        "skip_indentation_in" => sqlfluff_skip_indentation_ok(value),
+        "spacing_before" | "spacing_after" => sqlfluff_spacing_ok(value),
+        "line_position" => sqlfluff_line_position_ok(value),
+        "single_table_references" => sqlfluff_single_table_refs_ok(value),
+        "unquoted_identifiers_policy" | "quoted_identifiers_policy" => {
+            sqlfluff_identifiers_policy_ok(value)
+        }
+        "capitalisation_policy" | "extended_capitalisation_policy" => {
+            sqlfluff_capitalisation_ok(value)
+        }
+        "preferred_quoted_literal_style" => sqlfluff_quoted_literal_ok(value),
+        "group_by_and_order_by_style" => sqlfluff_group_by_style_ok(value),
+        "load_macros_from_path" | "library_path" => sqlfluff_path_ok(value),
         _ => false,
     }
 }
@@ -68866,16 +69339,16 @@ mod func_like_line_tests {
         is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
         is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
         is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        line_is_func_like,
+        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl,
+        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -77507,6 +77980,10 @@ mod func_like_line_tests {
         assert!(is_doc8_ini_decl("allow-long-titles = True"));
         assert!(!is_rstcheck_ini_decl("arg-type-hints-in-docstring = True"));
         assert!(is_pydoclint_ini_decl("arg-type-hints-in-docstring = True"));
+        assert!(!is_rstcheck_ini_decl("[sqlfluff]"));
+        assert!(is_sqlfluff_ini_decl("[sqlfluff]"));
+        assert!(!is_rstcheck_ini_decl("dialect = postgres"));
+        assert!(is_sqlfluff_ini_decl("dialect = postgres"));
         // Distinctive rstcheck keys still list.
         assert!(line_is_func_like("report_level = WARNING"));
         assert!(line_is_func_like("ignore_directives = automodule,click"));
@@ -77516,6 +77993,155 @@ mod func_like_line_tests {
         ));
         assert!(line_is_func_like("sphinx_source_dir = docs"));
         assert!(line_is_func_like("[rstcheck]"));
+    }
+
+    #[test]
+    fn sqlfluff_ini_sections_and_keys_count() {
+        assert!(is_sqlfluff_ini_decl("[sqlfluff]"));
+        assert!(is_sqlfluff_ini_decl("  [sqlfluff] # lint"));
+        assert!(is_sqlfluff_ini_decl("[sqlfluff] ; lint"));
+        assert!(is_sqlfluff_ini_decl("[sqlfluff:indentation]"));
+        assert!(is_sqlfluff_ini_decl("[sqlfluff:rules]"));
+        assert!(is_sqlfluff_ini_decl("[sqlfluff:rules:L010]"));
+        assert!(is_sqlfluff_ini_decl("[sqlfluff:rules:l031]"));
+        assert!(is_sqlfluff_ini_decl("[sqlfluff:templater]"));
+        assert!(is_sqlfluff_ini_decl("[sqlfluff:templater:jinja]"));
+        assert!(is_sqlfluff_ini_decl("[sqlfluff:templater:dbt]"));
+        assert!(is_sqlfluff_ini_decl("[sqlfluff:layout]"));
+        assert!(is_sqlfluff_ini_decl("[sqlfluff:layout:type:comma]"));
+        assert!(is_sqlfluff_ini_decl(
+            "[sqlfluff:layout:type:binary_operator]"
+        ));
+        assert!(is_sqlfluff_ini_decl("dialect = postgres"));
+        assert!(is_sqlfluff_ini_decl("dialect=ansi"));
+        assert!(is_sqlfluff_ini_decl("dialect = bigquery"));
+        assert!(is_sqlfluff_ini_decl("dialect = snowflake"));
+        assert!(is_sqlfluff_ini_decl("templater = jinja"));
+        assert!(is_sqlfluff_ini_decl("templater=dbt"));
+        assert!(is_sqlfluff_ini_decl("templater = raw"));
+        assert!(is_sqlfluff_ini_decl("rules = L001,L010"));
+        assert!(is_sqlfluff_ini_decl("rules=ALL"));
+        assert!(is_sqlfluff_ini_decl("exclude_rules = L031,L011"));
+        assert!(is_sqlfluff_ini_decl("exclude_rules=L031,"));
+        assert!(is_sqlfluff_ini_decl("max_line_length = 120"));
+        assert!(is_sqlfluff_ini_decl("large_file_skip_byte_limit = 20000"));
+        assert!(is_sqlfluff_ini_decl("large_file_skip_char_limit = 0"));
+        assert!(is_sqlfluff_ini_decl("runaway_limit = 10"));
+        assert!(is_sqlfluff_ini_decl("processes = 4"));
+        assert!(is_sqlfluff_ini_decl("processes = -1"));
+        assert!(is_sqlfluff_ini_decl("disable_noqa = True"));
+        assert!(is_sqlfluff_ini_decl("nocolor = false"));
+        assert!(is_sqlfluff_ini_decl("fix_even_unparsable = yes"));
+        assert!(is_sqlfluff_ini_decl("warn_unused_ignores = 1"));
+        assert!(is_sqlfluff_ini_decl("ignore = parsing,templating"));
+        assert!(is_sqlfluff_ini_decl("ignore=lexing"));
+        assert!(is_sqlfluff_ini_decl("sql_file_exts = .sql,.sql.j2"));
+        assert!(is_sqlfluff_ini_decl("output_line_length = 80"));
+        assert!(is_sqlfluff_ini_decl("indent_unit = space"));
+        assert!(is_sqlfluff_ini_decl("indent_unit=tab"));
+        assert!(is_sqlfluff_ini_decl("tab_space_size = 4"));
+        assert!(is_sqlfluff_ini_decl("indented_joins = False"));
+        assert!(is_sqlfluff_ini_decl("indented_ctes = True"));
+        assert!(is_sqlfluff_ini_decl("indented_using_on = True"));
+        assert!(is_sqlfluff_ini_decl("indented_on_contents = True"));
+        assert!(is_sqlfluff_ini_decl("indented_then = True"));
+        assert!(is_sqlfluff_ini_decl("indented_then_contents = false"));
+        assert!(is_sqlfluff_ini_decl("allow_implicit_indents = False"));
+        assert!(is_sqlfluff_ini_decl("template_blocks_indent = True"));
+        assert!(is_sqlfluff_ini_decl(
+            "skip_indentation_in = script_style_expression"
+        ));
+        assert!(is_sqlfluff_ini_decl("spacing_before = touch"));
+        assert!(is_sqlfluff_ini_decl("spacing_after = touch:inline"));
+        assert!(is_sqlfluff_ini_decl("line_position = trailing"));
+        assert!(is_sqlfluff_ini_decl("allow_scalar = True"));
+        assert!(is_sqlfluff_ini_decl("single_table_references = consistent"));
+        assert!(is_sqlfluff_ini_decl("unquoted_identifiers_policy = all"));
+        assert!(is_sqlfluff_ini_decl("quoted_identifiers_policy = aliases"));
+        assert!(is_sqlfluff_ini_decl("capitalisation_policy = upper"));
+        assert!(is_sqlfluff_ini_decl(
+            "extended_capitalisation_policy = consistent"
+        ));
+        assert!(is_sqlfluff_ini_decl(
+            "preferred_quoted_literal_style = single_quotes"
+        ));
+        assert!(is_sqlfluff_ini_decl("force_enable = True"));
+        assert!(is_sqlfluff_ini_decl(
+            "group_by_and_order_by_style = explicit"
+        ));
+        assert!(is_sqlfluff_ini_decl("apply_dbt_builtins = True"));
+        assert!(is_sqlfluff_ini_decl("load_macros_from_path = macros"));
+        assert!(is_sqlfluff_ini_decl("library_path = ./libs"));
+        assert!(is_sqlfluff_ini_decl("dialect = postgres # comment"));
+
+        // Neighbouring formats / generics / wrong case stay out.
+        assert!(!is_sqlfluff_ini_decl("dialect"));
+        assert!(!is_sqlfluff_ini_decl("dialect ="));
+        assert!(!is_sqlfluff_ini_decl("Dialect = postgres"));
+        assert!(!is_sqlfluff_ini_decl("# dialect = postgres"));
+        assert!(!is_sqlfluff_ini_decl("verbose = 1"));
+        assert!(!is_sqlfluff_ini_decl("encoding = utf-8"));
+        assert!(!is_sqlfluff_ini_decl("exclude = tests"));
+        assert!(!is_sqlfluff_ini_decl("ignore = E501,W503"));
+        assert!(!is_sqlfluff_ini_decl("ignore = D001"));
+        assert!(!is_sqlfluff_ini_decl("dialect = maybe"));
+        assert!(!is_sqlfluff_ini_decl("templater = mako"));
+        assert!(!is_sqlfluff_ini_decl("rules = E501"));
+        assert!(!is_sqlfluff_ini_decl("rules = "));
+        assert!(!is_sqlfluff_ini_decl("max_line_length = 0"));
+        assert!(!is_sqlfluff_ini_decl("processes = 0"));
+        assert!(!is_sqlfluff_ini_decl("indent_unit = spaces"));
+        assert!(!is_sqlfluff_ini_decl("spacing_before = double"));
+        assert!(!is_sqlfluff_ini_decl("line_position = middle"));
+        assert!(!is_sqlfluff_ini_decl("sql_file_exts = sql"));
+        assert!(!is_sqlfluff_ini_decl("[Sqlfluff]"));
+        assert!(!is_sqlfluff_ini_decl("[[sqlfluff]]"));
+        assert!(!is_sqlfluff_ini_decl("[sqlfluff"));
+        assert!(!is_sqlfluff_ini_decl("[tool:sqlfluff]"));
+        assert!(!is_sqlfluff_ini_decl("[tool.sqlfluff]"));
+        assert!(is_pyproject_toml_decl("[tool.sqlfluff]"));
+        assert!(!is_sqlfluff_ini_decl("[sqlfluff:rules:]"));
+        assert!(!is_sqlfluff_ini_decl("[sqlfluff:rules:E501]"));
+        assert!(!is_sqlfluff_ini_decl("[sqlfluff:templater:mako]"));
+        assert!(!is_sqlfluff_ini_decl("[sqlfluff:layout:type:]"));
+        assert!(!is_sqlfluff_ini_decl("[sqlfluff:layout:type:bad-type]"));
+        assert!(!is_sqlfluff_ini_decl("[rstcheck]"));
+        assert!(is_rstcheck_ini_decl("[rstcheck]"));
+        assert!(!is_sqlfluff_ini_decl("[doc8]"));
+        assert!(is_doc8_ini_decl("[doc8]"));
+        assert!(!is_sqlfluff_ini_decl("[pydoclint]"));
+        assert!(is_pydoclint_ini_decl("[pydoclint]"));
+        assert!(!is_sqlfluff_ini_decl("[darglint]"));
+        assert!(is_darglint_ini_decl("[darglint]"));
+        assert!(!is_sqlfluff_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_sqlfluff_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_sqlfluff_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_sqlfluff_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_sqlfluff_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_sqlfluff_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_sqlfluff_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_sqlfluff_ini_decl("report_level = WARNING"));
+        assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        assert!(!is_sqlfluff_ini_decl("allow-long-titles = True"));
+        assert!(is_doc8_ini_decl("allow-long-titles = True"));
+        // Distinctive sqlfluff keys still list.
+        assert!(line_is_func_like("dialect = postgres"));
+        assert!(line_is_func_like("templater = jinja"));
+        assert!(line_is_func_like("exclude_rules = L031,L011"));
+        assert!(line_is_func_like("indented_joins = False"));
+        assert!(line_is_func_like("capitalisation_policy = upper"));
+        assert!(line_is_func_like("[sqlfluff]"));
+        assert!(line_is_func_like("[sqlfluff:indentation]"));
+        assert!(line_is_func_like("[sqlfluff:rules:L010]"));
+        assert!(line_is_func_like("[sqlfluff:templater:jinja]"));
+        assert!(line_is_func_like("[sqlfluff:layout:type:comma]"));
     }
 
     #[test]
