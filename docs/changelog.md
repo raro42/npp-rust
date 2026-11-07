@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.672] — 2026-11-07
+
+View:
+
+- **Function List** lists towncrier `setup.cfg` / `tox.ini` `[tool:towncrier]` / `[towncrier]` sections and fields: `[tool:towncrier]`, `[towncrier]`, `package = myproject`, `package_dir = src`, `filename = NEWS.rst` / `CHANGES.md` / `docs/CHANGELOG.txt`, `directory = newsfragments` / `changelog.d` / `changes`, `title_format = {name} {version} ({project_date})`, `issue_format = \`{issue} <https://…/{issue}>\`_`, `underlines = =-~`, `template = towncrier:default.rst` / `templates/release.rst`, `start_string = .. towncrier release notes start`, `orphan_prefix = +`, `all_bullets = true`, `single_file = False`, `wrap = yes`. Exact towncrier keys (snake_case). INI `key = value` or `key=value`. Optional `#` / `;` comment. `title_format` needs `{version}` / `{name}` / `{project_date}`; `issue_format` needs `{issue}`; `filename` needs changelog-ish basename or `.rst`/`.md`/`.txt`; `directory` needs a news/changelog cue; `start_string` needs `towncrier` or a leading `.. `; bare `name` / `version` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / tox / setuptools / Cargo / Pipfile / pyproject `[tool.towncrier]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.671] — 2026-11-07
 
 View:

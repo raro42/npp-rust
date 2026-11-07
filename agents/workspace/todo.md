@@ -1,3 +1,5 @@
+009 keep: Function List towncrier setup.cfg/tox.ini [tool:towncrier] title_format/issue_format/underlines (v0.3.672)
+
 009 keep: Function List setuptools_scm setup.cfg [tool:setuptools_scm] version_scheme/local_scheme/write_to (v0.3.671)
 
 009 keep: Function List versioneer setup.cfg [versioneer] VCS/style/versionfile_source/tag_prefix (v0.3.670)

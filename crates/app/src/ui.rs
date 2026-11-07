@@ -32392,6 +32392,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_bumpversion_ini_decl(s)
             || is_versioneer_ini_decl(s)
             || is_setuptools_scm_ini_decl(s)
+            || is_towncrier_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32641,6 +32642,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_bumpversion_ini_decl(s)
         || is_versioneer_ini_decl(s)
         || is_setuptools_scm_ini_decl(s)
+        || is_towncrier_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -45062,6 +45064,199 @@ fn setuptools_scm_ini_value_ok(key: &str, value: &str) -> bool {
         "parentdir_prefix_version" => setuptools_scm_ini_prefix_ok(value),
         "root" => setuptools_scm_ini_root_ok(value),
         "normalize" | "search_parent_directories" => setuptools_scm_ini_bool_ok(value),
+        _ => false,
+    }
+}
+
+/// towncrier `setup.cfg` / `tox.ini` `[tool:towncrier]` / `[towncrier]`
+/// sections and distinctive keys (`package`, `package_dir`, `filename`,
+/// `directory`, `title_format`, `issue_format`, `underlines`, `template`,
+/// `start_string`, `orphan_prefix`, `all_bullets`, `single_file`,
+/// `wrap`). Exact towncrier keys (snake_case). INI `key = value` or
+/// `key=value`. Optional `#` / `;` comment. `title_format` needs
+/// `{version}` / `{name}` / `{project_date}`; `issue_format` needs
+/// `{issue}`; `filename` needs a changelog-ish basename (`NEWS` /
+/// `CHANGES` / `CHANGELOG` / `HISTORY`) or `.rst`/`.md`/`.txt`;
+/// `directory` needs a news/changelog cue; `start_string` needs
+/// `towncrier` or a leading `.. `; bare `name` / `version` stay out.
+/// flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle /
+/// autopep8 / black / yapf / pydocstyle / bandit / codespell /
+/// docformatter / vulture / interrogate / check-manifest / bumpversion /
+/// versioneer / setuptools_scm / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.towncrier]` / Desktop Entry / pip.conf stay out.
+fn is_towncrier_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return header == "tool:towncrier" || header == "towncrier";
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !towncrier_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    towncrier_ini_value_ok(key, value)
+}
+
+fn towncrier_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "package"
+            | "package_dir"
+            | "filename"
+            | "directory"
+            | "title_format"
+            | "issue_format"
+            | "underlines"
+            | "template"
+            | "start_string"
+            | "orphan_prefix"
+            | "all_bullets"
+            | "single_file"
+            | "wrap"
+    )
+}
+
+fn towncrier_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+    )
+}
+
+fn towncrier_ini_package_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
+}
+
+fn towncrier_ini_path_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_' || bytes[0] == b'.') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'/'))
+}
+
+fn towncrier_ini_filename_ok(value: &str) -> bool {
+    if !towncrier_ini_path_ok(value) {
+        return false;
+    }
+    let lower = value.to_ascii_lowercase();
+    let base = lower.rsplit('/').next().unwrap_or(lower.as_str());
+    if base.starts_with("news")
+        || base.starts_with("changes")
+        || base.starts_with("changelog")
+        || base.starts_with("history")
+    {
+        return true;
+    }
+    lower.ends_with(".rst") || lower.ends_with(".md") || lower.ends_with(".txt")
+}
+
+fn towncrier_ini_directory_ok(value: &str) -> bool {
+    if !towncrier_ini_path_ok(value) {
+        return false;
+    }
+    let lower = value.to_ascii_lowercase();
+    lower.contains("news")
+        || lower.contains("changelog")
+        || lower.contains("changes")
+        || lower.contains("fragment")
+}
+
+fn towncrier_ini_template_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    let lower = value.to_ascii_lowercase();
+    if lower.contains("towncrier") {
+        return true;
+    }
+    towncrier_ini_path_ok(value)
+        && (lower.ends_with(".rst") || lower.ends_with(".md") || lower.ends_with(".j2"))
+}
+
+fn towncrier_ini_underlines_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 8 {
+        return false;
+    }
+    value.bytes().all(|b| {
+        matches!(
+            b,
+            b'=' | b'-' | b'~' | b'^' | b'"' | b'\'' | b'`' | b'*' | b'#'
+        )
+    })
+}
+
+fn towncrier_ini_start_string_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    let lower = value.to_ascii_lowercase();
+    lower.contains("towncrier") || value.starts_with(".. ")
+}
+
+fn towncrier_ini_orphan_prefix_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 8 {
+        return false;
+    }
+    value
+        .bytes()
+        .all(|b| b.is_ascii_graphic() && !b.is_ascii_alphanumeric())
+}
+
+fn towncrier_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    match key {
+        "package" => towncrier_ini_package_ok(value),
+        "package_dir" => towncrier_ini_path_ok(value),
+        "filename" => towncrier_ini_filename_ok(value),
+        "directory" => towncrier_ini_directory_ok(value),
+        "title_format" => {
+            value.contains("{version}")
+                || value.contains("{name}")
+                || value.contains("{project_date}")
+        }
+        "issue_format" => value.contains("{issue}"),
+        "underlines" => towncrier_ini_underlines_ok(value),
+        "template" => towncrier_ini_template_ok(value),
+        "start_string" => towncrier_ini_start_string_ok(value),
+        "orphan_prefix" => towncrier_ini_orphan_prefix_ok(value),
+        "all_bullets" | "single_file" | "wrap" => towncrier_ini_bool_ok(value),
         _ => false,
     }
 }
@@ -65753,11 +65948,11 @@ mod func_like_line_tests {
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
         is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
         is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -72704,6 +72899,163 @@ mod func_like_line_tests {
         assert!(line_is_func_like("normalize = true"));
         assert!(line_is_func_like("[tool:setuptools_scm]"));
         assert!(line_is_func_like("[setuptools_scm]"));
+        assert!(!is_setuptools_scm_ini_decl("[tool:towncrier]"));
+        assert!(is_towncrier_ini_decl("[tool:towncrier]"));
+        assert!(!is_setuptools_scm_ini_decl("title_format = {version}"));
+        assert!(is_towncrier_ini_decl("title_format = {version}"));
+    }
+
+    #[test]
+    fn towncrier_ini_entries_count() {
+        assert!(line_is_func_like("[tool:towncrier]"));
+        assert!(line_is_func_like("  [towncrier] # setup.cfg"));
+        assert!(line_is_func_like("[tool:towncrier]; setup.cfg"));
+        assert!(is_towncrier_ini_decl("[tool:towncrier]"));
+        assert!(is_towncrier_ini_decl("[towncrier]"));
+        assert!(is_towncrier_ini_decl("package = myproject"));
+        assert!(is_towncrier_ini_decl("package_dir = src"));
+        assert!(is_towncrier_ini_decl("filename = NEWS.rst"));
+        assert!(is_towncrier_ini_decl("filename = CHANGES.md"));
+        assert!(is_towncrier_ini_decl("filename = docs/CHANGELOG.txt"));
+        assert!(is_towncrier_ini_decl("directory = newsfragments"));
+        assert!(is_towncrier_ini_decl("directory = changelog.d"));
+        assert!(is_towncrier_ini_decl("directory = changes"));
+        assert!(is_towncrier_ini_decl(
+            "title_format = {name} {version} ({project_date})"
+        ));
+        assert!(is_towncrier_ini_decl("title_format = {version}"));
+        assert!(is_towncrier_ini_decl(
+            "issue_format = `{issue} <https://github.com/org/repo/issues/{issue}>`_"
+        ));
+        assert!(is_towncrier_ini_decl("underlines = =-~"));
+        assert!(is_towncrier_ini_decl("template = towncrier:default.rst"));
+        assert!(is_towncrier_ini_decl("template = templates/release.rst"));
+        assert!(is_towncrier_ini_decl(
+            "start_string = .. towncrier release notes start"
+        ));
+        assert!(is_towncrier_ini_decl(
+            "start_string = .. release notes start"
+        ));
+        assert!(is_towncrier_ini_decl("orphan_prefix = +"));
+        assert!(is_towncrier_ini_decl("all_bullets = true"));
+        assert!(is_towncrier_ini_decl("single_file = False"));
+        assert!(is_towncrier_ini_decl("wrap = yes"));
+        assert!(is_towncrier_ini_decl("title_format = {version} # comment"));
+        assert!(is_towncrier_ini_decl("all_bullets=true; trail"));
+
+        // Neighbouring formats / wrong case / bare generics stay out.
+        assert!(!is_towncrier_ini_decl("package"));
+        assert!(!is_towncrier_ini_decl("package ="));
+        assert!(!is_towncrier_ini_decl("Package = myproject"));
+        assert!(!is_towncrier_ini_decl("# package = myproject"));
+        assert!(!is_towncrier_ini_decl("package = 1bad"));
+        assert!(!is_towncrier_ini_decl("filename ="));
+        assert!(!is_towncrier_ini_decl("filename = /abs/NEWS.rst"));
+        assert!(!is_towncrier_ini_decl("filename = setup.py"));
+        assert!(!is_towncrier_ini_decl("directory = src"));
+        assert!(is_coverage_ini_decl("directory = src")); // html directory=
+        assert!(!is_towncrier_ini_decl("title_format = Release notes"));
+        assert!(!is_towncrier_ini_decl("issue_format = bug link"));
+        assert!(!is_towncrier_ini_decl("underlines = abc"));
+        assert!(!is_towncrier_ini_decl("start_string = release notes"));
+        assert!(!is_towncrier_ini_decl("orphan_prefix = plus"));
+        assert!(!is_towncrier_ini_decl("all_bullets = maybe"));
+        assert!(!is_towncrier_ini_decl("name = My Project"));
+        assert!(!is_towncrier_ini_decl("version = 1.0.0"));
+        assert!(!is_towncrier_ini_decl("[Towncrier]"));
+        assert!(!is_towncrier_ini_decl("[TOWNCRIER]"));
+        assert!(!is_towncrier_ini_decl("[[towncrier]]"));
+        assert!(!is_towncrier_ini_decl("[towncrier"));
+        assert!(!is_towncrier_ini_decl("[tool.towncrier]"));
+        assert!(is_pyproject_toml_decl("[tool.towncrier]"));
+        assert!(!is_towncrier_ini_decl("[tool:setuptools_scm]"));
+        assert!(is_setuptools_scm_ini_decl("[tool:setuptools_scm]"));
+        assert!(!is_towncrier_ini_decl("version_scheme = guess-next-dev"));
+        assert!(is_setuptools_scm_ini_decl(
+            "version_scheme = guess-next-dev"
+        ));
+        assert!(!is_towncrier_ini_decl("[versioneer]"));
+        assert!(is_versioneer_ini_decl("[versioneer]"));
+        assert!(!is_towncrier_ini_decl("VCS = git"));
+        assert!(is_versioneer_ini_decl("VCS = git"));
+        assert!(!is_towncrier_ini_decl("[bumpversion]"));
+        assert!(is_bumpversion_ini_decl("[bumpversion]"));
+        assert!(!is_towncrier_ini_decl("current_version = 1.2.3"));
+        assert!(is_bumpversion_ini_decl("current_version = 1.2.3"));
+        assert!(!is_towncrier_ini_decl("[check-manifest]"));
+        assert!(is_check_manifest_ini_decl("[check-manifest]"));
+        assert!(!is_towncrier_ini_decl("[interrogate]"));
+        assert!(is_interrogate_ini_decl("[interrogate]"));
+        assert!(!is_towncrier_ini_decl("[vulture]"));
+        assert!(is_vulture_ini_decl("[vulture]"));
+        assert!(!is_towncrier_ini_decl("[docformatter]"));
+        assert!(is_docformatter_ini_decl("[docformatter]"));
+        assert!(!is_towncrier_ini_decl("[codespell]"));
+        assert!(is_codespell_ini_decl("[codespell]"));
+        assert!(!is_towncrier_ini_decl("[bandit]"));
+        assert!(is_bandit_ini_decl("[bandit]"));
+        assert!(!is_towncrier_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(!is_towncrier_ini_decl("[yapf]"));
+        assert!(is_yapf_ini_decl("[yapf]"));
+        assert!(!is_towncrier_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_towncrier_ini_decl("line-length = 88"));
+        assert!(is_black_ini_decl("line-length = 88"));
+        assert!(!is_towncrier_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_towncrier_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_towncrier_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_towncrier_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_towncrier_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_towncrier_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_towncrier_ini_decl("[tool:pytest]"));
+        assert!(is_pytest_ini_decl("[tool:pytest]"));
+        assert!(!is_towncrier_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_towncrier_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_towncrier_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_towncrier_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_towncrier_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_towncrier_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_towncrier_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_towncrier_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_towncrier_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_towncrier_ini_decl("indent_size = 4"));
+        assert!(!line_is_func_like("title_format = Release notes"));
+        assert!(!line_is_func_like("issue_format = bug link"));
+        // Distinctive towncrier keys still list.
+        assert!(line_is_func_like("package = myproject"));
+        assert!(line_is_func_like("package_dir = src"));
+        assert!(line_is_func_like("filename = NEWS.rst"));
+        assert!(line_is_func_like("directory = newsfragments"));
+        assert!(line_is_func_like(
+            "title_format = {name} {version} ({project_date})"
+        ));
+        assert!(line_is_func_like("issue_format = `{issue}`"));
+        assert!(line_is_func_like("underlines = =-~"));
+        assert!(line_is_func_like(
+            "start_string = .. towncrier release notes start"
+        ));
+        assert!(line_is_func_like("orphan_prefix = +"));
+        assert!(line_is_func_like("all_bullets = true"));
+        assert!(line_is_func_like("single_file = false"));
+        assert!(line_is_func_like("wrap = true"));
+        assert!(line_is_func_like("[tool:towncrier]"));
+        assert!(line_is_func_like("[towncrier]"));
     }
 
     #[test]
