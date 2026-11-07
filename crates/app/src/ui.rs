@@ -32404,6 +32404,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_darglint_ini_decl(s)
             || is_pydoclint_ini_decl(s)
             || is_doc8_ini_decl(s)
+            || is_rstcheck_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32665,6 +32666,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_darglint_ini_decl(s)
         || is_pydoclint_ini_decl(s)
         || is_doc8_ini_decl(s)
+        || is_rstcheck_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -47977,6 +47979,202 @@ fn doc8_ini_value_ok(key: &str, value: &str) -> bool {
         "ignore-path-errors" => doc8_ignore_path_errors_ok(value),
         "default-extension" | "extension" => doc8_extension_ok(value),
         "file-encoding" => doc8_file_encoding_ok(value),
+        _ => false,
+    }
+}
+
+/// rstcheck `.rstcheck.cfg` / `setup.cfg` / `tox.ini` `[rstcheck]`
+/// section and fields: `[rstcheck]`, `report_level = WARNING` / `ERROR`
+/// / `INFO` / `SEVERE` / `NONE` / `1`…`5`, `ignore_directives =
+/// automodule,click` / `mdinclude`, `ignore_roles = src,RFC`,
+/// `ignore_substitutions = image_link`, `ignore_languages = python,cpp`,
+/// `ignore_messages = (Document or section may not begin with a
+/// transition\\.$)`, `sphinx_source_dir = docs` / `./docs` / `src/docs`.
+/// Exact snake_case keys. INI `key = value` or `key=value`. Optional
+/// quotes on values. Optional `#` / `;` comment. Trailing commas on
+/// ignore lists ok. Bare `verbose` / `quiet` / `ignore` stay out.
+/// flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle /
+/// autopep8 / black / yapf / pydocstyle / bandit / codespell /
+/// docformatter / vulture / interrogate / check-manifest / bumpversion
+/// / versioneer / setuptools_scm / towncrier / zest.releaser /
+/// cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / doc8 / tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.rstcheck]` tables / Desktop Entry / pip.conf stay out.
+fn is_rstcheck_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return rstcheck_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !rstcheck_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    rstcheck_ini_value_ok(key, value)
+}
+
+fn rstcheck_ini_section_ok(header: &str) -> bool {
+    header == "rstcheck"
+}
+
+fn rstcheck_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "report_level"
+            | "ignore_directives"
+            | "ignore_roles"
+            | "ignore_substitutions"
+            | "ignore_languages"
+            | "ignore_messages"
+            | "sphinx_source_dir"
+    )
+}
+
+fn rstcheck_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn rstcheck_report_level_ok(value: &str) -> bool {
+    let bare = rstcheck_ini_bare(value);
+    if bare.is_empty() {
+        return false;
+    }
+    if matches!(
+        bare.to_ascii_lowercase().as_str(),
+        "info" | "warning" | "error" | "severe" | "none"
+    ) {
+        return true;
+    }
+    matches!(bare, "1" | "2" | "3" | "4" | "5")
+}
+
+fn rstcheck_ident_token_ok(token: &str) -> bool {
+    let t = token.trim();
+    if t.is_empty() || t.len() > 64 {
+        return false;
+    }
+    let bytes = t.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'-')
+}
+
+fn rstcheck_ignore_list_ok(value: &str) -> bool {
+    let bare = rstcheck_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        let t = part.trim();
+        if t.is_empty() {
+            // Trailing / doubled commas are optional whitespace.
+            continue;
+        }
+        if !rstcheck_ident_token_ok(t) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn rstcheck_ignore_messages_ok(value: &str) -> bool {
+    let bare = rstcheck_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    // Regex-ish so bare prose stays out.
+    let mut has_meta = false;
+    let mut has_token = false;
+    for b in bare.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if matches!(
+            b,
+            b'.' | b'\\'
+                | b'^'
+                | b'$'
+                | b'('
+                | b')'
+                | b'['
+                | b']'
+                | b'*'
+                | b'+'
+                | b'?'
+                | b'|'
+                | b'{'
+                | b'}'
+        ) {
+            has_meta = true;
+        }
+        if b.is_ascii_alphanumeric() {
+            has_token = true;
+        }
+    }
+    has_meta && has_token
+}
+
+fn rstcheck_sphinx_source_dir_ok(value: &str) -> bool {
+    let bare = rstcheck_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    let mut has_token = false;
+    for b in bare.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/') {
+            has_token = true;
+        }
+    }
+    has_token
+        && (bare.contains('/')
+            || bare.contains('.')
+            || bare.contains('-')
+            || bare.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+}
+
+fn rstcheck_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "report_level" => rstcheck_report_level_ok(value),
+        "ignore_directives" | "ignore_roles" | "ignore_substitutions" | "ignore_languages" => {
+            rstcheck_ignore_list_ok(value)
+        }
+        "ignore_messages" => rstcheck_ignore_messages_ok(value),
+        "sphinx_source_dir" => rstcheck_sphinx_source_dir_ok(value),
         _ => false,
     }
 }
@@ -68664,19 +68862,20 @@ mod func_like_line_tests {
         is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl,
         is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylint_ini_decl,
         is_pypirc_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl,
-        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
-        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
-        is_setuptools_scm_ini_decl, is_ssh_config_decl, is_sssd_conf_decl, is_subuid_subgid_decl,
-        is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl,
-        is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
+        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
+        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -77214,6 +77413,10 @@ mod func_like_line_tests {
         assert!(is_pydoclint_ini_decl("arg-type-hints-in-docstring = True"));
         assert!(!is_doc8_ini_decl("docstring_style = google"));
         assert!(is_darglint_ini_decl("docstring_style = google"));
+        assert!(!is_doc8_ini_decl("[rstcheck]"));
+        assert!(is_rstcheck_ini_decl("[rstcheck]"));
+        assert!(!is_doc8_ini_decl("report_level = WARNING"));
+        assert!(is_rstcheck_ini_decl("report_level = WARNING"));
         // Distinctive doc8 keys still list.
         assert!(line_is_func_like("allow-long-titles = True"));
         assert!(line_is_func_like("ignore-path = .tox,docs/_build"));
@@ -77223,6 +77426,96 @@ mod func_like_line_tests {
         assert!(line_is_func_like("default-extension = .rst"));
         assert!(line_is_func_like("[doc8]"));
         assert!(line_is_func_like("[tool:doc8]"));
+    }
+
+    #[test]
+    fn rstcheck_ini_sections_and_keys_count() {
+        assert!(is_rstcheck_ini_decl("[rstcheck]"));
+        assert!(is_rstcheck_ini_decl("  [rstcheck] # docs"));
+        assert!(is_rstcheck_ini_decl("[rstcheck] ; docs"));
+        assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        assert!(is_rstcheck_ini_decl("report_level=ERROR"));
+        assert!(is_rstcheck_ini_decl("report_level = info"));
+        assert!(is_rstcheck_ini_decl("report_level = SEVERE"));
+        assert!(is_rstcheck_ini_decl("report_level = NONE"));
+        assert!(is_rstcheck_ini_decl("report_level = 2"));
+        assert!(is_rstcheck_ini_decl("ignore_directives = automodule,click"));
+        assert!(is_rstcheck_ini_decl(
+            "ignore_directives=mdinclude,spelling,"
+        ));
+        assert!(is_rstcheck_ini_decl("ignore_roles = src,RFC"));
+        assert!(is_rstcheck_ini_decl("ignore_roles=src"));
+        assert!(is_rstcheck_ini_decl("ignore_substitutions = image_link"));
+        assert!(is_rstcheck_ini_decl("ignore_languages = python,cpp"));
+        assert!(is_rstcheck_ini_decl(
+            "ignore_messages = (Document or section may not begin with a transition\\.$)"
+        ));
+        assert!(is_rstcheck_ini_decl(
+            "ignore_messages=\"^Unknown target.+$\""
+        ));
+        assert!(is_rstcheck_ini_decl("sphinx_source_dir = docs"));
+        assert!(is_rstcheck_ini_decl("sphinx_source_dir=./docs"));
+        assert!(is_rstcheck_ini_decl("sphinx_source_dir = src/docs"));
+        assert!(is_rstcheck_ini_decl("report_level = WARNING # comment"));
+
+        // Neighbouring formats / generics / wrong case stay out.
+        assert!(!is_rstcheck_ini_decl("report_level"));
+        assert!(!is_rstcheck_ini_decl("report_level ="));
+        assert!(!is_rstcheck_ini_decl("Report_Level = WARNING"));
+        assert!(!is_rstcheck_ini_decl("# report_level = WARNING"));
+        assert!(!is_rstcheck_ini_decl("verbose = 1"));
+        assert!(!is_rstcheck_ini_decl("quiet = True"));
+        assert!(!is_rstcheck_ini_decl("ignore = D001"));
+        assert!(!is_rstcheck_ini_decl("report_level = maybe"));
+        assert!(!is_rstcheck_ini_decl("report_level = 0"));
+        assert!(!is_rstcheck_ini_decl("report_level = 6"));
+        assert!(!is_rstcheck_ini_decl("ignore_directives = "));
+        assert!(!is_rstcheck_ini_decl("ignore_directives = the team"));
+        assert!(!is_rstcheck_ini_decl("ignore_roles = "));
+        assert!(!is_rstcheck_ini_decl("ignore_messages = hello"));
+        assert!(!is_rstcheck_ini_decl("ignore_messages = Document may not"));
+        assert!(!is_rstcheck_ini_decl("sphinx_source_dir = "));
+        assert!(!is_rstcheck_ini_decl("[Rstcheck]"));
+        assert!(!is_rstcheck_ini_decl("[[rstcheck]]"));
+        assert!(!is_rstcheck_ini_decl("[rstcheck"));
+        assert!(!is_rstcheck_ini_decl("[tool:rstcheck]"));
+        assert!(!is_rstcheck_ini_decl("[tool.rstcheck]"));
+        assert!(is_pyproject_toml_decl("[tool.rstcheck]"));
+        assert!(!is_rstcheck_ini_decl("[doc8]"));
+        assert!(is_doc8_ini_decl("[doc8]"));
+        assert!(!is_rstcheck_ini_decl("[pydoclint]"));
+        assert!(is_pydoclint_ini_decl("[pydoclint]"));
+        assert!(!is_rstcheck_ini_decl("[darglint]"));
+        assert!(is_darglint_ini_decl("[darglint]"));
+        assert!(!is_rstcheck_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(!is_rstcheck_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_rstcheck_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_rstcheck_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_rstcheck_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_rstcheck_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_rstcheck_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_rstcheck_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_rstcheck_ini_decl("allow-long-titles = True"));
+        assert!(is_doc8_ini_decl("allow-long-titles = True"));
+        assert!(!is_rstcheck_ini_decl("arg-type-hints-in-docstring = True"));
+        assert!(is_pydoclint_ini_decl("arg-type-hints-in-docstring = True"));
+        // Distinctive rstcheck keys still list.
+        assert!(line_is_func_like("report_level = WARNING"));
+        assert!(line_is_func_like("ignore_directives = automodule,click"));
+        assert!(line_is_func_like("ignore_roles = src,RFC"));
+        assert!(line_is_func_like(
+            "ignore_messages = (Document or section may not begin with a transition\\.$)"
+        ));
+        assert!(line_is_func_like("sphinx_source_dir = docs"));
+        assert!(line_is_func_like("[rstcheck]"));
     }
 
     #[test]

@@ -1026,3 +1026,5 @@
 009 keep: Function List import-linter [importlinter]/[importlinter:contract:…] root_package/type/forbidden_modules (v0.3.680)
 
 009 keep: Function List doc8 setup.cfg/tox.ini/doc8.ini [doc8]/[tool:doc8] allow-long-titles/ignore-path/ignore-path-errors/D### (v0.3.683)
+
+009 keep: Function List rstcheck .rstcheck.cfg/setup.cfg [rstcheck] report_level/ignore_directives/roles/languages/messages/sphinx_source_dir (v0.3.684)

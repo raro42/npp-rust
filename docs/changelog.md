@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.684] — 2026-11-08
+
+View:
+
+- **Function List** lists rstcheck `.rstcheck.cfg` / `setup.cfg` / `tox.ini` `[rstcheck]` sections and fields: `[rstcheck]`, `report_level = WARNING` / `ERROR` / `INFO` / `SEVERE` / `NONE` / `1`…`5`, `ignore_directives = automodule,click` / `mdinclude`, `ignore_roles = src,RFC`, `ignore_substitutions = image_link`, `ignore_languages = python,cpp`, `ignore_messages = (Document or section may not begin with a transition\\.$)`, `sphinx_source_dir = docs` / `./docs` / `src/docs`. Exact snake_case keys. INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. Trailing commas on ignore lists ok. Bare `verbose` / `quiet` / `ignore` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / doc8 / tox / setuptools / Cargo / Pipfile / pyproject `[tool.rstcheck]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.683] — 2026-11-07
 
 View:
