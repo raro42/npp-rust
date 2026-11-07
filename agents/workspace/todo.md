@@ -1,3 +1,5 @@
+009 keep: Function List YAPF setup.cfg / tox.ini [yapf] based_on_style/COLUMN_LIMIT (v0.3.661)
+
 009 keep: Function List pylint .pylintrc / setup.cfg [pylint.…]/MAIN/MESSAGES CONTROL/fail-under (v0.3.657)
 
 009 keep: Function List coverage.py .coveragerc / setup.cfg [coverage:…] run/report/fail_under (v0.3.656)

@@ -32381,6 +32381,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pycodestyle_ini_decl(s)
             || is_autopep8_ini_decl(s)
             || is_black_ini_decl(s)
+            || is_yapf_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32619,6 +32620,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pycodestyle_ini_decl(s)
         || is_autopep8_ini_decl(s)
         || is_black_ini_decl(s)
+        || is_yapf_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -43491,7 +43493,7 @@ fn autopep8_ini_value_ok(key: &str, value: &str) -> bool {
 /// `required-version`, `workers`, …). Optional `#` / `;` comment. Key
 /// lines may use `=` with or without spaces. Exact kebab-case Black
 /// keys. flake8 / mypy / pytest / isort / coverage / pylint /
-/// pycodestyle / autopep8 / tox / setuptools / Cargo / Pipfile /
+/// pycodestyle / autopep8 / yapf / tox / setuptools / Cargo / Pipfile /
 /// pyproject `[tool.black]` / Desktop Entry / pip.conf stay out.
 fn is_black_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -43599,6 +43601,149 @@ fn black_ini_value_ok(key: &str, value: &str) -> bool {
         }
     }
     has_ident
+}
+
+/// YAPF `setup.cfg` / `tox.ini` `[yapf]` sections and distinctive
+/// knobs (`based_on_style`, `COLUMN_LIMIT`, `INDENT_WIDTH`,
+/// `SPLIT_BEFORE_LOGICAL_OPERATOR`, `DEDENT_CLOSING_BRACKETS`,
+/// `COALESCE_BRACKETS`, `ALLOW_MULTILINE_LAMBDAS`,
+/// `BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF`, `SPACES_BEFORE_COMMENT`,
+/// `USE_TABS`, …). Optional `#` / `;` comment. Key lines may use `=`
+/// with or without spaces. Exact YAPF keys (`based_on_style` +
+/// UPPER_SNAKE knobs). `.style.yapf` `[style]` section headers stay
+/// out (too generic); distinctive keys still list. flake8 / mypy /
+/// pytest / isort / coverage / pylint / pycodestyle / autopep8 /
+/// black / tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.yapf]` / Desktop Entry / pip.conf stay out.
+fn is_yapf_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return yapf_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !yapf_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    yapf_ini_value_ok(key, value)
+}
+
+fn yapf_ini_section_ok(header: &str) -> bool {
+    header == "yapf"
+}
+
+fn yapf_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "based_on_style"
+            | "ALIGN_CLOSING_BRACKET_WITH_VISUAL_INDENT"
+            | "ALLOW_MULTILINE_LAMBDAS"
+            | "ALLOW_MULTILINE_DICTIONARY_KEYS"
+            | "ALLOW_SPLIT_BEFORE_DICT_VALUE"
+            | "BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF"
+            | "BLANK_LINE_BEFORE_MODULE_DOCSTRING"
+            | "BLANK_LINE_BEFORE_CLASS_DOCSTRING"
+            | "BLANK_LINES_AROUND_TOP_LEVEL_DEFINITION"
+            | "BLANK_LINES_BETWEEN_TOP_LEVEL_IMPORTS_AND_ASSIGNMENTS"
+            | "COALESCE_BRACKETS"
+            | "COLUMN_LIMIT"
+            | "CONTINUATION_ALIGN_STYLE"
+            | "CONTINUATION_INDENT_WIDTH"
+            | "DEDENT_CLOSING_BRACKETS"
+            | "DISABLE_ENDING_COMMA_HEURISTIC"
+            | "EACH_DICT_ENTRY_ON_SEPARATE_LINE"
+            | "FORCE_MULTILINE_DICT"
+            | "INDENT_BLANK_LINES"
+            | "INDENT_CLOSING_BRACKETS"
+            | "INDENT_DICTIONARY_VALUE"
+            | "INDENT_WIDTH"
+            | "JOIN_MULTIPLE_LINES"
+            | "SPACE_BETWEEN_ENDING_COMMA_AND_CLOSING_BRACKET"
+            | "SPACE_INSIDE_BRACKETS"
+            | "SPACES_AROUND_DEFAULT_OR_NAMED_ASSIGN"
+            | "SPACES_AROUND_DICT_DELIMITERS"
+            | "SPACES_AROUND_LIST_DELIMITERS"
+            | "SPACES_AROUND_POWER_OPERATOR"
+            | "SPACES_AROUND_SUBSCRIPT_COLON"
+            | "SPACES_AROUND_TUPLE_DELIMITERS"
+            | "SPACES_BEFORE_COMMENT"
+            | "SPLIT_ALL_COMMA_SEPARATED_VALUES"
+            | "SPLIT_ALL_TOP_LEVEL_COMMA_SEPARATED_VALUES"
+            | "SPLIT_ARGUMENTS_WHEN_COMMA_TERMINATED"
+            | "SPLIT_BEFORE_ARITHMETIC_OPERATOR"
+            | "SPLIT_BEFORE_BITWISE_OPERATOR"
+            | "SPLIT_BEFORE_CLOSING_BRACKET"
+            | "SPLIT_BEFORE_DICT_SET_GENERATOR"
+            | "SPLIT_BEFORE_DOT"
+            | "SPLIT_BEFORE_EXPRESSION_AFTER_OPENING_PAREN"
+            | "SPLIT_BEFORE_FIRST_ARGUMENT"
+            | "SPLIT_BEFORE_LOGICAL_OPERATOR"
+            | "SPLIT_BEFORE_NAMED_ASSIGNS"
+            | "SPLIT_COMPLEX_COMPREHENSION"
+            | "USE_TABS"
+    )
+}
+
+fn yapf_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+    )
+}
+
+fn yapf_ini_int_ok(value: &str) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+    value.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn yapf_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if key == "based_on_style" {
+        return matches!(value, "pep8" | "google" | "chromium" | "facebook" | "yapf");
+    }
+    if matches!(
+        key,
+        "COLUMN_LIMIT"
+            | "CONTINUATION_INDENT_WIDTH"
+            | "INDENT_WIDTH"
+            | "SPACES_BEFORE_COMMENT"
+            | "BLANK_LINES_AROUND_TOP_LEVEL_DEFINITION"
+            | "BLANK_LINES_BETWEEN_TOP_LEVEL_IMPORTS_AND_ASSIGNMENTS"
+    ) {
+        return yapf_ini_int_ok(value);
+    }
+    if key == "CONTINUATION_ALIGN_STYLE" {
+        return matches!(
+            value,
+            "SPACE" | "FIXED" | "VALIGN-RIGHT" | "space" | "fixed" | "valign-right"
+        );
+    }
+    // Remaining knobs are booleans in YAPF.
+    yapf_ini_bool_ok(value)
 }
 
 /// FreeDesktop Desktop Entry sections: `[Desktop Entry]`,
@@ -64290,7 +64435,7 @@ mod func_like_line_tests {
         is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
         is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
         is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
     };
 
     #[test]
@@ -69766,6 +69911,177 @@ mod func_like_line_tests {
         assert!(line_is_func_like("required-version = 24.3.0"));
         assert!(line_is_func_like("target-version = py39"));
         assert!(line_is_func_like("preview = true"));
+        assert!(!is_black_ini_decl("[yapf]"));
+        assert!(is_yapf_ini_decl("[yapf]"));
+        assert!(!is_black_ini_decl("based_on_style = pep8"));
+        assert!(is_yapf_ini_decl("based_on_style = pep8"));
+        assert!(!is_black_ini_decl("COLUMN_LIMIT = 100"));
+        assert!(is_yapf_ini_decl("COLUMN_LIMIT = 100"));
+    }
+
+    #[test]
+    fn yapf_ini_entries_count() {
+        assert!(line_is_func_like("[yapf]"));
+        assert!(line_is_func_like("  [yapf] # setup.cfg"));
+        assert!(line_is_func_like("[yapf]; tox.ini"));
+        assert!(is_yapf_ini_decl("[yapf]"));
+        assert!(is_yapf_ini_decl("based_on_style = pep8"));
+        assert!(is_yapf_ini_decl("based_on_style = google"));
+        assert!(is_yapf_ini_decl("based_on_style = chromium"));
+        assert!(is_yapf_ini_decl("based_on_style = facebook"));
+        assert!(is_yapf_ini_decl("based_on_style=yapf"));
+        assert!(is_yapf_ini_decl("COLUMN_LIMIT = 100"));
+        assert!(is_yapf_ini_decl("COLUMN_LIMIT=79"));
+        assert!(is_yapf_ini_decl("INDENT_WIDTH = 4"));
+        assert!(is_yapf_ini_decl("CONTINUATION_INDENT_WIDTH = 4"));
+        assert!(is_yapf_ini_decl("SPACES_BEFORE_COMMENT = 2"));
+        assert!(is_yapf_ini_decl(
+            "BLANK_LINES_AROUND_TOP_LEVEL_DEFINITION = 2"
+        ));
+        assert!(is_yapf_ini_decl(
+            "BLANK_LINES_BETWEEN_TOP_LEVEL_IMPORTS_AND_ASSIGNMENTS = 1"
+        ));
+        assert!(is_yapf_ini_decl("CONTINUATION_ALIGN_STYLE = SPACE"));
+        assert!(is_yapf_ini_decl("CONTINUATION_ALIGN_STYLE = FIXED"));
+        assert!(is_yapf_ini_decl("CONTINUATION_ALIGN_STYLE = VALIGN-RIGHT"));
+        assert!(is_yapf_ini_decl("SPLIT_BEFORE_LOGICAL_OPERATOR = true"));
+        assert!(is_yapf_ini_decl("SPLIT_BEFORE_LOGICAL_OPERATOR = True"));
+        assert!(is_yapf_ini_decl("SPLIT_BEFORE_NAMED_ASSIGNS = true"));
+        assert!(is_yapf_ini_decl("DEDENT_CLOSING_BRACKETS = true"));
+        assert!(is_yapf_ini_decl("COALESCE_BRACKETS = true"));
+        assert!(is_yapf_ini_decl("ALLOW_MULTILINE_LAMBDAS = true"));
+        assert!(is_yapf_ini_decl("ALLOW_MULTILINE_DICTIONARY_KEYS = false"));
+        assert!(is_yapf_ini_decl("ALLOW_SPLIT_BEFORE_DICT_VALUE = true"));
+        assert!(is_yapf_ini_decl(
+            "BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF = true"
+        ));
+        assert!(is_yapf_ini_decl(
+            "BLANK_LINE_BEFORE_MODULE_DOCSTRING = true"
+        ));
+        assert!(is_yapf_ini_decl(
+            "BLANK_LINE_BEFORE_CLASS_DOCSTRING = false"
+        ));
+        assert!(is_yapf_ini_decl(
+            "ALIGN_CLOSING_BRACKET_WITH_VISUAL_INDENT = true"
+        ));
+        assert!(is_yapf_ini_decl("DISABLE_ENDING_COMMA_HEURISTIC = true"));
+        assert!(is_yapf_ini_decl("EACH_DICT_ENTRY_ON_SEPARATE_LINE = true"));
+        assert!(is_yapf_ini_decl("FORCE_MULTILINE_DICT = true"));
+        assert!(is_yapf_ini_decl("INDENT_BLANK_LINES = false"));
+        assert!(is_yapf_ini_decl("INDENT_CLOSING_BRACKETS = true"));
+        assert!(is_yapf_ini_decl("INDENT_DICTIONARY_VALUE = true"));
+        assert!(is_yapf_ini_decl("JOIN_MULTIPLE_LINES = true"));
+        assert!(is_yapf_ini_decl(
+            "SPACE_BETWEEN_ENDING_COMMA_AND_CLOSING_BRACKET = true"
+        ));
+        assert!(is_yapf_ini_decl("SPACE_INSIDE_BRACKETS = false"));
+        assert!(is_yapf_ini_decl(
+            "SPACES_AROUND_DEFAULT_OR_NAMED_ASSIGN = true"
+        ));
+        assert!(is_yapf_ini_decl("SPACES_AROUND_DICT_DELIMITERS = false"));
+        assert!(is_yapf_ini_decl("SPACES_AROUND_LIST_DELIMITERS = false"));
+        assert!(is_yapf_ini_decl("SPACES_AROUND_POWER_OPERATOR = true"));
+        assert!(is_yapf_ini_decl("SPACES_AROUND_SUBSCRIPT_COLON = false"));
+        assert!(is_yapf_ini_decl("SPACES_AROUND_TUPLE_DELIMITERS = false"));
+        assert!(is_yapf_ini_decl("SPLIT_ALL_COMMA_SEPARATED_VALUES = true"));
+        assert!(is_yapf_ini_decl(
+            "SPLIT_ALL_TOP_LEVEL_COMMA_SEPARATED_VALUES = true"
+        ));
+        assert!(is_yapf_ini_decl(
+            "SPLIT_ARGUMENTS_WHEN_COMMA_TERMINATED = true"
+        ));
+        assert!(is_yapf_ini_decl("SPLIT_BEFORE_ARITHMETIC_OPERATOR = true"));
+        assert!(is_yapf_ini_decl("SPLIT_BEFORE_BITWISE_OPERATOR = true"));
+        assert!(is_yapf_ini_decl("SPLIT_BEFORE_CLOSING_BRACKET = true"));
+        assert!(is_yapf_ini_decl("SPLIT_BEFORE_DICT_SET_GENERATOR = true"));
+        assert!(is_yapf_ini_decl("SPLIT_BEFORE_DOT = true"));
+        assert!(is_yapf_ini_decl(
+            "SPLIT_BEFORE_EXPRESSION_AFTER_OPENING_PAREN = true"
+        ));
+        assert!(is_yapf_ini_decl("SPLIT_BEFORE_FIRST_ARGUMENT = true"));
+        assert!(is_yapf_ini_decl("SPLIT_COMPLEX_COMPREHENSION = true"));
+        assert!(is_yapf_ini_decl("USE_TABS = false"));
+        assert!(is_yapf_ini_decl("USE_TABS = no"));
+        assert!(is_yapf_ini_decl("COLUMN_LIMIT = 100 # comment"));
+        assert!(is_yapf_ini_decl("based_on_style=pep8; trailing"));
+
+        // Neighbouring formats / wrong case stay out.
+        assert!(!is_yapf_ini_decl("based_on_style"));
+        assert!(!is_yapf_ini_decl("based_on_style ="));
+        assert!(!is_yapf_ini_decl("BASED_ON_STYLE = pep8"));
+        assert!(!is_yapf_ini_decl("Based_On_Style = pep8"));
+        assert!(!is_yapf_ini_decl("# based_on_style = pep8"));
+        assert!(!is_yapf_ini_decl("based_on_style = pep9"));
+        assert!(!is_yapf_ini_decl("COLUMN_LIMIT = auto"));
+        assert!(!is_yapf_ini_decl("INDENT_WIDTH = wide"));
+        assert!(!is_yapf_ini_decl("SPLIT_BEFORE_LOGICAL_OPERATOR = maybe"));
+        assert!(!is_yapf_ini_decl("CONTINUATION_ALIGN_STYLE = LEFT"));
+        assert!(!is_yapf_ini_decl("column_limit = 100"));
+        assert!(!is_yapf_ini_decl("indent_width = 4"));
+        assert!(!is_yapf_ini_decl("[Yapf]"));
+        assert!(!is_yapf_ini_decl("[YAPF]"));
+        assert!(!is_yapf_ini_decl("[[yapf]]"));
+        assert!(!is_yapf_ini_decl("[yapf"));
+        assert!(!is_yapf_ini_decl("[style]"));
+        assert!(!is_yapf_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_yapf_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_yapf_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_yapf_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_yapf_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_yapf_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_yapf_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_yapf_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_yapf_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_yapf_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_yapf_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_yapf_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_yapf_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_yapf_ini_decl("[tool.yapf]"));
+        assert!(is_pyproject_toml_decl("[tool.yapf]"));
+        assert!(!is_yapf_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_yapf_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_yapf_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_yapf_ini_decl("line-length = 88"));
+        assert!(is_black_ini_decl("line-length = 88"));
+        assert!(!is_yapf_ini_decl("max-line-length = 88"));
+        assert!(is_pycodestyle_ini_decl("max-line-length = 88"));
+        assert!(!is_yapf_ini_decl("max_line_length = 120"));
+        assert!(is_autopep8_ini_decl("max_line_length = 120"));
+        assert!(!is_yapf_ini_decl("aggressive = 1"));
+        assert!(is_autopep8_ini_decl("aggressive = 1"));
+        assert!(!is_yapf_ini_decl("skip-string-normalization = true"));
+        assert!(is_black_ini_decl("skip-string-normalization = true"));
+        assert!(!is_yapf_ini_decl("profile = black"));
+        assert!(is_isort_ini_decl("profile = black"));
+        assert!(!is_yapf_ini_decl("indent_size = 4"));
+        assert!(!line_is_func_like("indent_size = 2"));
+        assert!(!line_is_func_like("BASED_ON_STYLE = pep8"));
+        assert!(!line_is_func_like("column_limit = 100"));
+        assert!(!line_is_func_like("envlist = py39,py310"));
+        // Distinctive YAPF keys still list.
+        assert!(line_is_func_like("based_on_style = pep8"));
+        assert!(line_is_func_like("COLUMN_LIMIT = 100"));
+        assert!(line_is_func_like("SPLIT_BEFORE_LOGICAL_OPERATOR = true"));
+        assert!(line_is_func_like("DEDENT_CLOSING_BRACKETS = true"));
+        assert!(line_is_func_like("COALESCE_BRACKETS = true"));
+        assert!(line_is_func_like("ALLOW_MULTILINE_LAMBDAS = true"));
+        assert!(line_is_func_like("USE_TABS = false"));
     }
 
     #[test]

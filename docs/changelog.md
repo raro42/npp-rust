@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.661] — 2026-11-07
+
+View:
+
+- **Function List** lists YAPF `setup.cfg` / `tox.ini` `[yapf]` sections and fields: `[yapf]`, `based_on_style = pep8` / `google` / `chromium` / `facebook` / `yapf`, `COLUMN_LIMIT = 100`, `INDENT_WIDTH = 4`, `CONTINUATION_INDENT_WIDTH = 4`, `SPACES_BEFORE_COMMENT = 2`, `CONTINUATION_ALIGN_STYLE = SPACE` / `FIXED` / `VALIGN-RIGHT`, `SPLIT_BEFORE_LOGICAL_OPERATOR = true`, `SPLIT_BEFORE_NAMED_ASSIGNS = true`, `DEDENT_CLOSING_BRACKETS = true`, `COALESCE_BRACKETS = true`, `ALLOW_MULTILINE_LAMBDAS = true`, `BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF = true`, `USE_TABS = false`, and other stock UPPER_SNAKE knobs. Exact YAPF keys (`based_on_style` + UPPER_SNAKE). INI `key = value` or `key=value`. Optional `#` / `;` comment. `.style.yapf` `[style]` section headers stay out (too generic); distinctive keys still list. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / tox / setuptools / Cargo / Pipfile / pyproject `[tool.yapf]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.660] — 2026-11-07
 
 View:
