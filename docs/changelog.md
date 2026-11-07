@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.666] — 2026-11-07
+
+View:
+
+- **Function List** lists vulture `setup.cfg` / `tox.ini` `[vulture]` sections and fields: `[vulture]`, `ignore_decorators = @app.route,@require_*` / `ignore-decorators`, `ignore_names = visit_*,do_*` / `ignore-names`, `make_whitelist = true` / `make-whitelist`, `min_confidence = 80` / `min-confidence`, `sort_by_size = true` / `sort-by-size`, `paths = .` / `src,tests`. Exact vulture keys (snake_case + kebab aliases). INI `key = value` or `key=value`. Optional `#` / `;` comment. Bare `exclude` stays out (flake8). flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / tox / setuptools / Cargo / Pipfile / pyproject `[tool.vulture]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.665] — 2026-11-07
 
 View:

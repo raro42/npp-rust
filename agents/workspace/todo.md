@@ -1,3 +1,7 @@
+009 keep: Function List vulture setup.cfg/tox.ini [vulture] min_confidence/ignore_names/paths (v0.3.666)
+
+009 keep: Function List docformatter setup.cfg/tox.ini [docformatter] wrap-summaries/pre-summary-newline (v0.3.665)
+
 009 keep: Function List codespell setup.cfg/tox.ini/.codespellrc [codespell] ignore-words-list/quiet-level (v0.3.664)
 
 009 keep: Function List Bandit setup.cfg/tox.ini/.bandit [bandit] skips/tests/exclude_dirs (v0.3.663)

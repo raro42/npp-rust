@@ -32386,6 +32386,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_bandit_ini_decl(s)
             || is_codespell_ini_decl(s)
             || is_docformatter_ini_decl(s)
+            || is_vulture_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32629,6 +32630,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_bandit_ini_decl(s)
         || is_codespell_ini_decl(s)
         || is_docformatter_ini_decl(s)
+        || is_vulture_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -44223,6 +44225,117 @@ fn docformatter_ini_value_ok(key: &str, value: &str) -> bool {
         }
     }
     has_ident
+}
+
+/// vulture `setup.cfg` / `tox.ini` `[vulture]` sections and distinctive
+/// keys (`ignore_decorators` / `ignore-decorators`, `ignore_names` /
+/// `ignore-names`, `make_whitelist` / `make-whitelist`, `min_confidence` /
+/// `min-confidence`, `sort_by_size` / `sort-by-size`, `paths`). Optional
+/// `#` / `;` comment. Key lines may use `=` with or without spaces. Exact
+/// vulture keys (snake_case + kebab aliases). Bare `exclude` stays out
+/// (flake8 owns it). flake8 / mypy / pytest / isort / coverage / pylint /
+/// pycodestyle / autopep8 / black / yapf / pydocstyle / bandit /
+/// codespell / docformatter / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.vulture]` / Desktop Entry / pip.conf stay out.
+fn is_vulture_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return vulture_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !vulture_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    vulture_ini_value_ok(key, value)
+}
+
+fn vulture_ini_section_ok(header: &str) -> bool {
+    header == "vulture"
+}
+
+fn vulture_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "ignore_decorators"
+            | "ignore-decorators"
+            | "ignore_names"
+            | "ignore-names"
+            | "make_whitelist"
+            | "make-whitelist"
+            | "min_confidence"
+            | "min-confidence"
+            | "sort_by_size"
+            | "sort-by-size"
+            | "paths"
+    )
+}
+
+fn vulture_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "True" | "False" | "true" | "false" | "yes" | "no" | "1" | "0"
+    )
+}
+
+fn vulture_ini_int_ok(value: &str) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+    value.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn vulture_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if matches!(key, "min_confidence" | "min-confidence") {
+        return vulture_ini_int_ok(value);
+    }
+    if matches!(
+        key,
+        "make_whitelist" | "make-whitelist" | "sort_by_size" | "sort-by-size"
+    ) {
+        return vulture_ini_bool_ok(value);
+    }
+    // ignore_decorators / ignore_names / paths: glob / decorator list /
+    // path list (`.` alone is a valid vulture paths value).
+    let mut has_token = false;
+    for b in value.bytes() {
+        if !(b.is_ascii_graphic() || b == b' ' || b == b'\t') {
+            return false;
+        }
+        if b.is_ascii_alphanumeric()
+            || b == b'_'
+            || b == b'.'
+            || b == b'/'
+            || b == b'*'
+            || b == b'@'
+        {
+            has_token = true;
+        }
+    }
+    has_token
 }
 
 /// FreeDesktop Desktop Entry sections: `[Desktop Entry]`,
@@ -64914,8 +65027,9 @@ mod func_like_line_tests {
         is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_tox_ini_decl,
         is_trunk_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
         is_uniffi_toml_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, line_is_func_like,
+        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -71036,6 +71150,119 @@ mod func_like_line_tests {
         assert!(line_is_func_like("make-summary-multi-line = false"));
         assert!(line_is_func_like("style = sphinx"));
         assert!(line_is_func_like("black = true"));
+        assert!(!is_docformatter_ini_decl("[vulture]"));
+        assert!(is_vulture_ini_decl("[vulture]"));
+        assert!(!is_docformatter_ini_decl("min_confidence = 80"));
+        assert!(is_vulture_ini_decl("min_confidence = 80"));
+        assert!(!is_docformatter_ini_decl("ignore_names = visit_*"));
+        assert!(is_vulture_ini_decl("ignore_names = visit_*"));
+    }
+
+    #[test]
+    fn vulture_ini_entries_count() {
+        assert!(line_is_func_like("[vulture]"));
+        assert!(line_is_func_like("  [vulture] # setup.cfg"));
+        assert!(line_is_func_like("[vulture]; tox.ini"));
+        assert!(is_vulture_ini_decl("[vulture]"));
+        assert!(is_vulture_ini_decl(
+            "ignore_decorators = @app.route,@require_*"
+        ));
+        assert!(is_vulture_ini_decl("ignore-decorators = @app.route"));
+        assert!(is_vulture_ini_decl("ignore_names = visit_*,do_*"));
+        assert!(is_vulture_ini_decl("ignore-names = visit_*"));
+        assert!(is_vulture_ini_decl("make_whitelist = true"));
+        assert!(is_vulture_ini_decl("make-whitelist = False"));
+        assert!(is_vulture_ini_decl("min_confidence = 80"));
+        assert!(is_vulture_ini_decl("min-confidence=100"));
+        assert!(is_vulture_ini_decl("sort_by_size = true"));
+        assert!(is_vulture_ini_decl("sort-by-size = yes"));
+        assert!(is_vulture_ini_decl("paths = ."));
+        assert!(is_vulture_ini_decl("paths = src,tests"));
+        assert!(is_vulture_ini_decl("min_confidence = 80 # comment"));
+        assert!(is_vulture_ini_decl("make_whitelist=true; trailing"));
+
+        // Neighbouring formats / wrong case stay out.
+        assert!(!is_vulture_ini_decl("min_confidence"));
+        assert!(!is_vulture_ini_decl("min_confidence ="));
+        assert!(!is_vulture_ini_decl("Min_confidence = 80"));
+        assert!(!is_vulture_ini_decl("# min_confidence = 80"));
+        assert!(!is_vulture_ini_decl("min_confidence = high"));
+        assert!(!is_vulture_ini_decl("make_whitelist = maybe"));
+        assert!(!is_vulture_ini_decl("[Vulture]"));
+        assert!(!is_vulture_ini_decl("[VULTURE]"));
+        assert!(!is_vulture_ini_decl("[[vulture]]"));
+        assert!(!is_vulture_ini_decl("[vulture"));
+        assert!(!is_vulture_ini_decl("exclude = */tests/*"));
+        assert!(!is_vulture_ini_decl("[docformatter]"));
+        assert!(is_docformatter_ini_decl("[docformatter]"));
+        assert!(!is_vulture_ini_decl("wrap-summaries = 82"));
+        assert!(is_docformatter_ini_decl("wrap-summaries = 82"));
+        assert!(!is_vulture_ini_decl("[codespell]"));
+        assert!(is_codespell_ini_decl("[codespell]"));
+        assert!(!is_vulture_ini_decl("[bandit]"));
+        assert!(is_bandit_ini_decl("[bandit]"));
+        assert!(!is_vulture_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        // `ignore_decorators` is also pydocstyle's; both may match.
+        assert!(is_pydocstyle_ini_decl(
+            "ignore_decorators = property|cached_property"
+        ));
+        assert!(is_vulture_ini_decl(
+            "ignore_decorators = @app.route,@require_*"
+        ));
+        assert!(line_is_func_like(
+            "ignore_decorators = @app.route,@require_*"
+        ));
+        assert!(!is_vulture_ini_decl("[yapf]"));
+        assert!(is_yapf_ini_decl("[yapf]"));
+        assert!(!is_vulture_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_vulture_ini_decl("line-length = 88"));
+        assert!(is_black_ini_decl("line-length = 88"));
+        assert!(!is_vulture_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_vulture_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_vulture_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_vulture_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_vulture_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_vulture_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_vulture_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_vulture_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_vulture_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_vulture_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_vulture_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_vulture_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_vulture_ini_decl("[tool.vulture]"));
+        assert!(is_pyproject_toml_decl("[tool.vulture]"));
+        assert!(!is_vulture_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_vulture_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_vulture_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_vulture_ini_decl("indent_size = 4"));
+        assert!(!line_is_func_like("Min_confidence = 80"));
+        assert!(!line_is_func_like("make_whitelist = maybe"));
+        // Bare `exclude` is flake8's, not vulture's.
+        assert!(is_flake8_ini_decl("exclude = */tests/*"));
+        assert!(line_is_func_like("exclude = */tests/*"));
+        // Distinctive vulture keys still list.
+        assert!(line_is_func_like("min_confidence = 80"));
+        assert!(line_is_func_like("ignore_names = visit_*,do_*"));
+        assert!(line_is_func_like("make_whitelist = true"));
+        assert!(line_is_func_like("sort_by_size = true"));
+        assert!(line_is_func_like("paths = src,tests"));
     }
 
     #[test]
