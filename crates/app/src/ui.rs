@@ -32394,6 +32394,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_setuptools_scm_ini_decl(s)
             || is_towncrier_ini_decl(s)
             || is_zest_releaser_ini_decl(s)
+            || is_cibuildwheel_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32645,6 +32646,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_setuptools_scm_ini_decl(s)
         || is_towncrier_ini_decl(s)
         || is_zest_releaser_ini_decl(s)
+        || is_cibuildwheel_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -45432,6 +45434,218 @@ fn zest_releaser_ini_value_ok(key: &str, value: &str) -> bool {
         "history-file" => zest_releaser_ini_history_file_ok(value),
         "history_format" => zest_releaser_ini_history_format_ok(value),
         "version-levels" => zest_releaser_ini_version_levels_ok(value),
+        _ => false,
+    }
+}
+
+/// cibuildwheel `setup.cfg` / `tox.ini` `[tool:cibuildwheel]` /
+/// `[cibuildwheel]` / platform or selector overrides
+/// (`[tool:cibuildwheel:linux]`, `[tool:cibuildwheel:cp39-manylinux_x86_64]`)
+/// and distinctive keys (`before-all`, `before-build`, `before-test`,
+/// `repair-wheel-command`, `test-command`, `test-requires`, `test-extras`,
+/// `test-groups`, `test-skip`, `build-frontend`, `build-verbosity`,
+/// `environment-pass`, `container-engine`, `dependency-versions`,
+/// `config-settings`, `pyodide-version`, `xbuild-tools`,
+/// `manylinux-*-image`, `musllinux-*-image`). Exact kebab-case keys.
+/// INI `key = value` or `key=value`. Optional `#` / `;` comment.
+/// Bare `build` / `skip` / `archs` / `environment` / `enable` stay out
+/// (too generic without the section header). flake8 / mypy / pytest /
+/// isort / coverage / pylint / pycodestyle / autopep8 / black / yapf /
+/// pydocstyle / bandit / codespell / docformatter / vulture /
+/// interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / tox / setuptools /
+/// Cargo / Pipfile / pyproject `[tool.cibuildwheel]` / Desktop Entry /
+/// pip.conf stay out.
+fn is_cibuildwheel_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return cibuildwheel_ini_header_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !cibuildwheel_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    cibuildwheel_ini_value_ok(key, value)
+}
+
+fn cibuildwheel_ini_header_ok(header: &str) -> bool {
+    if header == "tool:cibuildwheel" || header == "cibuildwheel" {
+        return true;
+    }
+    let rest = if let Some(r) = header.strip_prefix("tool:cibuildwheel:") {
+        r
+    } else if let Some(r) = header.strip_prefix("cibuildwheel:") {
+        r
+    } else {
+        return false;
+    };
+    cibuildwheel_ini_override_ok(rest)
+}
+
+fn cibuildwheel_ini_override_ok(name: &str) -> bool {
+    if name.is_empty() || name.len() > 96 {
+        return false;
+    }
+    matches!(
+        name,
+        "linux" | "windows" | "macos" | "pyodide" | "ios" | "android"
+    ) || cibuildwheel_ini_selector_ok(name)
+}
+
+fn cibuildwheel_ini_selector_ok(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    if !(bytes[0].is_ascii_lowercase()) {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.' | b'*'))
+    {
+        return false;
+    }
+    // Build ids look like cp39-manylinux_x86_64 / pp310-* / gp24_*.
+    let has_digit = bytes.iter().any(u8::is_ascii_digit);
+    let has_sep = bytes.iter().any(|b| matches!(*b, b'_' | b'-' | b'*'));
+    has_digit && has_sep
+}
+
+fn cibuildwheel_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "before-all"
+            | "before-build"
+            | "before-test"
+            | "repair-wheel-command"
+            | "test-command"
+            | "test-requires"
+            | "test-extras"
+            | "test-groups"
+            | "test-skip"
+            | "build-frontend"
+            | "build-verbosity"
+            | "environment-pass"
+            | "container-engine"
+            | "dependency-versions"
+            | "config-settings"
+            | "pyodide-version"
+            | "xbuild-tools"
+    ) || cibuildwheel_ini_image_key_ok(key)
+}
+
+fn cibuildwheel_ini_image_key_ok(key: &str) -> bool {
+    let Some(rest) = key
+        .strip_prefix("manylinux-")
+        .or_else(|| key.strip_prefix("musllinux-"))
+    else {
+        return false;
+    };
+    let Some(arch) = rest.strip_suffix("-image") else {
+        return false;
+    };
+    !arch.is_empty()
+        && arch.len() <= 48
+        && arch
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
+}
+
+fn cibuildwheel_ini_text_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    value.chars().all(|c| c.is_ascii_graphic() || c == ' ')
+}
+
+fn cibuildwheel_ini_build_frontend_ok(value: &str) -> bool {
+    if !cibuildwheel_ini_text_ok(value) {
+        return false;
+    }
+    let lower = value.to_ascii_lowercase();
+    lower.starts_with("build")
+        || lower.starts_with("pip")
+        || lower.contains("uv")
+        || lower.contains(';')
+}
+
+fn cibuildwheel_ini_verbosity_ok(value: &str) -> bool {
+    matches!(value, "0" | "1" | "2" | "3" | "-1")
+}
+
+fn cibuildwheel_ini_container_engine_ok(value: &str) -> bool {
+    matches!(value.to_ascii_lowercase().as_str(), "docker" | "podman")
+}
+
+fn cibuildwheel_ini_dependency_versions_ok(value: &str) -> bool {
+    if !cibuildwheel_ini_text_ok(value) {
+        return false;
+    }
+    let lower = value.to_ascii_lowercase();
+    lower == "pinned"
+        || lower == "latest"
+        || lower.starts_with("file:")
+        || lower.contains('.')
+        || lower.contains('/')
+}
+
+fn cibuildwheel_ini_image_value_ok(value: &str) -> bool {
+    if !cibuildwheel_ini_text_ok(value) {
+        return false;
+    }
+    let lower = value.to_ascii_lowercase();
+    lower.starts_with("manylinux")
+        || lower.starts_with("musllinux")
+        || lower.contains('/')
+        || lower.contains(':')
+        || lower == "off"
+        || lower == "none"
+}
+
+fn cibuildwheel_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if cibuildwheel_ini_image_key_ok(key) {
+        return cibuildwheel_ini_image_value_ok(value);
+    }
+    match key {
+        "before-all"
+        | "before-build"
+        | "before-test"
+        | "repair-wheel-command"
+        | "test-command"
+        | "test-requires"
+        | "test-extras"
+        | "test-groups"
+        | "test-skip"
+        | "environment-pass"
+        | "config-settings"
+        | "xbuild-tools"
+        | "pyodide-version" => cibuildwheel_ini_text_ok(value),
+        "build-frontend" => cibuildwheel_ini_build_frontend_ok(value),
+        "build-verbosity" => cibuildwheel_ini_verbosity_ok(value),
+        "container-engine" => cibuildwheel_ini_container_engine_ok(value),
+        "dependency-versions" => cibuildwheel_ini_dependency_versions_ok(value),
         _ => false,
     }
 }
@@ -66095,26 +66309,27 @@ mod func_like_line_tests {
         is_aws_config_decl, is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl,
         is_bitbake_decl, is_black_ini_decl, is_brewfile_decl, is_bumpversion_ini_decl,
         is_bunfig_toml_decl, is_cabal_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
-        is_cargo_toml_decl, is_cbindgen_toml_decl, is_check_manifest_ini_decl, is_cliff_toml_decl,
-        is_clippy_toml_decl, is_codespell_ini_decl, is_composer_json_decl, is_coverage_ini_decl,
-        is_cross_toml_decl, is_crypttab_decl, is_default_grub_decl, is_deny_toml_decl,
-        is_desktop_entry_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
-        is_docformatter_ini_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
-        is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl,
-        is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_interrogate_ini_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
-        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl,
-        is_os_release_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
-        is_premake_decl, is_protocols_file_decl, is_pycodestyle_ini_decl, is_pydocstyle_ini_decl,
+        is_cargo_toml_decl, is_cbindgen_toml_decl, is_check_manifest_ini_decl,
+        is_cibuildwheel_ini_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_codespell_ini_decl,
+        is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
+        is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl,
+        is_dioxus_toml_decl, is_dist_toml_decl, is_docformatter_ini_decl, is_dovecot_decl,
+        is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
+        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_freeradius_decl,
+        is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
+        is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl, is_hosts_access_decl,
+        is_hosts_file_decl, is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl,
+        is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl,
+        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
+        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl, is_premake_decl,
+        is_protocols_file_decl, is_pycodestyle_ini_decl, is_pydocstyle_ini_decl,
         is_pylint_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl,
         is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rsyslog_decl,
         is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
@@ -73390,6 +73605,225 @@ mod func_like_line_tests {
         assert!(line_is_func_like("history_format = md"));
         assert!(line_is_func_like("version-levels = 3"));
         assert!(line_is_func_like("[zest.releaser]"));
+        assert!(!is_zest_releaser_ini_decl("[tool:cibuildwheel]"));
+        assert!(is_cibuildwheel_ini_decl("[tool:cibuildwheel]"));
+        assert!(!is_zest_releaser_ini_decl(
+            "test-command = pytest {project}/tests"
+        ));
+        assert!(is_cibuildwheel_ini_decl(
+            "test-command = pytest {project}/tests"
+        ));
+    }
+
+    #[test]
+    fn cibuildwheel_ini_entries_count() {
+        assert!(line_is_func_like("[tool:cibuildwheel]"));
+        assert!(line_is_func_like("  [tool:cibuildwheel] # setup.cfg"));
+        assert!(line_is_func_like("[cibuildwheel]; tox.ini"));
+        assert!(line_is_func_like("[tool:cibuildwheel:linux]"));
+        assert!(line_is_func_like("[tool:cibuildwheel:windows]"));
+        assert!(line_is_func_like("[tool:cibuildwheel:macos]"));
+        assert!(line_is_func_like("[tool:cibuildwheel:pyodide]"));
+        assert!(line_is_func_like(
+            "[tool:cibuildwheel:cp39-manylinux_x86_64]"
+        ));
+        assert!(line_is_func_like("[cibuildwheel:pp310-macosx_arm64]"));
+        assert!(is_cibuildwheel_ini_decl("[tool:cibuildwheel]"));
+        assert!(is_cibuildwheel_ini_decl("[cibuildwheel]"));
+        assert!(is_cibuildwheel_ini_decl("[tool:cibuildwheel:linux]"));
+        assert!(is_cibuildwheel_ini_decl("[tool:cibuildwheel:ios]"));
+        assert!(is_cibuildwheel_ini_decl("[tool:cibuildwheel:android]"));
+        assert!(is_cibuildwheel_ini_decl(
+            "[tool:cibuildwheel:cp39-manylinux_x86_64]"
+        ));
+        assert!(is_cibuildwheel_ini_decl(
+            "before-all = yum install -y libffi-devel"
+        ));
+        assert!(is_cibuildwheel_ini_decl(
+            "before-build = pip install -r req.txt"
+        ));
+        assert!(is_cibuildwheel_ini_decl("before-test = pip install pytest"));
+        assert!(is_cibuildwheel_ini_decl(
+            "repair-wheel-command = auditwheel repair -w {dest_dir} {wheel}"
+        ));
+        assert!(is_cibuildwheel_ini_decl(
+            "test-command = pytest {project}/tests"
+        ));
+        assert!(is_cibuildwheel_ini_decl("test-requires = pytest"));
+        assert!(is_cibuildwheel_ini_decl("test-extras = test"));
+        assert!(is_cibuildwheel_ini_decl("test-groups = test"));
+        assert!(is_cibuildwheel_ini_decl("test-skip = pp*"));
+        assert!(is_cibuildwheel_ini_decl("build-frontend = build"));
+        assert!(is_cibuildwheel_ini_decl("build-frontend = pip"));
+        assert!(is_cibuildwheel_ini_decl("build-frontend = build[uv]"));
+        assert!(is_cibuildwheel_ini_decl("build-verbosity = 1"));
+        assert!(is_cibuildwheel_ini_decl("build-verbosity = -1"));
+        assert!(is_cibuildwheel_ini_decl(
+            "environment-pass = CFLAGS CXXFLAGS"
+        ));
+        assert!(is_cibuildwheel_ini_decl("container-engine = docker"));
+        assert!(is_cibuildwheel_ini_decl("container-engine = podman"));
+        assert!(is_cibuildwheel_ini_decl("dependency-versions = pinned"));
+        assert!(is_cibuildwheel_ini_decl("dependency-versions = latest"));
+        assert!(is_cibuildwheel_ini_decl(
+            "dependency-versions = file:constraints.txt"
+        ));
+        assert!(is_cibuildwheel_ini_decl(
+            "config-settings = --build-option=--use-cython"
+        ));
+        assert!(is_cibuildwheel_ini_decl("pyodide-version = 0.26.0"));
+        assert!(is_cibuildwheel_ini_decl("xbuild-tools = cmake ninja"));
+        assert!(is_cibuildwheel_ini_decl(
+            "manylinux-x86_64-image = manylinux2014"
+        ));
+        assert!(is_cibuildwheel_ini_decl(
+            "manylinux-aarch64-image = manylinux_2_28"
+        ));
+        assert!(is_cibuildwheel_ini_decl(
+            "musllinux-x86_64-image = musllinux_1_2"
+        ));
+        assert!(is_cibuildwheel_ini_decl(
+            "manylinux-x86_64-image = quay.io/pypa/manylinux2014_x86_64"
+        ));
+        assert!(is_cibuildwheel_ini_decl(
+            "test-command = pytest {project}/tests # comment"
+        ));
+        assert!(is_cibuildwheel_ini_decl("build-frontend=build; trail"));
+
+        // Neighbouring formats / wrong case / bare generics stay out.
+        assert!(!is_cibuildwheel_ini_decl("before-all"));
+        assert!(!is_cibuildwheel_ini_decl("before-all ="));
+        assert!(!is_cibuildwheel_ini_decl("Before-all = yum install"));
+        assert!(!is_cibuildwheel_ini_decl("# before-all = yum install"));
+        assert!(!is_cibuildwheel_ini_decl("build = cp39-*"));
+        assert!(!is_cibuildwheel_ini_decl("skip = pp*"));
+        assert!(!is_cibuildwheel_ini_decl("archs = auto"));
+        assert!(!is_cibuildwheel_ini_decl("environment = CFLAGS=-O3"));
+        assert!(!is_cibuildwheel_ini_decl("enable = cpython-freethreading"));
+        assert!(!is_cibuildwheel_ini_decl("build-frontend = cargo"));
+        assert!(!is_cibuildwheel_ini_decl("build-verbosity = 9"));
+        assert!(!is_cibuildwheel_ini_decl("container-engine = kubernetes"));
+        assert!(!is_cibuildwheel_ini_decl("dependency-versions = maybe"));
+        assert!(!is_cibuildwheel_ini_decl("manylinux-x86_64-image = alpine"));
+        assert!(!is_cibuildwheel_ini_decl("manylinux-image = manylinux2014"));
+        assert!(!is_cibuildwheel_ini_decl("[Tool:cibuildwheel]"));
+        assert!(!is_cibuildwheel_ini_decl("[CIBUILDWHEEL]"));
+        assert!(!is_cibuildwheel_ini_decl("[[tool:cibuildwheel]]"));
+        assert!(!is_cibuildwheel_ini_decl("[tool:cibuildwheel"));
+        assert!(!is_cibuildwheel_ini_decl("[tool:cibuildwheel:]"));
+        assert!(!is_cibuildwheel_ini_decl("[tool:cibuildwheel:Linux]"));
+        assert!(!is_cibuildwheel_ini_decl("[tool:cibuildwheel:cp]"));
+        assert!(!is_cibuildwheel_ini_decl("[tool.cibuildwheel]"));
+        assert!(is_pyproject_toml_decl("[tool.cibuildwheel]"));
+        assert!(!is_cibuildwheel_ini_decl("[zest.releaser]"));
+        assert!(is_zest_releaser_ini_decl("[zest.releaser]"));
+        assert!(!is_cibuildwheel_ini_decl("create-wheel = yes"));
+        assert!(is_zest_releaser_ini_decl("create-wheel = yes"));
+        assert!(!is_cibuildwheel_ini_decl("[tool:towncrier]"));
+        assert!(is_towncrier_ini_decl("[tool:towncrier]"));
+        assert!(!is_cibuildwheel_ini_decl("title_format = {version}"));
+        assert!(is_towncrier_ini_decl("title_format = {version}"));
+        assert!(!is_cibuildwheel_ini_decl("[tool:setuptools_scm]"));
+        assert!(is_setuptools_scm_ini_decl("[tool:setuptools_scm]"));
+        assert!(!is_cibuildwheel_ini_decl("version_scheme = guess-next-dev"));
+        assert!(is_setuptools_scm_ini_decl(
+            "version_scheme = guess-next-dev"
+        ));
+        assert!(!is_cibuildwheel_ini_decl("[versioneer]"));
+        assert!(is_versioneer_ini_decl("[versioneer]"));
+        assert!(!is_cibuildwheel_ini_decl("VCS = git"));
+        assert!(is_versioneer_ini_decl("VCS = git"));
+        assert!(!is_cibuildwheel_ini_decl("[bumpversion]"));
+        assert!(is_bumpversion_ini_decl("[bumpversion]"));
+        assert!(!is_cibuildwheel_ini_decl("current_version = 1.2.3"));
+        assert!(is_bumpversion_ini_decl("current_version = 1.2.3"));
+        assert!(!is_cibuildwheel_ini_decl("[check-manifest]"));
+        assert!(is_check_manifest_ini_decl("[check-manifest]"));
+        assert!(!is_cibuildwheel_ini_decl("[interrogate]"));
+        assert!(is_interrogate_ini_decl("[interrogate]"));
+        assert!(!is_cibuildwheel_ini_decl("[vulture]"));
+        assert!(is_vulture_ini_decl("[vulture]"));
+        assert!(!is_cibuildwheel_ini_decl("[docformatter]"));
+        assert!(is_docformatter_ini_decl("[docformatter]"));
+        assert!(!is_cibuildwheel_ini_decl("[codespell]"));
+        assert!(is_codespell_ini_decl("[codespell]"));
+        assert!(!is_cibuildwheel_ini_decl("[bandit]"));
+        assert!(is_bandit_ini_decl("[bandit]"));
+        assert!(!is_cibuildwheel_ini_decl("[pydocstyle]"));
+        assert!(is_pydocstyle_ini_decl("[pydocstyle]"));
+        assert!(!is_cibuildwheel_ini_decl("[yapf]"));
+        assert!(is_yapf_ini_decl("[yapf]"));
+        assert!(!is_cibuildwheel_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_cibuildwheel_ini_decl("line-length = 88"));
+        assert!(is_black_ini_decl("line-length = 88"));
+        assert!(!is_cibuildwheel_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_cibuildwheel_ini_decl("[pycodestyle]"));
+        assert!(is_pycodestyle_ini_decl("[pycodestyle]"));
+        assert!(!is_cibuildwheel_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_cibuildwheel_ini_decl("[isort]"));
+        assert!(is_isort_ini_decl("[isort]"));
+        assert!(!is_cibuildwheel_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_cibuildwheel_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_cibuildwheel_ini_decl("[tool:pytest]"));
+        assert!(is_pytest_ini_decl("[tool:pytest]"));
+        assert!(!is_cibuildwheel_ini_decl("[run]"));
+        assert!(is_coverage_ini_decl("[run]"));
+        assert!(!is_cibuildwheel_ini_decl("[MAIN]"));
+        assert!(is_pylint_ini_decl("[MAIN]"));
+        assert!(!is_cibuildwheel_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_cibuildwheel_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_cibuildwheel_ini_decl("[packages]"));
+        assert!(is_pipfile_decl("[packages]"));
+        assert!(!is_cibuildwheel_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_cibuildwheel_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_cibuildwheel_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_cibuildwheel_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_cibuildwheel_ini_decl("indent_size = 4"));
+        assert!(!line_is_func_like("build = cp39-*"));
+        assert!(!line_is_func_like("container-engine = kubernetes"));
+        // Distinctive cibuildwheel keys still list.
+        assert!(line_is_func_like(
+            "before-all = yum install -y libffi-devel"
+        ));
+        assert!(line_is_func_like("before-build = pip install -r req.txt"));
+        assert!(line_is_func_like("before-test = pip install pytest"));
+        assert!(line_is_func_like(
+            "repair-wheel-command = auditwheel repair -w {dest_dir} {wheel}"
+        ));
+        assert!(line_is_func_like("test-command = pytest {project}/tests"));
+        assert!(line_is_func_like("test-requires = pytest"));
+        assert!(line_is_func_like("test-extras = test"));
+        assert!(line_is_func_like("test-groups = test"));
+        assert!(line_is_func_like("test-skip = pp*"));
+        assert!(line_is_func_like("build-frontend = build"));
+        assert!(line_is_func_like("build-verbosity = 1"));
+        assert!(line_is_func_like("environment-pass = CFLAGS"));
+        assert!(line_is_func_like("container-engine = docker"));
+        assert!(line_is_func_like("dependency-versions = pinned"));
+        assert!(line_is_func_like(
+            "config-settings = --build-option=--use-cython"
+        ));
+        assert!(line_is_func_like("pyodide-version = 0.26.0"));
+        assert!(line_is_func_like("xbuild-tools = cmake ninja"));
+        assert!(line_is_func_like("manylinux-x86_64-image = manylinux2014"));
+        assert!(line_is_func_like("musllinux-x86_64-image = musllinux_1_2"));
+        assert!(line_is_func_like("[tool:cibuildwheel]"));
+        assert!(line_is_func_like("[cibuildwheel]"));
+        assert!(line_is_func_like("[tool:cibuildwheel:linux]"));
+        assert!(line_is_func_like(
+            "[tool:cibuildwheel:cp39-manylinux_x86_64]"
+        ));
     }
 
     #[test]

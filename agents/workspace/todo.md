@@ -1,3 +1,5 @@
+009 keep: Function List cibuildwheel setup.cfg/tox.ini [tool:cibuildwheel] test-command/manylinux-*-image (v0.3.674)
+
 009 keep: Function List zest.releaser setup.cfg/.pypirc [zest.releaser] create-wheel/tag-format/history-file (v0.3.673)
 
 009 keep: Function List towncrier setup.cfg/tox.ini [tool:towncrier] title_format/issue_format/underlines (v0.3.672)

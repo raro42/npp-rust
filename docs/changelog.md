@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.674] — 2026-11-07
+
+View:
+
+- **Function List** lists cibuildwheel `setup.cfg` / `tox.ini` `[tool:cibuildwheel]` / `[cibuildwheel]` / platform or selector overrides (`[tool:cibuildwheel:linux]`, `[tool:cibuildwheel:cp39-manylinux_x86_64]`) and fields: `[tool:cibuildwheel]`, `[cibuildwheel]`, `[tool:cibuildwheel:linux]` / `windows` / `macos` / `pyodide` / `ios` / `android`, `[tool:cibuildwheel:cp39-manylinux_x86_64]`, `before-all = yum install -y libffi-devel`, `before-build = pip install -r req.txt`, `before-test = pip install pytest`, `repair-wheel-command = auditwheel repair -w {dest_dir} {wheel}`, `test-command = pytest {project}/tests`, `test-requires = pytest`, `test-extras = test`, `test-groups = test`, `test-skip = pp*`, `build-frontend = build` / `pip` / `build[uv]`, `build-verbosity = 1` / `-1`, `environment-pass = CFLAGS CXXFLAGS`, `container-engine = docker` / `podman`, `dependency-versions = pinned` / `latest` / `file:constraints.txt`, `config-settings = --build-option=--use-cython`, `pyodide-version = 0.26.0`, `xbuild-tools = cmake ninja`, `manylinux-x86_64-image = manylinux2014` / `manylinux_2_28` / `quay.io/pypa/…`, `musllinux-x86_64-image = musllinux_1_2`. Exact kebab-case keys. INI `key = value` or `key=value`. Optional `#` / `;` comment. Bare `build` / `skip` / `archs` / `environment` / `enable` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / tox / setuptools / Cargo / Pipfile / pyproject `[tool.cibuildwheel]` / Desktop Entry / pip.conf stay out.
+
 ## [0.3.673] — 2026-11-07
 
 View:
