@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.697] — 2026-11-08
+
+View:
+
+- **Function List** lists Astral ty `pyproject.toml` / `ty.toml` `[tool.ty]` sections and fields: `[tool.ty]`, `[tool.ty.rules]`, `[tool.ty.analysis]`, `[tool.ty.environment]`, `[tool.ty.src]`, `[tool.ty.terminal]`, `[[tool.ty.overrides]]`, `[tool.ty.overrides.rules]`, `[tool.ty.overrides.analysis]`, `baseline = "ty-baseline.json"`, `respect-type-ignore-comments = false`, `return-type-inference = "always"` / `"never"`, `strict-equality-semantics = true`, `strict-generic-narrowing = true`, `python-version = "3.12"`, `python-platform = "linux"` / `"win32"` / `"darwin"` / `"android"` / `"ios"` / `"all"`, `typeshed = "stubs"`, `exclude-scripts = true`, `respect-ignore-files = false`, `error-on-warning = false`, `output-format = "full"` / `"concise"` / `"github"` / `"gitlab"` / `"junit"` / `"sarif"`, `all = "error"` / `"warn"` / `"ignore"`, `possibly-unresolved-reference = "warn"`, `division-by-zero = "ignore"`, `unused-ignore-comment = "warn"`, `redundant-cast = "ignore"`, `possibly-missing-attribute = "error"`, `possibly-missing-import = "error"`, `index-out-of-bounds = "ignore"`, `import-not-found = "warn"`. Exact kebab-case. TOML spaces around `=`. Optional quotes on string values. Optional `#` / `;` comment. Arrays (`include` / `exclude` / `extra-paths` / `root` / `allowed-unresolved-imports` / `replace-imports-with-any`) stay out. Bare `python` / `quiet` / `verbose` / `color` / `path` / `config` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama / radon / autoflake / pytype / unimport / pycln / flynt / pyupgrade / refurb / pyright / basedpyright / tox / setuptools / Cargo / Pipfile / pyproject `[tool]` umbrella / ruff / Desktop Entry / pip.conf stay out.
+
 ## [0.3.696] — 2026-11-08
 
 View:

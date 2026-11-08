@@ -1052,3 +1052,5 @@
 009 keep: Function List Refurb [tool.refurb]/[[tool.refurb.amend]] disable_all/enable_all/python_version/format/sort_by (v0.3.695)
 
 009 keep: Function List Pyright/basedpyright [tool.pyright]/[tool.basedpyright] typeCheckingMode/pythonVersion/pythonPlatform/stubPath/reportMissingImports/failOnWarnings (v0.3.696)
+
+009 keep: Function List Astral ty [tool.ty] rules/analysis/environment/src/terminal/overrides (v0.3.697)

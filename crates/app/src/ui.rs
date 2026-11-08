@@ -32417,6 +32417,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pyupgrade_ini_decl(s)
             || is_refurb_toml_decl(s)
             || is_pyright_toml_decl(s)
+            || is_ty_toml_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32691,6 +32692,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pyupgrade_ini_decl(s)
         || is_refurb_toml_decl(s)
         || is_pyright_toml_decl(s)
+        || is_ty_toml_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -50428,7 +50430,7 @@ fn pyupgrade_ini_value_ok(key: &str, value: &str) -> bool {
 /// python-semantic-release / scriv / import-linter / darglint /
 /// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
 /// radon / autoflake / pytype / unimport / pycln / flynt / pyupgrade /
-/// pyright / basedpyright / tox / setuptools / Cargo / Pipfile /
+/// pyright / basedpyright / ty / tox / setuptools / Cargo / Pipfile /
 /// pyproject `[tool]` umbrella / ruff / Desktop Entry / pip.conf stay
 /// out.
 fn is_refurb_toml_decl(s: &str) -> bool {
@@ -50574,7 +50576,7 @@ fn refurb_toml_value_ok(key: &str, value: &str) -> bool {
 /// python-semantic-release / scriv / import-linter / darglint /
 /// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
 /// radon / autoflake / pytype / unimport / pycln / flynt / pyupgrade /
-/// refurb / tox / setuptools / Cargo / Pipfile / pyproject `[tool]`
+/// refurb / ty / tox / setuptools / Cargo / Pipfile / pyproject `[tool]`
 /// umbrella / ruff / Desktop Entry / pip.conf stay out.
 fn is_pyright_toml_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -50741,6 +50743,227 @@ fn pyright_toml_value_ok(key: &str, value: &str) -> bool {
         "reportMissingImports" | "reportMissingTypeStubs" | "reportUnusedImport" => {
             pyright_toml_diag_ok(value)
         }
+        _ => false,
+    }
+}
+
+/// Astral ty `pyproject.toml` / `ty.toml` `[tool.ty]` sections and
+/// distinctive scalar keys: `[tool.ty]`, `[tool.ty.rules]`,
+/// `[tool.ty.analysis]`, `[tool.ty.environment]`, `[tool.ty.src]`,
+/// `[tool.ty.terminal]`, `[[tool.ty.overrides]]`,
+/// `[tool.ty.overrides.rules]`, `[tool.ty.overrides.analysis]`,
+/// `baseline = "ty-baseline.json"`,
+/// `respect-type-ignore-comments = false`,
+/// `return-type-inference = "always"` / `"never"`,
+/// `strict-equality-semantics = true`,
+/// `strict-generic-narrowing = true`, `python-version = "3.12"`,
+/// `python-platform = "linux"` / `"win32"` / `"darwin"` / `"android"` /
+/// `"ios"` / `"all"`, `typeshed = "stubs"`, `exclude-scripts = true`,
+/// `respect-ignore-files = false`, `error-on-warning = false`,
+/// `output-format = "full"` / `"concise"` / `"github"` / `"gitlab"` /
+/// `"junit"` / `"sarif"`, `all = "error"` / `"warn"` / `"ignore"`,
+/// `possibly-unresolved-reference = "warn"`,
+/// `division-by-zero = "ignore"`, `unused-ignore-comment = "warn"`,
+/// `redundant-cast = "ignore"`,
+/// `possibly-missing-attribute = "error"`,
+/// `possibly-missing-import = "error"`,
+/// `index-out-of-bounds = "ignore"`, `import-not-found = "warn"`.
+/// Exact kebab-case. TOML spaces around `=`. Optional quotes on string
+/// values. Optional `#` / `;` comment. Arrays (`include` / `exclude` /
+/// `extra-paths` / `root` / `allowed-unresolved-imports` /
+/// `replace-imports-with-any`) stay out. Bare `python` / `quiet` /
+/// `verbose` / `color` / `path` / `config` stay out. flake8 / mypy /
+/// pytest / isort / coverage / pylint / pycodestyle / autopep8 / black /
+/// yapf / pydocstyle / bandit / codespell / docformatter / vulture /
+/// interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
+/// radon / autoflake / pytype / unimport / pycln / flynt / pyupgrade /
+/// refurb / pyright / basedpyright / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool]` umbrella / ruff / Desktop Entry / pip.conf stay
+/// out.
+fn is_ty_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return ty_toml_section_ok(header, array);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not INI `key=value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !ty_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    ty_toml_value_ok(key, value)
+}
+
+fn ty_toml_section_ok(header: &str, array: bool) -> bool {
+    if array {
+        return header == "tool.ty.overrides";
+    }
+    matches!(
+        header,
+        "tool.ty"
+            | "tool.ty.rules"
+            | "tool.ty.analysis"
+            | "tool.ty.environment"
+            | "tool.ty.src"
+            | "tool.ty.terminal"
+            | "tool.ty.overrides"
+            | "tool.ty.overrides.rules"
+            | "tool.ty.overrides.analysis"
+    )
+}
+
+fn ty_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "baseline"
+            | "respect-type-ignore-comments"
+            | "return-type-inference"
+            | "strict-equality-semantics"
+            | "strict-generic-narrowing"
+            | "python-version"
+            | "python-platform"
+            | "typeshed"
+            | "exclude-scripts"
+            | "respect-ignore-files"
+            | "error-on-warning"
+            | "output-format"
+            | "all"
+            | "possibly-unresolved-reference"
+            | "division-by-zero"
+            | "unused-ignore-comment"
+            | "redundant-cast"
+            | "possibly-missing-attribute"
+            | "possibly-missing-import"
+            | "index-out-of-bounds"
+            | "import-not-found"
+    )
+}
+
+fn ty_toml_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn ty_toml_bool_ok(value: &str) -> bool {
+    matches!(
+        ty_toml_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false"
+    )
+}
+
+fn ty_toml_python_version_ok(value: &str) -> bool {
+    let bare = ty_toml_bare(value);
+    let mut parts = bare.split('.');
+    let Some(major) = parts.next() else {
+        return false;
+    };
+    let Some(minor) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    !major.is_empty()
+        && !minor.is_empty()
+        && major.bytes().all(|b| b.is_ascii_digit())
+        && minor.bytes().all(|b| b.is_ascii_digit())
+        && major.len() <= 2
+        && minor.len() <= 2
+}
+
+fn ty_toml_platform_ok(value: &str) -> bool {
+    matches!(
+        ty_toml_bare(value),
+        "win32" | "darwin" | "android" | "ios" | "linux" | "all"
+    )
+}
+
+fn ty_toml_path_ok(value: &str) -> bool {
+    let bare = ty_toml_bare(value);
+    !bare.is_empty()
+        && bare.len() <= 512
+        && !bare.starts_with('{')
+        && !bare.starts_with('[')
+        && !bare.contains('\n')
+}
+
+fn ty_toml_severity_ok(value: &str) -> bool {
+    matches!(ty_toml_bare(value), "ignore" | "warn" | "error")
+}
+
+fn ty_toml_inference_ok(value: &str) -> bool {
+    matches!(ty_toml_bare(value), "never" | "always")
+}
+
+fn ty_toml_output_format_ok(value: &str) -> bool {
+    matches!(
+        ty_toml_bare(value),
+        "full" | "concise" | "github" | "gitlab" | "junit" | "sarif"
+    )
+}
+
+fn ty_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "baseline" | "typeshed" => ty_toml_path_ok(value),
+        "respect-type-ignore-comments"
+        | "strict-equality-semantics"
+        | "strict-generic-narrowing"
+        | "exclude-scripts"
+        | "respect-ignore-files"
+        | "error-on-warning" => ty_toml_bool_ok(value),
+        "return-type-inference" => ty_toml_inference_ok(value),
+        "python-version" => ty_toml_python_version_ok(value),
+        "python-platform" => ty_toml_platform_ok(value),
+        "output-format" => ty_toml_output_format_ok(value),
+        "all"
+        | "possibly-unresolved-reference"
+        | "division-by-zero"
+        | "unused-ignore-comment"
+        | "redundant-cast"
+        | "possibly-missing-attribute"
+        | "possibly-missing-import"
+        | "index-out-of-bounds"
+        | "import-not-found" => ty_toml_severity_ok(value),
         _ => false,
     }
 }
@@ -71439,9 +71662,9 @@ mod func_like_line_tests {
         is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
         is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
         is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
+        is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
         is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
         is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
@@ -81166,6 +81389,10 @@ mod func_like_line_tests {
         assert!(is_pyright_toml_decl("[tool.pyright]"));
         assert!(!is_refurb_toml_decl("typeCheckingMode = \"strict\""));
         assert!(is_pyright_toml_decl("typeCheckingMode = \"strict\""));
+        assert!(!is_refurb_toml_decl("[tool.ty]"));
+        assert!(is_ty_toml_decl("[tool.ty]"));
+        assert!(!is_refurb_toml_decl("error-on-warning = false"));
+        assert!(is_ty_toml_decl("error-on-warning = false"));
     }
 
     #[test]
@@ -81247,6 +81474,12 @@ mod func_like_line_tests {
         assert!(is_refurb_toml_decl("[tool.refurb]"));
         assert!(!is_pyright_toml_decl("disable_all = true"));
         assert!(is_refurb_toml_decl("disable_all = true"));
+        assert!(!is_pyright_toml_decl("[tool.ty]"));
+        assert!(is_ty_toml_decl("[tool.ty]"));
+        assert!(!is_pyright_toml_decl("error-on-warning = false"));
+        assert!(is_ty_toml_decl("error-on-warning = false"));
+        assert!(!is_pyright_toml_decl("python-platform = \"linux\""));
+        assert!(is_ty_toml_decl("python-platform = \"linux\""));
         assert!(!is_pyright_toml_decl("[pyupgrade]"));
         assert!(is_pyupgrade_ini_decl("[pyupgrade]"));
         assert!(!is_pyright_toml_decl("[black]"));
@@ -81275,6 +81508,140 @@ mod func_like_line_tests {
         assert!(line_is_func_like("failOnWarnings = true"));
         assert!(line_is_func_like("[tool.pyright]"));
         assert!(line_is_func_like("[tool.basedpyright]"));
+    }
+
+    #[test]
+    fn ty_toml_sections_and_keys_count() {
+        assert!(is_ty_toml_decl("[tool.ty]"));
+        assert!(is_ty_toml_decl("  [tool.ty] # astral"));
+        assert!(is_ty_toml_decl("[tool.ty] ; check"));
+        assert!(is_ty_toml_decl("[tool.ty.rules]"));
+        assert!(is_ty_toml_decl("[tool.ty.analysis]"));
+        assert!(is_ty_toml_decl("[tool.ty.environment]"));
+        assert!(is_ty_toml_decl("[tool.ty.src]"));
+        assert!(is_ty_toml_decl("[tool.ty.terminal]"));
+        assert!(is_ty_toml_decl("[[tool.ty.overrides]]"));
+        assert!(is_ty_toml_decl("[tool.ty.overrides.rules]"));
+        assert!(is_ty_toml_decl("[tool.ty.overrides.analysis]"));
+        assert!(is_ty_toml_decl("baseline = \"ty-baseline.json\""));
+        assert!(is_ty_toml_decl("respect-type-ignore-comments = false"));
+        assert!(is_ty_toml_decl("return-type-inference = \"always\""));
+        assert!(is_ty_toml_decl("return-type-inference = \"never\""));
+        assert!(is_ty_toml_decl("strict-equality-semantics = true"));
+        assert!(is_ty_toml_decl("strict-generic-narrowing = true"));
+        assert!(is_ty_toml_decl("python-version = \"3.12\""));
+        assert!(is_ty_toml_decl("python-version = '3.11'"));
+        assert!(is_ty_toml_decl("python-version = 3.10"));
+        assert!(is_ty_toml_decl("python-platform = \"linux\""));
+        assert!(is_ty_toml_decl("python-platform = \"win32\""));
+        assert!(is_ty_toml_decl("python-platform = \"darwin\""));
+        assert!(is_ty_toml_decl("python-platform = \"android\""));
+        assert!(is_ty_toml_decl("python-platform = \"ios\""));
+        assert!(is_ty_toml_decl("python-platform = \"all\""));
+        assert!(is_ty_toml_decl("typeshed = \"stubs\""));
+        assert!(is_ty_toml_decl("exclude-scripts = true"));
+        assert!(is_ty_toml_decl("respect-ignore-files = false"));
+        assert!(is_ty_toml_decl("error-on-warning = false"));
+        assert!(is_ty_toml_decl("output-format = \"full\""));
+        assert!(is_ty_toml_decl("output-format = \"concise\""));
+        assert!(is_ty_toml_decl("output-format = \"github\""));
+        assert!(is_ty_toml_decl("output-format = \"gitlab\""));
+        assert!(is_ty_toml_decl("output-format = \"junit\""));
+        assert!(is_ty_toml_decl("output-format = \"sarif\""));
+        assert!(is_ty_toml_decl("all = \"error\""));
+        assert!(is_ty_toml_decl("all = \"warn\""));
+        assert!(is_ty_toml_decl("all = \"ignore\""));
+        assert!(is_ty_toml_decl("possibly-unresolved-reference = \"warn\""));
+        assert!(is_ty_toml_decl("division-by-zero = \"ignore\""));
+        assert!(is_ty_toml_decl("unused-ignore-comment = \"warn\""));
+        assert!(is_ty_toml_decl("redundant-cast = \"ignore\""));
+        assert!(is_ty_toml_decl("possibly-missing-attribute = \"error\""));
+        assert!(is_ty_toml_decl("possibly-missing-import = \"error\""));
+        assert!(is_ty_toml_decl("index-out-of-bounds = \"ignore\""));
+        assert!(is_ty_toml_decl("import-not-found = \"warn\""));
+        assert!(is_ty_toml_decl("error-on-warning = false # comment"));
+        assert!(is_ty_toml_decl("all = \"error\"; trailing"));
+
+        assert!(!is_ty_toml_decl("error-on-warning"));
+        assert!(!is_ty_toml_decl("error-on-warning ="));
+        assert!(!is_ty_toml_decl("Error-On-Warning = false"));
+        assert!(!is_ty_toml_decl("# error-on-warning = false"));
+        assert!(!is_ty_toml_decl("error-on-warning=false"));
+        assert!(!is_ty_toml_decl("return-type-inference = \"maybe\""));
+        assert!(!is_ty_toml_decl("output-format = \"grouped\""));
+        assert!(!is_ty_toml_decl("python-platform = \"Linux\""));
+        assert!(!is_ty_toml_decl("python-platform = \"FreeBSD\""));
+        assert!(!is_ty_toml_decl("python_version = \"3.10\""));
+        assert!(is_refurb_toml_decl("python_version = \"3.10\""));
+        assert!(!is_ty_toml_decl("pythonVersion = \"3.12\""));
+        assert!(is_pyright_toml_decl("pythonVersion = \"3.12\""));
+        assert!(!is_ty_toml_decl("pythonPlatform = \"Linux\""));
+        assert!(is_pyright_toml_decl("pythonPlatform = \"Linux\""));
+        assert!(!is_ty_toml_decl("typeCheckingMode = \"strict\""));
+        assert!(is_pyright_toml_decl("typeCheckingMode = \"strict\""));
+        assert!(!is_ty_toml_decl("quiet = true"));
+        assert!(!is_ty_toml_decl("verbose = false"));
+        assert!(!is_ty_toml_decl("color = true"));
+        assert!(!is_ty_toml_decl("python = \".venv\""));
+        assert!(!is_ty_toml_decl("path = \"src\""));
+        assert!(!is_ty_toml_decl("config = \"ty.toml\""));
+        assert!(!is_ty_toml_decl("include = [\"src\"]"));
+        assert!(!is_ty_toml_decl("exclude = [\"generated\"]"));
+        assert!(!is_ty_toml_decl("extra-paths = [\"./lib\"]"));
+        assert!(!is_ty_toml_decl("root = [\"./src\"]"));
+        assert!(!is_ty_toml_decl(
+            "allowed-unresolved-imports = [\"test.**\"]"
+        ));
+        assert!(!is_ty_toml_decl("all = \"maybe\""));
+        assert!(!is_ty_toml_decl("python-version = \"3\""));
+        assert!(!is_ty_toml_decl("python-version = \"3.10.1\""));
+        assert!(!is_ty_toml_decl("[tool.ty"));
+        assert!(!is_ty_toml_decl("[[tool.ty]]"));
+        assert!(!is_ty_toml_decl("[Tool.ty]"));
+        assert!(!is_ty_toml_decl("[ty]"));
+        assert!(!is_ty_toml_decl("[rules]"));
+        assert!(!is_ty_toml_decl("[environment]"));
+        assert!(!is_ty_toml_decl("[src]"));
+        assert!(!is_ty_toml_decl("[terminal]"));
+        assert!(!is_ty_toml_decl("[analysis]"));
+        assert!(!is_ty_toml_decl("[tool.ruff]"));
+        assert!(is_pyproject_toml_decl("[tool.ruff]"));
+        assert!(!is_ty_toml_decl("[tool.pyright]"));
+        assert!(is_pyright_toml_decl("[tool.pyright]"));
+        assert!(!is_ty_toml_decl("[tool.refurb]"));
+        assert!(is_refurb_toml_decl("[tool.refurb]"));
+        assert!(!is_ty_toml_decl("disable_all = true"));
+        assert!(is_refurb_toml_decl("disable_all = true"));
+        assert!(!is_ty_toml_decl("[pyupgrade]"));
+        assert!(is_pyupgrade_ini_decl("[pyupgrade]"));
+        assert!(!is_ty_toml_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_ty_toml_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_ty_toml_decl("[flake8]"));
+        assert!(!is_ty_toml_decl("[metadata]"));
+        assert!(!is_ty_toml_decl("[tox]"));
+        assert!(!is_ty_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_ty_toml_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_ty_toml_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        // `[tool.ty]` also matches the pyproject umbrella; either path lists.
+        assert!(is_pyproject_toml_decl("[tool.ty]"));
+        assert!(is_ty_toml_decl("[tool.ty]"));
+        // Distinctive ty keys still list.
+        assert!(line_is_func_like("error-on-warning = false"));
+        assert!(line_is_func_like("return-type-inference = \"always\""));
+        assert!(line_is_func_like("python-platform = \"linux\""));
+        assert!(line_is_func_like("python-version = \"3.12\""));
+        assert!(line_is_func_like("strict-generic-narrowing = true"));
+        assert!(line_is_func_like(
+            "possibly-unresolved-reference = \"warn\""
+        ));
+        assert!(line_is_func_like("[tool.ty]"));
+        assert!(line_is_func_like("[tool.ty.rules]"));
+        assert!(line_is_func_like("[[tool.ty.overrides]]"));
     }
 
     #[test]
