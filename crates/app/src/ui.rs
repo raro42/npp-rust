@@ -32372,6 +32372,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_dprint_json_decl(s)
             || is_prettier_json_decl(s)
             || is_eslint_json_decl(s)
+            || is_stylelint_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32654,6 +32655,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_dprint_json_decl(s)
         || is_prettier_json_decl(s)
         || is_eslint_json_decl(s)
+        || is_stylelint_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -42239,9 +42241,10 @@ fn prettier_json_string_ok(key: &str, value: &str) -> bool {
 /// missing `:` stay out. Generic `"$schema"` / prettier `"printWidth"` /
 /// `"semi"` / biome `"linter"` / `"formatter"` / `"indentStyle"` /
 /// dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` /
-/// `"files"` / package.json `"scripts"` stay out. Shared array keys
-/// `"plugins"` / `"overrides"` also match prettier / biome when shapes
-/// match. `"extends"` string also matches tsconfig.
+/// `"files"` / package.json `"scripts"` / stylelint `"ignoreFiles"` /
+/// `"customSyntax"` / `"defaultSeverity"` stay out. Shared array keys
+/// `"plugins"` / `"overrides"` also match prettier / biome / stylelint
+/// when shapes match. `"extends"` string also matches tsconfig / stylelint.
 fn is_eslint_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -42368,6 +42371,150 @@ fn eslint_json_string_ok(key: &str, value: &str) -> bool {
         "reportUnusedDisableDirectives" => matches!(value, "error" | "warn" | "off"),
         "extends" | "parser" | "processor" | "ignorePatterns" => {
             // Paths / package names / globs; reject whitespace-only prose.
+            !value.chars().all(|c| c.is_ascii_whitespace())
+        }
+        _ => false,
+    }
+}
+
+/// Stylelint `.stylelintrc` / `.stylelintrc.json` / `stylelint.config.json`
+/// JSON keys: `"extends": "…"` / `"extends": [`, `"plugins": [`,
+/// `"processors": [`, `"rules": {`, `"overrides": [`,
+/// `"ignoreFiles": [` / `"…"`, `"customSyntax": "…"`,
+/// `"defaultSeverity": "warning"` / `"error"`,
+/// `"configurationComment": "…"`, `"ignoreDisables": true`,
+/// `"reportNeedlessDisables": true`, `"reportInvalidScopeDisables": true`,
+/// `"reportDescriptionlessDisables": true`, `"reportUnscopedDisables": true`,
+/// `"allowEmptyInput": true`, `"quietDeprecationWarnings": true`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / eslint `"root"` / `"env"` /
+/// `"parser"` / `"parserOptions"` / `"ignorePatterns"` / `"processor"` /
+/// `"languageOptions"` / prettier `"printWidth"` / `"semi"` / biome
+/// `"linter"` / `"formatter"` / dprint `"includes"` / `"newLineKind"` /
+/// tsconfig `"compilerOptions"` / package.json `"scripts"` stay out.
+/// Shared `"extends"` / `"plugins"` / `"rules"` / `"overrides"` also match
+/// eslint / prettier / biome when shapes match.
+fn is_stylelint_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !stylelint_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    stylelint_json_value_and_tail_ok(key, after_colon)
+}
+
+fn stylelint_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "extends"
+            | "plugins"
+            | "processors"
+            | "rules"
+            | "overrides"
+            | "ignoreFiles"
+            | "customSyntax"
+            | "defaultSeverity"
+            | "configurationComment"
+            | "ignoreDisables"
+            | "reportNeedlessDisables"
+            | "reportInvalidScopeDisables"
+            | "reportDescriptionlessDisables"
+            | "reportUnscopedDisables"
+            | "allowEmptyInput"
+            | "quietDeprecationWarnings"
+    )
+}
+
+fn stylelint_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if key != "rules" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "extends" | "plugins" | "processors" | "overrides" | "ignoreFiles"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !stylelint_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !stylelint_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !stylelint_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn stylelint_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "ignoreDisables"
+            | "reportNeedlessDisables"
+            | "reportInvalidScopeDisables"
+            | "reportDescriptionlessDisables"
+            | "reportUnscopedDisables"
+            | "allowEmptyInput"
+            | "quietDeprecationWarnings"
+    )
+}
+
+fn stylelint_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "extends" | "ignoreFiles" | "customSyntax" | "defaultSeverity" | "configurationComment"
+    )
+}
+
+fn stylelint_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    match key {
+        "defaultSeverity" => matches!(value, "warning" | "error"),
+        "extends" | "ignoreFiles" | "customSyntax" | "configurationComment" => {
             !value.chars().all(|c| c.is_ascii_whitespace())
         }
         _ => false,
@@ -73022,15 +73169,16 @@ mod func_like_line_tests {
         is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
         is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
-        is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
+        is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
+        is_tsconfig_json_decl, is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -83686,6 +83834,120 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""plugins": ["#));
         assert!(is_eslint_json_decl(r#""overrides": ["#));
         assert!(is_prettier_json_decl(r#""overrides": ["#));
+        // Stylelint-only keys stay on stylelint.
+        assert!(!is_eslint_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_eslint_json_decl(r#""customSyntax": "postcss-scss""#));
+        assert!(!is_eslint_json_decl(r#""defaultSeverity": "warning""#));
+        assert!(!is_eslint_json_decl(r#""processors": ["#));
+    }
+
+    #[test]
+    fn stylelint_json_keys_count() {
+        assert!(is_stylelint_json_decl(
+            r#""extends": "stylelint-config-standard""#
+        ));
+        assert!(is_stylelint_json_decl(
+            r#"  "extends": "stylelint-config-standard" // base"#
+        ));
+        assert!(is_stylelint_json_decl(r#""extends": ["#));
+        assert!(is_stylelint_json_decl(r#""extends": [],"#));
+        assert!(is_stylelint_json_decl(r#""plugins": ["#));
+        assert!(is_stylelint_json_decl(r#""plugins": [],"#));
+        assert!(is_stylelint_json_decl(r#""processors": ["#));
+        assert!(is_stylelint_json_decl(r#""rules": {"#));
+        assert!(is_stylelint_json_decl(r#""rules": { // severity"#));
+        assert!(is_stylelint_json_decl(r#""overrides": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": "**/*.js""#));
+        assert!(is_stylelint_json_decl(r#""customSyntax": "postcss-scss""#));
+        assert!(is_stylelint_json_decl(r#""defaultSeverity": "warning""#));
+        assert!(is_stylelint_json_decl(r#""defaultSeverity": "error","#));
+        assert!(is_stylelint_json_decl(
+            r#""configurationComment": "stylelint""#
+        ));
+        assert!(is_stylelint_json_decl(r#""ignoreDisables": true"#));
+        assert!(is_stylelint_json_decl(r#""ignoreDisables": false,"#));
+        assert!(is_stylelint_json_decl(r#""reportNeedlessDisables": true"#));
+        assert!(is_stylelint_json_decl(
+            r#""reportInvalidScopeDisables": true"#
+        ));
+        assert!(is_stylelint_json_decl(
+            r#""reportDescriptionlessDisables": false"#
+        ));
+        assert!(is_stylelint_json_decl(r#""reportUnscopedDisables": true"#));
+        assert!(is_stylelint_json_decl(r#""allowEmptyInput": true"#));
+        assert!(is_stylelint_json_decl(
+            r#""quietDeprecationWarnings": true"#
+        ));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_stylelint_json_decl(r#""extends""#));
+        assert!(!is_stylelint_json_decl(r#""extends":"#));
+        assert!(!is_stylelint_json_decl(r#""extends": {"#));
+        assert!(!is_stylelint_json_decl(r#"extends: ["#));
+        assert!(!is_stylelint_json_decl(r#""Extends": ["#));
+        assert!(!is_stylelint_json_decl(r#""extends": """#));
+        assert!(!is_stylelint_json_decl(r#""plugins": {"#));
+        assert!(!is_stylelint_json_decl(r#""processors": {"#));
+        assert!(!is_stylelint_json_decl(r#""rules": ["#));
+        assert!(!is_stylelint_json_decl(r#""overrides": {"#));
+        assert!(!is_stylelint_json_decl(r#""ignoreFiles": {"#));
+        assert!(!is_stylelint_json_decl(r#""customSyntax": ["#));
+        assert!(!is_stylelint_json_decl(r#""defaultSeverity": "warn""#));
+        assert!(!is_stylelint_json_decl(r#""defaultSeverity": true"#));
+        assert!(!is_stylelint_json_decl(r#""ignoreDisables": "true""#));
+        assert!(!is_stylelint_json_decl(r#""allowEmptyInput": ["#));
+        // Same-line array members are not opening-key lines.
+        assert!(!is_stylelint_json_decl(
+            r#""extends": ["stylelint-config-standard"],"#
+        ));
+        assert!(!is_stylelint_json_decl(
+            r#""plugins": ["stylelint-order"],"#
+        ));
+        assert!(!is_stylelint_json_decl(
+            r#""$schema": "https://json.schemastore.org/stylelintrc""#
+        ));
+        // ESLint / prettier / biome / dprint / neighbouring families stay out.
+        assert!(!is_stylelint_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_stylelint_json_decl(r#""env": {"#));
+        assert!(!is_stylelint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_stylelint_json_decl(r#""parserOptions": {"#));
+        assert!(!is_stylelint_json_decl(r#""ignorePatterns": ["#));
+        assert!(!is_stylelint_json_decl(r#""processor": "vue/.vue""#));
+        assert!(!is_stylelint_json_decl(r#""languageOptions": {"#));
+        assert!(!is_stylelint_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_stylelint_json_decl(r#""semi": true"#));
+        assert!(!is_stylelint_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_stylelint_json_decl(r#""formatter": {"#));
+        assert!(!is_stylelint_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_stylelint_json_decl(r#""includes": ["#));
+        assert!(!is_stylelint_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_stylelint_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists stylelint keys.
+        assert!(line_is_func_like(r#""ignoreFiles": ["#));
+        assert!(line_is_func_like(r#""customSyntax": "postcss-scss""#));
+        assert!(line_is_func_like(r#""defaultSeverity": "warning""#));
+        assert!(line_is_func_like(r#""processors": ["#));
+        assert!(line_is_func_like(r#""ignoreDisables": true"#));
+        assert!(line_is_func_like(r#""reportNeedlessDisables": true"#));
+        assert!(line_is_func_like(r#""allowEmptyInput": true"#));
+        // Shared extends/plugins/rules/overrides: stylelint + eslint both accept.
+        assert!(is_stylelint_json_decl(r#""extends": ["#));
+        assert!(is_eslint_json_decl(r#""extends": ["#));
+        assert!(is_stylelint_json_decl(r#""plugins": ["#));
+        assert!(is_eslint_json_decl(r#""plugins": ["#));
+        assert!(is_stylelint_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(is_stylelint_json_decl(r#""overrides": ["#));
+        assert!(is_eslint_json_decl(r#""overrides": ["#));
     }
 
     #[test]

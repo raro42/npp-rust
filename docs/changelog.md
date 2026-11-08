@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.705] — 2026-11-08
+
+View:
+
+- **Function List** lists Stylelint `.stylelintrc` / `.stylelintrc.json` / `stylelint.config.json` JSON keys: `"extends": "…"` / `"extends": [`, `"plugins": [`, `"processors": [`, `"rules": {`, `"overrides": [`, `"ignoreFiles": [` / `"…"`, `"customSyntax": "…"`, `"defaultSeverity": "warning"` / `"error"`, `"configurationComment": "…"`, `"ignoreDisables": true`, `"reportNeedlessDisables": true`, `"reportInvalidScopeDisables": true`, `"reportDescriptionlessDisables": true`, `"reportUnscopedDisables": true`, `"allowEmptyInput": true`, `"quietDeprecationWarnings": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / eslint `"root"` / `"env"` / `"parser"` / `"parserOptions"` / `"ignorePatterns"` / `"processor"` / `"languageOptions"` / prettier `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` / dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out. Shared `"extends"` / `"plugins"` / `"rules"` / `"overrides"` also match eslint / prettier when shapes match.
+
 ## [0.3.704] — 2026-11-08
 
 View:
