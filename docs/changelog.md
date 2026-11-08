@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.713] — 2026-11-09
+
+View:
+
+- **Function List** lists Rush `rush.json` JSON keys: `"rushVersion": "5.147.1"`, `"pnpmVersion": "8.15.0"` / `"npmVersion"` / `"yarnVersion"`, `"projects": [`, `"repository": {`, `"gitPolicy": {`, `"approvedPackagesPolicy": {`, `"eventHooks": {`, `"npmOptions": {`, `"pnpmOptions": {`, `"yarnOptions": {`, `"variants": [`, `"allowedProjectTags": [`, `"nodeSupportedVersionRange": ">=18"`, `"nodeSupportedVersionInstructions": "…"`, `"projectFolderMinDepth": 1`, `"projectFolderMaxDepth": 2`, `"ensureConsistentVersions": true`, `"telemetryEnabled": true`, `"hotfixChangeEnabled": true`, `"suppressNodeLtsWarning": true`, `"suppressRushIsPublicVersionCheck": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / PostCSS `"plugins": {` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out.
+
 ## [0.3.712] — 2026-11-09
 
 View:

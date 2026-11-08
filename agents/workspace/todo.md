@@ -1084,3 +1084,5 @@
 009 keep: Function List Babel .babelrc presets/plugins/env/sourceType/parserOpts/rootMode (v0.3.706)
 
 009 keep: Function List SWC .swcrc jsc/module/env/minify/sourceMaps/inlineSourcesContent/isModule (v0.3.707)
+
+009 keep: Function List Rush rush.json rushVersion/pnpmVersion/npmVersion/yarnVersion/projects/repository/gitPolicy/approvedPackagesPolicy/eventHooks/npmOptions/pnpmOptions/yarnOptions/variants/allowedProjectTags/nodeSupportedVersionRange/ensureConsistentVersions (v0.3.713)
