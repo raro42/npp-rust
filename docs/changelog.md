@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.693] — 2026-11-08
+
+View:
+
+- **Function List** lists flynt `setup.cfg` / `tox.ini` / `flynt.toml` `[flynt]` sections and fields: `[flynt]`, `aggressive = true` / `false`, `dry-run = true` / `dry_run`, `stdout = true` / `false`, `string = true` / `0`, `notebook = true` / `yes`, `report = true` / `false`, `fail-on-change = true` / `fail_on_change`, `no-multiline = true` / `no_multiline`, `line-length = 88` / `line_length = 100`, `transform-percent = true` / `transform_percent` / `no-transform-percent = false` / `no_transform_percent`, `transform-format = true` / `transform_format` / `no-transform-format = false` / `no_transform_format`, `transform-concats = true` / `transform_concats`, `transform-joins = true` / `transform_joins`. Exact kebab-case or snake_case keys. INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. Bare `verbose` / `quiet` / `exclude` / `config` / `src` stay out. JSON/TOML `exclude = ["…"]` arrays stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama / radon / autoflake / pytype / unimport / pycln / tox / setuptools / Cargo / Pipfile / pyproject `[tool.flynt]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.692] — 2026-11-08
 
 View:

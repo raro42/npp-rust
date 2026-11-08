@@ -32413,6 +32413,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pytype_ini_decl(s)
             || is_unimport_ini_decl(s)
             || is_pycln_ini_decl(s)
+            || is_flynt_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32683,6 +32684,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pytype_ini_decl(s)
         || is_unimport_ini_decl(s)
         || is_pycln_ini_decl(s)
+        || is_flynt_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -49917,8 +49919,8 @@ fn unimport_ini_value_ok(key: &str, value: &str) -> bool {
 /// check-wheel-contents / Twine `.pypirc` / Commitizen /
 /// python-semantic-release / scriv / import-linter / darglint /
 /// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
-/// radon / autoflake / pytype / unimport / tox / setuptools / Cargo /
-/// Pipfile / pyproject `[tool.pycln]` tables / Desktop Entry /
+/// radon / autoflake / pytype / unimport / flynt / tox / setuptools /
+/// Cargo / Pipfile / pyproject `[tool.pycln]` tables / Desktop Entry /
 /// pip.conf stay out.
 fn is_pycln_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -50128,6 +50130,156 @@ fn pycln_ini_value_ok(key: &str, value: &str) -> bool {
         | "silence"
         | "check"
         | "diff" => pycln_ini_bool_ok(value),
+        _ => false,
+    }
+}
+
+/// flynt `setup.cfg` / `tox.ini` / `flynt.toml` `[flynt]` sections and
+/// distinctive keys: `[flynt]`, `aggressive = true` / `false`,
+/// `dry-run = true` / `dry_run`, `stdout = true` / `false`,
+/// `string = true` / `0`, `notebook = true` / `yes`,
+/// `report = true` / `false`, `fail-on-change = true` /
+/// `fail_on_change`, `no-multiline = true` / `no_multiline`,
+/// `line-length = 88` / `line_length = 100`,
+/// `transform-percent = true` / `transform_percent` /
+/// `no-transform-percent = false` / `no_transform_percent`,
+/// `transform-format = true` / `transform_format` /
+/// `no-transform-format = false` / `no_transform_format`,
+/// `transform-concats = true` / `transform_concats`,
+/// `transform-joins = true` / `transform_joins`. Exact kebab-case or
+/// snake_case keys. INI `key = value` or `key=value`. Optional quotes
+/// on values. Optional `#` / `;` comment. Bare `verbose` / `quiet` /
+/// `exclude` / `config` / `src` stay out. JSON/TOML arrays
+/// (`exclude = ["…"]`) stay out. flake8 / mypy / pytest / isort /
+/// coverage / pylint / pycodestyle / autopep8 / black / yapf /
+/// pydocstyle / bandit / codespell / docformatter / vulture /
+/// interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
+/// radon / autoflake / pytype / unimport / pycln / tox / setuptools /
+/// Cargo / Pipfile / pyproject `[tool.flynt]` tables / Desktop Entry /
+/// pip.conf stay out.
+fn is_flynt_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return flynt_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !flynt_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    flynt_ini_value_ok(key, value)
+}
+
+fn flynt_ini_section_ok(header: &str) -> bool {
+    header == "flynt"
+}
+
+fn flynt_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "aggressive"
+            | "dry-run"
+            | "dry_run"
+            | "stdout"
+            | "string"
+            | "notebook"
+            | "report"
+            | "fail-on-change"
+            | "fail_on_change"
+            | "no-multiline"
+            | "no_multiline"
+            | "line-length"
+            | "line_length"
+            | "transform-percent"
+            | "transform_percent"
+            | "no-transform-percent"
+            | "no_transform_percent"
+            | "transform-format"
+            | "transform_format"
+            | "no-transform-format"
+            | "no_transform_format"
+            | "transform-concats"
+            | "transform_concats"
+            | "transform-joins"
+            | "transform_joins"
+    )
+}
+
+fn flynt_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn flynt_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        flynt_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn flynt_ini_int_ok(value: &str) -> bool {
+    let bare = flynt_ini_bare(value);
+    if bare.is_empty() || bare.len() > 8 {
+        return false;
+    }
+    bare.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn flynt_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "line-length" | "line_length" => flynt_ini_int_ok(value),
+        "aggressive"
+        | "dry-run"
+        | "dry_run"
+        | "stdout"
+        | "string"
+        | "notebook"
+        | "report"
+        | "fail-on-change"
+        | "fail_on_change"
+        | "no-multiline"
+        | "no_multiline"
+        | "transform-percent"
+        | "transform_percent"
+        | "no-transform-percent"
+        | "no_transform_percent"
+        | "transform-format"
+        | "transform_format"
+        | "no-transform-format"
+        | "no_transform_format"
+        | "transform-concats"
+        | "transform_concats"
+        | "transform-joins"
+        | "transform_joins" => flynt_ini_bool_ok(value),
         _ => false,
     }
 }
@@ -70799,37 +70951,38 @@ mod func_like_line_tests {
         is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl,
         is_docformatter_ini_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
         is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl,
-        is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
-        is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
-        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
-        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl,
-        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
-        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
-        is_pytest_ini_decl, is_pytype_ini_decl, is_radon_ini_decl, is_railway_toml_decl,
-        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
+        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
+        is_importlinter_ini_decl, is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl,
+        is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl,
+        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
+        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl, is_premake_decl,
+        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
+        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
+        is_pyproject_toml_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_radon_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
+        is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
+        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl,
+        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -80270,6 +80423,10 @@ mod func_like_line_tests {
         assert!(is_pip_conf_decl("[global]"));
         assert!(!is_pycln_ini_decl("report_level = WARNING"));
         assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        assert!(!is_pycln_ini_decl("[flynt]"));
+        assert!(is_flynt_ini_decl("[flynt]"));
+        assert!(!is_pycln_ini_decl("transform-concats = true"));
+        assert!(is_flynt_ini_decl("transform-concats = true"));
         // Shared check/diff keys also match unimport; either path lists.
         assert!(is_unimport_ini_decl("check = true"));
         assert!(is_pycln_ini_decl("check = true"));
@@ -80283,6 +80440,96 @@ mod func_like_line_tests {
         assert!(line_is_func_like("skip-imports = os,sys"));
         assert!(line_is_func_like("extend_exclude = legacy/"));
         assert!(line_is_func_like("[pycln]"));
+    }
+
+    #[test]
+    fn flynt_ini_sections_and_keys_count() {
+        assert!(is_flynt_ini_decl("[flynt]"));
+        assert!(is_flynt_ini_decl("  [flynt] # f-strings"));
+        assert!(is_flynt_ini_decl("[flynt] ; convert"));
+        assert!(is_flynt_ini_decl("aggressive = true"));
+        assert!(is_flynt_ini_decl("aggressive=false"));
+        assert!(is_flynt_ini_decl("dry-run = true"));
+        assert!(is_flynt_ini_decl("dry_run=True"));
+        assert!(is_flynt_ini_decl("stdout = true"));
+        assert!(is_flynt_ini_decl("stdout=0"));
+        assert!(is_flynt_ini_decl("string = true"));
+        assert!(is_flynt_ini_decl("string=yes"));
+        assert!(is_flynt_ini_decl("notebook = true"));
+        assert!(is_flynt_ini_decl("notebook=false"));
+        assert!(is_flynt_ini_decl("report = true"));
+        assert!(is_flynt_ini_decl("report=off"));
+        assert!(is_flynt_ini_decl("fail-on-change = true"));
+        assert!(is_flynt_ini_decl("fail_on_change=1"));
+        assert!(is_flynt_ini_decl("no-multiline = true"));
+        assert!(is_flynt_ini_decl("no_multiline=false"));
+        assert!(is_flynt_ini_decl("line-length = 88"));
+        assert!(is_flynt_ini_decl("line_length=100"));
+        assert!(is_flynt_ini_decl("transform-percent = true"));
+        assert!(is_flynt_ini_decl("transform_percent=False"));
+        assert!(is_flynt_ini_decl("no-transform-percent = false"));
+        assert!(is_flynt_ini_decl("no_transform_percent=true"));
+        assert!(is_flynt_ini_decl("transform-format = true"));
+        assert!(is_flynt_ini_decl("transform_format=0"));
+        assert!(is_flynt_ini_decl("no-transform-format = false"));
+        assert!(is_flynt_ini_decl("no_transform_format=yes"));
+        assert!(is_flynt_ini_decl("transform-concats = true"));
+        assert!(is_flynt_ini_decl("transform_concats=True"));
+        assert!(is_flynt_ini_decl("transform-joins = true"));
+        assert!(is_flynt_ini_decl("transform_joins=false"));
+        assert!(is_flynt_ini_decl("aggressive = true # comment"));
+        assert!(is_flynt_ini_decl("line-length=88; trailing"));
+
+        assert!(!is_flynt_ini_decl("aggressive"));
+        assert!(!is_flynt_ini_decl("aggressive ="));
+        assert!(!is_flynt_ini_decl("Aggressive = true"));
+        assert!(!is_flynt_ini_decl("# aggressive = true"));
+        assert!(!is_flynt_ini_decl("aggressive = maybe"));
+        assert!(!is_flynt_ini_decl("verbose = true"));
+        assert!(!is_flynt_ini_decl("quiet = true"));
+        assert!(!is_flynt_ini_decl("exclude = tests"));
+        assert!(!is_flynt_ini_decl("config = flynt.toml"));
+        assert!(!is_flynt_ini_decl("src = ."));
+        assert!(!is_flynt_ini_decl("line-length ="));
+        assert!(!is_flynt_ini_decl("line-length = eighty"));
+        assert!(!is_flynt_ini_decl("exclude = [\"venv\"]"));
+        assert!(!is_flynt_ini_decl("[Flynt]"));
+        assert!(!is_flynt_ini_decl("[[flynt]]"));
+        assert!(!is_flynt_ini_decl("[flynt"));
+        assert!(!is_flynt_ini_decl("[tool.flynt]"));
+        assert!(!is_flynt_ini_decl("[pycln]"));
+        assert!(is_pycln_ini_decl("[pycln]"));
+        assert!(!is_flynt_ini_decl("expand-stars = true"));
+        assert!(is_pycln_ini_decl("expand-stars = true"));
+        assert!(!is_flynt_ini_decl("[unimport]"));
+        assert!(is_unimport_ini_decl("[unimport]"));
+        assert!(!is_flynt_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        // Shared line-length also matches black; either path lists.
+        assert!(is_black_ini_decl("line-length = 88"));
+        assert!(is_flynt_ini_decl("line-length = 88"));
+        assert!(!is_flynt_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_flynt_ini_decl("[flake8]"));
+        assert!(!is_flynt_ini_decl("[metadata]"));
+        assert!(!is_flynt_ini_decl("[tox]"));
+        assert!(!is_flynt_ini_decl("[project]"));
+        assert!(!is_flynt_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_flynt_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_flynt_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_flynt_ini_decl("report_level = WARNING"));
+        assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        // Distinctive flynt keys still list.
+        assert!(line_is_func_like("aggressive = true"));
+        assert!(line_is_func_like("transform-concats = true"));
+        assert!(line_is_func_like("transform_joins = true"));
+        assert!(line_is_func_like("no-multiline = true"));
+        assert!(line_is_func_like("fail-on-change = true"));
+        assert!(line_is_func_like("dry_run = true"));
+        assert!(line_is_func_like("[flynt]"));
     }
 
     #[test]
