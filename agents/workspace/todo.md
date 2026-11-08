@@ -1,3 +1,5 @@
+009 keep: Function List ESLint .eslintrc root/env/extends/parser/parserOptions/plugins/rules/overrides/ignorePatterns/languageOptions (v0.3.704)
+
 009 keep: Function List Prettier .prettierrc printWidth/tabWidth/semi/singleQuote/quoteProps/trailingComma/arrowParens/endOfLine/plugins (v0.3.703)
 
 009 keep: Function List dprint.json typescript/json/markdown/toml/malva/includes/excludes/incremental/newLineKind/useTabs (v0.3.702)

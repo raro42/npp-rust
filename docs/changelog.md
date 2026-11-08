@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.704] — 2026-11-08
+
+View:
+
+- **Function List** lists ESLint `.eslintrc` / `.eslintrc.json` / `eslint.config.json` JSON keys: `"root": true`, `"env": {`, `"extends": "…"` / `"extends": [`, `"parser": "…"`, `"parserOptions": {`, `"plugins": [`, `"rules": {`, `"overrides": [`, `"globals": {`, `"ignorePatterns": [` / `"…"`, `"settings": {`, `"processor": "…"`, `"noInlineConfig": true`, `"reportUnusedDisableDirectives": true` / `"error"` / `"warn"` / `"off"`, `"ignores": [`, `"languageOptions": {`, `"linterOptions": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / prettier `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` / `"indentStyle"` / dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` / `"files"` / package.json `"scripts"` stay out. Shared `"plugins"` / `"overrides"` arrays also match prettier when shapes match. `"extends"` string also matches tsconfig.
+
 ## [0.3.703] — 2026-11-08
 
 View:

@@ -32371,6 +32371,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_biome_json_decl(s)
             || is_dprint_json_decl(s)
             || is_prettier_json_decl(s)
+            || is_eslint_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32652,6 +32653,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_biome_json_decl(s)
         || is_dprint_json_decl(s)
         || is_prettier_json_decl(s)
+        || is_eslint_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -42059,8 +42061,10 @@ fn dprint_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"indentStyle"` / `"lineWidth"` / `"trailingCommas"` (plural) /
 /// `"arrowParentheses"` / `"quoteProperties"` (camel) stay on biome.
 /// dprint `"indentWidth"` / `"newLineKind"` / `"includes"` stay on
-/// dprint. package.json / composer / tsconfig / Pyre / pyrightconfig
-/// / biome / dprint structural keys stay out where shapes differ.
+/// dprint. ESLint `"root"` / `"env"` / `"parserOptions"` /
+/// `"ignorePatterns"` / `"languageOptions"` stay on eslint.
+/// package.json / composer / tsconfig / Pyre / pyrightconfig
+/// / biome / dprint / eslint structural keys stay out where shapes differ.
 fn is_prettier_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -42219,6 +42223,153 @@ fn prettier_json_string_ok(key: &str, value: &str) -> bool {
         "embeddedLanguageFormatting" => matches!(value, "auto" | "off"),
         "objectWrap" => matches!(value, "preserve" | "collapse"),
         "experimentalOperatorPosition" => matches!(value, "start" | "end"),
+        _ => false,
+    }
+}
+
+/// ESLint `.eslintrc` / `.eslintrc.json` / `eslint.config.json` JSON keys:
+/// `"root": true`, `"env": {`, `"extends": "…"` / `"extends": [`,
+/// `"parser": "…"`, `"parserOptions": {`, `"plugins": [`,
+/// `"rules": {`, `"overrides": [`, `"globals": {`,
+/// `"ignorePatterns": [`, `"ignorePatterns": "…"`, `"settings": {`,
+/// `"processor": "…"`, `"noInlineConfig": true`,
+/// `"reportUnusedDisableDirectives": true` / `"error"` / `"warn"` / `"off"`,
+/// `"ignores": [`, `"languageOptions": {`, `"linterOptions": {`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / prettier `"printWidth"` /
+/// `"semi"` / biome `"linter"` / `"formatter"` / `"indentStyle"` /
+/// dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` /
+/// `"files"` / package.json `"scripts"` stay out. Shared array keys
+/// `"plugins"` / `"overrides"` also match prettier / biome when shapes
+/// match. `"extends"` string also matches tsconfig.
+fn is_eslint_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !eslint_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    eslint_json_value_and_tail_ok(key, after_colon)
+}
+
+fn eslint_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "root"
+            | "env"
+            | "extends"
+            | "parser"
+            | "parserOptions"
+            | "plugins"
+            | "rules"
+            | "overrides"
+            | "globals"
+            | "ignorePatterns"
+            | "settings"
+            | "processor"
+            | "noInlineConfig"
+            | "reportUnusedDisableDirectives"
+            | "ignores"
+            | "languageOptions"
+            | "linterOptions"
+    )
+}
+
+fn eslint_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "env"
+                    | "parserOptions"
+                    | "rules"
+                    | "globals"
+                    | "settings"
+                    | "languageOptions"
+                    | "linterOptions"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "extends" | "plugins" | "overrides" | "ignorePatterns" | "ignores"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !eslint_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !eslint_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !eslint_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn eslint_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "root" | "noInlineConfig" | "reportUnusedDisableDirectives"
+    )
+}
+
+fn eslint_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "extends" | "parser" | "processor" | "ignorePatterns" | "reportUnusedDisableDirectives"
+    )
+}
+
+fn eslint_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    match key {
+        "reportUnusedDisableDirectives" => matches!(value, "error" | "warn" | "off"),
+        "extends" | "parser" | "processor" | "ignorePatterns" => {
+            // Paths / package names / globs; reject whitespace-only prose.
+            !value.chars().all(|c| c.is_ascii_whitespace())
+        }
         _ => false,
     }
 }
@@ -72845,31 +72996,31 @@ mod func_like_line_tests {
         is_darglint_ini_decl, is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl,
         is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl,
         is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
-        is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl,
-        is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl,
-        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
-        is_haproxy_decl, is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl,
-        is_hypothesis_ini_decl, is_importlinter_ini_decl, is_interrogate_ini_decl,
-        is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
-        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
-        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
-        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl,
-        is_poetry_toml_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
-        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
-        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
-        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
-        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
-        is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
-        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_editorconfig_decl, is_eslint_json_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
+        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl,
+        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
+        is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
+        is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
+        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_prettier_json_decl,
+        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
+        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
+        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
+        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
+        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl,
+        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
+        is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
+        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
         is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
@@ -83429,6 +83580,112 @@ mod func_like_line_tests {
         // Singular trailingComma: prettier vs plural biome trailingCommas.
         assert!(is_prettier_json_decl(r#""trailingComma": "all""#));
         assert!(is_biome_json_decl(r#""trailingCommas": "all""#));
+    }
+
+    #[test]
+    fn eslint_json_keys_count() {
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#"  "root": false // project"#));
+        assert!(is_eslint_json_decl(r#""env": {"#));
+        assert!(is_eslint_json_decl(r#""env": { // browser"#));
+        assert!(is_eslint_json_decl(r#""extends": "eslint:recommended""#));
+        assert!(is_eslint_json_decl(r#""extends": ["#));
+        assert!(is_eslint_json_decl(r#""extends": [],"#));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(r#""parserOptions": {"#));
+        assert!(is_eslint_json_decl(r#""plugins": ["#));
+        assert!(is_eslint_json_decl(r#""plugins": [],"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""overrides": ["#));
+        assert!(is_eslint_json_decl(r#""globals": {"#));
+        assert!(is_eslint_json_decl(r#""ignorePatterns": ["#));
+        assert!(is_eslint_json_decl(r#""ignorePatterns": "dist/**""#));
+        assert!(is_eslint_json_decl(r#""settings": {"#));
+        assert!(is_eslint_json_decl(r#""processor": "vue/.vue""#));
+        assert!(is_eslint_json_decl(r#""noInlineConfig": true"#));
+        assert!(is_eslint_json_decl(r#""noInlineConfig": false,"#));
+        assert!(is_eslint_json_decl(
+            r#""reportUnusedDisableDirectives": true"#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""reportUnusedDisableDirectives": "error""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""reportUnusedDisableDirectives": "warn""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""reportUnusedDisableDirectives": "off","#
+        ));
+        assert!(is_eslint_json_decl(r#""ignores": ["#));
+        assert!(is_eslint_json_decl(r#""languageOptions": {"#));
+        assert!(is_eslint_json_decl(r#""linterOptions": {"#));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_eslint_json_decl(r#""root""#));
+        assert!(!is_eslint_json_decl(r#""root":"#));
+        assert!(!is_eslint_json_decl(r#""root": ["#));
+        assert!(!is_eslint_json_decl(r#"root: true"#));
+        assert!(!is_eslint_json_decl(r#""Root": true"#));
+        assert!(!is_eslint_json_decl(r#""env": ["#));
+        assert!(!is_eslint_json_decl(r#""env": true"#));
+        assert!(!is_eslint_json_decl(r#""extends": {"#));
+        assert!(!is_eslint_json_decl(r#""extends": """#));
+        assert!(!is_eslint_json_decl(r#""parser": {"#));
+        assert!(!is_eslint_json_decl(r#""parserOptions": ["#));
+        assert!(!is_eslint_json_decl(r#""plugins": {"#));
+        assert!(!is_eslint_json_decl(r#""rules": ["#));
+        assert!(!is_eslint_json_decl(r#""overrides": {"#));
+        assert!(!is_eslint_json_decl(r#""globals": ["#));
+        assert!(!is_eslint_json_decl(r#""ignorePatterns": {"#));
+        assert!(!is_eslint_json_decl(r#""settings": ["#));
+        assert!(!is_eslint_json_decl(r#""processor": ["#));
+        assert!(!is_eslint_json_decl(r#""noInlineConfig": "true""#));
+        assert!(!is_eslint_json_decl(
+            r#""reportUnusedDisableDirectives": "on""#
+        ));
+        assert!(!is_eslint_json_decl(r#""languageOptions": ["#));
+        assert!(!is_eslint_json_decl(r#""linterOptions": ["#));
+        assert!(!is_eslint_json_decl(r#""ignores": {"#));
+        // Same-line array members are not opening-key lines.
+        assert!(!is_eslint_json_decl(
+            r#""extends": ["eslint:recommended"],"#
+        ));
+        assert!(!is_eslint_json_decl(r#""plugins": ["react"],"#));
+        assert!(!is_eslint_json_decl(
+            r#""$schema": "https://json.schemastore.org/eslintrc""#
+        ));
+        // Prettier / biome / dprint / neighbouring families stay on their paths.
+        assert!(!is_eslint_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_eslint_json_decl(r#""semi": true"#));
+        assert!(!is_eslint_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_eslint_json_decl(r#""formatter": {"#));
+        assert!(!is_eslint_json_decl(r#""indentStyle": "space""#));
+        assert!(!is_eslint_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_eslint_json_decl(r#""includes": ["#));
+        assert!(!is_eslint_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_eslint_json_decl(r#""files": ["#));
+        assert!(is_tsconfig_json_decl(r#""files": ["#));
+        assert!(!is_eslint_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists eslint keys.
+        assert!(line_is_func_like(r#""root": true"#));
+        assert!(line_is_func_like(r#""env": {"#));
+        assert!(line_is_func_like(r#""extends": "eslint:recommended""#));
+        assert!(line_is_func_like(r#""parserOptions": {"#));
+        assert!(line_is_func_like(r#""rules": {"#));
+        assert!(line_is_func_like(r#""ignorePatterns": ["#));
+        assert!(line_is_func_like(r#""languageOptions": {"#));
+        assert!(line_is_func_like(r#""linterOptions": {"#));
+        // Shared plugins/overrides arrays: eslint + prettier both accept.
+        assert!(is_eslint_json_decl(r#""plugins": ["#));
+        assert!(is_prettier_json_decl(r#""plugins": ["#));
+        assert!(is_eslint_json_decl(r#""overrides": ["#));
+        assert!(is_prettier_json_decl(r#""overrides": ["#));
     }
 
     #[test]
