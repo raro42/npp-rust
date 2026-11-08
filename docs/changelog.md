@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.707] — 2026-11-08
+
+View:
+
+- **Function List** lists SWC `.swcrc` / `.swcrc.json` / `swc.config.json` JSON keys: `"jsc": {`, `"module": {`, `"env": {`, `"minify": true`, `"sourceMaps": true` / `"inline"`, `"inlineSourcesContent": true`, `"isModule": true` / `"unknown"`, `"sourceRoot": "…"`, `"test": [` / `"…"`, `"exclude": [` / `"…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / babel `"presets"` / `"parserOpts"` / `"rootMode"` / `"passPerPreset"` / eslint `"root"` / `"parser"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` / dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` / `"module": "ESNext"` (string) / package.json `"scripts"` stay out. Shared `"env"` / `"sourceMaps"` / `"exclude"` also match babel / eslint / tsconfig when shapes match.
+
 ## [0.3.706] — 2026-11-08
 
 View:

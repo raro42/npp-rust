@@ -1072,3 +1072,5 @@
 009 keep: Function List pyrightconfig.json include/exclude/typeCheckingMode/pythonVersion/report* (v0.3.699)
 
 009 keep: Function List Babel .babelrc presets/plugins/env/sourceType/parserOpts/rootMode (v0.3.706)
+
+009 keep: Function List SWC .swcrc jsc/module/env/minify/sourceMaps/inlineSourcesContent/isModule (v0.3.707)

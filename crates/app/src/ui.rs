@@ -32374,6 +32374,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_eslint_json_decl(s)
             || is_stylelint_json_decl(s)
             || is_babel_json_decl(s)
+            || is_swc_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32658,6 +32659,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_eslint_json_decl(s)
         || is_stylelint_json_decl(s)
         || is_babel_json_decl(s)
+        || is_swc_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -42540,9 +42542,10 @@ fn stylelint_json_string_ok(key: &str, value: &str) -> bool {
 /// `"ignoreFiles"` / `"customSyntax"` / `"processors"` / prettier
 /// `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` / dprint
 /// `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` /
-/// package.json `"scripts"` stay out. Shared `"plugins"` / `"overrides"` /
-/// `"extends"` / `"env"` also match eslint / prettier / stylelint when
-/// shapes match.
+/// package.json `"scripts"` / SWC `"jsc"` / `"inlineSourcesContent"` /
+/// `"isModule"` / `"minify"` stay out. Shared `"plugins"` / `"overrides"` /
+/// `"extends"` / `"env"` / `"sourceMaps"` also match eslint / prettier /
+/// stylelint / SWC when shapes match.
 fn is_babel_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -42680,6 +42683,130 @@ fn babel_json_string_ok(key: &str, value: &str) -> bool {
         "extends" | "ignore" | "only" | "browserslistEnv" | "browserslistConfigFile" => {
             !value.chars().all(|c| c.is_ascii_whitespace())
         }
+        _ => false,
+    }
+}
+
+/// SWC `.swcrc` / `.swcrc.json` / `swc.config.json` JSON keys:
+/// `"jsc": {`, `"module": {`, `"env": {`, `"minify": true`,
+/// `"sourceMaps": true` / `"inline"`, `"inlineSourcesContent": true`,
+/// `"isModule": true` / `"unknown"`, `"sourceRoot": "…"`,
+/// `"test": [` / `"…"`, `"exclude": [` / `"…"`. Optional trailing `,` and
+/// `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"$schema"` / babel `"presets"` / `"parserOpts"` / `"rootMode"` /
+/// `"passPerPreset"` / eslint `"root"` / `"parser"` / `"rules"` /
+/// stylelint `"ignoreFiles"` / prettier `"printWidth"` / `"semi"` /
+/// biome `"linter"` / `"formatter"` / dprint `"includes"` / `"newLineKind"` /
+/// tsconfig `"compilerOptions"` / `"module": "ESNext"` (string) /
+/// package.json `"scripts"` stay out. Shared `"env"` / `"sourceMaps"` /
+/// `"exclude"` also match babel / eslint / tsconfig when shapes match.
+fn is_swc_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !swc_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    swc_json_value_and_tail_ok(key, after_colon)
+}
+
+fn swc_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "jsc"
+            | "module"
+            | "env"
+            | "minify"
+            | "sourceMaps"
+            | "inlineSourcesContent"
+            | "isModule"
+            | "sourceRoot"
+            | "test"
+            | "exclude"
+    )
+}
+
+fn swc_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "jsc" | "module" | "env") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "test" | "exclude") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !swc_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !swc_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !swc_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn swc_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "minify" | "sourceMaps" | "inlineSourcesContent" | "isModule"
+    )
+}
+
+fn swc_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "sourceMaps" | "isModule" | "sourceRoot" | "test" | "exclude"
+    )
+}
+
+fn swc_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    match key {
+        "sourceMaps" => value == "inline",
+        "isModule" => value == "unknown",
+        "sourceRoot" | "test" | "exclude" => !value.chars().all(|c| c.is_ascii_whitespace()),
         _ => false,
     }
 }
@@ -73333,15 +73460,15 @@ mod func_like_line_tests {
         is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_tsconfig_json_decl, is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        line_is_func_like,
+        is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
+        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
+        is_trunk_toml_decl, is_tsconfig_json_decl, is_ty_toml_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl,
+        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -84010,6 +84137,12 @@ mod func_like_line_tests {
         assert!(!is_eslint_json_decl(r#""parserOpts": {"#));
         assert!(!is_eslint_json_decl(r#""rootMode": "upward""#));
         assert!(!is_eslint_json_decl(r#""passPerPreset": true"#));
+        // SWC-only keys stay on swc.
+        assert!(!is_eslint_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_eslint_json_decl(r#""inlineSourcesContent": true"#));
+        assert!(!is_eslint_json_decl(r#""isModule": "unknown""#));
+        assert!(!is_eslint_json_decl(r#""minify": true"#));
     }
 
     #[test]
@@ -84124,6 +84257,12 @@ mod func_like_line_tests {
         assert!(!is_stylelint_json_decl(r#""sourceType": "module""#));
         assert!(!is_stylelint_json_decl(r#""parserOpts": {"#));
         assert!(!is_stylelint_json_decl(r#""rootMode": "upward""#));
+        // SWC-only keys stay on swc.
+        assert!(!is_stylelint_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_stylelint_json_decl(r#""inlineSourcesContent": true"#));
+        assert!(!is_stylelint_json_decl(r#""isModule": "unknown""#));
+        assert!(!is_stylelint_json_decl(r#""minify": true"#));
     }
 
     #[test]
@@ -84240,6 +84379,116 @@ mod func_like_line_tests {
         assert!(is_eslint_json_decl(r#""env": {"#));
         assert!(is_babel_json_decl(r#""extends": "./base.json""#));
         assert!(is_eslint_json_decl(r#""extends": "eslint:recommended""#));
+        // SWC-only keys stay on swc.
+        assert!(!is_babel_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_babel_json_decl(r#""inlineSourcesContent": true"#));
+        assert!(!is_babel_json_decl(r#""isModule": "unknown""#));
+        assert!(!is_babel_json_decl(r#""minify": true"#));
+        assert!(!is_babel_json_decl(r#""module": {"#));
+        assert!(is_swc_json_decl(r#""module": {"#));
+        // Shared sourceMaps bool / inline: babel + swc both accept.
+        assert!(is_babel_json_decl(r#""sourceMaps": true"#));
+        assert!(is_swc_json_decl(r#""sourceMaps": true"#));
+        assert!(is_babel_json_decl(r#""sourceMaps": "inline""#));
+        assert!(is_swc_json_decl(r#""sourceMaps": "inline""#));
+        // Babel-only sourceMaps "both" stays on babel.
+        assert!(is_babel_json_decl(r#""sourceMaps": "both""#));
+        assert!(!is_swc_json_decl(r#""sourceMaps": "both""#));
+    }
+
+    #[test]
+    fn swc_json_keys_count() {
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": { // parser"#));
+        assert!(is_swc_json_decl(r#""module": {"#));
+        assert!(is_swc_json_decl(r#""module": { // commonjs"#));
+        assert!(is_swc_json_decl(r#""env": {"#));
+        assert!(is_swc_json_decl(r#""env": { // targets"#));
+        assert!(is_swc_json_decl(r#""minify": true"#));
+        assert!(is_swc_json_decl(r#""minify": false,"#));
+        assert!(is_swc_json_decl(r#""sourceMaps": true"#));
+        assert!(is_swc_json_decl(r#""sourceMaps": false,"#));
+        assert!(is_swc_json_decl(r#""sourceMaps": "inline""#));
+        assert!(is_swc_json_decl(r#""inlineSourcesContent": true"#));
+        assert!(is_swc_json_decl(r#""inlineSourcesContent": false,"#));
+        assert!(is_swc_json_decl(r#""isModule": true"#));
+        assert!(is_swc_json_decl(r#""isModule": false,"#));
+        assert!(is_swc_json_decl(r#""isModule": "unknown""#));
+        assert!(is_swc_json_decl(r#""sourceRoot": "src""#));
+        assert!(is_swc_json_decl(r#""test": ["#));
+        assert!(is_swc_json_decl(r#""test": ".*\\.tsx?$""#));
+        assert!(is_swc_json_decl(r#""exclude": ["#));
+        assert!(is_swc_json_decl(r#""exclude": "node_modules""#));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_swc_json_decl(r#""jsc""#));
+        assert!(!is_swc_json_decl(r#""jsc":"#));
+        assert!(!is_swc_json_decl(r#""jsc": ["#));
+        assert!(!is_swc_json_decl(r#"jsc: {"#));
+        assert!(!is_swc_json_decl(r#""Jsc": {"#));
+        assert!(!is_swc_json_decl(r#""module": "commonjs""#));
+        assert!(!is_swc_json_decl(r#""module": ["#));
+        assert!(!is_swc_json_decl(r#""env": ["#));
+        assert!(!is_swc_json_decl(r#""minify": "true""#));
+        assert!(!is_swc_json_decl(r#""minify": ["#));
+        assert!(!is_swc_json_decl(r#""sourceMaps": "both""#));
+        assert!(!is_swc_json_decl(r#""sourceMaps": "hidden""#));
+        assert!(!is_swc_json_decl(r#""isModule": "module""#));
+        assert!(!is_swc_json_decl(r#""isModule": ["#));
+        assert!(!is_swc_json_decl(r#""inlineSourcesContent": "true""#));
+        assert!(!is_swc_json_decl(r#""sourceRoot": """#));
+        assert!(!is_swc_json_decl(r#""sourceRoot": ["#));
+        assert!(!is_swc_json_decl(r#""test": {"#));
+        assert!(!is_swc_json_decl(r#""exclude": {"#));
+        assert!(!is_swc_json_decl(r#""test": """#));
+        // Same-line array members are not opening-key lines.
+        assert!(!is_swc_json_decl(r#""test": [".*\\.tsx?$"],"#));
+        assert!(!is_swc_json_decl(r#""exclude": ["node_modules"],"#));
+        assert!(!is_swc_json_decl(
+            r#""$schema": "https://swc.rs/schema.json""#
+        ));
+        // Neighbouring families stay out.
+        assert!(!is_swc_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_swc_json_decl(r#""parserOpts": {"#));
+        assert!(!is_swc_json_decl(r#""rootMode": "upward""#));
+        assert!(!is_swc_json_decl(r#""passPerPreset": true"#));
+        assert!(!is_swc_json_decl(r#""sourceType": "module""#));
+        assert!(!is_swc_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_swc_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_swc_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_swc_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_swc_json_decl(r#""semi": true"#));
+        assert!(!is_swc_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_swc_json_decl(r#""formatter": {"#));
+        assert!(!is_swc_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_swc_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_swc_json_decl(r#""module": "ESNext""#));
+        assert!(is_tsconfig_json_decl(r#""module": "ESNext""#));
+        assert!(!is_swc_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists swc keys.
+        assert!(line_is_func_like(r#""jsc": {"#));
+        assert!(line_is_func_like(r#""module": {"#));
+        assert!(line_is_func_like(r#""minify": true"#));
+        assert!(line_is_func_like(r#""inlineSourcesContent": true"#));
+        assert!(line_is_func_like(r#""isModule": "unknown""#));
+        assert!(line_is_func_like(r#""sourceRoot": "src""#));
+        // Shared env / sourceMaps / exclude: swc + neighbours when shapes match.
+        assert!(is_swc_json_decl(r#""env": {"#));
+        assert!(is_babel_json_decl(r#""env": {"#));
+        assert!(is_eslint_json_decl(r#""env": {"#));
+        assert!(is_swc_json_decl(r#""sourceMaps": true"#));
+        assert!(is_babel_json_decl(r#""sourceMaps": true"#));
+        assert!(is_swc_json_decl(r#""exclude": ["#));
+        assert!(is_tsconfig_json_decl(r#""exclude": ["#));
     }
 
     #[test]
