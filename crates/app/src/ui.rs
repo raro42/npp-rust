@@ -32376,6 +32376,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_babel_json_decl(s)
             || is_swc_json_decl(s)
             || is_postcss_json_decl(s)
+            || is_parcel_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32662,6 +32663,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_babel_json_decl(s)
         || is_swc_json_decl(s)
         || is_postcss_json_decl(s)
+        || is_parcel_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -42820,6 +42822,9 @@ fn swc_json_string_ok(key: &str, value: &str) -> bool {
 /// and `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
 /// Generic `"$schema"` / babel `"presets"` / `"parserOpts"` / `"rootMode"` /
 /// SWC `"jsc"` / `"inlineSourcesContent"` / `"isModule"` / `"minify"` /
+/// Parcel `"extends"` / `"transformers"` / `"namers"` / `"bundlers"` /
+/// `"runtimes"` / `"optimizers"` / `"packagers"` / `"compressors"` /
+/// `"resolvers"` / `"validators"` / `"reporters"` /
 /// eslint `"root"` / `"rules"` / `"parserOptions"` / `"ignorePatterns"` /
 /// stylelint `"ignoreFiles"` / `"customSyntax"` / `"processors"` /
 /// prettier `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` /
@@ -42905,6 +42910,115 @@ fn postcss_json_string_key_ok(key: &str) -> bool {
 }
 
 fn postcss_json_string_ok(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 512
+        && !value.contains('\n')
+        && !value.chars().all(|c| c.is_ascii_whitespace())
+}
+
+/// Parcel `.parcelrc` / `.parcelrc.json` / `parcelrc.json` JSON keys:
+/// `"extends": "…"` / `"extends": [`, `"transformers": {`, `"namers": [`,
+/// `"bundlers": {`, `"runtimes": [`, `"optimizers": {`, `"packagers": {`,
+/// `"compressors": {`, `"resolvers": [`, `"validators": {`,
+/// `"reporters": [`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// PostCSS `"plugins"` / `"parser"` / `"syntax"` / `"stringifier"` / `"map"` /
+/// babel `"presets"` / `"parserOpts"` / `"rootMode"` /
+/// SWC `"jsc"` / `"inlineSourcesContent"` / `"isModule"` / `"minify"` /
+/// eslint `"root"` / `"rules"` / `"parserOptions"` / `"ignorePatterns"` /
+/// stylelint `"ignoreFiles"` / `"customSyntax"` / `"processors"` /
+/// prettier `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` /
+/// dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` /
+/// package.json `"scripts"` stay out. Shared `"extends": "…"` / `"extends": [`
+/// also match babel / eslint / stylelint when shapes match.
+fn is_parcel_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !parcel_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    parcel_json_value_and_tail_ok(key, after_colon)
+}
+
+fn parcel_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "extends"
+            | "transformers"
+            | "namers"
+            | "bundlers"
+            | "runtimes"
+            | "optimizers"
+            | "packagers"
+            | "compressors"
+            | "resolvers"
+            | "validators"
+            | "reporters"
+    )
+}
+
+fn parcel_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !parcel_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !parcel_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if key != "extends" {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !parcel_json_string_ok(value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        _ => false,
+    }
+}
+
+fn parcel_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "transformers" | "bundlers" | "optimizers" | "packagers" | "compressors" | "validators"
+    )
+}
+
+fn parcel_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "extends" | "namers" | "runtimes" | "resolvers" | "reporters"
+    )
+}
+
+fn parcel_json_string_ok(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 512
         && !value.contains('\n')
@@ -73546,29 +73660,30 @@ mod func_like_line_tests {
         is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
         is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
         is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl,
-        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
-        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
-        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
-        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
-        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_refurb_toml_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl,
-        is_supabase_toml_decl, is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl,
-        is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl, is_ty_toml_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
+        is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
+        is_postcss_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
+        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
+        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
+        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
+        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
+        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
+        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
+        is_trunk_toml_decl, is_tsconfig_json_decl, is_ty_toml_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl,
+        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -84689,6 +84804,18 @@ mod func_like_line_tests {
         assert!(!is_postcss_json_decl(r#""inlineSourcesContent": true"#));
         assert!(!is_postcss_json_decl(r#""isModule": "unknown""#));
         assert!(!is_postcss_json_decl(r#""minify": true"#));
+        // Parcel-only keys stay on parcel.
+        assert!(!is_postcss_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_postcss_json_decl(r#""namers": ["#));
+        assert!(!is_postcss_json_decl(r#""bundlers": {"#));
+        assert!(!is_postcss_json_decl(r#""runtimes": ["#));
+        assert!(!is_postcss_json_decl(r#""optimizers": {"#));
+        assert!(!is_postcss_json_decl(r#""packagers": {"#));
+        assert!(!is_postcss_json_decl(r#""compressors": {"#));
+        assert!(!is_postcss_json_decl(r#""resolvers": ["#));
+        assert!(!is_postcss_json_decl(r#""validators": {"#));
+        assert!(!is_postcss_json_decl(r#""reporters": ["#));
         // Shared scanner lists postcss keys.
         assert!(line_is_func_like(r#""plugins": {"#));
         assert!(line_is_func_like(r#""syntax": "postcss-scss""#));
@@ -84705,6 +84832,127 @@ mod func_like_line_tests {
         // plugins object is PostCSS-shaped (eslint plugins is array-only).
         assert!(is_postcss_json_decl(r#""plugins": {"#));
         assert!(!is_eslint_json_decl(r#""plugins": {"#));
+    }
+
+    #[test]
+    fn parcel_json_keys_count() {
+        assert!(is_parcel_json_decl(
+            r#""extends": "@parcel/config-default""#
+        ));
+        assert!(is_parcel_json_decl(
+            r#""extends": "@parcel/config-default","#
+        ));
+        assert!(is_parcel_json_decl(r#""extends": ["#));
+        assert!(is_parcel_json_decl(r#""extends": [ // base"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": { // js"#));
+        assert!(is_parcel_json_decl(r#""namers": ["#));
+        assert!(is_parcel_json_decl(r#""namers": [ // default"#));
+        assert!(is_parcel_json_decl(r#""bundlers": {"#));
+        assert!(is_parcel_json_decl(r#""bundlers": { // default"#));
+        assert!(is_parcel_json_decl(r#""runtimes": ["#));
+        assert!(is_parcel_json_decl(r#""runtimes": [ // js"#));
+        assert!(is_parcel_json_decl(r#""optimizers": {"#));
+        assert!(is_parcel_json_decl(r#""optimizers": { // terser"#));
+        assert!(is_parcel_json_decl(r#""packagers": {"#));
+        assert!(is_parcel_json_decl(r#""packagers": { // js"#));
+        assert!(is_parcel_json_decl(r#""compressors": {"#));
+        assert!(is_parcel_json_decl(r#""compressors": { // gzip"#));
+        assert!(is_parcel_json_decl(r#""resolvers": ["#));
+        assert!(is_parcel_json_decl(r#""resolvers": [ // default"#));
+        assert!(is_parcel_json_decl(r#""validators": {"#));
+        assert!(is_parcel_json_decl(r#""validators": { // typescript"#));
+        assert!(is_parcel_json_decl(r#""reporters": ["#));
+        assert!(is_parcel_json_decl(r#""reporters": [ // cli"#));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_parcel_json_decl(r#""extends""#));
+        assert!(!is_parcel_json_decl(r#""extends":"#));
+        assert!(!is_parcel_json_decl(r#"extends: {"#));
+        assert!(!is_parcel_json_decl(
+            r#""Extends": "@parcel/config-default""#
+        ));
+        assert!(!is_parcel_json_decl(r#""extends": {"#));
+        assert!(!is_parcel_json_decl(r#""extends": true"#));
+        assert!(!is_parcel_json_decl(r#""extends": """#));
+        assert!(!is_parcel_json_decl(r#""transformers": ["#));
+        assert!(!is_parcel_json_decl(
+            r#""transformers": "@parcel/transformer-js""#
+        ));
+        assert!(!is_parcel_json_decl(r#""namers": {"#));
+        assert!(!is_parcel_json_decl(r#""namers": "@parcel/namer-default""#));
+        assert!(!is_parcel_json_decl(r#""bundlers": ["#));
+        assert!(!is_parcel_json_decl(r#""runtimes": {"#));
+        assert!(!is_parcel_json_decl(r#""optimizers": ["#));
+        assert!(!is_parcel_json_decl(r#""packagers": ["#));
+        assert!(!is_parcel_json_decl(r#""compressors": ["#));
+        assert!(!is_parcel_json_decl(r#""resolvers": {"#));
+        assert!(!is_parcel_json_decl(r#""validators": ["#));
+        assert!(!is_parcel_json_decl(r#""reporters": {"#));
+        // Same-line array / object members are not opening-key lines.
+        assert!(!is_parcel_json_decl(
+            r#""extends": ["@parcel/config-default"],"#
+        ));
+        assert!(!is_parcel_json_decl(
+            r#""namers": ["@parcel/namer-default"],"#
+        ));
+        assert!(!is_parcel_json_decl(
+            r#""transformers": {"*.js": ["@parcel/transformer-js"]},"#
+        ));
+        assert!(!is_parcel_json_decl(
+            r#""$schema": "https://json.schemastore.org/parcelrc""#
+        ));
+        // Neighbouring families stay out.
+        assert!(!is_parcel_json_decl(r#""plugins": {"#));
+        assert!(is_postcss_json_decl(r#""plugins": {"#));
+        assert!(!is_parcel_json_decl(r#""syntax": "postcss-scss""#));
+        assert!(is_postcss_json_decl(r#""syntax": "postcss-scss""#));
+        assert!(!is_parcel_json_decl(r#""parser": "sugarss""#));
+        assert!(!is_parcel_json_decl(r#""stringifier": "sugarss""#));
+        assert!(!is_parcel_json_decl(r#""map": true"#));
+        assert!(!is_parcel_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_parcel_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_parcel_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_parcel_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_parcel_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_parcel_json_decl(r#""customSyntax": "postcss-scss""#));
+        assert!(!is_parcel_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_parcel_json_decl(r#""semi": true"#));
+        assert!(!is_parcel_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_parcel_json_decl(r#""formatter": {"#));
+        assert!(!is_parcel_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_parcel_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_parcel_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_parcel_json_decl(r#""inlineSourcesContent": true"#));
+        assert!(!is_parcel_json_decl(r#""isModule": "unknown""#));
+        assert!(!is_parcel_json_decl(r#""minify": true"#));
+        // Shared scanner lists parcel keys.
+        assert!(line_is_func_like(r#""transformers": {"#));
+        assert!(line_is_func_like(r#""namers": ["#));
+        assert!(line_is_func_like(r#""bundlers": {"#));
+        assert!(line_is_func_like(r#""extends": "@parcel/config-default""#));
+        assert!(line_is_func_like(r#""reporters": ["#));
+        // Shared extends: parcel + babel / eslint / stylelint when shapes match.
+        assert!(is_parcel_json_decl(
+            r#""extends": "@parcel/config-default""#
+        ));
+        assert!(is_babel_json_decl(r#""extends": "./babelrc.base.json""#));
+        assert!(is_eslint_json_decl(r#""extends": "eslint:recommended""#));
+        assert!(is_stylelint_json_decl(
+            r#""extends": "stylelint-config-standard""#
+        ));
+        assert!(is_parcel_json_decl(r#""extends": ["#));
+        assert!(is_eslint_json_decl(r#""extends": ["#));
+        assert!(is_stylelint_json_decl(r#""extends": ["#));
     }
 
     #[test]

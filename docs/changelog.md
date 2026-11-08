@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.709] — 2026-11-08
+
+View:
+
+- **Function List** lists Parcel `.parcelrc` / `.parcelrc.json` / `parcelrc.json` JSON keys: `"extends": "…"` / `"extends": [`, `"transformers": {`, `"namers": [`, `"bundlers": {`, `"runtimes": [`, `"optimizers": {`, `"packagers": {`, `"compressors": {`, `"resolvers": [`, `"validators": {`, `"reporters": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / PostCSS `"plugins"` / `"parser"` / `"syntax"` / `"stringifier"` / `"map"` / babel `"presets"` / `"parserOpts"` / `"rootMode"` / SWC `"jsc"` / `"inlineSourcesContent"` / `"isModule"` / `"minify"` / eslint `"root"` / `"rules"` / `"parserOptions"` / `"ignorePatterns"` / stylelint `"ignoreFiles"` / `"customSyntax"` / `"processors"` / prettier `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` / dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out. Shared `"extends": "…"` / `"extends": [` also match babel / eslint / stylelint when shapes match.
+
 ## [0.3.708] — 2026-11-08
 
 View:

@@ -1,3 +1,5 @@
+009 keep: Function List Parcel .parcelrc extends/transformers/namers/bundlers/runtimes/optimizers/packagers/compressors/resolvers/validators/reporters (v0.3.709)
+
 009 keep: Function List PostCSS .postcssrc plugins/parser/syntax/stringifier/map (v0.3.708)
 
 009 keep: Function List Stylelint .stylelintrc extends/plugins/processors/rules/overrides/ignoreFiles/customSyntax/defaultSeverity (v0.3.705)
