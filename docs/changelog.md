@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.692] — 2026-11-08
+
+View:
+
+- **Function List** lists pycln `setup.cfg` / `tox.ini` `[pycln]` sections and fields: `[pycln]`, `all = true` / `false`, `expand-stars = true` / `expand_stars`, `no-gitignore = true` / `no_gitignore`, `disable-all-dunder-policy = true` / `disable_all_dunder_policy`, `silence = true` / `0`, `check = true` / `false`, `diff = true` / `yes`, `include = .*\.py$` / `src/.*\.py$`, `exclude = .*tests/.*` / `venv/`, `extend-exclude = legacy/` / `extend_exclude`, `skip-imports = os,sys` / `skip_imports = django.db,typing` / `[os,sys]`, `path = .` / `paths = src,tests`. Exact kebab-case or snake_case keys. INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. Trailing commas on path / import lists ok. Bare `verbose` / `quiet` / `config` stay out. JSON/TOML `include = ["…"]` arrays stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama / radon / autoflake / pytype / unimport / tox / setuptools / Cargo / Pipfile / pyproject `[tool.pycln]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.691] — 2026-11-08
 
 View:

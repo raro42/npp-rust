@@ -32412,6 +32412,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_autoflake_ini_decl(s)
             || is_pytype_ini_decl(s)
             || is_unimport_ini_decl(s)
+            || is_pycln_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32681,6 +32682,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_autoflake_ini_decl(s)
         || is_pytype_ini_decl(s)
         || is_unimport_ini_decl(s)
+        || is_pycln_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -49888,6 +49890,244 @@ fn unimport_ini_value_ok(key: &str, value: &str) -> bool {
         | "remove"
         | "check"
         | "diff" => unimport_ini_bool_ok(value),
+        _ => false,
+    }
+}
+
+/// pycln `setup.cfg` / `tox.ini` `[pycln]` sections and distinctive
+/// keys: `[pycln]`, `all = true` / `false`,
+/// `expand-stars = true` / `expand_stars`,
+/// `no-gitignore = true` / `no_gitignore`,
+/// `disable-all-dunder-policy = true` / `disable_all_dunder_policy`,
+/// `silence = true` / `0`,
+/// `check = true` / `false`, `diff = true` / `yes`,
+/// `include = .*\.py$` / `src/.*\.py$`,
+/// `exclude = .*tests/.*` / `venv/`,
+/// `extend-exclude = legacy/` / `extend_exclude`,
+/// `skip-imports = os,sys` / `skip_imports = django.db,typing`,
+/// `path = .` / `paths = src,tests`. Exact kebab-case or snake_case
+/// keys. INI `key = value` or `key=value`. Optional quotes on values.
+/// Optional `#` / `;` comment. Trailing commas on path / import lists
+/// ok. Bare `verbose` / `quiet` / `config` stay out. JSON/TOML arrays
+/// (`include = ["…"]`) stay out. flake8 / mypy / pytest / isort /
+/// coverage / pylint / pycodestyle / autopep8 / black / yapf /
+/// pydocstyle / bandit / codespell / docformatter / vulture /
+/// interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
+/// radon / autoflake / pytype / unimport / tox / setuptools / Cargo /
+/// Pipfile / pyproject `[tool.pycln]` tables / Desktop Entry /
+/// pip.conf stay out.
+fn is_pycln_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return pycln_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !pycln_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    pycln_ini_value_ok(key, value)
+}
+
+fn pycln_ini_section_ok(header: &str) -> bool {
+    header == "pycln"
+}
+
+fn pycln_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "all"
+            | "expand-stars"
+            | "expand_stars"
+            | "no-gitignore"
+            | "no_gitignore"
+            | "disable-all-dunder-policy"
+            | "disable_all_dunder_policy"
+            | "silence"
+            | "check"
+            | "diff"
+            | "include"
+            | "exclude"
+            | "extend-exclude"
+            | "extend_exclude"
+            | "skip-imports"
+            | "skip_imports"
+            | "path"
+            | "paths"
+    )
+}
+
+fn pycln_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn pycln_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        pycln_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn pycln_path_token_ok(t: &str) -> bool {
+    if t.is_empty() || t.len() > 256 {
+        return false;
+    }
+    let bytes = t.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric()
+        || matches!(bytes[0], b'*' | b'?' | b'.' | b'/' | b'_' | b'-' | b'~'))
+    {
+        return false;
+    }
+    bytes.iter().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                *b,
+                b'_' | b'-' | b'.' | b'/' | b'*' | b'?' | b'+' | b'[' | b']' | b'~'
+            )
+    })
+}
+
+fn pycln_paths_ok(value: &str) -> bool {
+    let bare = pycln_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split([',', ' ']) {
+        let t = part.trim().trim_end_matches(',');
+        if t.is_empty() {
+            continue;
+        }
+        if !pycln_path_token_ok(t) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn pycln_pattern_ok(value: &str) -> bool {
+    let bare = pycln_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric()
+        || matches!(
+            bytes[0],
+            b'*' | b'?' | b'.' | b'/' | b'_' | b'-' | b'^' | b'(' | b'['
+        ))
+    {
+        return false;
+    }
+    bytes.iter().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                *b,
+                b'_' | b'-'
+                    | b'.'
+                    | b'/'
+                    | b'*'
+                    | b'?'
+                    | b'+'
+                    | b'|'
+                    | b'^'
+                    | b'$'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b'\\'
+                    | b','
+                    | b' '
+            )
+    })
+}
+
+fn pycln_module_token_ok(t: &str) -> bool {
+    if t.is_empty() || t.len() > 128 {
+        return false;
+    }
+    let bytes = t.as_bytes();
+    if !bytes[0].is_ascii_alphabetic() && bytes[0] != b'_' {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'.'))
+}
+
+fn pycln_skip_imports_ok(value: &str) -> bool {
+    let bare = pycln_ini_bare(value)
+        .trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']');
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        let t = part.trim().trim_matches(|c| c == '"' || c == '\'');
+        if t.is_empty() {
+            continue;
+        }
+        if !pycln_module_token_ok(t) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn pycln_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') {
+        return false;
+    }
+    // Allow `skip-imports = [os,sys]` list form; reject other JSON/TOML arrays.
+    if value.starts_with('[') && key != "skip-imports" && key != "skip_imports" {
+        return false;
+    }
+    match key {
+        "include" | "exclude" | "extend-exclude" | "extend_exclude" => pycln_pattern_ok(value),
+        "path" | "paths" => pycln_paths_ok(value),
+        "skip-imports" | "skip_imports" => pycln_skip_imports_ok(value),
+        "all"
+        | "expand-stars"
+        | "expand_stars"
+        | "no-gitignore"
+        | "no_gitignore"
+        | "disable-all-dunder-policy"
+        | "disable_all_dunder_policy"
+        | "silence"
+        | "check"
+        | "diff" => pycln_ini_bool_ok(value),
         _ => false,
     }
 }
@@ -70573,23 +70813,23 @@ mod func_like_line_tests {
         is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
         is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
         is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl,
-        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
-        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl,
-        is_pytype_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
-        is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
-        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
-        is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl,
-        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
+        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
+        is_pytest_ini_decl, is_pytype_ini_decl, is_radon_ini_decl, is_railway_toml_decl,
+        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
+        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -79937,6 +80177,10 @@ mod func_like_line_tests {
         assert!(is_pip_conf_decl("[global]"));
         assert!(!is_unimport_ini_decl("report_level = WARNING"));
         assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        assert!(!is_unimport_ini_decl("[pycln]"));
+        assert!(is_pycln_ini_decl("[pycln]"));
+        assert!(!is_unimport_ini_decl("expand-stars = true"));
+        assert!(is_pycln_ini_decl("expand-stars = true"));
         // Shared jobs key is also a pytype field; either path lists.
         assert!(is_pytype_ini_decl("jobs = 4"));
         assert!(is_unimport_ini_decl("jobs = 4"));
@@ -79947,6 +80191,98 @@ mod func_like_line_tests {
         assert!(line_is_func_like("sources = src,tests"));
         assert!(line_is_func_like("exclude = __init__.py|tests/"));
         assert!(line_is_func_like("[unimport]"));
+    }
+
+    #[test]
+    fn pycln_ini_sections_and_keys_count() {
+        assert!(is_pycln_ini_decl("[pycln]"));
+        assert!(is_pycln_ini_decl("  [pycln] # unused"));
+        assert!(is_pycln_ini_decl("[pycln] ; unused"));
+        assert!(is_pycln_ini_decl("all = true"));
+        assert!(is_pycln_ini_decl("all=false"));
+        assert!(is_pycln_ini_decl("expand-stars = true"));
+        assert!(is_pycln_ini_decl("expand_stars=True"));
+        assert!(is_pycln_ini_decl("no-gitignore = true"));
+        assert!(is_pycln_ini_decl("no_gitignore=0"));
+        assert!(is_pycln_ini_decl("disable-all-dunder-policy = true"));
+        assert!(is_pycln_ini_decl("disable_all_dunder_policy=false"));
+        assert!(is_pycln_ini_decl("silence = true"));
+        assert!(is_pycln_ini_decl("silence=yes"));
+        assert!(is_pycln_ini_decl("check = true"));
+        assert!(is_pycln_ini_decl("check=0"));
+        assert!(is_pycln_ini_decl("diff = true"));
+        assert!(is_pycln_ini_decl("diff=yes"));
+        assert!(is_pycln_ini_decl("include = .*\\.py$"));
+        assert!(is_pycln_ini_decl("include=src/.*\\.py$"));
+        assert!(is_pycln_ini_decl("exclude = .*tests/.*"));
+        assert!(is_pycln_ini_decl("exclude=venv/"));
+        assert!(is_pycln_ini_decl("extend-exclude = legacy/"));
+        assert!(is_pycln_ini_decl("extend_exclude=vendor/,legacy/"));
+        assert!(is_pycln_ini_decl("skip-imports = os,sys"));
+        assert!(is_pycln_ini_decl("skip_imports=django.db,typing"));
+        assert!(is_pycln_ini_decl("skip-imports = [os,sys]"));
+        assert!(is_pycln_ini_decl("path = ."));
+        assert!(is_pycln_ini_decl("paths = src,tests"));
+        assert!(is_pycln_ini_decl("paths=src tests"));
+        assert!(is_pycln_ini_decl("all = true # comment"));
+        assert!(is_pycln_ini_decl("path=.; trailing"));
+
+        assert!(!is_pycln_ini_decl("all"));
+        assert!(!is_pycln_ini_decl("all ="));
+        assert!(!is_pycln_ini_decl("All = true"));
+        assert!(!is_pycln_ini_decl("# all = true"));
+        assert!(!is_pycln_ini_decl("all = maybe"));
+        assert!(!is_pycln_ini_decl("verbose = true"));
+        assert!(!is_pycln_ini_decl("quiet = true"));
+        assert!(!is_pycln_ini_decl("config = setup.cfg"));
+        assert!(!is_pycln_ini_decl("include = [\"src\"]"));
+        assert!(!is_pycln_ini_decl("paths = "));
+        assert!(!is_pycln_ini_decl("skip-imports = 123bad"));
+        assert!(!is_pycln_ini_decl("[Pycln]"));
+        assert!(!is_pycln_ini_decl("[[pycln]]"));
+        assert!(!is_pycln_ini_decl("[pycln"));
+        assert!(!is_pycln_ini_decl("[tool.pycln]"));
+        assert!(!is_pycln_ini_decl("[unimport]"));
+        assert!(is_unimport_ini_decl("[unimport]"));
+        assert!(!is_pycln_ini_decl("include-star-import = true"));
+        assert!(is_unimport_ini_decl("include-star-import = true"));
+        assert!(!is_pycln_ini_decl("[pytype]"));
+        assert!(is_pytype_ini_decl("[pytype]"));
+        assert!(!is_pycln_ini_decl("keep_going = True"));
+        assert!(is_pytype_ini_decl("keep_going = True"));
+        assert!(!is_pycln_ini_decl("[autoflake]"));
+        assert!(is_autoflake_ini_decl("[autoflake]"));
+        assert!(!is_pycln_ini_decl("remove-all-unused-imports = true"));
+        assert!(is_autoflake_ini_decl("remove-all-unused-imports = true"));
+        assert!(!is_pycln_ini_decl("[radon]"));
+        assert!(is_radon_ini_decl("[radon]"));
+        assert!(!is_pycln_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_pycln_ini_decl("[flake8]"));
+        assert!(!is_pycln_ini_decl("[metadata]"));
+        assert!(!is_pycln_ini_decl("[tox]"));
+        assert!(!is_pycln_ini_decl("[project]"));
+        assert!(!is_pycln_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_pycln_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_pycln_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_pycln_ini_decl("report_level = WARNING"));
+        assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        // Shared check/diff keys also match unimport; either path lists.
+        assert!(is_unimport_ini_decl("check = true"));
+        assert!(is_pycln_ini_decl("check = true"));
+        assert!(is_unimport_ini_decl("diff = true"));
+        assert!(is_pycln_ini_decl("diff = true"));
+        // Distinctive pycln keys still list.
+        assert!(line_is_func_like("all = true"));
+        assert!(line_is_func_like("expand-stars = true"));
+        assert!(line_is_func_like("no_gitignore = true"));
+        assert!(line_is_func_like("disable-all-dunder-policy = true"));
+        assert!(line_is_func_like("skip-imports = os,sys"));
+        assert!(line_is_func_like("extend_exclude = legacy/"));
+        assert!(line_is_func_like("[pycln]"));
     }
 
     #[test]
