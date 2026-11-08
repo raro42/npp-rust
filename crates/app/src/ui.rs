@@ -32370,6 +32370,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_tsconfig_json_decl(s)
             || is_biome_json_decl(s)
             || is_dprint_json_decl(s)
+            || is_prettier_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32650,6 +32651,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_tsconfig_json_decl(s)
         || is_biome_json_decl(s)
         || is_dprint_json_decl(s)
+        || is_prettier_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -42031,6 +42033,192 @@ fn dprint_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
             }
             package_json_tail_ok(&after_colon[digits..])
         }
+        _ => false,
+    }
+}
+
+/// Prettier `.prettierrc` / `.prettierrc.json` / `prettier.config.json`
+/// JSON keys: `"printWidth": 80`, `"tabWidth": 2`, `"useTabs": false`,
+/// `"semi": true`, `"singleQuote": false`, `"jsxSingleQuote": false`,
+/// `"bracketSpacing": true`, `"bracketSameLine": false`,
+/// `"jsxBracketSameLine": false`, `"requirePragma": false`,
+/// `"insertPragma": false`, `"vueIndentScriptAndStyle": false`,
+/// `"singleAttributePerLine": false`, `"experimentalTernaries": false`,
+/// `"quoteProps": "as-needed"` / `"consistent"` / `"preserve"`,
+/// `"trailingComma": "all"` / `"es5"` / `"none"`,
+/// `"arrowParens": "always"` / `"avoid"`,
+/// `"proseWrap": "always"` / `"never"` / `"preserve"`,
+/// `"htmlWhitespaceSensitivity": "css"` / `"strict"` / `"ignore"`,
+/// `"endOfLine": "lf"` / `"crlf"` / `"cr"` / `"auto"`,
+/// `"embeddedLanguageFormatting": "auto"` / `"off"`,
+/// `"objectWrap": "preserve"` / `"collapse"`,
+/// `"experimentalOperatorPosition": "start"` / `"end"`,
+/// `"plugins": [`, `"overrides": [`. Optional trailing `,` and
+/// `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"parser"` / `"filepath"` / `"$schema"` stay out. biome
+/// `"indentStyle"` / `"lineWidth"` / `"trailingCommas"` (plural) /
+/// `"arrowParentheses"` / `"quoteProperties"` (camel) stay on biome.
+/// dprint `"indentWidth"` / `"newLineKind"` / `"includes"` stay on
+/// dprint. package.json / composer / tsconfig / Pyre / pyrightconfig
+/// / biome / dprint structural keys stay out where shapes differ.
+fn is_prettier_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !prettier_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    prettier_json_value_and_tail_ok(key, after_colon)
+}
+
+fn prettier_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "printWidth"
+            | "tabWidth"
+            | "useTabs"
+            | "semi"
+            | "singleQuote"
+            | "jsxSingleQuote"
+            | "bracketSpacing"
+            | "bracketSameLine"
+            | "jsxBracketSameLine"
+            | "requirePragma"
+            | "insertPragma"
+            | "vueIndentScriptAndStyle"
+            | "singleAttributePerLine"
+            | "experimentalTernaries"
+            | "quoteProps"
+            | "trailingComma"
+            | "arrowParens"
+            | "proseWrap"
+            | "htmlWhitespaceSensitivity"
+            | "endOfLine"
+            | "embeddedLanguageFormatting"
+            | "objectWrap"
+            | "experimentalOperatorPosition"
+            | "plugins"
+            | "overrides"
+    )
+}
+
+fn prettier_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if !matches!(key, "plugins" | "overrides") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !prettier_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !prettier_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !prettier_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !matches!(key, "printWidth" | "tabWidth") {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            // Reject bare 0 for widths.
+            if digits == 1 && after_colon.as_bytes()[0] == b'0' {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn prettier_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "useTabs"
+            | "semi"
+            | "singleQuote"
+            | "jsxSingleQuote"
+            | "bracketSpacing"
+            | "bracketSameLine"
+            | "jsxBracketSameLine"
+            | "requirePragma"
+            | "insertPragma"
+            | "vueIndentScriptAndStyle"
+            | "singleAttributePerLine"
+            | "experimentalTernaries"
+    )
+}
+
+fn prettier_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "quoteProps"
+            | "trailingComma"
+            | "arrowParens"
+            | "proseWrap"
+            | "htmlWhitespaceSensitivity"
+            | "endOfLine"
+            | "embeddedLanguageFormatting"
+            | "objectWrap"
+            | "experimentalOperatorPosition"
+    )
+}
+
+fn prettier_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    match key {
+        "quoteProps" => matches!(value, "as-needed" | "consistent" | "preserve"),
+        "trailingComma" => matches!(value, "all" | "es5" | "none"),
+        "arrowParens" => matches!(value, "always" | "avoid"),
+        "proseWrap" => matches!(value, "always" | "never" | "preserve"),
+        "htmlWhitespaceSensitivity" => matches!(value, "css" | "strict" | "ignore"),
+        "endOfLine" => matches!(value, "lf" | "crlf" | "cr" | "auto"),
+        "embeddedLanguageFormatting" => matches!(value, "auto" | "off"),
+        "objectWrap" => matches!(value, "preserve" | "collapse"),
+        "experimentalOperatorPosition" => matches!(value, "start" | "end"),
         _ => false,
     }
 }
@@ -72672,26 +72860,26 @@ mod func_like_line_tests {
         is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
         is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
         is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl,
-        is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl, is_pycln_ini_decl,
-        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
-        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
-        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
-        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_refurb_toml_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_tsconfig_json_decl, is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        line_is_func_like,
+        is_poetry_toml_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
+        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
+        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
+        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
+        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
+        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
+        is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -83130,6 +83318,117 @@ mod func_like_line_tests {
         // Plural includes/excludes: dprint vs singular tsconfig.
         assert!(is_dprint_json_decl(r#""includes": ["#));
         assert!(is_tsconfig_json_decl(r#""include": ["#));
+    }
+
+    #[test]
+    fn prettier_json_keys_count() {
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#"  "tabWidth": 2 // base"#));
+        assert!(is_prettier_json_decl(r#""useTabs": false"#));
+        assert!(is_prettier_json_decl(r#""useTabs": true,"#));
+        assert!(is_prettier_json_decl(r#""semi": true"#));
+        assert!(is_prettier_json_decl(r#""semi": false,"#));
+        assert!(is_prettier_json_decl(r#""singleQuote": true"#));
+        assert!(is_prettier_json_decl(r#""jsxSingleQuote": false"#));
+        assert!(is_prettier_json_decl(r#""bracketSpacing": true"#));
+        assert!(is_prettier_json_decl(r#""bracketSameLine": false,"#));
+        assert!(is_prettier_json_decl(r#""jsxBracketSameLine": false"#));
+        assert!(is_prettier_json_decl(r#""requirePragma": false"#));
+        assert!(is_prettier_json_decl(r#""insertPragma": true,"#));
+        assert!(is_prettier_json_decl(r#""vueIndentScriptAndStyle": true"#));
+        assert!(is_prettier_json_decl(r#""singleAttributePerLine": false"#));
+        assert!(is_prettier_json_decl(r#""experimentalTernaries": true"#));
+        assert!(is_prettier_json_decl(r#""quoteProps": "as-needed""#));
+        assert!(is_prettier_json_decl(r#""quoteProps": "consistent""#));
+        assert!(is_prettier_json_decl(r#""quoteProps": "preserve","#));
+        assert!(is_prettier_json_decl(r#""trailingComma": "all""#));
+        assert!(is_prettier_json_decl(r#""trailingComma": "es5""#));
+        assert!(is_prettier_json_decl(r#""trailingComma": "none","#));
+        assert!(is_prettier_json_decl(r#""arrowParens": "always""#));
+        assert!(is_prettier_json_decl(r#""arrowParens": "avoid""#));
+        assert!(is_prettier_json_decl(r#""proseWrap": "always""#));
+        assert!(is_prettier_json_decl(r#""proseWrap": "never""#));
+        assert!(is_prettier_json_decl(r#""proseWrap": "preserve","#));
+        assert!(is_prettier_json_decl(
+            r#""htmlWhitespaceSensitivity": "css""#
+        ));
+        assert!(is_prettier_json_decl(
+            r#""htmlWhitespaceSensitivity": "strict""#
+        ));
+        assert!(is_prettier_json_decl(
+            r#""htmlWhitespaceSensitivity": "ignore""#
+        ));
+        assert!(is_prettier_json_decl(r#""endOfLine": "lf""#));
+        assert!(is_prettier_json_decl(r#""endOfLine": "crlf""#));
+        assert!(is_prettier_json_decl(r#""endOfLine": "cr""#));
+        assert!(is_prettier_json_decl(r#""endOfLine": "auto","#));
+        assert!(is_prettier_json_decl(
+            r#""embeddedLanguageFormatting": "auto""#
+        ));
+        assert!(is_prettier_json_decl(
+            r#""embeddedLanguageFormatting": "off""#
+        ));
+        assert!(is_prettier_json_decl(r#""objectWrap": "preserve""#));
+        assert!(is_prettier_json_decl(r#""objectWrap": "collapse""#));
+        assert!(is_prettier_json_decl(
+            r#""experimentalOperatorPosition": "start""#
+        ));
+        assert!(is_prettier_json_decl(
+            r#""experimentalOperatorPosition": "end","#
+        ));
+        assert!(is_prettier_json_decl(r#""plugins": ["#));
+        assert!(is_prettier_json_decl(r#""overrides": ["#));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_prettier_json_decl(r#""printWidth""#));
+        assert!(!is_prettier_json_decl(r#""printWidth":"#));
+        assert!(!is_prettier_json_decl(r#""printWidth": ["#));
+        assert!(!is_prettier_json_decl(r#"printWidth: 80"#));
+        assert!(!is_prettier_json_decl(r#""PrintWidth": 80"#));
+        assert!(!is_prettier_json_decl(r#""printWidth": 0"#));
+        assert!(!is_prettier_json_decl(r#""printWidth": true"#));
+        assert!(!is_prettier_json_decl(r#""tabWidth": "2""#));
+        assert!(!is_prettier_json_decl(r#""quoteProps": "asNeeded""#));
+        assert!(!is_prettier_json_decl(r#""trailingComma": ["#));
+        assert!(!is_prettier_json_decl(r#""arrowParens": "asNeeded""#));
+        assert!(!is_prettier_json_decl(r#""endOfLine": "unix""#));
+        assert!(!is_prettier_json_decl(r#""plugins": {"#));
+        assert!(!is_prettier_json_decl(r#""overrides": {"#));
+        assert!(!is_prettier_json_decl(r#""semi": {"#));
+        assert!(!is_prettier_json_decl(r#""parser": "typescript""#));
+        assert!(!is_prettier_json_decl(
+            r#""$schema": "https://json.schemastore.org/prettierrc""#
+        ));
+        // Biome / dprint / neighbouring families stay on their paths.
+        assert!(!is_prettier_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_prettier_json_decl(r#""indentStyle": "space""#));
+        assert!(!is_prettier_json_decl(r#""lineWidth": 100"#));
+        assert!(!is_prettier_json_decl(r#""trailingCommas": "all""#));
+        assert!(is_biome_json_decl(r#""trailingCommas": "all""#));
+        assert!(!is_prettier_json_decl(r#""arrowParentheses": "always""#));
+        assert!(!is_prettier_json_decl(r#""quoteProperties": "asNeeded""#));
+        assert!(!is_prettier_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_prettier_json_decl(r#""indentWidth": 2"#));
+        assert!(!is_prettier_json_decl(r#""includes": ["#));
+        assert!(!is_prettier_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_prettier_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists prettier keys.
+        assert!(line_is_func_like(r#""printWidth": 80"#));
+        assert!(line_is_func_like(r#""tabWidth": 2"#));
+        assert!(line_is_func_like(r#""semi": true"#));
+        assert!(line_is_func_like(r#""singleQuote": false"#));
+        assert!(line_is_func_like(r#""quoteProps": "as-needed""#));
+        assert!(line_is_func_like(r#""trailingComma": "all""#));
+        assert!(line_is_func_like(r#""arrowParens": "avoid""#));
+        assert!(line_is_func_like(r#""endOfLine": "lf""#));
+        assert!(line_is_func_like(r#""plugins": ["#));
+        assert!(line_is_func_like(r#""overrides": ["#));
+        // Singular trailingComma: prettier vs plural biome trailingCommas.
+        assert!(is_prettier_json_decl(r#""trailingComma": "all""#));
+        assert!(is_biome_json_decl(r#""trailingCommas": "all""#));
     }
 
     #[test]

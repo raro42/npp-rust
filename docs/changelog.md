@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.703] — 2026-11-08
+
+View:
+
+- **Function List** lists Prettier `.prettierrc` / `.prettierrc.json` / `prettier.config.json` JSON keys: `"printWidth": 80`, `"tabWidth": 2`, `"useTabs": false`, `"semi": true`, `"singleQuote": false`, `"jsxSingleQuote": false`, `"bracketSpacing": true`, `"bracketSameLine": false`, `"jsxBracketSameLine": false`, `"requirePragma": false`, `"insertPragma": false`, `"vueIndentScriptAndStyle": false`, `"singleAttributePerLine": false`, `"experimentalTernaries": false`, `"quoteProps": "as-needed"` / `"consistent"` / `"preserve"`, `"trailingComma": "all"` / `"es5"` / `"none"`, `"arrowParens": "always"` / `"avoid"`, `"proseWrap": "always"` / `"never"` / `"preserve"`, `"htmlWhitespaceSensitivity": "css"` / `"strict"` / `"ignore"`, `"endOfLine": "lf"` / `"crlf"` / `"cr"` / `"auto"`, `"embeddedLanguageFormatting": "auto"` / `"off"`, `"objectWrap": "preserve"` / `"collapse"`, `"experimentalOperatorPosition": "start"` / `"end"`, `"plugins": [`, `"overrides": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"parser"` / `"filepath"` / `"$schema"` stay out. biome `"indentStyle"` / `"lineWidth"` / `"trailingCommas"` (plural) / `"arrowParentheses"` / `"quoteProperties"` (camel) stay on biome. dprint `"indentWidth"` / `"newLineKind"` / `"includes"` stay on dprint. package.json / composer / tsconfig / Pyre / pyrightconfig / biome / dprint structural keys stay out where shapes differ.
+
 ## [0.3.702] — 2026-11-08
 
 View:
