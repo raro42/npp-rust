@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.687] — 2026-11-08
+
+View:
+
+- **Function List** lists Pylama `pylama.ini` / `setup.cfg` / `tox.ini` / `pytest.ini` `[pylama]` / `[pylama:…]` sections and fields: `[pylama]`, `[pylama:pycodestyle]` / `[pylama:pylint]` / `[pylama:pyflakes]` / `[pylama:pydocstyle]` / `[pylama:mccabe]` / `[pylama:mypy]` / `[pylama:eradicate]` / `[pylama:isort]`, `[pylama:*/tests.py]` / `[pylama:*/pylama/main.py]` / `[pylama:src/*.py]`, `linters = pylint,mccabe` / `pycodestyle,pyflakes,isort`, `format = pylint` / `pycodestyle` / `pydocstyle` / `parsable` / `json`, `skip = */.tox/*,*/.env/*` / `*/messages.py` / `1`, `concurrent = True` / `false`, `abspath = yes`, `max_complexity = 10` / `0`. Exact snake_case keys. INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. Trailing commas on linter lists ok. Bare `ignore` / `select` / `max_line_length` / `verbose` / `options` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / tox / setuptools / Cargo / Pipfile / pyproject `[tool.pylama]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.686] — 2026-11-08
 
 View:

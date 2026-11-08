@@ -32407,6 +32407,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_rstcheck_ini_decl(s)
             || is_sqlfluff_ini_decl(s)
             || is_hypothesis_ini_decl(s)
+            || is_pylama_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32671,6 +32672,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_rstcheck_ini_decl(s)
         || is_sqlfluff_ini_decl(s)
         || is_hypothesis_ini_decl(s)
+        || is_pylama_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -48673,9 +48675,9 @@ fn sqlfluff_ini_value_ok(key: &str, value: &str) -> bool {
 /// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
 /// check-wheel-contents / Twine `.pypirc` / Commitizen /
 /// python-semantic-release / scriv / import-linter / darglint /
-/// pydoclint / doc8 / rstcheck / sqlfluff / tox / setuptools / Cargo /
-/// Pipfile / pyproject `[tool.hypothesis]` tables / Desktop Entry /
-/// pip.conf stay out.
+/// pydoclint / doc8 / rstcheck / sqlfluff / pylama / tox / setuptools /
+/// Cargo / Pipfile / pyproject `[tool.hypothesis]` tables / Desktop
+/// Entry / pip.conf stay out.
 fn is_hypothesis_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -48903,6 +48905,229 @@ fn hypothesis_ini_value_ok(key: &str, value: &str) -> bool {
         "deadline" => hypothesis_deadline_ok(value),
         "database" => hypothesis_database_ok(value),
         "backend" => hypothesis_backend_ok(value),
+        _ => false,
+    }
+}
+
+/// Pylama `pylama.ini` / `setup.cfg` / `tox.ini` / `pytest.ini`
+/// `[pylama]` / `[pylama:…]` sections and distinctive keys: `[pylama]`,
+/// `[pylama:pycodestyle]` / `[pylama:pylint]` / `[pylama:pyflakes]` /
+/// `[pylama:pydocstyle]` / `[pylama:mccabe]` / `[pylama:mypy]` /
+/// `[pylama:eradicate]` / `[pylama:isort]`,
+/// `[pylama:*/tests.py]` / `[pylama:*/pylama/main.py]`,
+/// `linters = pylint,mccabe` / `pycodestyle,pyflakes,isort`,
+/// `format = pylint` / `pycodestyle` / `pydocstyle` / `parsable` /
+/// `json`, `skip = */.tox/*,*/.env/*` / `1`, `concurrent = True` /
+/// `false`, `abspath = yes`, `max_complexity = 10`. Exact snake_case
+/// keys. INI `key = value` or `key=value`. Optional quotes on values.
+/// Optional `#` / `;` comment. Trailing commas on linter lists ok. Bare
+/// `ignore` / `select` / `max_line_length` / `verbose` / `options` stay
+/// out (shared with flake8 / pycodestyle). flake8 / mypy / pytest /
+/// isort / coverage / pylint / pycodestyle / autopep8 / black / yapf /
+/// pydocstyle / bandit / codespell / docformatter / vulture /
+/// interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / tox /
+/// setuptools / Cargo / Pipfile / pyproject `[tool.pylama]` tables /
+/// Desktop Entry / pip.conf stay out.
+fn is_pylama_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return pylama_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !pylama_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    pylama_ini_value_ok(key, value)
+}
+
+fn pylama_ini_section_ok(header: &str) -> bool {
+    if header == "pylama" {
+        return true;
+    }
+    let Some(rest) = header.strip_prefix("pylama:") else {
+        return false;
+    };
+    if rest.is_empty() {
+        return false;
+    }
+    if pylama_linter_ok(rest) {
+        return true;
+    }
+    // Per-file / glob sections: `[pylama:*/tests.py]`, `[pylama:src/*.py]`.
+    pylama_path_section_ok(rest)
+}
+
+fn pylama_linter_ok(name: &str) -> bool {
+    matches!(
+        name,
+        "eradicate"
+            | "mccabe"
+            | "mypy"
+            | "pycodestyle"
+            | "pydocstyle"
+            | "pyflakes"
+            | "pylint"
+            | "isort"
+    )
+}
+
+fn pylama_path_section_ok(path: &str) -> bool {
+    if path.len() > 256 {
+        return false;
+    }
+    let bytes = path.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric()
+        && !matches!(bytes[0], b'*' | b'?' | b'.' | b'/' | b'_' | b'-')
+    {
+        return false;
+    }
+    let mut has_pathish = false;
+    for &b in bytes {
+        if !(b.is_ascii_graphic()) {
+            return false;
+        }
+        if matches!(b, b'*' | b'?' | b'/' | b'.') {
+            has_pathish = true;
+        }
+        if !(b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'_' | b'-' | b'.' | b'/' | b'*' | b'?' | b'+' | b'[' | b']'
+            ))
+        {
+            return false;
+        }
+    }
+    has_pathish
+}
+
+fn pylama_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "linters" | "format" | "skip" | "concurrent" | "abspath" | "max_complexity"
+    )
+}
+
+fn pylama_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn pylama_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        pylama_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn pylama_format_ok(value: &str) -> bool {
+    matches!(
+        pylama_ini_bare(value).to_ascii_lowercase().as_str(),
+        "pydocstyle" | "pycodestyle" | "pylint" | "parsable" | "json"
+    )
+}
+
+fn pylama_linters_ok(value: &str) -> bool {
+    let bare = pylama_ini_bare(value);
+    if bare.is_empty() {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        let t = part.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if !pylama_linter_ok(t) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn pylama_skip_ok(value: &str) -> bool {
+    let bare = pylama_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    // File-section `skip = 1` / bool forms.
+    if pylama_ini_bool_ok(bare) {
+        return true;
+    }
+    // Glob masks: `*/.tox/*,*/.env/*`, `*.py`.
+    let mut any = false;
+    for part in bare.split(',') {
+        let t = part.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if t.len() > 256 {
+            return false;
+        }
+        let bytes = t.as_bytes();
+        if !bytes
+            .iter()
+            .all(|b| b.is_ascii_graphic() || *b == b' ' || *b == b'\t')
+        {
+            return false;
+        }
+        if !t.bytes().any(|b| matches!(b, b'*' | b'?' | b'/' | b'.')) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn pylama_u32_ok(value: &str, min: u32, max: u32) -> bool {
+    let bare = pylama_ini_bare(value);
+    if bare.is_empty() || bare.len() > 10 {
+        return false;
+    }
+    let Ok(n) = bare.parse::<u32>() else {
+        return false;
+    };
+    n >= min && n <= max
+}
+
+fn pylama_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "linters" => pylama_linters_ok(value),
+        "format" => pylama_format_ok(value),
+        "skip" => pylama_skip_ok(value),
+        "concurrent" | "abspath" => pylama_ini_bool_ok(value),
+        "max_complexity" => pylama_u32_ok(value, 0, 10_000),
         _ => false,
     }
 }
@@ -69588,22 +69813,23 @@ mod func_like_line_tests {
         is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
         is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
         is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl,
-        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylint_ini_decl,
-        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl, is_railway_toml_decl,
-        is_rake_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl,
-        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
+        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
+        is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
+        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -78488,6 +78714,10 @@ mod func_like_line_tests {
         assert!(is_pip_conf_decl("[global]"));
         assert!(!is_hypothesis_ini_decl("report_level = WARNING"));
         assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        assert!(!is_hypothesis_ini_decl("[pylama]"));
+        assert!(is_pylama_ini_decl("[pylama]"));
+        assert!(!is_hypothesis_ini_decl("linters = pylint,mccabe"));
+        assert!(is_pylama_ini_decl("linters = pylint,mccabe"));
         // Distinctive hypothesis keys still list.
         assert!(line_is_func_like("max_examples = 100"));
         assert!(line_is_func_like(
@@ -78500,6 +78730,99 @@ mod func_like_line_tests {
         assert!(line_is_func_like("print_blob = True"));
         assert!(line_is_func_like("[hypothesis]"));
         assert!(line_is_func_like("[tool:hypothesis]"));
+    }
+
+    #[test]
+    fn pylama_ini_sections_and_keys_count() {
+        assert!(is_pylama_ini_decl("[pylama]"));
+        assert!(is_pylama_ini_decl("  [pylama] # props"));
+        assert!(is_pylama_ini_decl("[pylama] ; props"));
+        assert!(is_pylama_ini_decl("[pylama:pycodestyle]"));
+        assert!(is_pylama_ini_decl("[pylama:pylint]"));
+        assert!(is_pylama_ini_decl("[pylama:pyflakes]"));
+        assert!(is_pylama_ini_decl("[pylama:pydocstyle]"));
+        assert!(is_pylama_ini_decl("[pylama:mccabe]"));
+        assert!(is_pylama_ini_decl("[pylama:mypy]"));
+        assert!(is_pylama_ini_decl("[pylama:eradicate]"));
+        assert!(is_pylama_ini_decl("[pylama:isort]"));
+        assert!(is_pylama_ini_decl("[pylama:*/tests.py]"));
+        assert!(is_pylama_ini_decl("[pylama:*/pylama/main.py]"));
+        assert!(is_pylama_ini_decl("[pylama:src/*.py]"));
+        assert!(is_pylama_ini_decl("linters = pylint,mccabe"));
+        assert!(is_pylama_ini_decl("linters=pycodestyle,pyflakes,isort"));
+        assert!(is_pylama_ini_decl("linters = mypy,"));
+        assert!(is_pylama_ini_decl("format = pylint"));
+        assert!(is_pylama_ini_decl("format=pycodestyle"));
+        assert!(is_pylama_ini_decl("format = pydocstyle"));
+        assert!(is_pylama_ini_decl("format = parsable"));
+        assert!(is_pylama_ini_decl("format = json"));
+        assert!(is_pylama_ini_decl("skip = */.tox/*,*/.env/*"));
+        assert!(is_pylama_ini_decl("skip=*/messages.py"));
+        assert!(is_pylama_ini_decl("skip = 1"));
+        assert!(is_pylama_ini_decl("skip=true"));
+        assert!(is_pylama_ini_decl("concurrent = True"));
+        assert!(is_pylama_ini_decl("concurrent=false"));
+        assert!(is_pylama_ini_decl("abspath = yes"));
+        assert!(is_pylama_ini_decl("max_complexity = 10"));
+        assert!(is_pylama_ini_decl("max_complexity=0"));
+        assert!(is_pylama_ini_decl("linters = pylint # comment"));
+
+        // Neighbouring formats / generics / wrong case stay out.
+        assert!(!is_pylama_ini_decl("linters"));
+        assert!(!is_pylama_ini_decl("linters ="));
+        assert!(!is_pylama_ini_decl("Linters = pylint"));
+        assert!(!is_pylama_ini_decl("# linters = pylint"));
+        assert!(!is_pylama_ini_decl("ignore = F0401,C0111"));
+        assert!(!is_pylama_ini_decl("select = E,W"));
+        assert!(!is_pylama_ini_decl("max_line_length = 100"));
+        assert!(!is_pylama_ini_decl("verbose = 1"));
+        assert!(!is_pylama_ini_decl("options = setup.cfg"));
+        assert!(!is_pylama_ini_decl("format = text"));
+        assert!(!is_pylama_ini_decl("linters = flake8,black"));
+        assert!(!is_pylama_ini_decl("skip = messages"));
+        assert!(!is_pylama_ini_decl("max_complexity = -1"));
+        assert!(!is_pylama_ini_decl("[Pylama]"));
+        assert!(!is_pylama_ini_decl("[[pylama]]"));
+        assert!(!is_pylama_ini_decl("[pylama"));
+        assert!(!is_pylama_ini_decl("[pylama:]"));
+        assert!(!is_pylama_ini_decl("[tool.pylama]"));
+        assert!(is_pyproject_toml_decl("[tool.pylama]"));
+        assert!(!is_pylama_ini_decl("[hypothesis]"));
+        assert!(is_hypothesis_ini_decl("[hypothesis]"));
+        assert!(!is_pylama_ini_decl("max_examples = 100"));
+        assert!(is_hypothesis_ini_decl("max_examples = 100"));
+        assert!(!is_pylama_ini_decl("[sqlfluff]"));
+        assert!(is_sqlfluff_ini_decl("[sqlfluff]"));
+        assert!(!is_pylama_ini_decl("[rstcheck]"));
+        assert!(is_rstcheck_ini_decl("[rstcheck]"));
+        assert!(!is_pylama_ini_decl("[doc8]"));
+        assert!(is_doc8_ini_decl("[doc8]"));
+        assert!(!is_pylama_ini_decl("[pytest]"));
+        assert!(is_pytest_ini_decl("[pytest]"));
+        assert!(!is_pylama_ini_decl("[flake8]"));
+        assert!(is_flake8_ini_decl("[flake8]"));
+        assert!(!is_pylama_ini_decl("[metadata]"));
+        assert!(is_setup_cfg_decl("[metadata]"));
+        assert!(!is_pylama_ini_decl("[tox]"));
+        assert!(is_tox_ini_decl("[tox]"));
+        assert!(!is_pylama_ini_decl("[project]"));
+        assert!(is_pyproject_toml_decl("[project]"));
+        assert!(!is_pylama_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_pylama_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_pylama_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_pylama_ini_decl("report_level = WARNING"));
+        assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        // Distinctive pylama keys still list.
+        assert!(line_is_func_like("linters = pylint,mccabe"));
+        assert!(line_is_func_like("format = pylint"));
+        assert!(line_is_func_like("skip = */.tox/*,*/.env/*"));
+        assert!(line_is_func_like("max_complexity = 10"));
+        assert!(line_is_func_like("[pylama]"));
+        assert!(line_is_func_like("[pylama:pycodestyle]"));
+        assert!(line_is_func_like("[pylama:*/tests.py]"));
     }
 
     #[test]

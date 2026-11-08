@@ -1,3 +1,5 @@
+009 keep: Function List Pylama pylama.ini/setup.cfg/tox.ini/pytest.ini [pylama]/[pylama:linter|glob] linters/format/skip/concurrent/abspath/max_complexity (v0.3.687)
+
 009 keep: Function List Hypothesis pytest.ini/setup.cfg/tox.ini [hypothesis]/[tool:hypothesis] max_examples/derandomize/deadline/suppress_health_check/phases (v0.3.686)
 
 009 keep: Function List SQLFluff .sqlfluff/setup.cfg/tox.ini [sqlfluff]/[sqlfluff:indentation|rules:L###|templater:jinja|layout:type:…] dialect/templater/exclude_rules/indented_*/capitalisation_policy (v0.3.685)
