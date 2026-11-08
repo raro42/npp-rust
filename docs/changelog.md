@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.691] — 2026-11-08
+
+View:
+
+- **Function List** lists unimport `setup.cfg` / `tox.ini` `[unimport]` sections and fields: `[unimport]`, `include-star-import = true` / `include_star_import`, `ignore-init = true` / `ignore_init`, `gitignore = true` / `false`, `sources = src` / `src,tests` / `path1 path2`, `exclude = __init__.py|tests/` / `tests/`, `include = test|tests.py`, `remove = false` / `True`, `check = true` / `0`, `diff = true` / `yes`, `jobs = 4` / `0`. Exact kebab-case or snake_case keys. INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. Trailing commas on path lists ok. Bare `verbose` / `color` / `format` / `permission` / `config` / `per-file-ignores` stay out. JSON/TOML `sources = ["…"]` arrays stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama / radon / autoflake / pytype / tox / setuptools / Cargo / Pipfile / pyproject `[tool.unimport]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.690] — 2026-11-08
 
 View:

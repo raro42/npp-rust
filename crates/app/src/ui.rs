@@ -32411,6 +32411,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_radon_ini_decl(s)
             || is_autoflake_ini_decl(s)
             || is_pytype_ini_decl(s)
+            || is_unimport_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32679,6 +32680,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_radon_ini_decl(s)
         || is_autoflake_ini_decl(s)
         || is_pytype_ini_decl(s)
+        || is_unimport_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -49341,8 +49343,8 @@ fn radon_ini_value_ok(key: &str, value: &str) -> bool {
 /// cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen /
 /// python-semantic-release / scriv / import-linter / darglint /
 /// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
-/// radon / pytype / tox / setuptools / Cargo / Pipfile / pyproject
-/// `[tool.autoflake]` tables / Desktop Entry / pip.conf stay out.
+/// radon / pytype / unimport / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.autoflake]` tables / Desktop Entry / pip.conf stay out.
 fn is_autoflake_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -49481,8 +49483,8 @@ fn autoflake_ini_value_ok(key: &str, value: &str) -> bool {
 /// check-wheel-contents / Twine `.pypirc` / Commitizen /
 /// python-semantic-release / scriv / import-linter / darglint /
 /// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
-/// radon / autoflake / tox / setuptools / Cargo / Pipfile / pyproject
-/// `[tool.pytype]` tables / Desktop Entry / pip.conf stay out.
+/// radon / autoflake / unimport / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.pytype]` tables / Desktop Entry / pip.conf stay out.
 fn is_pytype_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -49687,6 +49689,205 @@ fn pytype_ini_value_ok(key: &str, value: &str) -> bool {
         "output" => pytype_output_ok(value),
         "keep_going" | "report_errors" | "protocols" | "strict_import" => pytype_ini_bool_ok(value),
         "jobs" => pytype_jobs_ok(value),
+        _ => false,
+    }
+}
+
+/// unimport `setup.cfg` / `tox.ini` `[unimport]` sections and
+/// distinctive keys: `[unimport]`,
+/// `include-star-import = true` / `include_star_import`,
+/// `ignore-init = true` / `ignore_init`,
+/// `gitignore = true` / `false`,
+/// `sources = src` / `src,tests` / `path1 path2`,
+/// `exclude = __init__.py|tests/` / `tests/`,
+/// `include = test|tests.py`,
+/// `remove = false` / `True`,
+/// `check = true` / `0`,
+/// `diff = true` / `yes`,
+/// `jobs = 4` / `0`. Exact kebab-case or snake_case keys. INI
+/// `key = value` or `key=value`. Optional quotes on values. Optional
+/// `#` / `;` comment. Trailing commas on path lists ok. Bare
+/// `verbose` / `color` / `format` / `permission` / `config` /
+/// `per-file-ignores` stay out. JSON/TOML `sources = ["…"]` arrays
+/// stay out. flake8 / mypy / pytest / isort / coverage / pylint /
+/// pycodestyle / autopep8 / black / yapf / pydocstyle / bandit /
+/// codespell / docformatter / vulture / interrogate / check-manifest /
+/// bumpversion / versioneer / setuptools_scm / towncrier /
+/// zest.releaser / cibuildwheel / check-wheel-contents / Twine
+/// `.pypirc` / Commitizen / python-semantic-release / scriv /
+/// import-linter / darglint / pydoclint / doc8 / rstcheck / sqlfluff /
+/// hypothesis / pylama / radon / autoflake / pytype / tox /
+/// setuptools / Cargo / Pipfile / pyproject `[tool.unimport]` tables /
+/// Desktop Entry / pip.conf stay out.
+fn is_unimport_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return unimport_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !unimport_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    unimport_ini_value_ok(key, value)
+}
+
+fn unimport_ini_section_ok(header: &str) -> bool {
+    header == "unimport"
+}
+
+fn unimport_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "include-star-import"
+            | "include_star_import"
+            | "ignore-init"
+            | "ignore_init"
+            | "gitignore"
+            | "sources"
+            | "exclude"
+            | "include"
+            | "remove"
+            | "check"
+            | "diff"
+            | "jobs"
+    )
+}
+
+fn unimport_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn unimport_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        unimport_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn unimport_jobs_ok(value: &str) -> bool {
+    let bare = unimport_ini_bare(value);
+    if bare.is_empty() || bare.len() > 4 {
+        return false;
+    }
+    bare.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn unimport_path_token_ok(t: &str) -> bool {
+    if t.is_empty() || t.len() > 256 {
+        return false;
+    }
+    let bytes = t.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric()
+        || matches!(bytes[0], b'*' | b'?' | b'.' | b'/' | b'_' | b'-' | b'~'))
+    {
+        return false;
+    }
+    bytes.iter().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                *b,
+                b'_' | b'-' | b'.' | b'/' | b'*' | b'?' | b'+' | b'[' | b']' | b'~'
+            )
+    })
+}
+
+fn unimport_sources_ok(value: &str) -> bool {
+    let bare = unimport_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split([',', ' ']) {
+        let t = part.trim().trim_end_matches(',');
+        if t.is_empty() {
+            continue;
+        }
+        if !unimport_path_token_ok(t) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn unimport_pattern_ok(value: &str) -> bool {
+    let bare = unimport_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric()
+        || matches!(
+            bytes[0],
+            b'*' | b'?' | b'.' | b'/' | b'_' | b'-' | b'^' | b'(' | b'['
+        ))
+    {
+        return false;
+    }
+    bytes.iter().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                *b,
+                b'_' | b'-'
+                    | b'.'
+                    | b'/'
+                    | b'*'
+                    | b'?'
+                    | b'+'
+                    | b'|'
+                    | b'^'
+                    | b'$'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b'\\'
+                    | b','
+                    | b' '
+            )
+    })
+}
+
+fn unimport_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "sources" => unimport_sources_ok(value),
+        "exclude" | "include" => unimport_pattern_ok(value),
+        "jobs" => unimport_jobs_ok(value),
+        "include-star-import"
+        | "include_star_import"
+        | "ignore-init"
+        | "ignore_init"
+        | "gitignore"
+        | "remove"
+        | "check"
+        | "diff" => unimport_ini_bool_ok(value),
         _ => false,
     }
 }
@@ -70384,11 +70585,11 @@ mod func_like_line_tests {
         is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
         is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
         is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        line_is_func_like,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl,
+        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -79647,6 +79848,10 @@ mod func_like_line_tests {
         assert!(is_pip_conf_decl("[global]"));
         assert!(!is_pytype_ini_decl("report_level = WARNING"));
         assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        assert!(!is_pytype_ini_decl("[unimport]"));
+        assert!(is_unimport_ini_decl("[unimport]"));
+        assert!(!is_pytype_ini_decl("include-star-import = true"));
+        assert!(is_unimport_ini_decl("include-star-import = true"));
         // Distinctive pytype keys still list.
         assert!(line_is_func_like("keep_going = True"));
         assert!(line_is_func_like("strict_import = False"));
@@ -79654,6 +79859,94 @@ mod func_like_line_tests {
         assert!(line_is_func_like("pythonpath = .:~/repo2"));
         assert!(line_is_func_like("jobs = auto"));
         assert!(line_is_func_like("[pytype]"));
+    }
+
+    #[test]
+    fn unimport_ini_sections_and_keys_count() {
+        assert!(is_unimport_ini_decl("[unimport]"));
+        assert!(is_unimport_ini_decl("  [unimport] # unused"));
+        assert!(is_unimport_ini_decl("[unimport] ; unused"));
+        assert!(is_unimport_ini_decl("include-star-import = true"));
+        assert!(is_unimport_ini_decl("include_star_import=True"));
+        assert!(is_unimport_ini_decl("ignore-init = true"));
+        assert!(is_unimport_ini_decl("ignore_init=false"));
+        assert!(is_unimport_ini_decl("gitignore = true"));
+        assert!(is_unimport_ini_decl("gitignore=0"));
+        assert!(is_unimport_ini_decl("sources = src"));
+        assert!(is_unimport_ini_decl("sources=src,tests"));
+        assert!(is_unimport_ini_decl("sources = path1 path2"));
+        assert!(is_unimport_ini_decl("exclude = __init__.py|tests/"));
+        assert!(is_unimport_ini_decl("exclude=tests/"));
+        assert!(is_unimport_ini_decl("include = test|tests.py"));
+        assert!(is_unimport_ini_decl("remove = false"));
+        assert!(is_unimport_ini_decl("remove=True"));
+        assert!(is_unimport_ini_decl("check = true"));
+        assert!(is_unimport_ini_decl("check=0"));
+        assert!(is_unimport_ini_decl("diff = true"));
+        assert!(is_unimport_ini_decl("diff=yes"));
+        assert!(is_unimport_ini_decl("jobs = 4"));
+        assert!(is_unimport_ini_decl("jobs=0"));
+        assert!(is_unimport_ini_decl("include-star-import = true # comment"));
+        assert!(is_unimport_ini_decl("sources=src; trailing"));
+
+        assert!(!is_unimport_ini_decl("include-star-import"));
+        assert!(!is_unimport_ini_decl("include-star-import ="));
+        assert!(!is_unimport_ini_decl("Include-star-import = true"));
+        assert!(!is_unimport_ini_decl("# include-star-import = true"));
+        assert!(!is_unimport_ini_decl("include-star-import = maybe"));
+        assert!(!is_unimport_ini_decl("verbose = true"));
+        assert!(!is_unimport_ini_decl("color = auto"));
+        assert!(!is_unimport_ini_decl("format = text"));
+        assert!(!is_unimport_ini_decl("permission = true"));
+        assert!(!is_unimport_ini_decl("config = setup.cfg"));
+        assert!(!is_unimport_ini_decl("per-file-ignores = __init__.py"));
+        assert!(!is_unimport_ini_decl("sources = [\"src\", \"tests\"]"));
+        assert!(!is_unimport_ini_decl("sources = "));
+        assert!(!is_unimport_ini_decl("jobs = auto"));
+        assert!(!is_unimport_ini_decl("[Unimport]"));
+        assert!(!is_unimport_ini_decl("[[unimport]]"));
+        assert!(!is_unimport_ini_decl("[unimport"));
+        assert!(!is_unimport_ini_decl("[tool.unimport]"));
+        assert!(!is_unimport_ini_decl("[pytype]"));
+        assert!(is_pytype_ini_decl("[pytype]"));
+        assert!(!is_unimport_ini_decl("keep_going = True"));
+        assert!(is_pytype_ini_decl("keep_going = True"));
+        assert!(!is_unimport_ini_decl("[autoflake]"));
+        assert!(is_autoflake_ini_decl("[autoflake]"));
+        assert!(!is_unimport_ini_decl("remove-all-unused-imports = true"));
+        assert!(is_autoflake_ini_decl("remove-all-unused-imports = true"));
+        assert!(!is_unimport_ini_decl("[radon]"));
+        assert!(is_radon_ini_decl("[radon]"));
+        assert!(!is_unimport_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_unimport_ini_decl("[pylama]"));
+        assert!(!is_unimport_ini_decl("[hypothesis]"));
+        assert!(!is_unimport_ini_decl("[sqlfluff]"));
+        assert!(!is_unimport_ini_decl("[rstcheck]"));
+        assert!(!is_unimport_ini_decl("[doc8]"));
+        assert!(!is_unimport_ini_decl("[pytest]"));
+        assert!(!is_unimport_ini_decl("[flake8]"));
+        assert!(!is_unimport_ini_decl("[metadata]"));
+        assert!(!is_unimport_ini_decl("[tox]"));
+        assert!(!is_unimport_ini_decl("[project]"));
+        assert!(!is_unimport_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_unimport_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_unimport_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_unimport_ini_decl("report_level = WARNING"));
+        assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        // Shared jobs key is also a pytype field; either path lists.
+        assert!(is_pytype_ini_decl("jobs = 4"));
+        assert!(is_unimport_ini_decl("jobs = 4"));
+        // Distinctive unimport keys still list.
+        assert!(line_is_func_like("include-star-import = true"));
+        assert!(line_is_func_like("ignore_init = true"));
+        assert!(line_is_func_like("gitignore = true"));
+        assert!(line_is_func_like("sources = src,tests"));
+        assert!(line_is_func_like("exclude = __init__.py|tests/"));
+        assert!(line_is_func_like("[unimport]"));
     }
 
     #[test]
