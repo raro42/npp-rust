@@ -32378,6 +32378,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_postcss_json_decl(s)
             || is_parcel_json_decl(s)
             || is_turbo_json_decl(s)
+            || is_nx_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32666,6 +32667,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_postcss_json_decl(s)
         || is_parcel_json_decl(s)
         || is_turbo_json_decl(s)
+        || is_nx_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -43045,9 +43047,11 @@ fn parcel_json_string_ok(value: &str) -> bool {
 /// eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` /
 /// prettier `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` /
 /// dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` /
-/// package.json `"scripts"` stay out. Shared `"extends": [` also match
-/// parcel / babel / eslint / stylelint; shared `"tasks": {` also match
-/// package.json / deno.json when shapes match.
+/// package.json `"scripts"` / nx `"namedInputs"` / `"targetDefaults"` /
+/// `"tasksRunnerOptions"` / `"cacheDirectory"` / `"useDaemonProcess"` stay
+/// out. Shared `"extends": [` also match parcel / babel / eslint /
+/// stylelint / nx; shared `"tasks": {` also match package.json / deno.json
+/// when shapes match.
 fn is_turbo_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -43265,6 +43269,191 @@ fn turbo_json_concurrency_ok(value: &str) -> bool {
         return true;
     }
     value[digits..] == *"%"
+}
+
+/// Nx `nx.json` / `nx.jsonc` JSON keys:
+/// `"extends": "…"` / `"extends": [`, `"namedInputs": {`, `"targetDefaults": {`,
+/// `"tasksRunnerOptions": {`, `"workspaceLayout": {`, `"generators": {`,
+/// `"plugins": [`, `"pluginsConfig": {`, `"affected": {`, `"release": {`,
+/// `"sync": {`, `"tui": {`, `"cli": {`, `"installation": {`,
+/// `"defaultProject": "…"`, `"defaultBase": "…"`, `"npmScope": "…"`,
+/// `"cacheDirectory": "…"`, `"nxCloudId": "…"`, `"nxCloudUrl": "…"`,
+/// `"parallel": 3`, `"useDaemonProcess": true`, `"useInferencePlugins": true`,
+/// `"neverConnectToCloud": true`, `"analytics": true`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / turbo `"tasks"` /
+/// `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` /
+/// Parcel `"transformers"` / `"namers"` / PostCSS `"plugins": {` /
+/// babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` /
+/// stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` /
+/// dprint `"includes"` / tsconfig `"compilerOptions"` / package.json
+/// `"scripts"` stay out. Shared `"extends": "…"` / `"extends": [` also
+/// match parcel / babel / eslint / stylelint / turbo / tsconfig when shapes
+/// match; shared `"plugins": [` also match eslint / prettier / stylelint /
+/// babel / dprint when shapes match.
+fn is_nx_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !nx_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    nx_json_value_and_tail_ok(key, after_colon)
+}
+
+fn nx_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "extends"
+            | "namedInputs"
+            | "targetDefaults"
+            | "tasksRunnerOptions"
+            | "workspaceLayout"
+            | "generators"
+            | "plugins"
+            | "pluginsConfig"
+            | "affected"
+            | "release"
+            | "sync"
+            | "tui"
+            | "cli"
+            | "installation"
+            | "defaultProject"
+            | "defaultBase"
+            | "npmScope"
+            | "cacheDirectory"
+            | "nxCloudId"
+            | "nxCloudUrl"
+            | "parallel"
+            | "useDaemonProcess"
+            | "useInferencePlugins"
+            | "neverConnectToCloud"
+            | "analytics"
+    )
+}
+
+fn nx_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !nx_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !nx_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !nx_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !nx_json_string_ok(value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !nx_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if key != "parallel" {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 6 {
+                return false;
+            }
+            if digits == 1 && after_colon.as_bytes()[0] == b'0' {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn nx_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "namedInputs"
+            | "targetDefaults"
+            | "tasksRunnerOptions"
+            | "workspaceLayout"
+            | "generators"
+            | "pluginsConfig"
+            | "affected"
+            | "release"
+            | "sync"
+            | "tui"
+            | "cli"
+            | "installation"
+    )
+}
+
+fn nx_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "extends" | "plugins")
+}
+
+fn nx_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "extends"
+            | "defaultProject"
+            | "defaultBase"
+            | "npmScope"
+            | "cacheDirectory"
+            | "nxCloudId"
+            | "nxCloudUrl"
+    )
+}
+
+fn nx_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "useDaemonProcess" | "useInferencePlugins" | "neverConnectToCloud" | "analytics"
+    )
+}
+
+fn nx_json_string_ok(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 512
+        && !value.contains('\n')
+        && !value.chars().all(|c| c.is_ascii_whitespace())
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -73901,10 +74090,10 @@ mod func_like_line_tests {
         is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
         is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
         is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
+        is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
         is_postcss_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
         is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
         is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
@@ -85333,6 +85522,140 @@ mod func_like_line_tests {
         assert!(is_eslint_json_decl(r#""extends": ["#));
         assert!(is_turbo_json_decl(r#""tasks": {"#));
         assert!(is_package_json_decl(r#""tasks": {"#));
+        // Nx-only keys stay on nx.
+        assert!(!is_turbo_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_turbo_json_decl(r#""targetDefaults": {"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(!is_turbo_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+    }
+
+    #[test]
+    fn nx_json_keys_count() {
+        assert!(is_nx_json_decl(r#""extends": "nx/presets/npm.json""#));
+        assert!(is_nx_json_decl(r#""extends": "nx/presets/npm.json","#));
+        assert!(is_nx_json_decl(r#""extends": ["#));
+        assert!(is_nx_json_decl(r#""extends": [ // presets"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": { // default"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": { // build"#));
+        assert!(is_nx_json_decl(r#""tasksRunnerOptions": {"#));
+        assert!(is_nx_json_decl(r#""tasksRunnerOptions": { // default"#));
+        assert!(is_nx_json_decl(r#""workspaceLayout": {"#));
+        assert!(is_nx_json_decl(r#""workspaceLayout": { // apps"#));
+        assert!(is_nx_json_decl(r#""generators": {"#));
+        assert!(is_nx_json_decl(r#""generators": { // @nx"#));
+        assert!(is_nx_json_decl(r#""plugins": ["#));
+        assert!(is_nx_json_decl(r#""plugins": [ // @nx/js"#));
+        assert!(is_nx_json_decl(r#""pluginsConfig": {"#));
+        assert!(is_nx_json_decl(r#""pluginsConfig": { // @nx"#));
+        assert!(is_nx_json_decl(r#""affected": {"#));
+        assert!(is_nx_json_decl(r#""affected": { // defaultBase"#));
+        assert!(is_nx_json_decl(r#""release": {"#));
+        assert!(is_nx_json_decl(r#""release": { // version"#));
+        assert!(is_nx_json_decl(r#""sync": {"#));
+        assert!(is_nx_json_decl(r#""sync": { // apply"#));
+        assert!(is_nx_json_decl(r#""tui": {"#));
+        assert!(is_nx_json_decl(r#""tui": { // enabled"#));
+        assert!(is_nx_json_decl(r#""cli": {"#));
+        assert!(is_nx_json_decl(r#""cli": { // packageManager"#));
+        assert!(is_nx_json_decl(r#""installation": {"#));
+        assert!(is_nx_json_decl(r#""installation": { // version"#));
+        assert!(is_nx_json_decl(r#""defaultProject": "myapp""#));
+        assert!(is_nx_json_decl(r#""defaultProject": "myapp","#));
+        assert!(is_nx_json_decl(r#""defaultBase": "main""#));
+        assert!(is_nx_json_decl(r#""defaultBase": "main","#));
+        assert!(is_nx_json_decl(r#""npmScope": "acme""#));
+        assert!(is_nx_json_decl(r#""npmScope": "acme","#));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache","#));
+        assert!(is_nx_json_decl(r#""nxCloudId": "abc123""#));
+        assert!(is_nx_json_decl(r#""nxCloudUrl": "https://cloud.nx.app""#));
+        assert!(is_nx_json_decl(r#""parallel": 3"#));
+        assert!(is_nx_json_decl(r#""parallel": 3,"#));
+        assert!(is_nx_json_decl(r#""useDaemonProcess": true"#));
+        assert!(is_nx_json_decl(r#""useDaemonProcess": false,"#));
+        assert!(is_nx_json_decl(r#""useInferencePlugins": true"#));
+        assert!(is_nx_json_decl(r#""neverConnectToCloud": true"#));
+        assert!(is_nx_json_decl(r#""analytics": false"#));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_nx_json_decl(r#""extends""#));
+        assert!(!is_nx_json_decl(r#""extends":"#));
+        assert!(!is_nx_json_decl(r#"extends: ["#));
+        assert!(!is_nx_json_decl(r#""Extends": ["#));
+        assert!(!is_nx_json_decl(r#""extends": {"#));
+        assert!(!is_nx_json_decl(r#""extends": """#));
+        assert!(!is_nx_json_decl(r#""namedInputs": ["#));
+        assert!(!is_nx_json_decl(r#""namedInputs": "default""#));
+        assert!(!is_nx_json_decl(r#""targetDefaults": ["#));
+        assert!(!is_nx_json_decl(r#""plugins": {"#));
+        assert!(!is_nx_json_decl(r#""plugins": "plugin""#));
+        assert!(!is_nx_json_decl(r#""defaultProject": """#));
+        assert!(!is_nx_json_decl(r#""defaultProject": true"#));
+        assert!(!is_nx_json_decl(r#""parallel": 0"#));
+        assert!(!is_nx_json_decl(r#""parallel": "3""#));
+        assert!(!is_nx_json_decl(r#""useDaemonProcess": "true""#));
+        assert!(!is_nx_json_decl(r#""useDaemonProcess": {"#));
+        assert!(!is_nx_json_decl(r#""analytics": ["#));
+        // Same-line array / object members are not opening-key lines.
+        assert!(!is_nx_json_decl(r#""extends": ["nx/presets/npm.json"],"#));
+        assert!(!is_nx_json_decl(r#""plugins": ["@nx/js/typescript"],"#));
+        assert!(!is_nx_json_decl(
+            r#""namedInputs": {"default": ["{projectRoot}/**/*"]},"#
+        ));
+        assert!(!is_nx_json_decl(
+            r#""$schema": "https://nx.dev/schemas/nx-schema.json""#
+        ));
+        // Neighbouring families stay out.
+        assert!(!is_nx_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_nx_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_nx_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_nx_json_decl(r#""cacheDir": ".turbo/cache""#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo/cache""#));
+        assert!(!is_nx_json_decl(r#""envMode": "strict""#));
+        assert!(is_turbo_json_decl(r#""envMode": "strict""#));
+        assert!(!is_nx_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_nx_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_nx_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_nx_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_nx_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_nx_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_nx_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_nx_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_nx_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_nx_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_nx_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists nx keys.
+        assert!(line_is_func_like(r#""namedInputs": {"#));
+        assert!(line_is_func_like(r#""targetDefaults": {"#));
+        assert!(line_is_func_like(r#""cacheDirectory": ".nx/cache""#));
+        assert!(line_is_func_like(r#""useDaemonProcess": true"#));
+        // Shared extends / plugins: nx + neighbours when shapes match.
+        assert!(is_nx_json_decl(r#""extends": "nx/presets/npm.json""#));
+        assert!(is_babel_json_decl(r#""extends": "./babelrc.base.json""#));
+        assert!(is_eslint_json_decl(r#""extends": "eslint:recommended""#));
+        assert!(is_nx_json_decl(r#""extends": ["#));
+        assert!(is_turbo_json_decl(r#""extends": ["#));
+        assert!(is_parcel_json_decl(r#""extends": ["#));
+        assert!(is_nx_json_decl(r#""plugins": ["#));
+        assert!(is_eslint_json_decl(r#""plugins": ["#));
+        assert!(is_prettier_json_decl(r#""plugins": ["#));
     }
 
     #[test]

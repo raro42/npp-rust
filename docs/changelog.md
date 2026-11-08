@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.711] — 2026-11-08
+
+View:
+
+- **Function List** lists Nx `nx.json` / `nx.jsonc` JSON keys: `"extends": "…"` / `"extends": [`, `"namedInputs": {`, `"targetDefaults": {`, `"tasksRunnerOptions": {`, `"workspaceLayout": {`, `"generators": {`, `"plugins": [`, `"pluginsConfig": {`, `"affected": {`, `"release": {`, `"sync": {`, `"tui": {`, `"cli": {`, `"installation": {`, `"defaultProject": "…"`, `"defaultBase": "…"`, `"npmScope": "…"`, `"cacheDirectory": "…"`, `"nxCloudId": "…"`, `"nxCloudUrl": "…"`, `"parallel": 3`, `"useDaemonProcess": true`, `"useInferencePlugins": true`, `"neverConnectToCloud": true`, `"analytics": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / Parcel `"transformers"` / `"namers"` / PostCSS `"plugins": {` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out. Shared `"extends": "…"` / `"extends": [` also match parcel / babel / eslint / stylelint / turbo / tsconfig when shapes match; shared `"plugins": [` also match eslint / prettier / stylelint / babel / dprint when shapes match.
+
 ## [0.3.710] — 2026-11-08
 
 View:
