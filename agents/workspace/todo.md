@@ -1046,3 +1046,5 @@
 009 keep: Function List unimport setup.cfg/tox.ini [unimport] include-star-import/ignore-init/gitignore/sources/exclude/include/remove/check/diff/jobs (v0.3.691)
 
 009 keep: Function List pycln (v0.3.692)
+
+009 keep: Function List pyupgrade (v0.3.694)

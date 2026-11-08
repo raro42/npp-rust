@@ -32414,6 +32414,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_unimport_ini_decl(s)
             || is_pycln_ini_decl(s)
             || is_flynt_ini_decl(s)
+            || is_pyupgrade_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32685,6 +32686,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_unimport_ini_decl(s)
         || is_pycln_ini_decl(s)
         || is_flynt_ini_decl(s)
+        || is_pyupgrade_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -49919,9 +49921,9 @@ fn unimport_ini_value_ok(key: &str, value: &str) -> bool {
 /// check-wheel-contents / Twine `.pypirc` / Commitizen /
 /// python-semantic-release / scriv / import-linter / darglint /
 /// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
-/// radon / autoflake / pytype / unimport / flynt / tox / setuptools /
-/// Cargo / Pipfile / pyproject `[tool.pycln]` tables / Desktop Entry /
-/// pip.conf stay out.
+/// radon / autoflake / pytype / unimport / flynt / pyupgrade / tox /
+/// setuptools / Cargo / Pipfile / pyproject `[tool.pycln]` tables /
+/// Desktop Entry / pip.conf stay out.
 fn is_pycln_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -50158,9 +50160,9 @@ fn pycln_ini_value_ok(key: &str, value: &str) -> bool {
 /// check-wheel-contents / Twine `.pypirc` / Commitizen /
 /// python-semantic-release / scriv / import-linter / darglint /
 /// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
-/// radon / autoflake / pytype / unimport / pycln / tox / setuptools /
-/// Cargo / Pipfile / pyproject `[tool.flynt]` tables / Desktop Entry /
-/// pip.conf stay out.
+/// radon / autoflake / pytype / unimport / pycln / pyupgrade / tox /
+/// setuptools / Cargo / Pipfile / pyproject `[tool.flynt]` tables /
+/// Desktop Entry / pip.conf stay out.
 fn is_flynt_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -50282,6 +50284,126 @@ fn flynt_ini_value_ok(key: &str, value: &str) -> bool {
         | "transform_joins" => flynt_ini_bool_ok(value),
         _ => false,
     }
+}
+
+/// pyupgrade `setup.cfg` / `tox.ini` `[pyupgrade]` sections and
+/// distinctive keys: `[pyupgrade]`, `py39-plus = true` / `py39_plus`,
+/// `py3-plus` / `py3-only` / `py36-plus`…`py315-plus`,
+/// `keep-percent-format = true` / `keep_percent_format`,
+/// `keep-mock = true` / `keep_mock`,
+/// `keep-runtime-typing = true` / `keep_runtime_typing`,
+/// `exit-zero-even-if-changed = true` / `exit_zero_even_if_changed`.
+/// Exact kebab-case or snake_case keys. INI `key = value` or
+/// `key=value`. Optional quotes on values. Optional `#` / `;` comment.
+/// Bare `verbose` / `quiet` / `filenames` / `exclude` / `config` stay
+/// out. JSON/TOML arrays stay out. flake8 / mypy / pytest / isort /
+/// coverage / pylint / pycodestyle / autopep8 / black / yapf /
+/// pydocstyle / bandit / codespell / docformatter / vulture /
+/// interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
+/// radon / autoflake / pytype / unimport / pycln / flynt / tox /
+/// setuptools / Cargo / Pipfile / pyproject `[tool.pyupgrade]` tables /
+/// Desktop Entry / pip.conf stay out.
+fn is_pyupgrade_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return pyupgrade_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !pyupgrade_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    pyupgrade_ini_value_ok(key, value)
+}
+
+fn pyupgrade_ini_section_ok(header: &str) -> bool {
+    header == "pyupgrade"
+}
+
+fn pyupgrade_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "exit-zero-even-if-changed"
+            | "exit_zero_even_if_changed"
+            | "keep-percent-format"
+            | "keep_percent_format"
+            | "keep-mock"
+            | "keep_mock"
+            | "keep-runtime-typing"
+            | "keep_runtime_typing"
+            | "py3-plus"
+            | "py3_plus"
+            | "py3-only"
+            | "py3_only"
+            | "py36-plus"
+            | "py36_plus"
+            | "py37-plus"
+            | "py37_plus"
+            | "py38-plus"
+            | "py38_plus"
+            | "py39-plus"
+            | "py39_plus"
+            | "py310-plus"
+            | "py310_plus"
+            | "py311-plus"
+            | "py311_plus"
+            | "py312-plus"
+            | "py312_plus"
+            | "py313-plus"
+            | "py313_plus"
+            | "py314-plus"
+            | "py314_plus"
+            | "py315-plus"
+            | "py315_plus"
+    )
+}
+
+fn pyupgrade_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn pyupgrade_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        pyupgrade_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn pyupgrade_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    if !pyupgrade_ini_key_ok(key) {
+        return false;
+    }
+    pyupgrade_ini_bool_ok(value)
 }
 
 /// FreeDesktop Desktop Entry sections: `[Desktop Entry]`,
@@ -70967,10 +71089,10 @@ mod func_like_line_tests {
         is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl, is_premake_decl,
         is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
         is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
-        is_pyproject_toml_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_radon_ini_decl,
-        is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_pyproject_toml_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
+        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
         is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
@@ -80522,6 +80644,10 @@ mod func_like_line_tests {
         assert!(is_pip_conf_decl("[global]"));
         assert!(!is_flynt_ini_decl("report_level = WARNING"));
         assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        assert!(!is_flynt_ini_decl("[pyupgrade]"));
+        assert!(is_pyupgrade_ini_decl("[pyupgrade]"));
+        assert!(!is_flynt_ini_decl("keep-percent-format = true"));
+        assert!(is_pyupgrade_ini_decl("keep-percent-format = true"));
         // Distinctive flynt keys still list.
         assert!(line_is_func_like("aggressive = true"));
         assert!(line_is_func_like("transform-concats = true"));
@@ -80530,6 +80656,85 @@ mod func_like_line_tests {
         assert!(line_is_func_like("fail-on-change = true"));
         assert!(line_is_func_like("dry_run = true"));
         assert!(line_is_func_like("[flynt]"));
+    }
+
+    #[test]
+    fn pyupgrade_ini_sections_and_keys_count() {
+        assert!(is_pyupgrade_ini_decl("[pyupgrade]"));
+        assert!(is_pyupgrade_ini_decl("  [pyupgrade] # syntax"));
+        assert!(is_pyupgrade_ini_decl("[pyupgrade] ; upgrade"));
+        assert!(is_pyupgrade_ini_decl("py39-plus = true"));
+        assert!(is_pyupgrade_ini_decl("py39_plus=True"));
+        assert!(is_pyupgrade_ini_decl("py3-plus = true"));
+        assert!(is_pyupgrade_ini_decl("py3_plus=1"));
+        assert!(is_pyupgrade_ini_decl("py3-only = true"));
+        assert!(is_pyupgrade_ini_decl("py3_only=yes"));
+        assert!(is_pyupgrade_ini_decl("py36-plus = true"));
+        assert!(is_pyupgrade_ini_decl("py37_plus=false"));
+        assert!(is_pyupgrade_ini_decl("py38-plus = on"));
+        assert!(is_pyupgrade_ini_decl("py310-plus = true"));
+        assert!(is_pyupgrade_ini_decl("py311_plus=0"));
+        assert!(is_pyupgrade_ini_decl("py312-plus = true"));
+        assert!(is_pyupgrade_ini_decl("py313_plus=False"));
+        assert!(is_pyupgrade_ini_decl("py314-plus = true"));
+        assert!(is_pyupgrade_ini_decl("py315_plus=off"));
+        assert!(is_pyupgrade_ini_decl("keep-percent-format = true"));
+        assert!(is_pyupgrade_ini_decl("keep_percent_format=False"));
+        assert!(is_pyupgrade_ini_decl("keep-mock = true"));
+        assert!(is_pyupgrade_ini_decl("keep_mock=1"));
+        assert!(is_pyupgrade_ini_decl("keep-runtime-typing = true"));
+        assert!(is_pyupgrade_ini_decl("keep_runtime_typing=yes"));
+        assert!(is_pyupgrade_ini_decl("exit-zero-even-if-changed = true"));
+        assert!(is_pyupgrade_ini_decl("exit_zero_even_if_changed=0"));
+        assert!(is_pyupgrade_ini_decl("py39-plus = true # comment"));
+        assert!(is_pyupgrade_ini_decl("keep-mock=true; trailing"));
+
+        assert!(!is_pyupgrade_ini_decl("py39-plus"));
+        assert!(!is_pyupgrade_ini_decl("py39-plus ="));
+        assert!(!is_pyupgrade_ini_decl("Py39-plus = true"));
+        assert!(!is_pyupgrade_ini_decl("# py39-plus = true"));
+        assert!(!is_pyupgrade_ini_decl("py39-plus = maybe"));
+        assert!(!is_pyupgrade_ini_decl("verbose = true"));
+        assert!(!is_pyupgrade_ini_decl("quiet = true"));
+        assert!(!is_pyupgrade_ini_decl("filenames = a.py"));
+        assert!(!is_pyupgrade_ini_decl("exclude = tests"));
+        assert!(!is_pyupgrade_ini_decl("config = pyupgrade.toml"));
+        assert!(!is_pyupgrade_ini_decl("keep-percent-format = [\"x\"]"));
+        assert!(!is_pyupgrade_ini_decl("[Pyupgrade]"));
+        assert!(!is_pyupgrade_ini_decl("[[pyupgrade]]"));
+        assert!(!is_pyupgrade_ini_decl("[pyupgrade"));
+        assert!(!is_pyupgrade_ini_decl("[tool.pyupgrade]"));
+        assert!(!is_pyupgrade_ini_decl("[flynt]"));
+        assert!(is_flynt_ini_decl("[flynt]"));
+        assert!(!is_pyupgrade_ini_decl("transform-concats = true"));
+        assert!(is_flynt_ini_decl("transform-concats = true"));
+        assert!(!is_pyupgrade_ini_decl("[pycln]"));
+        assert!(is_pycln_ini_decl("[pycln]"));
+        assert!(!is_pyupgrade_ini_decl("[unimport]"));
+        assert!(is_unimport_ini_decl("[unimport]"));
+        assert!(!is_pyupgrade_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_pyupgrade_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_pyupgrade_ini_decl("[flake8]"));
+        assert!(!is_pyupgrade_ini_decl("[metadata]"));
+        assert!(!is_pyupgrade_ini_decl("[tox]"));
+        assert!(!is_pyupgrade_ini_decl("[project]"));
+        assert!(!is_pyupgrade_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_pyupgrade_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_pyupgrade_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_pyupgrade_ini_decl("report_level = WARNING"));
+        assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        // Distinctive pyupgrade keys still list.
+        assert!(line_is_func_like("py39-plus = true"));
+        assert!(line_is_func_like("keep-percent-format = true"));
+        assert!(line_is_func_like("keep_runtime_typing = true"));
+        assert!(line_is_func_like("exit-zero-even-if-changed = true"));
+        assert!(line_is_func_like("py315-plus = true"));
+        assert!(line_is_func_like("[pyupgrade]"));
     }
 
     #[test]

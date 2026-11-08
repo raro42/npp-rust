@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.694] — 2026-11-08
+
+View:
+
+- **Function List** lists pyupgrade `setup.cfg` / `tox.ini` `[pyupgrade]` sections and fields: `[pyupgrade]`, `py39-plus = true` / `py39_plus`, `py3-plus` / `py3-only` / `py36-plus`…`py315-plus`, `keep-percent-format = true` / `keep_percent_format`, `keep-mock = true` / `keep_mock`, `keep-runtime-typing = true` / `keep_runtime_typing`, `exit-zero-even-if-changed = true` / `exit_zero_even_if_changed`. Exact kebab-case or snake_case keys. INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. Bare `verbose` / `quiet` / `filenames` / `exclude` / `config` stay out. JSON/TOML arrays stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama / radon / autoflake / pytype / unimport / pycln / flynt / tox / setuptools / Cargo / Pipfile / pyproject `[tool.pyupgrade]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.693] — 2026-11-08
 
 View:
