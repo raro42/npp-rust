@@ -1,3 +1,5 @@
+009 keep: Function List autoflake setup.cfg/tox.ini [autoflake] remove-all-unused-imports/expand-star-imports/ignore-init-module-imports/remove-unused-variables/check-diff/imports (v0.3.689)
+
 009 keep: Function List Radon radon.cfg/setup.cfg/tox.ini [radon] cc_min/cc_max/mi_min/mi_max/show_complexity/total_average/order/exclude/ignore/output_file (v0.3.688)
 
 009 keep: Function List Pylama pylama.ini/setup.cfg/tox.ini/pytest.ini [pylama]/[pylama:linter|glob] linters/format/skip/concurrent/abspath/max_complexity (v0.3.687)

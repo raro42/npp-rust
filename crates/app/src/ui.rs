@@ -32409,6 +32409,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_hypothesis_ini_decl(s)
             || is_pylama_ini_decl(s)
             || is_radon_ini_decl(s)
+            || is_autoflake_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32675,6 +32676,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_hypothesis_ini_decl(s)
         || is_pylama_ini_decl(s)
         || is_radon_ini_decl(s)
+        || is_autoflake_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -49310,6 +49312,147 @@ fn radon_ini_value_ok(key: &str, value: &str) -> bool {
         "exclude" | "ignore" => radon_path_list_ok(value),
         "output_file" => radon_output_file_ok(value),
         _ => false,
+    }
+}
+
+/// autoflake `setup.cfg` / `tox.ini` `[autoflake]` sections and
+/// distinctive keys: `[autoflake]`,
+/// `remove-all-unused-imports = true` / `remove_all_unused_imports`,
+/// `expand-star-imports = True` / `expand_star_imports`,
+/// `ignore-init-module-imports = yes` / `ignore_init_module_imports`,
+/// `remove-duplicate-keys = 1` / `remove_duplicate_keys`,
+/// `remove-unused-variables = false` / `remove_unused_variables`,
+/// `remove-rhs-for-unused-variables = off` /
+/// `remove_rhs_for_unused_variables`,
+/// `ignore-pass-statements = true` / `ignore_pass_statements`,
+/// `ignore-pass-after-docstring = true` / `ignore_pass_after_docstring`,
+/// `check-diff = true` / `check_diff`,
+/// `imports = django,requests,urllib3`. Exact kebab-case or snake_case
+/// keys (autoflake normalizes `-` → `_`). INI `key = value` or
+/// `key=value`. Optional quotes on values. Optional `#` / `;` comment.
+/// Trailing commas on import lists ok. Bare `check` / `exclude` /
+/// `jobs` / `quiet` / `verbose` / `recursive` / `in-place` stay out.
+/// flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle /
+/// autopep8 / black / yapf / pydocstyle / bandit / codespell /
+/// docformatter / vulture / interrogate / check-manifest / bumpversion /
+/// versioneer / setuptools_scm / towncrier / zest.releaser /
+/// cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
+/// radon / tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.autoflake]` tables / Desktop Entry / pip.conf stay out.
+fn is_autoflake_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return autoflake_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !autoflake_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    autoflake_ini_value_ok(key, value)
+}
+
+fn autoflake_ini_section_ok(header: &str) -> bool {
+    header == "autoflake"
+}
+
+fn autoflake_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "remove-all-unused-imports"
+            | "remove_all_unused_imports"
+            | "expand-star-imports"
+            | "expand_star_imports"
+            | "ignore-init-module-imports"
+            | "ignore_init_module_imports"
+            | "remove-duplicate-keys"
+            | "remove_duplicate_keys"
+            | "remove-unused-variables"
+            | "remove_unused_variables"
+            | "remove-rhs-for-unused-variables"
+            | "remove_rhs_for_unused_variables"
+            | "ignore-pass-statements"
+            | "ignore_pass_statements"
+            | "ignore-pass-after-docstring"
+            | "ignore_pass_after_docstring"
+            | "check-diff"
+            | "check_diff"
+            | "imports"
+    )
+}
+
+fn autoflake_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn autoflake_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        autoflake_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn autoflake_imports_ok(value: &str) -> bool {
+    let bare = autoflake_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        let t = part.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if t.len() > 128 {
+            return false;
+        }
+        let bytes = t.as_bytes();
+        if bytes.is_empty() || !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+            return false;
+        }
+        if !bytes
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'-' | b'.'))
+        {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn autoflake_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "imports" => autoflake_imports_ok(value),
+        _ => autoflake_ini_bool_ok(value),
     }
 }
 
@@ -69968,20 +70111,20 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
-        is_apt_sources_decl, is_audit_rules_decl, is_audit_toml_decl, is_autopep8_ini_decl,
-        is_aws_config_decl, is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl,
-        is_bitbake_decl, is_black_ini_decl, is_brewfile_decl, is_bumpversion_ini_decl,
-        is_bunfig_toml_decl, is_cabal_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
-        is_cargo_toml_decl, is_cbindgen_toml_decl, is_check_manifest_ini_decl,
-        is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl, is_cliff_toml_decl,
-        is_clippy_toml_decl, is_codespell_ini_decl, is_commitizen_ini_decl, is_composer_json_decl,
-        is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl, is_darglint_ini_decl,
-        is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl,
-        is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl,
-        is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl, is_ethers_file_decl,
-        is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
-        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_apt_sources_decl, is_audit_rules_decl, is_audit_toml_decl, is_autoflake_ini_decl,
+        is_autopep8_ini_decl, is_aws_config_decl, is_bacon_toml_decl, is_bandit_ini_decl,
+        is_binfmt_d_decl, is_bitbake_decl, is_black_ini_decl, is_brewfile_decl,
+        is_bumpversion_ini_decl, is_bunfig_toml_decl, is_cabal_decl, is_cargo_config_toml_decl,
+        is_cargo_make_toml_decl, is_cargo_toml_decl, is_cbindgen_toml_decl,
+        is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl,
+        is_cliff_toml_decl, is_clippy_toml_decl, is_codespell_ini_decl, is_commitizen_ini_decl,
+        is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
+        is_darglint_ini_decl, is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl,
+        is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl,
+        is_docformatter_ini_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
+        is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl,
+        is_fly_toml_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
         is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
         is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
         is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
@@ -79089,6 +79232,96 @@ mod func_like_line_tests {
         assert!(line_is_func_like("order = SCORE"));
         assert!(line_is_func_like("total_average = 1"));
         assert!(line_is_func_like("[radon]"));
+        assert!(!is_radon_ini_decl("[autoflake]"));
+        assert!(is_autoflake_ini_decl("[autoflake]"));
+        assert!(!is_radon_ini_decl("remove-all-unused-imports = true"));
+        assert!(is_autoflake_ini_decl("remove-all-unused-imports = true"));
+    }
+
+    #[test]
+    fn autoflake_ini_sections_and_keys_count() {
+        assert!(is_autoflake_ini_decl("[autoflake]"));
+        assert!(is_autoflake_ini_decl("  [autoflake] # clean"));
+        assert!(is_autoflake_ini_decl("[autoflake] ; clean"));
+        assert!(is_autoflake_ini_decl("remove-all-unused-imports = true"));
+        assert!(is_autoflake_ini_decl("remove_all_unused_imports=True"));
+        assert!(is_autoflake_ini_decl("expand-star-imports = True"));
+        assert!(is_autoflake_ini_decl("expand_star_imports=yes"));
+        assert!(is_autoflake_ini_decl("ignore-init-module-imports = 1"));
+        assert!(is_autoflake_ini_decl("ignore_init_module_imports=false"));
+        assert!(is_autoflake_ini_decl("remove-duplicate-keys = on"));
+        assert!(is_autoflake_ini_decl("remove_duplicate_keys=off"));
+        assert!(is_autoflake_ini_decl("remove-unused-variables = true"));
+        assert!(is_autoflake_ini_decl("remove_unused_variables=no"));
+        assert!(is_autoflake_ini_decl(
+            "remove-rhs-for-unused-variables = true"
+        ));
+        assert!(is_autoflake_ini_decl("remove_rhs_for_unused_variables=0"));
+        assert!(is_autoflake_ini_decl("ignore-pass-statements = true"));
+        assert!(is_autoflake_ini_decl("ignore_pass_statements=False"));
+        assert!(is_autoflake_ini_decl("ignore-pass-after-docstring = yes"));
+        assert!(is_autoflake_ini_decl("ignore_pass_after_docstring=no"));
+        assert!(is_autoflake_ini_decl("check-diff = true"));
+        assert!(is_autoflake_ini_decl("check_diff=false"));
+        assert!(is_autoflake_ini_decl("imports = django,requests,urllib3"));
+        assert!(is_autoflake_ini_decl("imports=django,requests"));
+        assert!(is_autoflake_ini_decl("imports = \"django,flask\""));
+        assert!(is_autoflake_ini_decl("imports = django,"));
+        assert!(is_autoflake_ini_decl(
+            "remove-all-unused-imports = true # comment"
+        ));
+        assert!(is_autoflake_ini_decl("imports=django; trailing"));
+
+        assert!(!is_autoflake_ini_decl("remove-all-unused-imports"));
+        assert!(!is_autoflake_ini_decl("remove-all-unused-imports ="));
+        assert!(!is_autoflake_ini_decl("Remove-all-unused-imports = true"));
+        assert!(!is_autoflake_ini_decl("# remove-all-unused-imports = true"));
+        assert!(!is_autoflake_ini_decl("remove-all-unused-imports = maybe"));
+        assert!(!is_autoflake_ini_decl("check = true"));
+        assert!(!is_autoflake_ini_decl("exclude = tests/*"));
+        assert!(!is_autoflake_ini_decl("jobs = 4"));
+        assert!(!is_autoflake_ini_decl("quiet = true"));
+        assert!(!is_autoflake_ini_decl("imports = "));
+        assert!(!is_autoflake_ini_decl("imports = 1django"));
+        assert!(!is_autoflake_ini_decl("imports = django requests"));
+        assert!(!is_autoflake_ini_decl("[Autoflake]"));
+        assert!(!is_autoflake_ini_decl("[[autoflake]]"));
+        assert!(!is_autoflake_ini_decl("[autoflake"));
+        assert!(!is_autoflake_ini_decl("[tool.autoflake]"));
+        assert!(!is_autoflake_ini_decl("[radon]"));
+        assert!(is_radon_ini_decl("[radon]"));
+        assert!(!is_autoflake_ini_decl("cc_min = B"));
+        assert!(is_radon_ini_decl("cc_min = B"));
+        assert!(!is_autoflake_ini_decl("[pylama]"));
+        assert!(is_pylama_ini_decl("[pylama]"));
+        assert!(!is_autoflake_ini_decl("[hypothesis]"));
+        assert!(!is_autoflake_ini_decl("[sqlfluff]"));
+        assert!(!is_autoflake_ini_decl("[rstcheck]"));
+        assert!(!is_autoflake_ini_decl("[doc8]"));
+        assert!(!is_autoflake_ini_decl("[pytest]"));
+        assert!(!is_autoflake_ini_decl("[flake8]"));
+        assert!(!is_autoflake_ini_decl("[autopep8]"));
+        assert!(is_autopep8_ini_decl("[autopep8]"));
+        assert!(!is_autoflake_ini_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_autoflake_ini_decl("[metadata]"));
+        assert!(!is_autoflake_ini_decl("[tox]"));
+        assert!(!is_autoflake_ini_decl("[project]"));
+        assert!(!is_autoflake_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_autoflake_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_autoflake_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_autoflake_ini_decl("report_level = WARNING"));
+        assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        // Distinctive autoflake keys still list.
+        assert!(line_is_func_like("remove-all-unused-imports = true"));
+        assert!(line_is_func_like("expand_star_imports = True"));
+        assert!(line_is_func_like("imports = django,requests,urllib3"));
+        assert!(line_is_func_like("check-diff = true"));
+        assert!(line_is_func_like("ignore-pass-after-docstring = yes"));
+        assert!(line_is_func_like("[autoflake]"));
     }
 
     #[test]

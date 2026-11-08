@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.689] — 2026-11-08
+
+View:
+
+- **Function List** lists autoflake `setup.cfg` / `tox.ini` `[autoflake]` sections and fields: `[autoflake]`, `remove-all-unused-imports = true` / `remove_all_unused_imports`, `expand-star-imports = True` / `expand_star_imports`, `ignore-init-module-imports = yes` / `ignore_init_module_imports`, `remove-duplicate-keys = 1` / `remove_duplicate_keys`, `remove-unused-variables = false` / `remove_unused_variables`, `remove-rhs-for-unused-variables = off` / `remove_rhs_for_unused_variables`, `ignore-pass-statements = true` / `ignore_pass_statements`, `ignore-pass-after-docstring = true` / `ignore_pass_after_docstring`, `check-diff = true` / `check_diff`, `imports = django,requests,urllib3`. Exact kebab-case or snake_case keys. INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. Trailing commas on import lists ok. Bare `check` / `exclude` / `jobs` / `quiet` / `verbose` / `recursive` / `in-place` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama / radon / tox / setuptools / Cargo / Pipfile / pyproject `[tool.autoflake]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.688] — 2026-11-08
 
 View:
