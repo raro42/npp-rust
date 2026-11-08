@@ -32415,6 +32415,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pycln_ini_decl(s)
             || is_flynt_ini_decl(s)
             || is_pyupgrade_ini_decl(s)
+            || is_refurb_toml_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32687,6 +32688,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pycln_ini_decl(s)
         || is_flynt_ini_decl(s)
         || is_pyupgrade_ini_decl(s)
+        || is_refurb_toml_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -50304,9 +50306,9 @@ fn flynt_ini_value_ok(key: &str, value: &str) -> bool {
 /// check-wheel-contents / Twine `.pypirc` / Commitizen /
 /// python-semantic-release / scriv / import-linter / darglint /
 /// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
-/// radon / autoflake / pytype / unimport / pycln / flynt / tox /
-/// setuptools / Cargo / Pipfile / pyproject `[tool.pyupgrade]` tables /
-/// Desktop Entry / pip.conf stay out.
+/// radon / autoflake / pytype / unimport / pycln / flynt / refurb /
+/// tox / setuptools / Cargo / Pipfile / pyproject `[tool.pyupgrade]`
+/// tables / Desktop Entry / pip.conf stay out.
 fn is_pyupgrade_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -50404,6 +50406,139 @@ fn pyupgrade_ini_value_ok(key: &str, value: &str) -> bool {
         return false;
     }
     pyupgrade_ini_bool_ok(value)
+}
+
+/// Refurb `pyproject.toml` `[tool.refurb]` / `[[tool.refurb.amend]]`
+/// sections and distinctive scalar keys: `[tool.refurb]`,
+/// `[[tool.refurb.amend]]`, `disable_all = true` / `enable_all = true`,
+/// `python_version = "3.10"` / `3.11`, `format = "text"` / `"github"`,
+/// `sort_by = "filename"` / `"error"`. Exact snake_case. TOML spaces
+/// around `=`. Optional quotes on string values. Optional `#` / `;`
+/// comment. Arrays (`ignore` / `enable` / `disable` / `load` /
+/// `mypy_args`) stay out. Bare `quiet` / `color` / `verbose` / `debug` /
+/// `path` / `config_file` stay out. flake8 / mypy / pytest / isort /
+/// coverage / pylint / pycodestyle / autopep8 / black / yapf /
+/// pydocstyle / bandit / codespell / docformatter / vulture /
+/// interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
+/// radon / autoflake / pytype / unimport / pycln / flynt / pyupgrade /
+/// tox / setuptools / Cargo / Pipfile / pyproject `[tool]` umbrella /
+/// ruff / Desktop Entry / pip.conf stay out.
+fn is_refurb_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return refurb_toml_section_ok(header, array);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not INI `key=value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !refurb_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    refurb_toml_value_ok(key, value)
+}
+
+fn refurb_toml_section_ok(header: &str, array: bool) -> bool {
+    if array {
+        return header == "tool.refurb.amend";
+    }
+    matches!(header, "tool.refurb" | "tool.refurb.amend")
+}
+
+fn refurb_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "disable_all" | "enable_all" | "python_version" | "format" | "sort_by"
+    )
+}
+
+fn refurb_toml_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn refurb_toml_bool_ok(value: &str) -> bool {
+    matches!(
+        refurb_toml_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false"
+    )
+}
+
+fn refurb_toml_python_version_ok(value: &str) -> bool {
+    let bare = refurb_toml_bare(value);
+    let mut parts = bare.split('.');
+    let Some(major) = parts.next() else {
+        return false;
+    };
+    let Some(minor) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    !major.is_empty()
+        && !minor.is_empty()
+        && major.bytes().all(|b| b.is_ascii_digit())
+        && minor.bytes().all(|b| b.is_ascii_digit())
+        && major.len() <= 2
+        && minor.len() <= 2
+}
+
+fn refurb_toml_format_ok(value: &str) -> bool {
+    matches!(refurb_toml_bare(value), "text" | "github")
+}
+
+fn refurb_toml_sort_by_ok(value: &str) -> bool {
+    matches!(refurb_toml_bare(value), "filename" | "error")
+}
+
+fn refurb_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "disable_all" | "enable_all" => refurb_toml_bool_ok(value),
+        "python_version" => refurb_toml_python_version_ok(value),
+        "format" => refurb_toml_format_ok(value),
+        "sort_by" => refurb_toml_sort_by_ok(value),
+        _ => false,
+    }
 }
 
 /// FreeDesktop Desktop Entry sections: `[Desktop Entry]`,
@@ -71090,11 +71225,11 @@ mod func_like_line_tests {
         is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
         is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
         is_pyproject_toml_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
-        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
-        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl,
+        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
+        is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
+        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
         is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
@@ -80735,6 +80870,94 @@ mod func_like_line_tests {
         assert!(line_is_func_like("exit-zero-even-if-changed = true"));
         assert!(line_is_func_like("py315-plus = true"));
         assert!(line_is_func_like("[pyupgrade]"));
+        assert!(!is_pyupgrade_ini_decl("[tool.refurb]"));
+        assert!(is_refurb_toml_decl("[tool.refurb]"));
+        assert!(!is_pyupgrade_ini_decl("disable_all = true"));
+        assert!(is_refurb_toml_decl("disable_all = true"));
+    }
+
+    #[test]
+    fn refurb_toml_sections_and_keys_count() {
+        assert!(is_refurb_toml_decl("[tool.refurb]"));
+        assert!(is_refurb_toml_decl("  [tool.refurb] # refactor"));
+        assert!(is_refurb_toml_decl("[tool.refurb] ; checks"));
+        assert!(is_refurb_toml_decl("[tool.refurb.amend]"));
+        assert!(is_refurb_toml_decl("[[tool.refurb.amend]]"));
+        assert!(is_refurb_toml_decl("  [[tool.refurb.amend]] # path"));
+        assert!(is_refurb_toml_decl("disable_all = true"));
+        assert!(is_refurb_toml_decl("enable_all = false"));
+        assert!(is_refurb_toml_decl("disable_all = True"));
+        assert!(is_refurb_toml_decl("enable_all = FALSE"));
+        assert!(is_refurb_toml_decl("python_version = \"3.10\""));
+        assert!(is_refurb_toml_decl("python_version = '3.11'"));
+        assert!(is_refurb_toml_decl("python_version = 3.12"));
+        assert!(is_refurb_toml_decl("format = \"text\""));
+        assert!(is_refurb_toml_decl("format = \"github\""));
+        assert!(is_refurb_toml_decl("format = text"));
+        assert!(is_refurb_toml_decl("sort_by = \"filename\""));
+        assert!(is_refurb_toml_decl("sort_by = \"error\""));
+        assert!(is_refurb_toml_decl("sort_by = error"));
+        assert!(is_refurb_toml_decl("disable_all = true # comment"));
+        assert!(is_refurb_toml_decl("format = \"github\"; trailing"));
+
+        assert!(!is_refurb_toml_decl("disable_all"));
+        assert!(!is_refurb_toml_decl("disable_all ="));
+        assert!(!is_refurb_toml_decl("Disable_All = true"));
+        assert!(!is_refurb_toml_decl("# disable_all = true"));
+        assert!(!is_refurb_toml_decl("disable_all=true"));
+        assert!(!is_refurb_toml_decl("disable_all = maybe"));
+        assert!(!is_refurb_toml_decl("quiet = true"));
+        assert!(!is_refurb_toml_decl("color = false"));
+        assert!(!is_refurb_toml_decl("verbose = true"));
+        assert!(!is_refurb_toml_decl("debug = true"));
+        assert!(!is_refurb_toml_decl("path = \"src\""));
+        assert!(!is_refurb_toml_decl("config_file = \"pyproject.toml\""));
+        assert!(!is_refurb_toml_decl("ignore = [100]"));
+        assert!(!is_refurb_toml_decl("enable = [\"FURB123\"]"));
+        assert!(!is_refurb_toml_decl("disable = [\"#readability\"]"));
+        assert!(!is_refurb_toml_decl("load = [\"some_module\"]"));
+        assert!(!is_refurb_toml_decl("mypy_args = [\"--strict\"]"));
+        assert!(!is_refurb_toml_decl("python_version = \"3\""));
+        assert!(!is_refurb_toml_decl("python_version = \"3.10.1\""));
+        assert!(!is_refurb_toml_decl("python_version = three.ten"));
+        assert!(!is_refurb_toml_decl("format = \"json\""));
+        assert!(!is_refurb_toml_decl("sort_by = \"line\""));
+        assert!(!is_refurb_toml_decl("[tool.refurb"));
+        assert!(!is_refurb_toml_decl("[[tool.refurb]]"));
+        assert!(!is_refurb_toml_decl("[Tool.refurb]"));
+        assert!(!is_refurb_toml_decl("[refurb]"));
+        assert!(!is_refurb_toml_decl("[tool.ruff]"));
+        assert!(is_pyproject_toml_decl("[tool.ruff]"));
+        assert!(!is_refurb_toml_decl("[pyupgrade]"));
+        assert!(is_pyupgrade_ini_decl("[pyupgrade]"));
+        assert!(!is_refurb_toml_decl("keep-percent-format = true"));
+        assert!(is_pyupgrade_ini_decl("keep-percent-format = true"));
+        assert!(!is_refurb_toml_decl("[flynt]"));
+        assert!(is_flynt_ini_decl("[flynt]"));
+        assert!(!is_refurb_toml_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_refurb_toml_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_refurb_toml_decl("[flake8]"));
+        assert!(!is_refurb_toml_decl("[metadata]"));
+        assert!(!is_refurb_toml_decl("[tox]"));
+        assert!(!is_refurb_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_refurb_toml_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_refurb_toml_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        // `[tool.refurb]` also matches the pyproject umbrella; either path lists.
+        assert!(is_pyproject_toml_decl("[tool.refurb]"));
+        assert!(is_refurb_toml_decl("[tool.refurb]"));
+        // Distinctive refurb keys still list.
+        assert!(line_is_func_like("disable_all = true"));
+        assert!(line_is_func_like("enable_all = true"));
+        assert!(line_is_func_like("python_version = \"3.10\""));
+        assert!(line_is_func_like("format = \"github\""));
+        assert!(line_is_func_like("sort_by = \"error\""));
+        assert!(line_is_func_like("[tool.refurb]"));
+        assert!(line_is_func_like("[[tool.refurb.amend]]"));
     }
 
     #[test]

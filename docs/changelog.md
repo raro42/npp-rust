@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.695] — 2026-11-08
+
+View:
+
+- **Function List** lists Refurb `pyproject.toml` `[tool.refurb]` / `[[tool.refurb.amend]]` sections and fields: `[tool.refurb]`, `[[tool.refurb.amend]]`, `disable_all = true` / `enable_all = true`, `python_version = "3.10"` / `3.11`, `format = "text"` / `"github"`, `sort_by = "filename"` / `"error"`. Exact snake_case. TOML spaces around `=`. Optional quotes on string values. Optional `#` / `;` comment. Arrays (`ignore` / `enable` / `disable` / `load` / `mypy_args`) stay out. Bare `quiet` / `color` / `verbose` / `debug` / `path` / `config_file` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama / radon / autoflake / pytype / unimport / pycln / flynt / pyupgrade / tox / setuptools / Cargo / Pipfile / pyproject `[tool]` umbrella / ruff / Desktop Entry / pip.conf stay out.
+
 ## [0.3.694] — 2026-11-08
 
 View:

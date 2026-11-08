@@ -1048,3 +1048,5 @@
 009 keep: Function List pycln (v0.3.692)
 
 009 keep: Function List pyupgrade (v0.3.694)
+
+009 keep: Function List Refurb [tool.refurb]/[[tool.refurb.amend]] disable_all/enable_all/python_version/format/sort_by (v0.3.695)
