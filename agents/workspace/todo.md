@@ -1070,3 +1070,5 @@
 009 keep: Function List Pyre .pyre_configuration source_directories/search_path/typeshed/strict/workers/site_package_search_strategy (v0.3.698)
 
 009 keep: Function List pyrightconfig.json include/exclude/typeCheckingMode/pythonVersion/report* (v0.3.699)
+
+009 keep: Function List Babel .babelrc presets/plugins/env/sourceType/parserOpts/rootMode (v0.3.706)

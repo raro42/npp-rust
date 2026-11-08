@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.706] — 2026-11-08
+
+View:
+
+- **Function List** lists Babel `.babelrc` / `.babelrc.json` / `babel.config.json` JSON keys: `"presets": [`, `"plugins": [`, `"env": {`, `"overrides": [`, `"ignore": [` / `"…"`, `"only": [` / `"…"`, `"extends": "…"`, `"sourceType": "module"` / `"script"` / `"unambiguous"`, `"sourceMaps": true` / `"inline"` / `"both"`, `"retainLines": true`, `"comments": true`, `"compact": true` / `"auto"`, `"minified": true`, `"babelrc": true`, `"rootMode": "root"` / `"upward"` / `"upward-optional"`, `"parserOpts": {`, `"generatorOpts": {`, `"passPerPreset": true`, `"assumptions": {`, `"browserslistEnv": "…"`, `"browserslistConfigFile": true` / `"…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / eslint `"root"` / `"parser"` / `"parserOptions"` / `"rules"` / `"ignorePatterns"` / `"languageOptions"` / stylelint `"ignoreFiles"` / `"customSyntax"` / `"processors"` / prettier `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` / dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out. Shared `"plugins"` / `"overrides"` / `"extends"` / `"env"` also match eslint / prettier / stylelint when shapes match.
+
 ## [0.3.705] — 2026-11-08
 
 View:
