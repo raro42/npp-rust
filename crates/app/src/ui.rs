@@ -32368,6 +32368,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pyre_configuration_decl(s)
             || is_pyrightconfig_json_decl(s)
             || is_tsconfig_json_decl(s)
+            || is_biome_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32646,6 +32647,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pyre_configuration_decl(s)
         || is_pyrightconfig_json_decl(s)
         || is_tsconfig_json_decl(s)
+        || is_biome_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -41673,6 +41675,206 @@ fn tsconfig_json_string_ok(key: &str, value: &str) -> bool {
             value,
             "preserve" | "react" | "react-native" | "react-jsx" | "react-jsxdev"
         ),
+        _ => false,
+    }
+}
+
+/// Biome `biome.json` / `biome.jsonc` JSON keys:
+/// `"linter": {`, `"formatter": {`, `"organizeImports": {`, `"assist": {`,
+/// `"vcs": {`, `"files": {`, `"javascript": {`, `"json": {`, `"css": {`,
+/// `"graphql": {`, `"html": {`, `"overrides": [`, `"plugins": [`,
+/// `"indentStyle": "tab"` / `"space"`, `"lineEnding": "lf"` / `"crlf"` /
+/// `"cr"`, `"attributePosition": "auto"` / `"multiline"`,
+/// `"clientKind": "git"`, `"quoteStyle": "double"` / `"single"`,
+/// `"jsxQuoteStyle": "double"` / `"single"`,
+/// `"quoteProperties": "asNeeded"` / `"preserve"`,
+/// `"trailingCommas": "all"` / `"es5"` / `"none"`,
+/// `"semicolons": "always"` / `"asNeeded"`,
+/// `"arrowParentheses": "always"` / `"asNeeded"`,
+/// `"defaultBranch": "main"`, `"indentWidth": 2`, `"lineWidth": 100`,
+/// `"maxSize": 1048576`, `"bracketSpacing": true`,
+/// `"bracketSameLine": false`, `"useEditorconfig": true`,
+/// `"useIgnoreFile": true`, `"ignoreUnknown": true`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"enabled": true` / `"rules": {` /
+/// `"extends"` stay out. tsconfig `"files": [` / package.json
+/// `"overrides": {` stay on their paths. package.json / composer /
+/// tsconfig / Pyre / pyrightconfig structural keys stay out.
+fn is_biome_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !biome_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    biome_json_value_and_tail_ok(key, after_colon)
+}
+
+fn biome_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "linter"
+            | "formatter"
+            | "organizeImports"
+            | "assist"
+            | "vcs"
+            | "files"
+            | "javascript"
+            | "json"
+            | "css"
+            | "graphql"
+            | "html"
+            | "overrides"
+            | "plugins"
+            | "indentStyle"
+            | "lineEnding"
+            | "attributePosition"
+            | "clientKind"
+            | "quoteStyle"
+            | "jsxQuoteStyle"
+            | "quoteProperties"
+            | "trailingCommas"
+            | "semicolons"
+            | "arrowParentheses"
+            | "defaultBranch"
+            | "indentWidth"
+            | "lineWidth"
+            | "maxSize"
+            | "bracketSpacing"
+            | "bracketSameLine"
+            | "useEditorconfig"
+            | "useIgnoreFile"
+            | "ignoreUnknown"
+    )
+}
+
+fn biome_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "linter"
+                    | "formatter"
+                    | "organizeImports"
+                    | "assist"
+                    | "vcs"
+                    | "files"
+                    | "javascript"
+                    | "json"
+                    | "css"
+                    | "graphql"
+                    | "html"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "overrides" | "plugins") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(
+                key,
+                "indentStyle"
+                    | "lineEnding"
+                    | "attributePosition"
+                    | "clientKind"
+                    | "quoteStyle"
+                    | "jsxQuoteStyle"
+                    | "quoteProperties"
+                    | "trailingCommas"
+                    | "semicolons"
+                    | "arrowParentheses"
+                    | "defaultBranch"
+            ) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !biome_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !biome_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !matches!(key, "indentWidth" | "lineWidth" | "maxSize") {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            // Reject bare 0 for widths / size.
+            if digits == 1 && after_colon.as_bytes()[0] == b'0' {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn biome_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "bracketSpacing"
+            | "bracketSameLine"
+            | "useEditorconfig"
+            | "useIgnoreFile"
+            | "ignoreUnknown"
+    )
+}
+
+fn biome_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    match key {
+        "indentStyle" => matches!(value, "tab" | "space"),
+        "lineEnding" => matches!(value, "lf" | "crlf" | "cr"),
+        "attributePosition" => matches!(value, "auto" | "multiline"),
+        "clientKind" => value == "git",
+        "quoteStyle" | "jsxQuoteStyle" => matches!(value, "double" | "single"),
+        "quoteProperties" => matches!(value, "asNeeded" | "preserve"),
+        "trailingCommas" => matches!(value, "all" | "es5" | "none"),
+        "semicolons" | "arrowParentheses" => matches!(value, "always" | "asNeeded"),
+        "defaultBranch" => true,
         _ => false,
     }
 }
@@ -72290,7 +72492,7 @@ mod func_like_line_tests {
         is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
         is_apt_sources_decl, is_audit_rules_decl, is_audit_toml_decl, is_autoflake_ini_decl,
         is_autopep8_ini_decl, is_aws_config_decl, is_bacon_toml_decl, is_bandit_ini_decl,
-        is_binfmt_d_decl, is_bitbake_decl, is_black_ini_decl, is_brewfile_decl,
+        is_binfmt_d_decl, is_biome_json_decl, is_bitbake_decl, is_black_ini_decl, is_brewfile_decl,
         is_bumpversion_ini_decl, is_bunfig_toml_decl, is_cabal_decl, is_cargo_config_toml_decl,
         is_cargo_make_toml_decl, is_cargo_toml_decl, is_cbindgen_toml_decl,
         is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl,
@@ -82610,6 +82812,84 @@ mod func_like_line_tests {
         // Shared array keys may also match pyrightconfig; both are fine.
         assert!(is_tsconfig_json_decl(r#""include": ["#));
         assert!(is_pyrightconfig_json_decl(r#""include": ["#));
+    }
+
+    #[test]
+    fn biome_json_keys_count() {
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#"  "formatter": { // base"#));
+        assert!(is_biome_json_decl(r#""organizeImports": {"#));
+        assert!(is_biome_json_decl(r#""assist": {"#));
+        assert!(is_biome_json_decl(r#""vcs": {"#));
+        assert!(is_biome_json_decl(r#""files": {"#));
+        assert!(is_biome_json_decl(r#""javascript": {"#));
+        assert!(is_biome_json_decl(r#""json": {"#));
+        assert!(is_biome_json_decl(r#""css": {"#));
+        assert!(is_biome_json_decl(r#""graphql": {"#));
+        assert!(is_biome_json_decl(r#""html": {"#));
+        assert!(is_biome_json_decl(r#""overrides": ["#));
+        assert!(is_biome_json_decl(r#""plugins": ["#));
+        assert!(is_biome_json_decl(r#""indentStyle": "space""#));
+        assert!(is_biome_json_decl(r#""indentStyle": "tab","#));
+        assert!(is_biome_json_decl(r#""lineEnding": "lf""#));
+        assert!(is_biome_json_decl(r#""lineEnding": "crlf""#));
+        assert!(is_biome_json_decl(r#""attributePosition": "auto""#));
+        assert!(is_biome_json_decl(r#""attributePosition": "multiline""#));
+        assert!(is_biome_json_decl(r#""clientKind": "git""#));
+        assert!(is_biome_json_decl(r#""quoteStyle": "double""#));
+        assert!(is_biome_json_decl(r#""jsxQuoteStyle": "single""#));
+        assert!(is_biome_json_decl(r#""quoteProperties": "asNeeded""#));
+        assert!(is_biome_json_decl(r#""trailingCommas": "all""#));
+        assert!(is_biome_json_decl(r#""trailingCommas": "es5""#));
+        assert!(is_biome_json_decl(r#""semicolons": "always""#));
+        assert!(is_biome_json_decl(r#""arrowParentheses": "asNeeded""#));
+        assert!(is_biome_json_decl(r#""defaultBranch": "main""#));
+        assert!(is_biome_json_decl(r#""indentWidth": 2"#));
+        assert!(is_biome_json_decl(r#""lineWidth": 100,"#));
+        assert!(is_biome_json_decl(r#""maxSize": 1048576"#));
+        assert!(is_biome_json_decl(r#""bracketSpacing": true"#));
+        assert!(is_biome_json_decl(r#""bracketSameLine": false,"#));
+        assert!(is_biome_json_decl(r#""useEditorconfig": true"#));
+        assert!(is_biome_json_decl(r#""useIgnoreFile": true"#));
+        assert!(is_biome_json_decl(r#""ignoreUnknown": true"#));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_biome_json_decl(r#""linter""#));
+        assert!(!is_biome_json_decl(r#""linter":"#));
+        assert!(!is_biome_json_decl(r#""linter": ["#));
+        assert!(!is_biome_json_decl(r#"linter: {"#));
+        assert!(!is_biome_json_decl(r#""Linter": {"#));
+        assert!(!is_biome_json_decl(r#""enabled": true"#));
+        assert!(!is_biome_json_decl(r#""rules": {"#));
+        assert!(!is_biome_json_decl(r#""extends": "./base.json""#));
+        assert!(!is_biome_json_decl(r#""indentStyle": "spaces""#));
+        assert!(!is_biome_json_decl(r#""indentStyle": ["#));
+        assert!(!is_biome_json_decl(r#""clientKind": "svn""#));
+        assert!(!is_biome_json_decl(r#""indentWidth": 0"#));
+        assert!(!is_biome_json_decl(r#""indentWidth": true"#));
+        assert!(!is_biome_json_decl(r#""lineWidth": "100""#));
+        assert!(!is_biome_json_decl(r#""files": ["#));
+        assert!(!is_biome_json_decl(r#""overrides": {"#));
+        // Neighbouring families stay on their paths.
+        assert!(!is_biome_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""files": ["#));
+        assert!(!is_biome_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""overrides": {"#));
+        assert!(!is_biome_json_decl(r#""typeCheckingMode": "strict""#));
+        assert!(is_pyrightconfig_json_decl(
+            r#""typeCheckingMode": "strict""#
+        ));
+        // Shared scanner lists biome keys.
+        assert!(line_is_func_like(r#""linter": {"#));
+        assert!(line_is_func_like(r#""formatter": {"#));
+        assert!(line_is_func_like(r#""indentStyle": "space""#));
+        assert!(line_is_func_like(r#""clientKind": "git""#));
+        assert!(line_is_func_like(r#""lineWidth": 100"#));
+        assert!(line_is_func_like(r#""useIgnoreFile": true"#));
+        // Object files vs array files: biome vs tsconfig.
+        assert!(is_biome_json_decl(r#""files": {"#));
+        assert!(is_tsconfig_json_decl(r#""files": ["#));
     }
 
     #[test]

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.701] — 2026-11-08
+
+View:
+
+- **Function List** lists Biome `biome.json` / `biome.jsonc` JSON keys: `"linter": {`, `"formatter": {`, `"organizeImports": {`, `"assist": {`, `"vcs": {`, `"files": {`, `"javascript": {`, `"json": {`, `"css": {`, `"graphql": {`, `"html": {`, `"overrides": [`, `"plugins": [`, `"indentStyle": "tab"` / `"space"`, `"lineEnding": "lf"` / `"crlf"` / `"cr"`, `"attributePosition": "auto"` / `"multiline"`, `"clientKind": "git"`, `"quoteStyle": "double"` / `"single"`, `"jsxQuoteStyle": "double"` / `"single"`, `"quoteProperties": "asNeeded"` / `"preserve"`, `"trailingCommas": "all"` / `"es5"` / `"none"`, `"semicolons": "always"` / `"asNeeded"`, `"arrowParentheses": "always"` / `"asNeeded"`, `"defaultBranch": "main"`, `"indentWidth": 2`, `"lineWidth": 100`, `"maxSize": 1048576`, `"bracketSpacing": true`, `"bracketSameLine": false`, `"useEditorconfig": true`, `"useIgnoreFile": true`, `"ignoreUnknown": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"enabled": true` / `"rules": {` / `"extends"` stay out. tsconfig `"files": [` / package.json `"overrides": {` stay on their paths. package.json / composer / tsconfig / Pyre / pyrightconfig structural keys stay out.
+
 ## [0.3.700] — 2026-11-08
 
 View:

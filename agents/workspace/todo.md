@@ -1,3 +1,5 @@
+009 keep: Function List biome.json/biome.jsonc linter/formatter/organizeImports/assist/vcs/indentStyle/lineWidth/clientKind (v0.3.701)
+
 009 keep: Function List tsconfig.json/jsconfig.json compilerOptions/target/module/moduleResolution/jsx/strict/skipLibCheck (v0.3.700)
 
 009 keep: Function List flynt setup.cfg/tox.ini/flynt.toml [flynt] aggressive/dry-run/transform-concats/transform-joins/no-multiline/fail-on-change/line-length (v0.3.693)
