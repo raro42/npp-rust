@@ -1038,3 +1038,5 @@
 009 keep: Function List doc8 setup.cfg/tox.ini/doc8.ini [doc8]/[tool:doc8] allow-long-titles/ignore-path/ignore-path-errors/D### (v0.3.683)
 
 009 keep: Function List rstcheck .rstcheck.cfg/setup.cfg [rstcheck] report_level/ignore_directives/roles/languages/messages/sphinx_source_dir (v0.3.684)
+
+009 keep: Function List pytype setup.cfg/tox.ini/.pytype.cfg [pytype] inputs/exclude/python_version/pythonpath/disable/output/keep_going/jobs/report_errors/protocols/strict_import (v0.3.690)

@@ -32410,6 +32410,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pylama_ini_decl(s)
             || is_radon_ini_decl(s)
             || is_autoflake_ini_decl(s)
+            || is_pytype_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32677,6 +32678,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pylama_ini_decl(s)
         || is_radon_ini_decl(s)
         || is_autoflake_ini_decl(s)
+        || is_pytype_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -49339,7 +49341,7 @@ fn radon_ini_value_ok(key: &str, value: &str) -> bool {
 /// cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen /
 /// python-semantic-release / scriv / import-linter / darglint /
 /// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
-/// radon / tox / setuptools / Cargo / Pipfile / pyproject
+/// radon / pytype / tox / setuptools / Cargo / Pipfile / pyproject
 /// `[tool.autoflake]` tables / Desktop Entry / pip.conf stay out.
 fn is_autoflake_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -49453,6 +49455,239 @@ fn autoflake_ini_value_ok(key: &str, value: &str) -> bool {
     match key {
         "imports" => autoflake_imports_ok(value),
         _ => autoflake_ini_bool_ok(value),
+    }
+}
+
+/// pytype `setup.cfg` / `tox.ini` / `.pytype.cfg` `[pytype]` sections
+/// and distinctive keys: `[pytype]`,
+/// `inputs = .` / `src,tests` / `pineboolib`,
+/// `exclude = **/*_test.py` / `**/test_*.py,env/`,
+/// `python_version = 3.10` / `3.9`,
+/// `pythonpath = .` / `.:~/repo2` / `./src;./lib`,
+/// `disable = attribute-error` / `name-error,import-error`,
+/// `output = .pytype` / `./.pytype`,
+/// `keep_going = True` / `false`,
+/// `jobs = 4` / `auto`,
+/// `report_errors = True` / `0`,
+/// `protocols = True`,
+/// `strict_import = False`. Exact snake_case keys. INI `key = value`
+/// or `key=value`. Optional quotes on values. Optional `#` / `;`
+/// comment. Trailing commas on path / disable lists ok. Bare `verbose`
+/// / `platform` / `module_name` / `nofail` / `check` stay out. flake8 /
+/// mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 /
+/// black / yapf / pydocstyle / bandit / codespell / docformatter /
+/// vulture / interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
+/// radon / autoflake / tox / setuptools / Cargo / Pipfile / pyproject
+/// `[tool.pytype]` tables / Desktop Entry / pip.conf stay out.
+fn is_pytype_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return pytype_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !pytype_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    pytype_ini_value_ok(key, value)
+}
+
+fn pytype_ini_section_ok(header: &str) -> bool {
+    header == "pytype"
+}
+
+fn pytype_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "inputs"
+            | "exclude"
+            | "python_version"
+            | "pythonpath"
+            | "disable"
+            | "output"
+            | "keep_going"
+            | "jobs"
+            | "report_errors"
+            | "protocols"
+            | "strict_import"
+    )
+}
+
+fn pytype_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn pytype_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        pytype_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn pytype_python_version_ok(value: &str) -> bool {
+    let bare = pytype_ini_bare(value);
+    let Some((maj, min)) = bare.split_once('.') else {
+        return false;
+    };
+    if maj.is_empty() || min.is_empty() || maj.len() > 2 || min.len() > 2 {
+        return false;
+    }
+    maj.bytes().all(|b| b.is_ascii_digit()) && min.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn pytype_jobs_ok(value: &str) -> bool {
+    let bare = pytype_ini_bare(value);
+    if bare.eq_ignore_ascii_case("auto") {
+        return true;
+    }
+    if bare.is_empty() || bare.len() > 4 {
+        return false;
+    }
+    bare.bytes().all(|b| b.is_ascii_digit()) && bare != "0"
+}
+
+fn pytype_path_token_ok(t: &str) -> bool {
+    if t.is_empty() || t.len() > 256 {
+        return false;
+    }
+    let bytes = t.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric()
+        || matches!(bytes[0], b'*' | b'?' | b'.' | b'/' | b'_' | b'-' | b'~'))
+    {
+        return false;
+    }
+    bytes.iter().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                *b,
+                b'_' | b'-' | b'.' | b'/' | b'*' | b'?' | b'+' | b'[' | b']' | b'~'
+            )
+    })
+}
+
+fn pytype_path_list_ok(value: &str) -> bool {
+    let bare = pytype_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split([',', ' ']) {
+        let t = part.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if !pytype_path_token_ok(t) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn pytype_pythonpath_ok(value: &str) -> bool {
+    let bare = pytype_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split([':', ';']) {
+        let t = part.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if !pytype_path_token_ok(t) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn pytype_disable_ok(value: &str) -> bool {
+    let bare = pytype_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split([',', ' ']) {
+        let t = part.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if t.len() > 64 {
+            return false;
+        }
+        let bytes = t.as_bytes();
+        if !bytes[0].is_ascii_lowercase() {
+            return false;
+        }
+        if !bytes
+            .iter()
+            .all(|b| b.is_ascii_lowercase() || *b == b'-' || b.is_ascii_digit())
+        {
+            return false;
+        }
+        if !t.contains('-') {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn pytype_output_ok(value: &str) -> bool {
+    let bare = pytype_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || matches!(bytes[0], b'.' | b'/' | b'_' | b'-')) {
+        return false;
+    }
+    bytes.iter().all(|b| b.is_ascii_graphic())
+        && (bare.contains('.') || bare.contains('/') || bare.contains('_') || bare.contains('-'))
+}
+
+fn pytype_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "inputs" | "exclude" => pytype_path_list_ok(value),
+        "python_version" => pytype_python_version_ok(value),
+        "pythonpath" => pytype_pythonpath_ok(value),
+        "disable" => pytype_disable_ok(value),
+        "output" => pytype_output_ok(value),
+        "keep_going" | "report_errors" | "protocols" | "strict_import" => pytype_ini_bool_ok(value),
+        "jobs" => pytype_jobs_ok(value),
+        _ => false,
     }
 }
 
@@ -70139,11 +70374,11 @@ mod func_like_line_tests {
         is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl,
         is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
         is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl,
-        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
-        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_pytype_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
+        is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
+        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
         is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
@@ -79315,6 +79550,10 @@ mod func_like_line_tests {
         assert!(is_pip_conf_decl("[global]"));
         assert!(!is_autoflake_ini_decl("report_level = WARNING"));
         assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        assert!(!is_autoflake_ini_decl("[pytype]"));
+        assert!(is_pytype_ini_decl("[pytype]"));
+        assert!(!is_autoflake_ini_decl("keep_going = True"));
+        assert!(is_pytype_ini_decl("keep_going = True"));
         // Distinctive autoflake keys still list.
         assert!(line_is_func_like("remove-all-unused-imports = true"));
         assert!(line_is_func_like("expand_star_imports = True"));
@@ -79322,6 +79561,99 @@ mod func_like_line_tests {
         assert!(line_is_func_like("check-diff = true"));
         assert!(line_is_func_like("ignore-pass-after-docstring = yes"));
         assert!(line_is_func_like("[autoflake]"));
+    }
+
+    #[test]
+    fn pytype_ini_sections_and_keys_count() {
+        assert!(is_pytype_ini_decl("[pytype]"));
+        assert!(is_pytype_ini_decl("  [pytype] # types"));
+        assert!(is_pytype_ini_decl("[pytype] ; types"));
+        assert!(is_pytype_ini_decl("inputs = ."));
+        assert!(is_pytype_ini_decl("inputs=src,tests"));
+        assert!(is_pytype_ini_decl("inputs = pineboolib"));
+        assert!(is_pytype_ini_decl("inputs = \"src tests\""));
+        assert!(is_pytype_ini_decl("exclude = **/*_test.py"));
+        assert!(is_pytype_ini_decl("exclude=**/test_*.py,env/"));
+        assert!(is_pytype_ini_decl("python_version = 3.10"));
+        assert!(is_pytype_ini_decl("python_version=3.9"));
+        assert!(is_pytype_ini_decl("pythonpath = ."));
+        assert!(is_pytype_ini_decl("pythonpath=.:~/repo2"));
+        assert!(is_pytype_ini_decl("pythonpath = ./src;./lib"));
+        assert!(is_pytype_ini_decl("disable = attribute-error"));
+        assert!(is_pytype_ini_decl("disable=name-error,import-error"));
+        assert!(is_pytype_ini_decl("disable = attribute-error name-error"));
+        assert!(is_pytype_ini_decl("output = .pytype"));
+        assert!(is_pytype_ini_decl("output=./.pytype"));
+        assert!(is_pytype_ini_decl("keep_going = True"));
+        assert!(is_pytype_ini_decl("keep_going=false"));
+        assert!(is_pytype_ini_decl("jobs = 4"));
+        assert!(is_pytype_ini_decl("jobs=auto"));
+        assert!(is_pytype_ini_decl("report_errors = True"));
+        assert!(is_pytype_ini_decl("report_errors=0"));
+        assert!(is_pytype_ini_decl("protocols = True"));
+        assert!(is_pytype_ini_decl("strict_import = False"));
+        assert!(is_pytype_ini_decl("keep_going = true # comment"));
+        assert!(is_pytype_ini_decl("inputs=src; trailing"));
+
+        assert!(!is_pytype_ini_decl("keep_going"));
+        assert!(!is_pytype_ini_decl("keep_going ="));
+        assert!(!is_pytype_ini_decl("Keep_going = True"));
+        assert!(!is_pytype_ini_decl("# keep_going = True"));
+        assert!(!is_pytype_ini_decl("keep_going = maybe"));
+        assert!(!is_pytype_ini_decl("verbose = true"));
+        assert!(!is_pytype_ini_decl("platform = linux"));
+        assert!(!is_pytype_ini_decl("module_name = foo.bar"));
+        assert!(!is_pytype_ini_decl("nofail = true"));
+        assert!(!is_pytype_ini_decl("check = true"));
+        assert!(!is_pytype_ini_decl("jobs = 0"));
+        assert!(!is_pytype_ini_decl("python_version = 3"));
+        assert!(!is_pytype_ini_decl("python_version = 3.10.1"));
+        assert!(!is_pytype_ini_decl("disable = AttributeError"));
+        assert!(!is_pytype_ini_decl("disable = name_error"));
+        assert!(!is_pytype_ini_decl("disable = name"));
+        assert!(!is_pytype_ini_decl("inputs = "));
+        assert!(!is_pytype_ini_decl("[Pytype]"));
+        assert!(!is_pytype_ini_decl("[[pytype]]"));
+        assert!(!is_pytype_ini_decl("[pytype"));
+        assert!(!is_pytype_ini_decl("[tool.pytype]"));
+        assert!(!is_pytype_ini_decl("[autoflake]"));
+        assert!(is_autoflake_ini_decl("[autoflake]"));
+        assert!(!is_pytype_ini_decl("remove-all-unused-imports = true"));
+        assert!(is_autoflake_ini_decl("remove-all-unused-imports = true"));
+        assert!(!is_pytype_ini_decl("[radon]"));
+        assert!(is_radon_ini_decl("[radon]"));
+        assert!(!is_pytype_ini_decl("cc_min = B"));
+        assert!(is_radon_ini_decl("cc_min = B"));
+        assert!(!is_pytype_ini_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        // Shared python_version key is also a mypy field; either path lists.
+        assert!(is_mypy_ini_decl("python_version = 3.10"));
+        assert!(is_pytype_ini_decl("python_version = 3.10"));
+        assert!(!is_pytype_ini_decl("[pylama]"));
+        assert!(!is_pytype_ini_decl("[hypothesis]"));
+        assert!(!is_pytype_ini_decl("[sqlfluff]"));
+        assert!(!is_pytype_ini_decl("[rstcheck]"));
+        assert!(!is_pytype_ini_decl("[doc8]"));
+        assert!(!is_pytype_ini_decl("[pytest]"));
+        assert!(!is_pytype_ini_decl("[flake8]"));
+        assert!(!is_pytype_ini_decl("[metadata]"));
+        assert!(!is_pytype_ini_decl("[tox]"));
+        assert!(!is_pytype_ini_decl("[project]"));
+        assert!(!is_pytype_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_pytype_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_pytype_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_pytype_ini_decl("report_level = WARNING"));
+        assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        // Distinctive pytype keys still list.
+        assert!(line_is_func_like("keep_going = True"));
+        assert!(line_is_func_like("strict_import = False"));
+        assert!(line_is_func_like("disable = attribute-error"));
+        assert!(line_is_func_like("pythonpath = .:~/repo2"));
+        assert!(line_is_func_like("jobs = auto"));
+        assert!(line_is_func_like("[pytype]"));
     }
 
     #[test]

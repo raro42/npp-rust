@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.690] — 2026-11-08
+
+View:
+
+- **Function List** lists pytype `setup.cfg` / `tox.ini` / `.pytype.cfg` `[pytype]` sections and fields: `[pytype]`, `inputs = .` / `src,tests` / `pineboolib`, `exclude = **/*_test.py` / `**/test_*.py,env/`, `python_version = 3.10` / `3.9`, `pythonpath = .` / `.:~/repo2` / `./src;./lib`, `disable = attribute-error` / `name-error,import-error`, `output = .pytype` / `./.pytype`, `keep_going = True` / `false`, `jobs = 4` / `auto`, `report_errors = True` / `0`, `protocols = True`, `strict_import = False`. Exact snake_case keys. INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. Trailing commas on path / disable lists ok. Bare `verbose` / `platform` / `module_name` / `nofail` / `check` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama / radon / autoflake / tox / setuptools / Cargo / Pipfile / pyproject `[tool.pytype]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.689] — 2026-11-08
 
 View:
