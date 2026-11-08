@@ -32369,6 +32369,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pyrightconfig_json_decl(s)
             || is_tsconfig_json_decl(s)
             || is_biome_json_decl(s)
+            || is_dprint_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32648,6 +32649,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pyrightconfig_json_decl(s)
         || is_tsconfig_json_decl(s)
         || is_biome_json_decl(s)
+        || is_dprint_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -41875,6 +41877,160 @@ fn biome_json_string_ok(key: &str, value: &str) -> bool {
         "trailingCommas" => matches!(value, "all" | "es5" | "none"),
         "semicolons" | "arrowParentheses" => matches!(value, "always" | "asNeeded"),
         "defaultBranch" => true,
+        _ => false,
+    }
+}
+
+/// dprint `dprint.json` / `.dprint.json` JSON keys:
+/// `"typescript": {`, `"json": {`, `"jsonc": {`, `"markdown": {`,
+/// `"toml": {`, `"dockerfile": {`, `"rust": {`, `"python": {`,
+/// `"ruff": {`, `"malva": {`, `"markup": {`, `"yaml": {`,
+/// `"graphql": {`, `"jupyter": {`, `"exec": {`, `"css": {`,
+/// `"javascript": {`, `"biome": {`, `"plugins": [`, `"includes": [`,
+/// `"excludes": [`, `"incremental": true`, `"useTabs": false`,
+/// `"newLineKind": "lf"` / `"crlf"` / `"auto"` / `"system"`,
+/// `"indentWidth": 2`, `"lineWidth": 80`. Optional trailing `,` and
+/// `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"extends"` / `"$schema"` / biome-only keys (`"linter"`,
+/// `"formatter"`, `"organizeImports"`, `"indentStyle"`, `"lineEnding"`)
+/// stay out. tsconfig `"include": [` / `"exclude": [` stay on their
+/// paths (dprint uses plural `"includes"` / `"excludes"`). package.json
+/// / composer / tsconfig / Pyre / pyrightconfig / biome structural keys
+/// stay out where shapes differ.
+fn is_dprint_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !dprint_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    dprint_json_value_and_tail_ok(key, after_colon)
+}
+
+fn dprint_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "typescript"
+            | "json"
+            | "jsonc"
+            | "markdown"
+            | "toml"
+            | "dockerfile"
+            | "rust"
+            | "python"
+            | "ruff"
+            | "malva"
+            | "markup"
+            | "yaml"
+            | "graphql"
+            | "jupyter"
+            | "exec"
+            | "css"
+            | "javascript"
+            | "biome"
+            | "plugins"
+            | "includes"
+            | "excludes"
+            | "incremental"
+            | "useTabs"
+            | "newLineKind"
+            | "indentWidth"
+            | "lineWidth"
+    )
+}
+
+fn dprint_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "typescript"
+                    | "json"
+                    | "jsonc"
+                    | "markdown"
+                    | "toml"
+                    | "dockerfile"
+                    | "rust"
+                    | "python"
+                    | "ruff"
+                    | "malva"
+                    | "markup"
+                    | "yaml"
+                    | "graphql"
+                    | "jupyter"
+                    | "exec"
+                    | "css"
+                    | "javascript"
+                    | "biome"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "plugins" | "includes" | "excludes") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if key != "newLineKind" {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !matches!(value, "lf" | "crlf" | "auto" | "system") {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !matches!(key, "incremental" | "useTabs") {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !matches!(key, "indentWidth" | "lineWidth") {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            // Reject bare 0 for widths.
+            if digits == 1 && after_colon.as_bytes()[0] == b'0' {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
         _ => false,
     }
 }
@@ -72500,41 +72656,42 @@ mod func_like_line_tests {
         is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
         is_darglint_ini_decl, is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl,
         is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl,
-        is_docformatter_ini_decl, is_dovecot_decl, is_dracut_conf_decl, is_editorconfig_decl,
-        is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl, is_fluent_bit_decl,
-        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
-        is_importlinter_ini_decl, is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl,
-        is_keepalived_decl, is_krb5_conf_decl, is_lightdm_conf_decl, is_limits_conf_decl,
-        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
-        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl, is_premake_decl,
-        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
-        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
-        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
-        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
-        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl,
-        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
-        is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
-        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
-        is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
-        is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
+        is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
+        is_editorconfig_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl,
+        is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl,
+        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
+        is_haproxy_decl, is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl,
+        is_hypothesis_ini_decl, is_importlinter_ini_decl, is_interrogate_ini_decl,
+        is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
+        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
+        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
+        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
+        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
+        is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
+        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl,
+        is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl, is_pycln_ini_decl,
+        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
+        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
+        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_refurb_toml_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
+        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
+        is_tsconfig_json_decl, is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -82890,6 +83047,89 @@ mod func_like_line_tests {
         // Object files vs array files: biome vs tsconfig.
         assert!(is_biome_json_decl(r#""files": {"#));
         assert!(is_tsconfig_json_decl(r#""files": ["#));
+    }
+
+    #[test]
+    fn dprint_json_keys_count() {
+        assert!(is_dprint_json_decl(r#""typescript": {"#));
+        assert!(is_dprint_json_decl(r#"  "json": { // base"#));
+        assert!(is_dprint_json_decl(r#""jsonc": {"#));
+        assert!(is_dprint_json_decl(r#""markdown": {"#));
+        assert!(is_dprint_json_decl(r#""toml": {"#));
+        assert!(is_dprint_json_decl(r#""dockerfile": {"#));
+        assert!(is_dprint_json_decl(r#""rust": {"#));
+        assert!(is_dprint_json_decl(r#""python": {"#));
+        assert!(is_dprint_json_decl(r#""ruff": {"#));
+        assert!(is_dprint_json_decl(r#""malva": {"#));
+        assert!(is_dprint_json_decl(r#""markup": {"#));
+        assert!(is_dprint_json_decl(r#""yaml": {"#));
+        assert!(is_dprint_json_decl(r#""graphql": {"#));
+        assert!(is_dprint_json_decl(r#""jupyter": {"#));
+        assert!(is_dprint_json_decl(r#""exec": {"#));
+        assert!(is_dprint_json_decl(r#""css": {"#));
+        assert!(is_dprint_json_decl(r#""javascript": {"#));
+        assert!(is_dprint_json_decl(r#""biome": {"#));
+        assert!(is_dprint_json_decl(r#""plugins": ["#));
+        assert!(is_dprint_json_decl(r#""includes": ["#));
+        assert!(is_dprint_json_decl(r#""excludes": ["#));
+        assert!(is_dprint_json_decl(r#""incremental": true"#));
+        assert!(is_dprint_json_decl(r#""incremental": false,"#));
+        assert!(is_dprint_json_decl(r#""useTabs": false"#));
+        assert!(is_dprint_json_decl(r#""useTabs": true,"#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "crlf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "auto""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "system","#));
+        assert!(is_dprint_json_decl(r#""indentWidth": 2"#));
+        assert!(is_dprint_json_decl(r#""lineWidth": 80,"#));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_dprint_json_decl(r#""typescript""#));
+        assert!(!is_dprint_json_decl(r#""typescript":"#));
+        assert!(!is_dprint_json_decl(r#""typescript": ["#));
+        assert!(!is_dprint_json_decl(r#"typescript: {"#));
+        assert!(!is_dprint_json_decl(r#""Typescript": {"#));
+        assert!(!is_dprint_json_decl(r#""extends": "./base.json""#));
+        assert!(!is_dprint_json_decl(
+            r#""$schema": "https://dprint.dev/schemas/v0.json""#
+        ));
+        assert!(!is_dprint_json_decl(r#""newLineKind": "unix""#));
+        assert!(!is_dprint_json_decl(r#""newLineKind": ["#));
+        assert!(!is_dprint_json_decl(r#""indentWidth": 0"#));
+        assert!(!is_dprint_json_decl(r#""indentWidth": true"#));
+        assert!(!is_dprint_json_decl(r#""lineWidth": "80""#));
+        assert!(!is_dprint_json_decl(r#""includes": {"#));
+        assert!(!is_dprint_json_decl(r#""plugins": {"#));
+        assert!(!is_dprint_json_decl(r#""incremental": {"#));
+        // Biome-only / neighbouring families stay on their paths.
+        assert!(!is_dprint_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_dprint_json_decl(r#""formatter": {"#));
+        assert!(!is_dprint_json_decl(r#""organizeImports": {"#));
+        assert!(!is_dprint_json_decl(r#""indentStyle": "space""#));
+        assert!(!is_dprint_json_decl(r#""lineEnding": "lf""#));
+        assert!(!is_dprint_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_dprint_json_decl(r#""include": ["#));
+        assert!(is_tsconfig_json_decl(r#""include": ["#));
+        assert!(!is_dprint_json_decl(r#""exclude": ["#));
+        assert!(is_tsconfig_json_decl(r#""exclude": ["#));
+        assert!(!is_dprint_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_dprint_json_decl(r#""typeCheckingMode": "strict""#));
+        assert!(is_pyrightconfig_json_decl(
+            r#""typeCheckingMode": "strict""#
+        ));
+        // Shared scanner lists dprint keys.
+        assert!(line_is_func_like(r#""typescript": {"#));
+        assert!(line_is_func_like(r#""malva": {"#));
+        assert!(line_is_func_like(r#""includes": ["#));
+        assert!(line_is_func_like(r#""excludes": ["#));
+        assert!(line_is_func_like(r#""incremental": true"#));
+        assert!(line_is_func_like(r#""newLineKind": "lf""#));
+        assert!(line_is_func_like(r#""useTabs": false"#));
+        // Plural includes/excludes: dprint vs singular tsconfig.
+        assert!(is_dprint_json_decl(r#""includes": ["#));
+        assert!(is_tsconfig_json_decl(r#""include": ["#));
     }
 
     #[test]

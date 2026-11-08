@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.702] — 2026-11-08
+
+View:
+
+- **Function List** lists dprint `dprint.json` / `.dprint.json` JSON keys: `"typescript": {`, `"json": {`, `"jsonc": {`, `"markdown": {`, `"toml": {`, `"dockerfile": {`, `"rust": {`, `"python": {`, `"ruff": {`, `"malva": {`, `"markup": {`, `"yaml": {`, `"graphql": {`, `"jupyter": {`, `"exec": {`, `"css": {`, `"javascript": {`, `"biome": {`, `"plugins": [`, `"includes": [`, `"excludes": [`, `"incremental": true`, `"useTabs": false`, `"newLineKind": "lf"` / `"crlf"` / `"auto"` / `"system"`, `"indentWidth": 2`, `"lineWidth": 80`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"extends"` / `"$schema"` / biome-only keys (`"linter"`, `"formatter"`, `"organizeImports"`, `"indentStyle"`, `"lineEnding"`) stay out. tsconfig `"include": [` / `"exclude": [` stay on their paths (dprint uses plural `"includes"` / `"excludes"`). package.json / composer / tsconfig / Pyre / pyrightconfig / biome structural keys stay out where shapes differ.
+
 ## [0.3.701] — 2026-11-08
 
 View:

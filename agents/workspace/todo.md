@@ -1,3 +1,5 @@
+009 keep: Function List dprint.json typescript/json/markdown/toml/malva/includes/excludes/incremental/newLineKind/useTabs (v0.3.702)
+
 009 keep: Function List biome.json/biome.jsonc linter/formatter/organizeImports/assist/vcs/indentStyle/lineWidth/clientKind (v0.3.701)
 
 009 keep: Function List tsconfig.json/jsconfig.json compilerOptions/target/module/moduleResolution/jsx/strict/skipLibCheck (v0.3.700)
