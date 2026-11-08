@@ -1,3 +1,5 @@
+009 keep: Function List tsconfig.json/jsconfig.json compilerOptions/target/module/moduleResolution/jsx/strict/skipLibCheck (v0.3.700)
+
 009 keep: Function List flynt setup.cfg/tox.ini/flynt.toml [flynt] aggressive/dry-run/transform-concats/transform-joins/no-multiline/fail-on-change/line-length (v0.3.693)
 
 009 keep: Function List autoflake setup.cfg/tox.ini [autoflake] remove-all-unused-imports/expand-star-imports/ignore-init-module-imports/remove-unused-variables/check-diff/imports (v0.3.689)
@@ -1056,3 +1058,5 @@
 009 keep: Function List Astral ty [tool.ty] rules/analysis/environment/src/terminal/overrides (v0.3.697)
 
 009 keep: Function List Pyre .pyre_configuration source_directories/search_path/typeshed/strict/workers/site_package_search_strategy (v0.3.698)
+
+009 keep: Function List pyrightconfig.json include/exclude/typeCheckingMode/pythonVersion/report* (v0.3.699)

@@ -32367,6 +32367,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_composer_json_decl(s)
             || is_pyre_configuration_decl(s)
             || is_pyrightconfig_json_decl(s)
+            || is_tsconfig_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32644,6 +32645,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_composer_json_decl(s)
         || is_pyre_configuration_decl(s)
         || is_pyrightconfig_json_decl(s)
+        || is_tsconfig_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -41403,6 +41405,276 @@ fn pyrightconfig_json_python_version_ok(value: &str) -> bool {
         && minor.bytes().all(|b| b.is_ascii_digit())
         && major.len() <= 2
         && minor.len() <= 2
+}
+
+/// TypeScript / JS `tsconfig.json` / `jsconfig.json` JSON keys:
+/// `"compilerOptions": {`, `"extends": "…"`, `"files": [`, `"include": [`,
+/// `"exclude": [`, `"references": [`, `"target": "ES2022"` / `"ESNext"` /
+/// `"ES5"` / `"ES6"` / `"ES2015"`…`"ES2024"` / `"ES3"`,
+/// `"module": "ESNext"` / `"CommonJS"` / `"NodeNext"` / `"Node16"` /
+/// `"ES2022"` / `"ES2020"` / `"ES2015"` / `"AMD"` / `"UMD"` / `"System"` /
+/// `"None"`, `"moduleResolution": "bundler"` / `"node"` / `"node16"` /
+/// `"nodenext"` / `"classic"`, `"jsx": "react-jsx"` / `"react-jsxdev"` /
+/// `"react"` / `"react-native"` / `"preserve"`, `"lib": [`, `"types": [`,
+/// `"typeRoots": [`, `"outDir": "dist"`, `"rootDir": "src"`,
+/// `"baseUrl": "."`, `"strict": true`, `"noEmit": true`,
+/// `"declaration": true`, `"declarationMap": true`, `"sourceMap": true`,
+/// `"skipLibCheck": true`, `"esModuleInterop": true`, `"allowJs": true`,
+/// `"checkJs": true`, `"resolveJsonModule": true`,
+/// `"isolatedModules": true`, `"verbatimModuleSyntax": true`,
+/// `"noUnusedLocals": true`, `"noUnusedParameters": true`,
+/// `"noFallthroughCasesInSwitch": true`,
+/// `"exactOptionalPropertyTypes": true`, `"noImplicitOverride": true`,
+/// `"noPropertyAccessFromIndexSignature": true`,
+/// `"noUncheckedIndexedAccess": true`,
+/// `"forceConsistentCasingInFileNames": true`, `"incremental": true`,
+/// `"composite": true`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Maps other than
+/// `compilerOptions` (`"paths": {`) stay out. package.json / composer.json
+/// structural keys, Pyre / pyrightconfig JSON, and leaf metadata stay out.
+fn is_tsconfig_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !tsconfig_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    tsconfig_json_value_and_tail_ok(key, after_colon)
+}
+
+fn tsconfig_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "compilerOptions"
+            | "extends"
+            | "files"
+            | "include"
+            | "exclude"
+            | "references"
+            | "target"
+            | "module"
+            | "moduleResolution"
+            | "jsx"
+            | "lib"
+            | "types"
+            | "typeRoots"
+            | "outDir"
+            | "rootDir"
+            | "baseUrl"
+            | "strict"
+            | "noEmit"
+            | "declaration"
+            | "declarationMap"
+            | "sourceMap"
+            | "skipLibCheck"
+            | "esModuleInterop"
+            | "allowJs"
+            | "checkJs"
+            | "resolveJsonModule"
+            | "isolatedModules"
+            | "verbatimModuleSyntax"
+            | "noUnusedLocals"
+            | "noUnusedParameters"
+            | "noFallthroughCasesInSwitch"
+            | "exactOptionalPropertyTypes"
+            | "noImplicitOverride"
+            | "noPropertyAccessFromIndexSignature"
+            | "noUncheckedIndexedAccess"
+            | "forceConsistentCasingInFileNames"
+            | "incremental"
+            | "composite"
+    )
+}
+
+fn tsconfig_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if key != "compilerOptions" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "files" | "include" | "exclude" | "references" | "lib" | "types" | "typeRoots"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(
+                key,
+                "extends"
+                    | "target"
+                    | "module"
+                    | "moduleResolution"
+                    | "jsx"
+                    | "outDir"
+                    | "rootDir"
+                    | "baseUrl"
+            ) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !tsconfig_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !tsconfig_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn tsconfig_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "strict"
+            | "noEmit"
+            | "declaration"
+            | "declarationMap"
+            | "sourceMap"
+            | "skipLibCheck"
+            | "esModuleInterop"
+            | "allowJs"
+            | "checkJs"
+            | "resolveJsonModule"
+            | "isolatedModules"
+            | "verbatimModuleSyntax"
+            | "noUnusedLocals"
+            | "noUnusedParameters"
+            | "noFallthroughCasesInSwitch"
+            | "exactOptionalPropertyTypes"
+            | "noImplicitOverride"
+            | "noPropertyAccessFromIndexSignature"
+            | "noUncheckedIndexedAccess"
+            | "forceConsistentCasingInFileNames"
+            | "incremental"
+            | "composite"
+    )
+}
+
+fn tsconfig_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    match key {
+        "extends" | "outDir" | "rootDir" | "baseUrl" => true,
+        "target" => matches!(
+            value,
+            "ES3"
+                | "ES5"
+                | "ES6"
+                | "ES2015"
+                | "ES2016"
+                | "ES2017"
+                | "ES2018"
+                | "ES2019"
+                | "ES2020"
+                | "ES2021"
+                | "ES2022"
+                | "ES2023"
+                | "ES2024"
+                | "ESNext"
+                | "es3"
+                | "es5"
+                | "es6"
+                | "es2015"
+                | "es2016"
+                | "es2017"
+                | "es2018"
+                | "es2019"
+                | "es2020"
+                | "es2021"
+                | "es2022"
+                | "es2023"
+                | "es2024"
+                | "esnext"
+        ),
+        "module" => matches!(
+            value,
+            "None"
+                | "CommonJS"
+                | "AMD"
+                | "System"
+                | "UMD"
+                | "ES6"
+                | "ES2015"
+                | "ES2020"
+                | "ES2022"
+                | "ESNext"
+                | "Node16"
+                | "Node18"
+                | "NodeNext"
+                | "Preserve"
+                | "none"
+                | "commonjs"
+                | "amd"
+                | "system"
+                | "umd"
+                | "es6"
+                | "es2015"
+                | "es2020"
+                | "es2022"
+                | "esnext"
+                | "node16"
+                | "node18"
+                | "nodenext"
+                | "preserve"
+        ),
+        "moduleResolution" => matches!(
+            value,
+            "classic"
+                | "node"
+                | "node10"
+                | "node16"
+                | "nodenext"
+                | "bundler"
+                | "Classic"
+                | "Node"
+                | "Node10"
+                | "Node16"
+                | "NodeNext"
+                | "Bundler"
+        ),
+        "jsx" => matches!(
+            value,
+            "preserve" | "react" | "react-native" | "react-jsx" | "react-jsxdev"
+        ),
+        _ => false,
+    }
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -72055,10 +72327,10 @@ mod func_like_line_tests {
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
         is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
         is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_ty_toml_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
+        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
+        is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
         is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
         is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
@@ -82237,6 +82509,107 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""strict": ["#));
         assert!(line_is_func_like(r#""failOnWarnings": true"#));
         assert!(line_is_func_like(r#""reportMissingImports": "error""#));
+    }
+
+    #[test]
+    fn tsconfig_json_keys_count() {
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#"  "compilerOptions": { // base"#));
+        assert!(is_tsconfig_json_decl(
+            r#""extends": "./tsconfig.base.json""#
+        ));
+        assert!(is_tsconfig_json_decl(r#""files": ["#));
+        assert!(is_tsconfig_json_decl(r#""include": ["#));
+        assert!(is_tsconfig_json_decl(r#""exclude": ["#));
+        assert!(is_tsconfig_json_decl(r#""references": ["#));
+        assert!(is_tsconfig_json_decl(r#""target": "ES2022""#));
+        assert!(is_tsconfig_json_decl(r#""target": "ESNext","#));
+        assert!(is_tsconfig_json_decl(r#""target": "es2020""#));
+        assert!(is_tsconfig_json_decl(r#""module": "ESNext""#));
+        assert!(is_tsconfig_json_decl(r#""module": "CommonJS""#));
+        assert!(is_tsconfig_json_decl(r#""module": "NodeNext""#));
+        assert!(is_tsconfig_json_decl(r#""moduleResolution": "bundler""#));
+        assert!(is_tsconfig_json_decl(r#""moduleResolution": "node16""#));
+        assert!(is_tsconfig_json_decl(r#""moduleResolution": "nodenext""#));
+        assert!(is_tsconfig_json_decl(r#""jsx": "react-jsx""#));
+        assert!(is_tsconfig_json_decl(r#""jsx": "preserve""#));
+        assert!(is_tsconfig_json_decl(r#""lib": ["#));
+        assert!(is_tsconfig_json_decl(r#""types": ["#));
+        assert!(is_tsconfig_json_decl(r#""typeRoots": ["#));
+        assert!(is_tsconfig_json_decl(r#""outDir": "dist""#));
+        assert!(is_tsconfig_json_decl(r#""rootDir": "src""#));
+        assert!(is_tsconfig_json_decl(r#""baseUrl": ".""#));
+        assert!(is_tsconfig_json_decl(r#""strict": true"#));
+        assert!(is_tsconfig_json_decl(r#""noEmit": true"#));
+        assert!(is_tsconfig_json_decl(r#""declaration": true"#));
+        assert!(is_tsconfig_json_decl(r#""declarationMap": false,"#));
+        assert!(is_tsconfig_json_decl(r#""sourceMap": true"#));
+        assert!(is_tsconfig_json_decl(r#""skipLibCheck": true"#));
+        assert!(is_tsconfig_json_decl(r#""esModuleInterop": true"#));
+        assert!(is_tsconfig_json_decl(r#""allowJs": true"#));
+        assert!(is_tsconfig_json_decl(r#""checkJs": false"#));
+        assert!(is_tsconfig_json_decl(r#""resolveJsonModule": true"#));
+        assert!(is_tsconfig_json_decl(r#""isolatedModules": true"#));
+        assert!(is_tsconfig_json_decl(r#""verbatimModuleSyntax": true"#));
+        assert!(is_tsconfig_json_decl(r#""noUnusedLocals": true"#));
+        assert!(is_tsconfig_json_decl(r#""noUnusedParameters": true"#));
+        assert!(is_tsconfig_json_decl(
+            r#""noFallthroughCasesInSwitch": true"#
+        ));
+        assert!(is_tsconfig_json_decl(
+            r#""exactOptionalPropertyTypes": true"#
+        ));
+        assert!(is_tsconfig_json_decl(r#""noImplicitOverride": true"#));
+        assert!(is_tsconfig_json_decl(
+            r#""noPropertyAccessFromIndexSignature": true"#
+        ));
+        assert!(is_tsconfig_json_decl(r#""noUncheckedIndexedAccess": true"#));
+        assert!(is_tsconfig_json_decl(
+            r#""forceConsistentCasingInFileNames": true"#
+        ));
+        assert!(is_tsconfig_json_decl(r#""incremental": true"#));
+        assert!(is_tsconfig_json_decl(r#""composite": true"#));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_tsconfig_json_decl(r#""compilerOptions""#));
+        assert!(!is_tsconfig_json_decl(r#""compilerOptions":"#));
+        assert!(!is_tsconfig_json_decl(r#""compilerOptions": ["#));
+        assert!(!is_tsconfig_json_decl(r#"compilerOptions: {"#));
+        assert!(!is_tsconfig_json_decl(r#""CompilerOptions": {"#));
+        assert!(!is_tsconfig_json_decl(r#""paths": {"#));
+        assert!(!is_tsconfig_json_decl(r#""include": {"#));
+        assert!(!is_tsconfig_json_decl(r#""include": "./src""#));
+        assert!(!is_tsconfig_json_decl(r#""target": ["#));
+        assert!(!is_tsconfig_json_decl(r#""target": "ES2014""#));
+        assert!(!is_tsconfig_json_decl(r#""target": ES2022"#));
+        assert!(!is_tsconfig_json_decl(r#""module": "Magic""#));
+        assert!(!is_tsconfig_json_decl(r#""moduleResolution": "webpack""#));
+        assert!(!is_tsconfig_json_decl(r#""jsx": "react-jsxdev-extra""#));
+        assert!(!is_tsconfig_json_decl(r#""strict": ["#));
+        assert!(!is_tsconfig_json_decl(r#""name": "project""#));
+        assert!(!is_tsconfig_json_decl(r#""version": "1.0.0""#));
+        // package.json / composer / Pyre / pyrightconfig stay on their paths.
+        assert!(!is_tsconfig_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_tsconfig_json_decl(r#""autoload": {"#));
+        assert!(is_composer_json_decl(r#""autoload": {"#));
+        assert!(!is_tsconfig_json_decl(r#""source_directories": ["#));
+        assert!(is_pyre_configuration_decl(r#""source_directories": ["#));
+        assert!(!is_tsconfig_json_decl(r#""typeCheckingMode": "strict""#));
+        assert!(is_pyrightconfig_json_decl(
+            r#""typeCheckingMode": "strict""#
+        ));
+        // Overlap keys still list via the shared scanner.
+        assert!(line_is_func_like(r#""compilerOptions": {"#));
+        assert!(line_is_func_like(r#""target": "ES2022""#));
+        assert!(line_is_func_like(r#""module": "NodeNext""#));
+        assert!(line_is_func_like(r#""moduleResolution": "bundler""#));
+        assert!(line_is_func_like(r#""jsx": "react-jsx""#));
+        assert!(line_is_func_like(r#""strict": true"#));
+        assert!(line_is_func_like(r#""skipLibCheck": true"#));
+        assert!(line_is_func_like(r#""verbatimModuleSyntax": true"#));
+        // Shared array keys may also match pyrightconfig; both are fine.
+        assert!(is_tsconfig_json_decl(r#""include": ["#));
+        assert!(is_pyrightconfig_json_decl(r#""include": ["#));
     }
 
     #[test]

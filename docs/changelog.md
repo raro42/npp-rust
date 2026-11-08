@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.700] — 2026-11-08
+
+View:
+
+- **Function List** lists TypeScript / JS `tsconfig.json` / `jsconfig.json` JSON keys: `"compilerOptions": {`, `"extends": "…"`, `"files": [`, `"include": [`, `"exclude": [`, `"references": [`, `"target": "ES2022"` / `"ESNext"` / `"ES5"` / `"ES6"` / `"ES2015"`…`"ES2024"`, `"module": "ESNext"` / `"CommonJS"` / `"NodeNext"` / `"Node16"` / `"ES2022"` / `"AMD"` / `"UMD"` / `"System"` / `"None"`, `"moduleResolution": "bundler"` / `"node"` / `"node16"` / `"nodenext"` / `"classic"`, `"jsx": "react-jsx"` / `"react-jsxdev"` / `"react"` / `"react-native"` / `"preserve"`, `"lib": [`, `"types": [`, `"typeRoots": [`, `"outDir": "dist"`, `"rootDir": "src"`, `"baseUrl": "."`, `"strict": true`, `"noEmit": true`, `"declaration": true`, `"declarationMap": true`, `"sourceMap": true`, `"skipLibCheck": true`, `"esModuleInterop": true`, `"allowJs": true`, `"checkJs": true`, `"resolveJsonModule": true`, `"isolatedModules": true`, `"verbatimModuleSyntax": true`, `"noUnusedLocals": true`, `"noUnusedParameters": true`, `"noFallthroughCasesInSwitch": true`, `"exactOptionalPropertyTypes": true`, `"noImplicitOverride": true`, `"noPropertyAccessFromIndexSignature": true`, `"noUncheckedIndexedAccess": true`, `"forceConsistentCasingInFileNames": true`, `"incremental": true`, `"composite": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Maps other than `compilerOptions` (`"paths": {`) stay out. package.json / composer.json structural keys, Pyre / pyrightconfig JSON, and leaf metadata stay out.
+
 ## [0.3.699] — 2026-11-08
 
 View:
