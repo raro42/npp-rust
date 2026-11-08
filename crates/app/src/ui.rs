@@ -32375,6 +32375,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_stylelint_json_decl(s)
             || is_babel_json_decl(s)
             || is_swc_json_decl(s)
+            || is_postcss_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32660,6 +32661,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_stylelint_json_decl(s)
         || is_babel_json_decl(s)
         || is_swc_json_decl(s)
+        || is_postcss_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -42698,8 +42700,9 @@ fn babel_json_string_ok(key: &str, value: &str) -> bool {
 /// stylelint `"ignoreFiles"` / prettier `"printWidth"` / `"semi"` /
 /// biome `"linter"` / `"formatter"` / dprint `"includes"` / `"newLineKind"` /
 /// tsconfig `"compilerOptions"` / `"module": "ESNext"` (string) /
-/// package.json `"scripts"` stay out. Shared `"env"` / `"sourceMaps"` /
-/// `"exclude"` also match babel / eslint / tsconfig when shapes match.
+/// package.json `"scripts"` / postcss `"syntax"` / `"stringifier"` / `"map"` /
+/// `"plugins": {` stay out. Shared `"env"` / `"sourceMaps"` / `"exclude"`
+/// also match babel / eslint / tsconfig when shapes match.
 fn is_swc_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -42809,6 +42812,103 @@ fn swc_json_string_ok(key: &str, value: &str) -> bool {
         "sourceRoot" | "test" | "exclude" => !value.chars().all(|c| c.is_ascii_whitespace()),
         _ => false,
     }
+}
+
+/// PostCSS `.postcssrc` / `.postcssrc.json` / `postcss.config.json` JSON keys:
+/// `"plugins": {` / `"plugins": [`, `"parser": "…"`, `"syntax": "…"`,
+/// `"stringifier": "…"`, `"map": true` / `false` / `{`. Optional trailing `,`
+/// and `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"$schema"` / babel `"presets"` / `"parserOpts"` / `"rootMode"` /
+/// SWC `"jsc"` / `"inlineSourcesContent"` / `"isModule"` / `"minify"` /
+/// eslint `"root"` / `"rules"` / `"parserOptions"` / `"ignorePatterns"` /
+/// stylelint `"ignoreFiles"` / `"customSyntax"` / `"processors"` /
+/// prettier `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` /
+/// dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` /
+/// package.json `"scripts"` stay out. Shared `"parser": "…"` /
+/// `"plugins": [` also match eslint / prettier / stylelint / babel when
+/// shapes match. `"plugins": {` is PostCSS-shaped (eslint plugins is `[`).
+fn is_postcss_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !postcss_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    postcss_json_value_and_tail_ok(key, after_colon)
+}
+
+fn postcss_json_key_ok(key: &str) -> bool {
+    matches!(key, "plugins" | "parser" | "syntax" | "stringifier" | "map")
+}
+
+fn postcss_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "plugins" | "map") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if key != "plugins" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !postcss_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !postcss_json_string_ok(value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if key != "map" {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn postcss_json_string_key_ok(key: &str) -> bool {
+    matches!(key, "parser" | "syntax" | "stringifier")
+}
+
+fn postcss_json_string_ok(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 512
+        && !value.contains('\n')
+        && !value.chars().all(|c| c.is_ascii_whitespace())
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -73448,27 +73548,27 @@ mod func_like_line_tests {
         is_nsswitch_conf_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
         is_pacman_conf_decl, is_pam_conf_decl, is_paru_conf_decl, is_passwd_group_file_decl,
         is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_prettier_json_decl,
-        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
-        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
-        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
-        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
-        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl,
-        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
-        is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
-        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
-        is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
-        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_tsconfig_json_decl, is_ty_toml_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl,
-        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl,
+        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
+        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
+        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
+        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_refurb_toml_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
+        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl,
+        is_supabase_toml_decl, is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl,
+        is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl, is_ty_toml_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -84143,6 +84243,13 @@ mod func_like_line_tests {
         assert!(!is_eslint_json_decl(r#""inlineSourcesContent": true"#));
         assert!(!is_eslint_json_decl(r#""isModule": "unknown""#));
         assert!(!is_eslint_json_decl(r#""minify": true"#));
+        // PostCSS-only keys stay on postcss.
+        assert!(!is_eslint_json_decl(r#""syntax": "postcss-scss""#));
+        assert!(is_postcss_json_decl(r#""syntax": "postcss-scss""#));
+        assert!(!is_eslint_json_decl(r#""stringifier": "sugarss""#));
+        assert!(!is_eslint_json_decl(r#""map": true"#));
+        assert!(!is_eslint_json_decl(r#""plugins": {"#));
+        assert!(is_postcss_json_decl(r#""plugins": {"#));
     }
 
     #[test]
@@ -84263,6 +84370,13 @@ mod func_like_line_tests {
         assert!(!is_stylelint_json_decl(r#""inlineSourcesContent": true"#));
         assert!(!is_stylelint_json_decl(r#""isModule": "unknown""#));
         assert!(!is_stylelint_json_decl(r#""minify": true"#));
+        // PostCSS-only keys stay on postcss.
+        assert!(!is_stylelint_json_decl(r#""syntax": "postcss-scss""#));
+        assert!(is_postcss_json_decl(r#""syntax": "postcss-scss""#));
+        assert!(!is_stylelint_json_decl(r#""stringifier": "sugarss""#));
+        assert!(!is_stylelint_json_decl(r#""map": true"#));
+        assert!(!is_stylelint_json_decl(r#""plugins": {"#));
+        assert!(is_postcss_json_decl(r#""plugins": {"#));
     }
 
     #[test]
@@ -84387,6 +84501,13 @@ mod func_like_line_tests {
         assert!(!is_babel_json_decl(r#""minify": true"#));
         assert!(!is_babel_json_decl(r#""module": {"#));
         assert!(is_swc_json_decl(r#""module": {"#));
+        // PostCSS-only keys stay on postcss.
+        assert!(!is_babel_json_decl(r#""syntax": "postcss-scss""#));
+        assert!(is_postcss_json_decl(r#""syntax": "postcss-scss""#));
+        assert!(!is_babel_json_decl(r#""stringifier": "sugarss""#));
+        assert!(!is_babel_json_decl(r#""map": true"#));
+        assert!(!is_babel_json_decl(r#""plugins": {"#));
+        assert!(is_postcss_json_decl(r#""plugins": {"#));
         // Shared sourceMaps bool / inline: babel + swc both accept.
         assert!(is_babel_json_decl(r#""sourceMaps": true"#));
         assert!(is_swc_json_decl(r#""sourceMaps": true"#));
@@ -84489,6 +84610,101 @@ mod func_like_line_tests {
         assert!(is_babel_json_decl(r#""sourceMaps": true"#));
         assert!(is_swc_json_decl(r#""exclude": ["#));
         assert!(is_tsconfig_json_decl(r#""exclude": ["#));
+        // PostCSS-only keys stay on postcss.
+        assert!(!is_swc_json_decl(r#""syntax": "postcss-scss""#));
+        assert!(is_postcss_json_decl(r#""syntax": "postcss-scss""#));
+        assert!(!is_swc_json_decl(r#""stringifier": "sugarss""#));
+        assert!(!is_swc_json_decl(r#""map": true"#));
+        assert!(!is_swc_json_decl(r#""plugins": {"#));
+        assert!(is_postcss_json_decl(r#""plugins": {"#));
+    }
+
+    #[test]
+    fn postcss_json_keys_count() {
+        assert!(is_postcss_json_decl(r#""plugins": {"#));
+        assert!(is_postcss_json_decl(r#""plugins": { // autoprefixer"#));
+        assert!(is_postcss_json_decl(r#""plugins": ["#));
+        assert!(is_postcss_json_decl(r#""plugins": [ // list"#));
+        assert!(is_postcss_json_decl(r#""parser": "sugarss""#));
+        assert!(is_postcss_json_decl(r#""parser": "postcss-scss","#));
+        assert!(is_postcss_json_decl(r#""syntax": "postcss-scss""#));
+        assert!(is_postcss_json_decl(r#""syntax": "postcss-sass","#));
+        assert!(is_postcss_json_decl(r#""stringifier": "sugarss""#));
+        assert!(is_postcss_json_decl(r#""stringifier": "postcss-scss","#));
+        assert!(is_postcss_json_decl(r#""map": true"#));
+        assert!(is_postcss_json_decl(r#""map": false,"#));
+        assert!(is_postcss_json_decl(r#""map": {"#));
+        assert!(is_postcss_json_decl(r#""map": { // inline"#));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_postcss_json_decl(r#""plugins""#));
+        assert!(!is_postcss_json_decl(r#""plugins":"#));
+        assert!(!is_postcss_json_decl(r#"plugins: {"#));
+        assert!(!is_postcss_json_decl(r#""Plugins": {"#));
+        assert!(!is_postcss_json_decl(r#""parser": {"#));
+        assert!(!is_postcss_json_decl(r#""parser": ["#));
+        assert!(!is_postcss_json_decl(r#""parser": true"#));
+        assert!(!is_postcss_json_decl(r#""parser": """#));
+        assert!(!is_postcss_json_decl(r#""syntax": ["#));
+        assert!(!is_postcss_json_decl(r#""syntax": true"#));
+        assert!(!is_postcss_json_decl(r#""stringifier": {"#));
+        assert!(!is_postcss_json_decl(r#""stringifier": ["#));
+        assert!(!is_postcss_json_decl(r#""map": "inline""#));
+        assert!(!is_postcss_json_decl(r#""map": ["#));
+        assert!(!is_postcss_json_decl(r#""map": "true""#));
+        // Same-line array / object members are not opening-key lines.
+        assert!(!is_postcss_json_decl(r#""plugins": ["autoprefixer"],"#));
+        assert!(!is_postcss_json_decl(
+            r#""plugins": {"autoprefixer": true},"#
+        ));
+        assert!(!is_postcss_json_decl(r#""map": {"inline": true},"#));
+        assert!(!is_postcss_json_decl(
+            r#""$schema": "https://json.schemastore.org/postcssrc""#
+        ));
+        // Neighbouring families stay out.
+        assert!(!is_postcss_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_postcss_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_postcss_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_postcss_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_postcss_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_postcss_json_decl(r#""customSyntax": "postcss-scss""#));
+        assert!(is_stylelint_json_decl(r#""customSyntax": "postcss-scss""#));
+        assert!(!is_postcss_json_decl(r#""processors": ["#));
+        assert!(!is_postcss_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_postcss_json_decl(r#""semi": true"#));
+        assert!(!is_postcss_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_postcss_json_decl(r#""formatter": {"#));
+        assert!(!is_postcss_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_postcss_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_postcss_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_postcss_json_decl(r#""inlineSourcesContent": true"#));
+        assert!(!is_postcss_json_decl(r#""isModule": "unknown""#));
+        assert!(!is_postcss_json_decl(r#""minify": true"#));
+        // Shared scanner lists postcss keys.
+        assert!(line_is_func_like(r#""plugins": {"#));
+        assert!(line_is_func_like(r#""syntax": "postcss-scss""#));
+        assert!(line_is_func_like(r#""stringifier": "sugarss""#));
+        assert!(line_is_func_like(r#""map": true"#));
+        assert!(line_is_func_like(r#""map": {"#));
+        // Shared parser / plugins array: postcss + eslint when shapes match.
+        assert!(is_postcss_json_decl(r#""parser": "sugarss""#));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_postcss_json_decl(r#""plugins": ["#));
+        assert!(is_eslint_json_decl(r#""plugins": ["#));
+        // plugins object is PostCSS-shaped (eslint plugins is array-only).
+        assert!(is_postcss_json_decl(r#""plugins": {"#));
+        assert!(!is_eslint_json_decl(r#""plugins": {"#));
     }
 
     #[test]

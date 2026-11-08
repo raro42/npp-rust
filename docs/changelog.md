@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.708] — 2026-11-08
+
+View:
+
+- **Function List** lists PostCSS `.postcssrc` / `.postcssrc.json` / `postcss.config.json` JSON keys: `"plugins": {` / `"plugins": [`, `"parser": "…"`, `"syntax": "…"`, `"stringifier": "…"`, `"map": true` / `false` / `{`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / babel `"presets"` / `"parserOpts"` / `"rootMode"` / SWC `"jsc"` / `"inlineSourcesContent"` / `"isModule"` / `"minify"` / eslint `"root"` / `"rules"` / `"parserOptions"` / `"ignorePatterns"` / stylelint `"ignoreFiles"` / `"customSyntax"` / `"processors"` / prettier `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` / dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out. Shared `"parser": "…"` / `"plugins": [` also match eslint / prettier / stylelint / babel when shapes match. `"plugins": {` is PostCSS-shaped (eslint plugins is `[`).
+
 ## [0.3.707] — 2026-11-08
 
 View:
