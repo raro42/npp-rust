@@ -32416,6 +32416,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_flynt_ini_decl(s)
             || is_pyupgrade_ini_decl(s)
             || is_refurb_toml_decl(s)
+            || is_pyright_toml_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32689,6 +32690,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_flynt_ini_decl(s)
         || is_pyupgrade_ini_decl(s)
         || is_refurb_toml_decl(s)
+        || is_pyright_toml_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -50307,8 +50309,9 @@ fn flynt_ini_value_ok(key: &str, value: &str) -> bool {
 /// python-semantic-release / scriv / import-linter / darglint /
 /// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
 /// radon / autoflake / pytype / unimport / pycln / flynt / refurb /
-/// tox / setuptools / Cargo / Pipfile / pyproject `[tool.pyupgrade]`
-/// tables / Desktop Entry / pip.conf stay out.
+/// pyright / basedpyright / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool.pyupgrade]` tables / Desktop Entry / pip.conf stay
+/// out.
 fn is_pyupgrade_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -50425,8 +50428,9 @@ fn pyupgrade_ini_value_ok(key: &str, value: &str) -> bool {
 /// python-semantic-release / scriv / import-linter / darglint /
 /// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
 /// radon / autoflake / pytype / unimport / pycln / flynt / pyupgrade /
-/// tox / setuptools / Cargo / Pipfile / pyproject `[tool]` umbrella /
-/// ruff / Desktop Entry / pip.conf stay out.
+/// pyright / basedpyright / tox / setuptools / Cargo / Pipfile /
+/// pyproject `[tool]` umbrella / ruff / Desktop Entry / pip.conf stay
+/// out.
 fn is_refurb_toml_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -50537,6 +50541,206 @@ fn refurb_toml_value_ok(key: &str, value: &str) -> bool {
         "python_version" => refurb_toml_python_version_ok(value),
         "format" => refurb_toml_format_ok(value),
         "sort_by" => refurb_toml_sort_by_ok(value),
+        _ => false,
+    }
+}
+
+/// Pyright / basedpyright `pyproject.toml` `[tool.pyright]` /
+/// `[tool.basedpyright]` sections and distinctive scalar keys:
+/// `[tool.pyright]`, `[tool.basedpyright]`,
+/// `typeCheckingMode = "strict"` / `"standard"` / `"basic"` / `"off"` /
+/// `"recommended"` / `"all"`, `pythonVersion = "3.12"`,
+/// `pythonPlatform = "Linux"` / `"Darwin"` / `"Windows"` / `"All"`,
+/// `stubPath = "typings"`, `venvPath = "."`, `venv = ".venv"`,
+/// `useLibraryCodeForTypes = true`, `enableTypeIgnoreComments = true`,
+/// `enableReachabilityAnalysis = true`, `deprecateTypingAliases = false`,
+/// `disableBytesTypePromotions = true`,
+/// `analyzeUnannotatedFunctions = true`, `strictListInference = true`,
+/// `strictDictionaryInference = true`, `strictSetInference = true`,
+/// `strictParameterNoneValue = true`, `enableExperimentalFeatures = false`,
+/// `reportMissingImports = "error"` / `true`,
+/// `reportMissingTypeStubs = false` / `"warning"`,
+/// `reportUnusedImport = "none"`, `failOnWarnings = true` (basedpyright).
+/// Exact camelCase. TOML spaces around `=`. Optional quotes on string
+/// values. Optional `#` / `;` comment. Arrays (`include` / `exclude` /
+/// `ignore` / `extraPaths` / `strict` / `executionEnvironments`) and
+/// maps (`defineConstant`) stay out. Bare `quiet` / `verbose` /
+/// `color` / `path` / `config` stay out. flake8 / mypy / pytest / isort /
+/// coverage / pylint / pycodestyle / autopep8 / black / yapf /
+/// pydocstyle / bandit / codespell / docformatter / vulture /
+/// interrogate / check-manifest / bumpversion / versioneer /
+/// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
+/// check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama /
+/// radon / autoflake / pytype / unimport / pycln / flynt / pyupgrade /
+/// refurb / tox / setuptools / Cargo / Pipfile / pyproject `[tool]`
+/// umbrella / ruff / Desktop Entry / pip.conf stay out.
+fn is_pyright_toml_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return pyright_toml_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    // TOML `key = value` with spaces around `=` (not INI `key=value`).
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    if body[..eq].contains(':') {
+        return false;
+    }
+    let bytes = body.as_bytes();
+    if eq == 0
+        || !bytes[eq - 1].is_ascii_whitespace()
+        || eq + 1 >= bytes.len()
+        || !bytes[eq + 1].is_ascii_whitespace()
+    {
+        return false;
+    }
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !pyright_toml_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    pyright_toml_value_ok(key, value)
+}
+
+fn pyright_toml_section_ok(header: &str) -> bool {
+    matches!(header, "tool.pyright" | "tool.basedpyright")
+}
+
+fn pyright_toml_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "typeCheckingMode"
+            | "pythonVersion"
+            | "pythonPlatform"
+            | "stubPath"
+            | "venvPath"
+            | "venv"
+            | "useLibraryCodeForTypes"
+            | "enableTypeIgnoreComments"
+            | "enableReachabilityAnalysis"
+            | "deprecateTypingAliases"
+            | "disableBytesTypePromotions"
+            | "analyzeUnannotatedFunctions"
+            | "strictListInference"
+            | "strictDictionaryInference"
+            | "strictSetInference"
+            | "strictParameterNoneValue"
+            | "enableExperimentalFeatures"
+            | "reportMissingImports"
+            | "reportMissingTypeStubs"
+            | "reportUnusedImport"
+            | "failOnWarnings"
+    )
+}
+
+fn pyright_toml_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn pyright_toml_bool_ok(value: &str) -> bool {
+    matches!(
+        pyright_toml_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false"
+    )
+}
+
+fn pyright_toml_python_version_ok(value: &str) -> bool {
+    let bare = pyright_toml_bare(value);
+    let mut parts = bare.split('.');
+    let Some(major) = parts.next() else {
+        return false;
+    };
+    let Some(minor) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    !major.is_empty()
+        && !minor.is_empty()
+        && major.bytes().all(|b| b.is_ascii_digit())
+        && minor.bytes().all(|b| b.is_ascii_digit())
+        && major.len() <= 2
+        && minor.len() <= 2
+}
+
+fn pyright_toml_mode_ok(value: &str) -> bool {
+    matches!(
+        pyright_toml_bare(value),
+        "off" | "basic" | "standard" | "strict" | "recommended" | "all"
+    )
+}
+
+fn pyright_toml_platform_ok(value: &str) -> bool {
+    matches!(
+        pyright_toml_bare(value),
+        "Darwin" | "Linux" | "Windows" | "All"
+    )
+}
+
+fn pyright_toml_path_ok(value: &str) -> bool {
+    let bare = pyright_toml_bare(value);
+    !bare.is_empty()
+        && bare.len() <= 512
+        && !bare.starts_with('{')
+        && !bare.starts_with('[')
+        && !bare.contains('\n')
+}
+
+fn pyright_toml_diag_ok(value: &str) -> bool {
+    let bare = pyright_toml_bare(value);
+    matches!(
+        bare.to_ascii_lowercase().as_str(),
+        "true" | "false" | "none" | "information" | "warning" | "error"
+    ) || matches!(bare, "none" | "information" | "warning" | "error")
+}
+
+fn pyright_toml_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "typeCheckingMode" => pyright_toml_mode_ok(value),
+        "pythonVersion" => pyright_toml_python_version_ok(value),
+        "pythonPlatform" => pyright_toml_platform_ok(value),
+        "stubPath" | "venvPath" | "venv" => pyright_toml_path_ok(value),
+        "useLibraryCodeForTypes"
+        | "enableTypeIgnoreComments"
+        | "enableReachabilityAnalysis"
+        | "deprecateTypingAliases"
+        | "disableBytesTypePromotions"
+        | "analyzeUnannotatedFunctions"
+        | "strictListInference"
+        | "strictDictionaryInference"
+        | "strictSetInference"
+        | "strictParameterNoneValue"
+        | "enableExperimentalFeatures"
+        | "failOnWarnings" => pyright_toml_bool_ok(value),
+        "reportMissingImports" | "reportMissingTypeStubs" | "reportUnusedImport" => {
+            pyright_toml_diag_ok(value)
+        }
         _ => false,
     }
 }
@@ -71224,22 +71428,22 @@ mod func_like_line_tests {
         is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl, is_premake_decl,
         is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
         is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
-        is_pyproject_toml_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
-        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl,
-        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
-        is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
-        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
-        is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl,
-        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_pyproject_toml_decl, is_pyright_toml_decl, is_pytest_ini_decl, is_pytype_ini_decl,
+        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_refurb_toml_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
+        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
+        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -80958,6 +81162,119 @@ mod func_like_line_tests {
         assert!(line_is_func_like("sort_by = \"error\""));
         assert!(line_is_func_like("[tool.refurb]"));
         assert!(line_is_func_like("[[tool.refurb.amend]]"));
+        assert!(!is_refurb_toml_decl("[tool.pyright]"));
+        assert!(is_pyright_toml_decl("[tool.pyright]"));
+        assert!(!is_refurb_toml_decl("typeCheckingMode = \"strict\""));
+        assert!(is_pyright_toml_decl("typeCheckingMode = \"strict\""));
+    }
+
+    #[test]
+    fn pyright_toml_sections_and_keys_count() {
+        assert!(is_pyright_toml_decl("[tool.pyright]"));
+        assert!(is_pyright_toml_decl("  [tool.pyright] # types"));
+        assert!(is_pyright_toml_decl("[tool.pyright] ; check"));
+        assert!(is_pyright_toml_decl("[tool.basedpyright]"));
+        assert!(is_pyright_toml_decl("  [tool.basedpyright] # fork"));
+        assert!(is_pyright_toml_decl("typeCheckingMode = \"strict\""));
+        assert!(is_pyright_toml_decl("typeCheckingMode = \"standard\""));
+        assert!(is_pyright_toml_decl("typeCheckingMode = \"basic\""));
+        assert!(is_pyright_toml_decl("typeCheckingMode = \"off\""));
+        assert!(is_pyright_toml_decl("typeCheckingMode = \"recommended\""));
+        assert!(is_pyright_toml_decl("typeCheckingMode = \"all\""));
+        assert!(is_pyright_toml_decl("typeCheckingMode = strict"));
+        assert!(is_pyright_toml_decl("pythonVersion = \"3.12\""));
+        assert!(is_pyright_toml_decl("pythonVersion = '3.11'"));
+        assert!(is_pyright_toml_decl("pythonVersion = 3.10"));
+        assert!(is_pyright_toml_decl("pythonPlatform = \"Linux\""));
+        assert!(is_pyright_toml_decl("pythonPlatform = \"Darwin\""));
+        assert!(is_pyright_toml_decl("pythonPlatform = \"Windows\""));
+        assert!(is_pyright_toml_decl("pythonPlatform = \"All\""));
+        assert!(is_pyright_toml_decl("stubPath = \"typings\""));
+        assert!(is_pyright_toml_decl("venvPath = \".\""));
+        assert!(is_pyright_toml_decl("venv = \".venv\""));
+        assert!(is_pyright_toml_decl("useLibraryCodeForTypes = true"));
+        assert!(is_pyright_toml_decl("enableTypeIgnoreComments = false"));
+        assert!(is_pyright_toml_decl("enableReachabilityAnalysis = true"));
+        assert!(is_pyright_toml_decl("deprecateTypingAliases = false"));
+        assert!(is_pyright_toml_decl("disableBytesTypePromotions = true"));
+        assert!(is_pyright_toml_decl("analyzeUnannotatedFunctions = true"));
+        assert!(is_pyright_toml_decl("strictListInference = true"));
+        assert!(is_pyright_toml_decl("strictDictionaryInference = false"));
+        assert!(is_pyright_toml_decl("strictSetInference = true"));
+        assert!(is_pyright_toml_decl("strictParameterNoneValue = true"));
+        assert!(is_pyright_toml_decl("enableExperimentalFeatures = false"));
+        assert!(is_pyright_toml_decl("reportMissingImports = \"error\""));
+        assert!(is_pyright_toml_decl("reportMissingImports = true"));
+        assert!(is_pyright_toml_decl("reportMissingTypeStubs = false"));
+        assert!(is_pyright_toml_decl("reportMissingTypeStubs = \"warning\""));
+        assert!(is_pyright_toml_decl("reportUnusedImport = \"none\""));
+        assert!(is_pyright_toml_decl("failOnWarnings = true"));
+        assert!(is_pyright_toml_decl(
+            "typeCheckingMode = \"strict\" # comment"
+        ));
+        assert!(is_pyright_toml_decl("failOnWarnings = true; trailing"));
+
+        assert!(!is_pyright_toml_decl("typeCheckingMode"));
+        assert!(!is_pyright_toml_decl("typeCheckingMode ="));
+        assert!(!is_pyright_toml_decl("TypeCheckingMode = \"strict\""));
+        assert!(!is_pyright_toml_decl("# typeCheckingMode = \"strict\""));
+        assert!(!is_pyright_toml_decl("typeCheckingMode=\"strict\""));
+        assert!(!is_pyright_toml_decl("typeCheckingMode = \"maybe\""));
+        assert!(!is_pyright_toml_decl("quiet = true"));
+        assert!(!is_pyright_toml_decl("verbose = false"));
+        assert!(!is_pyright_toml_decl("color = true"));
+        assert!(!is_pyright_toml_decl("path = \"src\""));
+        assert!(!is_pyright_toml_decl("config = \"pyproject.toml\""));
+        assert!(!is_pyright_toml_decl("include = [\"src\"]"));
+        assert!(!is_pyright_toml_decl("exclude = [\"**/node_modules\"]"));
+        assert!(!is_pyright_toml_decl("ignore = [\"old\"]"));
+        assert!(!is_pyright_toml_decl("extraPaths = [\"lib\"]"));
+        assert!(!is_pyright_toml_decl("strict = [\".\"]"));
+        assert!(!is_pyright_toml_decl("defineConstant = { DEBUG = true }"));
+        assert!(!is_pyright_toml_decl("pythonVersion = \"3\""));
+        assert!(!is_pyright_toml_decl("pythonVersion = \"3.10.1\""));
+        assert!(!is_pyright_toml_decl("pythonVersion = three.ten"));
+        assert!(!is_pyright_toml_decl("pythonPlatform = \"FreeBSD\""));
+        assert!(!is_pyright_toml_decl("python_version = \"3.10\""));
+        assert!(is_refurb_toml_decl("python_version = \"3.10\""));
+        assert!(!is_pyright_toml_decl("[tool.pyright"));
+        assert!(!is_pyright_toml_decl("[[tool.pyright]]"));
+        assert!(!is_pyright_toml_decl("[Tool.pyright]"));
+        assert!(!is_pyright_toml_decl("[pyright]"));
+        assert!(!is_pyright_toml_decl("[tool.ruff]"));
+        assert!(is_pyproject_toml_decl("[tool.ruff]"));
+        assert!(!is_pyright_toml_decl("[tool.refurb]"));
+        assert!(is_refurb_toml_decl("[tool.refurb]"));
+        assert!(!is_pyright_toml_decl("disable_all = true"));
+        assert!(is_refurb_toml_decl("disable_all = true"));
+        assert!(!is_pyright_toml_decl("[pyupgrade]"));
+        assert!(is_pyupgrade_ini_decl("[pyupgrade]"));
+        assert!(!is_pyright_toml_decl("[black]"));
+        assert!(is_black_ini_decl("[black]"));
+        assert!(!is_pyright_toml_decl("[mypy]"));
+        assert!(is_mypy_ini_decl("[mypy]"));
+        assert!(!is_pyright_toml_decl("[flake8]"));
+        assert!(!is_pyright_toml_decl("[metadata]"));
+        assert!(!is_pyright_toml_decl("[tox]"));
+        assert!(!is_pyright_toml_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_pyright_toml_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_pyright_toml_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        // `[tool.pyright]` also matches the pyproject umbrella; either path lists.
+        assert!(is_pyproject_toml_decl("[tool.pyright]"));
+        assert!(is_pyright_toml_decl("[tool.pyright]"));
+        assert!(is_pyproject_toml_decl("[tool.basedpyright]"));
+        // Distinctive pyright keys still list.
+        assert!(line_is_func_like("typeCheckingMode = \"strict\""));
+        assert!(line_is_func_like("pythonVersion = \"3.12\""));
+        assert!(line_is_func_like("pythonPlatform = \"Linux\""));
+        assert!(line_is_func_like("stubPath = \"typings\""));
+        assert!(line_is_func_like("reportMissingImports = \"error\""));
+        assert!(line_is_func_like("failOnWarnings = true"));
+        assert!(line_is_func_like("[tool.pyright]"));
+        assert!(line_is_func_like("[tool.basedpyright]"));
     }
 
     #[test]

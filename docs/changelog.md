@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.696] — 2026-11-08
+
+View:
+
+- **Function List** lists Pyright / basedpyright `pyproject.toml` `[tool.pyright]` / `[tool.basedpyright]` sections and fields: `[tool.pyright]`, `[tool.basedpyright]`, `typeCheckingMode = "strict"` / `"standard"` / `"basic"` / `"off"` / `"recommended"` / `"all"`, `pythonVersion = "3.12"`, `pythonPlatform = "Linux"` / `"Darwin"` / `"Windows"` / `"All"`, `stubPath = "typings"`, `venvPath = "."`, `venv = ".venv"`, `useLibraryCodeForTypes = true`, `enableTypeIgnoreComments = true`, `enableReachabilityAnalysis = true`, `deprecateTypingAliases = false`, `disableBytesTypePromotions = true`, `analyzeUnannotatedFunctions = true`, `strictListInference = true`, `strictDictionaryInference = true`, `strictSetInference = true`, `strictParameterNoneValue = true`, `enableExperimentalFeatures = false`, `reportMissingImports = "error"` / `true`, `reportMissingTypeStubs = false` / `"warning"`, `reportUnusedImport = "none"`, `failOnWarnings = true` (basedpyright). Exact camelCase. TOML spaces around `=`. Optional quotes on string values. Optional `#` / `;` comment. Arrays (`include` / `exclude` / `ignore` / `extraPaths` / `strict` / `executionEnvironments`) and maps (`defineConstant`) stay out. Bare `quiet` / `verbose` / `color` / `path` / `config` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama / radon / autoflake / pytype / unimport / pycln / flynt / pyupgrade / refurb / tox / setuptools / Cargo / Pipfile / pyproject `[tool]` umbrella / ruff / Desktop Entry / pip.conf stay out.
+
 ## [0.3.695] — 2026-11-08
 
 View:
