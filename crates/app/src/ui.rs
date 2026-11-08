@@ -32366,6 +32366,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_package_json_decl(s)
             || is_composer_json_decl(s)
             || is_pyre_configuration_decl(s)
+            || is_pyrightconfig_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32642,6 +32643,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_package_json_decl(s)
         || is_composer_json_decl(s)
         || is_pyre_configuration_decl(s)
+        || is_pyrightconfig_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -41195,6 +41197,212 @@ fn pyre_configuration_platform_ok(value: &str) -> bool {
             | "emscripten"
             | "wasi"
     )
+}
+
+/// Pyright / basedpyright `pyrightconfig.json` JSON keys:
+/// `"include": [`, `"exclude": [`, `"ignore": [`, `"strict": [`,
+/// `"extraPaths": [`, `"executionEnvironments": [`,
+/// `"typeCheckingMode": "strict"` / `"standard"` / `"basic"` / `"off"` /
+/// `"recommended"` / `"all"`, `"pythonVersion": "3.12"`,
+/// `"pythonPlatform": "Linux"` / `"Darwin"` / `"Windows"` / `"All"`,
+/// `"stubPath": "typings"`, `"venvPath": "."`, `"venv": ".venv"`,
+/// `"typeshedPath": "stubs"`, `"useLibraryCodeForTypes": true`,
+/// `"enableTypeIgnoreComments": true`,
+/// `"enableReachabilityAnalysis": true`,
+/// `"deprecateTypingAliases": false`,
+/// `"disableBytesTypePromotions": true`,
+/// `"analyzeUnannotatedFunctions": true`,
+/// `"strictListInference": true`, `"strictDictionaryInference": true`,
+/// `"strictSetInference": true`, `"strictParameterNoneValue": true`,
+/// `"enableExperimentalFeatures": false`,
+/// `"reportMissingImports": "error"` / `true`,
+/// `"reportMissingTypeStubs": false` / `"warning"`,
+/// `"reportUnusedImport": "none"`, `"failOnWarnings": true`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. package.json / composer.json structural keys,
+/// Pyre `.pyre_configuration`, pyright / ty TOML, and leaf metadata stay
+/// out. Maps (`"defineConstant": {`) stay out.
+fn is_pyrightconfig_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !pyrightconfig_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    pyrightconfig_json_value_and_tail_ok(key, after_colon)
+}
+
+fn pyrightconfig_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "include"
+            | "exclude"
+            | "ignore"
+            | "strict"
+            | "extraPaths"
+            | "executionEnvironments"
+            | "typeCheckingMode"
+            | "pythonVersion"
+            | "pythonPlatform"
+            | "stubPath"
+            | "venvPath"
+            | "venv"
+            | "typeshedPath"
+            | "useLibraryCodeForTypes"
+            | "enableTypeIgnoreComments"
+            | "enableReachabilityAnalysis"
+            | "deprecateTypingAliases"
+            | "disableBytesTypePromotions"
+            | "analyzeUnannotatedFunctions"
+            | "strictListInference"
+            | "strictDictionaryInference"
+            | "strictSetInference"
+            | "strictParameterNoneValue"
+            | "enableExperimentalFeatures"
+            | "reportMissingImports"
+            | "reportMissingTypeStubs"
+            | "reportUnusedImport"
+            | "failOnWarnings"
+    )
+}
+
+fn pyrightconfig_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if !matches!(
+                key,
+                "include"
+                    | "exclude"
+                    | "ignore"
+                    | "strict"
+                    | "extraPaths"
+                    | "executionEnvironments"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(
+                key,
+                "typeCheckingMode"
+                    | "pythonVersion"
+                    | "pythonPlatform"
+                    | "stubPath"
+                    | "venvPath"
+                    | "venv"
+                    | "typeshedPath"
+                    | "reportMissingImports"
+                    | "reportMissingTypeStubs"
+                    | "reportUnusedImport"
+            ) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !pyrightconfig_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !pyrightconfig_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn pyrightconfig_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "useLibraryCodeForTypes"
+            | "enableTypeIgnoreComments"
+            | "enableReachabilityAnalysis"
+            | "deprecateTypingAliases"
+            | "disableBytesTypePromotions"
+            | "analyzeUnannotatedFunctions"
+            | "strictListInference"
+            | "strictDictionaryInference"
+            | "strictSetInference"
+            | "strictParameterNoneValue"
+            | "enableExperimentalFeatures"
+            | "failOnWarnings"
+            | "reportMissingImports"
+            | "reportMissingTypeStubs"
+            | "reportUnusedImport"
+    )
+}
+
+fn pyrightconfig_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    match key {
+        "typeCheckingMode" => {
+            matches!(
+                value,
+                "off" | "basic" | "standard" | "strict" | "recommended" | "all"
+            )
+        }
+        "pythonVersion" => pyrightconfig_json_python_version_ok(value),
+        "pythonPlatform" => {
+            matches!(value, "Darwin" | "Linux" | "Windows" | "All")
+        }
+        "stubPath" | "venvPath" | "venv" | "typeshedPath" => true,
+        "reportMissingImports" | "reportMissingTypeStubs" | "reportUnusedImport" => {
+            matches!(
+                value.to_ascii_lowercase().as_str(),
+                "none" | "information" | "warning" | "error"
+            )
+        }
+        _ => false,
+    }
+}
+
+fn pyrightconfig_json_python_version_ok(value: &str) -> bool {
+    let mut parts = value.split('.');
+    let Some(major) = parts.next() else {
+        return false;
+    };
+    let Some(minor) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    !major.is_empty()
+        && !minor.is_empty()
+        && major.bytes().all(|b| b.is_ascii_digit())
+        && minor.bytes().all(|b| b.is_ascii_digit())
+        && major.len() <= 2
+        && minor.len() <= 2
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -71837,12 +72045,12 @@ mod func_like_line_tests {
         is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
         is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
         is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
-        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
-        is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
-        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
+        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl,
+        is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
+        is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
+        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
         is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
@@ -81911,6 +82119,124 @@ mod func_like_line_tests {
             r#""site_package_search_strategy": "pep561""#
         ));
         assert!(line_is_func_like(r#""python_version": "3.10.0""#));
+    }
+
+    #[test]
+    fn pyrightconfig_json_keys_count() {
+        assert!(is_pyrightconfig_json_decl(r#""include": ["#));
+        assert!(is_pyrightconfig_json_decl(r#"  "include": [ // src"#));
+        assert!(is_pyrightconfig_json_decl(r#""exclude": ["#));
+        assert!(is_pyrightconfig_json_decl(r#""ignore": ["#));
+        assert!(is_pyrightconfig_json_decl(r#""strict": ["#));
+        assert!(is_pyrightconfig_json_decl(r#""extraPaths": ["#));
+        assert!(is_pyrightconfig_json_decl(r#""executionEnvironments": ["#));
+        assert!(is_pyrightconfig_json_decl(
+            r#""typeCheckingMode": "strict""#
+        ));
+        assert!(is_pyrightconfig_json_decl(
+            r#""typeCheckingMode": "standard","#
+        ));
+        assert!(is_pyrightconfig_json_decl(r#""typeCheckingMode": "basic""#));
+        assert!(is_pyrightconfig_json_decl(r#""typeCheckingMode": "off""#));
+        assert!(is_pyrightconfig_json_decl(
+            r#""typeCheckingMode": "recommended""#
+        ));
+        assert!(is_pyrightconfig_json_decl(r#""typeCheckingMode": "all""#));
+        assert!(is_pyrightconfig_json_decl(r#""pythonVersion": "3.12""#));
+        assert!(is_pyrightconfig_json_decl(r#""pythonVersion": "3.10","#));
+        assert!(is_pyrightconfig_json_decl(r#""pythonPlatform": "Linux""#));
+        assert!(is_pyrightconfig_json_decl(r#""pythonPlatform": "Windows""#));
+        assert!(is_pyrightconfig_json_decl(r#""pythonPlatform": "Darwin""#));
+        assert!(is_pyrightconfig_json_decl(r#""pythonPlatform": "All""#));
+        assert!(is_pyrightconfig_json_decl(r#""stubPath": "typings""#));
+        assert!(is_pyrightconfig_json_decl(r#""venvPath": ".""#));
+        assert!(is_pyrightconfig_json_decl(r#""venv": ".venv","#));
+        assert!(is_pyrightconfig_json_decl(r#""typeshedPath": "stubs""#));
+        assert!(is_pyrightconfig_json_decl(
+            r#""useLibraryCodeForTypes": true"#
+        ));
+        assert!(is_pyrightconfig_json_decl(
+            r#""enableTypeIgnoreComments": false,"#
+        ));
+        assert!(is_pyrightconfig_json_decl(
+            r#""enableReachabilityAnalysis": true"#
+        ));
+        assert!(is_pyrightconfig_json_decl(
+            r#""deprecateTypingAliases": false"#
+        ));
+        assert!(is_pyrightconfig_json_decl(
+            r#""disableBytesTypePromotions": true"#
+        ));
+        assert!(is_pyrightconfig_json_decl(
+            r#""analyzeUnannotatedFunctions": true"#
+        ));
+        assert!(is_pyrightconfig_json_decl(r#""strictListInference": true"#));
+        assert!(is_pyrightconfig_json_decl(
+            r#""strictDictionaryInference": true"#
+        ));
+        assert!(is_pyrightconfig_json_decl(r#""strictSetInference": true"#));
+        assert!(is_pyrightconfig_json_decl(
+            r#""strictParameterNoneValue": true"#
+        ));
+        assert!(is_pyrightconfig_json_decl(
+            r#""enableExperimentalFeatures": false"#
+        ));
+        assert!(is_pyrightconfig_json_decl(
+            r#""reportMissingImports": "error""#
+        ));
+        assert!(is_pyrightconfig_json_decl(
+            r#""reportMissingImports": true"#
+        ));
+        assert!(is_pyrightconfig_json_decl(
+            r#""reportMissingTypeStubs": false"#
+        ));
+        assert!(is_pyrightconfig_json_decl(
+            r#""reportMissingTypeStubs": "warning","#
+        ));
+        assert!(is_pyrightconfig_json_decl(
+            r#""reportUnusedImport": "none""#
+        ));
+        assert!(is_pyrightconfig_json_decl(r#""failOnWarnings": true"#));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_pyrightconfig_json_decl(r#""include""#));
+        assert!(!is_pyrightconfig_json_decl(r#""include":"#));
+        assert!(!is_pyrightconfig_json_decl(r#""include": {"#));
+        assert!(!is_pyrightconfig_json_decl(r#""include": "./src""#));
+        assert!(!is_pyrightconfig_json_decl(r#"include: ["#));
+        assert!(!is_pyrightconfig_json_decl(r#""Include": ["#));
+        assert!(!is_pyrightconfig_json_decl(r#""typeCheckingMode": ["#));
+        assert!(!is_pyrightconfig_json_decl(
+            r#""typeCheckingMode": "maybe""#
+        ));
+        assert!(!is_pyrightconfig_json_decl(r#""typeCheckingMode": strict"#));
+        assert!(!is_pyrightconfig_json_decl(r#""pythonVersion": "3.10.0""#));
+        assert!(!is_pyrightconfig_json_decl(r#""pythonVersion": "3""#));
+        assert!(!is_pyrightconfig_json_decl(r#""pythonPlatform": "linux""#));
+        assert!(!is_pyrightconfig_json_decl(r#""strict": true"#));
+        assert!(!is_pyrightconfig_json_decl(r#""defineConstant": {"#));
+        assert!(!is_pyrightconfig_json_decl(r#""name": "project""#));
+        assert!(!is_pyrightconfig_json_decl(r#""version": "1.0.0""#));
+        // package.json / composer / Pyre / pyright TOML / ty stay on their paths.
+        assert!(!is_pyrightconfig_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_pyrightconfig_json_decl(r#""autoload": {"#));
+        assert!(is_composer_json_decl(r#""autoload": {"#));
+        assert!(!is_pyrightconfig_json_decl(r#""source_directories": ["#));
+        assert!(is_pyre_configuration_decl(r#""source_directories": ["#));
+        assert!(!is_pyrightconfig_json_decl(r#""strict": true"#));
+        assert!(is_pyre_configuration_decl(r#""strict": true"#));
+        assert!(!is_pyrightconfig_json_decl("[tool.pyright]"));
+        assert!(is_pyright_toml_decl("[tool.pyright]"));
+        assert!(!is_pyrightconfig_json_decl("[tool.ty]"));
+        assert!(is_ty_toml_decl("[tool.ty]"));
+        // Distinctive keys still list via the shared scanner.
+        assert!(line_is_func_like(r#""include": ["#));
+        assert!(line_is_func_like(r#""typeCheckingMode": "strict""#));
+        assert!(line_is_func_like(r#""pythonVersion": "3.12""#));
+        assert!(line_is_func_like(r#""pythonPlatform": "Linux""#));
+        assert!(line_is_func_like(r#""strict": ["#));
+        assert!(line_is_func_like(r#""failOnWarnings": true"#));
+        assert!(line_is_func_like(r#""reportMissingImports": "error""#));
     }
 
     #[test]

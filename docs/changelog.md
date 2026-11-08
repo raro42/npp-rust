@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.699] — 2026-11-08
+
+View:
+
+- **Function List** lists Pyright / basedpyright `pyrightconfig.json` JSON keys: `"include": [`, `"exclude": [`, `"ignore": [`, `"strict": [`, `"extraPaths": [`, `"executionEnvironments": [`, `"typeCheckingMode": "strict"` / `"standard"` / `"basic"` / `"off"` / `"recommended"` / `"all"`, `"pythonVersion": "3.12"`, `"pythonPlatform": "Linux"` / `"Darwin"` / `"Windows"` / `"All"`, `"stubPath": "typings"`, `"venvPath": "."`, `"venv": ".venv"`, `"typeshedPath": "stubs"`, `"useLibraryCodeForTypes": true`, `"enableTypeIgnoreComments": true`, `"enableReachabilityAnalysis": true`, `"deprecateTypingAliases": false`, `"disableBytesTypePromotions": true`, `"analyzeUnannotatedFunctions": true`, `"strictListInference": true`, `"strictDictionaryInference": true`, `"strictSetInference": true`, `"strictParameterNoneValue": true`, `"enableExperimentalFeatures": false`, `"reportMissingImports": "error"` / `true`, `"reportMissingTypeStubs": false` / `"warning"`, `"reportUnusedImport": "none"`, `"failOnWarnings": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Maps (`"defineConstant": {`) stay out. package.json / composer.json structural keys, Pyre `.pyre_configuration`, pyright / ty TOML, and leaf metadata stay out.
+
 ## [0.3.698] — 2026-11-08
 
 View:
