@@ -1054,3 +1054,5 @@
 009 keep: Function List Pyright/basedpyright [tool.pyright]/[tool.basedpyright] typeCheckingMode/pythonVersion/pythonPlatform/stubPath/reportMissingImports/failOnWarnings (v0.3.696)
 
 009 keep: Function List Astral ty [tool.ty] rules/analysis/environment/src/terminal/overrides (v0.3.697)
+
+009 keep: Function List Pyre .pyre_configuration source_directories/search_path/typeshed/strict/workers/site_package_search_strategy (v0.3.698)

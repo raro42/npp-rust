@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.698] — 2026-11-08
+
+View:
+
+- **Function List** lists Pyre `.pyre_configuration` / `.pyre_configuration.local` JSON keys: `"source_directories": [`, `"search_path": [`, `"exclude": [`, `"extensions": [`, `"ignore_all_errors": [`, `"site_roots": [`, `"binary": "…"`, `"logger": "…"`, `"typeshed": "…"`, `"python_version": "3.10.0"`, `"system_platform": "linux"` / `"win32"` / `"darwin"` / `"cygwin"` / `"aix"` / `"freebsd"` / `"netbsd"` / `"openbsd"` / `"sunos5"` / `"emscripten"` / `"wasi"`, `"site_package_search_strategy": "all"` / `"none"` / `"pep561"`, `"strict": true`, `"workers": 4`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. package.json / composer.json structural keys, pyright / ty TOML, and leaf metadata stay out.
+
 ## [0.3.697] — 2026-11-08
 
 View:

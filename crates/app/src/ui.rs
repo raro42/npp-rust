@@ -32365,6 +32365,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pyproject_toml_decl(s)
             || is_package_json_decl(s)
             || is_composer_json_decl(s)
+            || is_pyre_configuration_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32640,6 +32641,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pyproject_toml_decl(s)
         || is_package_json_decl(s)
         || is_composer_json_decl(s)
+        || is_pyre_configuration_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -41010,6 +41012,189 @@ fn composer_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
         }
         _ => false,
     }
+}
+
+/// Pyre `.pyre_configuration` / `.pyre_configuration.local` JSON keys:
+/// `"source_directories": [`, `"search_path": [`, `"exclude": [`,
+/// `"extensions": [`, `"ignore_all_errors": [`, `"site_roots": [`,
+/// `"binary": "…"`, `"logger": "…"`, `"typeshed": "…"`,
+/// `"python_version": "3.10.0"`, `"system_platform": "linux"`,
+/// `"site_package_search_strategy": "all"` / `"none"` / `"pep561"`,
+/// `"strict": true`, `"workers": 4`. Optional trailing `,` and `//` /
+/// `/*` comment. Incomplete quotes / missing `:` stay out. package.json /
+/// composer.json structural keys, pyright / ty TOML, and leaf metadata
+/// stay out.
+fn is_pyre_configuration_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !pyre_configuration_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    pyre_configuration_value_and_tail_ok(key, after_colon)
+}
+
+fn pyre_configuration_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "source_directories"
+            | "search_path"
+            | "exclude"
+            | "extensions"
+            | "ignore_all_errors"
+            | "site_roots"
+            | "binary"
+            | "logger"
+            | "typeshed"
+            | "python_version"
+            | "system_platform"
+            | "site_package_search_strategy"
+            | "strict"
+            | "workers"
+    )
+}
+
+fn pyre_configuration_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if !matches!(
+                key,
+                "source_directories"
+                    | "search_path"
+                    | "exclude"
+                    | "extensions"
+                    | "ignore_all_errors"
+                    | "site_roots"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(
+                key,
+                "binary"
+                    | "logger"
+                    | "typeshed"
+                    | "python_version"
+                    | "system_platform"
+                    | "site_package_search_strategy"
+            ) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !pyre_configuration_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            if key != "strict" {
+                return false;
+            }
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if key != "workers" {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 6 {
+                return false;
+            }
+            // Reject a bare 0 workers count.
+            if digits == 1 && after_colon.as_bytes()[0] == b'0' {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn pyre_configuration_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    match key {
+        "binary" | "logger" | "typeshed" => true,
+        "python_version" => pyre_configuration_python_version_ok(value),
+        "system_platform" => pyre_configuration_platform_ok(value),
+        "site_package_search_strategy" => {
+            matches!(value, "all" | "none" | "pep561")
+        }
+        _ => false,
+    }
+}
+
+fn pyre_configuration_python_version_ok(value: &str) -> bool {
+    let mut parts = value.split('.');
+    let Some(major) = parts.next() else {
+        return false;
+    };
+    let Some(minor) = parts.next() else {
+        return false;
+    };
+    let Some(patch) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    !major.is_empty()
+        && !minor.is_empty()
+        && !patch.is_empty()
+        && major.bytes().all(|b| b.is_ascii_digit())
+        && minor.bytes().all(|b| b.is_ascii_digit())
+        && patch.bytes().all(|b| b.is_ascii_digit())
+        && major.len() <= 2
+        && minor.len() <= 2
+        && patch.len() <= 3
+}
+
+fn pyre_configuration_platform_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "linux"
+            | "win32"
+            | "cygwin"
+            | "darwin"
+            | "aix"
+            | "freebsd"
+            | "netbsd"
+            | "openbsd"
+            | "sunos5"
+            | "emscripten"
+            | "wasi"
+    )
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -71651,20 +71836,21 @@ mod func_like_line_tests {
         is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl, is_premake_decl,
         is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
         is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
-        is_pyproject_toml_decl, is_pyright_toml_decl, is_pytest_ini_decl, is_pytype_ini_decl,
-        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_refurb_toml_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl,
-        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
+        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
+        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
+        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_taplo_toml_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_ty_toml_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
         is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
         is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
@@ -81642,6 +81828,89 @@ mod func_like_line_tests {
         assert!(line_is_func_like("[tool.ty]"));
         assert!(line_is_func_like("[tool.ty.rules]"));
         assert!(line_is_func_like("[[tool.ty.overrides]]"));
+    }
+
+    #[test]
+    fn pyre_configuration_keys_count() {
+        assert!(is_pyre_configuration_decl(r#""source_directories": ["#));
+        assert!(is_pyre_configuration_decl(
+            r#"  "source_directories": [ // src"#
+        ));
+        assert!(is_pyre_configuration_decl(r#""search_path": ["#));
+        assert!(is_pyre_configuration_decl(r#""exclude": ["#));
+        assert!(is_pyre_configuration_decl(r#""extensions": ["#));
+        assert!(is_pyre_configuration_decl(r#""ignore_all_errors": ["#));
+        assert!(is_pyre_configuration_decl(r#""site_roots": ["#));
+        assert!(is_pyre_configuration_decl(
+            r#""binary": "/usr/bin/pyre.bin""#
+        ));
+        assert!(is_pyre_configuration_decl(r#""logger": "./logger.py","#));
+        assert!(is_pyre_configuration_decl(r#""typeshed": "stubs""#));
+        assert!(is_pyre_configuration_decl(r#""python_version": "3.10.0""#));
+        assert!(is_pyre_configuration_decl(r#""python_version": "3.12.1","#));
+        assert!(is_pyre_configuration_decl(r#""system_platform": "linux""#));
+        assert!(is_pyre_configuration_decl(r#""system_platform": "win32""#));
+        assert!(is_pyre_configuration_decl(r#""system_platform": "darwin""#));
+        assert!(is_pyre_configuration_decl(
+            r#""site_package_search_strategy": "all""#
+        ));
+        assert!(is_pyre_configuration_decl(
+            r#""site_package_search_strategy": "none""#
+        ));
+        assert!(is_pyre_configuration_decl(
+            r#""site_package_search_strategy": "pep561""#
+        ));
+        assert!(is_pyre_configuration_decl(r#""strict": true"#));
+        assert!(is_pyre_configuration_decl(r#""strict": false,"#));
+        assert!(is_pyre_configuration_decl(r#""workers": 4"#));
+        assert!(is_pyre_configuration_decl(r#""workers": 12,"#));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_pyre_configuration_decl(r#""source_directories""#));
+        assert!(!is_pyre_configuration_decl(r#""source_directories":"#));
+        assert!(!is_pyre_configuration_decl(r#""source_directories": {"#));
+        assert!(!is_pyre_configuration_decl(
+            r#""source_directories": "./src""#
+        ));
+        assert!(!is_pyre_configuration_decl(r#"source_directories: ["#));
+        assert!(!is_pyre_configuration_decl(r#""Source_directories": ["#));
+        assert!(!is_pyre_configuration_decl(r#""binary": ["#));
+        assert!(!is_pyre_configuration_decl(
+            r#""binary": "/usr/bin/pyre.bin"#
+        ));
+        assert!(!is_pyre_configuration_decl(r#""strict": "true""#));
+        assert!(!is_pyre_configuration_decl(r#""strict": True"#));
+        assert!(!is_pyre_configuration_decl(r#""workers": 0"#));
+        assert!(!is_pyre_configuration_decl(r#""workers": true"#));
+        assert!(!is_pyre_configuration_decl(r#""workers": "4""#));
+        assert!(!is_pyre_configuration_decl(r#""python_version": "3.10""#));
+        assert!(!is_pyre_configuration_decl(r#""python_version": "3""#));
+        assert!(!is_pyre_configuration_decl(r#""python_version": 3.10.0"#));
+        assert!(!is_pyre_configuration_decl(
+            r#""site_package_search_strategy": "pep420""#
+        ));
+        assert!(!is_pyre_configuration_decl(
+            r#""system_platform": "Windows""#
+        ));
+        assert!(!is_pyre_configuration_decl(r#""name": "project""#));
+        assert!(!is_pyre_configuration_decl(r#""version": "1.0.0""#));
+        // package.json / composer / pyright / ty stay on their paths.
+        assert!(!is_pyre_configuration_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_pyre_configuration_decl(r#""autoload": {"#));
+        assert!(is_composer_json_decl(r#""autoload": {"#));
+        assert!(!is_pyre_configuration_decl("[tool.pyright]"));
+        assert!(is_pyright_toml_decl("[tool.pyright]"));
+        assert!(!is_pyre_configuration_decl("[tool.ty]"));
+        assert!(is_ty_toml_decl("[tool.ty]"));
+        // Distinctive keys still list via the shared scanner.
+        assert!(line_is_func_like(r#""source_directories": ["#));
+        assert!(line_is_func_like(r#""typeshed": "stubs""#));
+        assert!(line_is_func_like(r#""strict": true"#));
+        assert!(line_is_func_like(r#""workers": 4"#));
+        assert!(line_is_func_like(
+            r#""site_package_search_strategy": "pep561""#
+        ));
+        assert!(line_is_func_like(r#""python_version": "3.10.0""#));
     }
 
     #[test]
