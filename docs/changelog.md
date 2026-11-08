@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.710] — 2026-11-08
+
+View:
+
+- **Function List** lists Turborepo `turbo.json` / `turbo.jsonc` JSON keys: `"extends": [`, `"tasks": {`, `"pipeline": {` (legacy), `"globalDependencies": [`, `"globalEnv": [`, `"globalPassThroughEnv": [`, `"tags": [`, `"global": {`, `"futureFlags": {`, `"remoteCache": {`, `"experimentalObservability": {`, `"ui": "tui"` / `"stream"`, `"envMode": "strict"` / `"loose"`, `"cacheDir": "…"`, `"cacheMaxAge": "7d"`, `"cacheMaxSize": "10GB"`, `"concurrency": "1"` / `"50%"` / `10`, `"daemon": true`, `"noUpdateNotifier": true`, `"agentGuidance": true`, `"dangerouslyDisablePackageManagerCheck": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / Parcel `"transformers"` / `"namers"` / `"bundlers"` / PostCSS `"plugins"` / `"parser"` / babel `"presets"` / `"parserOpts"` / SWC `"jsc"` / `"minify"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` / dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out. Shared `"extends": [` also match parcel / babel / eslint / stylelint; shared `"tasks": {` also match package.json / deno.json when shapes match.
+
 ## [0.3.709] — 2026-11-08
 
 View:

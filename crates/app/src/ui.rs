@@ -32377,6 +32377,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_swc_json_decl(s)
             || is_postcss_json_decl(s)
             || is_parcel_json_decl(s)
+            || is_turbo_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32664,6 +32665,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_swc_json_decl(s)
         || is_postcss_json_decl(s)
         || is_parcel_json_decl(s)
+        || is_turbo_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -42929,8 +42931,10 @@ fn postcss_json_string_ok(value: &str) -> bool {
 /// stylelint `"ignoreFiles"` / `"customSyntax"` / `"processors"` /
 /// prettier `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` /
 /// dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` /
-/// package.json `"scripts"` stay out. Shared `"extends": "…"` / `"extends": [`
-/// also match babel / eslint / stylelint when shapes match.
+/// package.json `"scripts"` / turbo `"tasks"` / `"globalDependencies"` /
+/// `"globalEnv"` / `"cacheDir"` / `"envMode"` / `"futureFlags"` /
+/// `"remoteCache"` stay out. Shared `"extends": "…"` / `"extends": [`
+/// also match babel / eslint / stylelint / turbo when shapes match.
 fn is_parcel_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -43023,6 +43027,244 @@ fn parcel_json_string_ok(value: &str) -> bool {
         && value.len() <= 512
         && !value.contains('\n')
         && !value.chars().all(|c| c.is_ascii_whitespace())
+}
+
+/// Turborepo `turbo.json` / `turbo.jsonc` JSON keys:
+/// `"extends": [`, `"tasks": {`, `"pipeline": {` (legacy),
+/// `"globalDependencies": [`, `"globalEnv": [`, `"globalPassThroughEnv": [`,
+/// `"tags": [`, `"global": {`, `"futureFlags": {`, `"remoteCache": {`,
+/// `"experimentalObservability": {`, `"ui": "tui"` / `"stream"`,
+/// `"envMode": "strict"` / `"loose"`, `"cacheDir": "…"`,
+/// `"cacheMaxAge": "7d"`, `"cacheMaxSize": "10GB"`, `"concurrency": "1"` /
+/// `"50%"` / `10`, `"daemon": true`, `"noUpdateNotifier": true`,
+/// `"agentGuidance": true`, `"dangerouslyDisablePackageManagerCheck": true`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / Parcel `"transformers"` /
+/// `"namers"` / `"bundlers"` / PostCSS `"plugins"` / `"parser"` /
+/// babel `"presets"` / `"parserOpts"` / SWC `"jsc"` / `"minify"` /
+/// eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` /
+/// prettier `"printWidth"` / `"semi"` / biome `"linter"` / `"formatter"` /
+/// dprint `"includes"` / `"newLineKind"` / tsconfig `"compilerOptions"` /
+/// package.json `"scripts"` stay out. Shared `"extends": [` also match
+/// parcel / babel / eslint / stylelint; shared `"tasks": {` also match
+/// package.json / deno.json when shapes match.
+fn is_turbo_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !turbo_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    turbo_json_value_and_tail_ok(key, after_colon)
+}
+
+fn turbo_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "extends"
+            | "tasks"
+            | "pipeline"
+            | "globalDependencies"
+            | "globalEnv"
+            | "globalPassThroughEnv"
+            | "tags"
+            | "global"
+            | "futureFlags"
+            | "remoteCache"
+            | "experimentalObservability"
+            | "ui"
+            | "envMode"
+            | "cacheDir"
+            | "cacheMaxAge"
+            | "cacheMaxSize"
+            | "concurrency"
+            | "daemon"
+            | "noUpdateNotifier"
+            | "agentGuidance"
+            | "dangerouslyDisablePackageManagerCheck"
+    )
+}
+
+fn turbo_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !turbo_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !turbo_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !turbo_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !turbo_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !turbo_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if key != "concurrency" {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 6 {
+                return false;
+            }
+            if digits == 1 && after_colon.as_bytes()[0] == b'0' {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn turbo_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "tasks"
+            | "pipeline"
+            | "global"
+            | "futureFlags"
+            | "remoteCache"
+            | "experimentalObservability"
+    )
+}
+
+fn turbo_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "extends" | "globalDependencies" | "globalEnv" | "globalPassThroughEnv" | "tags"
+    )
+}
+
+fn turbo_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "ui" | "envMode" | "cacheDir" | "cacheMaxAge" | "cacheMaxSize" | "concurrency"
+    )
+}
+
+fn turbo_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "daemon" | "noUpdateNotifier" | "agentGuidance" | "dangerouslyDisablePackageManagerCheck"
+    )
+}
+
+fn turbo_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    match key {
+        "ui" => matches!(value, "tui" | "stream"),
+        "envMode" => matches!(value, "strict" | "loose"),
+        "cacheDir" => !value.chars().all(|c| c.is_ascii_whitespace()),
+        "cacheMaxAge" => turbo_json_duration_ok(value),
+        "cacheMaxSize" => turbo_json_size_ok(value),
+        "concurrency" => turbo_json_concurrency_ok(value),
+        _ => false,
+    }
+}
+
+fn turbo_json_duration_ok(value: &str) -> bool {
+    if value == "0" {
+        return true;
+    }
+    let bytes = value.as_bytes();
+    let digits = bytes.iter().take_while(|b| b.is_ascii_digit()).count();
+    if digits == 0 || digits > 6 || digits == value.len() {
+        return false;
+    }
+    if digits == 1 && bytes[0] == b'0' {
+        return false;
+    }
+    matches!(&value[digits..], "s" | "m" | "h" | "d" | "w")
+}
+
+fn turbo_json_size_ok(value: &str) -> bool {
+    if value == "0" {
+        return true;
+    }
+    let lower = value.to_ascii_lowercase();
+    let bytes = lower.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == 0 || i > 6 {
+        return false;
+    }
+    if i == 1 && bytes[0] == b'0' && (bytes.len() == 1 || bytes.get(1) != Some(&b'.')) {
+        return false;
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        let frac_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == frac_start || i - frac_start > 3 {
+            return false;
+        }
+    }
+    matches!(&lower[i..], "mb" | "gb" | "tb")
+}
+
+fn turbo_json_concurrency_ok(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    let digits = bytes.iter().take_while(|b| b.is_ascii_digit()).count();
+    if digits == 0 || digits > 6 || digits > value.len() {
+        return false;
+    }
+    if digits == 1 && bytes[0] == b'0' {
+        return false;
+    }
+    if digits == value.len() {
+        return true;
+    }
+    value[digits..] == *"%"
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -73678,12 +73920,12 @@ mod func_like_line_tests {
         is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
         is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
         is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_tsconfig_json_decl, is_ty_toml_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_versioneer_ini_decl,
-        is_vulture_ini_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -84935,13 +85177,25 @@ mod func_like_line_tests {
         assert!(!is_parcel_json_decl(r#""inlineSourcesContent": true"#));
         assert!(!is_parcel_json_decl(r#""isModule": "unknown""#));
         assert!(!is_parcel_json_decl(r#""minify": true"#));
+        // Turbo-only keys stay on turbo.
+        assert!(!is_parcel_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_parcel_json_decl(r#""globalEnv": ["#));
+        assert!(!is_parcel_json_decl(r#""cacheDir": ".turbo/cache""#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo/cache""#));
+        assert!(!is_parcel_json_decl(r#""envMode": "strict""#));
+        assert!(is_turbo_json_decl(r#""envMode": "strict""#));
+        assert!(!is_parcel_json_decl(r#""futureFlags": {"#));
+        assert!(is_turbo_json_decl(r#""futureFlags": {"#));
+        assert!(!is_parcel_json_decl(r#""remoteCache": {"#));
+        assert!(is_turbo_json_decl(r#""remoteCache": {"#));
         // Shared scanner lists parcel keys.
         assert!(line_is_func_like(r#""transformers": {"#));
         assert!(line_is_func_like(r#""namers": ["#));
         assert!(line_is_func_like(r#""bundlers": {"#));
         assert!(line_is_func_like(r#""extends": "@parcel/config-default""#));
         assert!(line_is_func_like(r#""reporters": ["#));
-        // Shared extends: parcel + babel / eslint / stylelint when shapes match.
+        // Shared extends: parcel + babel / eslint / stylelint / turbo when shapes match.
         assert!(is_parcel_json_decl(
             r#""extends": "@parcel/config-default""#
         ));
@@ -84953,6 +85207,132 @@ mod func_like_line_tests {
         assert!(is_parcel_json_decl(r#""extends": ["#));
         assert!(is_eslint_json_decl(r#""extends": ["#));
         assert!(is_stylelint_json_decl(r#""extends": ["#));
+        assert!(is_turbo_json_decl(r#""extends": ["#));
+    }
+
+    #[test]
+    fn turbo_json_keys_count() {
+        assert!(is_turbo_json_decl(r#""extends": ["#));
+        assert!(is_turbo_json_decl(r#""extends": [ // root"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": { // build"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": { // legacy"#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": [ // tsconfig"#));
+        assert!(is_turbo_json_decl(r#""globalEnv": ["#));
+        assert!(is_turbo_json_decl(r#""globalEnv": [ // NODE_ENV"#));
+        assert!(is_turbo_json_decl(r#""globalPassThroughEnv": ["#));
+        assert!(is_turbo_json_decl(r#""globalPassThroughEnv": [ // AWS"#));
+        assert!(is_turbo_json_decl(r#""tags": ["#));
+        assert!(is_turbo_json_decl(r#""tags": [ // ci"#));
+        assert!(is_turbo_json_decl(r#""global": {"#));
+        assert!(is_turbo_json_decl(r#""global": { // future"#));
+        assert!(is_turbo_json_decl(r#""futureFlags": {"#));
+        assert!(is_turbo_json_decl(r#""futureFlags": { // flags"#));
+        assert!(is_turbo_json_decl(r#""remoteCache": {"#));
+        assert!(is_turbo_json_decl(r#""remoteCache": { // enabled"#));
+        assert!(is_turbo_json_decl(r#""experimentalObservability": {"#));
+        assert!(is_turbo_json_decl(
+            r#""experimentalObservability": { // otel"#
+        ));
+        assert!(is_turbo_json_decl(r#""ui": "tui""#));
+        assert!(is_turbo_json_decl(r#""ui": "stream","#));
+        assert!(is_turbo_json_decl(r#""envMode": "strict""#));
+        assert!(is_turbo_json_decl(r#""envMode": "loose","#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo/cache""#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo/cache","#));
+        assert!(is_turbo_json_decl(r#""cacheMaxAge": "7d""#));
+        assert!(is_turbo_json_decl(r#""cacheMaxAge": "0","#));
+        assert!(is_turbo_json_decl(r#""cacheMaxSize": "10GB""#));
+        assert!(is_turbo_json_decl(r#""cacheMaxSize": "1.5gb","#));
+        assert!(is_turbo_json_decl(r#""concurrency": "1""#));
+        assert!(is_turbo_json_decl(r#""concurrency": "50%","#));
+        assert!(is_turbo_json_decl(r#""concurrency": 10"#));
+        assert!(is_turbo_json_decl(r#""concurrency": 10,"#));
+        assert!(is_turbo_json_decl(r#""daemon": true"#));
+        assert!(is_turbo_json_decl(r#""daemon": false,"#));
+        assert!(is_turbo_json_decl(r#""noUpdateNotifier": true"#));
+        assert!(is_turbo_json_decl(r#""agentGuidance": true"#));
+        assert!(is_turbo_json_decl(
+            r#""dangerouslyDisablePackageManagerCheck": true"#
+        ));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_turbo_json_decl(r#""extends""#));
+        assert!(!is_turbo_json_decl(r#""extends":"#));
+        assert!(!is_turbo_json_decl(r#"extends: ["#));
+        assert!(!is_turbo_json_decl(r#""Extends": ["#));
+        assert!(!is_turbo_json_decl(r#""extends": {"#));
+        assert!(!is_turbo_json_decl(r#""extends": "//""#));
+        assert!(!is_turbo_json_decl(r#""tasks": ["#));
+        assert!(!is_turbo_json_decl(r#""tasks": "build""#));
+        assert!(!is_turbo_json_decl(r#""pipeline": ["#));
+        assert!(!is_turbo_json_decl(r#""globalDependencies": {"#));
+        assert!(!is_turbo_json_decl(
+            r#""globalDependencies": "tsconfig.json""#
+        ));
+        assert!(!is_turbo_json_decl(r#""globalEnv": {"#));
+        assert!(!is_turbo_json_decl(r#""ui": "panel""#));
+        assert!(!is_turbo_json_decl(r#""ui": true"#));
+        assert!(!is_turbo_json_decl(r#""envMode": "strictish""#));
+        assert!(!is_turbo_json_decl(r#""cacheDir": """#));
+        assert!(!is_turbo_json_decl(r#""cacheMaxAge": "7x""#));
+        assert!(!is_turbo_json_decl(r#""cacheMaxSize": "10XB""#));
+        assert!(!is_turbo_json_decl(r#""concurrency": "0""#));
+        assert!(!is_turbo_json_decl(r#""concurrency": 0"#));
+        assert!(!is_turbo_json_decl(r#""daemon": "true""#));
+        assert!(!is_turbo_json_decl(r#""noUpdateNotifier": {"#));
+        // Same-line array / object members are not opening-key lines.
+        assert!(!is_turbo_json_decl(r#""extends": ["//"],"#));
+        assert!(!is_turbo_json_decl(
+            r#""globalDependencies": ["tsconfig.json"],"#
+        ));
+        assert!(!is_turbo_json_decl(
+            r#""tasks": {"build": {"dependsOn": ["^build"]}},"#
+        ));
+        assert!(!is_turbo_json_decl(
+            r#""$schema": "https://turborepo.dev/schema.json""#
+        ));
+        // Neighbouring families stay out.
+        assert!(!is_turbo_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_turbo_json_decl(r#""namers": ["#));
+        assert!(!is_turbo_json_decl(r#""plugins": {"#));
+        assert!(is_postcss_json_decl(r#""plugins": {"#));
+        assert!(!is_turbo_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_turbo_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_turbo_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_turbo_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_turbo_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_turbo_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_turbo_json_decl(r#""semi": true"#));
+        assert!(!is_turbo_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_turbo_json_decl(r#""formatter": {"#));
+        assert!(!is_turbo_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_turbo_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_turbo_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists turbo keys.
+        assert!(line_is_func_like(r#""globalDependencies": ["#));
+        assert!(line_is_func_like(r#""tasks": {"#));
+        assert!(line_is_func_like(r#""envMode": "strict""#));
+        assert!(line_is_func_like(r#""cacheDir": ".turbo/cache""#));
+        assert!(line_is_func_like(r#""futureFlags": {"#));
+        // Shared extends / tasks: turbo + parcel / package.json when shapes match.
+        assert!(is_turbo_json_decl(r#""extends": ["#));
+        assert!(is_parcel_json_decl(r#""extends": ["#));
+        assert!(is_eslint_json_decl(r#""extends": ["#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(is_package_json_decl(r#""tasks": {"#));
     }
 
     #[test]
