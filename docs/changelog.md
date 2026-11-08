@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.712] — 2026-11-09
+
+View:
+
+- **Function List** lists Lerna `lerna.json` JSON keys: `"version": "independent"` / `"1.2.3"`, `"npmClient": "npm"` / `"yarn"` / `"pnpm"` / `"bun"`, `"packages": [`, `"command": {`, `"ignoreChanges": [`, `"nohoist": [`, `"npmClientArgs": [`, `"allowBranch": "…"` / `[`, `"registry": "…"`, `"changelogPreset": "…"`, `"message": "…"`, `"loglevel": "info"` / `"verbose"` / …, `"useWorkspaces": true`, `"useNx": true`, `"stream": true`, `"sort": true`, `"rejectCycles": true`, `"conventionalCommits": true`, `"exact": true`, `"forceLocal": true`, `"hoist": true`, `"syncWorkspaceLock": true`, `"granularPathspec": true`, `"changelog": true`, `"progress": true`, `"ci": true`, `"concurrency": 4`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / PostCSS `"plugins": {` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out. Shared `"concurrency": N` also matches turbo when shapes match; shared `"packages": [` also matches Pipfile-shaped tables when shapes match.
+
 ## [0.3.711] — 2026-11-08
 
 View:

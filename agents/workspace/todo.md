@@ -1,3 +1,5 @@
+009 keep: Function List lerna.json version/npmClient/packages/command/ignoreChanges/useWorkspaces/useNx/concurrency (v0.3.712)
+
 009 keep: Function List nx.json namedInputs/targetDefaults/tasksRunnerOptions/plugins/cacheDirectory/useDaemonProcess (v0.3.711)
 
 009 keep: Function List turbo.json tasks/pipeline/globalDependencies/globalEnv/cacheDir/envMode/futureFlags/remoteCache (v0.3.710)
