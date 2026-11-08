@@ -1,3 +1,5 @@
+009 keep: Function List Radon radon.cfg/setup.cfg/tox.ini [radon] cc_min/cc_max/mi_min/mi_max/show_complexity/total_average/order/exclude/ignore/output_file (v0.3.688)
+
 009 keep: Function List Pylama pylama.ini/setup.cfg/tox.ini/pytest.ini [pylama]/[pylama:linter|glob] linters/format/skip/concurrent/abspath/max_complexity (v0.3.687)
 
 009 keep: Function List Hypothesis pytest.ini/setup.cfg/tox.ini [hypothesis]/[tool:hypothesis] max_examples/derandomize/deadline/suppress_health_check/phases (v0.3.686)

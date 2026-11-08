@@ -32408,6 +32408,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_sqlfluff_ini_decl(s)
             || is_hypothesis_ini_decl(s)
             || is_pylama_ini_decl(s)
+            || is_radon_ini_decl(s)
             || is_desktop_entry_decl(s)
             || is_systemd_unit_decl(s)
             || is_editorconfig_decl(s)
@@ -32673,6 +32674,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_sqlfluff_ini_decl(s)
         || is_hypothesis_ini_decl(s)
         || is_pylama_ini_decl(s)
+        || is_radon_ini_decl(s)
         || is_desktop_entry_decl(s)
         || is_systemd_unit_decl(s)
         || is_editorconfig_decl(s)
@@ -48675,9 +48677,9 @@ fn sqlfluff_ini_value_ok(key: &str, value: &str) -> bool {
 /// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
 /// check-wheel-contents / Twine `.pypirc` / Commitizen /
 /// python-semantic-release / scriv / import-linter / darglint /
-/// pydoclint / doc8 / rstcheck / sqlfluff / pylama / tox / setuptools /
-/// Cargo / Pipfile / pyproject `[tool.hypothesis]` tables / Desktop
-/// Entry / pip.conf stay out.
+/// pydoclint / doc8 / rstcheck / sqlfluff / pylama / radon / tox /
+/// setuptools / Cargo / Pipfile / pyproject `[tool.hypothesis]` tables /
+/// Desktop Entry / pip.conf stay out.
 fn is_hypothesis_ini_decl(s: &str) -> bool {
     let s = s.trim_start();
     if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
@@ -48929,7 +48931,7 @@ fn hypothesis_ini_value_ok(key: &str, value: &str) -> bool {
 /// setuptools_scm / towncrier / zest.releaser / cibuildwheel /
 /// check-wheel-contents / Twine `.pypirc` / Commitizen /
 /// python-semantic-release / scriv / import-linter / darglint /
-/// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / tox /
+/// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / radon / tox /
 /// setuptools / Cargo / Pipfile / pyproject `[tool.pylama]` tables /
 /// Desktop Entry / pip.conf stay out.
 fn is_pylama_ini_decl(s: &str) -> bool {
@@ -49128,6 +49130,185 @@ fn pylama_ini_value_ok(key: &str, value: &str) -> bool {
         "skip" => pylama_skip_ok(value),
         "concurrent" | "abspath" => pylama_ini_bool_ok(value),
         "max_complexity" => pylama_u32_ok(value, 0, 10_000),
+        _ => false,
+    }
+}
+
+/// Radon `radon.cfg` / `setup.cfg` / `tox.ini` `[radon]` sections and
+/// distinctive keys: `[radon]`, `cc_min = B` / `A`…`F`,
+/// `cc_max = E` / `F`, `mi_min = A` / `B` / `C`, `mi_max = C`,
+/// `show_complexity = true` / `False`, `average = yes`,
+/// `total_average = 1`, `show_closures = true`, `no_assert = false`,
+/// `order = SCORE` / `LINES` / `ALPHA`,
+/// `exclude = test_*.py` / `tests/*,*/migrations/*`,
+/// `ignore = docs,venv`, `output_file = radon.json`,
+/// `include_ipynb = true`, `ipynb_cells = false`, `functions = true`.
+/// Exact snake_case keys. INI `key = value` or `key=value`. Optional
+/// quotes on values. Optional `#` / `;` comment. Trailing commas on
+/// path lists ok. Bare `verbose` / `json` / `xml` / `md` stay out.
+/// flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle /
+/// autopep8 / black / yapf / pydocstyle / bandit / codespell /
+/// docformatter / vulture / interrogate / check-manifest / bumpversion /
+/// versioneer / setuptools_scm / towncrier / zest.releaser /
+/// cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen /
+/// python-semantic-release / scriv / import-linter / darglint /
+/// pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama / tox /
+/// setuptools / Cargo / Pipfile / pyproject `[tool.radon]` tables /
+/// Desktop Entry / pip.conf stay out.
+fn is_radon_ini_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    if s.is_empty() || s.starts_with('#') || s.starts_with(';') {
+        return false;
+    }
+    if let Some((header, array, after)) = cargo_toml_header(s) {
+        if array || header.is_empty() || !tox_ini_tail_ok(after) {
+            return false;
+        }
+        return radon_ini_section_ok(header);
+    }
+    let body = if let Some(idx) = s.find(['#', ';']) {
+        s[..idx].trim()
+    } else {
+        s.trim()
+    };
+    if body.is_empty() {
+        return false;
+    }
+    let Some(eq) = body.find('=') else {
+        return false;
+    };
+    let key = body[..eq].trim();
+    if key.is_empty() || key.contains('.') || key.contains(' ') {
+        return false;
+    }
+    if !radon_ini_key_ok(key) {
+        return false;
+    }
+    let value = body[eq + 1..].trim();
+    radon_ini_value_ok(key, value)
+}
+
+fn radon_ini_section_ok(header: &str) -> bool {
+    header == "radon"
+}
+
+fn radon_ini_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "cc_min"
+            | "cc_max"
+            | "mi_min"
+            | "mi_max"
+            | "show_complexity"
+            | "average"
+            | "total_average"
+            | "show_closures"
+            | "no_assert"
+            | "order"
+            | "exclude"
+            | "ignore"
+            | "output_file"
+            | "include_ipynb"
+            | "ipynb_cells"
+            | "functions"
+    )
+}
+
+fn radon_ini_bare(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
+}
+
+fn radon_ini_bool_ok(value: &str) -> bool {
+    matches!(
+        radon_ini_bare(value).to_ascii_lowercase().as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "1" | "0"
+    )
+}
+
+fn radon_cc_rank_ok(value: &str) -> bool {
+    matches!(
+        radon_ini_bare(value).to_ascii_uppercase().as_str(),
+        "A" | "B" | "C" | "D" | "E" | "F"
+    )
+}
+
+fn radon_mi_rank_ok(value: &str) -> bool {
+    matches!(
+        radon_ini_bare(value).to_ascii_uppercase().as_str(),
+        "A" | "B" | "C"
+    )
+}
+
+fn radon_order_ok(value: &str) -> bool {
+    matches!(
+        radon_ini_bare(value).to_ascii_uppercase().as_str(),
+        "SCORE" | "LINES" | "ALPHA"
+    )
+}
+
+fn radon_path_list_ok(value: &str) -> bool {
+    let bare = radon_ini_bare(value);
+    if bare.is_empty() || bare.len() > 512 {
+        return false;
+    }
+    let mut any = false;
+    for part in bare.split(',') {
+        let t = part.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if t.len() > 256 {
+            return false;
+        }
+        let bytes = t.as_bytes();
+        if bytes.is_empty()
+            || (!bytes[0].is_ascii_alphanumeric()
+                && !matches!(bytes[0], b'*' | b'?' | b'.' | b'/' | b'_' | b'-'))
+        {
+            return false;
+        }
+        if !bytes.iter().all(|b| {
+            b.is_ascii_alphanumeric()
+                || matches!(
+                    *b,
+                    b'_' | b'-' | b'.' | b'/' | b'*' | b'?' | b'+' | b'[' | b']'
+                )
+        }) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn radon_output_file_ok(value: &str) -> bool {
+    let bare = radon_ini_bare(value);
+    if bare.is_empty() || bare.len() > 256 {
+        return false;
+    }
+    let bytes = bare.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || matches!(bytes[0], b'.' | b'/' | b'_' | b'-' | b'~')) {
+        return false;
+    }
+    bytes.iter().all(|b| b.is_ascii_graphic())
+        && (bare.contains('.') || bare.contains('/') || bare.contains('_') || bare.contains('-'))
+}
+
+fn radon_ini_value_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.starts_with('{') || value.starts_with('[') {
+        return false;
+    }
+    match key {
+        "cc_min" | "cc_max" => radon_cc_rank_ok(value),
+        "mi_min" | "mi_max" => radon_mi_rank_ok(value),
+        "show_complexity" | "average" | "total_average" | "show_closures" | "no_assert"
+        | "include_ipynb" | "ipynb_cells" | "functions" => radon_ini_bool_ok(value),
+        "order" => radon_order_ok(value),
+        "exclude" | "ignore" => radon_path_list_ok(value),
+        "output_file" => radon_output_file_ok(value),
         _ => false,
     }
 }
@@ -69815,9 +69996,9 @@ mod func_like_line_tests {
         is_podfile_decl, is_poetry_toml_decl, is_premake_decl, is_protocols_file_decl,
         is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
         is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pytest_ini_decl,
-        is_railway_toml_decl, is_rake_decl, is_release_toml_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
         is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
@@ -78823,6 +79004,91 @@ mod func_like_line_tests {
         assert!(line_is_func_like("[pylama]"));
         assert!(line_is_func_like("[pylama:pycodestyle]"));
         assert!(line_is_func_like("[pylama:*/tests.py]"));
+        assert!(!is_pylama_ini_decl("[radon]"));
+        assert!(is_radon_ini_decl("[radon]"));
+        assert!(!is_pylama_ini_decl("cc_min = B"));
+        assert!(is_radon_ini_decl("cc_min = B"));
+    }
+
+    #[test]
+    fn radon_ini_sections_and_keys_count() {
+        assert!(is_radon_ini_decl("[radon]"));
+        assert!(is_radon_ini_decl("  [radon] # props"));
+        assert!(is_radon_ini_decl("[radon] ; props"));
+        assert!(is_radon_ini_decl("cc_min = B"));
+        assert!(is_radon_ini_decl("cc_min=A"));
+        assert!(is_radon_ini_decl("cc_max = E"));
+        assert!(is_radon_ini_decl("cc_max=F"));
+        assert!(is_radon_ini_decl("mi_min = A"));
+        assert!(is_radon_ini_decl("mi_min=B"));
+        assert!(is_radon_ini_decl("mi_max = C"));
+        assert!(is_radon_ini_decl("show_complexity = true"));
+        assert!(is_radon_ini_decl("show_complexity=False"));
+        assert!(is_radon_ini_decl("average = yes"));
+        assert!(is_radon_ini_decl("total_average = 1"));
+        assert!(is_radon_ini_decl("show_closures = true"));
+        assert!(is_radon_ini_decl("no_assert = false"));
+        assert!(is_radon_ini_decl("order = SCORE"));
+        assert!(is_radon_ini_decl("order=LINES"));
+        assert!(is_radon_ini_decl("order = ALPHA"));
+        assert!(is_radon_ini_decl("exclude = test_*.py"));
+        assert!(is_radon_ini_decl("exclude=tests/*,*/migrations/*"));
+        assert!(is_radon_ini_decl("ignore = docs,venv"));
+        assert!(is_radon_ini_decl("ignore=docs"));
+        assert!(is_radon_ini_decl("output_file = radon.json"));
+        assert!(is_radon_ini_decl("output_file=./out/radon.txt"));
+        assert!(is_radon_ini_decl("include_ipynb = true"));
+        assert!(is_radon_ini_decl("ipynb_cells = false"));
+        assert!(is_radon_ini_decl("functions = true"));
+        assert!(is_radon_ini_decl("cc_min = B # comment"));
+        assert!(is_radon_ini_decl("order=SCORE; trailing"));
+
+        assert!(!is_radon_ini_decl("cc_min"));
+        assert!(!is_radon_ini_decl("cc_min ="));
+        assert!(!is_radon_ini_decl("Cc_min = B"));
+        assert!(!is_radon_ini_decl("# cc_min = B"));
+        assert!(!is_radon_ini_decl("cc_min = G"));
+        assert!(!is_radon_ini_decl("mi_max = D"));
+        assert!(!is_radon_ini_decl("order = NAME"));
+        assert!(!is_radon_ini_decl("show_complexity = maybe"));
+        assert!(!is_radon_ini_decl("exclude = "));
+        assert!(!is_radon_ini_decl("output_file = "));
+        assert!(!is_radon_ini_decl("output_file = radon"));
+        assert!(!is_radon_ini_decl("[Radon]"));
+        assert!(!is_radon_ini_decl("[[radon]]"));
+        assert!(!is_radon_ini_decl("[radon"));
+        assert!(!is_radon_ini_decl("[tool.radon]"));
+        assert!(!is_radon_ini_decl("[pylama]"));
+        assert!(is_pylama_ini_decl("[pylama]"));
+        assert!(!is_radon_ini_decl("linters = pylint,mccabe"));
+        assert!(is_pylama_ini_decl("linters = pylint,mccabe"));
+        assert!(!is_radon_ini_decl("[hypothesis]"));
+        assert!(is_hypothesis_ini_decl("[hypothesis]"));
+        assert!(!is_radon_ini_decl("max_examples = 100"));
+        assert!(is_hypothesis_ini_decl("max_examples = 100"));
+        assert!(!is_radon_ini_decl("[sqlfluff]"));
+        assert!(!is_radon_ini_decl("[rstcheck]"));
+        assert!(!is_radon_ini_decl("[doc8]"));
+        assert!(!is_radon_ini_decl("[pytest]"));
+        assert!(!is_radon_ini_decl("[flake8]"));
+        assert!(!is_radon_ini_decl("[metadata]"));
+        assert!(!is_radon_ini_decl("[tox]"));
+        assert!(!is_radon_ini_decl("[project]"));
+        assert!(!is_radon_ini_decl("[package]"));
+        assert!(is_cargo_toml_decl("[package]"));
+        assert!(!is_radon_ini_decl("[Desktop Entry]"));
+        assert!(is_desktop_entry_decl("[Desktop Entry]"));
+        assert!(!is_radon_ini_decl("[global]"));
+        assert!(is_pip_conf_decl("[global]"));
+        assert!(!is_radon_ini_decl("report_level = WARNING"));
+        assert!(is_rstcheck_ini_decl("report_level = WARNING"));
+        // Distinctive radon keys still list.
+        assert!(line_is_func_like("cc_min = B"));
+        assert!(line_is_func_like("show_complexity = true"));
+        assert!(line_is_func_like("exclude = test_*.py"));
+        assert!(line_is_func_like("order = SCORE"));
+        assert!(line_is_func_like("total_average = 1"));
+        assert!(line_is_func_like("[radon]"));
     }
 
     #[test]

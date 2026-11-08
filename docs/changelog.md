@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.688] — 2026-11-08
+
+View:
+
+- **Function List** lists Radon `radon.cfg` / `setup.cfg` / `tox.ini` `[radon]` sections and fields: `[radon]`, `cc_min = B` / `A`…`F`, `cc_max = E` / `F`, `mi_min = A` / `B` / `C`, `mi_max = C`, `show_complexity = true` / `False`, `average = yes`, `total_average = 1`, `show_closures = true`, `no_assert = false`, `order = SCORE` / `LINES` / `ALPHA`, `exclude = test_*.py` / `tests/*,*/migrations/*`, `ignore = docs,venv`, `output_file = radon.json` / `./out/radon.txt`, `include_ipynb = true`, `ipynb_cells = false`, `functions = true`. Exact snake_case keys. INI `key = value` or `key=value`. Optional quotes on values. Optional `#` / `;` comment. Trailing commas on path lists ok. Bare `verbose` / `json` / `xml` / `md` stay out. flake8 / mypy / pytest / isort / coverage / pylint / pycodestyle / autopep8 / black / yapf / pydocstyle / bandit / codespell / docformatter / vulture / interrogate / check-manifest / bumpversion / versioneer / setuptools_scm / towncrier / zest.releaser / cibuildwheel / check-wheel-contents / Twine `.pypirc` / Commitizen / python-semantic-release / scriv / import-linter / darglint / pydoclint / doc8 / rstcheck / sqlfluff / hypothesis / pylama / tox / setuptools / Cargo / Pipfile / pyproject `[tool.radon]` tables / Desktop Entry / pip.conf stay out.
+
 ## [0.3.687] — 2026-11-08
 
 View:
