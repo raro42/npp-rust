@@ -1092,3 +1092,5 @@
 009 keep: Function List Vercel vercel.json rewrites/redirects/headers/crons/regions/functions/framework/buildCommand/cleanUrls/version (v0.3.715)
 
 009 keep: Function List Firebase firebase.json hosting/functions/firestore/database/storage/emulators/remoteconfig/extensions/flutter/dataconnect/apphosting/auth (v0.3.716)
+
+009 keep: Function List Tauri tauri.conf.json productName/identifier/frontendDist/build/bundle/allowlist/withGlobalTauri (v0.3.717)

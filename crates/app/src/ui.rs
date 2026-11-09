@@ -32384,6 +32384,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_changesets_json_decl(s)
             || is_vercel_json_decl(s)
             || is_firebase_json_decl(s)
+            || is_tauri_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32678,6 +32679,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_changesets_json_decl(s)
         || is_vercel_json_decl(s)
         || is_firebase_json_decl(s)
+        || is_tauri_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -44431,6 +44433,228 @@ fn firebase_json_array_key_ok(key: &str) -> bool {
         key,
         "hosting" | "functions" | "database" | "storage" | "apphosting"
     )
+}
+
+/// Tauri `tauri.conf.json` JSON keys:
+/// `"productName": "…"`, `"identifier": "com.app…"`,
+/// `"frontendDist": "…"`, `"distDir": "…"`, `"devUrl": "…"`,
+/// `"devPath": "…"`, `"beforeDevCommand": "…"`,
+/// `"beforeBuildCommand": "…"`, `"beforeBundleCommand": "…"`,
+/// `"copyright": "…"`, `"category": "…"`,
+/// `"shortDescription": "…"`, `"longDescription": "…"`,
+/// `"build": {`, `"bundle": {`, `"tauri": {`, `"security": {`,
+/// `"trayIcon": {`, `"systemTray": {`, `"allowlist": {`,
+/// `"updater": {`, `"linux": {`, `"macOS": {`,
+/// `"additionalWatchFolders": [`, `"windows": [`,
+/// `"withGlobalTauri": true`, `"removeUnusedCommands": true`,
+/// `"macOSPrivateApi": true`, `"enableGTKAppId": true`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// `"app": {` / `"plugins": {` / vercel `"rewrites"` / `"redirects"` /
+/// `"headers"` / `"crons"` / `"regions"` / `"framework"` /
+/// `"buildCommand"` / `"cleanUrls"` / `"version": 2` / firebase
+/// `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / changesets
+/// `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna
+/// `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo
+/// `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` /
+/// `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` /
+/// `"cacheDirectory"` / Parcel `"transformers"` / PostCSS
+/// `"plugins": {` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` /
+/// `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` /
+/// biome `"linter"` / dprint `"includes"` / tsconfig
+/// `"compilerOptions"` / package.json `"scripts"` stay out. Shared
+/// `"build": {` also matches vercel when shapes match.
+fn is_tauri_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !tauri_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    tauri_json_value_and_tail_ok(key, after_colon)
+}
+
+fn tauri_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "productName"
+            | "identifier"
+            | "frontendDist"
+            | "distDir"
+            | "devUrl"
+            | "devPath"
+            | "beforeDevCommand"
+            | "beforeBuildCommand"
+            | "beforeBundleCommand"
+            | "copyright"
+            | "category"
+            | "shortDescription"
+            | "longDescription"
+            | "build"
+            | "bundle"
+            | "tauri"
+            | "security"
+            | "trayIcon"
+            | "systemTray"
+            | "allowlist"
+            | "updater"
+            | "linux"
+            | "macOS"
+            | "additionalWatchFolders"
+            | "windows"
+            | "withGlobalTauri"
+            | "removeUnusedCommands"
+            | "macOSPrivateApi"
+            | "enableGTKAppId"
+    )
+}
+
+fn tauri_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !tauri_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !tauri_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !tauri_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !tauri_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !tauri_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn tauri_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "build"
+            | "bundle"
+            | "tauri"
+            | "security"
+            | "trayIcon"
+            | "systemTray"
+            | "allowlist"
+            | "updater"
+            | "linux"
+            | "macOS"
+    )
+}
+
+fn tauri_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "additionalWatchFolders" | "windows")
+}
+
+fn tauri_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "productName"
+            | "identifier"
+            | "frontendDist"
+            | "distDir"
+            | "devUrl"
+            | "devPath"
+            | "beforeDevCommand"
+            | "beforeBuildCommand"
+            | "beforeBundleCommand"
+            | "copyright"
+            | "category"
+            | "shortDescription"
+            | "longDescription"
+    )
+}
+
+fn tauri_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "withGlobalTauri" | "removeUnusedCommands" | "macOSPrivateApi" | "enableGTKAppId"
+    )
+}
+
+fn tauri_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "identifier" => tauri_json_identifier_ok(value),
+        "productName"
+        | "frontendDist"
+        | "distDir"
+        | "devUrl"
+        | "devPath"
+        | "beforeDevCommand"
+        | "beforeBuildCommand"
+        | "beforeBundleCommand"
+        | "copyright"
+        | "category"
+        | "shortDescription"
+        | "longDescription" => true,
+        _ => false,
+    }
+}
+
+fn tauri_json_identifier_ok(value: &str) -> bool {
+    // Reverse-domain style: com.tauri.dev / org.example.app
+    let bytes = value.as_bytes();
+    if bytes.is_empty() || bytes.len() > 256 {
+        return false;
+    }
+    if !bytes[0].is_ascii_alphabetic() {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'))
+    {
+        return false;
+    }
+    value.contains('.')
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -75086,13 +75310,14 @@ mod func_like_line_tests {
         is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
         is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
         is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
-        is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_vercel_json_decl, is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
+        is_tauri_json_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl,
+        is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl,
+        is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -87246,6 +87471,15 @@ mod func_like_line_tests {
         assert!(is_firebase_json_decl(r#""emulators": {"#));
         assert!(!is_vercel_json_decl(r#""functions": ["#));
         assert!(is_firebase_json_decl(r#""functions": ["#));
+        // Tauri neighbouring keys stay out of vercel (shared build object ok).
+        assert!(!is_vercel_json_decl(r#""productName": "App""#));
+        assert!(is_tauri_json_decl(r#""productName": "App""#));
+        assert!(!is_vercel_json_decl(r#""identifier": "com.example.app""#));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_vercel_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_vercel_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
         // Shared scanner lists vercel keys.
         assert!(line_is_func_like(r#""rewrites": ["#));
         assert!(line_is_func_like(r#""framework": "nextjs""#));
@@ -87372,6 +87606,171 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""functions": ["#));
         assert!(line_is_func_like(r#""apphosting": {"#));
         assert!(line_is_func_like(r#""auth": {"#));
+        // Tauri neighbouring keys stay out of firebase.
+        assert!(!is_firebase_json_decl(r#""productName": "App""#));
+        assert!(is_tauri_json_decl(r#""productName": "App""#));
+        assert!(!is_firebase_json_decl(r#""identifier": "com.example.app""#));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_firebase_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_firebase_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+    }
+
+    #[test]
+    fn tauri_json_keys_count() {
+        assert!(is_tauri_json_decl(r#""productName": "My App""#));
+        assert!(is_tauri_json_decl(r#""productName": "My App", // title"#));
+        assert!(is_tauri_json_decl(r#""identifier": "com.tauri.dev""#));
+        assert!(is_tauri_json_decl(r#""identifier": "org.example.app""#));
+        assert!(is_tauri_json_decl(r#""frontendDist": "../dist""#));
+        assert!(is_tauri_json_decl(r#""distDir": "../dist""#));
+        assert!(is_tauri_json_decl(r#""devUrl": "http://localhost:1420""#));
+        assert!(is_tauri_json_decl(r#""devPath": "http://localhost:1420""#));
+        assert!(is_tauri_json_decl(r#""beforeDevCommand": "npm run dev""#));
+        assert!(is_tauri_json_decl(
+            r#""beforeBuildCommand": "npm run build""#
+        ));
+        assert!(is_tauri_json_decl(
+            r#""beforeBundleCommand": "npm run bundle""#
+        ));
+        assert!(is_tauri_json_decl(r#""copyright": "Copyright 2024""#));
+        assert!(is_tauri_json_decl(r#""category": "DeveloperTool""#));
+        assert!(is_tauri_json_decl(r#""shortDescription": "A short desc""#));
+        assert!(is_tauri_json_decl(
+            r#""longDescription": "A longer description""#
+        ));
+        assert!(is_tauri_json_decl(r#""build": {"#));
+        assert!(is_tauri_json_decl(r#""build": { // tauri"#));
+        assert!(is_tauri_json_decl(r#""bundle": {"#));
+        assert!(is_tauri_json_decl(r#""tauri": {"#));
+        assert!(is_tauri_json_decl(r#""security": {"#));
+        assert!(is_tauri_json_decl(r#""trayIcon": {"#));
+        assert!(is_tauri_json_decl(r#""systemTray": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""updater": {"#));
+        assert!(is_tauri_json_decl(r#""linux": {"#));
+        assert!(is_tauri_json_decl(r#""macOS": {"#));
+        assert!(is_tauri_json_decl(r#""additionalWatchFolders": ["#));
+        assert!(is_tauri_json_decl(r#""windows": ["#));
+        assert!(is_tauri_json_decl(r#""windows": [ // main"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": false"#));
+        assert!(is_tauri_json_decl(r#""removeUnusedCommands": true"#));
+        assert!(is_tauri_json_decl(r#""macOSPrivateApi": true"#));
+        assert!(is_tauri_json_decl(r#""enableGTKAppId": true"#));
+        assert!(is_tauri_json_decl(r#""enableGTKAppId": true,"#));
+        // Incomplete / wrong shape stay out.
+        assert!(!is_tauri_json_decl(r#""productName""#));
+        assert!(!is_tauri_json_decl(r#""productName":"#));
+        assert!(!is_tauri_json_decl(r#"productName: "App""#));
+        assert!(!is_tauri_json_decl(r#""ProductName": "App""#));
+        assert!(!is_tauri_json_decl(r#""productName": """#));
+        assert!(!is_tauri_json_decl(r#""productName": {"#));
+        assert!(!is_tauri_json_decl(r#""productName": ["#));
+        assert!(!is_tauri_json_decl(r#""productName": true"#));
+        assert!(!is_tauri_json_decl(r#""identifier": "nodots""#));
+        assert!(!is_tauri_json_decl(r#""identifier": "1bad.start""#));
+        assert!(!is_tauri_json_decl(r#""identifier": {"#));
+        assert!(!is_tauri_json_decl(r#""withGlobalTauri": {"#));
+        assert!(!is_tauri_json_decl(r#""withGlobalTauri": "true""#));
+        assert!(!is_tauri_json_decl(r#""windows": {"#));
+        assert!(!is_tauri_json_decl(r#""additionalWatchFolders": {"#));
+        assert!(!is_tauri_json_decl(r#""build": ["#));
+        assert!(!is_tauri_json_decl(r#""bundle": ["#));
+        assert!(!is_tauri_json_decl(r#""allowlist": ["#));
+        assert!(!is_tauri_json_decl(r#""tauri": ["#));
+        // Same-line members are not opening-key lines.
+        assert!(!is_tauri_json_decl(
+            r#""build": {"frontendDist": "../dist", "devUrl": "http://localhost:1420"},"#
+        ));
+        assert!(!is_tauri_json_decl(
+            r#""bundle": {"active": true, "targets": "all"},"#
+        ));
+        assert!(!is_tauri_json_decl(
+            r#""$schema": "https://schema.tauri.app/config/2""#
+        ));
+        assert!(!is_tauri_json_decl(r#""name": "my-app""#));
+        assert!(!is_tauri_json_decl(r#""version": "0.1.0""#));
+        assert!(!is_tauri_json_decl(r#""app": {"#));
+        assert!(!is_tauri_json_decl(r#""plugins": {"#));
+        // Neighbouring families stay out.
+        assert!(!is_tauri_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_tauri_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_tauri_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_tauri_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(!is_tauri_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_tauri_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_tauri_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_tauri_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_tauri_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_tauri_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_tauri_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_tauri_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_tauri_json_decl(r#""images": {"#));
+        assert!(is_vercel_json_decl(r#""images": {"#));
+        assert!(!is_tauri_json_decl(r#""env": {"#));
+        assert!(is_vercel_json_decl(r#""env": {"#));
+        assert!(!is_tauri_json_decl(
+            r#""changelog": "@changesets/cli/changelog""#
+        ));
+        assert!(is_changesets_json_decl(
+            r#""changelog": "@changesets/cli/changelog""#
+        ));
+        assert!(!is_tauri_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_tauri_json_decl(r#""npmClient": "npm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "npm""#));
+        assert!(!is_tauri_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_tauri_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_tauri_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_tauri_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_tauri_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_tauri_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_tauri_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_tauri_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_tauri_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_tauri_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_tauri_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_tauri_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_tauri_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared `"build": {` matches both tauri and vercel.
+        assert!(is_tauri_json_decl(r#""build": {"#));
+        assert!(is_vercel_json_decl(r#""build": {"#));
+        // Shared scanner lists tauri keys.
+        assert!(line_is_func_like(r#""productName": "My App""#));
+        assert!(line_is_func_like(r#""identifier": "com.tauri.dev""#));
+        assert!(line_is_func_like(r#""frontendDist": "../dist""#));
+        assert!(line_is_func_like(r#""withGlobalTauri": true"#));
+        assert!(line_is_func_like(r#""allowlist": {"#));
+        assert!(line_is_func_like(r#""windows": ["#));
+        assert!(line_is_func_like(r#""bundle": {"#));
+        assert!(line_is_func_like(r#""tauri": {"#));
     }
 
     #[test]

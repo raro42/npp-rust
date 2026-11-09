@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.717] — 2026-11-09
+
+View:
+
+- **Function List** lists Tauri `tauri.conf.json` JSON keys: `"productName": "…"`, `"identifier": "com.app…"`, `"frontendDist": "…"`, `"distDir": "…"`, `"devUrl": "…"`, `"devPath": "…"`, `"beforeDevCommand": "…"`, `"beforeBuildCommand": "…"`, `"beforeBundleCommand": "…"`, `"copyright": "…"`, `"category": "…"`, `"shortDescription": "…"`, `"longDescription": "…"`, `"build": {`, `"bundle": {`, `"tauri": {`, `"security": {`, `"trayIcon": {`, `"systemTray": {`, `"allowlist": {`, `"updater": {`, `"linux": {`, `"macOS": {`, `"additionalWatchFolders": [`, `"windows": [`, `"withGlobalTauri": true`, `"removeUnusedCommands": true`, `"macOSPrivateApi": true`, `"enableGTKAppId": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"app": {` / `"plugins": {` / vercel `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` / `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` / firebase `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / PostCSS `"plugins": {` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out. Shared `"build": {` also matches vercel when shapes match.
+
 ## [0.3.716] — 2026-11-09
 
 View:
