@@ -1,3 +1,9 @@
+009 keep: Function List Vitest vitest.config.json environment/pool/fileParallelism/hookTimeout/browser/typecheck/includeSource/mockReset (v0.3.739)
+
+009 keep: Function List Playwright playwright.config.json testDir/fullyParallel/forbidOnly/webServer/preserveOutput/updateSnapshots (v0.3.738)
+
+009 keep: Function List Jest jest.config.json testEnvironment/setupFilesAfterEnv/coverageProvider/clearMocks (v0.3.737)
+
 009 keep: Function List CSpell cspell.json words/ignoreWords/flagWords/dictionaries/languageSettings/minWordLength/useGitignore (v0.3.736)
 
 009 keep: Function List Oxlint .oxlintrc.json categories/jsPlugins/options/plugins/rules/overrides/env/globals/settings/extends/ignorePatterns (v0.3.735)

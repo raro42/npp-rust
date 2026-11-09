@@ -32406,6 +32406,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_cspell_json_decl(s)
             || is_jest_json_decl(s)
             || is_playwright_json_decl(s)
+            || is_vitest_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32722,6 +32723,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_cspell_json_decl(s)
         || is_jest_json_decl(s)
         || is_playwright_json_decl(s)
+        || is_vitest_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -49024,6 +49026,307 @@ fn playwright_json_string_ok(key: &str, value: &str) -> bool {
         | "snapshotPathTemplate"
         | "snapshotDir"
         | "tsconfig" => true,
+        _ => false,
+    }
+}
+
+/// Vitest `vitest.config.json` / `vitest.config` JSON keys:
+/// `"environment": "node"` / `"jsdom"` / `"happy-dom"` / `"edge-runtime"` /
+/// `"…"`, `"pool": "threads"` / `"forks"` / `"vmThreads"` / `"vmForks"`,
+/// `"fileParallelism": true`, `"isolate": true`, `"allowOnly": true`,
+/// `"dangerouslyIgnoreUnhandledErrors": true`, `"passWithNoTests": true`,
+/// `"clearMocks": true`, `"mockReset": true`, `"restoreMocks": true`,
+/// `"unstubEnvs": true`, `"unstubGlobals": true`, `"globals": true`,
+/// `"ui": true`, `"open": true`, `"hideSkippedTests": true`,
+/// `"logHeapUsage": true`, `"printConsoleTrace": true`, `"update": true`,
+/// `"watch": true`, `"include": [`, `"exclude": [`, `"includeSource": [`,
+/// `"setupFiles": [`, `"globalSetup": "…"` / `[`, `"watchExclude": [`,
+/// `"forceRerunTriggers": [`, `"reporters": [`, `"projects": [`,
+/// `"workspace": [`, `"environmentMatchGlobs": [`,
+/// `"environmentOptions": {`, `"poolOptions": {`, `"sequence": {`,
+/// `"typecheck": {`, `"benchmark": {`, `"browser": {`, `"coverage": {`,
+/// `"css": {` / true, `"deps": {`, `"server": {`, `"fakeTimers": {`,
+/// `"expect": {`, `"chaiConfig": {`, `"snapshotFormat": {`,
+/// `"outputFile": {` / `"…"`, `"api": {` / true / 51204,
+/// `"uiBase": "/"`, `"root": "."`, `"dir": "…"`, `"cacheDir": "…"`,
+/// `"mode": "test"` / `"benchmark"`, `"testNamePattern": "…"`,
+/// `"testTimeout": 5000`, `"hookTimeout": 10000`,
+/// `"teardownTimeout": 10000`, `"maxWorkers": 4` / `"50%"`,
+/// `"minWorkers": 1`, `"maxConcurrency": 5`, `"retry": 1`, `"bail": 1`,
+/// `"slowTestThreshold": 300`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic
+/// `"$schema"` / `"name"` / `"version"` / Jest `"testEnvironment"` /
+/// `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright
+/// `"testDir"` / `"fullyParallel"` / `"forbidOnly"` / `"webServer"` /
+/// CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` /
+/// Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch
+/// `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
+/// turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` /
+/// biome `"linter"` / eslint `"parser"` / package.json `"scripts"` /
+/// tsconfig `"compilerOptions"` stay out. Shared `"include": [` /
+/// `"exclude": [` / `"setupFiles": [` / `"projects": [` /
+/// `"clearMocks": true` / `"passWithNoTests": true` also match Jest /
+/// Knip when shapes overlap.
+fn is_vitest_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !vitest_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    vitest_json_value_and_tail_ok(key, after_colon)
+}
+
+fn vitest_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "environment"
+            | "pool"
+            | "fileParallelism"
+            | "isolate"
+            | "allowOnly"
+            | "dangerouslyIgnoreUnhandledErrors"
+            | "passWithNoTests"
+            | "clearMocks"
+            | "mockReset"
+            | "restoreMocks"
+            | "unstubEnvs"
+            | "unstubGlobals"
+            | "globals"
+            | "ui"
+            | "open"
+            | "hideSkippedTests"
+            | "logHeapUsage"
+            | "printConsoleTrace"
+            | "update"
+            | "watch"
+            | "include"
+            | "exclude"
+            | "includeSource"
+            | "setupFiles"
+            | "globalSetup"
+            | "watchExclude"
+            | "forceRerunTriggers"
+            | "reporters"
+            | "projects"
+            | "workspace"
+            | "environmentMatchGlobs"
+            | "environmentOptions"
+            | "poolOptions"
+            | "sequence"
+            | "typecheck"
+            | "benchmark"
+            | "browser"
+            | "coverage"
+            | "css"
+            | "deps"
+            | "server"
+            | "fakeTimers"
+            | "expect"
+            | "chaiConfig"
+            | "snapshotFormat"
+            | "outputFile"
+            | "api"
+            | "uiBase"
+            | "root"
+            | "dir"
+            | "cacheDir"
+            | "mode"
+            | "testNamePattern"
+            | "testTimeout"
+            | "hookTimeout"
+            | "teardownTimeout"
+            | "maxWorkers"
+            | "minWorkers"
+            | "maxConcurrency"
+            | "retry"
+            | "bail"
+            | "slowTestThreshold"
+    )
+}
+
+fn vitest_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !vitest_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !vitest_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !vitest_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !vitest_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !vitest_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !vitest_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn vitest_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "environmentOptions"
+            | "poolOptions"
+            | "sequence"
+            | "typecheck"
+            | "benchmark"
+            | "browser"
+            | "coverage"
+            | "css"
+            | "deps"
+            | "server"
+            | "fakeTimers"
+            | "expect"
+            | "chaiConfig"
+            | "snapshotFormat"
+            | "outputFile"
+            | "api"
+    )
+}
+
+fn vitest_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "include"
+            | "exclude"
+            | "includeSource"
+            | "setupFiles"
+            | "globalSetup"
+            | "watchExclude"
+            | "forceRerunTriggers"
+            | "reporters"
+            | "projects"
+            | "workspace"
+            | "environmentMatchGlobs"
+    )
+}
+
+fn vitest_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "environment"
+            | "pool"
+            | "globalSetup"
+            | "outputFile"
+            | "uiBase"
+            | "root"
+            | "dir"
+            | "cacheDir"
+            | "mode"
+            | "testNamePattern"
+            | "maxWorkers"
+    )
+}
+
+fn vitest_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "fileParallelism"
+            | "isolate"
+            | "allowOnly"
+            | "dangerouslyIgnoreUnhandledErrors"
+            | "passWithNoTests"
+            | "clearMocks"
+            | "mockReset"
+            | "restoreMocks"
+            | "unstubEnvs"
+            | "unstubGlobals"
+            | "globals"
+            | "ui"
+            | "open"
+            | "hideSkippedTests"
+            | "logHeapUsage"
+            | "printConsoleTrace"
+            | "update"
+            | "watch"
+            | "css"
+            | "api"
+    )
+}
+
+fn vitest_json_number_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "testTimeout"
+            | "hookTimeout"
+            | "teardownTimeout"
+            | "maxWorkers"
+            | "minWorkers"
+            | "maxConcurrency"
+            | "retry"
+            | "bail"
+            | "slowTestThreshold"
+            | "api"
+    )
+}
+
+fn vitest_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "pool" => matches!(value, "threads" | "forks" | "vmThreads" | "vmForks"),
+        "mode" => matches!(value, "test" | "benchmark"),
+        "environment" | "globalSetup" | "outputFile" | "uiBase" | "root" | "dir" | "cacheDir"
+        | "testNamePattern" | "maxWorkers" => true,
         _ => false,
     }
 }
@@ -79690,7 +79993,7 @@ mod func_like_line_tests {
         is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl,
         is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
         is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
+        is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl, is_vitest_json_decl,
         is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
         is_wails_json_decl, is_webextension_manifest_json_decl, is_wireguard_config_decl,
         is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
@@ -96977,7 +97280,7 @@ mod func_like_line_tests {
         assert!(is_package_json_decl(r#""scripts": {"#));
         assert!(!is_jest_json_decl(r#""compilerOptions": {"#));
         assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
-        // Distinctive Jest keys stay out of CSpell / Oxlint / Knip / Playwright.
+        // Distinctive Jest keys stay out of CSpell / Oxlint / Knip / Playwright / Vitest.
         assert!(!is_cspell_json_decl(r#""testEnvironment": "node""#));
         assert!(!is_cspell_json_decl(r#""setupFilesAfterEnv": ["#));
         assert!(!is_cspell_json_decl(r#""coverageProvider": "v8""#));
@@ -96989,6 +97292,9 @@ mod func_like_line_tests {
         assert!(!is_playwright_json_decl(r#""setupFilesAfterEnv": ["#));
         assert!(!is_playwright_json_decl(r#""coverageProvider": "v8""#));
         assert!(!is_playwright_json_decl(r#""clearMocks": true"#));
+        assert!(!is_vitest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_vitest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_vitest_json_decl(r#""coverageProvider": "v8""#));
         // Shared / distinctive shapes list via Jest scanner.
         assert!(line_is_func_like(r#""testEnvironment": "node""#));
         assert!(line_is_func_like(r#""testMatch": ["#));
@@ -97120,13 +97426,18 @@ mod func_like_line_tests {
         assert!(is_package_json_decl(r#""scripts": {"#));
         assert!(!is_playwright_json_decl(r#""compilerOptions": {"#));
         assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
-        // Distinctive Playwright keys stay out of Jest / CSpell / Oxlint / Knip.
+        // Distinctive Playwright keys stay out of Jest / Vitest / CSpell / Oxlint / Knip.
         assert!(!is_jest_json_decl(r#""testDir": "tests""#));
         assert!(!is_jest_json_decl(r#""fullyParallel": true"#));
         assert!(!is_jest_json_decl(r#""forbidOnly": true"#));
         assert!(!is_jest_json_decl(r#""webServer": {"#));
         assert!(!is_jest_json_decl(r#""preserveOutput": "always""#));
         assert!(!is_jest_json_decl(r#""updateSnapshots": "all""#));
+        assert!(!is_vitest_json_decl(r#""testDir": "tests""#));
+        assert!(!is_vitest_json_decl(r#""fullyParallel": true"#));
+        assert!(!is_vitest_json_decl(r#""forbidOnly": true"#));
+        assert!(!is_vitest_json_decl(r#""webServer": {"#));
+        assert!(!is_vitest_json_decl(r#""preserveOutput": "always""#));
         assert!(!is_cspell_json_decl(r#""testDir": "tests""#));
         assert!(!is_cspell_json_decl(r#""fullyParallel": true"#));
         assert!(!is_oxlint_json_decl(r#""testDir": "tests""#));
@@ -97140,6 +97451,185 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""updateSnapshots": "changed""#));
         assert!(line_is_func_like(r#""use": {"#));
         assert!(line_is_func_like(r#""projects": ["#));
+    }
+
+    #[test]
+    fn vitest_json_keys_count() {
+        assert!(is_vitest_json_decl(r#""environment": "node""#));
+        assert!(is_vitest_json_decl(r#""environment": "jsdom""#));
+        assert!(is_vitest_json_decl(r#""environment": "happy-dom""#));
+        assert!(is_vitest_json_decl(r#""environment": "edge-runtime""#));
+        assert!(is_vitest_json_decl(
+            r#""environment": "@vitest/browser-playwright""#
+        ));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "forks""#));
+        assert!(is_vitest_json_decl(r#""pool": "vmThreads""#));
+        assert!(is_vitest_json_decl(r#""pool": "vmForks""#));
+        assert!(is_vitest_json_decl(r#""fileParallelism": true"#));
+        assert!(is_vitest_json_decl(r#""isolate": false,"#));
+        assert!(is_vitest_json_decl(r#""allowOnly": true"#));
+        assert!(is_vitest_json_decl(
+            r#""dangerouslyIgnoreUnhandledErrors": true"#
+        ));
+        assert!(is_vitest_json_decl(r#""passWithNoTests": true"#));
+        assert!(is_vitest_json_decl(r#""clearMocks": true"#));
+        assert!(is_vitest_json_decl(r#""mockReset": true"#));
+        assert!(is_vitest_json_decl(r#""restoreMocks": false"#));
+        assert!(is_vitest_json_decl(r#""unstubEnvs": true"#));
+        assert!(is_vitest_json_decl(r#""unstubGlobals": true"#));
+        assert!(is_vitest_json_decl(r#""globals": true"#));
+        assert!(is_vitest_json_decl(r#""ui": true"#));
+        assert!(is_vitest_json_decl(r#""open": false"#));
+        assert!(is_vitest_json_decl(r#""hideSkippedTests": true"#));
+        assert!(is_vitest_json_decl(r#""logHeapUsage": true"#));
+        assert!(is_vitest_json_decl(r#""printConsoleTrace": true"#));
+        assert!(is_vitest_json_decl(r#""update": true"#));
+        assert!(is_vitest_json_decl(r#""watch": false"#));
+        assert!(is_vitest_json_decl(r#""include": ["#));
+        assert!(is_vitest_json_decl(r#""exclude": ["#));
+        assert!(is_vitest_json_decl(r#""includeSource": ["#));
+        assert!(is_vitest_json_decl(r#""setupFiles": ["#));
+        assert!(is_vitest_json_decl(r#""globalSetup": "./setup.ts""#));
+        assert!(is_vitest_json_decl(r#""globalSetup": ["#));
+        assert!(is_vitest_json_decl(r#""watchExclude": ["#));
+        assert!(is_vitest_json_decl(r#""forceRerunTriggers": ["#));
+        assert!(is_vitest_json_decl(r#""reporters": ["#));
+        assert!(is_vitest_json_decl(r#""projects": ["#));
+        assert!(is_vitest_json_decl(r#""workspace": ["#));
+        assert!(is_vitest_json_decl(r#""environmentMatchGlobs": ["#));
+        assert!(is_vitest_json_decl(r#""environmentOptions": {"#));
+        assert!(is_vitest_json_decl(r#""poolOptions": {"#));
+        assert!(is_vitest_json_decl(r#""sequence": {"#));
+        assert!(is_vitest_json_decl(r#""typecheck": {"#));
+        assert!(is_vitest_json_decl(r#""benchmark": {"#));
+        assert!(is_vitest_json_decl(r#""browser": {"#));
+        assert!(is_vitest_json_decl(r#""coverage": {"#));
+        assert!(is_vitest_json_decl(r#""css": {"#));
+        assert!(is_vitest_json_decl(r#""css": true"#));
+        assert!(is_vitest_json_decl(r#""deps": {"#));
+        assert!(is_vitest_json_decl(r#""server": {"#));
+        assert!(is_vitest_json_decl(r#""fakeTimers": {"#));
+        assert!(is_vitest_json_decl(r#""expect": {"#));
+        assert!(is_vitest_json_decl(r#""chaiConfig": {"#));
+        assert!(is_vitest_json_decl(r#""snapshotFormat": {"#));
+        assert!(is_vitest_json_decl(r#""outputFile": {"#));
+        assert!(is_vitest_json_decl(r#""outputFile": "report.json""#));
+        assert!(is_vitest_json_decl(r#""api": {"#));
+        assert!(is_vitest_json_decl(r#""api": true"#));
+        assert!(is_vitest_json_decl(r#""api": 51204"#));
+        assert!(is_vitest_json_decl(r#""uiBase": "/""#));
+        assert!(is_vitest_json_decl(r#""root": ".""#));
+        assert!(is_vitest_json_decl(r#""dir": "tests""#));
+        assert!(is_vitest_json_decl(r#""cacheDir": "node_modules/.vitest""#));
+        assert!(is_vitest_json_decl(r#""mode": "test""#));
+        assert!(is_vitest_json_decl(r#""mode": "benchmark""#));
+        assert!(is_vitest_json_decl(r#""testNamePattern": "smoke""#));
+        assert!(is_vitest_json_decl(r#""testTimeout": 5000"#));
+        assert!(is_vitest_json_decl(r#""hookTimeout": 10000"#));
+        assert!(is_vitest_json_decl(r#""teardownTimeout": 10000"#));
+        assert!(is_vitest_json_decl(r#""maxWorkers": 4"#));
+        assert!(is_vitest_json_decl(r#""maxWorkers": "50%""#));
+        assert!(is_vitest_json_decl(r#""minWorkers": 1"#));
+        assert!(is_vitest_json_decl(r#""maxConcurrency": 5"#));
+        assert!(is_vitest_json_decl(r#""retry": 1"#));
+        assert!(is_vitest_json_decl(r#""bail": 1"#));
+        assert!(is_vitest_json_decl(r#""slowTestThreshold": 300"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_vitest_json_decl(r#""environment""#));
+        assert!(!is_vitest_json_decl(r#""environment":"#));
+        assert!(!is_vitest_json_decl(r#""environment: "node""#));
+        assert!(!is_vitest_json_decl(r#""environment": ["#));
+        assert!(!is_vitest_json_decl(r#""pool": "workers""#));
+        assert!(!is_vitest_json_decl(r#""mode": "watch""#));
+        assert!(!is_vitest_json_decl(r#""include": {"#));
+        assert!(!is_vitest_json_decl(r#""coverage": ["#));
+        assert!(!is_vitest_json_decl(r#""fileParallelism": ["#));
+        assert!(!is_vitest_json_decl(r#""testTimeout": true"#));
+        assert!(!is_vitest_json_decl(r#""environment": """#));
+        // Generic / neighbouring stay out.
+        assert!(!is_vitest_json_decl(
+            r#""$schema": "https://json.schemastore.org/vitest""#
+        ));
+        assert!(!is_vitest_json_decl(r#""name": "unit""#));
+        assert!(!is_vitest_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_vitest_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_vitest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(is_jest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_vitest_json_decl(r#""coverageProvider": "v8""#));
+        assert!(is_jest_json_decl(r#""coverageProvider": "v8""#));
+        assert!(!is_vitest_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_vitest_json_decl(r#""fullyParallel": true"#));
+        assert!(is_playwright_json_decl(r#""fullyParallel": true"#));
+        assert!(!is_vitest_json_decl(r#""forbidOnly": true"#));
+        assert!(is_playwright_json_decl(r#""forbidOnly": true"#));
+        assert!(!is_vitest_json_decl(r#""webServer": {"#));
+        assert!(is_playwright_json_decl(r#""webServer": {"#));
+        assert!(!is_vitest_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_vitest_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_vitest_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_vitest_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_vitest_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_vitest_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_vitest_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_vitest_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_vitest_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_vitest_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_vitest_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_vitest_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_vitest_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_vitest_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_vitest_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive Vitest keys stay out of Jest / Playwright / CSpell / Oxlint / Knip.
+        assert!(!is_jest_json_decl(r#""environment": "node""#));
+        assert!(!is_jest_json_decl(r#""pool": "threads""#));
+        assert!(!is_jest_json_decl(r#""fileParallelism": true"#));
+        assert!(!is_jest_json_decl(r#""hookTimeout": 10000"#));
+        assert!(!is_jest_json_decl(r#""browser": {"#));
+        assert!(!is_jest_json_decl(r#""typecheck": {"#));
+        assert!(!is_playwright_json_decl(r#""environment": "node""#));
+        assert!(!is_playwright_json_decl(r#""pool": "threads""#));
+        assert!(!is_playwright_json_decl(r#""fileParallelism": true"#));
+        assert!(!is_playwright_json_decl(r#""hookTimeout": 10000"#));
+        assert!(!is_cspell_json_decl(r#""environment": "node""#));
+        assert!(!is_cspell_json_decl(r#""pool": "threads""#));
+        assert!(!is_oxlint_json_decl(r#""environment": "node""#));
+        assert!(!is_knip_json_decl(r#""environment": "node""#));
+        assert!(!is_knip_json_decl(r#""pool": "threads""#));
+        // Shared / distinctive shapes list via Vitest scanner.
+        assert!(line_is_func_like(r#""environment": "happy-dom""#));
+        assert!(line_is_func_like(r#""pool": "forks""#));
+        assert!(line_is_func_like(r#""fileParallelism": true"#));
+        assert!(line_is_func_like(r#""hookTimeout": 10000"#));
+        assert!(line_is_func_like(r#""browser": {"#));
+        assert!(line_is_func_like(r#""typecheck": {"#));
+        assert!(line_is_func_like(r#""includeSource": ["#));
+        assert!(line_is_func_like(r#""mockReset": true"#));
     }
 
     #[test]
