@@ -32386,6 +32386,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_firebase_json_decl(s)
             || is_tauri_json_decl(s)
             || is_capacitor_json_decl(s)
+            || is_ionic_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32682,6 +32683,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_firebase_json_decl(s)
         || is_tauri_json_decl(s)
         || is_capacitor_json_decl(s)
+        || is_ionic_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -44670,9 +44672,10 @@ fn tauri_json_identifier_ok(value: &str) -> bool {
 /// `"handleApplicationNotifications": true`, `"scrollEnabled": true`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
-/// `"app": {` / tauri `"productName"` / `"identifier"` /
-/// `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` / firebase
-/// `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel
+/// `"app": {` / ionic `"integrations"` / `"proxies"` / `"watchPatterns"` /
+/// `"documentRoot"` / `"type": "angular"` / tauri `"productName"` /
+/// `"identifier"` / `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` /
+/// firebase `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel
 /// `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
 /// `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` /
 /// changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` /
@@ -44821,6 +44824,137 @@ fn capacitor_json_string_ok(key: &str, value: &str) -> bool {
         "loggingBehavior" => matches!(value, "none" | "debug" | "production"),
         "appName" | "webDir" | "backgroundColor" | "overrideUserAgent" | "appendUserAgent"
         | "androidScheme" | "iosScheme" => true,
+        _ => false,
+    }
+}
+
+/// Ionic `ionic.config.json` JSON keys:
+/// `"integrations": {`, `"hooks": {`, `"proxies": [`, `"watchPatterns": [`,
+/// `"documentRoot": "…"`, `"type": "angular"` / `"angular-standalone"` /
+/// `"react"` / `"react-vite"` / `"vue"` / `"vue-vite"` / `"custom"` /
+/// `"ionic-angular"` / `"ionic1"`, `"npmClient": "npm"` / `"yarn"` /
+/// `"pnpm"` / `"bun"`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"id"` / `"version"` / `"app": {` / capacitor `"appId"` /
+/// `"appName"` / `"webDir"` / `"bundledWebRuntime"` / `"server"` /
+/// `"cordova"` / tauri `"productName"` / `"identifier"` /
+/// `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` / firebase
+/// `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel
+/// `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
+/// `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` /
+/// changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` /
+/// lerna `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` /
+/// `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` /
+/// nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel
+/// `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` /
+/// `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` /
+/// biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` /
+/// package.json `"scripts"` stay out. Shared `"npmClient"` also matches
+/// lerna when shapes match; shared `"plugins": {` stays on capacitor /
+/// PostCSS.
+fn is_ionic_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !ionic_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    ionic_json_value_and_tail_ok(key, after_colon)
+}
+
+fn ionic_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "integrations"
+            | "hooks"
+            | "proxies"
+            | "watchPatterns"
+            | "documentRoot"
+            | "type"
+            | "npmClient"
+    )
+}
+
+fn ionic_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !ionic_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !ionic_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !ionic_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !ionic_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        _ => false,
+    }
+}
+
+fn ionic_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "integrations" | "hooks")
+}
+
+fn ionic_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "proxies" | "watchPatterns")
+}
+
+fn ionic_json_string_key_ok(key: &str) -> bool {
+    matches!(key, "documentRoot" | "type" | "npmClient")
+}
+
+fn ionic_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "type" => matches!(
+            value,
+            "angular"
+                | "angular-standalone"
+                | "react"
+                | "react-vite"
+                | "vue"
+                | "vue-vite"
+                | "custom"
+                | "ionic-angular"
+                | "ionic1"
+        ),
+        "npmClient" => matches!(value, "npm" | "yarn" | "pnpm" | "bun"),
+        "documentRoot" => true,
         _ => false,
     }
 }
@@ -75453,27 +75587,28 @@ mod func_like_line_tests {
         is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
         is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
         is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
-        is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
-        is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
-        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
-        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
-        is_postcss_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
-        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
-        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
-        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
-        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
-        is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
-        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
+        is_keepalived_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
+        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
+        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl,
+        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
+        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl,
+        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
+        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
+        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
+        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_refurb_toml_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
+        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
         is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
@@ -88118,6 +88253,185 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""server": {"#));
         assert!(line_is_func_like(r#""cordova": {"#));
         assert!(line_is_func_like(r#""includePlugins": ["#));
+        // Ionic neighbouring keys stay out of capacitor.
+        assert!(!is_capacitor_json_decl(r#""integrations": {"#));
+        assert!(is_ionic_json_decl(r#""integrations": {"#));
+        assert!(!is_capacitor_json_decl(r#""proxies": ["#));
+        assert!(is_ionic_json_decl(r#""proxies": ["#));
+        assert!(!is_capacitor_json_decl(r#""watchPatterns": ["#));
+        assert!(is_ionic_json_decl(r#""watchPatterns": ["#));
+        assert!(!is_capacitor_json_decl(r#""documentRoot": "www""#));
+        assert!(is_ionic_json_decl(r#""documentRoot": "www""#));
+        assert!(!is_capacitor_json_decl(r#""type": "angular""#));
+        assert!(is_ionic_json_decl(r#""type": "angular""#));
+    }
+
+    #[test]
+    fn ionic_json_keys_count() {
+        assert!(is_ionic_json_decl(r#""integrations": {"#));
+        assert!(is_ionic_json_decl(r#""integrations": { // cap"#));
+        assert!(is_ionic_json_decl(r#""hooks": {"#));
+        assert!(is_ionic_json_decl(r#""hooks": {},"#));
+        assert!(is_ionic_json_decl(r#""proxies": ["#));
+        assert!(is_ionic_json_decl(r#""proxies": [ // api"#));
+        assert!(is_ionic_json_decl(r#""watchPatterns": ["#));
+        assert!(is_ionic_json_decl(r#""documentRoot": "www""#));
+        assert!(is_ionic_json_decl(r#""documentRoot": "www","#));
+        assert!(is_ionic_json_decl(r#""type": "angular""#));
+        assert!(is_ionic_json_decl(r#""type": "angular-standalone""#));
+        assert!(is_ionic_json_decl(r#""type": "react""#));
+        assert!(is_ionic_json_decl(r#""type": "react-vite""#));
+        assert!(is_ionic_json_decl(r#""type": "vue""#));
+        assert!(is_ionic_json_decl(r#""type": "vue-vite""#));
+        assert!(is_ionic_json_decl(r#""type": "custom""#));
+        assert!(is_ionic_json_decl(r#""type": "ionic-angular""#));
+        assert!(is_ionic_json_decl(r#""type": "ionic1""#));
+        assert!(is_ionic_json_decl(r#""npmClient": "npm""#));
+        assert!(is_ionic_json_decl(r#""npmClient": "yarn","#));
+        assert!(is_ionic_json_decl(r#""npmClient": "pnpm""#));
+        assert!(is_ionic_json_decl(r#""npmClient": "bun""#));
+        // Incomplete / wrong shape stay out.
+        assert!(!is_ionic_json_decl(r#""integrations""#));
+        assert!(!is_ionic_json_decl(r#""integrations":"#));
+        assert!(!is_ionic_json_decl(r#"integrations: {"#));
+        assert!(!is_ionic_json_decl(r#""Integrations": {"#));
+        assert!(!is_ionic_json_decl(r#""integrations": ["#));
+        assert!(!is_ionic_json_decl(r#""integrations": "capacitor""#));
+        assert!(!is_ionic_json_decl(r#""hooks": ["#));
+        assert!(!is_ionic_json_decl(r#""proxies": {"#));
+        assert!(!is_ionic_json_decl(r#""proxies": "api""#));
+        assert!(!is_ionic_json_decl(r#""watchPatterns": {"#));
+        assert!(!is_ionic_json_decl(r#""documentRoot": {"#));
+        assert!(!is_ionic_json_decl(r#""documentRoot": ["#));
+        assert!(!is_ionic_json_decl(r#""documentRoot": """#));
+        assert!(!is_ionic_json_decl(r#""documentRoot": true"#));
+        assert!(!is_ionic_json_decl(r#""type": "nextjs""#));
+        assert!(!is_ionic_json_decl(r#""type": {"#));
+        assert!(!is_ionic_json_decl(r#""type": ["#));
+        assert!(!is_ionic_json_decl(r#""type": true"#));
+        assert!(!is_ionic_json_decl(r#""npmClient": "pnpmish""#));
+        assert!(!is_ionic_json_decl(r#""npmClient": true"#));
+        assert!(!is_ionic_json_decl(r#""npmClient": {"#));
+        // Same-line members are not opening-key lines.
+        assert!(!is_ionic_json_decl(r#""integrations": {"capacitor": {}},"#));
+        assert!(!is_ionic_json_decl(
+            r#""proxies": [{"path": "/api", "proxyUrl": "http://localhost:3000"}],"#
+        ));
+        assert!(!is_ionic_json_decl(
+            r#""$schema": "https://json.schemastore.org/ionicconfig.json""#
+        ));
+        assert!(!is_ionic_json_decl(r#""name": "my-app""#));
+        assert!(!is_ionic_json_decl(r#""id": "abc123""#));
+        assert!(!is_ionic_json_decl(r#""version": "0.1.0""#));
+        assert!(!is_ionic_json_decl(r#""app": {"#));
+        // Neighbouring families stay out.
+        assert!(!is_ionic_json_decl(r#""appId": "com.example.app""#));
+        assert!(is_capacitor_json_decl(r#""appId": "com.example.app""#));
+        assert!(!is_ionic_json_decl(r#""appName": "MyApp""#));
+        assert!(is_capacitor_json_decl(r#""appName": "MyApp""#));
+        assert!(!is_ionic_json_decl(r#""webDir": "dist""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "dist""#));
+        assert!(!is_ionic_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(!is_ionic_json_decl(r#""server": {"#));
+        assert!(is_capacitor_json_decl(r#""server": {"#));
+        assert!(!is_ionic_json_decl(r#""cordova": {"#));
+        assert!(is_capacitor_json_decl(r#""cordova": {"#));
+        assert!(!is_ionic_json_decl(r#""productName": "App""#));
+        assert!(is_tauri_json_decl(r#""productName": "App""#));
+        assert!(!is_ionic_json_decl(r#""identifier": "com.example.app""#));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_ionic_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_ionic_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+        assert!(!is_ionic_json_decl(r#""frontendDist": "../dist""#));
+        assert!(is_tauri_json_decl(r#""frontendDist": "../dist""#));
+        assert!(!is_ionic_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_ionic_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_ionic_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_ionic_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(!is_ionic_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_ionic_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_ionic_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_ionic_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_ionic_json_decl(r#""regions": ["#));
+        assert!(is_vercel_json_decl(r#""regions": ["#));
+        assert!(!is_ionic_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_ionic_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_ionic_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_ionic_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_ionic_json_decl(r#""baseBranch": "main""#));
+        assert!(is_changesets_json_decl(r#""baseBranch": "main""#));
+        assert!(!is_ionic_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_ionic_json_decl(r#""projects": ["#));
+        assert!(is_rush_json_decl(r#""projects": ["#));
+        assert!(!is_ionic_json_decl(r#""useWorkspaces": true"#));
+        assert!(is_lerna_json_decl(r#""useWorkspaces": true"#));
+        assert!(!is_ionic_json_decl(r#""packages": ["#));
+        assert!(is_lerna_json_decl(r#""packages": ["#));
+        assert!(!is_ionic_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_ionic_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_ionic_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_ionic_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(!is_ionic_json_decl(r#""envMode": "loose""#));
+        assert!(is_turbo_json_decl(r#""envMode": "loose""#));
+        assert!(!is_ionic_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_ionic_json_decl(r#""targetDefaults": {"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(!is_ionic_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(!is_ionic_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_ionic_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_ionic_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_ionic_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_ionic_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_ionic_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_ionic_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_ionic_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_ionic_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_ionic_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_ionic_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared `"npmClient"` matches both ionic and lerna.
+        assert!(is_ionic_json_decl(r#""npmClient": "npm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "npm""#));
+        // Shared scanner lists ionic keys.
+        assert!(line_is_func_like(r#""integrations": {"#));
+        assert!(line_is_func_like(r#""hooks": {"#));
+        assert!(line_is_func_like(r#""proxies": ["#));
+        assert!(line_is_func_like(r#""watchPatterns": ["#));
+        assert!(line_is_func_like(r#""documentRoot": "www""#));
+        assert!(line_is_func_like(r#""type": "angular-standalone""#));
+        assert!(line_is_func_like(r#""npmClient": "pnpm""#));
     }
 
     #[test]
