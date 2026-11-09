@@ -32392,6 +32392,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_angular_json_decl(s)
             || is_nest_cli_json_decl(s)
             || is_wails_json_decl(s)
+            || is_electron_builder_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32694,6 +32695,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_angular_json_decl(s)
         || is_nest_cli_json_decl(s)
         || is_wails_json_decl(s)
+        || is_electron_builder_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -45997,11 +45999,12 @@ fn nest_cli_json_string_ok(key: &str, value: &str) -> bool {
 /// `"expo"` / `"slug"` / ionic `"integrations"` / `"hooks"` / capacitor
 /// `"appId"` / `"appName"` / `"webDir"` / `"bundledWebRuntime"` / tauri
 /// `"productName"` / `"identifier"` / `"withGlobalTauri"` / `"allowlist"` /
-/// `"frontendDist"` / firebase `"hosting"` / `"firestore"` /
-/// `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` /
-/// `"headers"` / `"crons"` / `"regions"` / `"framework"` /
-/// `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets
-/// `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna
+/// `"frontendDist"` / electron-builder `"directories"` / `"asar"` /
+/// `"electronVersion"` / `"artifactName"` / `"nsis": {` / firebase
+/// `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel
+/// `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
+/// `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` /
+/// changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna
 /// `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` /
 /// `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` /
 /// nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel
@@ -46188,6 +46191,247 @@ fn wails_json_string_ok(key: &str, value: &str) -> bool {
         | "devServer"
         | "appargs"
         | "garbleargs" => true,
+        _ => false,
+    }
+}
+
+/// electron-builder `electron-builder.json` / `electron-builder.yml`
+/// JSON keys (JSON form): `"directories": {`, `"nsis": {`, `"dmg": {`,
+/// `"mac": {`, `"win": {`, `"linux": {`, `"mas": {`, `"pkg": {`,
+/// `"portable": {`, `"appx": {`, `"snap": {`, `"appImage": {`,
+/// `"flatpak": {`, `"squirrelWindows": {`, `"extraMetadata": {`,
+/// `"files": [`, `"extraResources": [`, `"extraFiles": [`,
+/// `"fileAssociations": [`, `"protocols": [`, `"asarUnpack": [` / `"…"`,
+/// `"electronVersion": "…"`, `"electronDist": "…"`,
+/// `"artifactName": "…"`, `"copyright": "…"`, `"icon": "…"`,
+/// `"afterSign": "…"`, `"afterPack": "…"`, `"beforePack": "…"`,
+/// `"beforeBuild": "…"`, `"afterAllArtifactBuild": "…"`,
+/// `"buildVersion": "…"`, `"compression": "store"` / `"normal"` /
+/// `"maximum"`, `"asar": true`, `"nodeGypRebuild": true`,
+/// `"npmRebuild": true`, `"buildDependenciesFromSource": true`,
+/// `"forceCodeSigning": true`, `"removePackageScripts": true`,
+/// `"removePackageKeywords": true`, `"includeSubNodeModules": true`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// `"appId"` / `"productName"` / `"extends"` / `"publish"` / wails
+/// `"assetdir"` / `"frontend:dir"` / `"wailsjsdir"` / `"nsisType"` /
+/// `"debounceMS"` / `"obfuscated"` / `"bindings"` / nest-cli
+/// `"collection"` / `"entryFile"` / `"generateOptions"` / angular
+/// `"architect"` / `"schematics"` / `"projectType"` / eas `"submit"` /
+/// `"developmentClient"` / expo `"expo"` / `"slug"` / ionic
+/// `"integrations"` / `"hooks"` / capacitor `"appId"` / `"appName"` /
+/// `"webDir"` / `"bundledWebRuntime"` / tauri `"productName"` /
+/// `"identifier"` / `"withGlobalTauri"` / `"allowlist"` /
+/// `"frontendDist"` / firebase `"hosting"` / `"firestore"` /
+/// `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` /
+/// `"headers"` / `"crons"` / `"regions"` / `"framework"` /
+/// `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets
+/// `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna
+/// `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` /
+/// `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` /
+/// nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel
+/// `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` /
+/// `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` /
+/// biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` /
+/// package.json `"scripts": {` stay out.
+fn is_electron_builder_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !electron_builder_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    electron_builder_json_value_and_tail_ok(key, after_colon)
+}
+
+fn electron_builder_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "directories"
+            | "nsis"
+            | "dmg"
+            | "mac"
+            | "win"
+            | "linux"
+            | "mas"
+            | "pkg"
+            | "portable"
+            | "appx"
+            | "snap"
+            | "appImage"
+            | "flatpak"
+            | "squirrelWindows"
+            | "extraMetadata"
+            | "files"
+            | "extraResources"
+            | "extraFiles"
+            | "fileAssociations"
+            | "protocols"
+            | "asarUnpack"
+            | "electronVersion"
+            | "electronDist"
+            | "artifactName"
+            | "copyright"
+            | "icon"
+            | "afterSign"
+            | "afterPack"
+            | "beforePack"
+            | "beforeBuild"
+            | "afterAllArtifactBuild"
+            | "buildVersion"
+            | "compression"
+            | "asar"
+            | "nodeGypRebuild"
+            | "npmRebuild"
+            | "buildDependenciesFromSource"
+            | "forceCodeSigning"
+            | "removePackageScripts"
+            | "removePackageKeywords"
+            | "includeSubNodeModules"
+    )
+}
+
+fn electron_builder_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !electron_builder_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !electron_builder_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !electron_builder_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !electron_builder_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !electron_builder_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn electron_builder_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "directories"
+            | "nsis"
+            | "dmg"
+            | "mac"
+            | "win"
+            | "linux"
+            | "mas"
+            | "pkg"
+            | "portable"
+            | "appx"
+            | "snap"
+            | "appImage"
+            | "flatpak"
+            | "squirrelWindows"
+            | "extraMetadata"
+    )
+}
+
+fn electron_builder_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "files" | "extraResources" | "extraFiles" | "fileAssociations" | "protocols" | "asarUnpack"
+    )
+}
+
+fn electron_builder_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "asarUnpack"
+            | "electronVersion"
+            | "electronDist"
+            | "artifactName"
+            | "copyright"
+            | "icon"
+            | "afterSign"
+            | "afterPack"
+            | "beforePack"
+            | "beforeBuild"
+            | "afterAllArtifactBuild"
+            | "buildVersion"
+            | "compression"
+    )
+}
+
+fn electron_builder_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "asar"
+            | "nodeGypRebuild"
+            | "npmRebuild"
+            | "buildDependenciesFromSource"
+            | "forceCodeSigning"
+            | "removePackageScripts"
+            | "removePackageKeywords"
+            | "includeSubNodeModules"
+    )
+}
+
+fn electron_builder_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "compression" => matches!(value, "store" | "normal" | "maximum"),
+        "asarUnpack"
+        | "electronVersion"
+        | "electronDist"
+        | "artifactName"
+        | "copyright"
+        | "icon"
+        | "afterSign"
+        | "afterPack"
+        | "beforePack"
+        | "beforeBuild"
+        | "afterAllArtifactBuild"
+        | "buildVersion" => true,
         _ => false,
     }
 }
@@ -76815,11 +77059,11 @@ mod func_like_line_tests {
         is_crypttab_decl, is_darglint_ini_decl, is_default_grub_decl, is_deny_toml_decl,
         is_desktop_entry_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
         is_doc8_ini_decl, is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl,
-        is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl, is_eslint_json_decl,
-        is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl, is_firebase_json_decl,
-        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl,
-        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl, is_electron_builder_json_decl,
+        is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl,
+        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
+        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
         is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
         is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
         is_keepalived_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
@@ -90933,6 +91177,307 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""obfuscated": true"#));
         assert!(line_is_func_like(r#""preBuildHooks": {"#));
         assert!(line_is_func_like(r#""bindings": {"#));
+        // electron-builder neighbouring keys stay out of wails.
+        assert!(!is_wails_json_decl(r#""directories": {"#));
+        assert!(is_electron_builder_json_decl(r#""directories": {"#));
+        assert!(!is_wails_json_decl(r#""asar": true"#));
+        assert!(is_electron_builder_json_decl(r#""asar": true"#));
+        assert!(!is_wails_json_decl(r#""electronVersion": "28.0.0""#));
+        assert!(is_electron_builder_json_decl(
+            r#""electronVersion": "28.0.0""#
+        ));
+        assert!(!is_wails_json_decl(r#""artifactName": "${name}.${ext}""#));
+        assert!(is_electron_builder_json_decl(
+            r#""artifactName": "${name}.${ext}""#
+        ));
+        assert!(!is_wails_json_decl(r#""nsis": {"#));
+        assert!(is_electron_builder_json_decl(r#""nsis": {"#));
+        assert!(!is_wails_json_decl(r#""extraResources": ["#));
+        assert!(is_electron_builder_json_decl(r#""extraResources": ["#));
+        assert!(!is_wails_json_decl(r#""compression": "maximum""#));
+        assert!(is_electron_builder_json_decl(r#""compression": "maximum""#));
+    }
+
+    #[test]
+    fn electron_builder_json_keys_count() {
+        assert!(is_electron_builder_json_decl(r#""directories": {"#));
+        assert!(is_electron_builder_json_decl(r#""directories": { // out"#));
+        assert!(is_electron_builder_json_decl(r#""nsis": {"#));
+        assert!(is_electron_builder_json_decl(r#""dmg": {"#));
+        assert!(is_electron_builder_json_decl(r#""mac": {"#));
+        assert!(is_electron_builder_json_decl(r#""win": {"#));
+        assert!(is_electron_builder_json_decl(r#""linux": {"#));
+        assert!(is_electron_builder_json_decl(r#""mas": {"#));
+        assert!(is_electron_builder_json_decl(r#""pkg": {"#));
+        assert!(is_electron_builder_json_decl(r#""portable": {"#));
+        assert!(is_electron_builder_json_decl(r#""appx": {"#));
+        assert!(is_electron_builder_json_decl(r#""snap": {"#));
+        assert!(is_electron_builder_json_decl(r#""appImage": {"#));
+        assert!(is_electron_builder_json_decl(r#""flatpak": {"#));
+        assert!(is_electron_builder_json_decl(r#""squirrelWindows": {"#));
+        assert!(is_electron_builder_json_decl(r#""extraMetadata": {"#));
+        assert!(is_electron_builder_json_decl(r#""files": ["#));
+        assert!(is_electron_builder_json_decl(r#""files": [ // globs"#));
+        assert!(is_electron_builder_json_decl(r#""extraResources": ["#));
+        assert!(is_electron_builder_json_decl(r#""extraFiles": ["#));
+        assert!(is_electron_builder_json_decl(r#""fileAssociations": ["#));
+        assert!(is_electron_builder_json_decl(r#""protocols": ["#));
+        assert!(is_electron_builder_json_decl(r#""asarUnpack": ["#));
+        assert!(is_electron_builder_json_decl(
+            r#""asarUnpack": "**/*.node""#
+        ));
+        assert!(is_electron_builder_json_decl(
+            r#""electronVersion": "28.0.0""#
+        ));
+        assert!(is_electron_builder_json_decl(
+            r#""electronVersion": "28.0.0","#
+        ));
+        assert!(is_electron_builder_json_decl(
+            r#""electronDist": "/opt/electron""#
+        ));
+        assert!(is_electron_builder_json_decl(
+            r#""artifactName": "${productName}-${version}.${ext}""#
+        ));
+        assert!(is_electron_builder_json_decl(
+            r#""copyright": "Copyright © 2026""#
+        ));
+        assert!(is_electron_builder_json_decl(r#""icon": "build/icon.png""#));
+        assert!(is_electron_builder_json_decl(
+            r#""afterSign": "./afterSign.js""#
+        ));
+        assert!(is_electron_builder_json_decl(
+            r#""afterPack": "./afterPack.js""#
+        ));
+        assert!(is_electron_builder_json_decl(
+            r#""beforePack": "./beforePack.js""#
+        ));
+        assert!(is_electron_builder_json_decl(
+            r#""beforeBuild": "./beforeBuild.js""#
+        ));
+        assert!(is_electron_builder_json_decl(
+            r#""afterAllArtifactBuild": "./afterAll.js""#
+        ));
+        assert!(is_electron_builder_json_decl(r#""buildVersion": "1.2.3""#));
+        assert!(is_electron_builder_json_decl(r#""compression": "store""#));
+        assert!(is_electron_builder_json_decl(r#""compression": "normal""#));
+        assert!(is_electron_builder_json_decl(r#""compression": "maximum""#));
+        assert!(is_electron_builder_json_decl(r#""asar": true"#));
+        assert!(is_electron_builder_json_decl(r#""asar": false,"#));
+        assert!(is_electron_builder_json_decl(r#""nodeGypRebuild": true"#));
+        assert!(is_electron_builder_json_decl(r#""npmRebuild": false"#));
+        assert!(is_electron_builder_json_decl(
+            r#""buildDependenciesFromSource": true"#
+        ));
+        assert!(is_electron_builder_json_decl(r#""forceCodeSigning": true"#));
+        assert!(is_electron_builder_json_decl(
+            r#""removePackageScripts": true"#
+        ));
+        assert!(is_electron_builder_json_decl(
+            r#""removePackageKeywords": true"#
+        ));
+        assert!(is_electron_builder_json_decl(
+            r#""includeSubNodeModules": false"#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_electron_builder_json_decl(r#""directories""#));
+        assert!(!is_electron_builder_json_decl(r#""directories":"#));
+        assert!(!is_electron_builder_json_decl(r#"directories: {"#));
+        assert!(!is_electron_builder_json_decl(r#""Directories": {"#));
+        assert!(!is_electron_builder_json_decl(r#""directories": ["#));
+        assert!(!is_electron_builder_json_decl(r#""directories": true"#));
+        assert!(!is_electron_builder_json_decl(r#""files": {"#));
+        assert!(!is_electron_builder_json_decl(r#""files": true"#));
+        assert!(!is_electron_builder_json_decl(r#""asar": {"#));
+        assert!(!is_electron_builder_json_decl(r#""asar": "true""#));
+        assert!(!is_electron_builder_json_decl(r#""asar": 1"#));
+        assert!(!is_electron_builder_json_decl(r#""compression": "fast""#));
+        assert!(!is_electron_builder_json_decl(r#""compression": {"#));
+        assert!(!is_electron_builder_json_decl(r#""compression": true"#));
+        assert!(!is_electron_builder_json_decl(r#""nsis": ["#));
+        assert!(!is_electron_builder_json_decl(r#""nsis": true"#));
+        assert!(!is_electron_builder_json_decl(r#""electronVersion": {"#));
+        assert!(!is_electron_builder_json_decl(r#""electronVersion": true"#));
+        assert!(!is_electron_builder_json_decl(r#""mac": ["#));
+        assert!(!is_electron_builder_json_decl(r#""mac": "darwin""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_electron_builder_json_decl(
+            r#""$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json""#
+        ));
+        assert!(!is_electron_builder_json_decl(r#""name": "MyApp""#));
+        assert!(!is_electron_builder_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_electron_builder_json_decl(
+            r#""appId": "com.example.app""#
+        ));
+        assert!(is_capacitor_json_decl(r#""appId": "com.example.app""#));
+        assert!(!is_electron_builder_json_decl(r#""productName": "App""#));
+        assert!(is_tauri_json_decl(r#""productName": "App""#));
+        assert!(!is_electron_builder_json_decl(r#""extends": "base.json""#));
+        assert!(!is_electron_builder_json_decl(r#""publish": ["#));
+        assert!(!is_electron_builder_json_decl(
+            r#""assetdir": "frontend/dist""#
+        ));
+        assert!(is_wails_json_decl(r#""assetdir": "frontend/dist""#));
+        assert!(!is_electron_builder_json_decl(
+            r#""frontend:dir": "frontend""#
+        ));
+        assert!(is_wails_json_decl(r#""frontend:dir": "frontend""#));
+        assert!(!is_electron_builder_json_decl(
+            r#""wailsjsdir": "./frontend""#
+        ));
+        assert!(is_wails_json_decl(r#""wailsjsdir": "./frontend""#));
+        assert!(!is_electron_builder_json_decl(r#""nsisType": "multiple""#));
+        assert!(is_wails_json_decl(r#""nsisType": "multiple""#));
+        assert!(!is_electron_builder_json_decl(r#""debounceMS": 100"#));
+        assert!(is_wails_json_decl(r#""debounceMS": 100"#));
+        assert!(!is_electron_builder_json_decl(r#""obfuscated": true"#));
+        assert!(is_wails_json_decl(r#""obfuscated": true"#));
+        assert!(!is_electron_builder_json_decl(r#""bindings": {"#));
+        assert!(is_wails_json_decl(r#""bindings": {"#));
+        assert!(!is_electron_builder_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(is_nest_cli_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(!is_electron_builder_json_decl(r#""entryFile": "main""#));
+        assert!(is_nest_cli_json_decl(r#""entryFile": "main""#));
+        assert!(!is_electron_builder_json_decl(r#""architect": {"#));
+        assert!(is_angular_json_decl(r#""architect": {"#));
+        assert!(!is_electron_builder_json_decl(r#""schematics": {"#));
+        assert!(is_angular_json_decl(r#""schematics": {"#));
+        assert!(!is_electron_builder_json_decl(
+            r#""projectType": "application""#
+        ));
+        assert!(is_angular_json_decl(r#""projectType": "application""#));
+        assert!(!is_electron_builder_json_decl(r#""submit": {"#));
+        assert!(is_eas_json_decl(r#""submit": {"#));
+        assert!(!is_electron_builder_json_decl(
+            r#""developmentClient": true"#
+        ));
+        assert!(is_eas_json_decl(r#""developmentClient": true"#));
+        assert!(!is_electron_builder_json_decl(r#""expo": {"#));
+        assert!(is_expo_json_decl(r#""expo": {"#));
+        assert!(!is_electron_builder_json_decl(r#""slug": "my-app""#));
+        assert!(is_expo_json_decl(r#""slug": "my-app""#));
+        assert!(!is_electron_builder_json_decl(r#""integrations": {"#));
+        assert!(is_ionic_json_decl(r#""integrations": {"#));
+        assert!(!is_electron_builder_json_decl(r#""hooks": {"#));
+        assert!(is_ionic_json_decl(r#""hooks": {"#));
+        assert!(!is_electron_builder_json_decl(r#""appName": "MyApp""#));
+        assert!(is_capacitor_json_decl(r#""appName": "MyApp""#));
+        assert!(!is_electron_builder_json_decl(r#""webDir": "dist""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "dist""#));
+        assert!(!is_electron_builder_json_decl(
+            r#""bundledWebRuntime": true"#
+        ));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(!is_electron_builder_json_decl(
+            r#""identifier": "com.example.app""#
+        ));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_electron_builder_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_electron_builder_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+        assert!(!is_electron_builder_json_decl(
+            r#""frontendDist": "../dist""#
+        ));
+        assert!(is_tauri_json_decl(r#""frontendDist": "../dist""#));
+        assert!(!is_electron_builder_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_electron_builder_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_electron_builder_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_electron_builder_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(!is_electron_builder_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_electron_builder_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_electron_builder_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_electron_builder_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_electron_builder_json_decl(r#""regions": ["#));
+        assert!(is_vercel_json_decl(r#""regions": ["#));
+        assert!(!is_electron_builder_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_electron_builder_json_decl(
+            r#""buildCommand": "npm run build""#
+        ));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_electron_builder_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_electron_builder_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_electron_builder_json_decl(r#""baseBranch": "main""#));
+        assert!(is_changesets_json_decl(r#""baseBranch": "main""#));
+        assert!(!is_electron_builder_json_decl(
+            r#""rushVersion": "5.147.1""#
+        ));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_electron_builder_json_decl(r#""npmClient": "npm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "npm""#));
+        assert!(!is_electron_builder_json_decl(r#""useWorkspaces": true"#));
+        assert!(is_lerna_json_decl(r#""useWorkspaces": true"#));
+        assert!(!is_electron_builder_json_decl(r#""packages": ["#));
+        assert!(is_lerna_json_decl(r#""packages": ["#));
+        assert!(!is_electron_builder_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_electron_builder_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_electron_builder_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_electron_builder_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(!is_electron_builder_json_decl(r#""envMode": "loose""#));
+        assert!(is_turbo_json_decl(r#""envMode": "loose""#));
+        assert!(!is_electron_builder_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_electron_builder_json_decl(r#""targetDefaults": {"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(!is_electron_builder_json_decl(
+            r#""cacheDirectory": ".nx/cache""#
+        ));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(!is_electron_builder_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_electron_builder_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_electron_builder_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_electron_builder_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_electron_builder_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_electron_builder_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_electron_builder_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_electron_builder_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_electron_builder_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_electron_builder_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_electron_builder_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists electron-builder keys.
+        assert!(line_is_func_like(r#""directories": {"#));
+        assert!(line_is_func_like(r#""asar": true"#));
+        assert!(line_is_func_like(r#""electronVersion": "28.0.0""#));
+        assert!(line_is_func_like(
+            r#""artifactName": "${productName}-${version}.${ext}""#
+        ));
+        assert!(line_is_func_like(r#""nsis": {"#));
+        assert!(line_is_func_like(r#""extraResources": ["#));
+        assert!(line_is_func_like(r#""compression": "maximum""#));
+        assert!(line_is_func_like(r#""nodeGypRebuild": true"#));
+        assert!(line_is_func_like(r#""forceCodeSigning": true"#));
+        assert!(line_is_func_like(r#""mac": {"#));
+        assert!(line_is_func_like(r#""win": {"#));
+        assert!(line_is_func_like(r#""linux": {"#));
     }
 
     #[test]

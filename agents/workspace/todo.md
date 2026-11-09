@@ -1,3 +1,5 @@
+009 keep: Function List electron-builder.json directories/asar/electronVersion/artifactName/nsis/extraResources/compression/mac/win/linux (v0.3.725)
+
 009 keep: Function List lerna.json version/npmClient/packages/command/ignoreChanges/useWorkspaces/useNx/concurrency (v0.3.712)
 
 009 keep: Function List nx.json namedInputs/targetDefaults/tasksRunnerOptions/plugins/cacheDirectory/useDaemonProcess (v0.3.711)
