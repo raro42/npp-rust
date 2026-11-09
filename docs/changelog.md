@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.715] — 2026-11-09
+
+View:
+
+- **Function List** lists Vercel `vercel.json` JSON keys: `"rewrites": [`, `"redirects": [`, `"headers": [`, `"crons": [`, `"regions": [`, `"functionFailoverRegions": [`, `"builds": [`, `"routes": [`, `"functions": {`, `"images": {`, `"build": {`, `"env": {`, `"github": {`, `"git": {`, `"framework": "nextjs"` / `null`, `"buildCommand": "…"`, `"installCommand": "…"`, `"devCommand": "…"`, `"outputDirectory": "…"`, `"ignoreCommand": "…"`, `"bulkRedirectsPath": "…"`, `"bunVersion": "1.x"`, `"cleanUrls": true`, `"trailingSlash": false`, `"fluid": true`, `"public": true`, `"skipMiddlewareRequestBody": true`, `"version": 2`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / changesets `"baseBranch"` / `"access"` / rush `"rushVersion"` / `"projects"` / lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / PostCSS `"plugins": {` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out. Shared `"env": {` also matches other JSON when shapes match; `"version": 2` is number-shaped (lerna string `"version"` stays on lerna).
+
 ## [0.3.714] — 2026-11-09
 
 View:

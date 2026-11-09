@@ -32382,6 +32382,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_lerna_json_decl(s)
             || is_rush_json_decl(s)
             || is_changesets_json_decl(s)
+            || is_vercel_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32674,6 +32675,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_lerna_json_decl(s)
         || is_rush_json_decl(s)
         || is_changesets_json_decl(s)
+        || is_vercel_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -44041,6 +44043,287 @@ fn changesets_json_string_ok(key: &str, value: &str) -> bool {
         "changelog" | "baseBranch" => true,
         _ => false,
     }
+}
+
+/// Vercel `vercel.json` JSON keys:
+/// `"rewrites": [`, `"redirects": [`, `"headers": [`, `"crons": [`,
+/// `"regions": [`, `"functionFailoverRegions": [`, `"builds": [`,
+/// `"routes": [`, `"functions": {`, `"images": {`, `"build": {`,
+/// `"env": {`, `"github": {`, `"git": {`, `"framework": "nextjs"` / `null`,
+/// `"buildCommand": "…"`, `"installCommand": "…"`, `"devCommand": "…"`,
+/// `"outputDirectory": "…"`, `"ignoreCommand": "…"`,
+/// `"bulkRedirectsPath": "…"`, `"bunVersion": "1.x"`, `"cleanUrls": true`,
+/// `"trailingSlash": false`, `"fluid": true`, `"public": true`,
+/// `"skipMiddlewareRequestBody": true`, `"version": 2`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / changesets
+/// `"baseBranch"` / `"access"` / rush `"rushVersion"` / `"projects"` /
+/// lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo
+/// `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` /
+/// `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` /
+/// `"cacheDirectory"` / Parcel `"transformers"` / PostCSS `"plugins": {` /
+/// babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` /
+/// stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` /
+/// dprint `"includes"` / tsconfig `"compilerOptions"` / package.json
+/// `"scripts"` stay out. Shared `"env": {` also matches other JSON when
+/// shapes match; `"version": 2` is number-shaped (lerna string `"version"`
+/// stays on lerna).
+fn is_vercel_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !vercel_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    vercel_json_value_and_tail_ok(key, after_colon)
+}
+
+fn vercel_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "rewrites"
+            | "redirects"
+            | "headers"
+            | "crons"
+            | "regions"
+            | "functionFailoverRegions"
+            | "builds"
+            | "routes"
+            | "functions"
+            | "images"
+            | "build"
+            | "env"
+            | "github"
+            | "git"
+            | "framework"
+            | "buildCommand"
+            | "installCommand"
+            | "devCommand"
+            | "outputDirectory"
+            | "ignoreCommand"
+            | "bulkRedirectsPath"
+            | "bunVersion"
+            | "cleanUrls"
+            | "trailingSlash"
+            | "fluid"
+            | "public"
+            | "skipMiddlewareRequestBody"
+            | "version"
+    )
+}
+
+fn vercel_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !vercel_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !vercel_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !vercel_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !vercel_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !vercel_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if key != "version" {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 2 {
+                return false;
+            }
+            let num = &after_colon[..digits];
+            if num != "2" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        b'n' => {
+            // framework may be JSON null ("Other" preset).
+            if key != "framework" {
+                return false;
+            }
+            let Some(rest) = after_colon.strip_prefix("null") else {
+                return false;
+            };
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn vercel_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "functions" | "images" | "build" | "env" | "github" | "git"
+    )
+}
+
+fn vercel_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "rewrites"
+            | "redirects"
+            | "headers"
+            | "crons"
+            | "regions"
+            | "functionFailoverRegions"
+            | "builds"
+            | "routes"
+    )
+}
+
+fn vercel_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "framework"
+            | "buildCommand"
+            | "installCommand"
+            | "devCommand"
+            | "outputDirectory"
+            | "ignoreCommand"
+            | "bulkRedirectsPath"
+            | "bunVersion"
+    )
+}
+
+fn vercel_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "cleanUrls" | "trailingSlash" | "fluid" | "public" | "skipMiddlewareRequestBody"
+    )
+}
+
+fn vercel_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "framework" => vercel_json_framework_ok(value),
+        "bunVersion" => {
+            // e.g. "1.x" / "1.1.0"
+            value
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'))
+                && value.as_bytes().first().is_some_and(|b| b.is_ascii_digit())
+        }
+        "buildCommand" | "installCommand" | "devCommand" | "outputDirectory" | "ignoreCommand"
+        | "bulkRedirectsPath" => true,
+        _ => false,
+    }
+}
+
+fn vercel_json_framework_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "nextjs"
+            | "vite"
+            | "create-react-app"
+            | "nuxtjs"
+            | "svelte"
+            | "sveltekit"
+            | "remix"
+            | "astro"
+            | "blitzjs"
+            | "gatsby"
+            | "hexo"
+            | "eleventy"
+            | "docusaurus-2"
+            | "docusaurus"
+            | "preact"
+            | "solidstart"
+            | "solidstart-1"
+            | "dojo"
+            | "ember"
+            | "vue"
+            | "scully"
+            | "ionic-angular"
+            | "angular"
+            | "polymer"
+            | "sveltekit-1"
+            | "ionic-react"
+            | "gridsome"
+            | "umijs"
+            | "sapper"
+            | "saber"
+            | "stencil"
+            | "redwoodjs"
+            | "hugo"
+            | "jekyll"
+            | "middleman"
+            | "zola"
+            | "hydrogen"
+            | "vitepress"
+            | "vuepress"
+            | "parcel"
+            | "fastapi"
+            | "flask"
+            | "nestjs"
+            | "hono"
+            | "elysia"
+            | "fastify"
+            | "express"
+            | "h3"
+            | "nitro"
+            | "nuxt"
+            | "python"
+            | "ruby"
+            | "rust"
+            | "go"
+            | "dotnet"
+            | "sanity-v3"
+            | "sanity"
+            | "storybook"
+    )
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -74700,7 +74983,7 @@ mod func_like_line_tests {
         is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl,
         is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
         is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
+        is_vercel_json_decl, is_versioneer_ini_decl, is_vulture_ini_decl, is_wireguard_config_decl,
         is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
         is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
@@ -86697,6 +86980,164 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""changedFilePatterns": ["#));
         assert!(line_is_func_like(r#""commit": false"#));
         assert!(line_is_func_like(r#""prettier": true"#));
+    }
+
+    #[test]
+    fn vercel_json_keys_count() {
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": [ // spa"#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""regions": ["#));
+        assert!(is_vercel_json_decl(r#""regions": [ // iad1"#));
+        assert!(is_vercel_json_decl(r#""functionFailoverRegions": ["#));
+        assert!(is_vercel_json_decl(r#""builds": ["#));
+        assert!(is_vercel_json_decl(r#""routes": ["#));
+        assert!(is_vercel_json_decl(r#""functions": {"#));
+        assert!(is_vercel_json_decl(r#""functions": { // api"#));
+        assert!(is_vercel_json_decl(r#""images": {"#));
+        assert!(is_vercel_json_decl(r#""build": {"#));
+        assert!(is_vercel_json_decl(r#""env": {"#));
+        assert!(is_vercel_json_decl(r#""github": {"#));
+        assert!(is_vercel_json_decl(r#""git": {"#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "vite","#));
+        assert!(is_vercel_json_decl(r#""framework": "sveltekit""#));
+        assert!(is_vercel_json_decl(r#""framework": null"#));
+        assert!(is_vercel_json_decl(r#""framework": null,"#));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(is_vercel_json_decl(r#""installCommand": "pnpm install","#));
+        assert!(is_vercel_json_decl(r#""devCommand": "npm run dev""#));
+        assert!(is_vercel_json_decl(r#""outputDirectory": "dist""#));
+        assert!(is_vercel_json_decl(
+            r#""ignoreCommand": "git diff --quiet HEAD^ HEAD ./""#
+        ));
+        assert!(is_vercel_json_decl(
+            r#""bulkRedirectsPath": "redirects.csv""#
+        ));
+        assert!(is_vercel_json_decl(r#""bunVersion": "1.x""#));
+        assert!(is_vercel_json_decl(r#""bunVersion": "1.1.0","#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": false,"#));
+        assert!(is_vercel_json_decl(r#""trailingSlash": true"#));
+        assert!(is_vercel_json_decl(r#""fluid": true"#));
+        assert!(is_vercel_json_decl(r#""public": true"#));
+        assert!(is_vercel_json_decl(r#""skipMiddlewareRequestBody": true"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2,"#));
+        // Incomplete / wrong shape / wrong values stay out.
+        assert!(!is_vercel_json_decl(r#""framework""#));
+        assert!(!is_vercel_json_decl(r#""framework":"#));
+        assert!(!is_vercel_json_decl(r#"framework: "nextjs""#));
+        assert!(!is_vercel_json_decl(r#""Framework": "nextjs""#));
+        assert!(!is_vercel_json_decl(r#""framework": """#));
+        assert!(!is_vercel_json_decl(r#""framework": {"#));
+        assert!(!is_vercel_json_decl(r#""framework": ["#));
+        assert!(!is_vercel_json_decl(r#""framework": "not-a-framework""#));
+        assert!(!is_vercel_json_decl(r#""framework": true"#));
+        assert!(!is_vercel_json_decl(r#""rewrites": {"#));
+        assert!(!is_vercel_json_decl(r#""rewrites": "/*""#));
+        assert!(!is_vercel_json_decl(r#""redirects": {"#));
+        assert!(!is_vercel_json_decl(r#""headers": {"#));
+        assert!(!is_vercel_json_decl(r#""crons": {"#));
+        assert!(!is_vercel_json_decl(r#""regions": "iad1""#));
+        assert!(!is_vercel_json_decl(r#""regions": {"#));
+        assert!(!is_vercel_json_decl(r#""functions": ["#));
+        assert!(!is_vercel_json_decl(r#""functions": "api""#));
+        assert!(!is_vercel_json_decl(r#""images": ["#));
+        assert!(!is_vercel_json_decl(r#""build": ["#));
+        assert!(!is_vercel_json_decl(r#""env": ["#));
+        assert!(!is_vercel_json_decl(r#""cleanUrls": {"#));
+        assert!(!is_vercel_json_decl(r#""cleanUrls": "true""#));
+        assert!(!is_vercel_json_decl(r#""trailingSlash": ["#));
+        assert!(!is_vercel_json_decl(r#""version": 1"#));
+        assert!(!is_vercel_json_decl(r#""version": 3"#));
+        assert!(!is_vercel_json_decl(r#""version": "2""#));
+        assert!(!is_vercel_json_decl(r#""version": true"#));
+        assert!(!is_vercel_json_decl(r#""bunVersion": "x.1""#));
+        assert!(!is_vercel_json_decl(r#""bunVersion": ["#));
+        assert!(!is_vercel_json_decl(r#""buildCommand": ["#));
+        assert!(!is_vercel_json_decl(r#""buildCommand": {"#));
+        assert!(!is_vercel_json_decl(r#""outputDirectory": true"#));
+        // Same-line array / object members are not opening-key lines.
+        assert!(!is_vercel_json_decl(
+            r#""rewrites": [{"source": "/(.*)", "destination": "/index.html"}],"#
+        ));
+        assert!(!is_vercel_json_decl(r#""regions": ["iad1", "sfo1"],"#));
+        assert!(!is_vercel_json_decl(
+            r#""functions": {"api/*.js": {"memory": 1024}},"#
+        ));
+        assert!(!is_vercel_json_decl(
+            r#""$schema": "https://openapi.vercel.sh/vercel.json""#
+        ));
+        assert!(!is_vercel_json_decl(r#""name": "my-app""#));
+        // Neighbouring families stay out.
+        assert!(!is_vercel_json_decl(
+            r#""changelog": "@changesets/cli/changelog""#
+        ));
+        assert!(is_changesets_json_decl(
+            r#""changelog": "@changesets/cli/changelog""#
+        ));
+        assert!(!is_vercel_json_decl(r#""baseBranch": "main""#));
+        assert!(is_changesets_json_decl(r#""baseBranch": "main""#));
+        assert!(!is_vercel_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_vercel_json_decl(r#""projects": ["#));
+        assert!(is_rush_json_decl(r#""projects": ["#));
+        assert!(!is_vercel_json_decl(r#""npmClient": "npm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "npm""#));
+        assert!(!is_vercel_json_decl(r#""useWorkspaces": true"#));
+        assert!(is_lerna_json_decl(r#""useWorkspaces": true"#));
+        assert!(!is_vercel_json_decl(r#""packages": ["#));
+        assert!(is_lerna_json_decl(r#""packages": ["#));
+        // Number version is vercel; string version stays on lerna.
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_lerna_json_decl(r#""version": 2"#));
+        assert!(!is_vercel_json_decl(r#""version": "independent""#));
+        assert!(is_lerna_json_decl(r#""version": "independent""#));
+        assert!(!is_vercel_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_vercel_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_vercel_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_vercel_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_vercel_json_decl(r#""targetDefaults": {"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(!is_vercel_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(!is_vercel_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_vercel_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_vercel_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_vercel_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_vercel_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_vercel_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_vercel_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_vercel_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_vercel_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_vercel_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_vercel_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists vercel keys.
+        assert!(line_is_func_like(r#""rewrites": ["#));
+        assert!(line_is_func_like(r#""framework": "nextjs""#));
+        assert!(line_is_func_like(r#""cleanUrls": true"#));
+        assert!(line_is_func_like(r#""version": 2"#));
+        assert!(line_is_func_like(r#""functions": {"#));
+        assert!(line_is_func_like(r#""crons": ["#));
+        assert!(line_is_func_like(r#""buildCommand": "npm run build""#));
     }
 
     #[test]

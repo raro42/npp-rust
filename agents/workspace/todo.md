@@ -1088,3 +1088,5 @@
 009 keep: Function List Rush rush.json rushVersion/pnpmVersion/npmVersion/yarnVersion/projects/repository/gitPolicy/approvedPackagesPolicy/eventHooks/npmOptions/pnpmOptions/yarnOptions/variants/allowedProjectTags/nodeSupportedVersionRange/ensureConsistentVersions (v0.3.713)
 
 009 keep: Function List Changesets .changeset/config.json changelog/commit/fixed/linked/access/baseBranch/updateInternalDependencies/ignore/prettier/privatePackages/snapshot/changedFilePatterns (v0.3.714)
+
+009 keep: Function List Vercel vercel.json rewrites/redirects/headers/crons/regions/functions/framework/buildCommand/cleanUrls/version (v0.3.715)
