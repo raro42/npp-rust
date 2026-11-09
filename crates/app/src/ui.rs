@@ -32400,6 +32400,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_vscode_tasks_json_decl(s)
             || is_devcontainer_json_decl(s)
             || is_renovate_json_decl(s)
+            || is_deno_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32710,6 +32711,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_vscode_tasks_json_decl(s)
         || is_devcontainer_json_decl(s)
         || is_renovate_json_decl(s)
+        || is_deno_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -47626,9 +47628,10 @@ fn devcontainer_json_string_ok(key: &str, value: &str) -> bool {
 /// SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint
 /// `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` /
 /// dprint `"includes"` / tsconfig `"compilerOptions"` / package.json
-/// `"scripts": {` stay out. Shared `"extends": [` / `"extends": "…"`
-/// also match eslint / stylelint / babel / parcel / turbo / nx /
-/// tsconfig when shapes match.
+/// `"scripts": {` / deno `"nodeModulesDir"` / `"vendor"` / `"unstable"` /
+/// `"importMap"` / `"scopes"` / `"lint": {` / `"fmt": {` stay out. Shared
+/// `"extends": [` / `"extends": "…"` also match eslint / stylelint /
+/// babel / parcel / turbo / nx / tsconfig when shapes match.
 fn is_renovate_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -47822,6 +47825,185 @@ fn renovate_json_string_ok(key: &str, value: &str) -> bool {
         ),
         "semanticCommits" => matches!(value, "enabled" | "disabled" | "auto"),
         "extends" | "timezone" | "dependencyDashboardTitle" | "branchPrefix" => true,
+        _ => false,
+    }
+}
+
+/// Deno `deno.json` / `deno.jsonc` JSON keys: `"tasks": {`, `"imports": {`,
+/// `"scopes": {`, `"lint": {`, `"fmt": {`, `"test": {`, `"bench": {`,
+/// `"compilerOptions": {`, `"permissions": {`, `"publish": {`,
+/// `"exports": {` / `"…"`, `"nodeModulesDir": "auto"` / `"manual"` /
+/// `"none"` / true / false, `"vendor": true`, `"lock": true` / `"…"`,
+/// `"unstable": [`, `"exclude": [`, `"workspace": [`,
+/// `"importMap": "…"`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / `"description"` / renovate `"packageRules"` /
+/// `"rangeStrategy"` / `"dependencyDashboard"` / `"enabledManagers"` /
+/// `"rebaseWhen"` / `"lockFileMaintenance"` / `"vulnerabilityAlerts"` /
+/// launch `"configurations"` / `"compounds"` / `"preLaunchTask"` /
+/// tasks `"tasks": [` / `"inputs": [` / `"dependsOn"` /
+/// `"problemMatcher"` / `"isBackground"` / `"version": "2.0.0"` /
+/// `"version": "0.2.0"` / Dev Container `"image"` / `"forwardPorts"` /
+/// `"customizations"` / `"postCreateCommand"` / `"remoteUser"` /
+/// `"shutdownAction"` / webextension `"manifest_version"` /
+/// `"background"` / `"action"` / `"content_scripts"` / forge
+/// `"packagerConfig"` / `"makers"` / neutralino `"applicationId"` /
+/// `"defaultMode"` / electron-builder `"directories"` / `"asar"` /
+/// `"nsis": {` / wails `"assetdir"` / `"frontend:dir"` / nest-cli
+/// `"collection"` / `"entryFile"` / angular `"architect"` /
+/// `"schematics"` / `"projectType"` / eas `"submit"` /
+/// `"developmentClient"` / expo `"expo"` / `"slug"` / ionic
+/// `"integrations"` / `"documentRoot"` / capacitor `"appId"` /
+/// `"appName"` / `"webDir"` / `"bundledWebRuntime"` / tauri
+/// `"productName"` / `"identifier"` / `"withGlobalTauri"` /
+/// `"allowlist"` / `"frontendDist"` / firebase `"hosting"` /
+/// `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` /
+/// `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
+/// `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` /
+/// changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` /
+/// lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo
+/// `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` /
+/// nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` /
+/// Parcel `"transformers"` / babel `"presets"` / SWC `"jsc"` /
+/// eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` /
+/// prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` /
+/// package.json `"scripts": {` stay out. Shared `"tasks": {` /
+/// `"imports": {` / `"exports": {` / `"…"` also match package.json /
+/// turbo when shapes match; shared `"compilerOptions": {` /
+/// `"exclude": [` also match tsconfig; shared `"permissions": {`
+/// stays distinct from webextension `"permissions": [`.
+fn is_deno_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !deno_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    deno_json_value_and_tail_ok(key, after_colon)
+}
+
+fn deno_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "tasks"
+            | "imports"
+            | "scopes"
+            | "lint"
+            | "fmt"
+            | "test"
+            | "bench"
+            | "compilerOptions"
+            | "permissions"
+            | "publish"
+            | "exports"
+            | "nodeModulesDir"
+            | "vendor"
+            | "lock"
+            | "unstable"
+            | "exclude"
+            | "workspace"
+            | "importMap"
+    )
+}
+
+fn deno_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !deno_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !deno_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !deno_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !deno_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !deno_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn deno_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "tasks"
+            | "imports"
+            | "scopes"
+            | "lint"
+            | "fmt"
+            | "test"
+            | "bench"
+            | "compilerOptions"
+            | "permissions"
+            | "publish"
+            | "exports"
+    )
+}
+
+fn deno_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "unstable" | "exclude" | "workspace")
+}
+
+fn deno_json_string_key_ok(key: &str) -> bool {
+    matches!(key, "nodeModulesDir" | "lock" | "importMap" | "exports")
+}
+
+fn deno_json_bool_key_ok(key: &str) -> bool {
+    matches!(key, "vendor" | "lock" | "nodeModulesDir")
+}
+
+fn deno_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "nodeModulesDir" => matches!(value, "auto" | "manual" | "none"),
+        "lock" | "importMap" | "exports" => true,
         _ => false,
     }
 }
@@ -78446,15 +78628,15 @@ mod func_like_line_tests {
         is_changesets_json_decl, is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl,
         is_cibuildwheel_ini_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_codespell_ini_decl,
         is_commitizen_ini_decl, is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl,
-        is_crypttab_decl, is_darglint_ini_decl, is_default_grub_decl, is_deny_toml_decl,
-        is_desktop_entry_decl, is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl,
-        is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl, is_dovecot_decl,
-        is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl,
-        is_electron_builder_json_decl, is_electron_forge_json_decl, is_eslint_json_decl,
-        is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl, is_firebase_json_decl,
-        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl,
-        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_crypttab_decl, is_darglint_ini_decl, is_default_grub_decl, is_deno_json_decl,
+        is_deny_toml_decl, is_desktop_entry_decl, is_devcontainer_json_decl, is_dhcpd_decl,
+        is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl,
+        is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl,
+        is_editorconfig_decl, is_electron_builder_json_decl, is_electron_forge_json_decl,
+        is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl,
+        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
+        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
         is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
         is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
         is_keepalived_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
@@ -95076,6 +95258,27 @@ mod func_like_line_tests {
         assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
         assert!(!is_renovate_json_decl(r#""scripts": {"#));
         assert!(is_package_json_decl(r#""scripts": {"#));
+        // Deno neighbouring keys stay out of Renovate.
+        assert!(!is_renovate_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_renovate_json_decl(r#""vendor": true"#));
+        assert!(is_deno_json_decl(r#""vendor": true"#));
+        assert!(!is_renovate_json_decl(r#""unstable": ["#));
+        assert!(is_deno_json_decl(r#""unstable": ["#));
+        assert!(!is_renovate_json_decl(
+            r#""importMap": "./import_map.json""#
+        ));
+        assert!(is_deno_json_decl(r#""importMap": "./import_map.json""#));
+        assert!(!is_renovate_json_decl(r#""scopes": {"#));
+        assert!(is_deno_json_decl(r#""scopes": {"#));
+        assert!(!is_renovate_json_decl(r#""lint": {"#));
+        assert!(is_deno_json_decl(r#""lint": {"#));
+        assert!(!is_renovate_json_decl(r#""fmt": {"#));
+        assert!(is_deno_json_decl(r#""fmt": {"#));
+        assert!(!is_renovate_json_decl(r#""bench": {"#));
+        assert!(is_deno_json_decl(r#""bench": {"#));
+        assert!(!is_renovate_json_decl(r#""workspace": ["#));
+        assert!(is_deno_json_decl(r#""workspace": ["#));
         // Shared scanner lists Renovate keys.
         assert!(line_is_func_like(r#""packageRules": ["#));
         assert!(line_is_func_like(r#""rangeStrategy": "bump""#));
@@ -95089,6 +95292,138 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""semanticCommits": "enabled""#));
         assert!(line_is_func_like(r#""hostRules": ["#));
         assert!(line_is_func_like(r#""matchPackageNames": ["#));
+    }
+
+    #[test]
+    fn deno_json_keys_count() {
+        assert!(is_deno_json_decl(r#""tasks": {"#));
+        assert!(is_deno_json_decl(r#""tasks": { // scripts"#));
+        assert!(is_deno_json_decl(r#""imports": {"#));
+        assert!(is_deno_json_decl(r#""scopes": {"#));
+        assert!(is_deno_json_decl(r#""lint": {"#));
+        assert!(is_deno_json_decl(r#""fmt": {"#));
+        assert!(is_deno_json_decl(r#""test": {"#));
+        assert!(is_deno_json_decl(r#""bench": {"#));
+        assert!(is_deno_json_decl(r#""compilerOptions": {"#));
+        assert!(is_deno_json_decl(r#""permissions": {"#));
+        assert!(is_deno_json_decl(r#""publish": {"#));
+        assert!(is_deno_json_decl(r#""exports": {"#));
+        assert!(is_deno_json_decl(r#""exports": "./mod.ts""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "manual""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "none""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": true"#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": false"#));
+        assert!(is_deno_json_decl(r#""vendor": true"#));
+        assert!(is_deno_json_decl(r#""vendor": false"#));
+        assert!(is_deno_json_decl(r#""lock": true"#));
+        assert!(is_deno_json_decl(r#""lock": false"#));
+        assert!(is_deno_json_decl(r#""lock": "./deno.lock""#));
+        assert!(is_deno_json_decl(r#""unstable": ["#));
+        assert!(is_deno_json_decl(r#""unstable": [ // flags"#));
+        assert!(is_deno_json_decl(r#""exclude": ["#));
+        assert!(is_deno_json_decl(r#""workspace": ["#));
+        assert!(is_deno_json_decl(r#""importMap": "./import_map.json""#));
+        assert!(is_deno_json_decl(
+            r#""importMap": "./import_map.json", // map"#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_deno_json_decl(r#""tasks""#));
+        assert!(!is_deno_json_decl(r#""tasks":"#));
+        assert!(!is_deno_json_decl(r#""tasks: {"#));
+        assert!(!is_deno_json_decl(r#""nodeModulesDir": "weird""#));
+        assert!(!is_deno_json_decl(r#""nodeModulesDir": {"#));
+        assert!(!is_deno_json_decl(r#""vendor": ["#));
+        assert!(!is_deno_json_decl(r#""unstable": {"#));
+        assert!(!is_deno_json_decl(r#""unstable": true"#));
+        assert!(!is_deno_json_decl(r#""importMap": true"#));
+        assert!(!is_deno_json_decl(r#""lock": ["#));
+        assert!(!is_deno_json_decl(r#""workspace": {"#));
+        assert!(!is_deno_json_decl(r#""fmt": ["#));
+        assert!(!is_deno_json_decl(r#""permissions": ["#));
+        // Generic / neighbouring stay out.
+        assert!(!is_deno_json_decl(
+            r#""$schema": "https://deno.land/x/deno/schema.json""#
+        ));
+        assert!(!is_deno_json_decl(r#""name": "my-deno-app""#));
+        assert!(!is_deno_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_deno_json_decl(r#""description": "demo""#));
+        // Renovate / launch / tasks / Dev Container stay on their scanners.
+        assert!(!is_deno_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_deno_json_decl(r#""rangeStrategy": "bump""#));
+        assert!(is_renovate_json_decl(r#""rangeStrategy": "bump""#));
+        assert!(!is_deno_json_decl(r#""dependencyDashboard": true"#));
+        assert!(is_renovate_json_decl(r#""dependencyDashboard": true"#));
+        assert!(!is_deno_json_decl(r#""rebaseWhen": "conflicted""#));
+        assert!(is_renovate_json_decl(r#""rebaseWhen": "conflicted""#));
+        assert!(!is_deno_json_decl(r#""lockFileMaintenance": {"#));
+        assert!(is_renovate_json_decl(r#""lockFileMaintenance": {"#));
+        assert!(!is_deno_json_decl(r#""vulnerabilityAlerts": {"#));
+        assert!(is_renovate_json_decl(r#""vulnerabilityAlerts": {"#));
+        assert!(!is_deno_json_decl(r#""enabledManagers": ["#));
+        assert!(is_renovate_json_decl(r#""enabledManagers": ["#));
+        assert!(!is_deno_json_decl(r#""version": "0.2.0""#));
+        assert!(is_vscode_launch_json_decl(r#""version": "0.2.0""#));
+        assert!(!is_deno_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_deno_json_decl(r#""version": "2.0.0""#));
+        assert!(is_vscode_tasks_json_decl(r#""version": "2.0.0""#));
+        assert!(!is_deno_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_deno_json_decl(r#""inputs": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""inputs": ["#));
+        assert!(!is_deno_json_decl(r#""isBackground": true"#));
+        assert!(is_vscode_tasks_json_decl(r#""isBackground": true"#));
+        assert!(!is_deno_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_deno_json_decl(r#""forwardPorts": ["#));
+        assert!(is_devcontainer_json_decl(r#""forwardPorts": ["#));
+        assert!(!is_deno_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_deno_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_deno_json_decl(r#""envMode": "loose""#));
+        assert!(is_turbo_json_decl(r#""envMode": "loose""#));
+        assert!(!is_deno_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_deno_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_deno_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_deno_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_deno_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_deno_json_decl(r#""manifest_version": 3"#));
+        assert!(is_webextension_manifest_json_decl(
+            r#""manifest_version": 3"#
+        ));
+        assert!(!is_deno_json_decl(r#""permissions": ["#));
+        assert!(is_webextension_manifest_json_decl(r#""permissions": ["#));
+        // Shared shapes still list via Deno / shared scanners.
+        assert!(line_is_func_like(r#""tasks": {"#));
+        assert!(line_is_func_like(r#""imports": {"#));
+        assert!(line_is_func_like(r#""scopes": {"#));
+        assert!(line_is_func_like(r#""lint": {"#));
+        assert!(line_is_func_like(r#""fmt": {"#));
+        assert!(line_is_func_like(r#""nodeModulesDir": "auto""#));
+        assert!(line_is_func_like(r#""vendor": true"#));
+        assert!(line_is_func_like(r#""unstable": ["#));
+        assert!(line_is_func_like(r#""importMap": "./import_map.json""#));
+        assert!(line_is_func_like(r#""workspace": ["#));
+        assert!(line_is_func_like(r#""bench": {"#));
+        assert!(line_is_func_like(r#""permissions": {"#));
+        assert!(line_is_func_like(r#""lock": "./deno.lock""#));
+        assert!(is_package_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(is_package_json_decl(r#""imports": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""exclude": ["#));
     }
 
     #[test]
