@@ -32389,6 +32389,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_ionic_json_decl(s)
             || is_expo_json_decl(s)
             || is_eas_json_decl(s)
+            || is_angular_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32688,6 +32689,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_ionic_json_decl(s)
         || is_expo_json_decl(s)
         || is_eas_json_decl(s)
+        || is_angular_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -45364,6 +45366,420 @@ fn eas_json_string_ok(key: &str, value: &str) -> bool {
         ),
         "channel" | "releaseChannel" | "extends" => eas_json_channel_ok(value),
         "prebuildCommand" => true,
+        _ => false,
+    }
+}
+
+/// Angular CLI `angular.json` JSON keys:
+/// `"architect": {`, `"schematics": {`, `"cli": {`,
+/// `"stylePreprocessorOptions": {`, `"i18n": {`,
+/// `"newProjectRoot": "…"`, `"defaultProject": "…"`,
+/// `"projectType": "application"` / `"library"`,
+/// `"sourceRoot": "…"`, `"prefix": "…"`,
+/// `"builder": "@angular…:…"`, `"outputPath": "…"`,
+/// `"index": "…"`, `"main": "…"`, `"polyfills": "…"` / `[`,
+/// `"tsConfig": "…"`, `"defaultConfiguration": "…"`,
+/// `"outputHashing": "all"` / `"media"` / `"bundles"` / `"none"`,
+/// `"inlineStyleLanguage": "css"` / `"scss"` / `"sass"` / `"less"`,
+/// `"browser": "…"`, `"browserTarget": "…"`, `"buildTarget": "…"`,
+/// `"servePath": "…"`, `"publicHost": "…"`, `"baseHref": "…"`,
+/// `"deployUrl": "…"`, `"resourcesOutputPath": "…"`,
+/// `"crossOrigin": "…"`, `"ngswConfigPath": "…"`,
+/// `"webWorkerTsConfig": "…"`, `"server": "…"` (path string),
+/// `"assets": [`, `"styles": [`, `"scripts": [`,
+/// `"fileReplacements": [`, `"budgets": [`,
+/// `"allowedCommonJsDependencies": [`,
+/// `"aot": true`, `"buildOptimizer": true`, `"vendorChunk": true`,
+/// `"namedChunks": true`, `"extractLicenses": true`,
+/// `"extractCss": true`, `"subresourceIntegrity": true`,
+/// `"deleteOutputPath": true`, `"preserveSymlinks": true`,
+/// `"progress": true`, `"verbose": true`, `"statsJson": true`,
+/// `"watch": true`, `"commonChunk": true`, `"forceIvy": true`,
+/// `"enableIvy": true`, `"ssl": true`, `"hmr": true`,
+/// `"liveReload": true`, `"open": true`,
+/// `"optimization": true` / `{`, `"sourceMap": true` / `{`,
+/// `"serviceWorker": true` / `"…"`, `"prerender": true` / `{`,
+/// `"ssr": true` / `{`, `"localize": true` / `[`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"version"` / `"name"` /
+/// `"projects"` / `"root"` / `"options"` / `"configurations"` /
+/// `"build"` / `"serve"` / `"test"` / `"lint"` / eas `"submit"` /
+/// `"developmentClient"` / `"distribution"` / `"credentialsSource"` /
+/// `"appVersionSource"` / `"channel"` / `"resourceClass"` /
+/// `"buildArtifactPaths"` / expo `"expo"` / `"slug"` /
+/// `"orientation"` / `"splash"` / ionic `"integrations"` /
+/// `"hooks"` / `"proxies"` / `"watchPatterns"` / `"documentRoot"` /
+/// `"type": "angular"` / capacitor `"appId"` / `"appName"` /
+/// `"webDir"` / `"bundledWebRuntime"` / `"server": {` /
+/// `"cordova"` / tauri `"productName"` / `"identifier"` /
+/// `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` /
+/// firebase `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` /
+/// vercel `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` /
+/// `"regions"` / `"framework"` / `"buildCommand"` / `"cleanUrls"` /
+/// `"version": 2` / changesets `"baseBranch"` / rush `"rushVersion"` /
+/// `"projects"` / lerna `"npmClient"` / `"useWorkspaces"` /
+/// `"packages": [` / turbo `"tasks"` / `"pipeline"` /
+/// `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx
+/// `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` /
+/// Parcel `"transformers"` / babel `"presets"` / SWC `"jsc"` /
+/// eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` /
+/// prettier `"printWidth"` / biome `"linter"` / dprint
+/// `"includes"` / tsconfig `"compilerOptions"` / package.json
+/// `"scripts": {` stay out. Angular `"scripts": [` (array) is listed.
+fn is_angular_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !angular_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    angular_json_value_and_tail_ok(key, after_colon)
+}
+
+fn angular_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "architect"
+            | "schematics"
+            | "cli"
+            | "stylePreprocessorOptions"
+            | "i18n"
+            | "newProjectRoot"
+            | "defaultProject"
+            | "projectType"
+            | "sourceRoot"
+            | "prefix"
+            | "builder"
+            | "outputPath"
+            | "index"
+            | "main"
+            | "polyfills"
+            | "tsConfig"
+            | "defaultConfiguration"
+            | "outputHashing"
+            | "inlineStyleLanguage"
+            | "browser"
+            | "browserTarget"
+            | "buildTarget"
+            | "servePath"
+            | "publicHost"
+            | "baseHref"
+            | "deployUrl"
+            | "resourcesOutputPath"
+            | "crossOrigin"
+            | "ngswConfigPath"
+            | "webWorkerTsConfig"
+            | "server"
+            | "assets"
+            | "styles"
+            | "scripts"
+            | "fileReplacements"
+            | "budgets"
+            | "allowedCommonJsDependencies"
+            | "aot"
+            | "buildOptimizer"
+            | "vendorChunk"
+            | "namedChunks"
+            | "extractLicenses"
+            | "extractCss"
+            | "subresourceIntegrity"
+            | "deleteOutputPath"
+            | "preserveSymlinks"
+            | "progress"
+            | "verbose"
+            | "statsJson"
+            | "watch"
+            | "commonChunk"
+            | "forceIvy"
+            | "enableIvy"
+            | "ssl"
+            | "hmr"
+            | "liveReload"
+            | "open"
+            | "optimization"
+            | "sourceMap"
+            | "serviceWorker"
+            | "prerender"
+            | "ssr"
+            | "localize"
+    )
+}
+
+fn angular_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !angular_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !angular_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !angular_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !angular_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !angular_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn angular_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "architect"
+            | "schematics"
+            | "cli"
+            | "stylePreprocessorOptions"
+            | "i18n"
+            | "optimization"
+            | "sourceMap"
+            | "prerender"
+            | "ssr"
+    )
+}
+
+fn angular_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "assets"
+            | "styles"
+            | "scripts"
+            | "fileReplacements"
+            | "budgets"
+            | "allowedCommonJsDependencies"
+            | "polyfills"
+            | "localize"
+    )
+}
+
+fn angular_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "newProjectRoot"
+            | "defaultProject"
+            | "projectType"
+            | "sourceRoot"
+            | "prefix"
+            | "builder"
+            | "outputPath"
+            | "index"
+            | "main"
+            | "polyfills"
+            | "tsConfig"
+            | "defaultConfiguration"
+            | "outputHashing"
+            | "inlineStyleLanguage"
+            | "browser"
+            | "browserTarget"
+            | "buildTarget"
+            | "servePath"
+            | "publicHost"
+            | "baseHref"
+            | "deployUrl"
+            | "resourcesOutputPath"
+            | "crossOrigin"
+            | "ngswConfigPath"
+            | "webWorkerTsConfig"
+            | "server"
+            | "serviceWorker"
+    )
+}
+
+fn angular_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "aot"
+            | "buildOptimizer"
+            | "vendorChunk"
+            | "namedChunks"
+            | "extractLicenses"
+            | "extractCss"
+            | "subresourceIntegrity"
+            | "deleteOutputPath"
+            | "preserveSymlinks"
+            | "progress"
+            | "verbose"
+            | "statsJson"
+            | "watch"
+            | "commonChunk"
+            | "forceIvy"
+            | "enableIvy"
+            | "ssl"
+            | "hmr"
+            | "liveReload"
+            | "open"
+            | "optimization"
+            | "sourceMap"
+            | "serviceWorker"
+            | "prerender"
+            | "ssr"
+            | "localize"
+    )
+}
+
+fn angular_json_path_ok(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.is_empty() || bytes.len() > 512 {
+        return false;
+    }
+    if value.contains('\n') || value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    // Relative / absolute path-ish tokens used in angular.json.
+    if !(bytes[0].is_ascii_alphanumeric() || matches!(bytes[0], b'.' | b'/' | b'\\' | b'@' | b'~'))
+    {
+        return false;
+    }
+    bytes.iter().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                *b,
+                b'.' | b'/'
+                    | b'\\'
+                    | b'-'
+                    | b'_'
+                    | b'@'
+                    | b':'
+                    | b'~'
+                    | b'+'
+                    | b'%'
+                    | b'?'
+                    | b'='
+                    | b'&'
+            )
+    })
+}
+
+fn angular_json_prefix_ok(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.is_empty() || bytes.len() > 64 {
+        return false;
+    }
+    if !bytes[0].is_ascii_alphabetic() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+}
+
+fn angular_json_builder_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 || value.contains('\n') {
+        return false;
+    }
+    // `@scope/pkg:target` or `pkg:target`.
+    let Some((left, right)) = value.split_once(':') else {
+        return false;
+    };
+    if left.is_empty() || right.is_empty() {
+        return false;
+    }
+    if !left
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'@' | b'/' | b'-' | b'_' | b'.'))
+    {
+        return false;
+    }
+    right
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'/'))
+}
+
+fn angular_json_target_ref_ok(value: &str) -> bool {
+    // `project:target` / `project:target:configuration`
+    let bytes = value.as_bytes();
+    if bytes.is_empty() || bytes.len() > 256 || value.contains('\n') {
+        return false;
+    }
+    if !value.contains(':') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b':' | b'-' | b'_' | b'.'))
+        && !value.starts_with(':')
+        && !value.ends_with(':')
+        && !value.contains("::")
+}
+
+fn angular_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "projectType" => matches!(value, "application" | "library"),
+        "outputHashing" => matches!(value, "all" | "media" | "bundles" | "none"),
+        "inlineStyleLanguage" => matches!(value, "css" | "scss" | "sass" | "less"),
+        "crossOrigin" => matches!(value, "anonymous" | "use-credentials" | "none"),
+        "builder" => angular_json_builder_ok(value),
+        "browserTarget" | "buildTarget" => angular_json_target_ref_ok(value),
+        "prefix" | "defaultProject" | "defaultConfiguration" => angular_json_prefix_ok(value),
+        "main" => {
+            // Keep package.json `"main": "index.js"` out of the shared scanner.
+            angular_json_path_ok(value)
+                && (value.contains('/') || value.contains('\\'))
+                && (value.ends_with(".ts") || value.ends_with(".tsx"))
+        }
+        "newProjectRoot"
+        | "sourceRoot"
+        | "outputPath"
+        | "index"
+        | "polyfills"
+        | "tsConfig"
+        | "browser"
+        | "servePath"
+        | "publicHost"
+        | "baseHref"
+        | "deployUrl"
+        | "resourcesOutputPath"
+        | "ngswConfigPath"
+        | "webWorkerTsConfig"
+        | "server"
+        | "serviceWorker" => angular_json_path_ok(value),
         _ => false,
     }
 }
@@ -75978,46 +76394,47 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 #[cfg(test)]
 mod func_like_line_tests {
     use super::{
-        is_access_conf_decl, is_android_bp_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
-        is_apt_sources_decl, is_audit_rules_decl, is_audit_toml_decl, is_autoflake_ini_decl,
-        is_autopep8_ini_decl, is_aws_config_decl, is_babel_json_decl, is_bacon_toml_decl,
-        is_bandit_ini_decl, is_binfmt_d_decl, is_biome_json_decl, is_bitbake_decl,
-        is_black_ini_decl, is_brewfile_decl, is_bumpversion_ini_decl, is_bunfig_toml_decl,
-        is_cabal_decl, is_capacitor_json_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
-        is_cargo_toml_decl, is_cbindgen_toml_decl, is_changesets_json_decl,
-        is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl,
-        is_cliff_toml_decl, is_clippy_toml_decl, is_codespell_ini_decl, is_commitizen_ini_decl,
-        is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
-        is_darglint_ini_decl, is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl,
-        is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl,
-        is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
-        is_eas_json_decl, is_editorconfig_decl, is_eslint_json_decl, is_ethers_file_decl,
-        is_expo_json_decl, is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl,
-        is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl,
-        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
-        is_haproxy_decl, is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl,
-        is_hypothesis_ini_decl, is_importlinter_ini_decl, is_interrogate_ini_decl,
-        is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
-        is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
-        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
-        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
-        is_postcss_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
-        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
-        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
-        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
-        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
-        is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl, is_release_toml_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
-        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_access_conf_decl, is_android_bp_decl, is_angular_json_decl, is_ant_msbuild_decl,
+        is_apache_httpd_decl, is_apt_sources_decl, is_audit_rules_decl, is_audit_toml_decl,
+        is_autoflake_ini_decl, is_autopep8_ini_decl, is_aws_config_decl, is_babel_json_decl,
+        is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl, is_biome_json_decl,
+        is_bitbake_decl, is_black_ini_decl, is_brewfile_decl, is_bumpversion_ini_decl,
+        is_bunfig_toml_decl, is_cabal_decl, is_capacitor_json_decl, is_cargo_config_toml_decl,
+        is_cargo_make_toml_decl, is_cargo_toml_decl, is_cbindgen_toml_decl,
+        is_changesets_json_decl, is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl,
+        is_cibuildwheel_ini_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_codespell_ini_decl,
+        is_commitizen_ini_decl, is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl,
+        is_crypttab_decl, is_darglint_ini_decl, is_default_grub_decl, is_deny_toml_decl,
+        is_desktop_entry_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
+        is_doc8_ini_decl, is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl,
+        is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl, is_eslint_json_decl,
+        is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl, is_firebase_json_decl,
+        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl,
+        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
+        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
+        is_keepalived_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
+        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
+        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl,
+        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
+        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl,
+        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
+        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
+        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
+        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_refurb_toml_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
+        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
         is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
@@ -89299,6 +89716,325 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""channel": "production""#));
         assert!(line_is_func_like(r#""resourceClass": "medium""#));
         assert!(line_is_func_like(r#""buildArtifactPaths": ["#));
+        // Angular neighbouring keys stay out of eas.
+        assert!(!is_eas_json_decl(r#""architect": {"#));
+        assert!(is_angular_json_decl(r#""architect": {"#));
+        assert!(!is_eas_json_decl(r#""projectType": "application""#));
+        assert!(is_angular_json_decl(r#""projectType": "application""#));
+        assert!(!is_eas_json_decl(r#""newProjectRoot": "projects""#));
+        assert!(is_angular_json_decl(r#""newProjectRoot": "projects""#));
+        assert!(!is_eas_json_decl(
+            r#""builder": "@angular-devkit/build-angular:browser""#
+        ));
+        assert!(is_angular_json_decl(
+            r#""builder": "@angular-devkit/build-angular:browser""#
+        ));
+        assert!(!is_eas_json_decl(r#""aot": true"#));
+        assert!(is_angular_json_decl(r#""aot": true"#));
+        assert!(!is_eas_json_decl(r#""assets": ["#));
+        assert!(is_angular_json_decl(r#""assets": ["#));
+    }
+
+    #[test]
+    fn angular_json_keys_count() {
+        assert!(is_angular_json_decl(r#""architect": {"#));
+        assert!(is_angular_json_decl(r#""architect": { // targets"#));
+        assert!(is_angular_json_decl(r#""schematics": {"#));
+        assert!(is_angular_json_decl(r#""cli": {"#));
+        assert!(is_angular_json_decl(r#""stylePreprocessorOptions": {"#));
+        assert!(is_angular_json_decl(r#""i18n": {"#));
+        assert!(is_angular_json_decl(r#""newProjectRoot": "projects""#));
+        assert!(is_angular_json_decl(r#""newProjectRoot": "projects","#));
+        assert!(is_angular_json_decl(r#""defaultProject": "my-app""#));
+        assert!(is_angular_json_decl(r#""projectType": "application""#));
+        assert!(is_angular_json_decl(r#""projectType": "library""#));
+        assert!(is_angular_json_decl(r#""sourceRoot": "src""#));
+        assert!(is_angular_json_decl(r#""prefix": "app""#));
+        assert!(is_angular_json_decl(
+            r#""builder": "@angular-devkit/build-angular:browser""#
+        ));
+        assert!(is_angular_json_decl(
+            r#""builder": "@angular/build:application""#
+        ));
+        assert!(is_angular_json_decl(r#""outputPath": "dist/my-app""#));
+        assert!(is_angular_json_decl(r#""index": "src/index.html""#));
+        assert!(is_angular_json_decl(r#""main": "src/main.ts""#));
+        assert!(is_angular_json_decl(r#""polyfills": "src/polyfills.ts""#));
+        assert!(is_angular_json_decl(r#""polyfills": ["#));
+        assert!(is_angular_json_decl(r#""tsConfig": "tsconfig.app.json""#));
+        assert!(is_angular_json_decl(
+            r#""defaultConfiguration": "production""#
+        ));
+        assert!(is_angular_json_decl(r#""outputHashing": "all""#));
+        assert!(is_angular_json_decl(r#""outputHashing": "media""#));
+        assert!(is_angular_json_decl(r#""outputHashing": "bundles""#));
+        assert!(is_angular_json_decl(r#""outputHashing": "none""#));
+        assert!(is_angular_json_decl(r#""inlineStyleLanguage": "css""#));
+        assert!(is_angular_json_decl(r#""inlineStyleLanguage": "scss""#));
+        assert!(is_angular_json_decl(r#""inlineStyleLanguage": "sass""#));
+        assert!(is_angular_json_decl(r#""inlineStyleLanguage": "less""#));
+        assert!(is_angular_json_decl(r#""browser": "src/main.ts""#));
+        assert!(is_angular_json_decl(
+            r#""browserTarget": "my-app:build:production""#
+        ));
+        assert!(is_angular_json_decl(r#""buildTarget": "my-app:build""#));
+        assert!(is_angular_json_decl(r#""servePath": "/app""#));
+        assert!(is_angular_json_decl(r#""publicHost": "0.0.0.0""#));
+        assert!(is_angular_json_decl(r#""baseHref": "/""#));
+        assert!(is_angular_json_decl(
+            r#""deployUrl": "https://cdn.example.com/""#
+        ));
+        assert!(is_angular_json_decl(r#""resourcesOutputPath": "media""#));
+        assert!(is_angular_json_decl(r#""crossOrigin": "anonymous""#));
+        assert!(is_angular_json_decl(r#""crossOrigin": "use-credentials""#));
+        assert!(is_angular_json_decl(r#""crossOrigin": "none""#));
+        assert!(is_angular_json_decl(
+            r#""ngswConfigPath": "ngsw-config.json""#
+        ));
+        assert!(is_angular_json_decl(
+            r#""webWorkerTsConfig": "tsconfig.worker.json""#
+        ));
+        assert!(is_angular_json_decl(r#""server": "src/main.server.ts""#));
+        assert!(is_angular_json_decl(r#""assets": ["#));
+        assert!(is_angular_json_decl(r#""assets": [ // static"#));
+        assert!(is_angular_json_decl(r#""styles": ["#));
+        assert!(is_angular_json_decl(r#""scripts": ["#));
+        assert!(is_angular_json_decl(r#""fileReplacements": ["#));
+        assert!(is_angular_json_decl(r#""budgets": ["#));
+        assert!(is_angular_json_decl(r#""allowedCommonJsDependencies": ["#));
+        assert!(is_angular_json_decl(r#""localize": ["#));
+        assert!(is_angular_json_decl(r#""aot": true"#));
+        assert!(is_angular_json_decl(r#""aot": false,"#));
+        assert!(is_angular_json_decl(r#""buildOptimizer": true"#));
+        assert!(is_angular_json_decl(r#""vendorChunk": true"#));
+        assert!(is_angular_json_decl(r#""namedChunks": true"#));
+        assert!(is_angular_json_decl(r#""extractLicenses": true"#));
+        assert!(is_angular_json_decl(r#""extractCss": true"#));
+        assert!(is_angular_json_decl(r#""subresourceIntegrity": true"#));
+        assert!(is_angular_json_decl(r#""deleteOutputPath": true"#));
+        assert!(is_angular_json_decl(r#""preserveSymlinks": true"#));
+        assert!(is_angular_json_decl(r#""progress": true"#));
+        assert!(is_angular_json_decl(r#""verbose": true"#));
+        assert!(is_angular_json_decl(r#""statsJson": true"#));
+        assert!(is_angular_json_decl(r#""watch": true"#));
+        assert!(is_angular_json_decl(r#""commonChunk": true"#));
+        assert!(is_angular_json_decl(r#""forceIvy": true"#));
+        assert!(is_angular_json_decl(r#""enableIvy": true"#));
+        assert!(is_angular_json_decl(r#""ssl": true"#));
+        assert!(is_angular_json_decl(r#""hmr": true"#));
+        assert!(is_angular_json_decl(r#""liveReload": true"#));
+        assert!(is_angular_json_decl(r#""open": true"#));
+        assert!(is_angular_json_decl(r#""optimization": true"#));
+        assert!(is_angular_json_decl(r#""optimization": {"#));
+        assert!(is_angular_json_decl(r#""sourceMap": true"#));
+        assert!(is_angular_json_decl(r#""sourceMap": {"#));
+        assert!(is_angular_json_decl(r#""serviceWorker": true"#));
+        assert!(is_angular_json_decl(
+            r#""serviceWorker": "ngsw-config.json""#
+        ));
+        assert!(is_angular_json_decl(r#""prerender": true"#));
+        assert!(is_angular_json_decl(r#""prerender": {"#));
+        assert!(is_angular_json_decl(r#""ssr": true"#));
+        assert!(is_angular_json_decl(r#""ssr": {"#));
+        assert!(is_angular_json_decl(r#""localize": true"#));
+        // Incomplete / wrong shape stay out.
+        assert!(!is_angular_json_decl(r#""architect""#));
+        assert!(!is_angular_json_decl(r#""architect":"#));
+        assert!(!is_angular_json_decl(r#"architect: {"#));
+        assert!(!is_angular_json_decl(r#""Architect": {"#));
+        assert!(!is_angular_json_decl(r#""architect": ["#));
+        assert!(!is_angular_json_decl(r#""architect": "build""#));
+        assert!(!is_angular_json_decl(r#""projectType": "app""#));
+        assert!(!is_angular_json_decl(r#""projectType": {"#));
+        assert!(!is_angular_json_decl(r#""outputHashing": "full""#));
+        assert!(!is_angular_json_decl(r#""inlineStyleLanguage": "styl""#));
+        assert!(!is_angular_json_decl(r#""crossOrigin": "cors""#));
+        assert!(!is_angular_json_decl(r#""builder": "browser""#));
+        assert!(!is_angular_json_decl(r#""builder": "@angular/build""#));
+        assert!(!is_angular_json_decl(r#""builder": {"#));
+        assert!(!is_angular_json_decl(r#""browserTarget": "my-app""#));
+        assert!(!is_angular_json_decl(r#""browserTarget": ":build""#));
+        assert!(!is_angular_json_decl(r#""prefix": "1app""#));
+        assert!(!is_angular_json_decl(r#""prefix": {"#));
+        assert!(!is_angular_json_decl(r#""aot": {"#));
+        assert!(!is_angular_json_decl(r#""aot": "true""#));
+        assert!(!is_angular_json_decl(r#""aot": 1"#));
+        assert!(!is_angular_json_decl(r#""assets": {"#));
+        assert!(!is_angular_json_decl(r#""assets": "src/assets""#));
+        assert!(!is_angular_json_decl(r#""scripts": {"#));
+        assert!(!is_angular_json_decl(r#""scripts": "main.js""#));
+        assert!(!is_angular_json_decl(r#""server": {"#));
+        assert!(!is_angular_json_decl(r#""server": ["#));
+        assert!(!is_angular_json_decl(r#""optimization": "true""#));
+        assert!(!is_angular_json_decl(r#""localize": "true""#));
+        // Same-line members are not opening-key lines.
+        assert!(!is_angular_json_decl(r#""architect": {"build": {}},"#));
+        assert!(!is_angular_json_decl(r#""assets": ["src/assets"],"#));
+        assert!(!is_angular_json_decl(
+            r#""$schema": "./node_modules/@angular/cli/lib/config/schema.json""#
+        ));
+        assert!(!is_angular_json_decl(r#""version": 1"#));
+        assert!(!is_angular_json_decl(r#""name": "my-app""#));
+        assert!(!is_angular_json_decl(r#""projects": {"#));
+        assert!(!is_angular_json_decl(r#""root": "src""#));
+        assert!(!is_angular_json_decl(r#""options": {"#));
+        assert!(!is_angular_json_decl(r#""configurations": {"#));
+        assert!(!is_angular_json_decl(r#""build": {"#));
+        assert!(!is_angular_json_decl(r#""serve": {"#));
+        assert!(!is_angular_json_decl(r#""test": {"#));
+        assert!(!is_angular_json_decl(r#""lint": {"#));
+        // Neighbouring families stay out.
+        assert!(!is_angular_json_decl(r#""submit": {"#));
+        assert!(is_eas_json_decl(r#""submit": {"#));
+        assert!(!is_angular_json_decl(r#""developmentClient": true"#));
+        assert!(is_eas_json_decl(r#""developmentClient": true"#));
+        assert!(!is_angular_json_decl(r#""distribution": "internal""#));
+        assert!(is_eas_json_decl(r#""distribution": "internal""#));
+        assert!(!is_angular_json_decl(r#""credentialsSource": "remote""#));
+        assert!(is_eas_json_decl(r#""credentialsSource": "remote""#));
+        assert!(!is_angular_json_decl(r#""appVersionSource": "remote""#));
+        assert!(is_eas_json_decl(r#""appVersionSource": "remote""#));
+        assert!(!is_angular_json_decl(r#""channel": "production""#));
+        assert!(is_eas_json_decl(r#""channel": "production""#));
+        assert!(!is_angular_json_decl(r#""resourceClass": "medium""#));
+        assert!(is_eas_json_decl(r#""resourceClass": "medium""#));
+        assert!(!is_angular_json_decl(r#""buildArtifactPaths": ["#));
+        assert!(is_eas_json_decl(r#""buildArtifactPaths": ["#));
+        assert!(!is_angular_json_decl(r#""expo": {"#));
+        assert!(is_expo_json_decl(r#""expo": {"#));
+        assert!(!is_angular_json_decl(r#""slug": "my-app""#));
+        assert!(is_expo_json_decl(r#""slug": "my-app""#));
+        assert!(!is_angular_json_decl(r#""orientation": "portrait""#));
+        assert!(is_expo_json_decl(r#""orientation": "portrait""#));
+        assert!(!is_angular_json_decl(r#""splash": {"#));
+        assert!(is_expo_json_decl(r#""splash": {"#));
+        assert!(!is_angular_json_decl(r#""integrations": {"#));
+        assert!(is_ionic_json_decl(r#""integrations": {"#));
+        assert!(!is_angular_json_decl(r#""hooks": {"#));
+        assert!(is_ionic_json_decl(r#""hooks": {"#));
+        assert!(!is_angular_json_decl(r#""proxies": ["#));
+        assert!(is_ionic_json_decl(r#""proxies": ["#));
+        assert!(!is_angular_json_decl(r#""watchPatterns": ["#));
+        assert!(is_ionic_json_decl(r#""watchPatterns": ["#));
+        assert!(!is_angular_json_decl(r#""documentRoot": "www""#));
+        assert!(is_ionic_json_decl(r#""documentRoot": "www""#));
+        assert!(!is_angular_json_decl(r#""type": "angular""#));
+        assert!(is_ionic_json_decl(r#""type": "angular""#));
+        assert!(!is_angular_json_decl(r#""appId": "com.example.app""#));
+        assert!(is_capacitor_json_decl(r#""appId": "com.example.app""#));
+        assert!(!is_angular_json_decl(r#""appName": "MyApp""#));
+        assert!(is_capacitor_json_decl(r#""appName": "MyApp""#));
+        assert!(!is_angular_json_decl(r#""webDir": "dist""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "dist""#));
+        assert!(!is_angular_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(!is_angular_json_decl(r#""server": {"#));
+        assert!(is_capacitor_json_decl(r#""server": {"#));
+        assert!(!is_angular_json_decl(r#""cordova": {"#));
+        assert!(is_capacitor_json_decl(r#""cordova": {"#));
+        assert!(!is_angular_json_decl(r#""productName": "App""#));
+        assert!(is_tauri_json_decl(r#""productName": "App""#));
+        assert!(!is_angular_json_decl(r#""identifier": "com.example.app""#));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_angular_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_angular_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+        assert!(!is_angular_json_decl(r#""frontendDist": "../dist""#));
+        assert!(is_tauri_json_decl(r#""frontendDist": "../dist""#));
+        assert!(!is_angular_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_angular_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_angular_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_angular_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(!is_angular_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_angular_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_angular_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_angular_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_angular_json_decl(r#""regions": ["#));
+        assert!(is_vercel_json_decl(r#""regions": ["#));
+        assert!(!is_angular_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_angular_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_angular_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_angular_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_angular_json_decl(r#""baseBranch": "main""#));
+        assert!(is_changesets_json_decl(r#""baseBranch": "main""#));
+        assert!(!is_angular_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_angular_json_decl(r#""projects": ["#));
+        assert!(is_rush_json_decl(r#""projects": ["#));
+        assert!(!is_angular_json_decl(r#""npmClient": "npm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "npm""#));
+        assert!(!is_angular_json_decl(r#""useWorkspaces": true"#));
+        assert!(is_lerna_json_decl(r#""useWorkspaces": true"#));
+        assert!(!is_angular_json_decl(r#""packages": ["#));
+        assert!(is_lerna_json_decl(r#""packages": ["#));
+        assert!(!is_angular_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_angular_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_angular_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_angular_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(!is_angular_json_decl(r#""envMode": "loose""#));
+        assert!(is_turbo_json_decl(r#""envMode": "loose""#));
+        assert!(!is_angular_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_angular_json_decl(r#""targetDefaults": {"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(!is_angular_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(!is_angular_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_angular_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_angular_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_angular_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_angular_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_angular_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_angular_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_angular_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_angular_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_angular_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_angular_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists angular keys.
+        assert!(line_is_func_like(r#""architect": {"#));
+        assert!(line_is_func_like(r#""schematics": {"#));
+        assert!(line_is_func_like(r#""cli": {"#));
+        assert!(line_is_func_like(r#""newProjectRoot": "projects""#));
+        assert!(line_is_func_like(r#""projectType": "application""#));
+        assert!(line_is_func_like(r#""prefix": "app""#));
+        assert!(line_is_func_like(
+            r#""builder": "@angular-devkit/build-angular:browser""#
+        ));
+        assert!(line_is_func_like(r#""assets": ["#));
+        assert!(line_is_func_like(r#""styles": ["#));
+        assert!(line_is_func_like(r#""scripts": ["#));
+        assert!(line_is_func_like(r#""aot": true"#));
+        assert!(line_is_func_like(r#""optimization": true"#));
+        assert!(line_is_func_like(r#""outputHashing": "all""#));
+        assert!(line_is_func_like(r#""inlineStyleLanguage": "scss""#));
     }
 
     #[test]

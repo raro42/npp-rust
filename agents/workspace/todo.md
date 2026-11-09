@@ -1102,3 +1102,5 @@
 009 keep: Function List Expo app.json / app.config.json (v0.3.720)
 
 009 keep: Function List Expo eas.json submit/developmentClient/distribution/credentialsSource/appVersionSource/autoIncrement/channel/resourceClass (v0.3.721)
+
+009 keep: Function List Angular angular.json architect/projectType/builder/newProjectRoot/prefix/assets/styles/aot/optimization/outputHashing (v0.3.722)
