@@ -32398,6 +32398,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_webextension_manifest_json_decl(s)
             || is_vscode_launch_json_decl(s)
             || is_vscode_tasks_json_decl(s)
+            || is_devcontainer_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32706,6 +32707,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_webextension_manifest_json_decl(s)
         || is_vscode_launch_json_decl(s)
         || is_vscode_tasks_json_decl(s)
+        || is_devcontainer_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -47322,6 +47324,249 @@ fn vscode_tasks_json_string_ok(key: &str, value: &str) -> bool {
         "dependsOrder" => matches!(value, "sequence" | "parallel"),
         "group" => matches!(value, "build" | "test" | "none"),
         "dependsOn" | "problemMatcher" | "detail" => true,
+        _ => false,
+    }
+}
+
+/// VS Code / Dev Containers `.devcontainer/devcontainer.json` JSON keys:
+/// `"image": "…"`, `"dockerFile": "…"` / `"dockerfile": "…"`,
+/// `"context": "…"`, `"build": {`, `"features": {`,
+/// `"customizations": {`, `"forwardPorts": [`, `"portsAttributes": {`,
+/// `"otherPortsAttributes": {`, `"postCreateCommand": "…" / `[`,
+/// `"postStartCommand": "…" / `[`, `"postAttachCommand": "…" / `[`,
+/// `"updateContentCommand": "…" / `[`, `"initializeCommand": "…" / `[`,
+/// `"onCreateCommand": "…" / `[`, `"remoteUser": "…"`,
+/// `"containerUser": "…"`, `"workspaceFolder": "…"`,
+/// `"workspaceMount": "…"`, `"mounts": [`, `"runArgs": [`,
+/// `"containerEnv": {`, `"remoteEnv": {`, `"overrideCommand": true`,
+/// `"shutdownAction": "none"` / `"stopContainer"` / `"stopCompose"`,
+/// `"hostRequirements": {`, `"waitFor": "…"`, `"privileged": true`,
+/// `"capAdd": [`, `"securityOpt": [`, `"service": "…"`,
+/// `"dockerComposeFile": "…" / `[`, `"runServices": [`. Optional
+/// trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:`
+/// stay out. Generic `"$schema"` / `"name"` / `"id"` / `"version"` /
+/// `"appPort"` / launch `"configurations"` / `"compounds"` /
+/// `"preLaunchTask"` / tasks `"tasks": [` / `"inputs": [` /
+/// `"dependsOn"` / `"problemMatcher"` / `"isBackground"` /
+/// webextension `"manifest_version"` / `"background"` / `"action"` /
+/// `"content_scripts"` / forge `"packagerConfig"` / `"makers"` /
+/// neutralino `"applicationId"` / `"defaultMode"` / electron-builder
+/// `"directories"` / `"asar"` / `"nsis": {` / wails `"assetdir"` /
+/// `"frontend:dir"` / nest-cli `"collection"` / `"entryFile"` /
+/// angular `"architect"` / `"schematics"` / `"projectType"` / eas
+/// `"submit"` / `"developmentClient"` / expo `"expo"` / `"slug"` /
+/// ionic `"integrations"` / `"documentRoot"` / capacitor `"appId"` /
+/// `"appName"` / `"webDir"` / `"bundledWebRuntime"` / tauri
+/// `"productName"` / `"identifier"` / `"withGlobalTauri"` /
+/// `"allowlist"` / `"frontendDist"` / firebase `"hosting"` /
+/// `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` /
+/// `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
+/// `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` /
+/// changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` /
+/// lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo
+/// `"tasks": {` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` /
+/// `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` /
+/// `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` /
+/// SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint
+/// `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` /
+/// dprint `"includes"` / tsconfig `"compilerOptions"` / package.json
+/// `"scripts": {` stay out.
+fn is_devcontainer_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !devcontainer_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    devcontainer_json_value_and_tail_ok(key, after_colon)
+}
+
+fn devcontainer_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "image"
+            | "dockerFile"
+            | "dockerfile"
+            | "context"
+            | "build"
+            | "features"
+            | "customizations"
+            | "forwardPorts"
+            | "portsAttributes"
+            | "otherPortsAttributes"
+            | "postCreateCommand"
+            | "postStartCommand"
+            | "postAttachCommand"
+            | "updateContentCommand"
+            | "initializeCommand"
+            | "onCreateCommand"
+            | "remoteUser"
+            | "containerUser"
+            | "workspaceFolder"
+            | "workspaceMount"
+            | "mounts"
+            | "runArgs"
+            | "containerEnv"
+            | "remoteEnv"
+            | "overrideCommand"
+            | "shutdownAction"
+            | "hostRequirements"
+            | "waitFor"
+            | "privileged"
+            | "capAdd"
+            | "securityOpt"
+            | "service"
+            | "dockerComposeFile"
+            | "runServices"
+    )
+}
+
+fn devcontainer_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !devcontainer_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !devcontainer_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !devcontainer_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !devcontainer_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !devcontainer_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn devcontainer_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "build"
+            | "features"
+            | "customizations"
+            | "portsAttributes"
+            | "otherPortsAttributes"
+            | "containerEnv"
+            | "remoteEnv"
+            | "hostRequirements"
+    )
+}
+
+fn devcontainer_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "forwardPorts"
+            | "postCreateCommand"
+            | "postStartCommand"
+            | "postAttachCommand"
+            | "updateContentCommand"
+            | "initializeCommand"
+            | "onCreateCommand"
+            | "mounts"
+            | "runArgs"
+            | "capAdd"
+            | "securityOpt"
+            | "dockerComposeFile"
+            | "runServices"
+    )
+}
+
+fn devcontainer_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "image"
+            | "dockerFile"
+            | "dockerfile"
+            | "context"
+            | "postCreateCommand"
+            | "postStartCommand"
+            | "postAttachCommand"
+            | "updateContentCommand"
+            | "initializeCommand"
+            | "onCreateCommand"
+            | "remoteUser"
+            | "containerUser"
+            | "workspaceFolder"
+            | "workspaceMount"
+            | "shutdownAction"
+            | "waitFor"
+            | "service"
+            | "dockerComposeFile"
+    )
+}
+
+fn devcontainer_json_bool_key_ok(key: &str) -> bool {
+    matches!(key, "overrideCommand" | "privileged")
+}
+
+fn devcontainer_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "shutdownAction" => matches!(value, "none" | "stopContainer" | "stopCompose"),
+        "image"
+        | "dockerFile"
+        | "dockerfile"
+        | "context"
+        | "postCreateCommand"
+        | "postStartCommand"
+        | "postAttachCommand"
+        | "updateContentCommand"
+        | "initializeCommand"
+        | "onCreateCommand"
+        | "remoteUser"
+        | "containerUser"
+        | "workspaceFolder"
+        | "workspaceMount"
+        | "waitFor"
+        | "service"
+        | "dockerComposeFile" => true,
         _ => false,
     }
 }
@@ -77947,23 +78192,24 @@ mod func_like_line_tests {
         is_cibuildwheel_ini_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_codespell_ini_decl,
         is_commitizen_ini_decl, is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl,
         is_crypttab_decl, is_darglint_ini_decl, is_default_grub_decl, is_deny_toml_decl,
-        is_desktop_entry_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
-        is_doc8_ini_decl, is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl,
-        is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl, is_electron_builder_json_decl,
-        is_electron_forge_json_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
-        is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
-        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
-        is_importlinter_ini_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl, is_lerna_json_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
-        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl,
-        is_netlify_toml_decl, is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_desktop_entry_decl, is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl,
+        is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl, is_dovecot_decl,
+        is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl,
+        is_electron_builder_json_decl, is_electron_forge_json_decl, is_eslint_json_decl,
+        is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl, is_firebase_json_decl,
+        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl,
+        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
+        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
+        is_keepalived_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
+        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
         is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
         is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
         is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
@@ -93918,6 +94164,346 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""isBackground": true"#));
         assert!(line_is_func_like(r#""promptOnClose": true"#));
         assert!(line_is_func_like(r#""hide": true"#));
+        // Dev Container neighbouring keys stay out of tasks.
+        assert!(!is_vscode_tasks_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_vscode_tasks_json_decl(r#""forwardPorts": ["#));
+        assert!(is_devcontainer_json_decl(r#""forwardPorts": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""customizations": {"#));
+        assert!(is_devcontainer_json_decl(r#""customizations": {"#));
+        assert!(!is_vscode_tasks_json_decl(
+            r#""postCreateCommand": "cargo build""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""postCreateCommand": "cargo build""#
+        ));
+        assert!(!is_vscode_tasks_json_decl(r#""remoteUser": "vscode""#));
+        assert!(is_devcontainer_json_decl(r#""remoteUser": "vscode""#));
+        assert!(!is_vscode_tasks_json_decl(
+            r#""shutdownAction": "stopContainer""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""shutdownAction": "stopContainer""#
+        ));
+    }
+
+    #[test]
+    fn devcontainer_json_keys_count() {
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1", // base"#
+        ));
+        assert!(is_devcontainer_json_decl(r#""dockerFile": "Dockerfile""#));
+        assert!(is_devcontainer_json_decl(r#""dockerfile": "Dockerfile""#));
+        assert!(is_devcontainer_json_decl(r#""context": "..""#));
+        assert!(is_devcontainer_json_decl(r#""build": {"#));
+        assert!(is_devcontainer_json_decl(r#""build": { // opts"#));
+        assert!(is_devcontainer_json_decl(r#""features": {"#));
+        assert!(is_devcontainer_json_decl(r#""customizations": {"#));
+        assert!(is_devcontainer_json_decl(r#""forwardPorts": ["#));
+        assert!(is_devcontainer_json_decl(r#""portsAttributes": {"#));
+        assert!(is_devcontainer_json_decl(r#""otherPortsAttributes": {"#));
+        assert!(is_devcontainer_json_decl(r#""postCreateCommand": "npm i""#));
+        assert!(is_devcontainer_json_decl(r#""postCreateCommand": ["#));
+        assert!(is_devcontainer_json_decl(
+            r#""postStartCommand": "echo hi""#
+        ));
+        assert!(is_devcontainer_json_decl(r#""postStartCommand": ["#));
+        assert!(is_devcontainer_json_decl(r#""postAttachCommand": "bash""#));
+        assert!(is_devcontainer_json_decl(r#""postAttachCommand": ["#));
+        assert!(is_devcontainer_json_decl(
+            r#""updateContentCommand": "git pull""#
+        ));
+        assert!(is_devcontainer_json_decl(r#""updateContentCommand": ["#));
+        assert!(is_devcontainer_json_decl(
+            r#""initializeCommand": "echo init""#
+        ));
+        assert!(is_devcontainer_json_decl(r#""initializeCommand": ["#));
+        assert!(is_devcontainer_json_decl(
+            r#""onCreateCommand": "setup.sh""#
+        ));
+        assert!(is_devcontainer_json_decl(r#""onCreateCommand": ["#));
+        assert!(is_devcontainer_json_decl(r#""remoteUser": "vscode""#));
+        assert!(is_devcontainer_json_decl(r#""containerUser": "root""#));
+        assert!(is_devcontainer_json_decl(
+            r#""workspaceFolder": "/workspaces/app""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/app,type=bind""#
+        ));
+        assert!(is_devcontainer_json_decl(r#""mounts": ["#));
+        assert!(is_devcontainer_json_decl(r#""runArgs": ["#));
+        assert!(is_devcontainer_json_decl(r#""containerEnv": {"#));
+        assert!(is_devcontainer_json_decl(r#""remoteEnv": {"#));
+        assert!(is_devcontainer_json_decl(r#""overrideCommand": true"#));
+        assert!(is_devcontainer_json_decl(r#""overrideCommand": false"#));
+        assert!(is_devcontainer_json_decl(r#""shutdownAction": "none""#));
+        assert!(is_devcontainer_json_decl(
+            r#""shutdownAction": "stopContainer""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""shutdownAction": "stopCompose""#
+        ));
+        assert!(is_devcontainer_json_decl(r#""hostRequirements": {"#));
+        assert!(is_devcontainer_json_decl(r#""waitFor": "onCreateCommand""#));
+        assert!(is_devcontainer_json_decl(r#""privileged": true"#));
+        assert!(is_devcontainer_json_decl(r#""capAdd": ["#));
+        assert!(is_devcontainer_json_decl(r#""securityOpt": ["#));
+        assert!(is_devcontainer_json_decl(r#""service": "app""#));
+        assert!(is_devcontainer_json_decl(
+            r#""dockerComposeFile": "docker-compose.yml""#
+        ));
+        assert!(is_devcontainer_json_decl(r#""dockerComposeFile": ["#));
+        assert!(is_devcontainer_json_decl(r#""runServices": ["#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_devcontainer_json_decl(r#""image""#));
+        assert!(!is_devcontainer_json_decl(r#""image":"#));
+        assert!(!is_devcontainer_json_decl(r#"image: "foo""#));
+        assert!(!is_devcontainer_json_decl(r#""Image": "foo""#));
+        assert!(!is_devcontainer_json_decl(r#""image": {"#));
+        assert!(!is_devcontainer_json_decl(r#""image": ["#));
+        assert!(!is_devcontainer_json_decl(r#""image": true"#));
+        assert!(!is_devcontainer_json_decl(r#""image": """#));
+        assert!(!is_devcontainer_json_decl(r#""image": "   ""#));
+        assert!(!is_devcontainer_json_decl(r#""dockerFile": {"#));
+        assert!(!is_devcontainer_json_decl(r#""dockerfile": ["#));
+        assert!(!is_devcontainer_json_decl(r#""context": {"#));
+        assert!(!is_devcontainer_json_decl(r#""build": ["#));
+        assert!(!is_devcontainer_json_decl(r#""build": true"#));
+        assert!(!is_devcontainer_json_decl(r#""features": ["#));
+        assert!(!is_devcontainer_json_decl(r#""customizations": ["#));
+        assert!(!is_devcontainer_json_decl(r#""forwardPorts": {"#));
+        assert!(!is_devcontainer_json_decl(r#""forwardPorts": true"#));
+        assert!(!is_devcontainer_json_decl(r#""portsAttributes": ["#));
+        assert!(!is_devcontainer_json_decl(r#""otherPortsAttributes": ["#));
+        assert!(!is_devcontainer_json_decl(r#""postCreateCommand": {"#));
+        assert!(!is_devcontainer_json_decl(r#""postCreateCommand": true"#));
+        assert!(!is_devcontainer_json_decl(r#""postCreateCommand": """#));
+        assert!(!is_devcontainer_json_decl(r#""remoteUser": {"#));
+        assert!(!is_devcontainer_json_decl(r#""remoteUser": ["#));
+        assert!(!is_devcontainer_json_decl(r#""remoteUser": true"#));
+        assert!(!is_devcontainer_json_decl(r#""overrideCommand": {"#));
+        assert!(!is_devcontainer_json_decl(r#""overrideCommand": ["#));
+        assert!(!is_devcontainer_json_decl(r#""overrideCommand": "true""#));
+        assert!(!is_devcontainer_json_decl(r#""privileged": 1"#));
+        assert!(!is_devcontainer_json_decl(r#""shutdownAction": "restart""#));
+        assert!(!is_devcontainer_json_decl(r#""shutdownAction": {"#));
+        assert!(!is_devcontainer_json_decl(r#""shutdownAction": ["#));
+        assert!(!is_devcontainer_json_decl(r#""hostRequirements": ["#));
+        assert!(!is_devcontainer_json_decl(r#""waitFor": {"#));
+        assert!(!is_devcontainer_json_decl(r#""capAdd": {"#));
+        assert!(!is_devcontainer_json_decl(r#""securityOpt": {"#));
+        assert!(!is_devcontainer_json_decl(r#""service": {"#));
+        assert!(!is_devcontainer_json_decl(r#""dockerComposeFile": {"#));
+        assert!(!is_devcontainer_json_decl(r#""runServices": {"#));
+        assert!(!is_devcontainer_json_decl(r#""mounts": {"#));
+        assert!(!is_devcontainer_json_decl(r#""runArgs": {"#));
+        assert!(!is_devcontainer_json_decl(r#""containerEnv": ["#));
+        assert!(!is_devcontainer_json_decl(r#""remoteEnv": ["#));
+        // Generic / neighbouring stay out.
+        assert!(!is_devcontainer_json_decl(
+            r#""$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json""#
+        ));
+        assert!(!is_devcontainer_json_decl(r#""name": "Dev""#));
+        assert!(!is_devcontainer_json_decl(r#""id": "dev""#));
+        assert!(!is_devcontainer_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_devcontainer_json_decl(r#""appPort": 3000"#));
+        // Launch / tasks stay on their scanners.
+        assert!(!is_devcontainer_json_decl(r#""version": "0.2.0""#));
+        assert!(is_vscode_launch_json_decl(r#""version": "0.2.0""#));
+        assert!(!is_devcontainer_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_devcontainer_json_decl(r#""compounds": ["#));
+        assert!(is_vscode_launch_json_decl(r#""compounds": ["#));
+        assert!(!is_devcontainer_json_decl(r#""preLaunchTask": "build""#));
+        assert!(is_vscode_launch_json_decl(r#""preLaunchTask": "build""#));
+        assert!(!is_devcontainer_json_decl(r#""version": "2.0.0""#));
+        assert!(is_vscode_tasks_json_decl(r#""version": "2.0.0""#));
+        assert!(!is_devcontainer_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_devcontainer_json_decl(r#""inputs": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""inputs": ["#));
+        assert!(!is_devcontainer_json_decl(r#""dependsOn": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""dependsOn": ["#));
+        assert!(!is_devcontainer_json_decl(r#""problemMatcher": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""problemMatcher": ["#));
+        assert!(!is_devcontainer_json_decl(r#""isBackground": true"#));
+        assert!(is_vscode_tasks_json_decl(r#""isBackground": true"#));
+        assert!(!is_devcontainer_json_decl(r#""manifest_version": 3"#));
+        assert!(is_webextension_manifest_json_decl(
+            r#""manifest_version": 3"#
+        ));
+        assert!(!is_devcontainer_json_decl(r#""background": {"#));
+        assert!(is_webextension_manifest_json_decl(r#""background": {"#));
+        assert!(!is_devcontainer_json_decl(r#""packagerConfig": {"#));
+        assert!(is_electron_forge_json_decl(r#""packagerConfig": {"#));
+        assert!(!is_devcontainer_json_decl(r#""makers": ["#));
+        assert!(is_electron_forge_json_decl(r#""makers": ["#));
+        assert!(!is_devcontainer_json_decl(
+            r#""applicationId": "js.neutralino.sample""#
+        ));
+        assert!(is_neutralino_json_decl(
+            r#""applicationId": "js.neutralino.sample""#
+        ));
+        assert!(!is_devcontainer_json_decl(r#""directories": {"#));
+        assert!(is_electron_builder_json_decl(r#""directories": {"#));
+        assert!(!is_devcontainer_json_decl(r#""asar": true"#));
+        assert!(is_electron_builder_json_decl(r#""asar": true"#));
+        assert!(!is_devcontainer_json_decl(r#""nsis": {"#));
+        assert!(is_electron_builder_json_decl(r#""nsis": {"#));
+        assert!(!is_devcontainer_json_decl(r#""assetdir": "frontend/dist""#));
+        assert!(is_wails_json_decl(r#""assetdir": "frontend/dist""#));
+        assert!(!is_devcontainer_json_decl(r#""frontend:dir": "frontend""#));
+        assert!(is_wails_json_decl(r#""frontend:dir": "frontend""#));
+        assert!(!is_devcontainer_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(is_nest_cli_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(!is_devcontainer_json_decl(r#""entryFile": "main""#));
+        assert!(is_nest_cli_json_decl(r#""entryFile": "main""#));
+        assert!(!is_devcontainer_json_decl(r#""architect": {"#));
+        assert!(is_angular_json_decl(r#""architect": {"#));
+        assert!(!is_devcontainer_json_decl(r#""schematics": {"#));
+        assert!(is_angular_json_decl(r#""schematics": {"#));
+        assert!(!is_devcontainer_json_decl(
+            r#""projectType": "application""#
+        ));
+        assert!(is_angular_json_decl(r#""projectType": "application""#));
+        assert!(!is_devcontainer_json_decl(r#""submit": {"#));
+        assert!(is_eas_json_decl(r#""submit": {"#));
+        assert!(!is_devcontainer_json_decl(r#""developmentClient": true"#));
+        assert!(is_eas_json_decl(r#""developmentClient": true"#));
+        assert!(!is_devcontainer_json_decl(r#""expo": {"#));
+        assert!(is_expo_json_decl(r#""expo": {"#));
+        assert!(!is_devcontainer_json_decl(r#""slug": "my-app""#));
+        assert!(is_expo_json_decl(r#""slug": "my-app""#));
+        assert!(!is_devcontainer_json_decl(r#""integrations": {"#));
+        assert!(is_ionic_json_decl(r#""integrations": {"#));
+        assert!(!is_devcontainer_json_decl(r#""documentRoot": "www""#));
+        assert!(is_ionic_json_decl(r#""documentRoot": "www""#));
+        assert!(!is_devcontainer_json_decl(r#""appId": "com.example.app""#));
+        assert!(is_capacitor_json_decl(r#""appId": "com.example.app""#));
+        assert!(!is_devcontainer_json_decl(r#""appName": "Example""#));
+        assert!(is_capacitor_json_decl(r#""appName": "Example""#));
+        assert!(!is_devcontainer_json_decl(r#""webDir": "dist""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "dist""#));
+        assert!(!is_devcontainer_json_decl(r#""bundledWebRuntime": false"#));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": false"#));
+        assert!(!is_devcontainer_json_decl(r#""productName": "MyApp""#));
+        assert!(is_tauri_json_decl(r#""productName": "MyApp""#));
+        assert!(!is_devcontainer_json_decl(
+            r#""identifier": "com.example.app""#
+        ));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_devcontainer_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_devcontainer_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+        assert!(!is_devcontainer_json_decl(r#""frontendDist": "../dist""#));
+        assert!(is_tauri_json_decl(r#""frontendDist": "../dist""#));
+        assert!(!is_devcontainer_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_devcontainer_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_devcontainer_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_devcontainer_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(!is_devcontainer_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_devcontainer_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_devcontainer_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_devcontainer_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_devcontainer_json_decl(r#""regions": ["#));
+        assert!(is_vercel_json_decl(r#""regions": ["#));
+        assert!(!is_devcontainer_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_devcontainer_json_decl(
+            r#""buildCommand": "npm run build""#
+        ));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_devcontainer_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_devcontainer_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_devcontainer_json_decl(r#""baseBranch": "main""#));
+        assert!(is_changesets_json_decl(r#""baseBranch": "main""#));
+        assert!(!is_devcontainer_json_decl(r#""rushVersion": "5.100.0""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.100.0""#));
+        assert!(!is_devcontainer_json_decl(r#""projects": ["#));
+        assert!(is_rush_json_decl(r#""projects": ["#));
+        assert!(!is_devcontainer_json_decl(r#""npmClient": "pnpm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "pnpm""#));
+        assert!(!is_devcontainer_json_decl(r#""useWorkspaces": true"#));
+        assert!(is_lerna_json_decl(r#""useWorkspaces": true"#));
+        assert!(!is_devcontainer_json_decl(r#""packages": ["#));
+        assert!(is_lerna_json_decl(r#""packages": ["#));
+        assert!(!is_devcontainer_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_devcontainer_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_devcontainer_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_devcontainer_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(!is_devcontainer_json_decl(r#""envMode": "loose""#));
+        assert!(is_turbo_json_decl(r#""envMode": "loose""#));
+        assert!(!is_devcontainer_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_devcontainer_json_decl(r#""targetDefaults": {"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(!is_devcontainer_json_decl(
+            r#""cacheDirectory": ".nx/cache""#
+        ));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(!is_devcontainer_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_devcontainer_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_devcontainer_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_devcontainer_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_devcontainer_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_devcontainer_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_devcontainer_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_devcontainer_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_devcontainer_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_devcontainer_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_devcontainer_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists devcontainer keys.
+        assert!(line_is_func_like(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(line_is_func_like(r#""dockerFile": "Dockerfile""#));
+        assert!(line_is_func_like(r#""build": {"#));
+        assert!(line_is_func_like(r#""features": {"#));
+        assert!(line_is_func_like(r#""customizations": {"#));
+        assert!(line_is_func_like(r#""forwardPorts": ["#));
+        assert!(line_is_func_like(r#""postCreateCommand": "cargo build""#));
+        assert!(line_is_func_like(r#""remoteUser": "vscode""#));
+        assert!(line_is_func_like(r#""overrideCommand": true"#));
+        assert!(line_is_func_like(r#""shutdownAction": "stopContainer""#));
+        assert!(line_is_func_like(r#""dockerComposeFile": ["#));
+        assert!(line_is_func_like(r#""runServices": ["#));
     }
 
     #[test]
