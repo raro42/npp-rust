@@ -36,3 +36,9 @@ Created: 2026-11-09T18:14:18Z
 - Blocker: GitHub Actions platform outage (not local gates). Re-ran `42672908737`; waiting for recovery.
 - Left as WIP until a full 3-OS cloud run is green.
 
+
+## Progress (green)
+- Re-run `42672908737` completed success: ubuntu, macos, windows all green.
+- Root cause was GitHub Actions outage (incident with Actions/Checks API), not project code.
+- Handoff: TEST ready for tester.
+
