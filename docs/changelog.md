@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.714] — 2026-11-09
+
+View:
+
+- **Function List** lists Changesets `.changeset/config.json` JSON keys: `"changelog": "@changesets/cli/changelog"` / `[` / `false`, `"commit": false`, `"fixed": [`, `"linked": [`, `"access": "restricted"` / `"public"`, `"baseBranch": "main"`, `"updateInternalDependencies": "patch"` / `"minor"`, `"ignore": [`, `"prettier": true`, `"privatePackages": {` / `false`, `"snapshot": {`, `"changedFilePatterns": [`, `"bumpVersionsWithWorkspaceProtocolOnly": true`, `"___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / rush `"rushVersion"` / `"projects"` / `"ensureConsistentVersions"` / lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / PostCSS `"plugins": {` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out. Shared `"ignore": [` also matches babel / pyrightconfig when shapes match; shared `"changelog": true` / `false` also matches lerna when shapes match.
+
 ## [0.3.713] — 2026-11-09
 
 View:
