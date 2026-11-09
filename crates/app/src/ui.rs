@@ -32402,6 +32402,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_renovate_json_decl(s)
             || is_deno_json_decl(s)
             || is_knip_json_decl(s)
+            || is_oxlint_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32714,6 +32715,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_renovate_json_decl(s)
         || is_deno_json_decl(s)
         || is_knip_json_decl(s)
+        || is_oxlint_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -48183,6 +48185,97 @@ fn knip_json_string_ok(value: &str) -> bool {
         return false;
     }
     !value.chars().all(|c| c.is_ascii_whitespace())
+}
+
+/// Oxlint `.oxlintrc.json` / `oxlintrc.json` JSON keys: `"categories": {`,
+/// `"jsPlugins": [`, `"options": {`, `"plugins": [`, `"rules": {`,
+/// `"overrides": [`, `"env": {`, `"globals": {`, `"settings": {`,
+/// `"extends": [`, `"ignorePatterns": [`. Optional trailing `,` and
+/// `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"$schema"` / `"name"` / `"version"` / `"root"` / ESLint
+/// `"parser"` / `"parserOptions"` / `"languageOptions"` /
+/// `"linterOptions"` / `"noInlineConfig"` / `"reportUnusedDisableDirectives"`
+/// / `"ignores"` / `"processor"` / `"extends": "…"` (string; oxlint JSON is
+/// array-only) / Knip `"entry"` / `"ignoreBinaries"` / Deno
+/// `"nodeModulesDir"` / Renovate `"packageRules"` / launch
+/// `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
+/// turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` /
+/// biome `"linter"` / package.json `"scripts"` / tsconfig
+/// `"compilerOptions"` stay out. Shared `"plugins": [` / `"rules": {` /
+/// `"overrides": [` / `"env": {` / `"globals": {` / `"settings": {` /
+/// `"extends": [` / `"ignorePatterns": [` also match eslint / stylelint /
+/// prettier / biome when shapes match.
+fn is_oxlint_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !oxlint_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    oxlint_json_value_and_tail_ok(key, after_colon)
+}
+
+fn oxlint_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "categories"
+            | "jsPlugins"
+            | "options"
+            | "plugins"
+            | "rules"
+            | "overrides"
+            | "env"
+            | "globals"
+            | "settings"
+            | "extends"
+            | "ignorePatterns"
+    )
+}
+
+fn oxlint_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !oxlint_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !oxlint_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        _ => false,
+    }
+}
+
+fn oxlint_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "categories" | "options" | "rules" | "env" | "globals" | "settings"
+    )
+}
+
+fn oxlint_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "jsPlugins" | "plugins" | "overrides" | "extends" | "ignorePatterns"
+    )
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -78824,28 +78917,29 @@ mod func_like_line_tests {
         is_netlify_toml_decl, is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl,
         is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
         is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
-        is_postcss_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
-        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
-        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
-        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
-        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
-        is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl, is_release_toml_decl,
-        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
-        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl,
-        is_supabase_toml_decl, is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
-        is_turbo_json_decl, is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
+        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
+        is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
+        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl,
+        is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl, is_prettier_json_decl,
+        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
+        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
+        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
+        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
+        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl,
+        is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
+        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
+        is_tauri_json_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl,
+        is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl,
+        is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
         is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
         is_wails_json_decl, is_webextension_manifest_json_decl, is_wireguard_config_decl,
         is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
@@ -95745,6 +95839,132 @@ mod func_like_line_tests {
         assert!(is_package_json_decl(r#""workspaces": {"#));
         // tsconfig nests paths under compilerOptions; Knip owns top-level paths.
         assert!(!is_tsconfig_json_decl(r#""paths": {"#));
+    }
+
+    #[test]
+    fn oxlint_json_keys_count() {
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": { // groups"#));
+        assert!(is_oxlint_json_decl(r#""jsPlugins": ["#));
+        assert!(is_oxlint_json_decl(r#""options": {"#));
+        assert!(is_oxlint_json_decl(r#""plugins": ["#));
+        assert!(is_oxlint_json_decl(r#""rules": {"#));
+        assert!(is_oxlint_json_decl(r#""overrides": ["#));
+        assert!(is_oxlint_json_decl(r#""env": {"#));
+        assert!(is_oxlint_json_decl(r#""globals": {"#));
+        assert!(is_oxlint_json_decl(r#""settings": {"#));
+        assert!(is_oxlint_json_decl(r#""extends": ["#));
+        assert!(is_oxlint_json_decl(r#""ignorePatterns": ["#));
+        assert!(is_oxlint_json_decl(
+            r#""jsPlugins": [ // alpha ESLint plugins"#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_oxlint_json_decl(r#""categories""#));
+        assert!(!is_oxlint_json_decl(r#""categories":"#));
+        assert!(!is_oxlint_json_decl(r#""categories: {"#));
+        assert!(!is_oxlint_json_decl(r#""categories": ["#));
+        assert!(!is_oxlint_json_decl(r#""jsPlugins": {"#));
+        assert!(!is_oxlint_json_decl(r#""options": ["#));
+        assert!(!is_oxlint_json_decl(r#""plugins": {"#));
+        assert!(!is_oxlint_json_decl(r#""rules": ["#));
+        assert!(!is_oxlint_json_decl(r#""overrides": {"#));
+        assert!(!is_oxlint_json_decl(r#""env": ["#));
+        assert!(!is_oxlint_json_decl(r#""globals": ["#));
+        assert!(!is_oxlint_json_decl(r#""settings": ["#));
+        assert!(!is_oxlint_json_decl(r#""extends": {"#));
+        assert!(!is_oxlint_json_decl(r#""ignorePatterns": {"#));
+        // Oxlint JSON extends is array-only; string stays on ESLint.
+        assert!(!is_oxlint_json_decl(r#""extends": "eslint:recommended""#));
+        assert!(is_eslint_json_decl(r#""extends": "eslint:recommended""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_oxlint_json_decl(
+            r#""$schema": "./node_modules/oxlint/configuration_schema.json""#
+        ));
+        assert!(!is_oxlint_json_decl(r#""name": "my-app""#));
+        assert!(!is_oxlint_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_oxlint_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_oxlint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_oxlint_json_decl(r#""parserOptions": {"#));
+        assert!(is_eslint_json_decl(r#""parserOptions": {"#));
+        assert!(!is_oxlint_json_decl(r#""languageOptions": {"#));
+        assert!(is_eslint_json_decl(r#""languageOptions": {"#));
+        assert!(!is_oxlint_json_decl(r#""linterOptions": {"#));
+        assert!(is_eslint_json_decl(r#""linterOptions": {"#));
+        assert!(!is_oxlint_json_decl(r#""noInlineConfig": true"#));
+        assert!(is_eslint_json_decl(r#""noInlineConfig": true"#));
+        assert!(!is_oxlint_json_decl(
+            r#""reportUnusedDisableDirectives": true"#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""reportUnusedDisableDirectives": true"#
+        ));
+        assert!(!is_oxlint_json_decl(r#""ignores": ["#));
+        assert!(is_eslint_json_decl(r#""ignores": ["#));
+        assert!(!is_oxlint_json_decl(r#""processor": "vue/.vue""#));
+        assert!(is_eslint_json_decl(r#""processor": "vue/.vue""#));
+        assert!(!is_oxlint_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_oxlint_json_decl(r#""ignoreBinaries": ["#));
+        assert!(is_knip_json_decl(r#""ignoreBinaries": ["#));
+        assert!(!is_oxlint_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_oxlint_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_oxlint_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_oxlint_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_oxlint_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_oxlint_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_oxlint_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_oxlint_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_oxlint_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_oxlint_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_oxlint_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive oxlint keys stay out of ESLint / Knip / neighbours.
+        assert!(!is_eslint_json_decl(r#""categories": {"#));
+        assert!(!is_eslint_json_decl(r#""jsPlugins": ["#));
+        assert!(!is_eslint_json_decl(r#""options": {"#));
+        assert!(!is_knip_json_decl(r#""categories": {"#));
+        assert!(!is_knip_json_decl(r#""jsPlugins": ["#));
+        assert!(!is_knip_json_decl(r#""options": {"#));
+        // Shared shapes still list via Oxlint / ESLint scanners.
+        assert!(line_is_func_like(r#""categories": {"#));
+        assert!(line_is_func_like(r#""jsPlugins": ["#));
+        assert!(line_is_func_like(r#""options": {"#));
+        assert!(line_is_func_like(r#""plugins": ["#));
+        assert!(line_is_func_like(r#""rules": {"#));
+        assert!(line_is_func_like(r#""overrides": ["#));
+        assert!(line_is_func_like(r#""env": {"#));
+        assert!(line_is_func_like(r#""globals": {"#));
+        assert!(line_is_func_like(r#""settings": {"#));
+        assert!(line_is_func_like(r#""extends": ["#));
+        assert!(line_is_func_like(r#""ignorePatterns": ["#));
+        assert!(is_eslint_json_decl(r#""plugins": ["#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""overrides": ["#));
+        assert!(is_eslint_json_decl(r#""env": {"#));
+        assert!(is_eslint_json_decl(r#""globals": {"#));
+        assert!(is_eslint_json_decl(r#""settings": {"#));
+        assert!(is_eslint_json_decl(r#""extends": ["#));
+        assert!(is_eslint_json_decl(r#""ignorePatterns": ["#));
     }
 
     #[test]

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.735] — 2026-11-09
+
+View:
+
+- **Function List** lists Oxlint `.oxlintrc.json` / `oxlintrc.json` JSON keys: `"categories": {`, `"jsPlugins": [`, `"options": {`, `"plugins": [`, `"rules": {`, `"overrides": [`, `"env": {`, `"globals": {`, `"settings": {`, `"extends": [`, `"ignorePatterns": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"root"` / ESLint `"parser"` / `"parserOptions"` / `"languageOptions"` / `"linterOptions"` / `"noInlineConfig"` / `"reportUnusedDisableDirectives"` / `"ignores"` / `"processor"` / `"extends": "…"` (string; oxlint JSON is array-only) / Knip `"entry"` / `"ignoreBinaries"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. Shared `"plugins": [` / `"rules": {` / `"overrides": [` / `"env": {` / `"globals": {` / `"settings": {` / `"extends": [` / `"ignorePatterns": [` also match eslint / stylelint / prettier / biome when shapes match.
+
 ## [0.3.734] — 2026-11-09
 
 View:

@@ -1,3 +1,5 @@
+009 keep: Function List Oxlint .oxlintrc.json categories/jsPlugins/options/plugins/rules/overrides/env/globals/settings/extends/ignorePatterns (v0.3.735)
+
 009 keep: Function List Knip knip.json entry/project/paths/workspaces/ignoreBinaries/ignoreDependencies/includeEntryExports/treatConfigHintsAsErrors (v0.3.734)
 
 009 keep: Function List Deno deno.json tasks/imports/scopes/lint/fmt/test/bench/nodeModulesDir/vendor/unstable/importMap/workspace (v0.3.733)
