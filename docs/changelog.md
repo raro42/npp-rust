@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.734] — 2026-11-09
+
+View:
+
+- **Function List** lists Knip `knip.json` / `knip.jsonc` JSON keys: `"entry": [`, `"project": [`, `"paths": {`, `"workspaces": {`, `"rules": {`, `"include": [`, `"exclude": [`, `"tags": [`, `"preprocessor": "…"` / `[`, `"preprocessorOptions": {`, `"ignore": [`, `"ignoreFiles": [`, `"ignoreBinaries": [`, `"ignoreDependencies": [`, `"ignoreMembers": [`, `"ignoreUnresolved": [`, `"ignoreWorkspaces": [`, `"ignoreIssues": {`, `"cycles": {`, `"ignoreExportsUsedInFile": true` / `{`, `"ignoreGlobalBinaries": true`, `"includeEntryExports": true`, `"includeSubpathExports": true`, `"treatConfigHintsAsErrors": true`, `"treatTagHintsAsErrors": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / Deno `"nodeModulesDir"` / `"vendor"` / `"unstable"` / `"importMap"` / Renovate `"packageRules"` / `"rangeStrategy"` / `"dependencyDashboard"` / launch `"configurations"` / tasks `"tasks": [` / `"isBackground"` / Dev Container `"image"` / `"forwardPorts"` / turbo `"pipeline"` / `"globalDependencies"` / nx `"namedInputs"` / eslint `"root"` / prettier `"printWidth"` / biome `"linter"` / package.json `"scripts"` / tsconfig `"compilerOptions"` / webextension `"manifest_version"` stay out. Shared `"paths": {` / `"rules": {` / `"include": [` / `"exclude": [` / `"workspaces": {` also match tsconfig / eslint / package.json when shapes match.
+
 ## [0.3.733] — 2026-11-09
 
 View:

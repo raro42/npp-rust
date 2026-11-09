@@ -32401,6 +32401,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_devcontainer_json_decl(s)
             || is_renovate_json_decl(s)
             || is_deno_json_decl(s)
+            || is_knip_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32712,6 +32713,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_devcontainer_json_decl(s)
         || is_renovate_json_decl(s)
         || is_deno_json_decl(s)
+        || is_knip_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -48006,6 +48008,181 @@ fn deno_json_string_ok(key: &str, value: &str) -> bool {
         "lock" | "importMap" | "exports" => true,
         _ => false,
     }
+}
+
+/// Knip `knip.json` / `knip.jsonc` JSON keys: `"entry": [`, `"project": [`,
+/// `"paths": {`, `"workspaces": {`, `"rules": {`, `"include": [`,
+/// `"exclude": [`, `"tags": [`, `"preprocessor": "…"` / `[`,
+/// `"preprocessorOptions": {`, `"ignore": [`, `"ignoreFiles": [`,
+/// `"ignoreBinaries": [`, `"ignoreDependencies": [`, `"ignoreMembers": [`,
+/// `"ignoreUnresolved": [`, `"ignoreWorkspaces": [`, `"ignoreIssues": {`,
+/// `"cycles": {`, `"ignoreExportsUsedInFile": true` / `{`,
+/// `"ignoreGlobalBinaries": true`, `"includeEntryExports": true`,
+/// `"includeSubpathExports": true`, `"treatConfigHintsAsErrors": true`,
+/// `"treatTagHintsAsErrors": true`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / Deno `"nodeModulesDir"` / `"vendor"` /
+/// `"unstable"` / `"importMap"` / Renovate `"packageRules"` /
+/// `"rangeStrategy"` / launch `"configurations"` / tasks `"tasks": [` /
+/// Dev Container `"image"` / `"forwardPorts"` / turbo `"pipeline"` /
+/// `"globalDependencies"` / nx `"namedInputs"` / eslint `"root"` /
+/// prettier `"printWidth"` / biome `"linter"` / package.json `"scripts"` /
+/// tsconfig `"compilerOptions"` stay out. Shared `"paths": {` /
+/// `"rules": {` / `"include": [` / `"exclude": [` / `"workspaces": {` also
+/// match tsconfig / eslint / package.json when shapes match.
+fn is_knip_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !knip_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    knip_json_value_and_tail_ok(key, after_colon)
+}
+
+fn knip_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "entry"
+            | "project"
+            | "paths"
+            | "workspaces"
+            | "rules"
+            | "include"
+            | "exclude"
+            | "tags"
+            | "preprocessor"
+            | "preprocessorOptions"
+            | "ignore"
+            | "ignoreFiles"
+            | "ignoreBinaries"
+            | "ignoreDependencies"
+            | "ignoreMembers"
+            | "ignoreUnresolved"
+            | "ignoreWorkspaces"
+            | "ignoreIssues"
+            | "cycles"
+            | "ignoreExportsUsedInFile"
+            | "ignoreGlobalBinaries"
+            | "includeEntryExports"
+            | "includeSubpathExports"
+            | "treatConfigHintsAsErrors"
+            | "treatTagHintsAsErrors"
+    )
+}
+
+fn knip_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !knip_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !knip_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !knip_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !knip_json_string_ok(value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !knip_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn knip_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "paths"
+            | "workspaces"
+            | "rules"
+            | "preprocessorOptions"
+            | "ignoreIssues"
+            | "cycles"
+            | "ignoreExportsUsedInFile"
+    )
+}
+
+fn knip_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "entry"
+            | "project"
+            | "include"
+            | "exclude"
+            | "tags"
+            | "preprocessor"
+            | "ignore"
+            | "ignoreFiles"
+            | "ignoreBinaries"
+            | "ignoreDependencies"
+            | "ignoreMembers"
+            | "ignoreUnresolved"
+            | "ignoreWorkspaces"
+    )
+}
+
+fn knip_json_string_key_ok(key: &str) -> bool {
+    matches!(key, "preprocessor")
+}
+
+fn knip_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "ignoreExportsUsedInFile"
+            | "ignoreGlobalBinaries"
+            | "includeEntryExports"
+            | "includeSubpathExports"
+            | "treatConfigHintsAsErrors"
+            | "treatTagHintsAsErrors"
+    )
+}
+
+fn knip_json_string_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    !value.chars().all(|c| c.is_ascii_whitespace())
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -78639,14 +78816,14 @@ mod func_like_line_tests {
         is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
         is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
         is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
-        is_keepalived_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
+        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
+        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
+        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl,
+        is_netlify_toml_decl, is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
         is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
         is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
         is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
@@ -95424,6 +95601,150 @@ mod func_like_line_tests {
         assert!(is_package_json_decl(r#""imports": {"#));
         assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
         assert!(is_tsconfig_json_decl(r#""exclude": ["#));
+        // Knip neighbouring keys stay out of Deno.
+        assert!(!is_deno_json_decl(r#""ignoreBinaries": ["#));
+        assert!(is_knip_json_decl(r#""ignoreBinaries": ["#));
+        assert!(!is_deno_json_decl(r#""ignoreDependencies": ["#));
+        assert!(is_knip_json_decl(r#""ignoreDependencies": ["#));
+        assert!(!is_deno_json_decl(r#""includeEntryExports": true"#));
+        assert!(is_knip_json_decl(r#""includeEntryExports": true"#));
+        assert!(!is_deno_json_decl(r#""treatConfigHintsAsErrors": true"#));
+        assert!(is_knip_json_decl(r#""treatConfigHintsAsErrors": true"#));
+    }
+
+    #[test]
+    fn knip_json_keys_count() {
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": [ // apps"#));
+        assert!(is_knip_json_decl(r#""project": ["#));
+        assert!(is_knip_json_decl(r#""paths": {"#));
+        assert!(is_knip_json_decl(r#""workspaces": {"#));
+        assert!(is_knip_json_decl(r#""rules": {"#));
+        assert!(is_knip_json_decl(r#""include": ["#));
+        assert!(is_knip_json_decl(r#""exclude": ["#));
+        assert!(is_knip_json_decl(r#""tags": ["#));
+        assert!(is_knip_json_decl(r#""preprocessor": "./prep.ts""#));
+        assert!(is_knip_json_decl(r#""preprocessor": ["#));
+        assert!(is_knip_json_decl(r#""preprocessorOptions": {"#));
+        assert!(is_knip_json_decl(r#""ignore": ["#));
+        assert!(is_knip_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_knip_json_decl(r#""ignoreBinaries": ["#));
+        assert!(is_knip_json_decl(r#""ignoreDependencies": ["#));
+        assert!(is_knip_json_decl(r#""ignoreMembers": ["#));
+        assert!(is_knip_json_decl(r#""ignoreUnresolved": ["#));
+        assert!(is_knip_json_decl(r#""ignoreWorkspaces": ["#));
+        assert!(is_knip_json_decl(r#""ignoreIssues": {"#));
+        assert!(is_knip_json_decl(r#""cycles": {"#));
+        assert!(is_knip_json_decl(r#""ignoreExportsUsedInFile": true"#));
+        assert!(is_knip_json_decl(r#""ignoreExportsUsedInFile": false"#));
+        assert!(is_knip_json_decl(r#""ignoreExportsUsedInFile": {"#));
+        assert!(is_knip_json_decl(r#""ignoreGlobalBinaries": true"#));
+        assert!(is_knip_json_decl(r#""includeEntryExports": true"#));
+        assert!(is_knip_json_decl(r#""includeSubpathExports": true"#));
+        assert!(is_knip_json_decl(r#""treatConfigHintsAsErrors": true"#));
+        assert!(is_knip_json_decl(r#""treatTagHintsAsErrors": true"#));
+        assert!(is_knip_json_decl(
+            r#""treatConfigHintsAsErrors": true, // strict"#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_knip_json_decl(r#""entry""#));
+        assert!(!is_knip_json_decl(r#""entry":"#));
+        assert!(!is_knip_json_decl(r#""entry: ["#));
+        assert!(!is_knip_json_decl(r#""entry": {"#));
+        assert!(!is_knip_json_decl(r#""project": {"#));
+        assert!(!is_knip_json_decl(r#""paths": ["#));
+        assert!(!is_knip_json_decl(r#""workspaces": ["#));
+        assert!(!is_knip_json_decl(r#""rules": ["#));
+        assert!(!is_knip_json_decl(r#""include": {"#));
+        assert!(!is_knip_json_decl(r#""exclude": {"#));
+        assert!(!is_knip_json_decl(r#""tags": {"#));
+        assert!(!is_knip_json_decl(r#""preprocessor": true"#));
+        assert!(!is_knip_json_decl(r#""preprocessorOptions": ["#));
+        assert!(!is_knip_json_decl(r#""ignoreBinaries": {"#));
+        assert!(!is_knip_json_decl(r#""ignoreIssues": ["#));
+        assert!(!is_knip_json_decl(r#""cycles": ["#));
+        assert!(!is_knip_json_decl(r#""includeEntryExports": ["#));
+        assert!(!is_knip_json_decl(r#""treatConfigHintsAsErrors": {"#));
+        assert!(!is_knip_json_decl(r#""ignoreGlobalBinaries": "yes""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_knip_json_decl(
+            r#""$schema": "https://unpkg.com/knip@6/schema.json""#
+        ));
+        assert!(!is_knip_json_decl(r#""name": "my-app""#));
+        assert!(!is_knip_json_decl(r#""version": "1.0.0""#));
+        // Deno / Renovate / launch / tasks / Dev Container / turbo stay out.
+        assert!(!is_knip_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_knip_json_decl(r#""vendor": true"#));
+        assert!(is_deno_json_decl(r#""vendor": true"#));
+        assert!(!is_knip_json_decl(r#""unstable": ["#));
+        assert!(is_deno_json_decl(r#""unstable": ["#));
+        assert!(!is_knip_json_decl(r#""importMap": "./import_map.json""#));
+        assert!(is_deno_json_decl(r#""importMap": "./import_map.json""#));
+        assert!(!is_knip_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_knip_json_decl(r#""rangeStrategy": "bump""#));
+        assert!(is_renovate_json_decl(r#""rangeStrategy": "bump""#));
+        assert!(!is_knip_json_decl(r#""dependencyDashboard": true"#));
+        assert!(is_renovate_json_decl(r#""dependencyDashboard": true"#));
+        assert!(!is_knip_json_decl(r#""version": "0.2.0""#));
+        assert!(is_vscode_launch_json_decl(r#""version": "0.2.0""#));
+        assert!(!is_knip_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_knip_json_decl(r#""version": "2.0.0""#));
+        assert!(is_vscode_tasks_json_decl(r#""version": "2.0.0""#));
+        assert!(!is_knip_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_knip_json_decl(r#""isBackground": true"#));
+        assert!(is_vscode_tasks_json_decl(r#""isBackground": true"#));
+        assert!(!is_knip_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_knip_json_decl(r#""forwardPorts": ["#));
+        assert!(is_devcontainer_json_decl(r#""forwardPorts": ["#));
+        assert!(!is_knip_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_knip_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_knip_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_knip_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_knip_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_knip_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_knip_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_knip_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_knip_json_decl(r#""manifest_version": 3"#));
+        assert!(is_webextension_manifest_json_decl(
+            r#""manifest_version": 3"#
+        ));
+        // Shared shapes still list via Knip / shared scanners.
+        assert!(line_is_func_like(r#""entry": ["#));
+        assert!(line_is_func_like(r#""project": ["#));
+        assert!(line_is_func_like(r#""ignoreBinaries": ["#));
+        assert!(line_is_func_like(r#""ignoreDependencies": ["#));
+        assert!(line_is_func_like(r#""ignoreWorkspaces": ["#));
+        assert!(line_is_func_like(r#""includeEntryExports": true"#));
+        assert!(line_is_func_like(r#""includeSubpathExports": true"#));
+        assert!(line_is_func_like(r#""treatConfigHintsAsErrors": true"#));
+        assert!(line_is_func_like(r#""treatTagHintsAsErrors": true"#));
+        assert!(line_is_func_like(r#""ignoreExportsUsedInFile": true"#));
+        assert!(line_is_func_like(r#""cycles": {"#));
+        assert!(line_is_func_like(r#""preprocessor": "./prep.ts""#));
+        assert!(line_is_func_like(r#""paths": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(is_tsconfig_json_decl(r#""include": ["#));
+        assert!(is_tsconfig_json_decl(r#""exclude": ["#));
+        assert!(is_package_json_decl(r#""workspaces": {"#));
+        // tsconfig nests paths under compilerOptions; Knip owns top-level paths.
+        assert!(!is_tsconfig_json_decl(r#""paths": {"#));
     }
 
     #[test]

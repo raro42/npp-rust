@@ -1,3 +1,5 @@
+009 keep: Function List Knip knip.json entry/project/paths/workspaces/ignoreBinaries/ignoreDependencies/includeEntryExports/treatConfigHintsAsErrors (v0.3.734)
+
 009 keep: Function List Deno deno.json tasks/imports/scopes/lint/fmt/test/bench/nodeModulesDir/vendor/unstable/importMap/workspace (v0.3.733)
 
 009 keep: Function List Dev Containers devcontainer.json image/dockerFile/build/features/customizations/forwardPorts/postCreateCommand/remoteUser/shutdownAction/dockerComposeFile (v0.3.731)
