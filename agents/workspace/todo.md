@@ -1,3 +1,5 @@
+009 keep: Function List Cypress cypress.json / cypress.config baseUrl/specPattern/chromeWebSecurity/e2e/component/viewportWidth/video/testIsolation (v0.3.740)
+
 009 keep: Function List Vitest vitest.config.json environment/pool/fileParallelism/hookTimeout/browser/typecheck/includeSource/mockReset (v0.3.739)
 
 009 keep: Function List Playwright playwright.config.json testDir/fullyParallel/forbidOnly/webServer/preserveOutput/updateSnapshots (v0.3.738)

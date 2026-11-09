@@ -32407,6 +32407,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_jest_json_decl(s)
             || is_playwright_json_decl(s)
             || is_vitest_json_decl(s)
+            || is_cypress_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32724,6 +32725,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_jest_json_decl(s)
         || is_playwright_json_decl(s)
         || is_vitest_json_decl(s)
+        || is_cypress_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -49327,6 +49329,321 @@ fn vitest_json_string_ok(key: &str, value: &str) -> bool {
         "mode" => matches!(value, "test" | "benchmark"),
         "environment" | "globalSetup" | "outputFile" | "uiBase" | "root" | "dir" | "cacheDir"
         | "testNamePattern" | "maxWorkers" => true,
+        _ => false,
+    }
+}
+
+/// Cypress `cypress.json` / `cypress.config` JSON keys:
+/// `"baseUrl": "http://…"` / `"https://…"`, `"specPattern": "…"` / `[`,
+/// `"excludeSpecPattern": "…"` / `[`, `"supportFile": "…"` / false,
+/// `"fixturesFolder": "…"` / false, `"screenshotsFolder": "…"`,
+/// `"videosFolder": "…"`, `"downloadsFolder": "…"`,
+/// `"fileServerFolder": "…"`, `"indexHtmlFile": "…"`,
+/// `"devServerPublicPathRoute": "…"`, `"projectId": "…"`,
+/// `"reporter": "…"`, `"userAgent": "…"`, `"defaultBrowser": "…"`,
+/// `"video": true`, `"screenshotOnRunFailure": true`,
+/// `"trashAssetsBeforeRuns": true`, `"chromeWebSecurity": true`,
+/// `"includeShadowDom": true`, `"watchForFileChanges": true`,
+/// `"modifyObstructiveCode": true`, `"waitForAnimations": true`,
+/// `"testIsolation": true`, `"justInTimeCompile": true`,
+/// `"experimentalSingleTabRunMode": true`, `"forceHttp1": true`,
+/// `"manageBrowserMemory": true`, `"removeSRIAttributes": true`,
+/// `"injectDocumentDomain": true`, `"videoCompression": true` / 32,
+/// `"retries": 2` / `{`, `"viewportWidth": 1000`, `"viewportHeight": 660`,
+/// `"defaultCommandTimeout": 4000`, `"taskTimeout": 60000`,
+/// `"pageLoadTimeout": 60000`, `"requestTimeout": 5000`,
+/// `"responseTimeout": 30000`, `"numTestsKeptInMemory": 50`,
+/// `"redirectionLimit": 20`, `"port": 3000`,
+/// `"animationDistanceThreshold": 5`, `"keystrokeDelay": 10`,
+/// `"slowTestThreshold": 10000`, `"scrollBehavior": "top"` / `"bottom"` /
+/// `"center"` / `"nearest"` / false / `{`, `"visibilityStrategy": "modern"` /
+/// `"legacy"`, `"e2e": {`, `"component": {`, `"env": {`, `"expose": {`,
+/// `"hosts": {`, `"reporterOptions": {`, `"devServer": {`,
+/// `"clientCertificates": [`, `"blockHosts": "…"` / `[`,
+/// `"trustedCertificates": [`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic
+/// `"$schema"` / `"name"` / `"version"` / Jest `"testEnvironment"` /
+/// `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright
+/// `"testDir"` / `"fullyParallel"` / `"forbidOnly"` / `"webServer"` /
+/// `"preserveOutput"` / Vitest `"pool"` / `"fileParallelism"` /
+/// `"hookTimeout"` / CSpell `"words"` / Oxlint `"categories"` / Knip
+/// `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` /
+/// launch `"configurations"` / tasks `"tasks": [` / Dev Container
+/// `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / prettier
+/// `"printWidth"` / biome `"linter"` / eslint `"parser"` / package.json
+/// `"scripts"` / tsconfig `"compilerOptions"` / `"baseUrl": "."` stay
+/// out. Shared `"reporter": "…"` / `"retries": 2` also match Playwright
+/// when shapes overlap.
+fn is_cypress_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !cypress_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    cypress_json_value_and_tail_ok(key, after_colon)
+}
+
+fn cypress_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "baseUrl"
+            | "specPattern"
+            | "excludeSpecPattern"
+            | "supportFile"
+            | "fixturesFolder"
+            | "screenshotsFolder"
+            | "videosFolder"
+            | "downloadsFolder"
+            | "fileServerFolder"
+            | "indexHtmlFile"
+            | "devServerPublicPathRoute"
+            | "projectId"
+            | "reporter"
+            | "userAgent"
+            | "defaultBrowser"
+            | "video"
+            | "screenshotOnRunFailure"
+            | "trashAssetsBeforeRuns"
+            | "chromeWebSecurity"
+            | "includeShadowDom"
+            | "watchForFileChanges"
+            | "modifyObstructiveCode"
+            | "waitForAnimations"
+            | "testIsolation"
+            | "justInTimeCompile"
+            | "experimentalSingleTabRunMode"
+            | "forceHttp1"
+            | "manageBrowserMemory"
+            | "removeSRIAttributes"
+            | "injectDocumentDomain"
+            | "videoCompression"
+            | "retries"
+            | "viewportWidth"
+            | "viewportHeight"
+            | "defaultCommandTimeout"
+            | "taskTimeout"
+            | "pageLoadTimeout"
+            | "requestTimeout"
+            | "responseTimeout"
+            | "numTestsKeptInMemory"
+            | "redirectionLimit"
+            | "port"
+            | "animationDistanceThreshold"
+            | "keystrokeDelay"
+            | "slowTestThreshold"
+            | "scrollBehavior"
+            | "visibilityStrategy"
+            | "e2e"
+            | "component"
+            | "env"
+            | "expose"
+            | "hosts"
+            | "reporterOptions"
+            | "devServer"
+            | "clientCertificates"
+            | "blockHosts"
+            | "trustedCertificates"
+    )
+}
+
+fn cypress_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !cypress_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !cypress_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !cypress_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !cypress_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !cypress_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !cypress_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn cypress_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "retries"
+            | "scrollBehavior"
+            | "e2e"
+            | "component"
+            | "env"
+            | "expose"
+            | "hosts"
+            | "reporterOptions"
+            | "devServer"
+    )
+}
+
+fn cypress_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "specPattern"
+            | "excludeSpecPattern"
+            | "clientCertificates"
+            | "blockHosts"
+            | "trustedCertificates"
+    )
+}
+
+fn cypress_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "baseUrl"
+            | "specPattern"
+            | "excludeSpecPattern"
+            | "supportFile"
+            | "fixturesFolder"
+            | "screenshotsFolder"
+            | "videosFolder"
+            | "downloadsFolder"
+            | "fileServerFolder"
+            | "indexHtmlFile"
+            | "devServerPublicPathRoute"
+            | "projectId"
+            | "reporter"
+            | "userAgent"
+            | "defaultBrowser"
+            | "scrollBehavior"
+            | "visibilityStrategy"
+            | "blockHosts"
+    )
+}
+
+fn cypress_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "video"
+            | "screenshotOnRunFailure"
+            | "trashAssetsBeforeRuns"
+            | "chromeWebSecurity"
+            | "includeShadowDom"
+            | "watchForFileChanges"
+            | "modifyObstructiveCode"
+            | "waitForAnimations"
+            | "testIsolation"
+            | "justInTimeCompile"
+            | "experimentalSingleTabRunMode"
+            | "forceHttp1"
+            | "manageBrowserMemory"
+            | "removeSRIAttributes"
+            | "injectDocumentDomain"
+            | "videoCompression"
+            | "supportFile"
+            | "fixturesFolder"
+            | "scrollBehavior"
+    )
+}
+
+fn cypress_json_number_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "retries"
+            | "videoCompression"
+            | "viewportWidth"
+            | "viewportHeight"
+            | "defaultCommandTimeout"
+            | "taskTimeout"
+            | "pageLoadTimeout"
+            | "requestTimeout"
+            | "responseTimeout"
+            | "numTestsKeptInMemory"
+            | "redirectionLimit"
+            | "port"
+            | "animationDistanceThreshold"
+            | "keystrokeDelay"
+            | "slowTestThreshold"
+    )
+}
+
+fn cypress_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "baseUrl" => value.starts_with("http://") || value.starts_with("https://"),
+        "scrollBehavior" => matches!(
+            value,
+            "top" | "bottom" | "center" | "nearest" | "start" | "end"
+        ),
+        "visibilityStrategy" => matches!(value, "modern" | "legacy"),
+        "specPattern"
+        | "excludeSpecPattern"
+        | "supportFile"
+        | "fixturesFolder"
+        | "screenshotsFolder"
+        | "videosFolder"
+        | "downloadsFolder"
+        | "fileServerFolder"
+        | "indexHtmlFile"
+        | "devServerPublicPathRoute"
+        | "projectId"
+        | "reporter"
+        | "userAgent"
+        | "defaultBrowser"
+        | "blockHosts" => true,
         _ => false,
     }
 }
@@ -79951,11 +80268,11 @@ mod func_like_line_tests {
         is_changesets_json_decl, is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl,
         is_cibuildwheel_ini_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_codespell_ini_decl,
         is_commitizen_ini_decl, is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl,
-        is_crypttab_decl, is_cspell_json_decl, is_darglint_ini_decl, is_default_grub_decl,
-        is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl, is_devcontainer_json_decl,
-        is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl,
-        is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
-        is_eas_json_decl, is_editorconfig_decl, is_electron_builder_json_decl,
+        is_crypttab_decl, is_cspell_json_decl, is_cypress_json_decl, is_darglint_ini_decl,
+        is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl,
+        is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
+        is_doc8_ini_decl, is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl,
+        is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl, is_electron_builder_json_decl,
         is_electron_forge_json_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
         is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
         is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
@@ -97630,6 +97947,232 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""typecheck": {"#));
         assert!(line_is_func_like(r#""includeSource": ["#));
         assert!(line_is_func_like(r#""mockReset": true"#));
+        // Distinctive Cypress keys stay out of Vitest.
+        assert!(!is_vitest_json_decl(
+            r#""baseUrl": "http://localhost:3000""#
+        ));
+        assert!(!is_vitest_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(!is_vitest_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(!is_vitest_json_decl(r#""e2e": {"#));
+    }
+
+    #[test]
+    fn cypress_json_keys_count() {
+        assert!(is_cypress_json_decl(
+            r#""baseUrl": "http://localhost:3000""#
+        ));
+        assert!(is_cypress_json_decl(
+            r#""baseUrl": "https://example.com" // cloud"#
+        ));
+        assert!(is_cypress_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(is_cypress_json_decl(r#""specPattern": ["#));
+        assert!(is_cypress_json_decl(
+            r#""excludeSpecPattern": "*.hot-update.js""#
+        ));
+        assert!(is_cypress_json_decl(r#""excludeSpecPattern": ["#));
+        assert!(is_cypress_json_decl(
+            r#""supportFile": "cypress/support/e2e.ts""#
+        ));
+        assert!(is_cypress_json_decl(r#""supportFile": false"#));
+        assert!(is_cypress_json_decl(
+            r#""fixturesFolder": "cypress/fixtures""#
+        ));
+        assert!(is_cypress_json_decl(r#""fixturesFolder": false"#));
+        assert!(is_cypress_json_decl(
+            r#""screenshotsFolder": "cypress/screenshots""#
+        ));
+        assert!(is_cypress_json_decl(r#""videosFolder": "cypress/videos""#));
+        assert!(is_cypress_json_decl(
+            r#""downloadsFolder": "cypress/downloads""#
+        ));
+        assert!(is_cypress_json_decl(r#""fileServerFolder": ".""#));
+        assert!(is_cypress_json_decl(
+            r#""indexHtmlFile": "cypress/support/component-index.html""#
+        ));
+        assert!(is_cypress_json_decl(
+            r#""devServerPublicPathRoute": "/__cypress/src""#
+        ));
+        assert!(is_cypress_json_decl(r#""projectId": "abc123""#));
+        assert!(is_cypress_json_decl(r#""reporter": "spec""#));
+        assert!(is_cypress_json_decl(
+            r#""userAgent": "Mozilla/5.0 (compatible; Cypress)""#
+        ));
+        assert!(is_cypress_json_decl(r#""defaultBrowser": "chrome""#));
+        assert!(is_cypress_json_decl(r#""video": true"#));
+        assert!(is_cypress_json_decl(r#""video": false,"#));
+        assert!(is_cypress_json_decl(r#""screenshotOnRunFailure": true"#));
+        assert!(is_cypress_json_decl(r#""trashAssetsBeforeRuns": true"#));
+        assert!(is_cypress_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(is_cypress_json_decl(r#""includeShadowDom": true"#));
+        assert!(is_cypress_json_decl(r#""watchForFileChanges": true"#));
+        assert!(is_cypress_json_decl(r#""modifyObstructiveCode": true"#));
+        assert!(is_cypress_json_decl(r#""waitForAnimations": true"#));
+        assert!(is_cypress_json_decl(r#""testIsolation": true"#));
+        assert!(is_cypress_json_decl(r#""justInTimeCompile": true"#));
+        assert!(is_cypress_json_decl(
+            r#""experimentalSingleTabRunMode": true"#
+        ));
+        assert!(is_cypress_json_decl(r#""forceHttp1": false"#));
+        assert!(is_cypress_json_decl(r#""manageBrowserMemory": true"#));
+        assert!(is_cypress_json_decl(r#""removeSRIAttributes": true"#));
+        assert!(is_cypress_json_decl(r#""injectDocumentDomain": false"#));
+        assert!(is_cypress_json_decl(r#""videoCompression": true"#));
+        assert!(is_cypress_json_decl(r#""videoCompression": 32"#));
+        assert!(is_cypress_json_decl(r#""retries": 2"#));
+        assert!(is_cypress_json_decl(r#""retries": {"#));
+        assert!(is_cypress_json_decl(r#""viewportWidth": 1000"#));
+        assert!(is_cypress_json_decl(r#""viewportHeight": 660"#));
+        assert!(is_cypress_json_decl(r#""defaultCommandTimeout": 4000"#));
+        assert!(is_cypress_json_decl(r#""taskTimeout": 60000"#));
+        assert!(is_cypress_json_decl(r#""pageLoadTimeout": 60000"#));
+        assert!(is_cypress_json_decl(r#""requestTimeout": 5000"#));
+        assert!(is_cypress_json_decl(r#""responseTimeout": 30000"#));
+        assert!(is_cypress_json_decl(r#""numTestsKeptInMemory": 50"#));
+        assert!(is_cypress_json_decl(r#""redirectionLimit": 20"#));
+        assert!(is_cypress_json_decl(r#""port": 3000"#));
+        assert!(is_cypress_json_decl(r#""animationDistanceThreshold": 5"#));
+        assert!(is_cypress_json_decl(r#""keystrokeDelay": 10"#));
+        assert!(is_cypress_json_decl(r#""slowTestThreshold": 10000"#));
+        assert!(is_cypress_json_decl(r#""scrollBehavior": "top""#));
+        assert!(is_cypress_json_decl(r#""scrollBehavior": "center""#));
+        assert!(is_cypress_json_decl(r#""scrollBehavior": false"#));
+        assert!(is_cypress_json_decl(r#""scrollBehavior": {"#));
+        assert!(is_cypress_json_decl(r#""visibilityStrategy": "modern""#));
+        assert!(is_cypress_json_decl(r#""visibilityStrategy": "legacy""#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""component": {"#));
+        assert!(is_cypress_json_decl(r#""env": {"#));
+        assert!(is_cypress_json_decl(r#""expose": {"#));
+        assert!(is_cypress_json_decl(r#""hosts": {"#));
+        assert!(is_cypress_json_decl(r#""reporterOptions": {"#));
+        assert!(is_cypress_json_decl(r#""devServer": {"#));
+        assert!(is_cypress_json_decl(r#""clientCertificates": ["#));
+        assert!(is_cypress_json_decl(
+            r#""blockHosts": "*.google-analytics.com""#
+        ));
+        assert!(is_cypress_json_decl(r#""blockHosts": ["#));
+        assert!(is_cypress_json_decl(r#""trustedCertificates": ["#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_cypress_json_decl(r#""baseUrl""#));
+        assert!(!is_cypress_json_decl(r#""baseUrl":"#));
+        assert!(!is_cypress_json_decl(r#""baseUrl: "http://localhost""#));
+        assert!(!is_cypress_json_decl(r#""baseUrl": ".""#));
+        assert!(!is_cypress_json_decl(r#""baseUrl": "src""#));
+        assert!(!is_cypress_json_decl(r#""baseUrl": ["#));
+        assert!(!is_cypress_json_decl(r#""e2e": ["#));
+        assert!(!is_cypress_json_decl(r#""video": ["#));
+        assert!(!is_cypress_json_decl(r#""viewportWidth": true"#));
+        assert!(!is_cypress_json_decl(r#""scrollBehavior": "middle""#));
+        assert!(!is_cypress_json_decl(r#""visibilityStrategy": "strict""#));
+        assert!(!is_cypress_json_decl(r#""baseUrl": """#));
+        // Generic / neighbouring stay out.
+        assert!(!is_cypress_json_decl(
+            r#""$schema": "https://json.schemastore.org/cypress""#
+        ));
+        assert!(!is_cypress_json_decl(r#""name": "e2e""#));
+        assert!(!is_cypress_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_cypress_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_cypress_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(is_jest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_cypress_json_decl(r#""coverageProvider": "v8""#));
+        assert!(is_jest_json_decl(r#""coverageProvider": "v8""#));
+        assert!(!is_cypress_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_cypress_json_decl(r#""fullyParallel": true"#));
+        assert!(is_playwright_json_decl(r#""fullyParallel": true"#));
+        assert!(!is_cypress_json_decl(r#""forbidOnly": true"#));
+        assert!(is_playwright_json_decl(r#""forbidOnly": true"#));
+        assert!(!is_cypress_json_decl(r#""webServer": {"#));
+        assert!(is_playwright_json_decl(r#""webServer": {"#));
+        assert!(!is_cypress_json_decl(r#""preserveOutput": "always""#));
+        assert!(is_playwright_json_decl(r#""preserveOutput": "always""#));
+        assert!(!is_cypress_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_cypress_json_decl(r#""fileParallelism": true"#));
+        assert!(is_vitest_json_decl(r#""fileParallelism": true"#));
+        assert!(!is_cypress_json_decl(r#""hookTimeout": 10000"#));
+        assert!(is_vitest_json_decl(r#""hookTimeout": 10000"#));
+        assert!(!is_cypress_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_cypress_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_cypress_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_cypress_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_cypress_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_cypress_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_cypress_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_cypress_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_cypress_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_cypress_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_cypress_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_cypress_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_cypress_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_cypress_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_cypress_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // tsconfig baseUrl path stays on tsconfig, not Cypress URL shape.
+        assert!(!is_cypress_json_decl(r#""baseUrl": ".""#));
+        assert!(is_tsconfig_json_decl(r#""baseUrl": ".""#));
+        // Distinctive Cypress keys stay out of Jest / Playwright / Vitest / CSpell / Oxlint / Knip.
+        assert!(!is_jest_json_decl(r#""baseUrl": "http://localhost:3000""#));
+        assert!(!is_jest_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(!is_jest_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(!is_jest_json_decl(r#""e2e": {"#));
+        assert!(!is_jest_json_decl(r#""viewportWidth": 1000"#));
+        assert!(!is_playwright_json_decl(
+            r#""baseUrl": "http://localhost:3000""#
+        ));
+        assert!(!is_playwright_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(!is_playwright_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(!is_playwright_json_decl(r#""e2e": {"#));
+        assert!(!is_vitest_json_decl(
+            r#""baseUrl": "http://localhost:3000""#
+        ));
+        assert!(!is_vitest_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(!is_cspell_json_decl(
+            r#""baseUrl": "http://localhost:3000""#
+        ));
+        assert!(!is_oxlint_json_decl(
+            r#""baseUrl": "http://localhost:3000""#
+        ));
+        assert!(!is_knip_json_decl(r#""baseUrl": "http://localhost:3000""#));
+        // Shared / distinctive shapes list via Cypress scanner.
+        assert!(line_is_func_like(r#""baseUrl": "http://localhost:3000""#));
+        assert!(line_is_func_like(r#""specPattern": ["#));
+        assert!(line_is_func_like(r#""chromeWebSecurity": false"#));
+        assert!(line_is_func_like(r#""e2e": {"#));
+        assert!(line_is_func_like(r#""viewportWidth": 1000"#));
+        assert!(line_is_func_like(r#""video": true"#));
+        assert!(line_is_func_like(r#""testIsolation": true"#));
     }
 
     #[test]
