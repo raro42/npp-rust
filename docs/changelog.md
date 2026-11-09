@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.730] — 2026-11-09
+
+View:
+
+- **Function List** lists VS Code / Cursor `.vscode/tasks.json` JSON keys: `"version": "2.0.0"`, `"tasks": [`, `"inputs": [`, `"dependsOn": [` / `"…"`, `"dependsOrder": "sequence"` / `"parallel"`, `"problemMatcher": [` / `"$tsc"` / `"…"`, `"group": {` / `"build"` / `"test"` / `"none"`, `"presentation": {`, `"runOptions": {`, `"detail": "…"`, `"isBackground": true`, `"promptOnClose": true`, `"hide": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"type"` / `"label"` / `"command"` / `"args"` / `"cwd"` / `"env"` / `"options": {` / free-form `"version": "1.0.0"` / launch `"version": "0.2.0"` / `"configurations"` / `"compounds"` / `"preLaunchTask"` / `"postDebugTask"` / `"request"` / `"console"` / `"MIMode"` / turbo `"tasks": {` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / webextension `"manifest_version"` / `"background"` / `"action"` / `"content_scripts"` / forge `"packagerConfig"` / `"makers"` / neutralino `"applicationId"` / `"defaultMode"` / electron-builder `"directories"` / `"asar"` / `"nsis": {` / wails `"assetdir"` / `"frontend:dir"` / nest-cli `"collection"` / `"entryFile"` / angular `"architect"` / `"schematics"` / `"projectType"` / eas `"submit"` / `"developmentClient"` / expo `"expo"` / `"slug"` / ionic `"integrations"` / `"documentRoot"` / capacitor `"appId"` / `"appName"` / `"webDir"` / `"bundledWebRuntime"` / tauri `"productName"` / `"identifier"` / `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` / firebase `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` / `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts": {` stay out. Shared `"presentation": {` also matches launch.json.
+
 ## [0.3.729] — 2026-11-09
 
 View:

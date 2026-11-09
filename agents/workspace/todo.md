@@ -1,3 +1,5 @@
+009 keep: Function List VS Code tasks.json version/tasks/inputs/dependsOn/dependsOrder/problemMatcher/group/presentation/runOptions/isBackground (v0.3.730)
+
 009 keep: Function List WebExtension manifest.json manifest_version/background/action/browser_action/content_scripts/permissions/host_permissions/web_accessible_resources/devtools_page/incognito (v0.3.728)
 
 009 keep: Function List Electron Forge forge.config.json packagerConfig/rebuildConfig/hooks/makers/publishers/plugins/buildIdentifier (v0.3.727)

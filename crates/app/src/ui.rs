@@ -32397,6 +32397,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_electron_forge_json_decl(s)
             || is_webextension_manifest_json_decl(s)
             || is_vscode_launch_json_decl(s)
+            || is_vscode_tasks_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32704,6 +32705,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_electron_forge_json_decl(s)
         || is_webextension_manifest_json_decl(s)
         || is_vscode_launch_json_decl(s)
+        || is_vscode_tasks_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -47034,8 +47036,8 @@ fn webextension_manifest_json_string_ok(key: &str, value: &str) -> bool {
 /// SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint
 /// `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` /
 /// dprint `"includes"` / tsconfig `"compilerOptions"` / `"outDir"` /
-/// package.json `"scripts": {` stay out. Shared `"presentation": {` is
-/// launch-shaped only here (tasks.json later).
+/// package.json `"scripts": {` stay out. Shared `"presentation": {` also
+/// matches tasks.json.
 fn is_vscode_launch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -47159,6 +47161,167 @@ fn vscode_launch_json_string_ok(key: &str, value: &str) -> bool {
         "MIMode" => matches!(value, "gdb" | "lldb"),
         "preLaunchTask" | "postDebugTask" | "consoleTitle" | "runtimeExecutable"
         | "miDebuggerPath" => true,
+        _ => false,
+    }
+}
+
+/// VS Code / Cursor `.vscode/tasks.json` JSON keys: `"version": "2.0.0"`,
+/// `"tasks": [`, `"inputs": [`, `"dependsOn": [` / `"…"`,
+/// `"dependsOrder": "sequence"` / `"parallel"`,
+/// `"problemMatcher": [` / `"$tsc"` / `"…"`, `"group": {` /
+/// `"build"` / `"test"` / `"none"`, `"presentation": {`,
+/// `"runOptions": {`, `"detail": "…"`, `"isBackground": true`,
+/// `"promptOnClose": true`, `"hide": true`. Optional trailing `,` and
+/// `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"$schema"` / `"name"` / `"type"` / `"label"` / `"command"` /
+/// `"args"` / `"cwd"` / `"env"` / `"options": {` / free-form
+/// `"version": "1.0.0"` / launch `"version": "0.2.0"` /
+/// `"configurations"` / `"compounds"` / `"preLaunchTask"` /
+/// `"postDebugTask"` / `"request"` / `"console"` / `"MIMode"` /
+/// turbo `"tasks": {` / `"pipeline"` / `"globalDependencies"` /
+/// `"cacheDir"` / `"envMode"` / webextension `"manifest_version"` /
+/// `"background"` / `"action"` / `"content_scripts"` / forge
+/// `"packagerConfig"` / `"makers"` / neutralino `"applicationId"` /
+/// `"defaultMode"` / electron-builder `"directories"` / `"asar"` /
+/// `"nsis": {` / wails `"assetdir"` / `"frontend:dir"` / nest-cli
+/// `"collection"` / `"entryFile"` / angular `"architect"` /
+/// `"schematics"` / `"projectType"` / eas `"submit"` /
+/// `"developmentClient"` / expo `"expo"` / `"slug"` / ionic
+/// `"integrations"` / `"documentRoot"` / capacitor `"appId"` /
+/// `"appName"` / `"webDir"` / `"bundledWebRuntime"` / tauri
+/// `"productName"` / `"identifier"` / `"withGlobalTauri"` /
+/// `"allowlist"` / `"frontendDist"` / firebase `"hosting"` /
+/// `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` /
+/// `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
+/// `"framework"` / `"buildCommand"` / `"cleanUrls"` /
+/// `"version": 2` / changesets `"baseBranch"` / rush
+/// `"rushVersion"` / `"projects"` / lerna `"npmClient"` /
+/// `"useWorkspaces"` / `"packages": [` / nx `"namedInputs"` /
+/// `"targetDefaults"` / `"cacheDirectory"` / Parcel
+/// `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint
+/// `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier
+/// `"printWidth"` / biome `"linter"` / dprint `"includes"` /
+/// tsconfig `"compilerOptions"` / package.json `"scripts": {` stay
+/// out. Shared `"presentation": {` also matches launch.json.
+fn is_vscode_tasks_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !vscode_tasks_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    vscode_tasks_json_value_and_tail_ok(key, after_colon)
+}
+
+fn vscode_tasks_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "version"
+            | "tasks"
+            | "inputs"
+            | "dependsOn"
+            | "dependsOrder"
+            | "problemMatcher"
+            | "group"
+            | "presentation"
+            | "runOptions"
+            | "detail"
+            | "isBackground"
+            | "promptOnClose"
+            | "hide"
+    )
+}
+
+fn vscode_tasks_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !vscode_tasks_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !vscode_tasks_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !vscode_tasks_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !vscode_tasks_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !vscode_tasks_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn vscode_tasks_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "group" | "presentation" | "runOptions")
+}
+
+fn vscode_tasks_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "tasks" | "inputs" | "dependsOn" | "problemMatcher")
+}
+
+fn vscode_tasks_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "version" | "dependsOn" | "dependsOrder" | "problemMatcher" | "group" | "detail"
+    )
+}
+
+fn vscode_tasks_json_bool_key_ok(key: &str) -> bool {
+    matches!(key, "isBackground" | "promptOnClose" | "hide")
+}
+
+fn vscode_tasks_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "version" => value == "2.0.0",
+        "dependsOrder" => matches!(value, "sequence" | "parallel"),
+        "group" => matches!(value, "build" | "test" | "none"),
+        "dependsOn" | "problemMatcher" | "detail" => true,
         _ => false,
     }
 }
@@ -77823,10 +77986,10 @@ mod func_like_line_tests {
         is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
         is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
         is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
-        is_vscode_launch_json_decl, is_vulture_ini_decl, is_wails_json_decl,
-        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
-        is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
+        is_wails_json_decl, is_webextension_manifest_json_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -93472,6 +93635,289 @@ mod func_like_line_tests {
         ));
         assert!(line_is_func_like(r#""serverReadyAction": {"#));
         assert!(line_is_func_like(r#""MIMode": "gdb""#));
+        // VS Code tasks.json neighbouring keys stay out of launch.
+        assert!(!is_vscode_launch_json_decl(r#""version": "2.0.0""#));
+        assert!(is_vscode_tasks_json_decl(r#""version": "2.0.0""#));
+        assert!(!is_vscode_launch_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_vscode_launch_json_decl(r#""inputs": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""inputs": ["#));
+        assert!(!is_vscode_launch_json_decl(r#""dependsOn": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""dependsOn": ["#));
+        assert!(!is_vscode_launch_json_decl(r#""dependsOrder": "sequence""#));
+        assert!(is_vscode_tasks_json_decl(r#""dependsOrder": "sequence""#));
+        assert!(!is_vscode_launch_json_decl(r#""problemMatcher": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""problemMatcher": ["#));
+        assert!(!is_vscode_launch_json_decl(r#""runOptions": {"#));
+        assert!(is_vscode_tasks_json_decl(r#""runOptions": {"#));
+        assert!(!is_vscode_launch_json_decl(r#""isBackground": true"#));
+        assert!(is_vscode_tasks_json_decl(r#""isBackground": true"#));
+        assert!(!is_vscode_launch_json_decl(r#""group": "build""#));
+        assert!(is_vscode_tasks_json_decl(r#""group": "build""#));
+        // Shared presentation matches both launch and tasks.
+        assert!(is_vscode_launch_json_decl(r#""presentation": {"#));
+        assert!(is_vscode_tasks_json_decl(r#""presentation": {"#));
+    }
+
+    #[test]
+    fn vscode_tasks_json_keys_count() {
+        assert!(is_vscode_tasks_json_decl(r#""version": "2.0.0""#));
+        assert!(is_vscode_tasks_json_decl(r#""version": "2.0.0", // tasks"#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": [ // list"#));
+        assert!(is_vscode_tasks_json_decl(r#""inputs": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""dependsOn": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""dependsOn": "build""#));
+        assert!(is_vscode_tasks_json_decl(r#""dependsOrder": "sequence""#));
+        assert!(is_vscode_tasks_json_decl(r#""dependsOrder": "parallel""#));
+        assert!(is_vscode_tasks_json_decl(r#""problemMatcher": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""problemMatcher": "$tsc""#));
+        assert!(is_vscode_tasks_json_decl(r#""group": {"#));
+        assert!(is_vscode_tasks_json_decl(r#""group": "build""#));
+        assert!(is_vscode_tasks_json_decl(r#""group": "test""#));
+        assert!(is_vscode_tasks_json_decl(r#""group": "none""#));
+        assert!(is_vscode_tasks_json_decl(r#""presentation": {"#));
+        assert!(is_vscode_tasks_json_decl(r#""runOptions": {"#));
+        assert!(is_vscode_tasks_json_decl(r#""detail": "compile""#));
+        assert!(is_vscode_tasks_json_decl(r#""isBackground": true"#));
+        assert!(is_vscode_tasks_json_decl(r#""isBackground": false"#));
+        assert!(is_vscode_tasks_json_decl(r#""promptOnClose": true"#));
+        assert!(is_vscode_tasks_json_decl(r#""hide": true"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_vscode_tasks_json_decl(r#""version""#));
+        assert!(!is_vscode_tasks_json_decl(r#""version":"#));
+        assert!(!is_vscode_tasks_json_decl(r#"version: "2.0.0""#));
+        assert!(!is_vscode_tasks_json_decl(r#""Version": "2.0.0""#));
+        assert!(!is_vscode_tasks_json_decl(r#""version": "0.2.0""#));
+        assert!(!is_vscode_tasks_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_vscode_tasks_json_decl(r#""version": 2"#));
+        assert!(!is_vscode_tasks_json_decl(r#""version": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""tasks": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""tasks": true"#));
+        assert!(!is_vscode_tasks_json_decl(r#""inputs": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""dependsOn": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""dependsOn": true"#));
+        assert!(!is_vscode_tasks_json_decl(r#""dependsOn": """#));
+        assert!(!is_vscode_tasks_json_decl(r#""dependsOn": "   ""#));
+        assert!(!is_vscode_tasks_json_decl(r#""dependsOrder": "serial""#));
+        assert!(!is_vscode_tasks_json_decl(r#""dependsOrder": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""problemMatcher": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""problemMatcher": true"#));
+        assert!(!is_vscode_tasks_json_decl(r#""group": "compile""#));
+        assert!(!is_vscode_tasks_json_decl(r#""group": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""group": true"#));
+        assert!(!is_vscode_tasks_json_decl(r#""presentation": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""runOptions": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""detail": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""detail": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""detail": """#));
+        assert!(!is_vscode_tasks_json_decl(r#""isBackground": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""isBackground": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""isBackground": "true""#));
+        assert!(!is_vscode_tasks_json_decl(r#""promptOnClose": 1"#));
+        assert!(!is_vscode_tasks_json_decl(r#""hide": "yes""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_vscode_tasks_json_decl(
+            r#""$schema": "https://json.schemastore.org/tasks.json""#
+        ));
+        assert!(!is_vscode_tasks_json_decl(r#""name": "build""#));
+        assert!(!is_vscode_tasks_json_decl(r#""type": "shell""#));
+        assert!(!is_vscode_tasks_json_decl(r#""label": "Build""#));
+        assert!(!is_vscode_tasks_json_decl(r#""command": "cargo""#));
+        assert!(!is_vscode_tasks_json_decl(r#""args": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""cwd": "${workspaceFolder}""#));
+        assert!(!is_vscode_tasks_json_decl(r#""env": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""options": {"#));
+        // Launch-shaped keys stay on launch.
+        assert!(!is_vscode_tasks_json_decl(r#""version": "0.2.0""#));
+        assert!(is_vscode_launch_json_decl(r#""version": "0.2.0""#));
+        assert!(!is_vscode_tasks_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""compounds": ["#));
+        assert!(is_vscode_launch_json_decl(r#""compounds": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""preLaunchTask": "build""#));
+        assert!(is_vscode_launch_json_decl(r#""preLaunchTask": "build""#));
+        assert!(!is_vscode_tasks_json_decl(r#""postDebugTask": "cleanup""#));
+        assert!(is_vscode_launch_json_decl(r#""postDebugTask": "cleanup""#));
+        assert!(!is_vscode_tasks_json_decl(r#""request": "launch""#));
+        assert!(is_vscode_launch_json_decl(r#""request": "launch""#));
+        assert!(!is_vscode_tasks_json_decl(
+            r#""console": "integratedTerminal""#
+        ));
+        assert!(is_vscode_launch_json_decl(
+            r#""console": "integratedTerminal""#
+        ));
+        assert!(!is_vscode_tasks_json_decl(r#""MIMode": "gdb""#));
+        assert!(is_vscode_launch_json_decl(r#""MIMode": "gdb""#));
+        assert!(!is_vscode_tasks_json_decl(r#""serverReadyAction": {"#));
+        assert!(is_vscode_launch_json_decl(r#""serverReadyAction": {"#));
+        // Turbo `"tasks": {` stays on turbo (object); tasks.json uses `[`.
+        assert!(!is_vscode_tasks_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(!is_vscode_tasks_json_decl(r#""envMode": "loose""#));
+        assert!(is_turbo_json_decl(r#""envMode": "loose""#));
+        assert!(!is_vscode_tasks_json_decl(r#""manifest_version": 3"#));
+        assert!(is_webextension_manifest_json_decl(
+            r#""manifest_version": 3"#
+        ));
+        assert!(!is_vscode_tasks_json_decl(r#""background": {"#));
+        assert!(is_webextension_manifest_json_decl(r#""background": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""packagerConfig": {"#));
+        assert!(is_electron_forge_json_decl(r#""packagerConfig": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""makers": ["#));
+        assert!(is_electron_forge_json_decl(r#""makers": ["#));
+        assert!(!is_vscode_tasks_json_decl(
+            r#""applicationId": "js.neutralino.sample""#
+        ));
+        assert!(is_neutralino_json_decl(
+            r#""applicationId": "js.neutralino.sample""#
+        ));
+        assert!(!is_vscode_tasks_json_decl(r#""directories": {"#));
+        assert!(is_electron_builder_json_decl(r#""directories": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""asar": true"#));
+        assert!(is_electron_builder_json_decl(r#""asar": true"#));
+        assert!(!is_vscode_tasks_json_decl(r#""nsis": {"#));
+        assert!(is_electron_builder_json_decl(r#""nsis": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""assetdir": "frontend/dist""#));
+        assert!(is_wails_json_decl(r#""assetdir": "frontend/dist""#));
+        assert!(!is_vscode_tasks_json_decl(r#""frontend:dir": "frontend""#));
+        assert!(is_wails_json_decl(r#""frontend:dir": "frontend""#));
+        assert!(!is_vscode_tasks_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(is_nest_cli_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(!is_vscode_tasks_json_decl(r#""entryFile": "main""#));
+        assert!(is_nest_cli_json_decl(r#""entryFile": "main""#));
+        assert!(!is_vscode_tasks_json_decl(r#""architect": {"#));
+        assert!(is_angular_json_decl(r#""architect": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""schematics": {"#));
+        assert!(is_angular_json_decl(r#""schematics": {"#));
+        assert!(!is_vscode_tasks_json_decl(
+            r#""projectType": "application""#
+        ));
+        assert!(is_angular_json_decl(r#""projectType": "application""#));
+        assert!(!is_vscode_tasks_json_decl(r#""submit": {"#));
+        assert!(is_eas_json_decl(r#""submit": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""developmentClient": true"#));
+        assert!(is_eas_json_decl(r#""developmentClient": true"#));
+        assert!(!is_vscode_tasks_json_decl(r#""expo": {"#));
+        assert!(is_expo_json_decl(r#""expo": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""slug": "my-app""#));
+        assert!(is_expo_json_decl(r#""slug": "my-app""#));
+        assert!(!is_vscode_tasks_json_decl(r#""integrations": {"#));
+        assert!(is_ionic_json_decl(r#""integrations": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""documentRoot": "www""#));
+        assert!(is_ionic_json_decl(r#""documentRoot": "www""#));
+        assert!(!is_vscode_tasks_json_decl(r#""appId": "com.example.app""#));
+        assert!(is_capacitor_json_decl(r#""appId": "com.example.app""#));
+        assert!(!is_vscode_tasks_json_decl(r#""appName": "Example""#));
+        assert!(is_capacitor_json_decl(r#""appName": "Example""#));
+        assert!(!is_vscode_tasks_json_decl(r#""webDir": "dist""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "dist""#));
+        assert!(!is_vscode_tasks_json_decl(r#""bundledWebRuntime": false"#));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": false"#));
+        assert!(!is_vscode_tasks_json_decl(r#""productName": "MyApp""#));
+        assert!(is_tauri_json_decl(r#""productName": "MyApp""#));
+        assert!(!is_vscode_tasks_json_decl(
+            r#""identifier": "com.example.app""#
+        ));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_vscode_tasks_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_vscode_tasks_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""frontendDist": "../dist""#));
+        assert!(is_tauri_json_decl(r#""frontendDist": "../dist""#));
+        assert!(!is_vscode_tasks_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""regions": ["#));
+        assert!(is_vercel_json_decl(r#""regions": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_vscode_tasks_json_decl(
+            r#""buildCommand": "npm run build""#
+        ));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_vscode_tasks_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_vscode_tasks_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_vscode_tasks_json_decl(r#""baseBranch": "main""#));
+        assert!(is_changesets_json_decl(r#""baseBranch": "main""#));
+        assert!(!is_vscode_tasks_json_decl(r#""rushVersion": "5.100.0""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.100.0""#));
+        assert!(!is_vscode_tasks_json_decl(r#""projects": ["#));
+        assert!(is_rush_json_decl(r#""projects": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""npmClient": "pnpm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "pnpm""#));
+        assert!(!is_vscode_tasks_json_decl(r#""useWorkspaces": true"#));
+        assert!(is_lerna_json_decl(r#""useWorkspaces": true"#));
+        assert!(!is_vscode_tasks_json_decl(r#""packages": ["#));
+        assert!(is_lerna_json_decl(r#""packages": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""targetDefaults": {"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(!is_vscode_tasks_json_decl(
+            r#""cacheDirectory": ".nx/cache""#
+        ));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(!is_vscode_tasks_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_vscode_tasks_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_vscode_tasks_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_vscode_tasks_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_vscode_tasks_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_vscode_tasks_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists tasks.json keys.
+        assert!(line_is_func_like(r#""version": "2.0.0""#));
+        assert!(line_is_func_like(r#""tasks": ["#));
+        assert!(line_is_func_like(r#""inputs": ["#));
+        assert!(line_is_func_like(r#""dependsOn": ["#));
+        assert!(line_is_func_like(r#""dependsOrder": "sequence""#));
+        assert!(line_is_func_like(r#""problemMatcher": "$tsc""#));
+        assert!(line_is_func_like(r#""group": "build""#));
+        assert!(line_is_func_like(r#""runOptions": {"#));
+        assert!(line_is_func_like(r#""isBackground": true"#));
+        assert!(line_is_func_like(r#""promptOnClose": true"#));
+        assert!(line_is_func_like(r#""hide": true"#));
     }
 
     #[test]
