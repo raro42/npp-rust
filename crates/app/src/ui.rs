@@ -32393,6 +32393,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_nest_cli_json_decl(s)
             || is_wails_json_decl(s)
             || is_electron_builder_json_decl(s)
+            || is_neutralino_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32696,6 +32697,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_nest_cli_json_decl(s)
         || is_wails_json_decl(s)
         || is_electron_builder_json_decl(s)
+        || is_neutralino_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -46213,11 +46215,14 @@ fn wails_json_string_ok(key: &str, value: &str) -> bool {
 /// `"removePackageKeywords": true`, `"includeSubNodeModules": true`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
-/// `"appId"` / `"productName"` / `"extends"` / `"publish"` / wails
-/// `"assetdir"` / `"frontend:dir"` / `"wailsjsdir"` / `"nsisType"` /
-/// `"debounceMS"` / `"obfuscated"` / `"bindings"` / nest-cli
-/// `"collection"` / `"entryFile"` / `"generateOptions"` / angular
-/// `"architect"` / `"schematics"` / `"projectType"` / eas `"submit"` /
+/// `"appId"` / `"productName"` / `"extends"` / `"publish"` / neutralino
+/// `"applicationId"` / `"defaultMode"` / `"enableServer"` /
+/// `"enableNativeAPI"` / `"tokenSecurity"` / `"nativeAllowList"` /
+/// `"modes"` / `"globalVariables"` / wails `"assetdir"` /
+/// `"frontend:dir"` / `"wailsjsdir"` / `"nsisType"` / `"debounceMS"` /
+/// `"obfuscated"` / `"bindings"` / nest-cli `"collection"` /
+/// `"entryFile"` / `"generateOptions"` / angular `"architect"` /
+/// `"schematics"` / `"projectType"` / eas `"submit"` /
 /// `"developmentClient"` / expo `"expo"` / `"slug"` / ionic
 /// `"integrations"` / `"hooks"` / capacitor `"appId"` / `"appName"` /
 /// `"webDir"` / `"bundledWebRuntime"` / tauri `"productName"` /
@@ -46432,6 +46437,169 @@ fn electron_builder_json_string_ok(key: &str, value: &str) -> bool {
         | "beforeBuild"
         | "afterAllArtifactBuild"
         | "buildVersion" => true,
+        _ => false,
+    }
+}
+
+/// Neutralino.js `neutralino.config.json` JSON keys: `"applicationId": "…"`,
+/// `"defaultMode": "window"` / `"browser"` / `"cloud"` / `"chrome"`,
+/// `"tokenSecurity": "one-time"` / `"none"`, `"storageLocation": "app"` /
+/// `"system"`, `"modes": {`, `"globalVariables": {`, `"logging": {`,
+/// `"nativeAllowList": [`, `"nativeBlockList": [`, `"extensions": [`,
+/// `"enableServer": true`, `"enableNativeAPI": true`,
+/// `"enableExtensions": true`, `"exportAuthInfo": true`,
+/// `"singlePageServe": true`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / `"url"` / `"port"` / `"documentRoot"` / `"cli"` /
+/// electron-builder `"directories"` / `"asar"` / `"electronVersion"` /
+/// `"artifactName"` / `"nsis": {` / wails `"assetdir"` / `"frontend:dir"` /
+/// `"wailsjsdir"` / `"nsisType"` / `"debounceMS"` / `"obfuscated"` /
+/// `"bindings"` / nest-cli `"collection"` / `"entryFile"` /
+/// `"generateOptions"` / angular `"architect"` / `"schematics"` /
+/// `"projectType"` / `"cli": {` / eas `"submit"` / `"developmentClient"` /
+/// expo `"expo"` / `"slug"` / ionic `"integrations"` / `"hooks"` /
+/// `"documentRoot"` / capacitor `"appId"` / `"appName"` / `"webDir"` /
+/// `"bundledWebRuntime"` / tauri `"productName"` / `"identifier"` /
+/// `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` / firebase
+/// `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel
+/// `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
+/// `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` /
+/// changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna
+/// `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` /
+/// `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` /
+/// nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel
+/// `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` /
+/// `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` /
+/// biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` /
+/// package.json `"scripts": {` stay out.
+fn is_neutralino_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !neutralino_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    neutralino_json_value_and_tail_ok(key, after_colon)
+}
+
+fn neutralino_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "applicationId"
+            | "defaultMode"
+            | "tokenSecurity"
+            | "storageLocation"
+            | "modes"
+            | "globalVariables"
+            | "logging"
+            | "nativeAllowList"
+            | "nativeBlockList"
+            | "extensions"
+            | "enableServer"
+            | "enableNativeAPI"
+            | "enableExtensions"
+            | "exportAuthInfo"
+            | "singlePageServe"
+    )
+}
+
+fn neutralino_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !neutralino_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !neutralino_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !neutralino_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !neutralino_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !neutralino_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn neutralino_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "modes" | "globalVariables" | "logging")
+}
+
+fn neutralino_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "nativeAllowList" | "nativeBlockList" | "extensions")
+}
+
+fn neutralino_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "applicationId" | "defaultMode" | "tokenSecurity" | "storageLocation"
+    )
+}
+
+fn neutralino_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "enableServer"
+            | "enableNativeAPI"
+            | "enableExtensions"
+            | "exportAuthInfo"
+            | "singlePageServe"
+    )
+}
+
+fn neutralino_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "defaultMode" => matches!(value, "window" | "browser" | "cloud" | "chrome"),
+        "tokenSecurity" => matches!(value, "one-time" | "none"),
+        "storageLocation" => matches!(value, "app" | "system"),
+        "applicationId" => true,
         _ => false,
     }
 }
@@ -77071,12 +77239,12 @@ mod func_like_line_tests {
         is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
         is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
         is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
-        is_nx_json_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
+        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
         is_postcss_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
         is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
         is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
@@ -91463,6 +91631,29 @@ mod func_like_line_tests {
         assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
         assert!(!is_electron_builder_json_decl(r#""scripts": {"#));
         assert!(is_package_json_decl(r#""scripts": {"#));
+        // Neutralino neighbouring keys stay out of electron-builder.
+        assert!(!is_electron_builder_json_decl(
+            r#""applicationId": "js.neutralino.sample""#
+        ));
+        assert!(is_neutralino_json_decl(
+            r#""applicationId": "js.neutralino.sample""#
+        ));
+        assert!(!is_electron_builder_json_decl(r#""defaultMode": "window""#));
+        assert!(is_neutralino_json_decl(r#""defaultMode": "window""#));
+        assert!(!is_electron_builder_json_decl(r#""enableServer": true"#));
+        assert!(is_neutralino_json_decl(r#""enableServer": true"#));
+        assert!(!is_electron_builder_json_decl(r#""enableNativeAPI": true"#));
+        assert!(is_neutralino_json_decl(r#""enableNativeAPI": true"#));
+        assert!(!is_electron_builder_json_decl(
+            r#""tokenSecurity": "one-time""#
+        ));
+        assert!(is_neutralino_json_decl(r#""tokenSecurity": "one-time""#));
+        assert!(!is_electron_builder_json_decl(r#""nativeAllowList": ["#));
+        assert!(is_neutralino_json_decl(r#""nativeAllowList": ["#));
+        assert!(!is_electron_builder_json_decl(r#""modes": {"#));
+        assert!(is_neutralino_json_decl(r#""modes": {"#));
+        assert!(!is_electron_builder_json_decl(r#""globalVariables": {"#));
+        assert!(is_neutralino_json_decl(r#""globalVariables": {"#));
         // Shared scanner lists electron-builder keys.
         assert!(line_is_func_like(r#""directories": {"#));
         assert!(line_is_func_like(r#""asar": true"#));
@@ -91478,6 +91669,232 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""mac": {"#));
         assert!(line_is_func_like(r#""win": {"#));
         assert!(line_is_func_like(r#""linux": {"#));
+    }
+
+    #[test]
+    fn neutralino_json_keys_count() {
+        assert!(is_neutralino_json_decl(
+            r#""applicationId": "js.neutralino.sample""#
+        ));
+        assert!(is_neutralino_json_decl(
+            r#""applicationId": "js.neutralino.sample", // id"#
+        ));
+        assert!(is_neutralino_json_decl(r#""defaultMode": "window""#));
+        assert!(is_neutralino_json_decl(r#""defaultMode": "browser""#));
+        assert!(is_neutralino_json_decl(r#""defaultMode": "cloud""#));
+        assert!(is_neutralino_json_decl(r#""defaultMode": "chrome""#));
+        assert!(is_neutralino_json_decl(r#""tokenSecurity": "one-time""#));
+        assert!(is_neutralino_json_decl(r#""tokenSecurity": "none""#));
+        assert!(is_neutralino_json_decl(r#""storageLocation": "app""#));
+        assert!(is_neutralino_json_decl(r#""storageLocation": "system""#));
+        assert!(is_neutralino_json_decl(r#""modes": {"#));
+        assert!(is_neutralino_json_decl(r#""modes": { // modes"#));
+        assert!(is_neutralino_json_decl(r#""globalVariables": {"#));
+        assert!(is_neutralino_json_decl(r#""logging": {"#));
+        assert!(is_neutralino_json_decl(r#""nativeAllowList": ["#));
+        assert!(is_neutralino_json_decl(r#""nativeAllowList": [ // allow"#));
+        assert!(is_neutralino_json_decl(r#""nativeBlockList": ["#));
+        assert!(is_neutralino_json_decl(r#""extensions": ["#));
+        assert!(is_neutralino_json_decl(r#""enableServer": true"#));
+        assert!(is_neutralino_json_decl(r#""enableServer": false,"#));
+        assert!(is_neutralino_json_decl(r#""enableNativeAPI": true"#));
+        assert!(is_neutralino_json_decl(r#""enableExtensions": true"#));
+        assert!(is_neutralino_json_decl(r#""exportAuthInfo": true"#));
+        assert!(is_neutralino_json_decl(r#""singlePageServe": false"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_neutralino_json_decl(r#""applicationId""#));
+        assert!(!is_neutralino_json_decl(r#""applicationId":"#));
+        assert!(!is_neutralino_json_decl(r#"applicationId: "x""#));
+        assert!(!is_neutralino_json_decl(
+            r#""ApplicationId": "js.neutralino.sample""#
+        ));
+        assert!(!is_neutralino_json_decl(r#""applicationId": {"#));
+        assert!(!is_neutralino_json_decl(r#""applicationId": ["#));
+        assert!(!is_neutralino_json_decl(r#""applicationId": true"#));
+        assert!(!is_neutralino_json_decl(r#""defaultMode": "desktop""#));
+        assert!(!is_neutralino_json_decl(r#""defaultMode": {"#));
+        assert!(!is_neutralino_json_decl(r#""defaultMode": true"#));
+        assert!(!is_neutralino_json_decl(r#""tokenSecurity": "always""#));
+        assert!(!is_neutralino_json_decl(r#""storageLocation": "user""#));
+        assert!(!is_neutralino_json_decl(r#""modes": ["#));
+        assert!(!is_neutralino_json_decl(r#""modes": true"#));
+        assert!(!is_neutralino_json_decl(r#""nativeAllowList": {"#));
+        assert!(!is_neutralino_json_decl(r#""nativeAllowList": true"#));
+        assert!(!is_neutralino_json_decl(r#""enableServer": {"#));
+        assert!(!is_neutralino_json_decl(r#""enableServer": "true""#));
+        assert!(!is_neutralino_json_decl(r#""enableServer": 1"#));
+        // Generic / neighbouring stay out.
+        assert!(!is_neutralino_json_decl(
+            r#""$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schema.json""#
+        ));
+        assert!(!is_neutralino_json_decl(r#""name": "myapp""#));
+        assert!(!is_neutralino_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_neutralino_json_decl(r#""url": "/""#));
+        assert!(!is_neutralino_json_decl(r#""port": 0"#));
+        assert!(!is_neutralino_json_decl(r#""documentRoot": "/resources/""#));
+        assert!(is_ionic_json_decl(r#""documentRoot": "/resources/""#));
+        assert!(!is_neutralino_json_decl(r#""cli": {"#));
+        assert!(is_angular_json_decl(r#""cli": {"#));
+        assert!(!is_neutralino_json_decl(r#""directories": {"#));
+        assert!(is_electron_builder_json_decl(r#""directories": {"#));
+        assert!(!is_neutralino_json_decl(r#""asar": true"#));
+        assert!(is_electron_builder_json_decl(r#""asar": true"#));
+        assert!(!is_neutralino_json_decl(r#""electronVersion": "28.0.0""#));
+        assert!(is_electron_builder_json_decl(
+            r#""electronVersion": "28.0.0""#
+        ));
+        assert!(!is_neutralino_json_decl(r#""nsis": {"#));
+        assert!(is_electron_builder_json_decl(r#""nsis": {"#));
+        assert!(!is_neutralino_json_decl(r#""assetdir": "frontend/dist""#));
+        assert!(is_wails_json_decl(r#""assetdir": "frontend/dist""#));
+        assert!(!is_neutralino_json_decl(r#""frontend:dir": "frontend""#));
+        assert!(is_wails_json_decl(r#""frontend:dir": "frontend""#));
+        assert!(!is_neutralino_json_decl(r#""wailsjsdir": "./frontend""#));
+        assert!(is_wails_json_decl(r#""wailsjsdir": "./frontend""#));
+        assert!(!is_neutralino_json_decl(r#""nsisType": "multiple""#));
+        assert!(is_wails_json_decl(r#""nsisType": "multiple""#));
+        assert!(!is_neutralino_json_decl(r#""debounceMS": 100"#));
+        assert!(is_wails_json_decl(r#""debounceMS": 100"#));
+        assert!(!is_neutralino_json_decl(r#""obfuscated": true"#));
+        assert!(is_wails_json_decl(r#""obfuscated": true"#));
+        assert!(!is_neutralino_json_decl(r#""bindings": {"#));
+        assert!(is_wails_json_decl(r#""bindings": {"#));
+        assert!(!is_neutralino_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(is_nest_cli_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(!is_neutralino_json_decl(r#""entryFile": "main""#));
+        assert!(is_nest_cli_json_decl(r#""entryFile": "main""#));
+        assert!(!is_neutralino_json_decl(r#""architect": {"#));
+        assert!(is_angular_json_decl(r#""architect": {"#));
+        assert!(!is_neutralino_json_decl(r#""schematics": {"#));
+        assert!(is_angular_json_decl(r#""schematics": {"#));
+        assert!(!is_neutralino_json_decl(r#""projectType": "application""#));
+        assert!(is_angular_json_decl(r#""projectType": "application""#));
+        assert!(!is_neutralino_json_decl(r#""submit": {"#));
+        assert!(is_eas_json_decl(r#""submit": {"#));
+        assert!(!is_neutralino_json_decl(r#""developmentClient": true"#));
+        assert!(is_eas_json_decl(r#""developmentClient": true"#));
+        assert!(!is_neutralino_json_decl(r#""expo": {"#));
+        assert!(is_expo_json_decl(r#""expo": {"#));
+        assert!(!is_neutralino_json_decl(r#""slug": "my-app""#));
+        assert!(is_expo_json_decl(r#""slug": "my-app""#));
+        assert!(!is_neutralino_json_decl(r#""integrations": {"#));
+        assert!(is_ionic_json_decl(r#""integrations": {"#));
+        assert!(!is_neutralino_json_decl(r#""hooks": {"#));
+        assert!(is_ionic_json_decl(r#""hooks": {"#));
+        assert!(!is_neutralino_json_decl(r#""appId": "com.example.app""#));
+        assert!(is_capacitor_json_decl(r#""appId": "com.example.app""#));
+        assert!(!is_neutralino_json_decl(r#""appName": "MyApp""#));
+        assert!(is_capacitor_json_decl(r#""appName": "MyApp""#));
+        assert!(!is_neutralino_json_decl(r#""webDir": "dist""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "dist""#));
+        assert!(!is_neutralino_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(!is_neutralino_json_decl(r#""productName": "App""#));
+        assert!(is_tauri_json_decl(r#""productName": "App""#));
+        assert!(!is_neutralino_json_decl(
+            r#""identifier": "com.example.app""#
+        ));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_neutralino_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_neutralino_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+        assert!(!is_neutralino_json_decl(r#""frontendDist": "../dist""#));
+        assert!(is_tauri_json_decl(r#""frontendDist": "../dist""#));
+        assert!(!is_neutralino_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_neutralino_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_neutralino_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_neutralino_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(!is_neutralino_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_neutralino_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_neutralino_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_neutralino_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_neutralino_json_decl(r#""regions": ["#));
+        assert!(is_vercel_json_decl(r#""regions": ["#));
+        assert!(!is_neutralino_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_neutralino_json_decl(
+            r#""buildCommand": "npm run build""#
+        ));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_neutralino_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_neutralino_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_neutralino_json_decl(r#""baseBranch": "main""#));
+        assert!(is_changesets_json_decl(r#""baseBranch": "main""#));
+        assert!(!is_neutralino_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_neutralino_json_decl(r#""npmClient": "npm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "npm""#));
+        assert!(!is_neutralino_json_decl(r#""useWorkspaces": true"#));
+        assert!(is_lerna_json_decl(r#""useWorkspaces": true"#));
+        assert!(!is_neutralino_json_decl(r#""packages": ["#));
+        assert!(is_lerna_json_decl(r#""packages": ["#));
+        assert!(!is_neutralino_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_neutralino_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_neutralino_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_neutralino_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(!is_neutralino_json_decl(r#""envMode": "loose""#));
+        assert!(is_turbo_json_decl(r#""envMode": "loose""#));
+        assert!(!is_neutralino_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_neutralino_json_decl(r#""targetDefaults": {"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(!is_neutralino_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(!is_neutralino_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_neutralino_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_neutralino_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_neutralino_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_neutralino_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_neutralino_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_neutralino_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_neutralino_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_neutralino_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_neutralino_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_neutralino_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists Neutralino keys.
+        assert!(line_is_func_like(
+            r#""applicationId": "js.neutralino.sample""#
+        ));
+        assert!(line_is_func_like(r#""defaultMode": "window""#));
+        assert!(line_is_func_like(r#""enableServer": true"#));
+        assert!(line_is_func_like(r#""enableNativeAPI": true"#));
+        assert!(line_is_func_like(r#""tokenSecurity": "one-time""#));
+        assert!(line_is_func_like(r#""nativeAllowList": ["#));
+        assert!(line_is_func_like(r#""modes": {"#));
+        assert!(line_is_func_like(r#""globalVariables": {"#));
+        assert!(line_is_func_like(r#""logging": {"#));
+        assert!(line_is_func_like(r#""storageLocation": "app""#));
+        assert!(line_is_func_like(r#""singlePageServe": true"#));
     }
 
     #[test]

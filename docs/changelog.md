@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.726] — 2026-11-09
+
+View:
+
+- **Function List** lists Neutralino.js `neutralino.config.json` JSON keys: `"applicationId": "…"`, `"defaultMode": "window"` / `"browser"` / `"cloud"` / `"chrome"`, `"tokenSecurity": "one-time"` / `"none"`, `"storageLocation": "app"` / `"system"`, `"modes": {`, `"globalVariables": {`, `"logging": {`, `"nativeAllowList": [`, `"nativeBlockList": [`, `"extensions": [`, `"enableServer": true`, `"enableNativeAPI": true`, `"enableExtensions": true`, `"exportAuthInfo": true`, `"singlePageServe": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"url"` / `"port"` / `"documentRoot"` / `"cli"` / electron-builder `"directories"` / `"asar"` / `"electronVersion"` / `"artifactName"` / `"nsis": {` / wails `"assetdir"` / `"frontend:dir"` / `"wailsjsdir"` / `"nsisType"` / `"debounceMS"` / `"obfuscated"` / `"bindings"` / nest-cli `"collection"` / `"entryFile"` / `"generateOptions"` / angular `"architect"` / `"schematics"` / `"projectType"` / `"cli": {` / eas `"submit"` / `"developmentClient"` / expo `"expo"` / `"slug"` / ionic `"integrations"` / `"hooks"` / `"documentRoot"` / capacitor `"appId"` / `"appName"` / `"webDir"` / `"bundledWebRuntime"` / tauri `"productName"` / `"identifier"` / `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` / firebase `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` / `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts": {` stay out.
+
 ## [0.3.725] — 2026-11-09
 
 View:

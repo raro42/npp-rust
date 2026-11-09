@@ -1,3 +1,5 @@
+009 keep: Function List neutralino.config.json applicationId/defaultMode/tokenSecurity/storageLocation/modes/globalVariables/logging/nativeAllowList/enableServer/enableNativeAPI (v0.3.726)
+
 009 keep: Function List electron-builder.json directories/asar/electronVersion/artifactName/nsis/extraResources/compression/mac/win/linux (v0.3.725)
 
 009 keep: Function List lerna.json version/npmClient/packages/command/ignoreChanges/useWorkspaces/useNx/concurrency (v0.3.712)
