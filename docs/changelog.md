@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.720] — 2026-11-09
+
+View:
+
+- **Function List** lists Expo `app.json` / `app.config.json` JSON keys (often under `"expo"`): `"expo": {`, `"splash": {`, `"updates": {`, `"notification": {`, `"androidStatusBar": {`, `"androidNavigationBar": {`, `"experiments": {`, `"runtimeVersion": {` / `"…"`, `"assetBundlePatterns": [`, `"platforms": [`, `"slug": "…"`, `"orientation": "portrait"` / `"landscape"` / `"default"`, `"userInterfaceStyle": "light"` / `"dark"` / `"automatic"`, `"scheme": "…"`, `"owner": "…"`, `"sdkVersion": "…"`, `"primaryColor": "…"`, `"jsEngine": "hermes"` / `"jsc"`, `"icon": "…"`, `"newArchEnabled": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"description"` / `"extra": {` / `"plugins": [` / `"ios": {` / `"android": {` / `"web": {` / ionic `"integrations"` / `"hooks"` / `"proxies"` / `"watchPatterns"` / `"documentRoot"` / `"type": "angular"` / capacitor `"appId"` / `"appName"` / `"webDir"` / `"bundledWebRuntime"` / `"server"` / `"cordova"` / tauri `"productName"` / `"identifier"` / `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` / firebase `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` / `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out.
+
 ## [0.3.719] — 2026-11-09
 
 View:

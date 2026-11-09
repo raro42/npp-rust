@@ -1098,3 +1098,5 @@
 009 keep: Function List Capacitor capacitor.config.json appId/appName/webDir/server/plugins/android/ios/cordova/bundledWebRuntime (v0.3.718)
 
 009 keep: Function List ionic.config.json integrations/hooks/proxies/watchPatterns/documentRoot/type/npmClient (v0.3.719)
+
+009 keep: Function List Expo app.json / app.config.json (v0.3.720)

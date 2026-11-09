@@ -32387,6 +32387,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_tauri_json_decl(s)
             || is_capacitor_json_decl(s)
             || is_ionic_json_decl(s)
+            || is_expo_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32684,6 +32685,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_tauri_json_decl(s)
         || is_capacitor_json_decl(s)
         || is_ionic_json_decl(s)
+        || is_expo_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -44835,9 +44837,11 @@ fn capacitor_json_string_ok(key: &str, value: &str) -> bool {
 /// `"ionic-angular"` / `"ionic1"`, `"npmClient": "npm"` / `"yarn"` /
 /// `"pnpm"` / `"bun"`. Optional trailing `,` and `//` / `/*` comment.
 /// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
-/// `"name"` / `"id"` / `"version"` / `"app": {` / capacitor `"appId"` /
-/// `"appName"` / `"webDir"` / `"bundledWebRuntime"` / `"server"` /
-/// `"cordova"` / tauri `"productName"` / `"identifier"` /
+/// `"name"` / `"id"` / `"version"` / `"app": {` / expo `"expo"` /
+/// `"slug"` / `"orientation"` / `"userInterfaceStyle"` / `"splash"` /
+/// `"assetBundlePatterns"` / `"jsEngine"` / `"newArchEnabled"` /
+/// capacitor `"appId"` / `"appName"` / `"webDir"` / `"bundledWebRuntime"` /
+/// `"server"` / `"cordova"` / tauri `"productName"` / `"identifier"` /
 /// `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` / firebase
 /// `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel
 /// `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
@@ -44955,6 +44959,214 @@ fn ionic_json_string_ok(key: &str, value: &str) -> bool {
         ),
         "npmClient" => matches!(value, "npm" | "yarn" | "pnpm" | "bun"),
         "documentRoot" => true,
+        _ => false,
+    }
+}
+
+/// Expo `app.json` / `app.config.json` JSON keys (often under `"expo"`):
+/// `"expo": {`, `"splash": {`, `"updates": {`, `"notification": {`,
+/// `"androidStatusBar": {`, `"androidNavigationBar": {`,
+/// `"experiments": {`, `"runtimeVersion": {` / `"…"`,
+/// `"assetBundlePatterns": [`, `"platforms": [`, `"slug": "…"`,
+/// `"orientation": "portrait"` / `"landscape"` / `"default"`,
+/// `"userInterfaceStyle": "light"` / `"dark"` / `"automatic"`,
+/// `"scheme": "…"`, `"owner": "…"`, `"sdkVersion": "…"`,
+/// `"primaryColor": "…"`, `"jsEngine": "hermes"` / `"jsc"`,
+/// `"icon": "…"`, `"newArchEnabled": true`. Optional trailing `,` and
+/// `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"$schema"` / `"name"` / `"version"` / `"description"` /
+/// `"extra": {` / `"plugins": [` / `"ios": {` / `"android": {` /
+/// `"web": {` / ionic `"integrations"` / `"hooks"` / `"proxies"` /
+/// `"watchPatterns"` / `"documentRoot"` / `"type": "angular"` /
+/// capacitor `"appId"` / `"appName"` / `"webDir"` /
+/// `"bundledWebRuntime"` / `"server"` / `"cordova"` / tauri
+/// `"productName"` / `"identifier"` / `"withGlobalTauri"` /
+/// `"allowlist"` / `"frontendDist"` / firebase `"hosting"` /
+/// `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` /
+/// `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
+/// `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` /
+/// changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` /
+/// lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo
+/// `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` /
+/// `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` /
+/// `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` /
+/// SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` /
+/// prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` /
+/// tsconfig `"compilerOptions"` / package.json `"scripts"` stay out.
+fn is_expo_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !expo_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    expo_json_value_and_tail_ok(key, after_colon)
+}
+
+fn expo_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "expo"
+            | "splash"
+            | "updates"
+            | "notification"
+            | "androidStatusBar"
+            | "androidNavigationBar"
+            | "experiments"
+            | "runtimeVersion"
+            | "assetBundlePatterns"
+            | "platforms"
+            | "slug"
+            | "orientation"
+            | "userInterfaceStyle"
+            | "scheme"
+            | "owner"
+            | "sdkVersion"
+            | "primaryColor"
+            | "jsEngine"
+            | "icon"
+            | "newArchEnabled"
+    )
+}
+
+fn expo_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !expo_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !expo_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !expo_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !expo_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !expo_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn expo_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "expo"
+            | "splash"
+            | "updates"
+            | "notification"
+            | "androidStatusBar"
+            | "androidNavigationBar"
+            | "experiments"
+            | "runtimeVersion"
+    )
+}
+
+fn expo_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "assetBundlePatterns" | "platforms")
+}
+
+fn expo_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "slug"
+            | "orientation"
+            | "userInterfaceStyle"
+            | "scheme"
+            | "owner"
+            | "sdkVersion"
+            | "primaryColor"
+            | "jsEngine"
+            | "icon"
+            | "runtimeVersion"
+    )
+}
+
+fn expo_json_bool_key_ok(key: &str) -> bool {
+    matches!(key, "newArchEnabled")
+}
+
+fn expo_json_slug_ok(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.is_empty() || bytes.len() > 256 {
+        return false;
+    }
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || *b == b'-')
+}
+
+fn expo_json_scheme_ok(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.is_empty() || bytes.len() > 128 {
+        return false;
+    }
+    if !bytes[0].is_ascii_alphabetic() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.'))
+}
+
+fn expo_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "orientation" => matches!(value, "portrait" | "landscape" | "default"),
+        "userInterfaceStyle" => matches!(value, "light" | "dark" | "automatic"),
+        "jsEngine" => matches!(value, "hermes" | "jsc"),
+        "slug" => expo_json_slug_ok(value),
+        "scheme" => expo_json_scheme_ok(value),
+        "owner" => expo_json_slug_ok(value),
+        "sdkVersion" | "primaryColor" | "icon" | "runtimeVersion" => true,
         _ => false,
     }
 }
@@ -75582,33 +75794,33 @@ mod func_like_line_tests {
         is_darglint_ini_decl, is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl,
         is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl,
         is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
-        is_editorconfig_decl, is_eslint_json_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
-        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
-        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
-        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
-        is_keepalived_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
-        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl,
-        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl,
-        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
-        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
-        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
-        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
-        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_refurb_toml_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
-        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_editorconfig_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
+        is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
+        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
+        is_importlinter_ini_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
+        is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl, is_lerna_json_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
+        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
+        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
+        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
+        is_nx_json_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
+        is_postcss_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
+        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
+        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
+        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
+        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
+        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
         is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
@@ -88432,6 +88644,223 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""documentRoot": "www""#));
         assert!(line_is_func_like(r#""type": "angular-standalone""#));
         assert!(line_is_func_like(r#""npmClient": "pnpm""#));
+        // Expo neighbouring keys stay out of ionic.
+        assert!(!is_ionic_json_decl(r#""expo": {"#));
+        assert!(is_expo_json_decl(r#""expo": {"#));
+        assert!(!is_ionic_json_decl(r#""slug": "my-app""#));
+        assert!(is_expo_json_decl(r#""slug": "my-app""#));
+        assert!(!is_ionic_json_decl(r#""orientation": "portrait""#));
+        assert!(is_expo_json_decl(r#""orientation": "portrait""#));
+        assert!(!is_ionic_json_decl(r#""userInterfaceStyle": "light""#));
+        assert!(is_expo_json_decl(r#""userInterfaceStyle": "light""#));
+        assert!(!is_ionic_json_decl(r#""splash": {"#));
+        assert!(is_expo_json_decl(r#""splash": {"#));
+        assert!(!is_ionic_json_decl(r#""assetBundlePatterns": ["#));
+        assert!(is_expo_json_decl(r#""assetBundlePatterns": ["#));
+        assert!(!is_ionic_json_decl(r#""jsEngine": "hermes""#));
+        assert!(is_expo_json_decl(r#""jsEngine": "hermes""#));
+        assert!(!is_ionic_json_decl(r#""newArchEnabled": true"#));
+        assert!(is_expo_json_decl(r#""newArchEnabled": true"#));
+    }
+
+    #[test]
+    fn expo_json_keys_count() {
+        assert!(is_expo_json_decl(r#""expo": {"#));
+        assert!(is_expo_json_decl(r#""expo": { // root"#));
+        assert!(is_expo_json_decl(r#""splash": {"#));
+        assert!(is_expo_json_decl(r#""splash": {},"#));
+        assert!(is_expo_json_decl(r#""updates": {"#));
+        assert!(is_expo_json_decl(r#""notification": {"#));
+        assert!(is_expo_json_decl(r#""androidStatusBar": {"#));
+        assert!(is_expo_json_decl(r#""androidNavigationBar": {"#));
+        assert!(is_expo_json_decl(r#""experiments": {"#));
+        assert!(is_expo_json_decl(r#""runtimeVersion": {"#));
+        assert!(is_expo_json_decl(r#""runtimeVersion": "1.0.0""#));
+        assert!(is_expo_json_decl(r#""runtimeVersion": "exposdk:51.0.0","#));
+        assert!(is_expo_json_decl(r#""assetBundlePatterns": ["#));
+        assert!(is_expo_json_decl(r#""assetBundlePatterns": [ // assets"#));
+        assert!(is_expo_json_decl(r#""platforms": ["#));
+        assert!(is_expo_json_decl(r#""slug": "my-app""#));
+        assert!(is_expo_json_decl(r#""slug": "my-app","#));
+        assert!(is_expo_json_decl(r#""orientation": "portrait""#));
+        assert!(is_expo_json_decl(r#""orientation": "landscape""#));
+        assert!(is_expo_json_decl(r#""orientation": "default""#));
+        assert!(is_expo_json_decl(r#""userInterfaceStyle": "light""#));
+        assert!(is_expo_json_decl(r#""userInterfaceStyle": "dark""#));
+        assert!(is_expo_json_decl(r#""userInterfaceStyle": "automatic""#));
+        assert!(is_expo_json_decl(r#""scheme": "myapp""#));
+        assert!(is_expo_json_decl(r#""scheme": "my.app""#));
+        assert!(is_expo_json_decl(r#""owner": "acme""#));
+        assert!(is_expo_json_decl(r#""sdkVersion": "51.0.0""#));
+        assert!(is_expo_json_decl(r##""primaryColor": "#ffffff""##));
+        assert!(is_expo_json_decl(r#""jsEngine": "hermes""#));
+        assert!(is_expo_json_decl(r#""jsEngine": "jsc""#));
+        assert!(is_expo_json_decl(r#""icon": "./assets/icon.png""#));
+        assert!(is_expo_json_decl(r#""newArchEnabled": true"#));
+        assert!(is_expo_json_decl(r#""newArchEnabled": false,"#));
+        // Incomplete / wrong shape stay out.
+        assert!(!is_expo_json_decl(r#""expo""#));
+        assert!(!is_expo_json_decl(r#""expo":"#));
+        assert!(!is_expo_json_decl(r#"expo: {"#));
+        assert!(!is_expo_json_decl(r#""Expo": {"#));
+        assert!(!is_expo_json_decl(r#""expo": ["#));
+        assert!(!is_expo_json_decl(r#""expo": "app""#));
+        assert!(!is_expo_json_decl(r#""splash": ["#));
+        assert!(!is_expo_json_decl(r#""updates": ["#));
+        assert!(!is_expo_json_decl(r#""assetBundlePatterns": {"#));
+        assert!(!is_expo_json_decl(r#""assetBundlePatterns": "assets""#));
+        assert!(!is_expo_json_decl(r#""platforms": {"#));
+        assert!(!is_expo_json_decl(r#""slug": {"#));
+        assert!(!is_expo_json_decl(r#""slug": ["#));
+        assert!(!is_expo_json_decl(r#""slug": """#));
+        assert!(!is_expo_json_decl(r#""slug": "-bad""#));
+        assert!(!is_expo_json_decl(r#""slug": "bad_slug""#));
+        assert!(!is_expo_json_decl(r#""slug": true"#));
+        assert!(!is_expo_json_decl(r#""orientation": "square""#));
+        assert!(!is_expo_json_decl(r#""orientation": {"#));
+        assert!(!is_expo_json_decl(r#""userInterfaceStyle": "system""#));
+        assert!(!is_expo_json_decl(r#""jsEngine": "v8""#));
+        assert!(!is_expo_json_decl(r#""jsEngine": true"#));
+        assert!(!is_expo_json_decl(r#""scheme": "1bad""#));
+        assert!(!is_expo_json_decl(r#""scheme": "bad_scheme""#));
+        assert!(!is_expo_json_decl(r#""newArchEnabled": "true""#));
+        assert!(!is_expo_json_decl(r#""newArchEnabled": {"#));
+        assert!(!is_expo_json_decl(r#""newArchEnabled": 1"#));
+        // Same-line members are not opening-key lines.
+        assert!(!is_expo_json_decl(r#""expo": {"name": "App"},"#));
+        assert!(!is_expo_json_decl(r#""assetBundlePatterns": ["**/*"],"#));
+        assert!(!is_expo_json_decl(
+            r#""$schema": "https://json.schemastore.org/expo-46.0.0.json""#
+        ));
+        assert!(!is_expo_json_decl(r#""name": "My App""#));
+        assert!(!is_expo_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_expo_json_decl(r#""description": "demo""#));
+        assert!(!is_expo_json_decl(r#""extra": {"#));
+        assert!(!is_expo_json_decl(r#""plugins": ["#));
+        assert!(!is_expo_json_decl(r#""ios": {"#));
+        assert!(!is_expo_json_decl(r#""android": {"#));
+        assert!(!is_expo_json_decl(r#""web": {"#));
+        // Neighbouring families stay out.
+        assert!(!is_expo_json_decl(r#""integrations": {"#));
+        assert!(is_ionic_json_decl(r#""integrations": {"#));
+        assert!(!is_expo_json_decl(r#""hooks": {"#));
+        assert!(is_ionic_json_decl(r#""hooks": {"#));
+        assert!(!is_expo_json_decl(r#""proxies": ["#));
+        assert!(is_ionic_json_decl(r#""proxies": ["#));
+        assert!(!is_expo_json_decl(r#""watchPatterns": ["#));
+        assert!(is_ionic_json_decl(r#""watchPatterns": ["#));
+        assert!(!is_expo_json_decl(r#""documentRoot": "www""#));
+        assert!(is_ionic_json_decl(r#""documentRoot": "www""#));
+        assert!(!is_expo_json_decl(r#""type": "angular""#));
+        assert!(is_ionic_json_decl(r#""type": "angular""#));
+        assert!(!is_expo_json_decl(r#""appId": "com.example.app""#));
+        assert!(is_capacitor_json_decl(r#""appId": "com.example.app""#));
+        assert!(!is_expo_json_decl(r#""appName": "MyApp""#));
+        assert!(is_capacitor_json_decl(r#""appName": "MyApp""#));
+        assert!(!is_expo_json_decl(r#""webDir": "dist""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "dist""#));
+        assert!(!is_expo_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(!is_expo_json_decl(r#""server": {"#));
+        assert!(is_capacitor_json_decl(r#""server": {"#));
+        assert!(!is_expo_json_decl(r#""cordova": {"#));
+        assert!(is_capacitor_json_decl(r#""cordova": {"#));
+        assert!(!is_expo_json_decl(r#""productName": "App""#));
+        assert!(is_tauri_json_decl(r#""productName": "App""#));
+        assert!(!is_expo_json_decl(r#""identifier": "com.example.app""#));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_expo_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_expo_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+        assert!(!is_expo_json_decl(r#""frontendDist": "../dist""#));
+        assert!(is_tauri_json_decl(r#""frontendDist": "../dist""#));
+        assert!(!is_expo_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_expo_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_expo_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_expo_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(!is_expo_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_expo_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_expo_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_expo_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_expo_json_decl(r#""regions": ["#));
+        assert!(is_vercel_json_decl(r#""regions": ["#));
+        assert!(!is_expo_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_expo_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_expo_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_expo_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_expo_json_decl(r#""baseBranch": "main""#));
+        assert!(is_changesets_json_decl(r#""baseBranch": "main""#));
+        assert!(!is_expo_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_expo_json_decl(r#""projects": ["#));
+        assert!(is_rush_json_decl(r#""projects": ["#));
+        assert!(!is_expo_json_decl(r#""npmClient": "npm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "npm""#));
+        assert!(!is_expo_json_decl(r#""useWorkspaces": true"#));
+        assert!(is_lerna_json_decl(r#""useWorkspaces": true"#));
+        assert!(!is_expo_json_decl(r#""packages": ["#));
+        assert!(is_lerna_json_decl(r#""packages": ["#));
+        assert!(!is_expo_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_expo_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_expo_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_expo_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(!is_expo_json_decl(r#""envMode": "loose""#));
+        assert!(is_turbo_json_decl(r#""envMode": "loose""#));
+        assert!(!is_expo_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_expo_json_decl(r#""targetDefaults": {"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(!is_expo_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(!is_expo_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_expo_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_expo_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_expo_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_expo_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_expo_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_expo_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_expo_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_expo_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_expo_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_expo_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists expo keys.
+        assert!(line_is_func_like(r#""expo": {"#));
+        assert!(line_is_func_like(r#""splash": {"#));
+        assert!(line_is_func_like(r#""updates": {"#));
+        assert!(line_is_func_like(r#""assetBundlePatterns": ["#));
+        assert!(line_is_func_like(r#""slug": "my-app""#));
+        assert!(line_is_func_like(r#""orientation": "portrait""#));
+        assert!(line_is_func_like(r#""userInterfaceStyle": "automatic""#));
+        assert!(line_is_func_like(r#""jsEngine": "hermes""#));
+        assert!(line_is_func_like(r#""newArchEnabled": true"#));
     }
 
     #[test]
