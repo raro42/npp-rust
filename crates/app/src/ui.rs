@@ -32390,6 +32390,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_expo_json_decl(s)
             || is_eas_json_decl(s)
             || is_angular_json_decl(s)
+            || is_nest_cli_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32690,6 +32691,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_expo_json_decl(s)
         || is_eas_json_decl(s)
         || is_angular_json_decl(s)
+        || is_nest_cli_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -45425,7 +45427,11 @@ fn eas_json_string_ok(key: &str, value: &str) -> bool {
 /// eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` /
 /// prettier `"printWidth"` / biome `"linter"` / dprint
 /// `"includes"` / tsconfig `"compilerOptions"` / package.json
-/// `"scripts": {` stay out. Angular `"scripts": [` (array) is listed.
+/// `"scripts": {` / nest-cli `"collection"` / `"entryFile"` /
+/// `"generateOptions"` / `"monorepo"` / `"deleteOutDir"` /
+/// `"webpackConfigPath"` / `"tsConfigPath"` / `"watchAssets"` /
+/// `"manualRestart"` / `"typeCheck"` / `"language": "ts"` /
+/// `"exec"` stay out. Angular `"scripts": [` (array) is listed.
 fn is_angular_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -45780,6 +45786,190 @@ fn angular_json_string_ok(key: &str, value: &str) -> bool {
         | "webWorkerTsConfig"
         | "server"
         | "serviceWorker" => angular_json_path_ok(value),
+        _ => false,
+    }
+}
+
+/// NestJS `nest-cli.json` JSON keys:
+/// `"collection": "@nestjs/…"`, `"entryFile": "main"`,
+/// `"generateOptions": {`, `"monorepo": true`,
+/// `"deleteOutDir": true`, `"webpack": true`,
+/// `"webpackConfigPath": "…"`, `"tsConfigPath": "…"`,
+/// `"watchAssets": true`, `"manualRestart": true`,
+/// `"typeCheck": true`, `"builder": "tsc"` / `"swc"` / `"webpack"`,
+/// `"language": "ts"` / `"js"`, `"exec": "node"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"version"` / `"name"` /
+/// `"projects"` / `"root"` / `"sourceRoot"` / `"compilerOptions"` /
+/// `"plugins"` / `"assets"` / angular `"architect"` / `"schematics"` /
+/// `"cli"` / `"projectType"` / `"newProjectRoot"` / `"prefix"` /
+/// `"aot"` / `"assets": [` / eas `"submit"` / `"developmentClient"` /
+/// `"distribution"` / expo `"expo"` / `"slug"` / ionic
+/// `"integrations"` / `"hooks"` / capacitor `"appId"` / `"appName"` /
+/// `"webDir"` / `"bundledWebRuntime"` / tauri `"productName"` /
+/// `"identifier"` / `"withGlobalTauri"` / `"allowlist"` /
+/// `"frontendDist"` / firebase `"hosting"` / `"firestore"` /
+/// `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` /
+/// `"headers"` / `"crons"` / `"regions"` / `"framework"` /
+/// `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets
+/// `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna
+/// `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo
+/// `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` /
+/// `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` /
+/// `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` /
+/// SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint
+/// `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` /
+/// dprint `"includes"` / tsconfig `"compilerOptions"` / package.json
+/// `"scripts": {` stay out. Nest `"builder": "tsc"` / `"swc"` /
+/// `"webpack"` (no `@scope:target`) is listed; Angular
+/// `"builder": "@angular…:…"` stays on the angular path.
+fn is_nest_cli_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !nest_cli_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    nest_cli_json_value_and_tail_ok(key, after_colon)
+}
+
+fn nest_cli_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "collection"
+            | "entryFile"
+            | "generateOptions"
+            | "monorepo"
+            | "deleteOutDir"
+            | "webpack"
+            | "webpackConfigPath"
+            | "tsConfigPath"
+            | "watchAssets"
+            | "manualRestart"
+            | "typeCheck"
+            | "builder"
+            | "language"
+            | "exec"
+    )
+}
+
+fn nest_cli_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !nest_cli_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !nest_cli_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !nest_cli_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !nest_cli_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn nest_cli_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "generateOptions")
+}
+
+fn nest_cli_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "collection"
+            | "entryFile"
+            | "webpackConfigPath"
+            | "tsConfigPath"
+            | "builder"
+            | "language"
+            | "exec"
+    )
+}
+
+fn nest_cli_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "monorepo" | "deleteOutDir" | "webpack" | "watchAssets" | "manualRestart" | "typeCheck"
+    )
+}
+
+fn nest_cli_json_ident_ok(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.is_empty() || bytes.len() > 128 {
+        return false;
+    }
+    if !bytes[0].is_ascii_alphabetic() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
+}
+
+fn nest_cli_json_collection_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 || value.contains('\n') {
+        return false;
+    }
+    // `@scope/pkg` or bare package name.
+    let bytes = value.as_bytes();
+    if !(bytes[0].is_ascii_alphanumeric() || bytes[0] == b'@') {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'@' | b'/' | b'-' | b'_' | b'.'))
+}
+
+fn nest_cli_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "builder" => matches!(value, "tsc" | "swc" | "webpack"),
+        "language" => matches!(value, "ts" | "js"),
+        "collection" => nest_cli_json_collection_ok(value),
+        "entryFile" | "exec" => nest_cli_json_ident_ok(value),
+        "webpackConfigPath" | "tsConfigPath" => angular_json_path_ok(value),
         _ => false,
     }
 }
@@ -76418,23 +76608,23 @@ mod func_like_line_tests {
         is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
         is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
         is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl,
-        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl,
-        is_openvpn_decl, is_os_release_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl,
-        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
-        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
-        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
-        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
-        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_refurb_toml_decl, is_release_toml_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
-        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
+        is_nx_json_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
+        is_postcss_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
+        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
+        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
+        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
+        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl, is_release_toml_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
+        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
         is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
@@ -90018,6 +90208,45 @@ mod func_like_line_tests {
         assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
         assert!(!is_angular_json_decl(r#""scripts": {"#));
         assert!(is_package_json_decl(r#""scripts": {"#));
+        // Nest neighbouring keys stay out of angular.
+        assert!(!is_angular_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(is_nest_cli_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(!is_angular_json_decl(r#""entryFile": "main""#));
+        assert!(is_nest_cli_json_decl(r#""entryFile": "main""#));
+        assert!(!is_angular_json_decl(r#""generateOptions": {"#));
+        assert!(is_nest_cli_json_decl(r#""generateOptions": {"#));
+        assert!(!is_angular_json_decl(r#""monorepo": true"#));
+        assert!(is_nest_cli_json_decl(r#""monorepo": true"#));
+        assert!(!is_angular_json_decl(r#""deleteOutDir": true"#));
+        assert!(is_nest_cli_json_decl(r#""deleteOutDir": true"#));
+        assert!(!is_angular_json_decl(
+            r#""webpackConfigPath": "webpack.config.js""#
+        ));
+        assert!(is_nest_cli_json_decl(
+            r#""webpackConfigPath": "webpack.config.js""#
+        ));
+        assert!(!is_angular_json_decl(
+            r#""tsConfigPath": "tsconfig.build.json""#
+        ));
+        assert!(is_nest_cli_json_decl(
+            r#""tsConfigPath": "tsconfig.build.json""#
+        ));
+        assert!(!is_angular_json_decl(r#""watchAssets": true"#));
+        assert!(is_nest_cli_json_decl(r#""watchAssets": true"#));
+        assert!(!is_angular_json_decl(r#""manualRestart": true"#));
+        assert!(is_nest_cli_json_decl(r#""manualRestart": true"#));
+        assert!(!is_angular_json_decl(r#""typeCheck": true"#));
+        assert!(is_nest_cli_json_decl(r#""typeCheck": true"#));
+        assert!(!is_angular_json_decl(r#""language": "ts""#));
+        assert!(is_nest_cli_json_decl(r#""language": "ts""#));
+        assert!(!is_angular_json_decl(r#""exec": "node""#));
+        assert!(is_nest_cli_json_decl(r#""exec": "node""#));
+        assert!(!is_angular_json_decl(r#""builder": "swc""#));
+        assert!(is_nest_cli_json_decl(r#""builder": "swc""#));
         // Shared scanner lists angular keys.
         assert!(line_is_func_like(r#""architect": {"#));
         assert!(line_is_func_like(r#""schematics": {"#));
@@ -90035,6 +90264,227 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""optimization": true"#));
         assert!(line_is_func_like(r#""outputHashing": "all""#));
         assert!(line_is_func_like(r#""inlineStyleLanguage": "scss""#));
+    }
+
+    #[test]
+    fn nest_cli_json_keys_count() {
+        assert!(is_nest_cli_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(is_nest_cli_json_decl(
+            r#""collection": "@nestjs/schematics" // schematics"#
+        ));
+        assert!(is_nest_cli_json_decl(
+            r#""collection": "@nestjs/schematics","#
+        ));
+        assert!(is_nest_cli_json_decl(r#""entryFile": "main""#));
+        assert!(is_nest_cli_json_decl(r#""entryFile": "main","#));
+        assert!(is_nest_cli_json_decl(r#""generateOptions": {"#));
+        assert!(is_nest_cli_json_decl(r#""generateOptions": { // gen"#));
+        assert!(is_nest_cli_json_decl(r#""monorepo": true"#));
+        assert!(is_nest_cli_json_decl(r#""monorepo": false,"#));
+        assert!(is_nest_cli_json_decl(r#""deleteOutDir": true"#));
+        assert!(is_nest_cli_json_decl(r#""webpack": true"#));
+        assert!(is_nest_cli_json_decl(r#""webpack": false,"#));
+        assert!(is_nest_cli_json_decl(
+            r#""webpackConfigPath": "webpack.config.js""#
+        ));
+        assert!(is_nest_cli_json_decl(
+            r#""tsConfigPath": "tsconfig.build.json""#
+        ));
+        assert!(is_nest_cli_json_decl(r#""watchAssets": true"#));
+        assert!(is_nest_cli_json_decl(r#""manualRestart": true"#));
+        assert!(is_nest_cli_json_decl(r#""typeCheck": true"#));
+        assert!(is_nest_cli_json_decl(r#""builder": "tsc""#));
+        assert!(is_nest_cli_json_decl(r#""builder": "swc""#));
+        assert!(is_nest_cli_json_decl(r#""builder": "webpack""#));
+        assert!(is_nest_cli_json_decl(r#""language": "ts""#));
+        assert!(is_nest_cli_json_decl(r#""language": "js""#));
+        assert!(is_nest_cli_json_decl(r#""exec": "node""#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_nest_cli_json_decl(r#""collection""#));
+        assert!(!is_nest_cli_json_decl(r#""collection":"#));
+        assert!(!is_nest_cli_json_decl(
+            r#"collection: "@nestjs/schematics""#
+        ));
+        assert!(!is_nest_cli_json_decl(
+            r#""Collection": "@nestjs/schematics""#
+        ));
+        assert!(!is_nest_cli_json_decl(r#""collection": {"#));
+        assert!(!is_nest_cli_json_decl(r#""collection": ["#));
+        assert!(!is_nest_cli_json_decl(r#""entryFile": {"#));
+        assert!(!is_nest_cli_json_decl(r#""entryFile": "1main""#));
+        assert!(!is_nest_cli_json_decl(r#""generateOptions": ["#));
+        assert!(!is_nest_cli_json_decl(r#""generateOptions": true"#));
+        assert!(!is_nest_cli_json_decl(r#""monorepo": {"#));
+        assert!(!is_nest_cli_json_decl(r#""monorepo": "true""#));
+        assert!(!is_nest_cli_json_decl(r#""deleteOutDir": 1"#));
+        assert!(!is_nest_cli_json_decl(r#""builder": "esbuild""#));
+        assert!(!is_nest_cli_json_decl(
+            r#""builder": "@angular-devkit/build-angular:browser""#
+        ));
+        assert!(!is_nest_cli_json_decl(r#""language": "typescript""#));
+        assert!(!is_nest_cli_json_decl(r#""language": {"#));
+        assert!(!is_nest_cli_json_decl(r#""exec": "/usr/bin/node""#));
+        assert!(!is_nest_cli_json_decl(r#""webpackConfigPath": {"#));
+        // Generic / neighbouring stay out.
+        assert!(!is_nest_cli_json_decl(
+            r#""$schema": "https://json.schemastore.org/nest-cli""#
+        ));
+        assert!(!is_nest_cli_json_decl(r#""version": 1"#));
+        assert!(!is_nest_cli_json_decl(r#""name": "api""#));
+        assert!(!is_nest_cli_json_decl(r#""projects": {"#));
+        assert!(!is_nest_cli_json_decl(r#""root": "apps/api""#));
+        assert!(!is_nest_cli_json_decl(r#""sourceRoot": "src""#));
+        assert!(is_angular_json_decl(r#""sourceRoot": "src""#));
+        assert!(!is_nest_cli_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_nest_cli_json_decl(r#""plugins": ["#));
+        assert!(!is_nest_cli_json_decl(r#""assets": ["#));
+        assert!(is_angular_json_decl(r#""assets": ["#));
+        assert!(!is_nest_cli_json_decl(r#""architect": {"#));
+        assert!(is_angular_json_decl(r#""architect": {"#));
+        assert!(!is_nest_cli_json_decl(r#""schematics": {"#));
+        assert!(is_angular_json_decl(r#""schematics": {"#));
+        assert!(!is_nest_cli_json_decl(r#""cli": {"#));
+        assert!(is_angular_json_decl(r#""cli": {"#));
+        assert!(!is_nest_cli_json_decl(r#""projectType": "application""#));
+        assert!(is_angular_json_decl(r#""projectType": "application""#));
+        assert!(!is_nest_cli_json_decl(r#""newProjectRoot": "projects""#));
+        assert!(is_angular_json_decl(r#""newProjectRoot": "projects""#));
+        assert!(!is_nest_cli_json_decl(r#""prefix": "app""#));
+        assert!(is_angular_json_decl(r#""prefix": "app""#));
+        assert!(!is_nest_cli_json_decl(r#""aot": true"#));
+        assert!(is_angular_json_decl(r#""aot": true"#));
+        assert!(!is_nest_cli_json_decl(
+            r#""builder": "@angular-devkit/build-angular:browser""#
+        ));
+        assert!(is_angular_json_decl(
+            r#""builder": "@angular-devkit/build-angular:browser""#
+        ));
+        assert!(!is_nest_cli_json_decl(r#""submit": {"#));
+        assert!(is_eas_json_decl(r#""submit": {"#));
+        assert!(!is_nest_cli_json_decl(r#""developmentClient": true"#));
+        assert!(is_eas_json_decl(r#""developmentClient": true"#));
+        assert!(!is_nest_cli_json_decl(r#""distribution": "internal""#));
+        assert!(is_eas_json_decl(r#""distribution": "internal""#));
+        assert!(!is_nest_cli_json_decl(r#""expo": {"#));
+        assert!(is_expo_json_decl(r#""expo": {"#));
+        assert!(!is_nest_cli_json_decl(r#""slug": "my-app""#));
+        assert!(is_expo_json_decl(r#""slug": "my-app""#));
+        assert!(!is_nest_cli_json_decl(r#""integrations": {"#));
+        assert!(is_ionic_json_decl(r#""integrations": {"#));
+        assert!(!is_nest_cli_json_decl(r#""hooks": {"#));
+        assert!(is_ionic_json_decl(r#""hooks": {"#));
+        assert!(!is_nest_cli_json_decl(r#""appId": "com.example.app""#));
+        assert!(is_capacitor_json_decl(r#""appId": "com.example.app""#));
+        assert!(!is_nest_cli_json_decl(r#""appName": "MyApp""#));
+        assert!(is_capacitor_json_decl(r#""appName": "MyApp""#));
+        assert!(!is_nest_cli_json_decl(r#""webDir": "dist""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "dist""#));
+        assert!(!is_nest_cli_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(!is_nest_cli_json_decl(r#""productName": "App""#));
+        assert!(is_tauri_json_decl(r#""productName": "App""#));
+        assert!(!is_nest_cli_json_decl(r#""identifier": "com.example.app""#));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_nest_cli_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_nest_cli_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+        assert!(!is_nest_cli_json_decl(r#""frontendDist": "../dist""#));
+        assert!(is_tauri_json_decl(r#""frontendDist": "../dist""#));
+        assert!(!is_nest_cli_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_nest_cli_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_nest_cli_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_nest_cli_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(!is_nest_cli_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_nest_cli_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_nest_cli_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_nest_cli_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_nest_cli_json_decl(r#""regions": ["#));
+        assert!(is_vercel_json_decl(r#""regions": ["#));
+        assert!(!is_nest_cli_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_nest_cli_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_nest_cli_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_nest_cli_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_nest_cli_json_decl(r#""baseBranch": "main""#));
+        assert!(is_changesets_json_decl(r#""baseBranch": "main""#));
+        assert!(!is_nest_cli_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_nest_cli_json_decl(r#""npmClient": "npm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "npm""#));
+        assert!(!is_nest_cli_json_decl(r#""useWorkspaces": true"#));
+        assert!(is_lerna_json_decl(r#""useWorkspaces": true"#));
+        assert!(!is_nest_cli_json_decl(r#""packages": ["#));
+        assert!(is_lerna_json_decl(r#""packages": ["#));
+        assert!(!is_nest_cli_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_nest_cli_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_nest_cli_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_nest_cli_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(!is_nest_cli_json_decl(r#""envMode": "loose""#));
+        assert!(is_turbo_json_decl(r#""envMode": "loose""#));
+        assert!(!is_nest_cli_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_nest_cli_json_decl(r#""targetDefaults": {"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(!is_nest_cli_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(!is_nest_cli_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_nest_cli_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_nest_cli_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_nest_cli_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_nest_cli_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_nest_cli_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_nest_cli_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_nest_cli_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_nest_cli_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_nest_cli_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists nest-cli keys.
+        assert!(line_is_func_like(r#""collection": "@nestjs/schematics""#));
+        assert!(line_is_func_like(r#""entryFile": "main""#));
+        assert!(line_is_func_like(r#""generateOptions": {"#));
+        assert!(line_is_func_like(r#""monorepo": true"#));
+        assert!(line_is_func_like(r#""deleteOutDir": true"#));
+        assert!(line_is_func_like(r#""webpack": true"#));
+        assert!(line_is_func_like(
+            r#""webpackConfigPath": "webpack.config.js""#
+        ));
+        assert!(line_is_func_like(
+            r#""tsConfigPath": "tsconfig.build.json""#
+        ));
+        assert!(line_is_func_like(r#""watchAssets": true"#));
+        assert!(line_is_func_like(r#""manualRestart": true"#));
+        assert!(line_is_func_like(r#""typeCheck": true"#));
+        assert!(line_is_func_like(r#""builder": "swc""#));
+        assert!(line_is_func_like(r#""language": "ts""#));
+        assert!(line_is_func_like(r#""exec": "node""#));
     }
 
     #[test]

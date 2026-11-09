@@ -1104,3 +1104,5 @@
 009 keep: Function List Expo eas.json submit/developmentClient/distribution/credentialsSource/appVersionSource/autoIncrement/channel/resourceClass (v0.3.721)
 
 009 keep: Function List Angular angular.json architect/projectType/builder/newProjectRoot/prefix/assets/styles/aot/optimization/outputHashing (v0.3.722)
+
+009 keep: Function List nest-cli.json collection/entryFile/generateOptions/monorepo/deleteOutDir/webpack/webpackConfigPath/tsConfigPath/watchAssets/manualRestart/typeCheck/builder/language/exec (v0.3.723)

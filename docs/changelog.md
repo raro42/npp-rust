@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.723] — 2026-11-09
+
+View:
+
+- **Function List** lists NestJS `nest-cli.json` JSON keys: `"collection": "@nestjs/…"`, `"entryFile": "main"`, `"generateOptions": {`, `"monorepo": true`, `"deleteOutDir": true`, `"webpack": true`, `"webpackConfigPath": "…"`, `"tsConfigPath": "…"`, `"watchAssets": true`, `"manualRestart": true`, `"typeCheck": true`, `"builder": "tsc"` / `"swc"` / `"webpack"`, `"language": "ts"` / `"js"`, `"exec": "node"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"version"` / `"name"` / `"projects"` / `"root"` / `"sourceRoot"` / `"compilerOptions"` / `"plugins"` / `"assets"` / angular `"architect"` / `"schematics"` / `"cli"` / `"projectType"` / `"newProjectRoot"` / `"prefix"` / `"aot"` / `"assets": [` / eas `"submit"` / `"developmentClient"` / `"distribution"` / expo `"expo"` / `"slug"` / ionic `"integrations"` / `"hooks"` / capacitor `"appId"` / `"appName"` / `"webDir"` / `"bundledWebRuntime"` / tauri `"productName"` / `"identifier"` / `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` / firebase `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` / `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts": {` stay out. Nest `"builder": "tsc"` / `"swc"` / `"webpack"` (no `@scope:target`) is listed; Angular `"builder": "@angular…:…"` stays on the angular path.
+
 ## [0.3.722] — 2026-11-09
 
 View:
