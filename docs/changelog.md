@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [0.3.736] — 2026-11-09
+
+View:
+
+- **Function List** lists CSpell `cspell.json` / `.cspell.json` / `cspell.config.json` JSON keys: `"words": [`, `"ignoreWords": [`, `"flagWords": [`, `"suggestWords": [`, `"noSuggestWords": [`, `"userWords": [`, `"ignorePaths": [`, `"ignoreRegExpList": [`, `"includeRegExpList": [`, `"patterns": [`, `"dictionaries": [`, `"dictionaryDefinitions": [`, `"languageSettings": [`, `"overrides": [`, `"enableFiletypes": [`, `"enabledLanguageIds": [`, `"import": [` / `"…"`, `"language": "en"` / `"en-GB"` / `"en,fr"`, `"allowCompoundWords": true`, `"caseSensitive": true`, `"useGitignore": true`, `"enableGlobDot": true`, `"loadDefaultConfiguration": true`, `"noConfigSearch": true`, `"validateDirectives": true`, `"minWordLength": 4`, `"maxNumberOfProblems": 100`, `"numSuggestions": 8`, `"suggestionsTimeout": 500`, `"spellCheckDelayMs": 50`, `"gitignoreRoot": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"enabled"` / `"description"` / `"files"` / `"id"` / Oxlint `"categories"` / `"jsPlugins"` / Knip `"entry"` / `"ignoreBinaries"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. Shared `"overrides": [` / `"ignorePaths": [` also match eslint / prettier / renovate when shapes match.
+
+
 ## [0.3.735] — 2026-11-09
 
 View:

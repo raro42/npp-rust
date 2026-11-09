@@ -1,3 +1,5 @@
+009 keep: Function List CSpell cspell.json words/ignoreWords/flagWords/dictionaries/languageSettings/minWordLength/useGitignore (v0.3.736)
+
 009 keep: Function List Oxlint .oxlintrc.json categories/jsPlugins/options/plugins/rules/overrides/env/globals/settings/extends/ignorePatterns (v0.3.735)
 
 009 keep: Function List Knip knip.json entry/project/paths/workspaces/ignoreBinaries/ignoreDependencies/includeEntryExports/treatConfigHintsAsErrors (v0.3.734)

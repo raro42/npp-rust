@@ -32403,6 +32403,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_deno_json_decl(s)
             || is_knip_json_decl(s)
             || is_oxlint_json_decl(s)
+            || is_cspell_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32716,6 +32717,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_deno_json_decl(s)
         || is_knip_json_decl(s)
         || is_oxlint_json_decl(s)
+        || is_cspell_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -48276,6 +48278,223 @@ fn oxlint_json_array_key_ok(key: &str) -> bool {
         key,
         "jsPlugins" | "plugins" | "overrides" | "extends" | "ignorePatterns"
     )
+}
+
+/// CSpell `cspell.json` / `.cspell.json` / `cspell.config.json` JSON keys:
+/// `"words": [`, `"ignoreWords": [`, `"flagWords": [`, `"suggestWords": [`,
+/// `"noSuggestWords": [`, `"userWords": [`, `"ignorePaths": [`,
+/// `"ignoreRegExpList": [`, `"includeRegExpList": [`, `"patterns": [`,
+/// `"dictionaries": [`, `"dictionaryDefinitions": [`,
+/// `"languageSettings": [`, `"overrides": [`, `"enableFiletypes": [`,
+/// `"enabledLanguageIds": [`, `"import": [` / `"…"`, `"language": "en"` /
+/// `"en-GB"` / `"en,fr"`, `"allowCompoundWords": true`,
+/// `"caseSensitive": true`, `"useGitignore": true`, `"enableGlobDot": true`,
+/// `"loadDefaultConfiguration": true`, `"noConfigSearch": true`,
+/// `"validateDirectives": true`, `"minWordLength": 4`,
+/// `"maxNumberOfProblems": 100`, `"numSuggestions": 8`,
+/// `"suggestionsTimeout": 500`, `"spellCheckDelayMs": 50`,
+/// `"gitignoreRoot": "…"`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` /
+/// `"version"` / `"enabled"` / `"description"` / `"files"` / `"id"` /
+/// Oxlint `"categories"` / `"jsPlugins"` / Knip `"entry"` /
+/// `"ignoreBinaries"` / Deno `"nodeModulesDir"` / Renovate
+/// `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` /
+/// Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` /
+/// prettier `"printWidth"` / biome `"linter"` / eslint `"parser"` /
+/// package.json `"scripts"` / tsconfig `"compilerOptions"` stay out.
+/// Shared `"overrides": [` / `"ignorePaths": [` also match eslint /
+/// prettier / renovate when shapes match.
+fn is_cspell_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !cspell_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    cspell_json_value_and_tail_ok(key, after_colon)
+}
+
+fn cspell_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "words"
+            | "ignoreWords"
+            | "flagWords"
+            | "suggestWords"
+            | "noSuggestWords"
+            | "userWords"
+            | "ignorePaths"
+            | "ignoreRegExpList"
+            | "includeRegExpList"
+            | "patterns"
+            | "dictionaries"
+            | "dictionaryDefinitions"
+            | "languageSettings"
+            | "overrides"
+            | "enableFiletypes"
+            | "enabledLanguageIds"
+            | "import"
+            | "language"
+            | "allowCompoundWords"
+            | "caseSensitive"
+            | "useGitignore"
+            | "enableGlobDot"
+            | "loadDefaultConfiguration"
+            | "noConfigSearch"
+            | "validateDirectives"
+            | "minWordLength"
+            | "maxNumberOfProblems"
+            | "numSuggestions"
+            | "suggestionsTimeout"
+            | "spellCheckDelayMs"
+            | "gitignoreRoot"
+    )
+}
+
+fn cspell_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if !cspell_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !cspell_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !cspell_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !cspell_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !cspell_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn cspell_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "words"
+            | "ignoreWords"
+            | "flagWords"
+            | "suggestWords"
+            | "noSuggestWords"
+            | "userWords"
+            | "ignorePaths"
+            | "ignoreRegExpList"
+            | "includeRegExpList"
+            | "patterns"
+            | "dictionaries"
+            | "dictionaryDefinitions"
+            | "languageSettings"
+            | "overrides"
+            | "enableFiletypes"
+            | "enabledLanguageIds"
+            | "import"
+    )
+}
+
+fn cspell_json_string_key_ok(key: &str) -> bool {
+    matches!(key, "import" | "language" | "gitignoreRoot")
+}
+
+fn cspell_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "allowCompoundWords"
+            | "caseSensitive"
+            | "useGitignore"
+            | "enableGlobDot"
+            | "loadDefaultConfiguration"
+            | "noConfigSearch"
+            | "validateDirectives"
+    )
+}
+
+fn cspell_json_number_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "minWordLength"
+            | "maxNumberOfProblems"
+            | "numSuggestions"
+            | "suggestionsTimeout"
+            | "spellCheckDelayMs"
+    )
+}
+
+fn cspell_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "language" => cspell_json_language_ok(value),
+        "import" | "gitignoreRoot" => true,
+        _ => false,
+    }
+}
+
+fn cspell_json_language_ok(value: &str) -> bool {
+    // Comma-separated BCP47-ish tags: "en", "en-GB", "en,fr".
+    if value != value.trim() {
+        return false;
+    }
+    value.split(',').all(|part| {
+        let p = part.trim();
+        !p.is_empty()
+            && p.len() <= 16
+            && p.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+            && p.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+    })
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -78898,48 +79117,48 @@ mod func_like_line_tests {
         is_changesets_json_decl, is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl,
         is_cibuildwheel_ini_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_codespell_ini_decl,
         is_commitizen_ini_decl, is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl,
-        is_crypttab_decl, is_darglint_ini_decl, is_default_grub_decl, is_deno_json_decl,
-        is_deny_toml_decl, is_desktop_entry_decl, is_devcontainer_json_decl, is_dhcpd_decl,
-        is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl,
-        is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl,
-        is_editorconfig_decl, is_electron_builder_json_decl, is_electron_forge_json_decl,
-        is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl,
-        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
-        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
-        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
-        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
-        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl,
-        is_netlify_toml_decl, is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
-        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
-        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl,
-        is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl, is_prettier_json_decl,
-        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
-        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
-        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
-        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
-        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl,
-        is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
-        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
-        is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
-        is_tauri_json_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl,
-        is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl,
-        is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
+        is_crypttab_decl, is_cspell_json_decl, is_darglint_ini_decl, is_default_grub_decl,
+        is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl, is_devcontainer_json_decl,
+        is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl,
+        is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
+        is_eas_json_decl, is_editorconfig_decl, is_electron_builder_json_decl,
+        is_electron_forge_json_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
+        is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
+        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
+        is_importlinter_ini_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
+        is_isort_ini_decl, is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl,
+        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
+        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
+        is_nx_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
+        is_postcss_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
+        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
+        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
+        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
+        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl, is_release_toml_decl,
+        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
+        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
+        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl,
+        is_supabase_toml_decl, is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
+        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
+        is_turbo_json_decl, is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
         is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
         is_wails_json_decl, is_webextension_manifest_json_decl, is_wireguard_config_decl,
         is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
@@ -95965,6 +96184,138 @@ mod func_like_line_tests {
         assert!(is_eslint_json_decl(r#""settings": {"#));
         assert!(is_eslint_json_decl(r#""extends": ["#));
         assert!(is_eslint_json_decl(r#""ignorePatterns": ["#));
+    }
+
+    #[test]
+    fn cspell_json_keys_count() {
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": [ // project terms"#));
+        assert!(is_cspell_json_decl(r#""ignoreWords": ["#));
+        assert!(is_cspell_json_decl(r#""flagWords": ["#));
+        assert!(is_cspell_json_decl(r#""suggestWords": ["#));
+        assert!(is_cspell_json_decl(r#""noSuggestWords": ["#));
+        assert!(is_cspell_json_decl(r#""userWords": ["#));
+        assert!(is_cspell_json_decl(r#""ignorePaths": ["#));
+        assert!(is_cspell_json_decl(r#""ignoreRegExpList": ["#));
+        assert!(is_cspell_json_decl(r#""includeRegExpList": ["#));
+        assert!(is_cspell_json_decl(r#""patterns": ["#));
+        assert!(is_cspell_json_decl(r#""dictionaries": ["#));
+        assert!(is_cspell_json_decl(r#""dictionaryDefinitions": ["#));
+        assert!(is_cspell_json_decl(r#""languageSettings": ["#));
+        assert!(is_cspell_json_decl(r#""overrides": ["#));
+        assert!(is_cspell_json_decl(r#""enableFiletypes": ["#));
+        assert!(is_cspell_json_decl(r#""enabledLanguageIds": ["#));
+        assert!(is_cspell_json_decl(r#""import": ["#));
+        assert!(is_cspell_json_decl(
+            r#""import": "@cspell/dict-fonts/cspell-ext.json""#
+        ));
+        assert!(is_cspell_json_decl(r#""language": "en""#));
+        assert!(is_cspell_json_decl(r#""language": "en-GB""#));
+        assert!(is_cspell_json_decl(r#""language": "en,fr""#));
+        assert!(is_cspell_json_decl(r#""allowCompoundWords": true"#));
+        assert!(is_cspell_json_decl(r#""caseSensitive": false"#));
+        assert!(is_cspell_json_decl(r#""useGitignore": true"#));
+        assert!(is_cspell_json_decl(r#""enableGlobDot": true"#));
+        assert!(is_cspell_json_decl(r#""loadDefaultConfiguration": false"#));
+        assert!(is_cspell_json_decl(r#""noConfigSearch": true"#));
+        assert!(is_cspell_json_decl(r#""validateDirectives": true"#));
+        assert!(is_cspell_json_decl(r#""minWordLength": 4"#));
+        assert!(is_cspell_json_decl(r#""maxNumberOfProblems": 100"#));
+        assert!(is_cspell_json_decl(r#""numSuggestions": 8"#));
+        assert!(is_cspell_json_decl(r#""suggestionsTimeout": 500"#));
+        assert!(is_cspell_json_decl(r#""spellCheckDelayMs": 50"#));
+        assert!(is_cspell_json_decl(r#""gitignoreRoot": ".""#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_cspell_json_decl(r#""words""#));
+        assert!(!is_cspell_json_decl(r#""words":"#));
+        assert!(!is_cspell_json_decl(r#""words: ["#));
+        assert!(!is_cspell_json_decl(r#""words": {"#));
+        assert!(!is_cspell_json_decl(r#""ignoreWords": {"#));
+        assert!(!is_cspell_json_decl(r#""flagWords": {"#));
+        assert!(!is_cspell_json_decl(r#""dictionaries": {"#));
+        assert!(!is_cspell_json_decl(r#""dictionaryDefinitions": {"#));
+        assert!(!is_cspell_json_decl(r#""languageSettings": {"#));
+        assert!(!is_cspell_json_decl(r#""overrides": {"#));
+        assert!(!is_cspell_json_decl(r#""allowCompoundWords": ["#));
+        assert!(!is_cspell_json_decl(r#""minWordLength": true"#));
+        assert!(!is_cspell_json_decl(r#""language": ["#));
+        assert!(!is_cspell_json_decl(r#""language": " the""#));
+        assert!(!is_cspell_json_decl(r#""language": """#));
+        // Generic / neighbouring stay out.
+        assert!(!is_cspell_json_decl(
+            r#""$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json""#
+        ));
+        assert!(!is_cspell_json_decl(r#""name": "my-app""#));
+        assert!(!is_cspell_json_decl(r#""version": "0.2""#));
+        assert!(!is_cspell_json_decl(r#""enabled": true"#));
+        assert!(!is_cspell_json_decl(r#""description": "spell""#));
+        assert!(!is_cspell_json_decl(r#""files": ["#));
+        assert!(!is_cspell_json_decl(r#""id": "cspell""#));
+        assert!(!is_cspell_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_cspell_json_decl(r#""jsPlugins": ["#));
+        assert!(is_oxlint_json_decl(r#""jsPlugins": ["#));
+        assert!(!is_cspell_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_cspell_json_decl(r#""ignoreBinaries": ["#));
+        assert!(is_knip_json_decl(r#""ignoreBinaries": ["#));
+        assert!(!is_cspell_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_cspell_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_cspell_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_cspell_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_cspell_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_cspell_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_cspell_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_cspell_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_cspell_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_cspell_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_cspell_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_cspell_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive cspell keys stay out of Oxlint / ESLint / Knip.
+        assert!(!is_oxlint_json_decl(r#""words": ["#));
+        assert!(!is_oxlint_json_decl(r#""ignoreWords": ["#));
+        assert!(!is_oxlint_json_decl(r#""dictionaries": ["#));
+        assert!(!is_oxlint_json_decl(r#""minWordLength": 4"#));
+        assert!(!is_eslint_json_decl(r#""words": ["#));
+        assert!(!is_eslint_json_decl(r#""ignoreWords": ["#));
+        assert!(!is_eslint_json_decl(r#""dictionaries": ["#));
+        assert!(!is_knip_json_decl(r#""words": ["#));
+        assert!(!is_knip_json_decl(r#""ignoreWords": ["#));
+        assert!(!is_knip_json_decl(r#""dictionaries": ["#));
+        // Shared shapes still list via CSpell / ESLint / Renovate scanners.
+        assert!(line_is_func_like(r#""words": ["#));
+        assert!(line_is_func_like(r#""ignoreWords": ["#));
+        assert!(line_is_func_like(r#""flagWords": ["#));
+        assert!(line_is_func_like(r#""dictionaries": ["#));
+        assert!(line_is_func_like(r#""dictionaryDefinitions": ["#));
+        assert!(line_is_func_like(r#""languageSettings": ["#));
+        assert!(line_is_func_like(r#""overrides": ["#));
+        assert!(line_is_func_like(r#""ignorePaths": ["#));
+        assert!(line_is_func_like(r#""language": "en""#));
+        assert!(line_is_func_like(r#""allowCompoundWords": true"#));
+        assert!(line_is_func_like(r#""minWordLength": 4"#));
+        assert!(is_eslint_json_decl(r#""overrides": ["#));
+        assert!(is_renovate_json_decl(r#""ignorePaths": ["#));
     }
 
     #[test]
