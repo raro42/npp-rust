@@ -32388,6 +32388,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_capacitor_json_decl(s)
             || is_ionic_json_decl(s)
             || is_expo_json_decl(s)
+            || is_eas_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32686,6 +32687,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_capacitor_json_decl(s)
         || is_ionic_json_decl(s)
         || is_expo_json_decl(s)
+        || is_eas_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -44976,7 +44978,11 @@ fn ionic_json_string_ok(key: &str, value: &str) -> bool {
 /// `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
 /// Generic `"$schema"` / `"name"` / `"version"` / `"description"` /
 /// `"extra": {` / `"plugins": [` / `"ios": {` / `"android": {` /
-/// `"web": {` / ionic `"integrations"` / `"hooks"` / `"proxies"` /
+/// `"web": {` / eas `"submit"` / `"developmentClient"` /
+/// `"distribution"` / `"credentialsSource"` / `"appVersionSource"` /
+/// `"channel"` / `"releaseChannel"` / `"resourceClass"` /
+/// `"prebuildCommand"` / `"withoutCredentials"` / `"buildArtifactPaths"` /
+/// ionic `"integrations"` / `"hooks"` / `"proxies"` /
 /// `"watchPatterns"` / `"documentRoot"` / `"type": "angular"` /
 /// capacitor `"appId"` / `"appName"` / `"webDir"` /
 /// `"bundledWebRuntime"` / `"server"` / `"cordova"` / tauri
@@ -45167,6 +45173,197 @@ fn expo_json_string_ok(key: &str, value: &str) -> bool {
         "scheme" => expo_json_scheme_ok(value),
         "owner" => expo_json_slug_ok(value),
         "sdkVersion" | "primaryColor" | "icon" | "runtimeVersion" => true,
+        _ => false,
+    }
+}
+
+/// Expo EAS `eas.json` JSON keys (top-level + build/submit profiles):
+/// `"submit": {`, `"developmentClient": true`, `"withoutCredentials": true`,
+/// `"simulator": true`, `"distribution": "store"` / `"internal"` /
+/// `"simulator"`, `"credentialsSource": "local"` / `"remote"`,
+/// `"appVersionSource": "local"` / `"remote"`,
+/// `"autoIncrement": true` / `"version"` / `"buildNumber"`,
+/// `"channel": "…"`, `"releaseChannel": "…"`, `"resourceClass": "…"`,
+/// `"prebuildCommand": "…"`, `"extends": "…"`,
+/// `"buildArtifactPaths": [`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic
+/// `"$schema"` / `"cli": {` / `"build": {` / `"env": {` / `"cache": {` /
+/// `"name"` / `"version"` / `"node"` / `"yarn"` / `"pnpm"` / `"bun"` /
+/// expo `"expo"` / `"slug"` / `"orientation"` / `"userInterfaceStyle"` /
+/// `"splash"` / `"assetBundlePatterns"` / `"jsEngine"` /
+/// `"newArchEnabled"` / ionic `"integrations"` / `"hooks"` / `"proxies"` /
+/// `"watchPatterns"` / `"documentRoot"` / `"type": "angular"` /
+/// capacitor `"appId"` / `"appName"` / `"webDir"` /
+/// `"bundledWebRuntime"` / `"server"` / `"cordova"` / tauri
+/// `"productName"` / `"identifier"` / `"withGlobalTauri"` /
+/// `"allowlist"` / `"frontendDist"` / firebase `"hosting"` /
+/// `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` /
+/// `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
+/// `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` /
+/// changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` /
+/// lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo
+/// `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` /
+/// `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` /
+/// `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` /
+/// SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` /
+/// prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` /
+/// tsconfig `"compilerOptions"` / package.json `"scripts"` stay out.
+fn is_eas_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !eas_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    eas_json_value_and_tail_ok(key, after_colon)
+}
+
+fn eas_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "submit"
+            | "developmentClient"
+            | "withoutCredentials"
+            | "simulator"
+            | "distribution"
+            | "credentialsSource"
+            | "appVersionSource"
+            | "autoIncrement"
+            | "channel"
+            | "releaseChannel"
+            | "resourceClass"
+            | "prebuildCommand"
+            | "extends"
+            | "buildArtifactPaths"
+    )
+}
+
+fn eas_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !eas_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !eas_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !eas_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !eas_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !eas_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn eas_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "submit")
+}
+
+fn eas_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "buildArtifactPaths")
+}
+
+fn eas_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "distribution"
+            | "credentialsSource"
+            | "appVersionSource"
+            | "autoIncrement"
+            | "channel"
+            | "releaseChannel"
+            | "resourceClass"
+            | "prebuildCommand"
+            | "extends"
+    )
+}
+
+fn eas_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "developmentClient" | "withoutCredentials" | "simulator" | "autoIncrement"
+    )
+}
+
+fn eas_json_channel_ok(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.is_empty() || bytes.len() > 256 {
+        return false;
+    }
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'/'))
+}
+
+fn eas_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "distribution" => matches!(value, "store" | "internal" | "simulator"),
+        "credentialsSource" | "appVersionSource" => matches!(value, "local" | "remote"),
+        "autoIncrement" => matches!(value, "version" | "buildNumber"),
+        "resourceClass" => matches!(
+            value,
+            "default"
+                | "medium"
+                | "large"
+                | "m-medium"
+                | "m1-medium"
+                | "m-large"
+                | "m1-large"
+                | "legacy"
+        ),
+        "channel" | "releaseChannel" | "extends" => eas_json_channel_ok(value),
+        "prebuildCommand" => true,
         _ => false,
     }
 }
@@ -75794,23 +75991,23 @@ mod func_like_line_tests {
         is_darglint_ini_decl, is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl,
         is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl,
         is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
-        is_editorconfig_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
-        is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
-        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
-        is_importlinter_ini_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl, is_lerna_json_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
-        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
-        is_nx_json_decl, is_openvpn_decl, is_os_release_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
+        is_eas_json_decl, is_editorconfig_decl, is_eslint_json_decl, is_ethers_file_decl,
+        is_expo_json_decl, is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl,
+        is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl,
+        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
+        is_haproxy_decl, is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl,
+        is_hypothesis_ini_decl, is_importlinter_ini_decl, is_interrogate_ini_decl,
+        is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
+        is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
+        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
+        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
         is_postcss_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
         is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
         is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
@@ -88851,6 +89048,33 @@ mod func_like_line_tests {
         assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
         assert!(!is_expo_json_decl(r#""scripts": {"#));
         assert!(is_package_json_decl(r#""scripts": {"#));
+        // EAS neighbouring keys stay out of expo.
+        assert!(!is_expo_json_decl(r#""submit": {"#));
+        assert!(is_eas_json_decl(r#""submit": {"#));
+        assert!(!is_expo_json_decl(r#""developmentClient": true"#));
+        assert!(is_eas_json_decl(r#""developmentClient": true"#));
+        assert!(!is_expo_json_decl(r#""distribution": "internal""#));
+        assert!(is_eas_json_decl(r#""distribution": "internal""#));
+        assert!(!is_expo_json_decl(r#""credentialsSource": "remote""#));
+        assert!(is_eas_json_decl(r#""credentialsSource": "remote""#));
+        assert!(!is_expo_json_decl(r#""appVersionSource": "remote""#));
+        assert!(is_eas_json_decl(r#""appVersionSource": "remote""#));
+        assert!(!is_expo_json_decl(r#""channel": "production""#));
+        assert!(is_eas_json_decl(r#""channel": "production""#));
+        assert!(!is_expo_json_decl(r#""releaseChannel": "default""#));
+        assert!(is_eas_json_decl(r#""releaseChannel": "default""#));
+        assert!(!is_expo_json_decl(r#""resourceClass": "medium""#));
+        assert!(is_eas_json_decl(r#""resourceClass": "medium""#));
+        assert!(!is_expo_json_decl(
+            r#""prebuildCommand": "npx expo prebuild""#
+        ));
+        assert!(is_eas_json_decl(
+            r#""prebuildCommand": "npx expo prebuild""#
+        ));
+        assert!(!is_expo_json_decl(r#""withoutCredentials": true"#));
+        assert!(is_eas_json_decl(r#""withoutCredentials": true"#));
+        assert!(!is_expo_json_decl(r#""buildArtifactPaths": ["#));
+        assert!(is_eas_json_decl(r#""buildArtifactPaths": ["#));
         // Shared scanner lists expo keys.
         assert!(line_is_func_like(r#""expo": {"#));
         assert!(line_is_func_like(r#""splash": {"#));
@@ -88861,6 +89085,220 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""userInterfaceStyle": "automatic""#));
         assert!(line_is_func_like(r#""jsEngine": "hermes""#));
         assert!(line_is_func_like(r#""newArchEnabled": true"#));
+    }
+
+    #[test]
+    fn eas_json_keys_count() {
+        assert!(is_eas_json_decl(r#""submit": {"#));
+        assert!(is_eas_json_decl(r#""submit": { // profiles"#));
+        assert!(is_eas_json_decl(r#""developmentClient": true"#));
+        assert!(is_eas_json_decl(r#""developmentClient": false,"#));
+        assert!(is_eas_json_decl(r#""withoutCredentials": true"#));
+        assert!(is_eas_json_decl(r#""simulator": true"#));
+        assert!(is_eas_json_decl(r#""autoIncrement": true"#));
+        assert!(is_eas_json_decl(r#""autoIncrement": "version""#));
+        assert!(is_eas_json_decl(r#""autoIncrement": "buildNumber","#));
+        assert!(is_eas_json_decl(r#""distribution": "store""#));
+        assert!(is_eas_json_decl(r#""distribution": "internal""#));
+        assert!(is_eas_json_decl(r#""distribution": "simulator""#));
+        assert!(is_eas_json_decl(r#""credentialsSource": "local""#));
+        assert!(is_eas_json_decl(r#""credentialsSource": "remote""#));
+        assert!(is_eas_json_decl(r#""appVersionSource": "local""#));
+        assert!(is_eas_json_decl(r#""appVersionSource": "remote""#));
+        assert!(is_eas_json_decl(r#""channel": "production""#));
+        assert!(is_eas_json_decl(r#""channel": "preview/staging","#));
+        assert!(is_eas_json_decl(r#""releaseChannel": "default""#));
+        assert!(is_eas_json_decl(r#""resourceClass": "default""#));
+        assert!(is_eas_json_decl(r#""resourceClass": "medium""#));
+        assert!(is_eas_json_decl(r#""resourceClass": "large""#));
+        assert!(is_eas_json_decl(r#""resourceClass": "m-medium""#));
+        assert!(is_eas_json_decl(r#""resourceClass": "m1-large""#));
+        assert!(is_eas_json_decl(r#""resourceClass": "legacy""#));
+        assert!(is_eas_json_decl(
+            r#""prebuildCommand": "npx expo prebuild""#
+        ));
+        assert!(is_eas_json_decl(r#""extends": "base""#));
+        assert!(is_eas_json_decl(r#""buildArtifactPaths": ["#));
+        assert!(is_eas_json_decl(r#""buildArtifactPaths": [ // outs"#));
+        // Incomplete / wrong shape stay out.
+        assert!(!is_eas_json_decl(r#""submit""#));
+        assert!(!is_eas_json_decl(r#""submit":"#));
+        assert!(!is_eas_json_decl(r#"submit: {"#));
+        assert!(!is_eas_json_decl(r#""Submit": {"#));
+        assert!(!is_eas_json_decl(r#""submit": ["#));
+        assert!(!is_eas_json_decl(r#""submit": "prod""#));
+        assert!(!is_eas_json_decl(r#""developmentClient": {"#));
+        assert!(!is_eas_json_decl(r#""developmentClient": "true""#));
+        assert!(!is_eas_json_decl(r#""developmentClient": 1"#));
+        assert!(!is_eas_json_decl(r#""distribution": "prod""#));
+        assert!(!is_eas_json_decl(r#""distribution": {"#));
+        assert!(!is_eas_json_decl(r#""credentialsSource": "cloud""#));
+        assert!(!is_eas_json_decl(r#""appVersionSource": "git""#));
+        assert!(!is_eas_json_decl(r#""autoIncrement": "patch""#));
+        assert!(!is_eas_json_decl(r#""autoIncrement": {"#));
+        assert!(!is_eas_json_decl(r#""channel": {"#));
+        assert!(!is_eas_json_decl(r#""channel": ["#));
+        assert!(!is_eas_json_decl(r#""channel": """#));
+        assert!(!is_eas_json_decl(r#""channel": "-bad""#));
+        assert!(!is_eas_json_decl(r#""resourceClass": "xlarge""#));
+        assert!(!is_eas_json_decl(r#""resourceClass": true"#));
+        assert!(!is_eas_json_decl(r#""buildArtifactPaths": {"#));
+        assert!(!is_eas_json_decl(r#""buildArtifactPaths": "dist""#));
+        assert!(!is_eas_json_decl(r#""extends": {"#));
+        assert!(!is_eas_json_decl(r#""extends": """#));
+        // Same-line members are not opening-key lines.
+        assert!(!is_eas_json_decl(r#""submit": {"production": {}},"#));
+        assert!(!is_eas_json_decl(r#""buildArtifactPaths": ["a"],"#));
+        assert!(!is_eas_json_decl(
+            r#""$schema": "https://json.schemastore.org/eas-json-build-schema-1.json""#
+        ));
+        assert!(!is_eas_json_decl(r#""cli": {"#));
+        assert!(!is_eas_json_decl(r#""build": {"#));
+        assert!(!is_eas_json_decl(r#""env": {"#));
+        assert!(!is_eas_json_decl(r#""cache": {"#));
+        assert!(!is_eas_json_decl(r#""name": "App""#));
+        assert!(!is_eas_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_eas_json_decl(r#""node": "20.x""#));
+        assert!(!is_eas_json_decl(r#""yarn": "1.22.19""#));
+        assert!(!is_eas_json_decl(r#""pnpm": "8.15.0""#));
+        assert!(!is_eas_json_decl(r#""bun": "1.0.0""#));
+        // Neighbouring families stay out.
+        assert!(!is_eas_json_decl(r#""expo": {"#));
+        assert!(is_expo_json_decl(r#""expo": {"#));
+        assert!(!is_eas_json_decl(r#""slug": "my-app""#));
+        assert!(is_expo_json_decl(r#""slug": "my-app""#));
+        assert!(!is_eas_json_decl(r#""orientation": "portrait""#));
+        assert!(is_expo_json_decl(r#""orientation": "portrait""#));
+        assert!(!is_eas_json_decl(r#""userInterfaceStyle": "light""#));
+        assert!(is_expo_json_decl(r#""userInterfaceStyle": "light""#));
+        assert!(!is_eas_json_decl(r#""splash": {"#));
+        assert!(is_expo_json_decl(r#""splash": {"#));
+        assert!(!is_eas_json_decl(r#""assetBundlePatterns": ["#));
+        assert!(is_expo_json_decl(r#""assetBundlePatterns": ["#));
+        assert!(!is_eas_json_decl(r#""jsEngine": "hermes""#));
+        assert!(is_expo_json_decl(r#""jsEngine": "hermes""#));
+        assert!(!is_eas_json_decl(r#""newArchEnabled": true"#));
+        assert!(is_expo_json_decl(r#""newArchEnabled": true"#));
+        assert!(!is_eas_json_decl(r#""integrations": {"#));
+        assert!(is_ionic_json_decl(r#""integrations": {"#));
+        assert!(!is_eas_json_decl(r#""hooks": {"#));
+        assert!(is_ionic_json_decl(r#""hooks": {"#));
+        assert!(!is_eas_json_decl(r#""proxies": ["#));
+        assert!(is_ionic_json_decl(r#""proxies": ["#));
+        assert!(!is_eas_json_decl(r#""watchPatterns": ["#));
+        assert!(is_ionic_json_decl(r#""watchPatterns": ["#));
+        assert!(!is_eas_json_decl(r#""documentRoot": "www""#));
+        assert!(is_ionic_json_decl(r#""documentRoot": "www""#));
+        assert!(!is_eas_json_decl(r#""type": "angular""#));
+        assert!(is_ionic_json_decl(r#""type": "angular""#));
+        assert!(!is_eas_json_decl(r#""appId": "com.example.app""#));
+        assert!(is_capacitor_json_decl(r#""appId": "com.example.app""#));
+        assert!(!is_eas_json_decl(r#""appName": "MyApp""#));
+        assert!(is_capacitor_json_decl(r#""appName": "MyApp""#));
+        assert!(!is_eas_json_decl(r#""webDir": "dist""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "dist""#));
+        assert!(!is_eas_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(!is_eas_json_decl(r#""server": {"#));
+        assert!(is_capacitor_json_decl(r#""server": {"#));
+        assert!(!is_eas_json_decl(r#""cordova": {"#));
+        assert!(is_capacitor_json_decl(r#""cordova": {"#));
+        assert!(!is_eas_json_decl(r#""productName": "App""#));
+        assert!(is_tauri_json_decl(r#""productName": "App""#));
+        assert!(!is_eas_json_decl(r#""identifier": "com.example.app""#));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_eas_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_eas_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+        assert!(!is_eas_json_decl(r#""frontendDist": "../dist""#));
+        assert!(is_tauri_json_decl(r#""frontendDist": "../dist""#));
+        assert!(!is_eas_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_eas_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_eas_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_eas_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(!is_eas_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_eas_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_eas_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_eas_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_eas_json_decl(r#""regions": ["#));
+        assert!(is_vercel_json_decl(r#""regions": ["#));
+        assert!(!is_eas_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_eas_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_eas_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_eas_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_eas_json_decl(r#""baseBranch": "main""#));
+        assert!(is_changesets_json_decl(r#""baseBranch": "main""#));
+        assert!(!is_eas_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_eas_json_decl(r#""projects": ["#));
+        assert!(is_rush_json_decl(r#""projects": ["#));
+        assert!(!is_eas_json_decl(r#""npmClient": "npm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "npm""#));
+        assert!(!is_eas_json_decl(r#""useWorkspaces": true"#));
+        assert!(is_lerna_json_decl(r#""useWorkspaces": true"#));
+        assert!(!is_eas_json_decl(r#""packages": ["#));
+        assert!(is_lerna_json_decl(r#""packages": ["#));
+        assert!(!is_eas_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_eas_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_eas_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_eas_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(!is_eas_json_decl(r#""envMode": "loose""#));
+        assert!(is_turbo_json_decl(r#""envMode": "loose""#));
+        assert!(!is_eas_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_eas_json_decl(r#""targetDefaults": {"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(!is_eas_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(!is_eas_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_eas_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_eas_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_eas_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_eas_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_eas_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_eas_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_eas_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_eas_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_eas_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_eas_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists eas keys.
+        assert!(line_is_func_like(r#""submit": {"#));
+        assert!(line_is_func_like(r#""developmentClient": true"#));
+        assert!(line_is_func_like(r#""distribution": "internal""#));
+        assert!(line_is_func_like(r#""credentialsSource": "remote""#));
+        assert!(line_is_func_like(r#""appVersionSource": "remote""#));
+        assert!(line_is_func_like(r#""autoIncrement": "version""#));
+        assert!(line_is_func_like(r#""channel": "production""#));
+        assert!(line_is_func_like(r#""resourceClass": "medium""#));
+        assert!(line_is_func_like(r#""buildArtifactPaths": ["#));
     }
 
     #[test]

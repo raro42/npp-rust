@@ -1100,3 +1100,5 @@
 009 keep: Function List ionic.config.json integrations/hooks/proxies/watchPatterns/documentRoot/type/npmClient (v0.3.719)
 
 009 keep: Function List Expo app.json / app.config.json (v0.3.720)
+
+009 keep: Function List Expo eas.json submit/developmentClient/distribution/credentialsSource/appVersionSource/autoIncrement/channel/resourceClass (v0.3.721)

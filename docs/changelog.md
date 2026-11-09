@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.721] — 2026-11-09
+
+View:
+
+- **Function List** lists Expo EAS `eas.json` JSON keys (top-level + build/submit profiles): `"submit": {`, `"developmentClient": true`, `"withoutCredentials": true`, `"simulator": true`, `"distribution": "store"` / `"internal"` / `"simulator"`, `"credentialsSource": "local"` / `"remote"`, `"appVersionSource": "local"` / `"remote"`, `"autoIncrement": true` / `"version"` / `"buildNumber"`, `"channel": "…"`, `"releaseChannel": "…"`, `"resourceClass": "…"`, `"prebuildCommand": "…"`, `"extends": "…"`, `"buildArtifactPaths": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"cli": {` / `"build": {` / `"env": {` / `"cache": {` / `"name"` / `"version"` / `"node"` / `"yarn"` / `"pnpm"` / `"bun"` / expo `"expo"` / `"slug"` / `"orientation"` / `"userInterfaceStyle"` / `"splash"` / `"assetBundlePatterns"` / `"jsEngine"` / `"newArchEnabled"` / ionic `"integrations"` / `"hooks"` / `"proxies"` / `"watchPatterns"` / `"documentRoot"` / `"type": "angular"` / capacitor `"appId"` / `"appName"` / `"webDir"` / `"bundledWebRuntime"` / `"server"` / `"cordova"` / tauri `"productName"` / `"identifier"` / `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` / firebase `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` / `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out.
+
 ## [0.3.720] — 2026-11-09
 
 View:
