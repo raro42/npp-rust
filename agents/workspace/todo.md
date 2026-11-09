@@ -1,3 +1,7 @@
+009 keep: Function List WebExtension manifest.json manifest_version/background/action/browser_action/content_scripts/permissions/host_permissions/web_accessible_resources/devtools_page/incognito (v0.3.728)
+
+009 keep: Function List Electron Forge forge.config.json packagerConfig/rebuildConfig/hooks/makers/publishers/plugins/buildIdentifier (v0.3.727)
+
 009 keep: Function List neutralino.config.json applicationId/defaultMode/tokenSecurity/storageLocation/modes/globalVariables/logging/nativeAllowList/enableServer/enableNativeAPI (v0.3.726)
 
 009 keep: Function List electron-builder.json directories/asar/electronVersion/artifactName/nsis/extraResources/compression/mac/win/linux (v0.3.725)

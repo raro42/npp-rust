@@ -32395,6 +32395,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_electron_builder_json_decl(s)
             || is_neutralino_json_decl(s)
             || is_electron_forge_json_decl(s)
+            || is_webextension_manifest_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32700,6 +32701,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_electron_builder_json_decl(s)
         || is_neutralino_json_decl(s)
         || is_electron_forge_json_decl(s)
+        || is_webextension_manifest_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -46627,10 +46629,15 @@ fn neutralino_json_string_ok(key: &str, value: &str) -> bool {
 /// `"integrations"` / `"documentRoot"` / capacitor `"appId"` / `"appName"` /
 /// `"webDir"` / `"bundledWebRuntime"` / tauri `"productName"` /
 /// `"identifier"` / `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` /
-/// firebase `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel
-/// `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
-/// `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` /
-/// changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna
+/// webextension `"manifest_version"` / `"background"` / `"action"` /
+/// `"browser_action"` / `"content_scripts"` / `"permissions"` /
+/// `"host_permissions"` / `"web_accessible_resources"` /
+/// `"devtools_page"` / `"incognito"` / `"offline_enabled"` /
+/// `"browser_specific_settings"` / firebase `"hosting"` / `"firestore"` /
+/// `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` /
+/// `"headers"` / `"crons"` / `"regions"` / `"framework"` /
+/// `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets
+/// `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna
 /// `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` /
 /// `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` /
 /// nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel
@@ -46729,6 +46736,259 @@ fn electron_forge_json_string_ok(key: &str, value: &str) -> bool {
         return false;
     }
     key == "buildIdentifier"
+}
+
+/// Browser / WebExtension `manifest.json` JSON keys (Chrome MV2/MV3,
+/// Firefox, Safari): `"manifest_version": 2` / `3`, `"background": {`,
+/// `"action": {`, `"browser_action": {`, `"page_action": {`,
+/// `"sidebar_action": {`, `"chrome_url_overrides": {`,
+/// `"chrome_settings_overrides": {`, `"commands": {`,
+/// `"content_security_policy": {` / `"…"`, `"declarative_net_request": {`,
+/// `"externally_connectable": {`, `"icons": {`, `"omnibox": {`,
+/// `"options_ui": {`, `"storage": {`, `"browser_specific_settings": {`,
+/// `"theme": {`, `"user_scripts": {`, `"content_scripts": [`,
+/// `"permissions": [`, `"host_permissions": [`,
+/// `"optional_permissions": [`, `"optional_host_permissions": [`,
+/// `"web_accessible_resources": [`, `"protocol_handlers": [`,
+/// `"devtools_page": "…"`, `"options_page": "…"`, `"homepage_url": "…"`,
+/// `"update_url": "…"`, `"default_locale": "…"`,
+/// `"minimum_chrome_version": "…"`, `"short_name": "…"`,
+/// `"incognito": "spanning"` / `"split"` / `"not_allowed"`,
+/// `"offline_enabled": true`, `"converted_from_user_script": true`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// `"description"` / `"author"` / forge `"packagerConfig"` /
+/// `"rebuildConfig"` / `"makers"` / `"publishers"` /
+/// `"buildIdentifier"` / neutralino `"applicationId"` / `"defaultMode"` /
+/// `"enableServer"` / `"enableNativeAPI"` / `"tokenSecurity"` /
+/// `"nativeAllowList"` / `"modes"` / `"globalVariables"` /
+/// electron-builder `"directories"` / `"asar"` / `"electronVersion"` /
+/// `"artifactName"` / `"nsis": {` / wails `"assetdir"` /
+/// `"frontend:dir"` / `"wailsjsdir"` / `"nsisType"` / `"debounceMS"` /
+/// `"obfuscated"` / `"bindings"` / nest-cli `"collection"` /
+/// `"entryFile"` / `"generateOptions"` / angular `"architect"` /
+/// `"schematics"` / `"projectType"` / eas `"submit"` /
+/// `"developmentClient"` / expo `"expo"` / `"slug"` / ionic
+/// `"integrations"` / `"documentRoot"` / capacitor `"appId"` /
+/// `"appName"` / `"webDir"` / `"bundledWebRuntime"` / tauri
+/// `"productName"` / `"identifier"` / `"withGlobalTauri"` /
+/// `"allowlist"` / `"frontendDist"` / firebase `"hosting"` /
+/// `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` /
+/// `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
+/// `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` /
+/// changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` /
+/// lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo
+/// `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` /
+/// `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` /
+/// `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` /
+/// SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint
+/// `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` /
+/// dprint `"includes"` / tsconfig `"compilerOptions"` / `"outDir"` /
+/// package.json `"scripts": {` stay out. Shared `"icons": {` /
+/// `"permissions": [` are WebExtension-shaped only here.
+fn is_webextension_manifest_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !webextension_manifest_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    webextension_manifest_json_value_and_tail_ok(key, after_colon)
+}
+
+fn webextension_manifest_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "manifest_version"
+            | "background"
+            | "action"
+            | "browser_action"
+            | "page_action"
+            | "sidebar_action"
+            | "chrome_url_overrides"
+            | "chrome_settings_overrides"
+            | "commands"
+            | "content_security_policy"
+            | "declarative_net_request"
+            | "externally_connectable"
+            | "icons"
+            | "omnibox"
+            | "options_ui"
+            | "storage"
+            | "browser_specific_settings"
+            | "theme"
+            | "user_scripts"
+            | "content_scripts"
+            | "permissions"
+            | "host_permissions"
+            | "optional_permissions"
+            | "optional_host_permissions"
+            | "web_accessible_resources"
+            | "protocol_handlers"
+            | "devtools_page"
+            | "options_page"
+            | "homepage_url"
+            | "update_url"
+            | "default_locale"
+            | "minimum_chrome_version"
+            | "short_name"
+            | "incognito"
+            | "offline_enabled"
+            | "converted_from_user_script"
+    )
+}
+
+fn webextension_manifest_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !webextension_manifest_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !webextension_manifest_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !webextension_manifest_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !webextension_manifest_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !webextension_manifest_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if key != "manifest_version" {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits != 1 {
+                return false;
+            }
+            let num = after_colon.as_bytes()[0];
+            if num != b'2' && num != b'3' {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn webextension_manifest_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "background"
+            | "action"
+            | "browser_action"
+            | "page_action"
+            | "sidebar_action"
+            | "chrome_url_overrides"
+            | "chrome_settings_overrides"
+            | "commands"
+            | "content_security_policy"
+            | "declarative_net_request"
+            | "externally_connectable"
+            | "icons"
+            | "omnibox"
+            | "options_ui"
+            | "storage"
+            | "browser_specific_settings"
+            | "theme"
+            | "user_scripts"
+    )
+}
+
+fn webextension_manifest_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "content_scripts"
+            | "permissions"
+            | "host_permissions"
+            | "optional_permissions"
+            | "optional_host_permissions"
+            | "web_accessible_resources"
+            | "protocol_handlers"
+    )
+}
+
+fn webextension_manifest_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "content_security_policy"
+            | "devtools_page"
+            | "options_page"
+            | "homepage_url"
+            | "update_url"
+            | "default_locale"
+            | "minimum_chrome_version"
+            | "short_name"
+            | "incognito"
+    )
+}
+
+fn webextension_manifest_json_bool_key_ok(key: &str) -> bool {
+    matches!(key, "offline_enabled" | "converted_from_user_script")
+}
+
+fn webextension_manifest_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "incognito" => matches!(value, "spanning" | "split" | "not_allowed"),
+        "content_security_policy"
+        | "devtools_page"
+        | "options_page"
+        | "homepage_url"
+        | "update_url"
+        | "default_locale"
+        | "minimum_chrome_version"
+        | "short_name" => true,
+        _ => false,
+    }
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -77391,9 +77651,9 @@ mod func_like_line_tests {
         is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
         is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
         is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
-        is_wails_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_wails_json_decl, is_webextension_manifest_json_decl, is_wireguard_config_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
+        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -92304,6 +92564,450 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""plugins": ["#));
         assert!(line_is_func_like(r#""hooks": {"#));
         assert!(line_is_func_like(r#""buildIdentifier": "prod""#));
+        // WebExtension neighbouring keys stay out of Electron Forge.
+        assert!(!is_electron_forge_json_decl(r#""manifest_version": 3"#));
+        assert!(is_webextension_manifest_json_decl(
+            r#""manifest_version": 3"#
+        ));
+        assert!(!is_electron_forge_json_decl(r#""content_scripts": ["#));
+        assert!(is_webextension_manifest_json_decl(
+            r#""content_scripts": ["#
+        ));
+        assert!(!is_electron_forge_json_decl(r#""browser_action": {"#));
+        assert!(is_webextension_manifest_json_decl(r#""browser_action": {"#));
+    }
+
+    #[test]
+    fn webextension_manifest_json_keys_count() {
+        assert!(is_webextension_manifest_json_decl(
+            r#""manifest_version": 2"#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""manifest_version": 3"#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""manifest_version": 3, // mv3"#
+        ));
+        assert!(is_webextension_manifest_json_decl(r#""background": {"#));
+        assert!(is_webextension_manifest_json_decl(
+            r#""background": { // bg"#
+        ));
+        assert!(is_webextension_manifest_json_decl(r#""action": {"#));
+        assert!(is_webextension_manifest_json_decl(r#""browser_action": {"#));
+        assert!(is_webextension_manifest_json_decl(r#""page_action": {"#));
+        assert!(is_webextension_manifest_json_decl(r#""sidebar_action": {"#));
+        assert!(is_webextension_manifest_json_decl(
+            r#""chrome_url_overrides": {"#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""chrome_settings_overrides": {"#
+        ));
+        assert!(is_webextension_manifest_json_decl(r#""commands": {"#));
+        assert!(is_webextension_manifest_json_decl(
+            r#""content_security_policy": {"#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""content_security_policy": "script-src 'self'""#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""declarative_net_request": {"#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""externally_connectable": {"#
+        ));
+        assert!(is_webextension_manifest_json_decl(r#""icons": {"#));
+        assert!(is_webextension_manifest_json_decl(r#""omnibox": {"#));
+        assert!(is_webextension_manifest_json_decl(r#""options_ui": {"#));
+        assert!(is_webextension_manifest_json_decl(r#""storage": {"#));
+        assert!(is_webextension_manifest_json_decl(
+            r#""browser_specific_settings": {"#
+        ));
+        assert!(is_webextension_manifest_json_decl(r#""theme": {"#));
+        assert!(is_webextension_manifest_json_decl(r#""user_scripts": {"#));
+        assert!(is_webextension_manifest_json_decl(
+            r#""content_scripts": ["#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""content_scripts": [ // cs"#
+        ));
+        assert!(is_webextension_manifest_json_decl(r#""permissions": ["#));
+        assert!(is_webextension_manifest_json_decl(
+            r#""host_permissions": ["#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""optional_permissions": ["#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""optional_host_permissions": ["#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""web_accessible_resources": ["#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""protocol_handlers": ["#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""devtools_page": "devtools.html""#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""options_page": "options.html""#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""homepage_url": "https://example.com""#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""update_url": "https://example.com/updates.xml""#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""default_locale": "en""#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""minimum_chrome_version": "116""#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""short_name": "MyExt""#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""incognito": "spanning""#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""incognito": "split""#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""incognito": "not_allowed""#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""offline_enabled": true"#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""offline_enabled": false,"#
+        ));
+        assert!(is_webextension_manifest_json_decl(
+            r#""converted_from_user_script": true"#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_webextension_manifest_json_decl(r#""manifest_version""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""manifest_version":"#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#"manifest_version: 3"#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""Manifest_version": 3"#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""manifest_version": 1"#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""manifest_version": 4"#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""manifest_version": 23"#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""manifest_version": "3""#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""manifest_version": {"#
+        ));
+        assert!(!is_webextension_manifest_json_decl(r#""background": ["#));
+        assert!(!is_webextension_manifest_json_decl(r#""background": true"#));
+        assert!(!is_webextension_manifest_json_decl(r#""action": ["#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""content_scripts": {"#
+        ));
+        assert!(!is_webextension_manifest_json_decl(r#""permissions": {"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""permissions": true"#
+        ));
+        assert!(!is_webextension_manifest_json_decl(r#""devtools_page": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""devtools_page": ["#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""devtools_page": true"#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""devtools_page": """#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""devtools_page": "   ""#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""incognito": "both""#
+        ));
+        assert!(!is_webextension_manifest_json_decl(r#""incognito": {"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""offline_enabled": {"#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""offline_enabled": "true""#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""offline_enabled": 1"#
+        ));
+        // Generic / neighbouring stay out.
+        assert!(!is_webextension_manifest_json_decl(
+            r#""$schema": "https://json.schemastore.org/chrome-manifest.json""#
+        ));
+        assert!(!is_webextension_manifest_json_decl(r#""name": "My Ext""#));
+        assert!(!is_webextension_manifest_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""description": "A sample extension""#
+        ));
+        assert!(!is_webextension_manifest_json_decl(r#""author": "me""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""packagerConfig": {"#
+        ));
+        assert!(is_electron_forge_json_decl(r#""packagerConfig": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""rebuildConfig": {"#));
+        assert!(is_electron_forge_json_decl(r#""rebuildConfig": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""makers": ["#));
+        assert!(is_electron_forge_json_decl(r#""makers": ["#));
+        assert!(!is_webextension_manifest_json_decl(r#""publishers": ["#));
+        assert!(is_electron_forge_json_decl(r#""publishers": ["#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""buildIdentifier": "prod""#
+        ));
+        assert!(is_electron_forge_json_decl(r#""buildIdentifier": "prod""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""applicationId": "js.neutralino.sample""#
+        ));
+        assert!(is_neutralino_json_decl(
+            r#""applicationId": "js.neutralino.sample""#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""defaultMode": "window""#
+        ));
+        assert!(is_neutralino_json_decl(r#""defaultMode": "window""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""enableServer": true"#
+        ));
+        assert!(is_neutralino_json_decl(r#""enableServer": true"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""enableNativeAPI": true"#
+        ));
+        assert!(is_neutralino_json_decl(r#""enableNativeAPI": true"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""tokenSecurity": "one-time""#
+        ));
+        assert!(is_neutralino_json_decl(r#""tokenSecurity": "one-time""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""nativeAllowList": ["#
+        ));
+        assert!(is_neutralino_json_decl(r#""nativeAllowList": ["#));
+        assert!(!is_webextension_manifest_json_decl(r#""modes": {"#));
+        assert!(is_neutralino_json_decl(r#""modes": {"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""globalVariables": {"#
+        ));
+        assert!(is_neutralino_json_decl(r#""globalVariables": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""directories": {"#));
+        assert!(is_electron_builder_json_decl(r#""directories": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""asar": true"#));
+        assert!(is_electron_builder_json_decl(r#""asar": true"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""electronVersion": "28.0.0""#
+        ));
+        assert!(is_electron_builder_json_decl(
+            r#""electronVersion": "28.0.0""#
+        ));
+        assert!(!is_webextension_manifest_json_decl(r#""nsis": {"#));
+        assert!(is_electron_builder_json_decl(r#""nsis": {"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""assetdir": "frontend/dist""#
+        ));
+        assert!(is_wails_json_decl(r#""assetdir": "frontend/dist""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""frontend:dir": "frontend""#
+        ));
+        assert!(is_wails_json_decl(r#""frontend:dir": "frontend""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""wailsjsdir": "./frontend""#
+        ));
+        assert!(is_wails_json_decl(r#""wailsjsdir": "./frontend""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""nsisType": "multiple""#
+        ));
+        assert!(is_wails_json_decl(r#""nsisType": "multiple""#));
+        assert!(!is_webextension_manifest_json_decl(r#""debounceMS": 100"#));
+        assert!(is_wails_json_decl(r#""debounceMS": 100"#));
+        assert!(!is_webextension_manifest_json_decl(r#""obfuscated": true"#));
+        assert!(is_wails_json_decl(r#""obfuscated": true"#));
+        assert!(!is_webextension_manifest_json_decl(r#""bindings": {"#));
+        assert!(is_wails_json_decl(r#""bindings": {"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(is_nest_cli_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""entryFile": "main""#
+        ));
+        assert!(is_nest_cli_json_decl(r#""entryFile": "main""#));
+        assert!(!is_webextension_manifest_json_decl(r#""architect": {"#));
+        assert!(is_angular_json_decl(r#""architect": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""schematics": {"#));
+        assert!(is_angular_json_decl(r#""schematics": {"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""projectType": "application""#
+        ));
+        assert!(is_angular_json_decl(r#""projectType": "application""#));
+        assert!(!is_webextension_manifest_json_decl(r#""submit": {"#));
+        assert!(is_eas_json_decl(r#""submit": {"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""developmentClient": true"#
+        ));
+        assert!(is_eas_json_decl(r#""developmentClient": true"#));
+        assert!(!is_webextension_manifest_json_decl(r#""expo": {"#));
+        assert!(is_expo_json_decl(r#""expo": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""slug": "my-app""#));
+        assert!(is_expo_json_decl(r#""slug": "my-app""#));
+        assert!(!is_webextension_manifest_json_decl(r#""integrations": {"#));
+        assert!(is_ionic_json_decl(r#""integrations": {"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""documentRoot": "/resources/""#
+        ));
+        assert!(is_ionic_json_decl(r#""documentRoot": "/resources/""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""appId": "com.example""#
+        ));
+        assert!(is_capacitor_json_decl(r#""appId": "com.example""#));
+        assert!(!is_webextension_manifest_json_decl(r#""appName": "MyApp""#));
+        assert!(is_capacitor_json_decl(r#""appName": "MyApp""#));
+        assert!(!is_webextension_manifest_json_decl(r#""webDir": "dist""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "dist""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""bundledWebRuntime": true"#
+        ));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""productName": "App""#
+        ));
+        assert!(is_tauri_json_decl(r#""productName": "App""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""identifier": "com.example.app""#
+        ));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""withGlobalTauri": true"#
+        ));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_webextension_manifest_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""frontendDist": "../dist""#
+        ));
+        assert!(is_tauri_json_decl(r#""frontendDist": "../dist""#));
+        assert!(!is_webextension_manifest_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_webextension_manifest_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_webextension_manifest_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_webextension_manifest_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_webextension_manifest_json_decl(r#""regions": ["#));
+        assert!(is_vercel_json_decl(r#""regions": ["#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""framework": "nextjs""#
+        ));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""buildCommand": "npm run build""#
+        ));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_webextension_manifest_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_webextension_manifest_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""baseBranch": "main""#
+        ));
+        assert!(is_changesets_json_decl(r#""baseBranch": "main""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""rushVersion": "5.147.1""#
+        ));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_webextension_manifest_json_decl(r#""npmClient": "npm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "npm""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""useWorkspaces": true"#
+        ));
+        assert!(is_lerna_json_decl(r#""useWorkspaces": true"#));
+        assert!(!is_webextension_manifest_json_decl(r#""packages": ["#));
+        assert!(is_lerna_json_decl(r#""packages": ["#));
+        assert!(!is_webextension_manifest_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""globalDependencies": ["#
+        ));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""cacheDir": ".turbo""#
+        ));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(!is_webextension_manifest_json_decl(r#""envMode": "loose""#));
+        assert!(is_turbo_json_decl(r#""envMode": "loose""#));
+        assert!(!is_webextension_manifest_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""targetDefaults": {"#
+        ));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""cacheDirectory": ".nx/cache""#
+        ));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(!is_webextension_manifest_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_webextension_manifest_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_webextension_manifest_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_webextension_manifest_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_webextension_manifest_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""newLineKind": "lf""#
+        ));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_webextension_manifest_json_decl(
+            r#""compilerOptions": {"#
+        ));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_webextension_manifest_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists WebExtension keys.
+        assert!(line_is_func_like(r#""manifest_version": 3"#));
+        assert!(line_is_func_like(r#""background": {"#));
+        assert!(line_is_func_like(r#""action": {"#));
+        assert!(line_is_func_like(r#""browser_action": {"#));
+        assert!(line_is_func_like(r#""content_scripts": ["#));
+        assert!(line_is_func_like(r#""permissions": ["#));
+        assert!(line_is_func_like(r#""host_permissions": ["#));
+        assert!(line_is_func_like(r#""web_accessible_resources": ["#));
+        assert!(line_is_func_like(r#""devtools_page": "devtools.html""#));
+        assert!(line_is_func_like(r#""incognito": "spanning""#));
+        assert!(line_is_func_like(r#""offline_enabled": true"#));
+        assert!(line_is_func_like(r#""browser_specific_settings": {"#));
     }
 
     #[test]
