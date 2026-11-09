@@ -32405,6 +32405,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_oxlint_json_decl(s)
             || is_cspell_json_decl(s)
             || is_jest_json_decl(s)
+            || is_playwright_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32720,6 +32721,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_oxlint_json_decl(s)
         || is_cspell_json_decl(s)
         || is_jest_json_decl(s)
+        || is_playwright_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -48533,9 +48535,11 @@ fn cspell_json_language_ok(value: &str) -> bool {
 /// tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` /
 /// nx `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` /
 /// eslint `"parser"` / package.json `"scripts"` /
-/// tsconfig `"compilerOptions"` stay out. Shared `"roots": [` /
-/// `"transform": {` / `"preset": "…"` also match neighbouring scanners
-/// when shapes overlap.
+/// tsconfig `"compilerOptions"` / Playwright `"testDir"` /
+/// `"fullyParallel"` / `"webServer"` stay out. Shared `"roots": [` /
+/// `"transform": {` / `"preset": "…"` / `"projects": [` /
+/// `"globalSetup": "…"` also match neighbouring scanners when shapes
+/// overlap.
 fn is_jest_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -48795,6 +48799,231 @@ fn jest_json_string_ok(key: &str, value: &str) -> bool {
         | "testRunner"
         | "testSequencer"
         | "workerIdleMemoryLimit" => true,
+        _ => false,
+    }
+}
+
+/// Playwright `playwright.config.json` / `playwright.config` JSON keys:
+/// `"testDir": "…"`, `"testMatch": "…"` / `[`, `"testIgnore": "…"` / `[`,
+/// `"outputDir": "…"`, `"fullyParallel": true`, `"forbidOnly": true`,
+/// `"globalSetup": "…"`, `"globalTeardown": "…"`, `"globalTimeout": 60000`,
+/// `"grep": "…"` / `[`, `"grepInvert": "…"` / `[`, `"maxFailures": 1`,
+/// `"preserveOutput": "always"` / `"never"` / `"failures-only"`,
+/// `"reporter": "…"` / `[`, `"reportSlowTests": {`, `"quiet": true`,
+/// `"retries": 2`, `"workers": 4` / `"50%"`, `"shard": {`,
+/// `"timeout": 30000`, `"updateSnapshots": "all"` / `"changed"` /
+/// `"missing"` / `"none"`, `"ignoreSnapshots": true`, `"use": {`,
+/// `"projects": [`, `"webServer": {` / `[`, `"expect": {`,
+/// `"snapshotPathTemplate": "…"`, `"snapshotDir": "…"`, `"metadata": {`,
+/// `"captureGitInfo": {`, `"tsconfig": "…"`. Optional trailing `,` and
+/// `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"$schema"` / `"name"` / `"version"` / Jest
+/// `"testEnvironment"` / `"setupFilesAfterEnv"` / `"coverageProvider"` /
+/// `"clearMocks"` / CSpell `"words"` / Oxlint `"categories"` / Knip
+/// `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` /
+/// launch `"configurations"` / tasks `"tasks": [` / Dev Container
+/// `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / prettier
+/// `"printWidth"` / biome `"linter"` / eslint `"parser"` / package.json
+/// `"scripts"` / tsconfig `"compilerOptions"` stay out. Shared
+/// `"projects": [` / `"globalSetup": "…"` / `"testMatch": [` also match
+/// Jest when shapes overlap.
+fn is_playwright_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !playwright_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    playwright_json_value_and_tail_ok(key, after_colon)
+}
+
+fn playwright_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "testDir"
+            | "testMatch"
+            | "testIgnore"
+            | "outputDir"
+            | "fullyParallel"
+            | "forbidOnly"
+            | "globalSetup"
+            | "globalTeardown"
+            | "globalTimeout"
+            | "grep"
+            | "grepInvert"
+            | "maxFailures"
+            | "preserveOutput"
+            | "reporter"
+            | "reportSlowTests"
+            | "quiet"
+            | "retries"
+            | "workers"
+            | "shard"
+            | "timeout"
+            | "updateSnapshots"
+            | "ignoreSnapshots"
+            | "use"
+            | "projects"
+            | "webServer"
+            | "expect"
+            | "snapshotPathTemplate"
+            | "snapshotDir"
+            | "metadata"
+            | "captureGitInfo"
+            | "tsconfig"
+    )
+}
+
+fn playwright_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !playwright_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !playwright_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !playwright_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !playwright_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !playwright_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !playwright_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn playwright_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "reportSlowTests"
+            | "shard"
+            | "use"
+            | "webServer"
+            | "expect"
+            | "metadata"
+            | "captureGitInfo"
+    )
+}
+
+fn playwright_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "testMatch" | "testIgnore" | "grep" | "grepInvert" | "reporter" | "projects" | "webServer"
+    )
+}
+
+fn playwright_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "testDir"
+            | "testMatch"
+            | "testIgnore"
+            | "outputDir"
+            | "globalSetup"
+            | "globalTeardown"
+            | "grep"
+            | "grepInvert"
+            | "preserveOutput"
+            | "reporter"
+            | "workers"
+            | "updateSnapshots"
+            | "snapshotPathTemplate"
+            | "snapshotDir"
+            | "tsconfig"
+    )
+}
+
+fn playwright_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "fullyParallel" | "forbidOnly" | "quiet" | "ignoreSnapshots"
+    )
+}
+
+fn playwright_json_number_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "globalTimeout" | "maxFailures" | "retries" | "workers" | "timeout"
+    )
+}
+
+fn playwright_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "preserveOutput" => matches!(value, "always" | "never" | "failures-only"),
+        "updateSnapshots" => matches!(value, "all" | "changed" | "missing" | "none"),
+        "testDir"
+        | "testMatch"
+        | "testIgnore"
+        | "outputDir"
+        | "globalSetup"
+        | "globalTeardown"
+        | "grep"
+        | "grepInvert"
+        | "reporter"
+        | "workers"
+        | "snapshotPathTemplate"
+        | "snapshotDir"
+        | "tsconfig" => true,
         _ => false,
     }
 }
@@ -79441,26 +79670,27 @@ mod func_like_line_tests {
         is_nx_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
         is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
         is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
-        is_postcss_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
-        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
-        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
-        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
-        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
-        is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl, is_release_toml_decl,
-        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
-        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl,
-        is_supabase_toml_decl, is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl,
-        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
-        is_turbo_json_decl, is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl,
+        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
+        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
+        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
+        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_refurb_toml_decl, is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl,
+        is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
+        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
+        is_tauri_json_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl,
+        is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl,
+        is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
         is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
         is_wails_json_decl, is_webextension_manifest_json_decl, is_wireguard_config_decl,
         is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
@@ -96747,7 +96977,7 @@ mod func_like_line_tests {
         assert!(is_package_json_decl(r#""scripts": {"#));
         assert!(!is_jest_json_decl(r#""compilerOptions": {"#));
         assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
-        // Distinctive Jest keys stay out of CSpell / Oxlint / Knip.
+        // Distinctive Jest keys stay out of CSpell / Oxlint / Knip / Playwright.
         assert!(!is_cspell_json_decl(r#""testEnvironment": "node""#));
         assert!(!is_cspell_json_decl(r#""setupFilesAfterEnv": ["#));
         assert!(!is_cspell_json_decl(r#""coverageProvider": "v8""#));
@@ -96755,6 +96985,10 @@ mod func_like_line_tests {
         assert!(!is_oxlint_json_decl(r#""setupFilesAfterEnv": ["#));
         assert!(!is_knip_json_decl(r#""testEnvironment": "node""#));
         assert!(!is_knip_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_playwright_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_playwright_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_playwright_json_decl(r#""coverageProvider": "v8""#));
+        assert!(!is_playwright_json_decl(r#""clearMocks": true"#));
         // Shared / distinctive shapes list via Jest scanner.
         assert!(line_is_func_like(r#""testEnvironment": "node""#));
         assert!(line_is_func_like(r#""testMatch": ["#));
@@ -96763,6 +96997,149 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""clearMocks": true"#));
         assert!(line_is_func_like(r#""coverageProvider": "v8""#));
         assert!(line_is_func_like(r#""preset": "ts-jest""#));
+    }
+
+    #[test]
+    fn playwright_json_keys_count() {
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "./e2e" // root"#));
+        assert!(is_playwright_json_decl(r#""testMatch": "**/*.spec.ts""#));
+        assert!(is_playwright_json_decl(r#""testMatch": ["#));
+        assert!(is_playwright_json_decl(
+            r#""testIgnore": "**/node_modules/**""#
+        ));
+        assert!(is_playwright_json_decl(r#""testIgnore": ["#));
+        assert!(is_playwright_json_decl(r#""outputDir": "test-results""#));
+        assert!(is_playwright_json_decl(r#""fullyParallel": true"#));
+        assert!(is_playwright_json_decl(r#""fullyParallel": false,"#));
+        assert!(is_playwright_json_decl(r#""forbidOnly": true"#));
+        assert!(is_playwright_json_decl(
+            r#""globalSetup": "./global-setup.ts""#
+        ));
+        assert!(is_playwright_json_decl(
+            r#""globalTeardown": "./global-teardown.ts""#
+        ));
+        assert!(is_playwright_json_decl(r#""globalTimeout": 60000"#));
+        assert!(is_playwright_json_decl(r#""grep": "@smoke""#));
+        assert!(is_playwright_json_decl(r#""grep": ["#));
+        assert!(is_playwright_json_decl(r#""grepInvert": "@wip""#));
+        assert!(is_playwright_json_decl(r#""grepInvert": ["#));
+        assert!(is_playwright_json_decl(r#""maxFailures": 1"#));
+        assert!(is_playwright_json_decl(r#""preserveOutput": "always""#));
+        assert!(is_playwright_json_decl(r#""preserveOutput": "never""#));
+        assert!(is_playwright_json_decl(
+            r#""preserveOutput": "failures-only""#
+        ));
+        assert!(is_playwright_json_decl(r#""reporter": "html""#));
+        assert!(is_playwright_json_decl(r#""reporter": ["#));
+        assert!(is_playwright_json_decl(r#""reportSlowTests": {"#));
+        assert!(is_playwright_json_decl(r#""quiet": true"#));
+        assert!(is_playwright_json_decl(r#""retries": 2"#));
+        assert!(is_playwright_json_decl(r#""workers": 4"#));
+        assert!(is_playwright_json_decl(r#""workers": "50%""#));
+        assert!(is_playwright_json_decl(r#""shard": {"#));
+        assert!(is_playwright_json_decl(r#""timeout": 30000"#));
+        assert!(is_playwright_json_decl(r#""updateSnapshots": "all""#));
+        assert!(is_playwright_json_decl(r#""updateSnapshots": "changed""#));
+        assert!(is_playwright_json_decl(r#""updateSnapshots": "missing""#));
+        assert!(is_playwright_json_decl(r#""updateSnapshots": "none""#));
+        assert!(is_playwright_json_decl(r#""ignoreSnapshots": true"#));
+        assert!(is_playwright_json_decl(r#""use": {"#));
+        assert!(is_playwright_json_decl(r#""projects": ["#));
+        assert!(is_playwright_json_decl(r#""webServer": {"#));
+        assert!(is_playwright_json_decl(r#""webServer": ["#));
+        assert!(is_playwright_json_decl(r#""expect": {"#));
+        assert!(is_playwright_json_decl(
+            r#""snapshotPathTemplate": "{testDir}/{testFilePath}-snapshots/{arg}{ext}""#
+        ));
+        assert!(is_playwright_json_decl(r#""snapshotDir": "__snapshots__""#));
+        assert!(is_playwright_json_decl(r#""metadata": {"#));
+        assert!(is_playwright_json_decl(r#""captureGitInfo": {"#));
+        assert!(is_playwright_json_decl(r#""tsconfig": "./tsconfig.json""#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_playwright_json_decl(r#""testDir""#));
+        assert!(!is_playwright_json_decl(r#""testDir":"#));
+        assert!(!is_playwright_json_decl(r#""testDir: "tests""#));
+        assert!(!is_playwright_json_decl(r#""testDir": ["#));
+        assert!(!is_playwright_json_decl(r#""fullyParallel": ["#));
+        assert!(!is_playwright_json_decl(
+            r#""webServer": "http://localhost""#
+        ));
+        assert!(!is_playwright_json_decl(r#""use": ["#));
+        assert!(!is_playwright_json_decl(r#""timeout": true"#));
+        assert!(!is_playwright_json_decl(r#""preserveOutput": "sometimes""#));
+        assert!(!is_playwright_json_decl(r#""updateSnapshots": "auto""#));
+        assert!(!is_playwright_json_decl(r#""testDir": """#));
+        // Generic / neighbouring stay out.
+        assert!(!is_playwright_json_decl(
+            r#""$schema": "https://json.schemastore.org/playwright""#
+        ));
+        assert!(!is_playwright_json_decl(r#""name": "chromium""#));
+        assert!(!is_playwright_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_playwright_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_playwright_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(is_jest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_playwright_json_decl(r#""clearMocks": true"#));
+        assert!(is_jest_json_decl(r#""clearMocks": true"#));
+        assert!(!is_playwright_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_playwright_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_playwright_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_playwright_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_playwright_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_playwright_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_playwright_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_playwright_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_playwright_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_playwright_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_playwright_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_playwright_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_playwright_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_playwright_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_playwright_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive Playwright keys stay out of Jest / CSpell / Oxlint / Knip.
+        assert!(!is_jest_json_decl(r#""testDir": "tests""#));
+        assert!(!is_jest_json_decl(r#""fullyParallel": true"#));
+        assert!(!is_jest_json_decl(r#""forbidOnly": true"#));
+        assert!(!is_jest_json_decl(r#""webServer": {"#));
+        assert!(!is_jest_json_decl(r#""preserveOutput": "always""#));
+        assert!(!is_jest_json_decl(r#""updateSnapshots": "all""#));
+        assert!(!is_cspell_json_decl(r#""testDir": "tests""#));
+        assert!(!is_cspell_json_decl(r#""fullyParallel": true"#));
+        assert!(!is_oxlint_json_decl(r#""testDir": "tests""#));
+        assert!(!is_knip_json_decl(r#""testDir": "tests""#));
+        // Shared / distinctive shapes list via Playwright scanner.
+        assert!(line_is_func_like(r#""testDir": "tests""#));
+        assert!(line_is_func_like(r#""fullyParallel": true"#));
+        assert!(line_is_func_like(r#""forbidOnly": true"#));
+        assert!(line_is_func_like(r#""webServer": {"#));
+        assert!(line_is_func_like(r#""preserveOutput": "failures-only""#));
+        assert!(line_is_func_like(r#""updateSnapshots": "changed""#));
+        assert!(line_is_func_like(r#""use": {"#));
+        assert!(line_is_func_like(r#""projects": ["#));
     }
 
     #[test]

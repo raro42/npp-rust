@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.738] — 2026-11-09
+
+View:
+
+- **Function List** lists Playwright `playwright.config.json` / `playwright.config` JSON keys: `"testDir": "…"`, `"testMatch": "…"` / `[`, `"testIgnore": "…"` / `[`, `"outputDir": "…"`, `"fullyParallel": true`, `"forbidOnly": true`, `"globalSetup": "…"`, `"globalTeardown": "…"`, `"globalTimeout": 60000`, `"grep": "…"` / `[`, `"grepInvert": "…"` / `[`, `"maxFailures": 1`, `"preserveOutput": "always"` / `"never"` / `"failures-only"`, `"reporter": "…"` / `[`, `"reportSlowTests": {`, `"quiet": true`, `"retries": 2`, `"workers": 4` / `"50%"`, `"shard": {`, `"timeout": 30000`, `"updateSnapshots": "all"` / `"changed"` / `"missing"` / `"none"`, `"ignoreSnapshots": true`, `"use": {`, `"projects": [`, `"webServer": {` / `[`, `"expect": {`, `"snapshotPathTemplate": "…"`, `"snapshotDir": "…"`, `"metadata": {`, `"captureGitInfo": {`, `"tsconfig": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / Jest `"testEnvironment"` / `"setupFilesAfterEnv"` / `"coverageProvider"` / `"clearMocks"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. Shared `"projects": [` / `"globalSetup": "…"` / `"testMatch": [` also match Jest when shapes overlap.
+
 ## [0.3.737] — 2026-11-09
 
 View:
