@@ -32391,6 +32391,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_eas_json_decl(s)
             || is_angular_json_decl(s)
             || is_nest_cli_json_decl(s)
+            || is_wails_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32692,6 +32693,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_eas_json_decl(s)
         || is_angular_json_decl(s)
         || is_nest_cli_json_decl(s)
+        || is_wails_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -45808,20 +45810,22 @@ fn angular_json_string_ok(key: &str, value: &str) -> bool {
 /// `"integrations"` / `"hooks"` / capacitor `"appId"` / `"appName"` /
 /// `"webDir"` / `"bundledWebRuntime"` / tauri `"productName"` /
 /// `"identifier"` / `"withGlobalTauri"` / `"allowlist"` /
-/// `"frontendDist"` / firebase `"hosting"` / `"firestore"` /
-/// `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` /
-/// `"headers"` / `"crons"` / `"regions"` / `"framework"` /
-/// `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets
-/// `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna
-/// `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo
-/// `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` /
-/// `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` /
-/// `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` /
-/// SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint
-/// `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` /
-/// dprint `"includes"` / tsconfig `"compilerOptions"` / package.json
-/// `"scripts": {` stay out. Nest `"builder": "tsc"` / `"swc"` /
-/// `"webpack"` (no `@scope:target`) is listed; Angular
+/// `"frontendDist"` / wails `"assetdir"` / `"frontend:dir"` /
+/// `"wailsjsdir"` / `"outputfilename"` / `"debounceMS"` /
+/// `"obfuscated"` / `"nsisType"` / `"preBuildHooks"` / `"bindings"` /
+/// firebase `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` /
+/// vercel `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` /
+/// `"regions"` / `"framework"` / `"buildCommand"` / `"cleanUrls"` /
+/// `"version": 2` / changesets `"baseBranch"` / rush `"rushVersion"` /
+/// `"projects"` / lerna `"npmClient"` / `"useWorkspaces"` /
+/// `"packages": [` / turbo `"tasks"` / `"pipeline"` /
+/// `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx
+/// `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel
+/// `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` /
+/// `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` /
+/// biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` /
+/// package.json `"scripts": {` stay out. Nest `"builder": "tsc"` /
+/// `"swc"` / `"webpack"` (no `@scope:target`) is listed; Angular
 /// `"builder": "@angular…:…"` stays on the angular path.
 fn is_nest_cli_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -45970,6 +45974,220 @@ fn nest_cli_json_string_ok(key: &str, value: &str) -> bool {
         "collection" => nest_cli_json_collection_ok(value),
         "entryFile" | "exec" => nest_cli_json_ident_ok(value),
         "webpackConfigPath" | "tsConfigPath" => angular_json_path_ok(value),
+        _ => false,
+    }
+}
+
+/// Wails `wails.json` JSON keys:
+/// `"assetdir": "…"`, `"reloaddirs": "…"`, `"build:dir": "…"`,
+/// `"build:tags": "…"`, `"frontend:dir": "…"`, `"frontend:install": "…"`,
+/// `"frontend:build": "…"`, `"frontend:dev": "…"`,
+/// `"frontend:dev:build": "…"`, `"frontend:dev:install": "…"`,
+/// `"frontend:dev:watcher": "…"`, `"frontend:dev:serverUrl": "…"` / `"auto"`,
+/// `"wailsjsdir": "…"`, `"outputfilename": "…"`, `"devServer": "…"`,
+/// `"appargs": "…"`, `"garbleargs": "…"`, `"nsisType": "multiple"` /
+/// `"single"`, `"debounceMS": 100`, `"viteServerTimeout": 10`,
+/// `"runNonNativeBuildHooks": true`, `"obfuscated": true`,
+/// `"preBuildHooks": {`, `"postBuildHooks": {`, `"author": {`,
+/// `"info": {`, `"bindings": {`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / nest-cli `"collection"` / `"entryFile"` /
+/// `"generateOptions"` / angular `"architect"` / `"schematics"` /
+/// `"projectType"` / eas `"submit"` / `"developmentClient"` / expo
+/// `"expo"` / `"slug"` / ionic `"integrations"` / `"hooks"` / capacitor
+/// `"appId"` / `"appName"` / `"webDir"` / `"bundledWebRuntime"` / tauri
+/// `"productName"` / `"identifier"` / `"withGlobalTauri"` / `"allowlist"` /
+/// `"frontendDist"` / firebase `"hosting"` / `"firestore"` /
+/// `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` /
+/// `"headers"` / `"crons"` / `"regions"` / `"framework"` /
+/// `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets
+/// `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna
+/// `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` /
+/// `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` /
+/// nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel
+/// `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` /
+/// `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` /
+/// biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` /
+/// package.json `"scripts": {` stay out.
+fn is_wails_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !wails_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    wails_json_value_and_tail_ok(key, after_colon)
+}
+
+fn wails_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "assetdir"
+            | "reloaddirs"
+            | "build:dir"
+            | "build:tags"
+            | "frontend:dir"
+            | "frontend:install"
+            | "frontend:build"
+            | "frontend:dev"
+            | "frontend:dev:build"
+            | "frontend:dev:install"
+            | "frontend:dev:watcher"
+            | "frontend:dev:serverUrl"
+            | "wailsjsdir"
+            | "outputfilename"
+            | "devServer"
+            | "appargs"
+            | "garbleargs"
+            | "nsisType"
+            | "debounceMS"
+            | "viteServerTimeout"
+            | "runNonNativeBuildHooks"
+            | "obfuscated"
+            | "preBuildHooks"
+            | "postBuildHooks"
+            | "author"
+            | "info"
+            | "bindings"
+    )
+}
+
+fn wails_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !wails_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !wails_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !wails_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !wails_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !wails_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 6 {
+                return false;
+            }
+            if digits == 1 && after_colon.as_bytes()[0] == b'0' {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn wails_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "preBuildHooks" | "postBuildHooks" | "author" | "info" | "bindings"
+    )
+}
+
+fn wails_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "assetdir"
+            | "reloaddirs"
+            | "build:dir"
+            | "build:tags"
+            | "frontend:dir"
+            | "frontend:install"
+            | "frontend:build"
+            | "frontend:dev"
+            | "frontend:dev:build"
+            | "frontend:dev:install"
+            | "frontend:dev:watcher"
+            | "frontend:dev:serverUrl"
+            | "wailsjsdir"
+            | "outputfilename"
+            | "devServer"
+            | "appargs"
+            | "garbleargs"
+            | "nsisType"
+    )
+}
+
+fn wails_json_bool_key_ok(key: &str) -> bool {
+    matches!(key, "runNonNativeBuildHooks" | "obfuscated")
+}
+
+fn wails_json_number_key_ok(key: &str) -> bool {
+    matches!(key, "debounceMS" | "viteServerTimeout")
+}
+
+fn wails_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "nsisType" => matches!(value, "multiple" | "single"),
+        "frontend:dev:serverUrl" => {
+            value == "auto" || value.starts_with("http://") || value.starts_with("https://")
+        }
+        "assetdir"
+        | "reloaddirs"
+        | "build:dir"
+        | "build:tags"
+        | "frontend:dir"
+        | "frontend:install"
+        | "frontend:build"
+        | "frontend:dev"
+        | "frontend:dev:build"
+        | "frontend:dev:install"
+        | "frontend:dev:watcher"
+        | "wailsjsdir"
+        | "outputfilename"
+        | "devServer"
+        | "appargs"
+        | "garbleargs" => true,
         _ => false,
     }
 }
@@ -76634,9 +76852,9 @@ mod func_like_line_tests {
         is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
         is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
         is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl, is_vulture_ini_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        line_is_func_like,
+        is_wails_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -90485,6 +90703,236 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""builder": "swc""#));
         assert!(line_is_func_like(r#""language": "ts""#));
         assert!(line_is_func_like(r#""exec": "node""#));
+        // Wails neighbouring keys stay out of nest-cli.
+        assert!(!is_nest_cli_json_decl(r#""assetdir": "frontend/dist""#));
+        assert!(is_wails_json_decl(r#""assetdir": "frontend/dist""#));
+        assert!(!is_nest_cli_json_decl(r#""frontend:dir": "frontend""#));
+        assert!(is_wails_json_decl(r#""frontend:dir": "frontend""#));
+        assert!(!is_nest_cli_json_decl(r#""wailsjsdir": "./frontend""#));
+        assert!(is_wails_json_decl(r#""wailsjsdir": "./frontend""#));
+        assert!(!is_nest_cli_json_decl(r#""outputfilename": "myapp""#));
+        assert!(is_wails_json_decl(r#""outputfilename": "myapp""#));
+        assert!(!is_nest_cli_json_decl(r#""debounceMS": 100"#));
+        assert!(is_wails_json_decl(r#""debounceMS": 100"#));
+        assert!(!is_nest_cli_json_decl(r#""obfuscated": true"#));
+        assert!(is_wails_json_decl(r#""obfuscated": true"#));
+        assert!(!is_nest_cli_json_decl(r#""nsisType": "multiple""#));
+        assert!(is_wails_json_decl(r#""nsisType": "multiple""#));
+        assert!(!is_nest_cli_json_decl(r#""preBuildHooks": {"#));
+        assert!(is_wails_json_decl(r#""preBuildHooks": {"#));
+        assert!(!is_nest_cli_json_decl(r#""bindings": {"#));
+        assert!(is_wails_json_decl(r#""bindings": {"#));
+    }
+
+    #[test]
+    fn wails_json_keys_count() {
+        assert!(is_wails_json_decl(r#""assetdir": "frontend/dist""#));
+        assert!(is_wails_json_decl(
+            r#""assetdir": "frontend/dist" // assets"#
+        ));
+        assert!(is_wails_json_decl(r#""assetdir": "frontend/dist","#));
+        assert!(is_wails_json_decl(r#""reloaddirs": "frontend/src""#));
+        assert!(is_wails_json_decl(r#""build:dir": "build""#));
+        assert!(is_wails_json_decl(r#""build:tags": "production""#));
+        assert!(is_wails_json_decl(r#""frontend:dir": "frontend""#));
+        assert!(is_wails_json_decl(r#""frontend:install": "npm install""#));
+        assert!(is_wails_json_decl(r#""frontend:build": "npm run build""#));
+        assert!(is_wails_json_decl(r#""frontend:dev": "npm run dev""#));
+        assert!(is_wails_json_decl(
+            r#""frontend:dev:build": "npm run build:dev""#
+        ));
+        assert!(is_wails_json_decl(
+            r#""frontend:dev:install": "npm install""#
+        ));
+        assert!(is_wails_json_decl(
+            r#""frontend:dev:watcher": "npm run watch""#
+        ));
+        assert!(is_wails_json_decl(r#""frontend:dev:serverUrl": "auto""#));
+        assert!(is_wails_json_decl(
+            r#""frontend:dev:serverUrl": "http://localhost:5173""#
+        ));
+        assert!(is_wails_json_decl(r#""wailsjsdir": "./frontend""#));
+        assert!(is_wails_json_decl(r#""outputfilename": "myapp""#));
+        assert!(is_wails_json_decl(r#""devServer": "localhost:34115""#));
+        assert!(is_wails_json_decl(r#""appargs": "--debug""#));
+        assert!(is_wails_json_decl(r#""garbleargs": "-tiny""#));
+        assert!(is_wails_json_decl(r#""nsisType": "multiple""#));
+        assert!(is_wails_json_decl(r#""nsisType": "single""#));
+        assert!(is_wails_json_decl(r#""debounceMS": 100"#));
+        assert!(is_wails_json_decl(r#""debounceMS": 100,"#));
+        assert!(is_wails_json_decl(r#""viteServerTimeout": 10"#));
+        assert!(is_wails_json_decl(r#""runNonNativeBuildHooks": true"#));
+        assert!(is_wails_json_decl(r#""runNonNativeBuildHooks": false,"#));
+        assert!(is_wails_json_decl(r#""obfuscated": true"#));
+        assert!(is_wails_json_decl(r#""obfuscated": false"#));
+        assert!(is_wails_json_decl(r#""preBuildHooks": {"#));
+        assert!(is_wails_json_decl(r#""preBuildHooks": { // hooks"#));
+        assert!(is_wails_json_decl(r#""postBuildHooks": {"#));
+        assert!(is_wails_json_decl(r#""author": {"#));
+        assert!(is_wails_json_decl(r#""info": {"#));
+        assert!(is_wails_json_decl(r#""bindings": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_wails_json_decl(r#""assetdir""#));
+        assert!(!is_wails_json_decl(r#""assetdir":"#));
+        assert!(!is_wails_json_decl(r#"assetdir: "frontend/dist""#));
+        assert!(!is_wails_json_decl(r#""Assetdir": "frontend/dist""#));
+        assert!(!is_wails_json_decl(r#""assetdir": {"#));
+        assert!(!is_wails_json_decl(r#""assetdir": ["#));
+        assert!(!is_wails_json_decl(r#""assetdir": true"#));
+        assert!(!is_wails_json_decl(r#""frontend:dir": {"#));
+        assert!(!is_wails_json_decl(r#""nsisType": "universal""#));
+        assert!(!is_wails_json_decl(r#""nsisType": {"#));
+        assert!(!is_wails_json_decl(r#""nsisType": true"#));
+        assert!(!is_wails_json_decl(r#""debounceMS": {"#));
+        assert!(!is_wails_json_decl(r#""debounceMS": "100""#));
+        assert!(!is_wails_json_decl(r#""debounceMS": 0"#));
+        assert!(!is_wails_json_decl(r#""viteServerTimeout": true"#));
+        assert!(!is_wails_json_decl(r#""obfuscated": {"#));
+        assert!(!is_wails_json_decl(r#""obfuscated": "true""#));
+        assert!(!is_wails_json_decl(r#""runNonNativeBuildHooks": 1"#));
+        assert!(!is_wails_json_decl(r#""preBuildHooks": ["#));
+        assert!(!is_wails_json_decl(r#""preBuildHooks": true"#));
+        assert!(!is_wails_json_decl(r#""bindings": ["#));
+        assert!(!is_wails_json_decl(r#""frontend:dev:serverUrl": {"#));
+        assert!(!is_wails_json_decl(
+            r#""frontend:dev:serverUrl": "ftp://bad""#
+        ));
+        // Generic / neighbouring stay out.
+        assert!(!is_wails_json_decl(
+            r#""$schema": "https://wails.io/schemas/config.v2.json""#
+        ));
+        assert!(!is_wails_json_decl(r#""version": "2""#));
+        assert!(!is_wails_json_decl(r#""name": "myapp""#));
+        assert!(!is_wails_json_decl(r#""collection": "@nestjs/schematics""#));
+        assert!(is_nest_cli_json_decl(
+            r#""collection": "@nestjs/schematics""#
+        ));
+        assert!(!is_wails_json_decl(r#""entryFile": "main""#));
+        assert!(is_nest_cli_json_decl(r#""entryFile": "main""#));
+        assert!(!is_wails_json_decl(r#""generateOptions": {"#));
+        assert!(is_nest_cli_json_decl(r#""generateOptions": {"#));
+        assert!(!is_wails_json_decl(r#""architect": {"#));
+        assert!(is_angular_json_decl(r#""architect": {"#));
+        assert!(!is_wails_json_decl(r#""schematics": {"#));
+        assert!(is_angular_json_decl(r#""schematics": {"#));
+        assert!(!is_wails_json_decl(r#""projectType": "application""#));
+        assert!(is_angular_json_decl(r#""projectType": "application""#));
+        assert!(!is_wails_json_decl(r#""submit": {"#));
+        assert!(is_eas_json_decl(r#""submit": {"#));
+        assert!(!is_wails_json_decl(r#""developmentClient": true"#));
+        assert!(is_eas_json_decl(r#""developmentClient": true"#));
+        assert!(!is_wails_json_decl(r#""expo": {"#));
+        assert!(is_expo_json_decl(r#""expo": {"#));
+        assert!(!is_wails_json_decl(r#""slug": "my-app""#));
+        assert!(is_expo_json_decl(r#""slug": "my-app""#));
+        assert!(!is_wails_json_decl(r#""integrations": {"#));
+        assert!(is_ionic_json_decl(r#""integrations": {"#));
+        assert!(!is_wails_json_decl(r#""hooks": {"#));
+        assert!(is_ionic_json_decl(r#""hooks": {"#));
+        assert!(!is_wails_json_decl(r#""appId": "com.example.app""#));
+        assert!(is_capacitor_json_decl(r#""appId": "com.example.app""#));
+        assert!(!is_wails_json_decl(r#""appName": "MyApp""#));
+        assert!(is_capacitor_json_decl(r#""appName": "MyApp""#));
+        assert!(!is_wails_json_decl(r#""webDir": "dist""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "dist""#));
+        assert!(!is_wails_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(!is_wails_json_decl(r#""productName": "App""#));
+        assert!(is_tauri_json_decl(r#""productName": "App""#));
+        assert!(!is_wails_json_decl(r#""identifier": "com.example.app""#));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_wails_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_wails_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+        assert!(!is_wails_json_decl(r#""frontendDist": "../dist""#));
+        assert!(is_tauri_json_decl(r#""frontendDist": "../dist""#));
+        assert!(!is_wails_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_wails_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_wails_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_wails_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(!is_wails_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_wails_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_wails_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_wails_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_wails_json_decl(r#""regions": ["#));
+        assert!(is_vercel_json_decl(r#""regions": ["#));
+        assert!(!is_wails_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_wails_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_wails_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_wails_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_wails_json_decl(r#""baseBranch": "main""#));
+        assert!(is_changesets_json_decl(r#""baseBranch": "main""#));
+        assert!(!is_wails_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_wails_json_decl(r#""npmClient": "npm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "npm""#));
+        assert!(!is_wails_json_decl(r#""useWorkspaces": true"#));
+        assert!(is_lerna_json_decl(r#""useWorkspaces": true"#));
+        assert!(!is_wails_json_decl(r#""packages": ["#));
+        assert!(is_lerna_json_decl(r#""packages": ["#));
+        assert!(!is_wails_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_wails_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_wails_json_decl(r#""globalDependencies": ["#));
+        assert!(is_turbo_json_decl(r#""globalDependencies": ["#));
+        assert!(!is_wails_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(is_turbo_json_decl(r#""cacheDir": ".turbo""#));
+        assert!(!is_wails_json_decl(r#""envMode": "loose""#));
+        assert!(is_turbo_json_decl(r#""envMode": "loose""#));
+        assert!(!is_wails_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_wails_json_decl(r#""targetDefaults": {"#));
+        assert!(is_nx_json_decl(r#""targetDefaults": {"#));
+        assert!(!is_wails_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(is_nx_json_decl(r#""cacheDirectory": ".nx/cache""#));
+        assert!(!is_wails_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_wails_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_wails_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_wails_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_wails_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_wails_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_wails_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_wails_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_wails_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_wails_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_wails_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared scanner lists wails keys.
+        assert!(line_is_func_like(r#""assetdir": "frontend/dist""#));
+        assert!(line_is_func_like(r#""frontend:dir": "frontend""#));
+        assert!(line_is_func_like(r#""frontend:install": "npm install""#));
+        assert!(line_is_func_like(r#""frontend:dev:serverUrl": "auto""#));
+        assert!(line_is_func_like(r#""wailsjsdir": "./frontend""#));
+        assert!(line_is_func_like(r#""outputfilename": "myapp""#));
+        assert!(line_is_func_like(r#""debounceMS": 100"#));
+        assert!(line_is_func_like(r#""nsisType": "multiple""#));
+        assert!(line_is_func_like(r#""obfuscated": true"#));
+        assert!(line_is_func_like(r#""preBuildHooks": {"#));
+        assert!(line_is_func_like(r#""bindings": {"#));
     }
 
     #[test]

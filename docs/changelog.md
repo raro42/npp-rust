@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.724] — 2026-11-09
+
+View:
+
+- **Function List** lists Wails `wails.json` JSON keys: `"assetdir": "…"`, `"reloaddirs": "…"`, `"build:dir": "…"`, `"build:tags": "…"`, `"frontend:dir": "…"`, `"frontend:install": "…"`, `"frontend:build": "…"`, `"frontend:dev": "…"`, `"frontend:dev:build": "…"`, `"frontend:dev:install": "…"`, `"frontend:dev:watcher": "…"`, `"frontend:dev:serverUrl": "…"` / `"auto"`, `"wailsjsdir": "…"`, `"outputfilename": "…"`, `"devServer": "…"`, `"appargs": "…"`, `"garbleargs": "…"`, `"nsisType": "multiple"` / `"single"`, `"debounceMS": 100`, `"viteServerTimeout": 10`, `"runNonNativeBuildHooks": true`, `"obfuscated": true`, `"preBuildHooks": {`, `"postBuildHooks": {`, `"author": {`, `"info": {`, `"bindings": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / nest-cli `"collection"` / `"entryFile"` / `"generateOptions"` / angular `"architect"` / `"schematics"` / `"projectType"` / eas `"submit"` / `"developmentClient"` / expo `"expo"` / `"slug"` / ionic `"integrations"` / `"hooks"` / capacitor `"appId"` / `"appName"` / `"webDir"` / `"bundledWebRuntime"` / tauri `"productName"` / `"identifier"` / `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` / firebase `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` / `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts": {` stay out.
+
 ## [0.3.723] — 2026-11-09
 
 View:
