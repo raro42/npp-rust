@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.727] — 2026-11-09
+
+View:
+
+- **Function List** lists Electron Forge `forge.config.json` / `config.forge` JSON keys: `"packagerConfig": {`, `"rebuildConfig": {`, `"hooks": {`, `"makers": [`, `"publishers": [`, `"plugins": [`, `"buildIdentifier": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"outDir"` / `"appId"` / `"productName"` / `"extends"` / `"publish"` / neutralino `"applicationId"` / `"defaultMode"` / `"enableServer"` / `"enableNativeAPI"` / `"tokenSecurity"` / `"nativeAllowList"` / `"modes"` / `"globalVariables"` / electron-builder `"directories"` / `"asar"` / `"electronVersion"` / `"artifactName"` / `"nsis": {` / wails `"assetdir"` / `"frontend:dir"` / `"wailsjsdir"` / `"nsisType"` / `"debounceMS"` / `"obfuscated"` / `"bindings"` / nest-cli `"collection"` / `"entryFile"` / `"generateOptions"` / angular `"architect"` / `"schematics"` / `"projectType"` / eas `"submit"` / `"developmentClient"` / expo `"expo"` / `"slug"` / ionic `"integrations"` / `"documentRoot"` / capacitor `"appId"` / `"appName"` / `"webDir"` / `"bundledWebRuntime"` / tauri `"productName"` / `"identifier"` / `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` / firebase `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` / `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / `"outDir"` / package.json `"scripts": {` stay out. Shared `"hooks": {` also matches ionic; shared `"plugins": [` also matches babel / eslint / prettier / biome / stylelint / dprint when shapes match.
+
 ## [0.3.726] — 2026-11-09
 
 View:

@@ -1112,3 +1112,5 @@
 009 keep: Function List nest-cli.json collection/entryFile/generateOptions/monorepo/deleteOutDir/webpack/webpackConfigPath/tsConfigPath/watchAssets/manualRestart/typeCheck/builder/language/exec (v0.3.723)
 
 009 keep: Function List Wails wails.json (v0.3.724)
+
+009 keep: Function List Electron Forge forge.config.json packagerConfig/rebuildConfig/makers/publishers/plugins/hooks/buildIdentifier (v0.3.727)
