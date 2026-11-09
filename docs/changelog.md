@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.742] — 2026-11-10
+
+View:
+
+- **Function List** lists AVA `ava.config.json` / `package.json` `"ava"` JSON keys: `"files": [` / `"…"`, `"match": [` / `"…"`, `"concurrency": 5`, `"failFast": true`, `"failWithoutAssertions": true`, `"cache": true`, `"workerThreads": true`, `"serial": true`, `"tap": true`, `"verbose": true`, `"utilizeParallelBuilds": true`, `"timeout": 100` / `"10s"` / `"2m"` / `"500ms"`, `"require": [` / `"…"`, `"nodeArguments": [` / `"…"`, `"extensions": [` / `{` / `"…"`, `"ignoredByWatcher": [` / `"…"`, `"snapshotDir": "…"`, `"environmentVariables": {`, `"watchMode": {`, `"typescript": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / Mocha `"allowUncaught"` / `"ui": "bdd"` / `"watch-files"` / `"checkLeaks"` / Jest `"testEnvironment"` / `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright `"testDir"` / `"fullyParallel"` / `"webServer"` / `"preserveOutput"` / Vitest `"pool"` / `"fileParallelism"` / `"hookTimeout"` / Cypress `"baseUrl": "http://…"` / `"specPattern"` / `"chromeWebSecurity"` / `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. Shared `"require": …` / `"timeout": …` / `"files": [` / `"workerThreads": true` also match Mocha / Jest when shapes overlap.
+
 ## [0.3.741] — 2026-11-10
 
 View:

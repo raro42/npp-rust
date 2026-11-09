@@ -32409,6 +32409,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_vitest_json_decl(s)
             || is_cypress_json_decl(s)
             || is_mocha_json_decl(s)
+            || is_ava_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32728,6 +32729,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_vitest_json_decl(s)
         || is_cypress_json_decl(s)
         || is_mocha_json_decl(s)
+        || is_ava_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -49923,6 +49925,213 @@ fn mocha_json_string_ok(key: &str, value: &str) -> bool {
         | "node-option" | "globals" | "reporter-option" | "reporterOption" | "reporterOptions" => {
             true
         }
+        _ => false,
+    }
+}
+
+/// AVA `ava.config.json` / `package.json` `"ava"` JSON keys:
+/// `"files": [` / `"…"`, `"match": [` / `"…"`, `"concurrency": 5`,
+/// `"failFast": true`, `"failWithoutAssertions": true`, `"cache": true`,
+/// `"workerThreads": true`, `"serial": true`, `"tap": true`,
+/// `"verbose": true`, `"utilizeParallelBuilds": true`,
+/// `"timeout": 100` / `"10s"` / `"2m"`, `"require": [` / `"…"`,
+/// `"nodeArguments": [` / `"…"`, `"extensions": [` / `{` / `"…"`,
+/// `"ignoredByWatcher": [` / `"…"`, `"snapshotDir": "…"`,
+/// `"environmentVariables": {`, `"watchMode": {`, `"typescript": {`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// Mocha `"allowUncaught"` / `"ui": "bdd"` / `"watch-files"` /
+/// `"checkLeaks"` / Jest `"testEnvironment"` / `"setupFilesAfterEnv"` /
+/// `"coverageProvider"` / Playwright `"testDir"` / `"fullyParallel"` /
+/// `"webServer"` / `"preserveOutput"` / Vitest `"pool"` /
+/// `"fileParallelism"` / `"hookTimeout"` / Cypress `"baseUrl": "http://…"` /
+/// `"specPattern"` / `"chromeWebSecurity"` / `"e2e"` / CSpell `"words"` /
+/// Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` /
+/// Renovate `"packageRules"` / launch `"configurations"` / tasks
+/// `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx
+/// `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint
+/// `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"`
+/// stay out. Shared `"require": …` / `"timeout": …` / `"files": [` /
+/// `"workerThreads": true` also match Mocha / Jest when shapes overlap.
+fn is_ava_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !ava_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    ava_json_value_and_tail_ok(key, after_colon)
+}
+
+fn ava_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "files"
+            | "match"
+            | "concurrency"
+            | "failFast"
+            | "failWithoutAssertions"
+            | "cache"
+            | "workerThreads"
+            | "serial"
+            | "tap"
+            | "verbose"
+            | "utilizeParallelBuilds"
+            | "timeout"
+            | "require"
+            | "nodeArguments"
+            | "extensions"
+            | "ignoredByWatcher"
+            | "snapshotDir"
+            | "environmentVariables"
+            | "watchMode"
+            | "typescript"
+    )
+}
+
+fn ava_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !ava_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !ava_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !ava_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !ava_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !ava_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !ava_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn ava_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "environmentVariables" | "watchMode" | "typescript" | "extensions"
+    )
+}
+
+fn ava_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "files" | "match" | "require" | "nodeArguments" | "extensions" | "ignoredByWatcher"
+    )
+}
+
+fn ava_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "files"
+            | "match"
+            | "require"
+            | "nodeArguments"
+            | "extensions"
+            | "ignoredByWatcher"
+            | "snapshotDir"
+            | "timeout"
+    )
+}
+
+fn ava_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "failFast"
+            | "failWithoutAssertions"
+            | "cache"
+            | "workerThreads"
+            | "serial"
+            | "tap"
+            | "verbose"
+            | "utilizeParallelBuilds"
+    )
+}
+
+fn ava_json_number_key_ok(key: &str) -> bool {
+    matches!(key, "concurrency" | "timeout")
+}
+
+fn ava_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "timeout" => {
+            // AVA accepts plain milliseconds ("100") or duration suffixes
+            // ("10s", "2m").
+            let bytes = value.as_bytes();
+            if bytes.iter().all(|b| b.is_ascii_digit()) {
+                return !value.is_empty() && value.len() <= 9;
+            }
+            let Some(split) = value.find(|c: char| !c.is_ascii_digit()) else {
+                return false;
+            };
+            if split == 0 {
+                return false;
+            }
+            matches!(&value[split..], "ms" | "s" | "m" | "h")
+        }
+        "files" | "match" | "require" | "nodeArguments" | "extensions" | "ignoredByWatcher"
+        | "snapshotDir" => true,
         _ => false,
     }
 }
@@ -80539,41 +80748,42 @@ mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_android_bp_decl, is_angular_json_decl, is_ant_msbuild_decl,
         is_apache_httpd_decl, is_apt_sources_decl, is_audit_rules_decl, is_audit_toml_decl,
-        is_autoflake_ini_decl, is_autopep8_ini_decl, is_aws_config_decl, is_babel_json_decl,
-        is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl, is_biome_json_decl,
-        is_bitbake_decl, is_black_ini_decl, is_brewfile_decl, is_bumpversion_ini_decl,
-        is_bunfig_toml_decl, is_cabal_decl, is_capacitor_json_decl, is_cargo_config_toml_decl,
-        is_cargo_make_toml_decl, is_cargo_toml_decl, is_cbindgen_toml_decl,
-        is_changesets_json_decl, is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl,
-        is_cibuildwheel_ini_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_codespell_ini_decl,
-        is_commitizen_ini_decl, is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl,
-        is_crypttab_decl, is_cspell_json_decl, is_cypress_json_decl, is_darglint_ini_decl,
-        is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl,
-        is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
-        is_doc8_ini_decl, is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl,
-        is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl, is_electron_builder_json_decl,
-        is_electron_forge_json_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
-        is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
-        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
-        is_importlinter_ini_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_jest_json_decl, is_keepalived_decl, is_knip_json_decl,
-        is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
-        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
-        is_mocha_json_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
-        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
-        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
-        is_premake_decl, is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
-        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
-        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_autoflake_ini_decl, is_autopep8_ini_decl, is_ava_json_decl, is_aws_config_decl,
+        is_babel_json_decl, is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl,
+        is_biome_json_decl, is_bitbake_decl, is_black_ini_decl, is_brewfile_decl,
+        is_bumpversion_ini_decl, is_bunfig_toml_decl, is_cabal_decl, is_capacitor_json_decl,
+        is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl,
+        is_cbindgen_toml_decl, is_changesets_json_decl, is_check_manifest_ini_decl,
+        is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl, is_cliff_toml_decl,
+        is_clippy_toml_decl, is_codespell_ini_decl, is_commitizen_ini_decl, is_composer_json_decl,
+        is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl, is_cspell_json_decl,
+        is_cypress_json_decl, is_darglint_ini_decl, is_default_grub_decl, is_deno_json_decl,
+        is_deny_toml_decl, is_desktop_entry_decl, is_devcontainer_json_decl, is_dhcpd_decl,
+        is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl,
+        is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl,
+        is_editorconfig_decl, is_electron_builder_json_decl, is_electron_forge_json_decl,
+        is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl,
+        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
+        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
+        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
+        is_jest_json_decl, is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl,
+        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
+        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
+        is_nx_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl,
+        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
+        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
+        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
         is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
         is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
         is_refurb_toml_decl, is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl,
@@ -98587,6 +98797,18 @@ mod func_like_line_tests {
         assert!(is_cypress_json_decl(r#""chromeWebSecurity": false"#));
         assert!(!is_mocha_json_decl(r#""e2e": {"#));
         assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_mocha_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_mocha_json_decl(r#""failWithoutAssertions": false"#));
+        assert!(is_ava_json_decl(r#""failWithoutAssertions": false"#));
+        assert!(!is_mocha_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(is_ava_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(!is_mocha_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(is_ava_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(!is_mocha_json_decl(r#""snapshotDir": "test/snapshots""#));
+        assert!(is_ava_json_decl(r#""snapshotDir": "test/snapshots""#));
+        assert!(!is_mocha_json_decl(r#""environmentVariables": {"#));
+        assert!(is_ava_json_decl(r#""environmentVariables": {"#));
         assert!(!is_mocha_json_decl(r#""words": ["#));
         assert!(is_cspell_json_decl(r#""words": ["#));
         assert!(!is_mocha_json_decl(r#""categories": {"#));
@@ -98625,7 +98847,7 @@ mod func_like_line_tests {
         assert!(is_package_json_decl(r#""scripts": {"#));
         assert!(!is_mocha_json_decl(r#""compilerOptions": {"#));
         assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
-        // Distinctive Mocha keys stay out of Jest / Playwright / Vitest / Cypress.
+        // Distinctive Mocha keys stay out of Jest / Playwright / Vitest / Cypress / AVA.
         assert!(!is_jest_json_decl(r#""allowUncaught": true"#));
         assert!(!is_jest_json_decl(r#""ui": "bdd""#));
         assert!(!is_jest_json_decl(r#""watch-files": ["#));
@@ -98642,6 +98864,10 @@ mod func_like_line_tests {
         assert!(!is_cypress_json_decl(r#""allowUncaught": true"#));
         assert!(!is_cypress_json_decl(r#""ui": "bdd""#));
         assert!(!is_cypress_json_decl(r#""watch-files": ["#));
+        assert!(!is_ava_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_ava_json_decl(r#""ui": "bdd""#));
+        assert!(!is_ava_json_decl(r#""watch-files": ["#));
+        assert!(!is_ava_json_decl(r#""checkLeaks": true"#));
         assert!(!is_cspell_json_decl(r#""allowUncaught": true"#));
         assert!(!is_oxlint_json_decl(r#""allowUncaught": true"#));
         assert!(!is_knip_json_decl(r#""allowUncaught": true"#));
@@ -98653,6 +98879,173 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""checkLeaks": true"#));
         assert!(line_is_func_like(r#""timeout": "2s""#));
         assert!(line_is_func_like(r#""extension": ["#));
+    }
+
+    #[test]
+    fn ava_json_keys_count() {
+        assert!(is_ava_json_decl(r#""files": ["#));
+        assert!(is_ava_json_decl(r#""files": "test/**/*.js""#));
+        assert!(is_ava_json_decl(r#""match": ["#));
+        assert!(is_ava_json_decl(r#""match": "*foo*""#));
+        assert!(is_ava_json_decl(r#""concurrency": 5"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failWithoutAssertions": false"#));
+        assert!(is_ava_json_decl(r#""cache": true"#));
+        assert!(is_ava_json_decl(r#""workerThreads": false"#));
+        assert!(is_ava_json_decl(r#""serial": true"#));
+        assert!(is_ava_json_decl(r#""tap": true"#));
+        assert!(is_ava_json_decl(r#""verbose": true"#));
+        assert!(is_ava_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(is_ava_json_decl(r#""timeout": 100"#));
+        assert!(is_ava_json_decl(r#""timeout": "10s""#));
+        assert!(is_ava_json_decl(r#""timeout": "2m""#));
+        assert!(is_ava_json_decl(r#""timeout": "500ms""#));
+        assert!(is_ava_json_decl(r#""require": "./setup.js""#));
+        assert!(is_ava_json_decl(r#""require": ["#));
+        assert!(is_ava_json_decl(
+            r#""nodeArguments": "--trace-deprecation""#
+        ));
+        assert!(is_ava_json_decl(r#""nodeArguments": ["#));
+        assert!(is_ava_json_decl(r#""extensions": "ts""#));
+        assert!(is_ava_json_decl(r#""extensions": ["#));
+        assert!(is_ava_json_decl(r#""extensions": {"#));
+        assert!(is_ava_json_decl(r#""ignoredByWatcher": "tmp/**""#));
+        assert!(is_ava_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(is_ava_json_decl(r#""snapshotDir": "test/snapshots""#));
+        assert!(is_ava_json_decl(r#""environmentVariables": {"#));
+        assert!(is_ava_json_decl(r#""watchMode": {"#));
+        assert!(is_ava_json_decl(r#""typescript": {"#));
+        assert!(is_ava_json_decl(r#""failFast": true, // stop early"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_ava_json_decl(r#""failFast""#));
+        assert!(!is_ava_json_decl(r#""failFast":"#));
+        assert!(!is_ava_json_decl(r#""failFast: true"#));
+        assert!(!is_ava_json_decl(r#""failFast": ["#));
+        assert!(!is_ava_json_decl(r#""concurrency": true"#));
+        assert!(!is_ava_json_decl(r#""timeout": "2sec""#));
+        assert!(!is_ava_json_decl(r#""timeout": "s2""#));
+        assert!(!is_ava_json_decl(r#""environmentVariables": ["#));
+        assert!(!is_ava_json_decl(r#""snapshotDir": ["#));
+        assert!(!is_ava_json_decl(r#""snapshotDir": """#));
+        assert!(!is_ava_json_decl(r#""files": {"#));
+        // Generic / neighbouring stay out.
+        assert!(!is_ava_json_decl(
+            r#""$schema": "https://json.schemastore.org/ava""#
+        ));
+        assert!(!is_ava_json_decl(r#""name": "unit""#));
+        assert!(!is_ava_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_ava_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_ava_json_decl(r#""ui": "bdd""#));
+        assert!(is_mocha_json_decl(r#""ui": "bdd""#));
+        assert!(!is_ava_json_decl(r#""watch-files": ["#));
+        assert!(is_mocha_json_decl(r#""watch-files": ["#));
+        assert!(!is_ava_json_decl(r#""checkLeaks": true"#));
+        assert!(is_mocha_json_decl(r#""checkLeaks": true"#));
+        assert!(!is_ava_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_ava_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(is_jest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_ava_json_decl(r#""coverageProvider": "v8""#));
+        assert!(is_jest_json_decl(r#""coverageProvider": "v8""#));
+        assert!(!is_ava_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_ava_json_decl(r#""fullyParallel": true"#));
+        assert!(is_playwright_json_decl(r#""fullyParallel": true"#));
+        assert!(!is_ava_json_decl(r#""webServer": {"#));
+        assert!(is_playwright_json_decl(r#""webServer": {"#));
+        assert!(!is_ava_json_decl(r#""preserveOutput": "always""#));
+        assert!(is_playwright_json_decl(r#""preserveOutput": "always""#));
+        assert!(!is_ava_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_ava_json_decl(r#""fileParallelism": true"#));
+        assert!(is_vitest_json_decl(r#""fileParallelism": true"#));
+        assert!(!is_ava_json_decl(r#""hookTimeout": 10000"#));
+        assert!(is_vitest_json_decl(r#""hookTimeout": 10000"#));
+        assert!(!is_ava_json_decl(r#""baseUrl": "http://localhost:3000""#));
+        assert!(is_cypress_json_decl(
+            r#""baseUrl": "http://localhost:3000""#
+        ));
+        assert!(!is_ava_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(is_cypress_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(!is_ava_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(is_cypress_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(!is_ava_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_ava_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_ava_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_ava_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_ava_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_ava_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_ava_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_ava_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_ava_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_ava_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_ava_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_ava_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_ava_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_ava_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_ava_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_ava_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive AVA keys stay out of Mocha / Jest / Playwright / Vitest / Cypress.
+        assert!(!is_mocha_json_decl(r#""failFast": true"#));
+        assert!(!is_mocha_json_decl(r#""failWithoutAssertions": false"#));
+        assert!(!is_mocha_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(!is_mocha_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(!is_mocha_json_decl(r#""snapshotDir": "test/snapshots""#));
+        assert!(!is_mocha_json_decl(r#""environmentVariables": {"#));
+        assert!(!is_jest_json_decl(r#""failFast": true"#));
+        assert!(!is_jest_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(!is_jest_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(!is_jest_json_decl(r#""snapshotDir": "test/snapshots""#));
+        assert!(!is_playwright_json_decl(r#""failFast": true"#));
+        assert!(!is_playwright_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(!is_playwright_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(!is_vitest_json_decl(r#""failFast": true"#));
+        assert!(!is_vitest_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(!is_vitest_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(!is_cypress_json_decl(r#""failFast": true"#));
+        assert!(!is_cypress_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(!is_cypress_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(!is_cspell_json_decl(r#""failFast": true"#));
+        assert!(!is_oxlint_json_decl(r#""failFast": true"#));
+        assert!(!is_knip_json_decl(r#""failFast": true"#));
+        // Shared / distinctive shapes list via AVA scanner.
+        assert!(line_is_func_like(r#""failFast": true"#));
+        assert!(line_is_func_like(r#""failWithoutAssertions": false"#));
+        assert!(line_is_func_like(r#""utilizeParallelBuilds": true"#));
+        assert!(line_is_func_like(r#""ignoredByWatcher": ["#));
+        assert!(line_is_func_like(r#""snapshotDir": "test/snapshots""#));
+        assert!(line_is_func_like(r#""environmentVariables": {"#));
+        assert!(line_is_func_like(r#""timeout": "2m""#));
+        assert!(line_is_func_like(r#""nodeArguments": ["#));
     }
 
     #[test]

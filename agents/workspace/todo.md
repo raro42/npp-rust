@@ -1,3 +1,5 @@
+009 keep: Function List AVA ava.config.json failFast/failWithoutAssertions/utilizeParallelBuilds/ignoredByWatcher/snapshotDir/environmentVariables/nodeArguments (v0.3.742)
+
 009 keep: Function List Cypress cypress.json / cypress.config baseUrl/specPattern/chromeWebSecurity/e2e/component/viewportWidth/video/testIsolation (v0.3.740)
 
 009 keep: Function List Vitest vitest.config.json environment/pool/fileParallelism/hookTimeout/browser/typecheck/includeSource/mockReset (v0.3.739)
