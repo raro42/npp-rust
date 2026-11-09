@@ -32383,6 +32383,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_rush_json_decl(s)
             || is_changesets_json_decl(s)
             || is_vercel_json_decl(s)
+            || is_firebase_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32676,6 +32677,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_rush_json_decl(s)
         || is_changesets_json_decl(s)
         || is_vercel_json_decl(s)
+        || is_firebase_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -44323,6 +44325,111 @@ fn vercel_json_framework_ok(value: &str) -> bool {
             | "sanity-v3"
             | "sanity"
             | "storybook"
+    )
+}
+
+/// Firebase `firebase.json` JSON keys:
+/// `"hosting": {` / `[`, `"functions": {` / `[`, `"firestore": {`,
+/// `"database": {` / `[`, `"storage": {` / `[`, `"emulators": {`,
+/// `"remoteconfig": {`, `"extensions": {`, `"flutter": {`,
+/// `"dataconnect": {`, `"apphosting": {` / `[`, `"auth": {`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / vercel
+/// `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
+/// `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` /
+/// changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` /
+/// lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo
+/// `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` /
+/// `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` /
+/// `"cacheDirectory"` / Parcel `"transformers"` / PostCSS `"plugins": {` /
+/// babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` /
+/// stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` /
+/// dprint `"includes"` / tsconfig `"compilerOptions"` / package.json
+/// `"scripts"` stay out. Shared `"functions": {` also matches vercel when
+/// shapes match; firebase multi-codebase `"functions": [` stays here
+/// (vercel rejects the array form).
+fn is_firebase_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !firebase_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    firebase_json_value_and_tail_ok(key, after_colon)
+}
+
+fn firebase_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "hosting"
+            | "functions"
+            | "firestore"
+            | "database"
+            | "storage"
+            | "emulators"
+            | "remoteconfig"
+            | "extensions"
+            | "flutter"
+            | "dataconnect"
+            | "apphosting"
+            | "auth"
+    )
+}
+
+fn firebase_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !firebase_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !firebase_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        _ => false,
+    }
+}
+
+fn firebase_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "hosting"
+            | "functions"
+            | "firestore"
+            | "database"
+            | "storage"
+            | "emulators"
+            | "remoteconfig"
+            | "extensions"
+            | "flutter"
+            | "dataconnect"
+            | "apphosting"
+            | "auth"
+    )
+}
+
+fn firebase_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "hosting" | "functions" | "database" | "storage" | "apphosting"
     )
 }
 
@@ -74949,19 +75056,19 @@ mod func_like_line_tests {
         is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl,
         is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl,
         is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_editorconfig_decl,
-        is_eslint_json_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_flake8_ini_decl,
-        is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl,
-        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl,
-        is_haproxy_decl, is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl,
-        is_hypothesis_ini_decl, is_importlinter_ini_decl, is_interrogate_ini_decl,
-        is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl, is_krb5_conf_decl,
-        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
-        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_eslint_json_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_firebase_json_decl,
+        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl,
+        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
+        is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
+        is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
+        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
+        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_netlify_toml_decl, is_networks_file_decl, is_nextest_toml_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
         is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
         is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
         is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_podfile_decl, is_poetry_toml_decl,
@@ -87130,6 +87237,15 @@ mod func_like_line_tests {
         assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
         assert!(!is_vercel_json_decl(r#""scripts": {"#));
         assert!(is_package_json_decl(r#""scripts": {"#));
+        // Firebase neighbouring keys stay out of vercel (shared functions object ok).
+        assert!(!is_vercel_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_vercel_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_vercel_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_vercel_json_decl(r#""functions": ["#));
+        assert!(is_firebase_json_decl(r#""functions": ["#));
         // Shared scanner lists vercel keys.
         assert!(line_is_func_like(r#""rewrites": ["#));
         assert!(line_is_func_like(r#""framework": "nextjs""#));
@@ -87138,6 +87254,124 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""functions": {"#));
         assert!(line_is_func_like(r#""crons": ["#));
         assert!(line_is_func_like(r#""buildCommand": "npm run build""#));
+    }
+
+    #[test]
+    fn firebase_json_keys_count() {
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": { // spa"#));
+        assert!(is_firebase_json_decl(r#""hosting": ["#));
+        assert!(is_firebase_json_decl(r#""hosting": [ // multi"#));
+        assert!(is_firebase_json_decl(r#""functions": {"#));
+        assert!(is_firebase_json_decl(r#""functions": { // api"#));
+        assert!(is_firebase_json_decl(r#""functions": ["#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""database": {"#));
+        assert!(is_firebase_json_decl(r#""database": ["#));
+        assert!(is_firebase_json_decl(r#""storage": {"#));
+        assert!(is_firebase_json_decl(r#""storage": ["#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""remoteconfig": {"#));
+        assert!(is_firebase_json_decl(r#""extensions": {"#));
+        assert!(is_firebase_json_decl(r#""flutter": {"#));
+        assert!(is_firebase_json_decl(r#""dataconnect": {"#));
+        assert!(is_firebase_json_decl(r#""apphosting": {"#));
+        assert!(is_firebase_json_decl(r#""apphosting": ["#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {},"#));
+        // Incomplete / wrong shape stay out.
+        assert!(!is_firebase_json_decl(r#""hosting""#));
+        assert!(!is_firebase_json_decl(r#""hosting":"#));
+        assert!(!is_firebase_json_decl(r#"hosting: {"#));
+        assert!(!is_firebase_json_decl(r#""Hosting": {"#));
+        assert!(!is_firebase_json_decl(r#""hosting": "public""#));
+        assert!(!is_firebase_json_decl(r#""hosting": true"#));
+        assert!(!is_firebase_json_decl(r#""firestore": ["#));
+        assert!(!is_firebase_json_decl(r#""emulators": ["#));
+        assert!(!is_firebase_json_decl(r#""remoteconfig": ["#));
+        assert!(!is_firebase_json_decl(r#""extensions": ["#));
+        assert!(!is_firebase_json_decl(r#""flutter": ["#));
+        assert!(!is_firebase_json_decl(r#""dataconnect": ["#));
+        assert!(!is_firebase_json_decl(r#""auth": ["#));
+        // Same-line members are not opening-key lines.
+        assert!(!is_firebase_json_decl(
+            r#""hosting": {"public": "dist", "ignore": ["firebase.json"]},"#
+        ));
+        assert!(!is_firebase_json_decl(
+            r#""functions": [{"source": "functions", "codebase": "default"}],"#
+        ));
+        assert!(!is_firebase_json_decl(
+            r#""$schema": "https://json.schemastore.org/firebase.json""#
+        ));
+        assert!(!is_firebase_json_decl(r#""name": "my-app""#));
+        // Neighbouring families stay out.
+        assert!(!is_firebase_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_firebase_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_firebase_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_firebase_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_firebase_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_firebase_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_firebase_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_firebase_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_firebase_json_decl(r#""images": {"#));
+        assert!(is_vercel_json_decl(r#""images": {"#));
+        assert!(!is_firebase_json_decl(r#""env": {"#));
+        assert!(is_vercel_json_decl(r#""env": {"#));
+        assert!(!is_firebase_json_decl(
+            r#""changelog": "@changesets/cli/changelog""#
+        ));
+        assert!(is_changesets_json_decl(
+            r#""changelog": "@changesets/cli/changelog""#
+        ));
+        assert!(!is_firebase_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_firebase_json_decl(r#""npmClient": "npm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "npm""#));
+        assert!(!is_firebase_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_firebase_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_firebase_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_firebase_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_firebase_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_firebase_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_firebase_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_firebase_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_firebase_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_firebase_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_firebase_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_firebase_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_firebase_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared `"functions": {` matches both firebase and vercel.
+        assert!(is_firebase_json_decl(r#""functions": {"#));
+        assert!(is_vercel_json_decl(r#""functions": {"#));
+        // Shared scanner lists firebase keys.
+        assert!(line_is_func_like(r#""hosting": {"#));
+        assert!(line_is_func_like(r#""hosting": ["#));
+        assert!(line_is_func_like(r#""firestore": {"#));
+        assert!(line_is_func_like(r#""emulators": {"#));
+        assert!(line_is_func_like(r#""functions": ["#));
+        assert!(line_is_func_like(r#""apphosting": {"#));
+        assert!(line_is_func_like(r#""auth": {"#));
     }
 
     #[test]

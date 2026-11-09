@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.716] — 2026-11-09
+
+View:
+
+- **Function List** lists Firebase `firebase.json` JSON keys: `"hosting": {` / `[`, `"functions": {` / `[`, `"firestore": {`, `"database": {` / `[`, `"storage": {` / `[`, `"emulators": {`, `"remoteconfig": {`, `"extensions": {`, `"flutter": {`, `"dataconnect": {`, `"apphosting": {` / `[`, `"auth": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / vercel `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` / `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / PostCSS `"plugins": {` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out. Shared `"functions": {` also matches vercel when shapes match; firebase multi-codebase `"functions": [` stays here (vercel rejects the array form).
+
 ## [0.3.715] — 2026-11-09
 
 View:
