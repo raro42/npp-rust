@@ -1134,3 +1134,5 @@
 009 keep: Function List VS Code launch.json version/configurations/compounds/preLaunchTask/postDebugTask/request/console/internalConsoleOptions/consoleTitle/serverReadyAction/pipeTransport/presentation/runtimeArgs/runtimeExecutable/miDebuggerPath/MIMode (v0.3.729)
 
 009 keep: Function List Renovate renovate.json packageRules/rangeStrategy/dependencyDashboard/rebaseWhen/lockFileMaintenance/vulnerabilityAlerts/enabledManagers (v0.3.732)
+
+009 keep: Function List Jest jest.config.json testEnvironment/testMatch/setupFilesAfterEnv/coverageThreshold/clearMocks (v0.3.737)

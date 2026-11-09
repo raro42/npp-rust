@@ -32404,6 +32404,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_knip_json_decl(s)
             || is_oxlint_json_decl(s)
             || is_cspell_json_decl(s)
+            || is_jest_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32718,6 +32719,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_knip_json_decl(s)
         || is_oxlint_json_decl(s)
         || is_cspell_json_decl(s)
+        || is_jest_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -48298,12 +48300,13 @@ fn oxlint_json_array_key_ok(key: &str) -> bool {
 /// `"version"` / `"enabled"` / `"description"` / `"files"` / `"id"` /
 /// Oxlint `"categories"` / `"jsPlugins"` / Knip `"entry"` /
 /// `"ignoreBinaries"` / Deno `"nodeModulesDir"` / Renovate
-/// `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` /
-/// Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` /
-/// prettier `"printWidth"` / biome `"linter"` / eslint `"parser"` /
-/// package.json `"scripts"` / tsconfig `"compilerOptions"` stay out.
-/// Shared `"overrides": [` / `"ignorePaths": [` also match eslint /
-/// prettier / renovate when shapes match.
+/// `"packageRules"` / Jest `"testEnvironment"` / `"setupFilesAfterEnv"` /
+/// launch `"configurations"` / tasks `"tasks": [` / Dev Container
+/// `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / prettier
+/// `"printWidth"` / biome `"linter"` / eslint `"parser"` / package.json
+/// `"scripts"` / tsconfig `"compilerOptions"` stay out. Shared
+/// `"overrides": [` / `"ignorePaths": [` also match eslint / prettier /
+/// renovate when shapes match.
 fn is_cspell_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -48495,6 +48498,305 @@ fn cspell_json_language_ok(value: &str) -> bool {
                 .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
             && p.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
     })
+}
+
+/// Jest `jest.config.json` / `jest.config.jsonc` JSON keys:
+/// `"testEnvironment": "node"` / `"jsdom"` / `"…"`, `"testMatch": [`,
+/// `"testRegex": "…"` / `[`, `"testPathIgnorePatterns": [`,
+/// `"collectCoverageFrom": [`, `"coverageDirectory": "…"`,
+/// `"coveragePathIgnorePatterns": [`, `"coverageReporters": [`,
+/// `"coverageThreshold": {`, `"coverageProvider": "babel"` / `"v8"`,
+/// `"setupFiles": [`, `"setupFilesAfterEnv": [`, `"globalSetup": "…"`,
+/// `"globalTeardown": "…"`, `"moduleNameMapper": {`,
+/// `"moduleFileExtensions": [`, `"moduleDirectories": [`,
+/// `"modulePaths": [`, `"transform": {`, `"transformIgnorePatterns": [`,
+/// `"unmockedModulePathPatterns": [`, `"roots": [`, `"rootDir": "…"`,
+/// `"preset": "…"`, `"projects": [`, `"reporters": [`,
+/// `"snapshotSerializers": [`, `"snapshotFormat": {`,
+/// `"watchPathIgnorePatterns": [`, `"watchPlugins": [`,
+/// `"clearMocks": true`, `"resetMocks": true`, `"restoreMocks": true`,
+/// `"resetModules": true`, `"automock": true`, `"fakeTimers": {`,
+/// `"testTimeout": 5000`, `"maxWorkers": 4` / `"50%"`,
+/// `"maxConcurrency": 5`, `"detectOpenHandles": true`,
+/// `"forceExit": true`, `"errorOnDeprecated": true`,
+/// `"injectGlobals": true`, `"passWithNoTests": true`,
+/// `"testLocationInResults": true`, `"workerThreads": true`,
+/// `"slowTestThreshold": 5`, `"notifyMode": "failure"`,
+/// `"prettierPath": "…"`, `"testRunner": "…"`, `"testSequencer": "…"`,
+/// `"workerIdleMemoryLimit": "…"`, `"extensionsToTreatAsEsm": [`,
+/// `"haste": {`, `"sandboxInjectedGlobals": [`. Optional trailing `,`
+/// and `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"$schema"` / `"name"` / `"displayName"` / `"verbose"` /
+/// `"silent"` / `"bail"` / `"cache"` / `"globals"` / CSpell `"words"` /
+/// Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` /
+/// Renovate `"packageRules"` / launch `"configurations"` /
+/// tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` /
+/// nx `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` /
+/// eslint `"parser"` / package.json `"scripts"` /
+/// tsconfig `"compilerOptions"` stay out. Shared `"roots": [` /
+/// `"transform": {` / `"preset": "…"` also match neighbouring scanners
+/// when shapes overlap.
+fn is_jest_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !jest_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    jest_json_value_and_tail_ok(key, after_colon)
+}
+
+fn jest_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "testEnvironment"
+            | "testMatch"
+            | "testRegex"
+            | "testPathIgnorePatterns"
+            | "collectCoverageFrom"
+            | "coverageDirectory"
+            | "coveragePathIgnorePatterns"
+            | "coverageReporters"
+            | "coverageThreshold"
+            | "coverageProvider"
+            | "setupFiles"
+            | "setupFilesAfterEnv"
+            | "globalSetup"
+            | "globalTeardown"
+            | "moduleNameMapper"
+            | "moduleFileExtensions"
+            | "moduleDirectories"
+            | "modulePaths"
+            | "transform"
+            | "transformIgnorePatterns"
+            | "unmockedModulePathPatterns"
+            | "roots"
+            | "rootDir"
+            | "preset"
+            | "projects"
+            | "reporters"
+            | "snapshotSerializers"
+            | "snapshotFormat"
+            | "watchPathIgnorePatterns"
+            | "watchPlugins"
+            | "clearMocks"
+            | "resetMocks"
+            | "restoreMocks"
+            | "resetModules"
+            | "automock"
+            | "fakeTimers"
+            | "testTimeout"
+            | "maxWorkers"
+            | "maxConcurrency"
+            | "detectOpenHandles"
+            | "forceExit"
+            | "errorOnDeprecated"
+            | "injectGlobals"
+            | "passWithNoTests"
+            | "testLocationInResults"
+            | "workerThreads"
+            | "slowTestThreshold"
+            | "notifyMode"
+            | "prettierPath"
+            | "testRunner"
+            | "testSequencer"
+            | "workerIdleMemoryLimit"
+            | "extensionsToTreatAsEsm"
+            | "haste"
+            | "sandboxInjectedGlobals"
+    )
+}
+
+fn jest_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !jest_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !jest_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !jest_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !jest_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !jest_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !jest_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn jest_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "coverageThreshold"
+            | "moduleNameMapper"
+            | "transform"
+            | "snapshotFormat"
+            | "fakeTimers"
+            | "haste"
+    )
+}
+
+fn jest_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "testMatch"
+            | "testRegex"
+            | "testPathIgnorePatterns"
+            | "collectCoverageFrom"
+            | "coveragePathIgnorePatterns"
+            | "coverageReporters"
+            | "setupFiles"
+            | "setupFilesAfterEnv"
+            | "moduleFileExtensions"
+            | "moduleDirectories"
+            | "modulePaths"
+            | "transformIgnorePatterns"
+            | "unmockedModulePathPatterns"
+            | "roots"
+            | "projects"
+            | "reporters"
+            | "snapshotSerializers"
+            | "watchPathIgnorePatterns"
+            | "watchPlugins"
+            | "extensionsToTreatAsEsm"
+            | "sandboxInjectedGlobals"
+    )
+}
+
+fn jest_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "testEnvironment"
+            | "testRegex"
+            | "coverageDirectory"
+            | "coverageProvider"
+            | "globalSetup"
+            | "globalTeardown"
+            | "rootDir"
+            | "preset"
+            | "maxWorkers"
+            | "notifyMode"
+            | "prettierPath"
+            | "testRunner"
+            | "testSequencer"
+            | "workerIdleMemoryLimit"
+    )
+}
+
+fn jest_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "clearMocks"
+            | "resetMocks"
+            | "restoreMocks"
+            | "resetModules"
+            | "automock"
+            | "detectOpenHandles"
+            | "forceExit"
+            | "errorOnDeprecated"
+            | "injectGlobals"
+            | "passWithNoTests"
+            | "testLocationInResults"
+            | "workerThreads"
+    )
+}
+
+fn jest_json_number_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "testTimeout" | "maxWorkers" | "maxConcurrency" | "slowTestThreshold"
+    )
+}
+
+fn jest_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "coverageProvider" => matches!(value, "babel" | "v8"),
+        "notifyMode" => matches!(
+            value,
+            "always"
+                | "failure"
+                | "success"
+                | "change"
+                | "successChange"
+                | "failureChange"
+                | "failure-change"
+                | "success-change"
+        ),
+        "testEnvironment"
+        | "testRegex"
+        | "coverageDirectory"
+        | "globalSetup"
+        | "globalTeardown"
+        | "rootDir"
+        | "preset"
+        | "maxWorkers"
+        | "prettierPath"
+        | "testRunner"
+        | "testSequencer"
+        | "workerIdleMemoryLimit" => true,
+        _ => false,
+    }
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -79128,12 +79430,12 @@ mod func_like_line_tests {
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
         is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
         is_importlinter_ini_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl,
-        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_modprobe_conf_decl,
-        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_isort_ini_decl, is_jest_json_decl, is_keepalived_decl, is_knip_json_decl,
+        is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
+        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
+        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
         is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
         is_nx_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
@@ -96316,6 +96618,151 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""minWordLength": 4"#));
         assert!(is_eslint_json_decl(r#""overrides": ["#));
         assert!(is_renovate_json_decl(r#""ignorePaths": ["#));
+    }
+
+    #[test]
+    fn jest_json_keys_count() {
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "jsdom""#));
+        assert!(is_jest_json_decl(
+            r#""testEnvironment": "@jest/environment-jsdom-abstract""#
+        ));
+        assert!(is_jest_json_decl(r#""testMatch": ["#));
+        assert!(is_jest_json_decl(r#""testMatch": [ // patterns"#));
+        assert!(is_jest_json_decl(r#""testRegex": "\\.test\\.ts$""#));
+        assert!(is_jest_json_decl(r#""testRegex": ["#));
+        assert!(is_jest_json_decl(r#""testPathIgnorePatterns": ["#));
+        assert!(is_jest_json_decl(r#""collectCoverageFrom": ["#));
+        assert!(is_jest_json_decl(r#""coverageDirectory": "coverage""#));
+        assert!(is_jest_json_decl(r#""coveragePathIgnorePatterns": ["#));
+        assert!(is_jest_json_decl(r#""coverageReporters": ["#));
+        assert!(is_jest_json_decl(r#""coverageThreshold": {"#));
+        assert!(is_jest_json_decl(r#""coverageProvider": "v8""#));
+        assert!(is_jest_json_decl(r#""coverageProvider": "babel""#));
+        assert!(is_jest_json_decl(r#""setupFiles": ["#));
+        assert!(is_jest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(is_jest_json_decl(r#""globalSetup": "./setup.js""#));
+        assert!(is_jest_json_decl(r#""globalTeardown": "./teardown.js""#));
+        assert!(is_jest_json_decl(r#""moduleNameMapper": {"#));
+        assert!(is_jest_json_decl(r#""moduleFileExtensions": ["#));
+        assert!(is_jest_json_decl(r#""moduleDirectories": ["#));
+        assert!(is_jest_json_decl(r#""modulePaths": ["#));
+        assert!(is_jest_json_decl(r#""transform": {"#));
+        assert!(is_jest_json_decl(r#""transformIgnorePatterns": ["#));
+        assert!(is_jest_json_decl(r#""unmockedModulePathPatterns": ["#));
+        assert!(is_jest_json_decl(r#""roots": ["#));
+        assert!(is_jest_json_decl(r#""rootDir": ".""#));
+        assert!(is_jest_json_decl(r#""preset": "ts-jest""#));
+        assert!(is_jest_json_decl(r#""projects": ["#));
+        assert!(is_jest_json_decl(r#""reporters": ["#));
+        assert!(is_jest_json_decl(r#""snapshotSerializers": ["#));
+        assert!(is_jest_json_decl(r#""snapshotFormat": {"#));
+        assert!(is_jest_json_decl(r#""watchPathIgnorePatterns": ["#));
+        assert!(is_jest_json_decl(r#""watchPlugins": ["#));
+        assert!(is_jest_json_decl(r#""clearMocks": true"#));
+        assert!(is_jest_json_decl(r#""resetMocks": false"#));
+        assert!(is_jest_json_decl(r#""restoreMocks": true"#));
+        assert!(is_jest_json_decl(r#""resetModules": true"#));
+        assert!(is_jest_json_decl(r#""automock": false"#));
+        assert!(is_jest_json_decl(r#""fakeTimers": {"#));
+        assert!(is_jest_json_decl(r#""testTimeout": 5000"#));
+        assert!(is_jest_json_decl(r#""maxWorkers": 4"#));
+        assert!(is_jest_json_decl(r#""maxWorkers": "50%""#));
+        assert!(is_jest_json_decl(r#""maxConcurrency": 5"#));
+        assert!(is_jest_json_decl(r#""detectOpenHandles": true"#));
+        assert!(is_jest_json_decl(r#""forceExit": true"#));
+        assert!(is_jest_json_decl(r#""errorOnDeprecated": true"#));
+        assert!(is_jest_json_decl(r#""injectGlobals": false"#));
+        assert!(is_jest_json_decl(r#""passWithNoTests": true"#));
+        assert!(is_jest_json_decl(r#""testLocationInResults": true"#));
+        assert!(is_jest_json_decl(r#""workerThreads": true"#));
+        assert!(is_jest_json_decl(r#""slowTestThreshold": 5"#));
+        assert!(is_jest_json_decl(r#""notifyMode": "failure""#));
+        assert!(is_jest_json_decl(r#""prettierPath": "prettier""#));
+        assert!(is_jest_json_decl(r#""testRunner": "jest-circus/runner""#));
+        assert!(is_jest_json_decl(
+            r#""testSequencer": "@jest/test-sequencer""#
+        ));
+        assert!(is_jest_json_decl(r#""workerIdleMemoryLimit": "512MB""#));
+        assert!(is_jest_json_decl(r#""extensionsToTreatAsEsm": ["#));
+        assert!(is_jest_json_decl(r#""haste": {"#));
+        assert!(is_jest_json_decl(r#""sandboxInjectedGlobals": ["#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_jest_json_decl(r#""testEnvironment""#));
+        assert!(!is_jest_json_decl(r#""testEnvironment":"#));
+        assert!(!is_jest_json_decl(r#""testEnvironment: "node""#));
+        assert!(!is_jest_json_decl(r#""testMatch": {"#));
+        assert!(!is_jest_json_decl(r#""coverageThreshold": ["#));
+        assert!(!is_jest_json_decl(r#""clearMocks": ["#));
+        assert!(!is_jest_json_decl(r#""testTimeout": true"#));
+        assert!(!is_jest_json_decl(r#""coverageProvider": "istanbul""#));
+        assert!(!is_jest_json_decl(r#""notifyMode": "sometimes""#));
+        assert!(!is_jest_json_decl(r#""testEnvironment": """#));
+        // Generic / neighbouring stay out.
+        assert!(!is_jest_json_decl(
+            r#""$schema": "https://json.schemastore.org/jest""#
+        ));
+        assert!(!is_jest_json_decl(r#""name": "unit""#));
+        assert!(!is_jest_json_decl(r#""displayName": "unit""#));
+        assert!(!is_jest_json_decl(r#""verbose": true"#));
+        assert!(!is_jest_json_decl(r#""silent": true"#));
+        assert!(!is_jest_json_decl(r#""bail": true"#));
+        assert!(!is_jest_json_decl(r#""cache": true"#));
+        assert!(!is_jest_json_decl(r#""globals": {"#));
+        assert!(!is_jest_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_jest_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_jest_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_jest_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_jest_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_jest_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_jest_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_jest_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_jest_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_jest_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_jest_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_jest_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_jest_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_jest_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_jest_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive Jest keys stay out of CSpell / Oxlint / Knip.
+        assert!(!is_cspell_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_cspell_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_cspell_json_decl(r#""coverageProvider": "v8""#));
+        assert!(!is_oxlint_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_oxlint_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_knip_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_knip_json_decl(r#""setupFilesAfterEnv": ["#));
+        // Shared / distinctive shapes list via Jest scanner.
+        assert!(line_is_func_like(r#""testEnvironment": "node""#));
+        assert!(line_is_func_like(r#""testMatch": ["#));
+        assert!(line_is_func_like(r#""setupFilesAfterEnv": ["#));
+        assert!(line_is_func_like(r#""coverageThreshold": {"#));
+        assert!(line_is_func_like(r#""clearMocks": true"#));
+        assert!(line_is_func_like(r#""coverageProvider": "v8""#));
+        assert!(line_is_func_like(r#""preset": "ts-jest""#));
     }
 
     #[test]

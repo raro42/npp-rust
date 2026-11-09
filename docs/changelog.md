@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.737] — 2026-11-09
+
+View:
+
+- **Function List** lists Jest `jest.config.json` / `jest.config.jsonc` JSON keys: `"testEnvironment": "node"` / `"jsdom"` / `"…"`, `"testMatch": [`, `"testRegex": "…"` / `[`, `"testPathIgnorePatterns": [`, `"collectCoverageFrom": [`, `"coverageDirectory": "…"`, `"coveragePathIgnorePatterns": [`, `"coverageReporters": [`, `"coverageThreshold": {`, `"coverageProvider": "babel"` / `"v8"`, `"setupFiles": [`, `"setupFilesAfterEnv": [`, `"globalSetup": "…"`, `"globalTeardown": "…"`, `"moduleNameMapper": {`, `"moduleFileExtensions": [`, `"moduleDirectories": [`, `"modulePaths": [`, `"transform": {`, `"transformIgnorePatterns": [`, `"unmockedModulePathPatterns": [`, `"roots": [`, `"rootDir": "…"`, `"preset": "…"`, `"projects": [`, `"reporters": [`, `"snapshotSerializers": [`, `"snapshotFormat": {`, `"watchPathIgnorePatterns": [`, `"watchPlugins": [`, `"clearMocks": true`, `"resetMocks": true`, `"restoreMocks": true`, `"resetModules": true`, `"automock": true`, `"fakeTimers": {`, `"testTimeout": 5000`, `"maxWorkers": 4` / `"50%"`, `"maxConcurrency": 5`, `"detectOpenHandles": true`, `"forceExit": true`, `"errorOnDeprecated": true`, `"injectGlobals": true`, `"passWithNoTests": true`, `"testLocationInResults": true`, `"workerThreads": true`, `"slowTestThreshold": 5`, `"notifyMode": "failure"`, `"prettierPath": "…"`, `"testRunner": "…"`, `"testSequencer": "…"`, `"workerIdleMemoryLimit": "…"`, `"extensionsToTreatAsEsm": [`, `"haste": {`, `"sandboxInjectedGlobals": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"displayName"` / `"verbose"` / `"silent"` / `"bail"` / `"cache"` / `"globals"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. Shared `"roots": [` / `"transform": {` / `"preset": "…"` also match neighbouring scanners when shapes overlap.
+
 ## [0.3.736] — 2026-11-09
 
 View:
