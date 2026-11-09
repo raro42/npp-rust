@@ -1118,3 +1118,5 @@
 009 keep: Function List Wails wails.json (v0.3.724)
 
 009 keep: Function List Electron Forge forge.config.json packagerConfig/rebuildConfig/makers/publishers/plugins/hooks/buildIdentifier (v0.3.727)
+
+009 keep: Function List VS Code launch.json version/configurations/compounds/preLaunchTask/postDebugTask/request/console/internalConsoleOptions/consoleTitle/serverReadyAction/pipeTransport/presentation/runtimeArgs/runtimeExecutable/miDebuggerPath/MIMode (v0.3.729)
