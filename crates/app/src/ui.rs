@@ -32385,6 +32385,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_vercel_json_decl(s)
             || is_firebase_json_decl(s)
             || is_tauri_json_decl(s)
+            || is_capacitor_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32680,6 +32681,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_vercel_json_decl(s)
         || is_firebase_json_decl(s)
         || is_tauri_json_decl(s)
+        || is_capacitor_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -44655,6 +44657,172 @@ fn tauri_json_identifier_ok(value: &str) -> bool {
         return false;
     }
     value.contains('.')
+}
+
+/// Capacitor `capacitor.config.json` JSON keys:
+/// `"appId": "com.app…"`, `"appName": "…"`, `"webDir": "…"`,
+/// `"backgroundColor": "…"`, `"loggingBehavior": "none"` / `"debug"` /
+/// `"production"`, `"overrideUserAgent": "…"`, `"appendUserAgent": "…"`,
+/// `"androidScheme": "…"`, `"iosScheme": "…"`, `"server": {`,
+/// `"plugins": {`, `"android": {`, `"ios": {`, `"cordova": {`,
+/// `"includePlugins": [`, `"packageClassList": [`,
+/// `"bundledWebRuntime": true`, `"zoomEnabled": true`,
+/// `"handleApplicationNotifications": true`, `"scrollEnabled": true`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// `"app": {` / tauri `"productName"` / `"identifier"` /
+/// `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` / firebase
+/// `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel
+/// `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` /
+/// `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` /
+/// changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` /
+/// lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo
+/// `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` /
+/// `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` /
+/// `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` /
+/// SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` /
+/// prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` /
+/// tsconfig `"compilerOptions"` / package.json `"scripts"` stay out.
+/// Shared `"plugins": {` also matches PostCSS when shapes match.
+fn is_capacitor_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !capacitor_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    capacitor_json_value_and_tail_ok(key, after_colon)
+}
+
+fn capacitor_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "appId"
+            | "appName"
+            | "webDir"
+            | "backgroundColor"
+            | "loggingBehavior"
+            | "overrideUserAgent"
+            | "appendUserAgent"
+            | "androidScheme"
+            | "iosScheme"
+            | "server"
+            | "plugins"
+            | "android"
+            | "ios"
+            | "cordova"
+            | "includePlugins"
+            | "packageClassList"
+            | "bundledWebRuntime"
+            | "zoomEnabled"
+            | "handleApplicationNotifications"
+            | "scrollEnabled"
+    )
+}
+
+fn capacitor_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !capacitor_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !capacitor_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !capacitor_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !capacitor_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !capacitor_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn capacitor_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "server" | "plugins" | "android" | "ios" | "cordova")
+}
+
+fn capacitor_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "includePlugins" | "packageClassList")
+}
+
+fn capacitor_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "appId"
+            | "appName"
+            | "webDir"
+            | "backgroundColor"
+            | "loggingBehavior"
+            | "overrideUserAgent"
+            | "appendUserAgent"
+            | "androidScheme"
+            | "iosScheme"
+    )
+}
+
+fn capacitor_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "bundledWebRuntime" | "zoomEnabled" | "handleApplicationNotifications" | "scrollEnabled"
+    )
+}
+
+fn capacitor_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "appId" => tauri_json_identifier_ok(value),
+        "loggingBehavior" => matches!(value, "none" | "debug" | "production"),
+        "appName" | "webDir" | "backgroundColor" | "overrideUserAgent" | "appendUserAgent"
+        | "androidScheme" | "iosScheme" => true,
+        _ => false,
+    }
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -75272,18 +75440,18 @@ mod func_like_line_tests {
         is_autopep8_ini_decl, is_aws_config_decl, is_babel_json_decl, is_bacon_toml_decl,
         is_bandit_ini_decl, is_binfmt_d_decl, is_biome_json_decl, is_bitbake_decl,
         is_black_ini_decl, is_brewfile_decl, is_bumpversion_ini_decl, is_bunfig_toml_decl,
-        is_cabal_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl,
-        is_cbindgen_toml_decl, is_changesets_json_decl, is_check_manifest_ini_decl,
-        is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl, is_cliff_toml_decl,
-        is_clippy_toml_decl, is_codespell_ini_decl, is_commitizen_ini_decl, is_composer_json_decl,
-        is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl, is_darglint_ini_decl,
-        is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl, is_dhcpd_decl,
-        is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl,
-        is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_editorconfig_decl,
-        is_eslint_json_decl, is_ethers_file_decl, is_fail2ban_conf_decl, is_firebase_json_decl,
-        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl,
-        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_cabal_decl, is_capacitor_json_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
+        is_cargo_toml_decl, is_cbindgen_toml_decl, is_changesets_json_decl,
+        is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl,
+        is_cliff_toml_decl, is_clippy_toml_decl, is_codespell_ini_decl, is_commitizen_ini_decl,
+        is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
+        is_darglint_ini_decl, is_default_grub_decl, is_deny_toml_decl, is_desktop_entry_decl,
+        is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl,
+        is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
+        is_editorconfig_decl, is_eslint_json_decl, is_ethers_file_decl, is_fail2ban_conf_decl,
+        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
+        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
         is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
         is_interrogate_ini_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_keepalived_decl,
         is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
@@ -87771,6 +87939,185 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""windows": ["#));
         assert!(line_is_func_like(r#""bundle": {"#));
         assert!(line_is_func_like(r#""tauri": {"#));
+        // Capacitor neighbouring keys stay out of tauri.
+        assert!(!is_tauri_json_decl(r#""appId": "com.example.app""#));
+        assert!(is_capacitor_json_decl(r#""appId": "com.example.app""#));
+        assert!(!is_tauri_json_decl(r#""appName": "MyApp""#));
+        assert!(is_capacitor_json_decl(r#""appName": "MyApp""#));
+        assert!(!is_tauri_json_decl(r#""webDir": "dist""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "dist""#));
+        assert!(!is_tauri_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(!is_tauri_json_decl(r#""server": {"#));
+        assert!(is_capacitor_json_decl(r#""server": {"#));
+        assert!(!is_tauri_json_decl(r#""cordova": {"#));
+        assert!(is_capacitor_json_decl(r#""cordova": {"#));
+    }
+
+    #[test]
+    fn capacitor_json_keys_count() {
+        assert!(is_capacitor_json_decl(r#""appId": "com.example.app""#));
+        assert!(is_capacitor_json_decl(
+            r#""appId": "com.example.app", // id"#
+        ));
+        assert!(is_capacitor_json_decl(r#""appName": "MyApp""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "dist""#));
+        assert!(is_capacitor_json_decl(r#""webDir": "www""#));
+        assert!(is_capacitor_json_decl(r##""backgroundColor": "#ffffff""##));
+        assert!(is_capacitor_json_decl(r#""loggingBehavior": "none""#));
+        assert!(is_capacitor_json_decl(r#""loggingBehavior": "debug""#));
+        assert!(is_capacitor_json_decl(r#""loggingBehavior": "production""#));
+        assert!(is_capacitor_json_decl(
+            r#""overrideUserAgent": "CapacitorApp""#
+        ));
+        assert!(is_capacitor_json_decl(r#""appendUserAgent": " MyApp""#));
+        assert!(is_capacitor_json_decl(r#""androidScheme": "https""#));
+        assert!(is_capacitor_json_decl(r#""iosScheme": "capacitor""#));
+        assert!(is_capacitor_json_decl(r#""server": {"#));
+        assert!(is_capacitor_json_decl(r#""server": { // local"#));
+        assert!(is_capacitor_json_decl(r#""plugins": {"#));
+        assert!(is_capacitor_json_decl(r#""android": {"#));
+        assert!(is_capacitor_json_decl(r#""ios": {"#));
+        assert!(is_capacitor_json_decl(r#""cordova": {"#));
+        assert!(is_capacitor_json_decl(r#""includePlugins": ["#));
+        assert!(is_capacitor_json_decl(r#""packageClassList": ["#));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": true"#));
+        assert!(is_capacitor_json_decl(r#""bundledWebRuntime": false"#));
+        assert!(is_capacitor_json_decl(r#""zoomEnabled": true"#));
+        assert!(is_capacitor_json_decl(
+            r#""handleApplicationNotifications": true"#
+        ));
+        assert!(is_capacitor_json_decl(r#""scrollEnabled": false"#));
+        assert!(is_capacitor_json_decl(r#""scrollEnabled": false,"#));
+        // Incomplete / wrong shape stay out.
+        assert!(!is_capacitor_json_decl(r#""appId""#));
+        assert!(!is_capacitor_json_decl(r#""appId":"#));
+        assert!(!is_capacitor_json_decl(r#"appId: "com.example.app""#));
+        assert!(!is_capacitor_json_decl(r#""AppId": "com.example.app""#));
+        assert!(!is_capacitor_json_decl(r#""appId": """#));
+        assert!(!is_capacitor_json_decl(r#""appId": {"#));
+        assert!(!is_capacitor_json_decl(r#""appId": ["#));
+        assert!(!is_capacitor_json_decl(r#""appId": true"#));
+        assert!(!is_capacitor_json_decl(r#""appId": "nodots""#));
+        assert!(!is_capacitor_json_decl(r#""appId": "1bad.start""#));
+        assert!(!is_capacitor_json_decl(r#""loggingBehavior": "verbose""#));
+        assert!(!is_capacitor_json_decl(r#""loggingBehavior": true"#));
+        assert!(!is_capacitor_json_decl(r#""webDir": {"#));
+        assert!(!is_capacitor_json_decl(r#""webDir": ["#));
+        assert!(!is_capacitor_json_decl(r#""webDir": true"#));
+        assert!(!is_capacitor_json_decl(r#""bundledWebRuntime": {"#));
+        assert!(!is_capacitor_json_decl(r#""bundledWebRuntime": "true""#));
+        assert!(!is_capacitor_json_decl(r#""server": ["#));
+        assert!(!is_capacitor_json_decl(r#""plugins": ["#));
+        assert!(!is_capacitor_json_decl(r#""android": ["#));
+        assert!(!is_capacitor_json_decl(r#""ios": ["#));
+        assert!(!is_capacitor_json_decl(r#""cordova": ["#));
+        assert!(!is_capacitor_json_decl(r#""includePlugins": {"#));
+        assert!(!is_capacitor_json_decl(r#""packageClassList": {"#));
+        // Same-line members are not opening-key lines.
+        assert!(!is_capacitor_json_decl(
+            r#""server": {"url": "http://localhost:3000", "cleartext": true},"#
+        ));
+        assert!(!is_capacitor_json_decl(
+            r#""plugins": {"SplashScreen": {"launchShowDuration": 0}},"#
+        ));
+        assert!(!is_capacitor_json_decl(
+            r#""$schema": "https://json.schemastore.org/capacitor-config.json""#
+        ));
+        assert!(!is_capacitor_json_decl(r#""name": "my-app""#));
+        assert!(!is_capacitor_json_decl(r#""version": "0.1.0""#));
+        assert!(!is_capacitor_json_decl(r#""app": {"#));
+        // Neighbouring families stay out.
+        assert!(!is_capacitor_json_decl(r#""productName": "App""#));
+        assert!(is_tauri_json_decl(r#""productName": "App""#));
+        assert!(!is_capacitor_json_decl(
+            r#""identifier": "com.example.app""#
+        ));
+        assert!(is_tauri_json_decl(r#""identifier": "com.example.app""#));
+        assert!(!is_capacitor_json_decl(r#""withGlobalTauri": true"#));
+        assert!(is_tauri_json_decl(r#""withGlobalTauri": true"#));
+        assert!(!is_capacitor_json_decl(r#""allowlist": {"#));
+        assert!(is_tauri_json_decl(r#""allowlist": {"#));
+        assert!(!is_capacitor_json_decl(r#""frontendDist": "../dist""#));
+        assert!(is_tauri_json_decl(r#""frontendDist": "../dist""#));
+        assert!(!is_capacitor_json_decl(r#""hosting": {"#));
+        assert!(is_firebase_json_decl(r#""hosting": {"#));
+        assert!(!is_capacitor_json_decl(r#""firestore": {"#));
+        assert!(is_firebase_json_decl(r#""firestore": {"#));
+        assert!(!is_capacitor_json_decl(r#""emulators": {"#));
+        assert!(is_firebase_json_decl(r#""emulators": {"#));
+        assert!(!is_capacitor_json_decl(r#""auth": {"#));
+        assert!(is_firebase_json_decl(r#""auth": {"#));
+        assert!(!is_capacitor_json_decl(r#""rewrites": ["#));
+        assert!(is_vercel_json_decl(r#""rewrites": ["#));
+        assert!(!is_capacitor_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        assert!(!is_capacitor_json_decl(r#""headers": ["#));
+        assert!(is_vercel_json_decl(r#""headers": ["#));
+        assert!(!is_capacitor_json_decl(r#""crons": ["#));
+        assert!(is_vercel_json_decl(r#""crons": ["#));
+        assert!(!is_capacitor_json_decl(r#""framework": "nextjs""#));
+        assert!(is_vercel_json_decl(r#""framework": "nextjs""#));
+        assert!(!is_capacitor_json_decl(
+            r#""buildCommand": "npm run build""#
+        ));
+        assert!(is_vercel_json_decl(r#""buildCommand": "npm run build""#));
+        assert!(!is_capacitor_json_decl(r#""cleanUrls": true"#));
+        assert!(is_vercel_json_decl(r#""cleanUrls": true"#));
+        assert!(!is_capacitor_json_decl(r#""version": 2"#));
+        assert!(is_vercel_json_decl(r#""version": 2"#));
+        assert!(!is_capacitor_json_decl(r#""images": {"#));
+        assert!(is_vercel_json_decl(r#""images": {"#));
+        assert!(!is_capacitor_json_decl(r#""env": {"#));
+        assert!(is_vercel_json_decl(r#""env": {"#));
+        assert!(!is_capacitor_json_decl(
+            r#""changelog": "@changesets/cli/changelog""#
+        ));
+        assert!(is_changesets_json_decl(
+            r#""changelog": "@changesets/cli/changelog""#
+        ));
+        assert!(!is_capacitor_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_capacitor_json_decl(r#""npmClient": "npm""#));
+        assert!(is_lerna_json_decl(r#""npmClient": "npm""#));
+        assert!(!is_capacitor_json_decl(r#""tasks": {"#));
+        assert!(is_turbo_json_decl(r#""tasks": {"#));
+        assert!(!is_capacitor_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_capacitor_json_decl(r#""transformers": {"#));
+        assert!(is_parcel_json_decl(r#""transformers": {"#));
+        assert!(!is_capacitor_json_decl(r#""presets": ["#));
+        assert!(is_babel_json_decl(r#""presets": ["#));
+        assert!(!is_capacitor_json_decl(r#""jsc": {"#));
+        assert!(is_swc_json_decl(r#""jsc": {"#));
+        assert!(!is_capacitor_json_decl(r#""root": true"#));
+        assert!(is_eslint_json_decl(r#""root": true"#));
+        assert!(!is_capacitor_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(!is_capacitor_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_capacitor_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_capacitor_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_capacitor_json_decl(r#""newLineKind": "lf""#));
+        assert!(is_dprint_json_decl(r#""newLineKind": "lf""#));
+        assert!(!is_capacitor_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_capacitor_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared `"plugins": {` matches both capacitor and PostCSS.
+        assert!(is_capacitor_json_decl(r#""plugins": {"#));
+        assert!(is_postcss_json_decl(r#""plugins": {"#));
+        // Shared scanner lists capacitor keys.
+        assert!(line_is_func_like(r#""appId": "com.example.app""#));
+        assert!(line_is_func_like(r#""appName": "MyApp""#));
+        assert!(line_is_func_like(r#""webDir": "dist""#));
+        assert!(line_is_func_like(r#""loggingBehavior": "debug""#));
+        assert!(line_is_func_like(r#""bundledWebRuntime": true"#));
+        assert!(line_is_func_like(r#""server": {"#));
+        assert!(line_is_func_like(r#""cordova": {"#));
+        assert!(line_is_func_like(r#""includePlugins": ["#));
     }
 
     #[test]

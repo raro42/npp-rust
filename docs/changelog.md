@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.718] — 2026-11-09
+
+View:
+
+- **Function List** lists Capacitor `capacitor.config.json` JSON keys: `"appId": "com.app…"`, `"appName": "…"`, `"webDir": "…"`, `"backgroundColor": "…"`, `"loggingBehavior": "none"` / `"debug"` / `"production"`, `"overrideUserAgent": "…"`, `"appendUserAgent": "…"`, `"androidScheme": "…"`, `"iosScheme": "…"`, `"server": {`, `"plugins": {`, `"android": {`, `"ios": {`, `"cordova": {`, `"includePlugins": [`, `"packageClassList": [`, `"bundledWebRuntime": true`, `"zoomEnabled": true`, `"handleApplicationNotifications": true`, `"scrollEnabled": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"app": {` / tauri `"productName"` / `"identifier"` / `"withGlobalTauri"` / `"allowlist"` / `"frontendDist"` / firebase `"hosting"` / `"firestore"` / `"emulators"` / `"auth"` / vercel `"rewrites"` / `"redirects"` / `"headers"` / `"crons"` / `"regions"` / `"framework"` / `"buildCommand"` / `"cleanUrls"` / `"version": 2` / changesets `"baseBranch"` / rush `"rushVersion"` / `"projects"` / lerna `"npmClient"` / `"useWorkspaces"` / `"packages": [` / turbo `"tasks"` / `"pipeline"` / `"globalDependencies"` / `"cacheDir"` / `"envMode"` / nx `"namedInputs"` / `"targetDefaults"` / `"cacheDirectory"` / Parcel `"transformers"` / babel `"presets"` / SWC `"jsc"` / eslint `"root"` / `"rules"` / stylelint `"ignoreFiles"` / prettier `"printWidth"` / biome `"linter"` / dprint `"includes"` / tsconfig `"compilerOptions"` / package.json `"scripts"` stay out. Shared `"plugins": {` also matches PostCSS when shapes match.
+
 ## [0.3.717] — 2026-11-09
 
 View:
