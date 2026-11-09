@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.741] — 2026-11-10
+
+View:
+
+- **Function List** lists Mocha `.mocharc.json` / `.mocharc` JSON keys: `"allowUncaught": true`, `"asyncOnly": true`, `"bail": true`, `"checkLeaks": true`, `"color": true`, `"colours": true`, `"delay": true`, `"diff": true`, `"exit": true`, `"failZero": true`, `"forbidOnly": true`, `"forbidPending": true`, `"fullTrace": true`, `"growl": true`, `"inlineDiffs": true`, `"invert": true`, `"parallel": true`, `"recursive": true`, `"sort": true`, `"watch": true`, `"jobs": 2`, `"retries": 2`, `"slow": 75` / `"75"`, `"timeout": 2000` / `"2s"` / `"500ms"`, `"fgrep": "…"`, `"grep": "…"` / `[`, `"package": "./package.json"`, `"reporter": "spec"`, `"ui": "bdd"` / `"tdd"` / `"qunit"` / `"exports"`, `"config": "…"`, `"opts": "…"`, `"extension": "js"` / `[`, `"file": "…"` / `[`, `"ignore": "…"` / `[`, `"exclude": "…"` / `[`, `"require": "…"` / `[`, `"spec": "…"` / `[`, `"watch-files": "…"` / `[`, `"watch-ignore": "…"` / `[`, `"node-option": "…"` / `[`, `"globals": "…"` / `[`, `"reporter-option": "…"` / `[`, `"reporterOption": "…"` / `[`, `"reporterOptions": {` / `"…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / Jest `"testEnvironment"` / `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright `"testDir"` / `"fullyParallel"` / `"webServer"` / `"preserveOutput"` / Vitest `"pool"` / `"fileParallelism"` / `"hookTimeout"` / Cypress `"baseUrl": "http://…"` / `"specPattern"` / `"chromeWebSecurity"` / `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. Shared `"reporter": "…"` / `"retries": 2` / `"forbidOnly": true` / `"timeout": 2000` also match Playwright / Cypress / Jest when shapes overlap.
+
 ## [0.3.740] — 2026-11-10
 
 View:

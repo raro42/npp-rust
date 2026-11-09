@@ -32408,6 +32408,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_playwright_json_decl(s)
             || is_vitest_json_decl(s)
             || is_cypress_json_decl(s)
+            || is_mocha_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32726,6 +32727,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_playwright_json_decl(s)
         || is_vitest_json_decl(s)
         || is_cypress_json_decl(s)
+        || is_mocha_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -49644,6 +49646,283 @@ fn cypress_json_string_ok(key: &str, value: &str) -> bool {
         | "userAgent"
         | "defaultBrowser"
         | "blockHosts" => true,
+        _ => false,
+    }
+}
+
+/// Mocha `.mocharc.json` / `.mocharc` JSON keys:
+/// `"allowUncaught": true`, `"asyncOnly": true`, `"bail": true`,
+/// `"checkLeaks": true`, `"color": true`, `"colours": true`,
+/// `"delay": true`, `"diff": true`, `"exit": true`, `"failZero": true`,
+/// `"forbidOnly": true`, `"forbidPending": true`, `"fullTrace": true`,
+/// `"growl": true`, `"inlineDiffs": true`, `"invert": true`,
+/// `"parallel": true`, `"recursive": true`, `"sort": true`,
+/// `"watch": true`, `"jobs": 2`, `"retries": 2`, `"slow": 75` / `"75"`,
+/// `"timeout": 2000` / `"2s"`, `"fgrep": "…"`, `"grep": "…"` / `/…/`,
+/// `"package": "./package.json"`, `"reporter": "spec"`, `"ui": "bdd"` /
+/// `"tdd"` / `"qunit"` / `"exports"`, `"config": "…"`, `"opts": "…"`,
+/// `"extension": "js"` / `[`, `"file": "…"` / `[`, `"ignore": "…"` / `[`,
+/// `"exclude": "…"` / `[`, `"require": "…"` / `[`, `"spec": "…"` / `[`,
+/// `"watch-files": "…"` / `[`, `"watch-ignore": "…"` / `[`,
+/// `"node-option": "…"` / `[`, `"globals": "…"` / `[`,
+/// `"reporter-option": "…"` / `[`, `"reporterOption": "…"` / `[`,
+/// `"reporterOptions": {` / `"…"`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic
+/// `"$schema"` / `"name"` / `"version"` / Jest `"testEnvironment"` /
+/// `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright
+/// `"testDir"` / `"fullyParallel"` / `"webServer"` / `"preserveOutput"` /
+/// Vitest `"pool"` / `"fileParallelism"` / `"hookTimeout"` / Cypress
+/// `"baseUrl": "http://…"` / `"specPattern"` / `"chromeWebSecurity"` /
+/// `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` /
+/// Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch
+/// `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
+/// turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` /
+/// biome `"linter"` / eslint `"parser"` / package.json `"scripts"` /
+/// tsconfig `"compilerOptions"` stay out. Shared `"reporter": "…"` /
+/// `"retries": 2` / `"forbidOnly": true` / `"timeout": 2000` also match
+/// Playwright / Cypress / Jest when shapes overlap.
+fn is_mocha_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !mocha_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    mocha_json_value_and_tail_ok(key, after_colon)
+}
+
+fn mocha_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "allowUncaught"
+            | "asyncOnly"
+            | "bail"
+            | "checkLeaks"
+            | "color"
+            | "colours"
+            | "delay"
+            | "diff"
+            | "exit"
+            | "failZero"
+            | "forbidOnly"
+            | "forbidPending"
+            | "fullTrace"
+            | "growl"
+            | "inlineDiffs"
+            | "invert"
+            | "parallel"
+            | "recursive"
+            | "sort"
+            | "watch"
+            | "jobs"
+            | "retries"
+            | "slow"
+            | "timeout"
+            | "fgrep"
+            | "grep"
+            | "package"
+            | "reporter"
+            | "ui"
+            | "config"
+            | "opts"
+            | "extension"
+            | "file"
+            | "ignore"
+            | "exclude"
+            | "require"
+            | "spec"
+            | "watch-files"
+            | "watch-ignore"
+            | "node-option"
+            | "globals"
+            | "reporter-option"
+            | "reporterOption"
+            | "reporterOptions"
+    )
+}
+
+fn mocha_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !mocha_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !mocha_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !mocha_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !mocha_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !mocha_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !mocha_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn mocha_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "reporterOptions")
+}
+
+fn mocha_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "extension"
+            | "file"
+            | "ignore"
+            | "exclude"
+            | "require"
+            | "spec"
+            | "watch-files"
+            | "watch-ignore"
+            | "node-option"
+            | "globals"
+            | "reporter-option"
+            | "reporterOption"
+            | "grep"
+    )
+}
+
+fn mocha_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "fgrep"
+            | "grep"
+            | "package"
+            | "reporter"
+            | "ui"
+            | "config"
+            | "opts"
+            | "extension"
+            | "file"
+            | "ignore"
+            | "exclude"
+            | "require"
+            | "spec"
+            | "watch-files"
+            | "watch-ignore"
+            | "node-option"
+            | "globals"
+            | "reporter-option"
+            | "reporterOption"
+            | "reporterOptions"
+            | "slow"
+            | "timeout"
+    )
+}
+
+fn mocha_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "allowUncaught"
+            | "asyncOnly"
+            | "bail"
+            | "checkLeaks"
+            | "color"
+            | "colours"
+            | "delay"
+            | "diff"
+            | "exit"
+            | "failZero"
+            | "forbidOnly"
+            | "forbidPending"
+            | "fullTrace"
+            | "growl"
+            | "inlineDiffs"
+            | "invert"
+            | "parallel"
+            | "recursive"
+            | "sort"
+            | "watch"
+    )
+}
+
+fn mocha_json_number_key_ok(key: &str) -> bool {
+    matches!(key, "jobs" | "retries" | "slow" | "timeout")
+}
+
+fn mocha_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "ui" => matches!(value, "bdd" | "tdd" | "qunit" | "exports"),
+        "slow" | "timeout" => {
+            // Mocha accepts plain numbers-as-strings ("75", "2000") or
+            // duration suffixes ("2s", "500ms").
+            let bytes = value.as_bytes();
+            if bytes.iter().all(|b| b.is_ascii_digit()) {
+                return !value.is_empty() && value.len() <= 9;
+            }
+            let Some(split) = value.find(|c: char| !c.is_ascii_digit()) else {
+                return false;
+            };
+            if split == 0 {
+                return false;
+            }
+            matches!(&value[split..], "ms" | "s" | "m" | "h")
+        }
+        "fgrep" | "grep" | "package" | "reporter" | "config" | "opts" | "extension" | "file"
+        | "ignore" | "exclude" | "require" | "spec" | "watch-files" | "watch-ignore"
+        | "node-option" | "globals" | "reporter-option" | "reporterOption" | "reporterOptions" => {
+            true
+        }
         _ => false,
     }
 }
@@ -80283,18 +80562,18 @@ mod func_like_line_tests {
         is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
         is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
         is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
-        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl,
-        is_nx_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl,
-        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
-        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
-        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_mocha_json_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
+        is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
+        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
+        is_premake_decl, is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
+        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
+        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
         is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
         is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
         is_refurb_toml_decl, is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl,
@@ -98165,6 +98444,13 @@ mod func_like_line_tests {
             r#""baseUrl": "http://localhost:3000""#
         ));
         assert!(!is_knip_json_decl(r#""baseUrl": "http://localhost:3000""#));
+        // Distinctive Mocha keys stay out of Cypress.
+        assert!(!is_cypress_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_cypress_json_decl(r#""asyncOnly": true"#));
+        assert!(!is_cypress_json_decl(r#""checkLeaks": true"#));
+        assert!(!is_cypress_json_decl(r#""ui": "bdd""#));
+        assert!(!is_cypress_json_decl(r#""watch-files": ["#));
+        assert!(!is_cypress_json_decl(r#""node-option": ["#));
         // Shared / distinctive shapes list via Cypress scanner.
         assert!(line_is_func_like(r#""baseUrl": "http://localhost:3000""#));
         assert!(line_is_func_like(r#""specPattern": ["#));
@@ -98173,6 +98459,200 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""viewportWidth": 1000"#));
         assert!(line_is_func_like(r#""video": true"#));
         assert!(line_is_func_like(r#""testIsolation": true"#));
+    }
+
+    #[test]
+    fn mocha_json_keys_count() {
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""asyncOnly": true"#));
+        assert!(is_mocha_json_decl(r#""bail": true"#));
+        assert!(is_mocha_json_decl(r#""checkLeaks": true"#));
+        assert!(is_mocha_json_decl(r#""color": true"#));
+        assert!(is_mocha_json_decl(r#""colours": false"#));
+        assert!(is_mocha_json_decl(r#""delay": true"#));
+        assert!(is_mocha_json_decl(r#""diff": true"#));
+        assert!(is_mocha_json_decl(r#""exit": true"#));
+        assert!(is_mocha_json_decl(r#""failZero": true"#));
+        assert!(is_mocha_json_decl(r#""forbidOnly": true"#));
+        assert!(is_mocha_json_decl(r#""forbidPending": true"#));
+        assert!(is_mocha_json_decl(r#""fullTrace": true"#));
+        assert!(is_mocha_json_decl(r#""growl": true"#));
+        assert!(is_mocha_json_decl(r#""inlineDiffs": true"#));
+        assert!(is_mocha_json_decl(r#""invert": true"#));
+        assert!(is_mocha_json_decl(r#""parallel": true"#));
+        assert!(is_mocha_json_decl(r#""recursive": true"#));
+        assert!(is_mocha_json_decl(r#""sort": true"#));
+        assert!(is_mocha_json_decl(r#""watch": true"#));
+        assert!(is_mocha_json_decl(r#""jobs": 2"#));
+        assert!(is_mocha_json_decl(r#""retries": 2"#));
+        assert!(is_mocha_json_decl(r#""slow": 75"#));
+        assert!(is_mocha_json_decl(r#""slow": "75""#));
+        assert!(is_mocha_json_decl(r#""timeout": 2000"#));
+        assert!(is_mocha_json_decl(r#""timeout": "2s""#));
+        assert!(is_mocha_json_decl(r#""timeout": "500ms""#));
+        assert!(is_mocha_json_decl(r#""fgrep": "slow""#));
+        assert!(is_mocha_json_decl(r#""grep": "api""#));
+        assert!(is_mocha_json_decl(r#""grep": ["#));
+        assert!(is_mocha_json_decl(r#""package": "./package.json""#));
+        assert!(is_mocha_json_decl(r#""reporter": "spec""#));
+        assert!(is_mocha_json_decl(r#""ui": "bdd""#));
+        assert!(is_mocha_json_decl(r#""ui": "tdd""#));
+        assert!(is_mocha_json_decl(r#""ui": "qunit""#));
+        assert!(is_mocha_json_decl(r#""ui": "exports""#));
+        assert!(is_mocha_json_decl(r#""config": ".mocharc.json""#));
+        assert!(is_mocha_json_decl(r#""opts": "./test/mocha.opts""#));
+        assert!(is_mocha_json_decl(r#""extension": "js""#));
+        assert!(is_mocha_json_decl(r#""extension": ["#));
+        assert!(is_mocha_json_decl(r#""file": "test/setup.js""#));
+        assert!(is_mocha_json_decl(r#""file": ["#));
+        assert!(is_mocha_json_decl(r#""ignore": "test/skip/**""#));
+        assert!(is_mocha_json_decl(r#""ignore": ["#));
+        assert!(is_mocha_json_decl(r#""exclude": "test/legacy/**""#));
+        assert!(is_mocha_json_decl(r#""exclude": ["#));
+        assert!(is_mocha_json_decl(r#""require": "ts-node/register""#));
+        assert!(is_mocha_json_decl(r#""require": ["#));
+        assert!(is_mocha_json_decl(r#""spec": "test/**/*.js""#));
+        assert!(is_mocha_json_decl(r#""spec": ["#));
+        assert!(is_mocha_json_decl(r#""watch-files": "lib/**/*.js""#));
+        assert!(is_mocha_json_decl(r#""watch-files": ["#));
+        assert!(is_mocha_json_decl(r#""watch-ignore": "lib/vendor""#));
+        assert!(is_mocha_json_decl(r#""watch-ignore": ["#));
+        assert!(is_mocha_json_decl(r#""node-option": "loader=ts-node/esm""#));
+        assert!(is_mocha_json_decl(r#""node-option": ["#));
+        assert!(is_mocha_json_decl(r#""globals": "jQuery""#));
+        assert!(is_mocha_json_decl(r#""globals": ["#));
+        assert!(is_mocha_json_decl(
+            r#""reporter-option": "output=report.xml""#
+        ));
+        assert!(is_mocha_json_decl(r#""reporter-option": ["#));
+        assert!(is_mocha_json_decl(
+            r#""reporterOption": "output=report.xml""#
+        ));
+        assert!(is_mocha_json_decl(r#""reporterOption": ["#));
+        assert!(is_mocha_json_decl(r#""reporterOptions": {"#));
+        assert!(is_mocha_json_decl(
+            r#""reporterOptions": "output=report.xml""#
+        ));
+        assert!(is_mocha_json_decl(r#""bail": true, // stop early"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_mocha_json_decl(r#""allowUncaught""#));
+        assert!(!is_mocha_json_decl(r#""allowUncaught":"#));
+        assert!(!is_mocha_json_decl(r#""allowUncaught: true"#));
+        assert!(!is_mocha_json_decl(r#""ui": "custom""#));
+        assert!(!is_mocha_json_decl(r#""ui": ["#));
+        assert!(!is_mocha_json_decl(r#""allowUncaught": ["#));
+        assert!(!is_mocha_json_decl(r#""jobs": true"#));
+        assert!(!is_mocha_json_decl(r#""timeout": "2sec""#));
+        assert!(!is_mocha_json_decl(r#""timeout": "s2""#));
+        assert!(!is_mocha_json_decl(r#""reporterOptions": ["#));
+        assert!(!is_mocha_json_decl(r#""watch-files": true"#));
+        assert!(!is_mocha_json_decl(r#""ui": """#));
+        // Generic / neighbouring stay out.
+        assert!(!is_mocha_json_decl(
+            r#""$schema": "https://json.schemastore.org/mocharc""#
+        ));
+        assert!(!is_mocha_json_decl(r#""name": "unit""#));
+        assert!(!is_mocha_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_mocha_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_mocha_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(is_jest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_mocha_json_decl(r#""coverageProvider": "v8""#));
+        assert!(is_jest_json_decl(r#""coverageProvider": "v8""#));
+        assert!(!is_mocha_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_mocha_json_decl(r#""fullyParallel": true"#));
+        assert!(is_playwright_json_decl(r#""fullyParallel": true"#));
+        assert!(!is_mocha_json_decl(r#""webServer": {"#));
+        assert!(is_playwright_json_decl(r#""webServer": {"#));
+        assert!(!is_mocha_json_decl(r#""preserveOutput": "always""#));
+        assert!(is_playwright_json_decl(r#""preserveOutput": "always""#));
+        assert!(!is_mocha_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_mocha_json_decl(r#""fileParallelism": true"#));
+        assert!(is_vitest_json_decl(r#""fileParallelism": true"#));
+        assert!(!is_mocha_json_decl(r#""hookTimeout": 10000"#));
+        assert!(is_vitest_json_decl(r#""hookTimeout": 10000"#));
+        assert!(!is_mocha_json_decl(r#""baseUrl": "http://localhost:3000""#));
+        assert!(is_cypress_json_decl(
+            r#""baseUrl": "http://localhost:3000""#
+        ));
+        assert!(!is_mocha_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(is_cypress_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(!is_mocha_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(is_cypress_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(!is_mocha_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_mocha_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_mocha_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_mocha_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_mocha_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_mocha_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_mocha_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_mocha_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_mocha_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_mocha_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_mocha_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_mocha_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_mocha_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_mocha_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_mocha_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_mocha_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive Mocha keys stay out of Jest / Playwright / Vitest / Cypress.
+        assert!(!is_jest_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_jest_json_decl(r#""ui": "bdd""#));
+        assert!(!is_jest_json_decl(r#""watch-files": ["#));
+        assert!(!is_jest_json_decl(r#""node-option": ["#));
+        assert!(!is_jest_json_decl(r#""checkLeaks": true"#));
+        assert!(!is_playwright_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_playwright_json_decl(r#""ui": "bdd""#));
+        assert!(!is_playwright_json_decl(r#""watch-files": ["#));
+        assert!(!is_playwright_json_decl(r#""asyncOnly": true"#));
+        assert!(!is_vitest_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_vitest_json_decl(r#""ui": "bdd""#));
+        assert!(!is_vitest_json_decl(r#""watch-files": ["#));
+        assert!(!is_vitest_json_decl(r#""growl": true"#));
+        assert!(!is_cypress_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_cypress_json_decl(r#""ui": "bdd""#));
+        assert!(!is_cypress_json_decl(r#""watch-files": ["#));
+        assert!(!is_cspell_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_oxlint_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_knip_json_decl(r#""allowUncaught": true"#));
+        // Shared / distinctive shapes list via Mocha scanner.
+        assert!(line_is_func_like(r#""allowUncaught": true"#));
+        assert!(line_is_func_like(r#""ui": "bdd""#));
+        assert!(line_is_func_like(r#""watch-files": ["#));
+        assert!(line_is_func_like(r#""node-option": ["#));
+        assert!(line_is_func_like(r#""checkLeaks": true"#));
+        assert!(line_is_func_like(r#""timeout": "2s""#));
+        assert!(line_is_func_like(r#""extension": ["#));
     }
 
     #[test]
