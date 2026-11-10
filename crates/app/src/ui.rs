@@ -32429,6 +32429,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_simple_git_hooks_json_decl(s)
             || is_release_please_json_decl(s)
             || is_versionrc_json_decl(s)
+            || is_syncpack_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32768,6 +32769,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_simple_git_hooks_json_decl(s)
         || is_release_please_json_decl(s)
         || is_versionrc_json_decl(s)
+        || is_syncpack_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -54101,10 +54103,12 @@ fn release_please_json_string_ok(key: &str, value: &str) -> bool {
 /// `"repositoryUrl"` / `"tagFormat"` / release-it
 /// `"requireCleanWorkingDir"` / `"hooks": {` / `"plugins": {` /
 /// commitlint `"parserPreset"` / `"defaultIgnores"` / prettier
-/// `"printWidth"` / package.json `"bin"` / tsconfig `"compilerOptions"`
-/// stay out. versionrc `"scripts": {` also matches package.json when
-/// shapes overlap; `"preset": "…"` / `"releaseAs": "…"` also match
-/// semantic-release / release-please when shapes overlap.
+/// `"printWidth"` / package.json `"bin"` / tsconfig `"compilerOptions"` /
+/// syncpack `"semverGroups"` / `"versionGroups"` / `"sortAz"` /
+/// `"sortFirst"` / `"sourceMode"` stay out. versionrc `"scripts": {` also
+/// matches package.json when shapes overlap; `"preset": "…"` /
+/// `"releaseAs": "…"` also match semantic-release / release-please when
+/// shapes overlap.
 fn is_versionrc_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -54283,6 +54287,176 @@ fn versionrc_json_string_ok(key: &str, value: &str) -> bool {
         | "userUrlFormat"
         | "releaseCommitMessageFormat"
         | "changelogHeaderPattern" => value.bytes().all(|b| b.is_ascii() && !b.is_ascii_control()),
+        _ => false,
+    }
+}
+
+/// syncpack `.syncpackrc` / `.syncpackrc.json` JSON keys:
+/// `"semverGroups": [`, `"versionGroups": [`, `"dependencyGroups": [`,
+/// `"customTypes": {`, `"sortAz": [`, `"sortFirst": [`, `"sortExports": [`,
+/// `"source": [`, `"indent": "  "`, `"sourceMode": "replace"` / `"extend"`,
+/// `"sortPackages": true`, `"strict": true`, `"formatBugs": true`,
+/// `"formatRepository": true`, `"maxConcurrentRequests": 12`,
+/// `"minimumReleaseAge": 1440`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"`
+/// / `"name"` / `"version"` / versionrc `"bumpFiles"` / `"packageFiles"` /
+/// `"infile"` / release-please `"packages": {` / `"bootstrap-sha"` /
+/// `"release-type"` / simple-git-hooks `"pre-commit"` / `"preserveUnused"` /
+/// lint-staged `"chunkSize"` / `"hidePartiallyStaged"` / semantic-release
+/// `"repositoryUrl"` / `"tagFormat"` / release-it `"requireCleanWorkingDir"` /
+/// `"hooks": {` / `"plugins": {` / commitlint `"parserPreset"` /
+/// `"defaultIgnores"` / prettier `"printWidth"` / package.json `"bin"` /
+/// tsconfig `"compilerOptions"` stay out. syncpack `"strict": true` also
+/// matches tsconfig when shapes overlap.
+fn is_syncpack_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !syncpack_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    syncpack_json_value_and_tail_ok(key, after_colon)
+}
+
+fn syncpack_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "semverGroups"
+            | "versionGroups"
+            | "dependencyGroups"
+            | "customTypes"
+            | "sortAz"
+            | "sortFirst"
+            | "sortExports"
+            | "source"
+            | "indent"
+            | "sourceMode"
+            | "sortPackages"
+            | "strict"
+            | "formatBugs"
+            | "formatRepository"
+            | "maxConcurrentRequests"
+            | "minimumReleaseAge"
+    )
+}
+
+fn syncpack_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !syncpack_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !syncpack_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !syncpack_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !syncpack_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !syncpack_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !syncpack_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 8 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn syncpack_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "customTypes")
+}
+
+fn syncpack_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "semverGroups"
+            | "versionGroups"
+            | "dependencyGroups"
+            | "sortAz"
+            | "sortFirst"
+            | "sortExports"
+            | "source"
+    )
+}
+
+fn syncpack_json_string_key_ok(key: &str) -> bool {
+    matches!(key, "indent" | "sourceMode")
+}
+
+fn syncpack_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "sortPackages" | "strict" | "formatBugs" | "formatRepository"
+    )
+}
+
+fn syncpack_json_number_key_ok(key: &str) -> bool {
+    matches!(key, "maxConcurrentRequests" | "minimumReleaseAge")
+}
+
+fn syncpack_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "indent" => {
+            !value.is_empty()
+                && value.len() <= 16
+                && value
+                    .bytes()
+                    .all(|b| matches!(b, b' ' | b'\t' | b'\\' | b't' | b'n'))
+        }
+        "sourceMode" => matches!(value, "replace" | "extend"),
         _ => false,
     }
 }
@@ -84948,14 +85122,14 @@ mod func_like_line_tests {
         is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl,
         is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl, is_stryker_json_decl,
         is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_tap_json_decl,
-        is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl, is_testcafe_json_decl,
-        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl,
-        is_versioneer_ini_decl, is_versionrc_json_decl, is_vitest_json_decl,
+        is_supervisord_conf_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl,
+        is_testcafe_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
+        is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl, is_vitest_json_decl,
         is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
         is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
         is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
@@ -107958,6 +108132,172 @@ mod func_like_line_tests {
         ));
         assert!(line_is_func_like(r#""releaseCount": 0"#));
         assert!(line_is_func_like(r#""lernaPackage": "pkg-a""#));
+    }
+
+    #[test]
+    fn syncpack_json_keys_smoke() {
+        assert!(is_syncpack_json_decl(r#""semverGroups": ["#));
+        assert!(is_syncpack_json_decl(r#""versionGroups": ["#));
+        assert!(is_syncpack_json_decl(r#""dependencyGroups": ["#));
+        assert!(is_syncpack_json_decl(r#""customTypes": {"#));
+        assert!(is_syncpack_json_decl(r#""sortAz": ["#));
+        assert!(is_syncpack_json_decl(r#""sortFirst": ["#));
+        assert!(is_syncpack_json_decl(r#""sortExports": ["#));
+        assert!(is_syncpack_json_decl(r#""source": ["#));
+        assert!(is_syncpack_json_decl(r#""indent": "  ""#));
+        assert!(is_syncpack_json_decl(r#""sourceMode": "replace""#));
+        assert!(is_syncpack_json_decl(r#""sourceMode": "extend""#));
+        assert!(is_syncpack_json_decl(r#""sortPackages": true"#));
+        assert!(is_syncpack_json_decl(r#""strict": true"#));
+        assert!(is_syncpack_json_decl(r#""formatBugs": true"#));
+        assert!(is_syncpack_json_decl(r#""formatRepository": false"#));
+        assert!(is_syncpack_json_decl(r#""maxConcurrentRequests": 12"#));
+        assert!(is_syncpack_json_decl(r#""minimumReleaseAge": 1440"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_versionrc_json_decl(r#""semverGroups": ["#));
+        assert!(!is_release_please_json_decl(r#""semverGroups": ["#));
+        assert!(!is_simple_git_hooks_json_decl(r#""semverGroups": ["#));
+        assert!(!is_lint_staged_json_decl(r#""semverGroups": ["#));
+        assert!(!is_semantic_release_json_decl(r#""semverGroups": ["#));
+        assert!(!is_release_it_json_decl(r#""semverGroups": ["#));
+        assert!(!is_package_json_decl(r#""semverGroups": ["#));
+    }
+
+    #[test]
+    fn syncpack_json_keys_count() {
+        assert!(is_syncpack_json_decl(r#""semverGroups": ["#));
+        assert!(is_syncpack_json_decl(r#""semverGroups": [,"#));
+        assert!(is_syncpack_json_decl(r#""semverGroups": [ // groups"#));
+        assert!(!is_syncpack_json_decl(r#""semverGroups": {"#));
+        assert!(!is_syncpack_json_decl(r#""semverGroups": "prod""#));
+        assert!(!is_syncpack_json_decl(r#""semverGroups": true"#));
+        assert!(is_syncpack_json_decl(r#""versionGroups": ["#));
+        assert!(!is_syncpack_json_decl(r#""versionGroups": {"#));
+        assert!(is_syncpack_json_decl(r#""dependencyGroups": ["#));
+        assert!(!is_syncpack_json_decl(r#""dependencyGroups": {"#));
+        assert!(is_syncpack_json_decl(r#""customTypes": {"#));
+        assert!(is_syncpack_json_decl(r#""customTypes": {,"#));
+        assert!(is_syncpack_json_decl(r#""customTypes": { // types"#));
+        assert!(!is_syncpack_json_decl(r#""customTypes": ["#));
+        assert!(!is_syncpack_json_decl(r#""customTypes": true"#));
+        assert!(is_syncpack_json_decl(r#""sortAz": ["#));
+        assert!(!is_syncpack_json_decl(r#""sortAz": {"#));
+        assert!(is_syncpack_json_decl(r#""sortFirst": ["#));
+        assert!(!is_syncpack_json_decl(r#""sortFirst": {"#));
+        assert!(is_syncpack_json_decl(r#""sortExports": ["#));
+        assert!(!is_syncpack_json_decl(r#""sortExports": {"#));
+        assert!(is_syncpack_json_decl(r#""source": ["#));
+        assert!(!is_syncpack_json_decl(r#""source": {"#));
+        assert!(!is_syncpack_json_decl(r#""source": "package.json""#));
+        assert!(is_syncpack_json_decl(r#""indent": "  ""#));
+        assert!(is_syncpack_json_decl(r#""indent": "  ","#));
+        assert!(is_syncpack_json_decl(r#""indent": "\t""#));
+        assert!(is_syncpack_json_decl(r#""indent": "  " // spaces"#));
+        assert!(!is_syncpack_json_decl(r#""indent": true"#));
+        assert!(!is_syncpack_json_decl(r#""indent": ["#));
+        assert!(!is_syncpack_json_decl(r#""indent": {"#));
+        assert!(!is_syncpack_json_decl(r#""indent": 2"#));
+        assert!(!is_syncpack_json_decl(r#""indent": """#));
+        assert!(is_syncpack_json_decl(r#""sourceMode": "replace""#));
+        assert!(is_syncpack_json_decl(r#""sourceMode": "extend""#));
+        assert!(is_syncpack_json_decl(r#""sourceMode": "extend","#));
+        assert!(!is_syncpack_json_decl(r#""sourceMode": "append""#));
+        assert!(!is_syncpack_json_decl(r#""sourceMode": true"#));
+        assert!(!is_syncpack_json_decl(r#""sourceMode": ["#));
+        assert!(is_syncpack_json_decl(r#""sortPackages": true"#));
+        assert!(is_syncpack_json_decl(r#""sortPackages": false,"#));
+        assert!(!is_syncpack_json_decl(r#""sortPackages": "true""#));
+        assert!(!is_syncpack_json_decl(r#""sortPackages": 1"#));
+        assert!(is_syncpack_json_decl(r#""strict": true"#));
+        assert!(is_syncpack_json_decl(r#""strict": false"#));
+        assert!(!is_syncpack_json_decl(r#""strict": "true""#));
+        assert!(is_syncpack_json_decl(r#""formatBugs": true"#));
+        assert!(!is_syncpack_json_decl(r#""formatBugs": ["#));
+        assert!(is_syncpack_json_decl(r#""formatRepository": false"#));
+        assert!(!is_syncpack_json_decl(r#""formatRepository": {"#));
+        assert!(is_syncpack_json_decl(r#""maxConcurrentRequests": 12"#));
+        assert!(is_syncpack_json_decl(r#""maxConcurrentRequests": 1,"#));
+        assert!(!is_syncpack_json_decl(r#""maxConcurrentRequests": true"#));
+        assert!(!is_syncpack_json_decl(r#""maxConcurrentRequests": "12""#));
+        assert!(is_syncpack_json_decl(r#""minimumReleaseAge": 1440"#));
+        assert!(is_syncpack_json_decl(r#""minimumReleaseAge": 0"#));
+        assert!(!is_syncpack_json_decl(r#""minimumReleaseAge": true"#));
+        assert!(!is_syncpack_json_decl(r#""minimumReleaseAge": "1440""#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_syncpack_json_decl(r#""semverGroups""#));
+        assert!(!is_syncpack_json_decl(r#""semverGroups":"#));
+        assert!(!is_syncpack_json_decl(r#""indent""#));
+        assert!(!is_syncpack_json_decl(r#""strict""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_syncpack_json_decl(
+            r#""$schema": "./node_modules/syncpack/schema.json""#
+        ));
+        assert!(!is_syncpack_json_decl(r#""name": "syncpack""#));
+        assert!(!is_syncpack_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_syncpack_json_decl(r#""bumpFiles": ["#));
+        assert!(is_versionrc_json_decl(r#""bumpFiles": ["#));
+        assert!(!is_syncpack_json_decl(r#""packageFiles": ["#));
+        assert!(is_versionrc_json_decl(r#""packageFiles": ["#));
+        assert!(!is_syncpack_json_decl(r#""infile": "CHANGELOG.md""#));
+        assert!(is_versionrc_json_decl(r#""infile": "CHANGELOG.md""#));
+        assert!(!is_syncpack_json_decl(r#""packages": {"#));
+        assert!(is_release_please_json_decl(r#""packages": {"#));
+        assert!(!is_syncpack_json_decl(r#""bootstrap-sha": "abc1234""#));
+        assert!(is_release_please_json_decl(r#""bootstrap-sha": "abc1234""#));
+        assert!(!is_syncpack_json_decl(r#""release-type": "node""#));
+        assert!(is_release_please_json_decl(r#""release-type": "node""#));
+        assert!(!is_syncpack_json_decl(r#""pre-commit": "npx lint-staged""#));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""pre-commit": "npx lint-staged""#
+        ));
+        assert!(!is_syncpack_json_decl(r#""preserveUnused": true"#));
+        assert!(is_simple_git_hooks_json_decl(r#""preserveUnused": true"#));
+        assert!(!is_syncpack_json_decl(r#""chunkSize": 10"#));
+        assert!(is_lint_staged_json_decl(r#""chunkSize": 10"#));
+        assert!(!is_syncpack_json_decl(r#""hidePartiallyStaged": true"#));
+        assert!(is_lint_staged_json_decl(r#""hidePartiallyStaged": true"#));
+        assert!(!is_syncpack_json_decl(
+            r#""repositoryUrl": "https://github.com/owner/repo.git""#
+        ));
+        assert!(is_semantic_release_json_decl(
+            r#""repositoryUrl": "https://github.com/owner/repo.git""#
+        ));
+        assert!(!is_syncpack_json_decl(r#""tagFormat": "v${version}""#));
+        assert!(is_semantic_release_json_decl(
+            r#""tagFormat": "v${version}""#
+        ));
+        assert!(!is_syncpack_json_decl(r#""requireCleanWorkingDir": true"#));
+        assert!(is_release_it_json_decl(r#""requireCleanWorkingDir": true"#));
+        assert!(!is_syncpack_json_decl(r#""hooks": {"#));
+        assert!(is_release_it_json_decl(r#""hooks": {"#));
+        assert!(!is_syncpack_json_decl(r#""plugins": {"#));
+        assert!(is_release_it_json_decl(r#""plugins": {"#));
+        assert!(!is_syncpack_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(is_commitlint_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(!is_syncpack_json_decl(r#""defaultIgnores": true"#));
+        assert!(is_commitlint_json_decl(r#""defaultIgnores": true"#));
+        assert!(!is_syncpack_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_syncpack_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_syncpack_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""semverGroups": ["#));
+        assert!(line_is_func_like(r#""versionGroups": ["#));
+        assert!(line_is_func_like(r#""dependencyGroups": ["#));
+        assert!(line_is_func_like(r#""customTypes": {"#));
+        assert!(line_is_func_like(r#""sortAz": ["#));
+        assert!(line_is_func_like(r#""sortFirst": ["#));
+        assert!(line_is_func_like(r#""sourceMode": "extend""#));
+        assert!(line_is_func_like(r#""sortPackages": true"#));
+        assert!(line_is_func_like(r#""formatBugs": true"#));
+        assert!(line_is_func_like(r#""maxConcurrentRequests": 12"#));
+        assert!(line_is_func_like(r#""minimumReleaseAge": 1440"#));
     }
 
     #[test]

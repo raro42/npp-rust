@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.762] — 2026-11-10
+
+View:
+
+- **Function List** lists syncpack `.syncpackrc` / `.syncpackrc.json` JSON keys: `"semverGroups": [`, `"versionGroups": [`, `"dependencyGroups": [`, `"customTypes": {`, `"sortAz": [`, `"sortFirst": [`, `"sortExports": [`, `"source": [`, `"indent": "  "`, `"sourceMode": "replace"` / `"extend"`, `"sortPackages": true`, `"strict": true`, `"formatBugs": true`, `"formatRepository": true`, `"maxConcurrentRequests": 12`, `"minimumReleaseAge": 1440`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / versionrc `"bumpFiles"` / `"packageFiles"` / `"infile"` / release-please `"packages": {` / `"bootstrap-sha"` / `"release-type"` / simple-git-hooks `"pre-commit"` / `"preserveUnused"` / lint-staged `"chunkSize"` / `"hidePartiallyStaged"` / semantic-release `"repositoryUrl"` / `"tagFormat"` / release-it `"requireCleanWorkingDir"` / `"hooks": {` / `"plugins": {` / commitlint `"parserPreset"` / `"defaultIgnores"` / prettier `"printWidth"` / package.json `"bin"` / tsconfig `"compilerOptions"` stay out. syncpack `"strict": true` also matches tsconfig when shapes overlap.
+
 ## [0.3.761] — 2026-11-10
 
 View:
