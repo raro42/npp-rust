@@ -32424,6 +32424,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_tap_json_decl(s)
             || is_commitlint_json_decl(s)
             || is_release_it_json_decl(s)
+            || is_semantic_release_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32758,6 +32759,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_tap_json_decl(s)
         || is_commitlint_json_decl(s)
         || is_release_it_json_decl(s)
+        || is_semantic_release_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -53288,6 +53290,166 @@ fn release_it_json_string_ok(key: &str, value: &str) -> bool {
         }
         "increment" => {
             matches!(value, "major" | "minor" | "patch") || value.starts_with("conventional:")
+        }
+        _ => false,
+    }
+}
+
+/// semantic-release `.releaserc` / `.releaserc.json` / `package.json`
+/// `"release"` JSON keys: `"repositoryUrl": "…"`,
+/// `"tagFormat": "v${version}"` (must contain `${version}`),
+/// `"branches": "…"` / `[`, `"plugins": [`, `"extends": "…"` / `[`,
+/// `"preset": "…"`, `"presetConfig": {`, `"ci": true`, `"dryRun": true`,
+/// `"debug": true`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / release-it `"requireCleanWorkingDir"` /
+/// `"preReleaseId"` / `"increment"` / `"hooks": {` / `"plugins": {` /
+/// `"git": {` / `"npm": {` / `"github": {` / `"gitlab": {` / commitlint
+/// `"parserPreset"` / `"defaultIgnores"` / `"helpUrl"` / `"prompt"` /
+/// biome `"formatter": {` / eslint `"parser"` / `"env"` /
+/// `"languageOptions"` / prettier `"printWidth"` / stylelint
+/// `"ignoreFiles"` / node-tap `"coverage-map"` / `"allow-empty-coverage"` /
+/// c8 `"src"` / nyc `"temp-dir"` / `"branches": 80` / Cucumber
+/// `"requireModule"` / Stryker `"mutate"` / Detox `"apps"` / Codecept
+/// `"helpers": {` / WDIO `"waitforTimeout"` / TestCafe `"selectorTimeout"` /
+/// Karma `"frameworks"` / Nightwatch `"src_folders"` / Jasmine
+/// `"spec_dir"` / AVA `"failFast"` / Mocha `"allowUncaught"` / Jest
+/// `"testEnvironment"` / Playwright `"testDir"` / Vitest `"pool"` /
+/// Cypress `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip
+/// `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` /
+/// launch `"configurations"` / tasks `"tasks": [` / Dev Container
+/// `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / package.json
+/// `"scripts"` / tsconfig `"compilerOptions"` stay out. semantic-release
+/// `"plugins": [` / `"branches": [` / `"branches": "…"`; release-it
+/// `"plugins": {`; nyc / c8 / tap `"branches": 80` stay on those
+/// scanners. Shared `"extends"` / `"plugins": [` / `"ci"` / `"dryRun"` /
+/// `"debug"` also match neighbouring scanners when shapes overlap.
+fn is_semantic_release_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !semantic_release_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    semantic_release_json_value_and_tail_ok(key, after_colon)
+}
+
+fn semantic_release_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "repositoryUrl"
+            | "tagFormat"
+            | "branches"
+            | "plugins"
+            | "extends"
+            | "preset"
+            | "presetConfig"
+            | "ci"
+            | "dryRun"
+            | "debug"
+    )
+}
+
+fn semantic_release_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if !semantic_release_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'{' => {
+            if !semantic_release_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !semantic_release_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !semantic_release_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !semantic_release_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn semantic_release_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "branches" | "plugins" | "extends")
+}
+
+fn semantic_release_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "presetConfig")
+}
+
+fn semantic_release_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "repositoryUrl" | "tagFormat" | "branches" | "extends" | "preset"
+    )
+}
+
+fn semantic_release_json_bool_key_ok(key: &str) -> bool {
+    matches!(key, "ci" | "dryRun" | "debug")
+}
+
+fn semantic_release_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "repositoryUrl" => {
+            !value.is_empty()
+                && value.bytes().all(|b| b.is_ascii() && !b.is_ascii_control())
+                && (value.contains(':')
+                    || value.contains('/')
+                    || value.contains('.')
+                    || value.contains('@'))
+        }
+        "tagFormat" => value.contains("${version}"),
+        "branches" | "extends" | "preset" => {
+            !value.is_empty()
+                && value.bytes().all(|b| {
+                    b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'/' | b'@')
+                })
         }
         _ => false,
     }
@@ -83949,22 +84111,22 @@ mod func_like_line_tests {
         is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
         is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
         is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
-        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
-        is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_stryker_json_decl, is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl,
-        is_supabase_toml_decl, is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl,
-        is_testcafe_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_vercel_json_decl, is_versioneer_ini_decl, is_vitest_json_decl,
-        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
-        is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        line_is_func_like,
+        is_sddm_conf_decl, is_semantic_release_ini_decl, is_semantic_release_json_decl,
+        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl,
+        is_ssh_config_decl, is_sssd_conf_decl, is_stryker_json_decl, is_stylelint_json_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_tap_json_decl, is_taplo_toml_decl,
+        is_tauri_json_decl, is_telegraf_toml_decl, is_testcafe_json_decl, is_tmpfiles_d_decl,
+        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
+        is_turbo_json_decl, is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
+        is_vitest_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
+        is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
+        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
+        is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -106098,6 +106260,202 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""npm": {"#));
         assert!(line_is_func_like(r#""github": {"#));
         assert!(line_is_func_like(r#""gitlab": {"#));
+    }
+
+    #[test]
+    fn semantic_release_json_keys_smoke() {
+        assert!(is_semantic_release_json_decl(
+            r#""repositoryUrl": "https://github.com/owner/repo.git""#
+        ));
+        assert!(is_semantic_release_json_decl(
+            r#""tagFormat": "v${version}""#
+        ));
+        assert!(is_semantic_release_json_decl(r#""branches": "main""#));
+        assert!(is_semantic_release_json_decl(r#""branches": ["#));
+        assert!(is_semantic_release_json_decl(r#""plugins": ["#));
+        assert!(is_semantic_release_json_decl(
+            r#""extends": "semantic-release-monorepo""#
+        ));
+        assert!(is_semantic_release_json_decl(r#""extends": ["#));
+        assert!(is_semantic_release_json_decl(r#""preset": "angular""#));
+        assert!(is_semantic_release_json_decl(r#""presetConfig": {"#));
+        assert!(is_semantic_release_json_decl(r#""ci": true"#));
+        assert!(is_semantic_release_json_decl(r#""dryRun": false"#));
+        assert!(is_semantic_release_json_decl(r#""debug": true"#));
+        // Distinctive keys stay out of neighbours.
+        assert!(!is_release_it_json_decl(
+            r#""repositoryUrl": "https://github.com/owner/repo.git""#
+        ));
+        assert!(!is_commitlint_json_decl(r#""tagFormat": "v${version}""#));
+        assert!(!is_nyc_json_decl(r#""branches": "main""#));
+        assert!(!is_nyc_json_decl(r#""branches": ["#));
+        assert!(!is_c8_json_decl(r#""branches": ["#));
+        assert!(!is_tap_json_decl(r#""branches": "main""#));
+        assert!(!is_release_it_json_decl(r#""presetConfig": {"#));
+        // plugins array vs object: semantic-release array; release-it object.
+        assert!(is_semantic_release_json_decl(r#""plugins": ["#));
+        assert!(!is_semantic_release_json_decl(r#""plugins": {"#));
+        assert!(is_release_it_json_decl(r#""plugins": {"#));
+        assert!(!is_release_it_json_decl(r#""plugins": ["#));
+        assert!(is_commitlint_json_decl(r#""plugins": ["#));
+        assert!(is_eslint_json_decl(r#""plugins": ["#));
+        // Shared ci/dryRun/debug may also match neighbours when shapes overlap.
+        assert!(is_tap_json_decl(r#""debug": true"#));
+    }
+
+    #[test]
+    fn semantic_release_json_keys_count() {
+        assert!(is_semantic_release_json_decl(
+            r#""repositoryUrl": "git@github.com:owner/repo.git""#
+        ));
+        assert!(is_semantic_release_json_decl(
+            r#""repositoryUrl": "https://github.com/owner/repo.git","#
+        ));
+        assert!(is_semantic_release_json_decl(
+            r#""repositoryUrl": "https://github.com/owner/repo.git" // url"#
+        ));
+        assert!(!is_semantic_release_json_decl(r#""repositoryUrl": """#));
+        assert!(!is_semantic_release_json_decl(
+            r#""repositoryUrl": "local""#
+        ));
+        assert!(!is_semantic_release_json_decl(r#""repositoryUrl": ["#));
+        assert!(!is_semantic_release_json_decl(r#""repositoryUrl": true"#));
+        assert!(is_semantic_release_json_decl(
+            r#""tagFormat": "v${version}""#
+        ));
+        assert!(is_semantic_release_json_decl(
+            r#""tagFormat": "${version}""#
+        ));
+        assert!(is_semantic_release_json_decl(
+            r#""tagFormat": "release-${version}-final""#
+        ));
+        assert!(!is_semantic_release_json_decl(
+            r#""tagFormat": "v{version}""#
+        ));
+        assert!(!is_semantic_release_json_decl(
+            r#""tagFormat": "v$version""#
+        ));
+        assert!(!is_semantic_release_json_decl(r#""tagFormat": ["#));
+        assert!(is_semantic_release_json_decl(r#""branches": "main""#));
+        assert!(is_semantic_release_json_decl(r#""branches": "next""#));
+        assert!(is_semantic_release_json_decl(r#""branches": ["#));
+        assert!(is_semantic_release_json_decl(r#""branches": [ // list"#));
+        assert!(!is_semantic_release_json_decl(r#""branches": 80"#));
+        assert!(!is_semantic_release_json_decl(r#""branches": true"#));
+        assert!(!is_semantic_release_json_decl(r#""branches": {"#));
+        assert!(is_nyc_json_decl(r#""branches": 80"#));
+        assert!(!is_semantic_release_json_decl(r#""plugins": {"#));
+        assert!(!is_semantic_release_json_decl(
+            r#""plugins": "@semantic-release/commit-analyzer""#
+        ));
+        assert!(is_semantic_release_json_decl(
+            r#""extends": "@semantic-release/apm-config""#
+        ));
+        assert!(is_semantic_release_json_decl(r#""extends": ["#));
+        assert!(!is_semantic_release_json_decl(r#""extends": {"#));
+        assert!(!is_semantic_release_json_decl(r#""extends": true"#));
+        assert!(is_semantic_release_json_decl(r#""preset": "angular""#));
+        assert!(is_semantic_release_json_decl(
+            r#""preset": "conventionalcommits""#
+        ));
+        assert!(!is_semantic_release_json_decl(r#""preset": ["#));
+        assert!(!is_semantic_release_json_decl(r#""preset": {"#));
+        assert!(is_semantic_release_json_decl(r#""presetConfig": {"#));
+        assert!(!is_semantic_release_json_decl(r#""presetConfig": ["#));
+        assert!(!is_semantic_release_json_decl(
+            r#""presetConfig": "angular""#
+        ));
+        assert!(is_semantic_release_json_decl(r#""ci": true"#));
+        assert!(is_semantic_release_json_decl(r#""ci": false,"#));
+        assert!(is_semantic_release_json_decl(r#""dryRun": true"#));
+        assert!(is_semantic_release_json_decl(r#""dryRun": false"#));
+        assert!(is_semantic_release_json_decl(r#""debug": false"#));
+        assert!(!is_semantic_release_json_decl(r#""ci": "true""#));
+        assert!(!is_semantic_release_json_decl(r#""dryRun": ["#));
+        assert!(!is_semantic_release_json_decl(r#""debug": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_semantic_release_json_decl(r#""repositoryUrl""#));
+        assert!(!is_semantic_release_json_decl(r#""repositoryUrl":"#));
+        assert!(!is_semantic_release_json_decl(r#""tagFormat""#));
+        assert!(!is_semantic_release_json_decl(r#""tagFormat":"#));
+        assert!(!is_semantic_release_json_decl(r#""branches":"#));
+        assert!(!is_semantic_release_json_decl(r#""plugins":"#));
+        // Generic / neighbouring stay out.
+        assert!(!is_semantic_release_json_decl(
+            r#""$schema": "https://json.schemastore.org/semantic-release""#
+        ));
+        assert!(!is_semantic_release_json_decl(
+            r#""name": "semantic-release""#
+        ));
+        assert!(!is_semantic_release_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_semantic_release_json_decl(
+            r#""requireCleanWorkingDir": true"#
+        ));
+        assert!(is_release_it_json_decl(r#""requireCleanWorkingDir": true"#));
+        assert!(!is_semantic_release_json_decl(r#""preReleaseId": "beta""#));
+        assert!(is_release_it_json_decl(r#""preReleaseId": "beta""#));
+        assert!(!is_semantic_release_json_decl(r#""increment": "patch""#));
+        assert!(is_release_it_json_decl(r#""increment": "patch""#));
+        assert!(!is_semantic_release_json_decl(r#""hooks": {"#));
+        assert!(is_release_it_json_decl(r#""hooks": {"#));
+        assert!(!is_semantic_release_json_decl(r#""git": {"#));
+        assert!(is_release_it_json_decl(r#""git": {"#));
+        assert!(!is_semantic_release_json_decl(r#""npm": {"#));
+        assert!(is_release_it_json_decl(r#""npm": {"#));
+        assert!(!is_semantic_release_json_decl(r#""github": {"#));
+        assert!(is_release_it_json_decl(r#""github": {"#));
+        assert!(!is_semantic_release_json_decl(r#""gitlab": {"#));
+        assert!(is_release_it_json_decl(r#""gitlab": {"#));
+        assert!(!is_semantic_release_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(is_commitlint_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(!is_semantic_release_json_decl(r#""defaultIgnores": true"#));
+        assert!(is_commitlint_json_decl(r#""defaultIgnores": true"#));
+        assert!(!is_semantic_release_json_decl(
+            r#""helpUrl": "https://commitlint.js.org/""#
+        ));
+        assert!(is_commitlint_json_decl(
+            r#""helpUrl": "https://commitlint.js.org/""#
+        ));
+        assert!(!is_semantic_release_json_decl(r#""prompt": {"#));
+        assert!(is_commitlint_json_decl(r#""prompt": {"#));
+        assert!(!is_semantic_release_json_decl(r#""formatter": {"#));
+        assert!(is_biome_json_decl(r#""formatter": {"#));
+        assert!(!is_semantic_release_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_semantic_release_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_semantic_release_json_decl(
+            r#""temp-dir": "./.nyc_output""#
+        ));
+        assert!(is_nyc_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(!is_semantic_release_json_decl(r#""src": ["#));
+        assert!(is_c8_json_decl(r#""src": ["#));
+        assert!(!is_semantic_release_json_decl(
+            r#""coverage-map": "./map.js""#
+        ));
+        assert!(is_tap_json_decl(r#""coverage-map": "./map.js""#));
+        assert!(!is_semantic_release_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_semantic_release_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(
+            r#""repositoryUrl": "https://github.com/owner/repo.git""#
+        ));
+        assert!(line_is_func_like(r#""tagFormat": "v${version}""#));
+        assert!(line_is_func_like(r#""branches": ["#));
+        assert!(line_is_func_like(r#""plugins": ["#));
+        assert!(line_is_func_like(r#""presetConfig": {"#));
+        assert!(line_is_func_like(r#""ci": true"#));
+        assert!(line_is_func_like(r#""dryRun": false"#));
     }
 
     #[test]

@@ -1176,3 +1176,5 @@
 009 keep: Function List commitlint .commitlintrc.json parserPreset/formatter/defaultIgnores/helpUrl/prompt (v0.3.755)
 
 009 keep: Function List release-it .release-it.json requireCleanWorkingDir/requireUpstream/requireCommits/preReleaseId/increment/hooks/plugins{} (v0.3.756)
+
+009 keep: Function List semantic-release .releaserc / package.json "release" repositoryUrl/tagFormat/branches/plugins/extends/preset/presetConfig/ci/dryRun/debug (v0.3.757)

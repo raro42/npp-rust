@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.757] — 2026-11-10
+
+View:
+
+- **Function List** lists semantic-release `.releaserc` / `.releaserc.json` / `package.json` `"release"` JSON keys: `"repositoryUrl": "…"`, `"tagFormat": "v${version}"` (must contain `${version}`), `"branches": "…"` / `[`, `"plugins": [`, `"extends": "…"` / `[`, `"preset": "…"`, `"presetConfig": {`, `"ci": true`, `"dryRun": true`, `"debug": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / release-it `"requireCleanWorkingDir"` / `"preReleaseId"` / `"increment"` / `"hooks": {` / `"plugins": {` / `"git": {` / `"npm": {` / `"github": {` / `"gitlab": {` / commitlint `"parserPreset"` / `"defaultIgnores"` / `"helpUrl"` / `"prompt"` / biome `"formatter": {` / eslint `"parser"` / `"env"` / `"languageOptions"` / prettier `"printWidth"` / stylelint `"ignoreFiles"` / node-tap `"coverage-map"` / `"allow-empty-coverage"` / c8 `"src"` / nyc `"temp-dir"` / `"branches": 80` / Cucumber `"requireModule"` / Stryker `"mutate"` / Detox `"apps"` / Codecept `"helpers": {` / WDIO `"waitforTimeout"` / TestCafe `"selectorTimeout"` / Karma `"frameworks"` / Nightwatch `"src_folders"` / Jasmine `"spec_dir"` / AVA `"failFast"` / Mocha `"allowUncaught"` / Jest `"testEnvironment"` / Playwright `"testDir"` / Vitest `"pool"` / Cypress `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. semantic-release `"plugins": [` / `"branches": [` / `"branches": "…"`; release-it `"plugins": {`; nyc / c8 / tap `"branches": 80` stay on those scanners. Shared `"extends"` / `"plugins": [` / `"ci"` / `"dryRun"` / `"debug"` also match neighbouring scanners when shapes overlap.
+
 ## [0.3.756] — 2026-11-10
 
 View:
