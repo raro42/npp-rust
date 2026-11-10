@@ -32426,6 +32426,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_release_it_json_decl(s)
             || is_semantic_release_json_decl(s)
             || is_lint_staged_json_decl(s)
+            || is_simple_git_hooks_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32762,6 +32763,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_release_it_json_decl(s)
         || is_semantic_release_json_decl(s)
         || is_lint_staged_json_decl(s)
+        || is_simple_git_hooks_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -53671,6 +53673,124 @@ fn lint_staged_json_string_ok(key: &str, value: &str) -> bool {
         "shell" | "diff" => value.bytes().all(|b| b.is_ascii() && !b.is_ascii_control()),
         _ => false,
     }
+}
+
+/// simple-git-hooks `.simple-git-hooks.json` / `package.json` `"simple-git-hooks"`
+/// JSON keys: git hook names with command strings
+/// (`"pre-commit": "npx lint-staged"`, `"pre-push": "npm test"`,
+/// `"commit-msg": "npx commitlint --edit $1"`, `"prepare-commit-msg": "…"`,
+/// `"post-checkout": "…"`, `"post-merge": "…"`, `"pre-rebase": "…"`,
+/// `"post-commit": "…"`, `"post-rewrite": "…"`, `"pre-auto-gc": "…"`,
+/// `"applypatch-msg": "…"`, `"pre-applypatch": "…"`, `"post-applypatch": "…"`,
+/// `"pre-merge-commit": "…"`, `"pre-receive": "…"`, `"update": "…"`,
+/// `"post-receive": "…"`, `"post-update": "…"`, `"push-to-checkout": "…"`,
+/// `"sendemail-validate": "…"`), plus `"preserveUnused": true` / `[`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// lint-staged `"chunkSize"` / `"hidePartiallyStaged"` / `"diffFilter"` /
+/// `"globOptions"` / `"*.js"` globs / semantic-release `"repositoryUrl"` /
+/// `"tagFormat"` / release-it `"hooks": {` / `"requireCleanWorkingDir"` /
+/// commitlint `"parserPreset"` / `"defaultIgnores"` / biome `"formatter": {` /
+/// eslint `"parser"` / prettier `"printWidth"` / package.json `"scripts"` /
+/// tsconfig `"compilerOptions"` stay out.
+fn is_simple_git_hooks_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !simple_git_hooks_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    simple_git_hooks_json_value_and_tail_ok(key, after_colon)
+}
+
+fn simple_git_hooks_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "pre-commit"
+            | "pre-push"
+            | "commit-msg"
+            | "prepare-commit-msg"
+            | "post-commit"
+            | "post-checkout"
+            | "post-merge"
+            | "pre-rebase"
+            | "post-rewrite"
+            | "pre-auto-gc"
+            | "applypatch-msg"
+            | "pre-applypatch"
+            | "post-applypatch"
+            | "pre-merge-commit"
+            | "pre-receive"
+            | "update"
+            | "post-receive"
+            | "post-update"
+            | "push-to-checkout"
+            | "sendemail-validate"
+            | "preserveUnused"
+    )
+}
+
+fn simple_git_hooks_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if key != "preserveUnused" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if key == "preserveUnused" {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !simple_git_hooks_command_string_ok(value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            if key != "preserveUnused" {
+                return false;
+            }
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn simple_git_hooks_command_string_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    value.bytes().all(|b| b.is_ascii() && !b.is_ascii_control())
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -84330,21 +84450,22 @@ mod func_like_line_tests {
         is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
         is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
         is_sddm_conf_decl, is_semantic_release_ini_decl, is_semantic_release_json_decl,
-        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl,
-        is_ssh_config_decl, is_sssd_conf_decl, is_stryker_json_decl, is_stylelint_json_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_sysusers_d_decl, is_tap_json_decl, is_taplo_toml_decl,
-        is_tauri_json_decl, is_telegraf_toml_decl, is_testcafe_json_decl, is_tmpfiles_d_decl,
-        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
-        is_turbo_json_decl, is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
-        is_vitest_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
-        is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
-        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
-        is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl,
+        is_simple_git_hooks_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_stryker_json_decl, is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl,
+        is_supabase_toml_decl, is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl,
+        is_testcafe_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
+        is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_vercel_json_decl, is_versioneer_ini_decl, is_vitest_json_decl,
+        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
+        is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -106824,6 +106945,155 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""*.js": "eslint --fix""#));
         assert!(line_is_func_like(r#""*.{js,ts}": ["#));
         assert!(line_is_func_like(r#""concurrent": 2"#));
+    }
+
+    #[test]
+    fn simple_git_hooks_json_keys_smoke() {
+        assert!(is_simple_git_hooks_json_decl(
+            r#""pre-commit": "npx lint-staged""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(r#""pre-push": "npm test""#));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""commit-msg": "npx commitlint --edit $1""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""prepare-commit-msg": "exec < /dev/tty && npx cz --hook || true""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(r#""post-checkout": "npm i""#));
+        assert!(is_simple_git_hooks_json_decl(r#""post-merge": "npm i""#));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""pre-rebase": "echo rebase""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(r#""post-commit": "echo ok""#));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""post-rewrite": "echo rewrite""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(r#""pre-auto-gc": "echo gc""#));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""applypatch-msg": "echo apply""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""pre-applypatch": "echo pre""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""post-applypatch": "echo post""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""pre-merge-commit": "echo merge""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""pre-receive": "echo recv""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(r#""update": "echo update""#));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""post-receive": "echo post""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""post-update": "echo post""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""push-to-checkout": "echo push""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""sendemail-validate": "echo mail""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(r#""preserveUnused": true"#));
+        assert!(is_simple_git_hooks_json_decl(r#""preserveUnused": ["#));
+        // Distinctive neighbours stay out.
+        assert!(!is_lint_staged_json_decl(
+            r#""pre-commit": "npx lint-staged""#
+        ));
+        assert!(!is_release_it_json_decl(
+            r#""pre-commit": "npx lint-staged""#
+        ));
+        assert!(!is_commitlint_json_decl(r#""pre-push": "npm test""#));
+        assert!(!is_package_json_decl(r#""pre-commit": "npx lint-staged""#));
+    }
+
+    #[test]
+    fn simple_git_hooks_json_keys_count() {
+        assert!(is_simple_git_hooks_json_decl(
+            r#""pre-commit": "npx lint-staged""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""pre-commit": "npx lint-staged","#
+        ));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""pre-commit": "npx lint-staged" // hook"#
+        ));
+        assert!(!is_simple_git_hooks_json_decl(r#""pre-commit": true"#));
+        assert!(!is_simple_git_hooks_json_decl(r#""pre-commit": ["#));
+        assert!(!is_simple_git_hooks_json_decl(r#""pre-commit": {"#));
+        assert!(!is_simple_git_hooks_json_decl(r#""pre-commit": 1"#));
+        assert!(is_simple_git_hooks_json_decl(r#""pre-push": "npm test""#));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""commit-msg": "npx commitlint --edit $1""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(r#""preserveUnused": true"#));
+        assert!(is_simple_git_hooks_json_decl(r#""preserveUnused": false,"#));
+        assert!(is_simple_git_hooks_json_decl(r#""preserveUnused": ["#));
+        assert!(!is_simple_git_hooks_json_decl(
+            r#""preserveUnused": "pre-commit""#
+        ));
+        assert!(!is_simple_git_hooks_json_decl(r#""preserveUnused": 1"#));
+        assert!(!is_simple_git_hooks_json_decl(r#""preserveUnused": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_simple_git_hooks_json_decl(r#""pre-commit""#));
+        assert!(!is_simple_git_hooks_json_decl(r#""pre-commit":"#));
+        assert!(!is_simple_git_hooks_json_decl(r#""preserveUnused""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_simple_git_hooks_json_decl(
+            r#""$schema": "https://json.schemastore.org/simple-git-hooks.json""#
+        ));
+        assert!(!is_simple_git_hooks_json_decl(
+            r#""name": "simple-git-hooks""#
+        ));
+        assert!(!is_simple_git_hooks_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_simple_git_hooks_json_decl(r#""chunkSize": 10"#));
+        assert!(is_lint_staged_json_decl(r#""chunkSize": 10"#));
+        assert!(!is_simple_git_hooks_json_decl(
+            r#""hidePartiallyStaged": true"#
+        ));
+        assert!(is_lint_staged_json_decl(r#""hidePartiallyStaged": true"#));
+        assert!(!is_simple_git_hooks_json_decl(r#""diffFilter": "ACMR""#));
+        assert!(is_lint_staged_json_decl(r#""diffFilter": "ACMR""#));
+        assert!(!is_simple_git_hooks_json_decl(r#""globOptions": {"#));
+        assert!(is_lint_staged_json_decl(r#""globOptions": {"#));
+        assert!(!is_simple_git_hooks_json_decl(r#""*.js": "eslint --fix""#));
+        assert!(is_lint_staged_json_decl(r#""*.js": "eslint --fix""#));
+        assert!(!is_simple_git_hooks_json_decl(r#""hooks": {"#));
+        assert!(is_release_it_json_decl(r#""hooks": {"#));
+        assert!(!is_simple_git_hooks_json_decl(
+            r#""requireCleanWorkingDir": true"#
+        ));
+        assert!(is_release_it_json_decl(r#""requireCleanWorkingDir": true"#));
+        assert!(!is_simple_git_hooks_json_decl(
+            r#""repositoryUrl": "https://github.com/owner/repo.git""#
+        ));
+        assert!(is_semantic_release_json_decl(
+            r#""repositoryUrl": "https://github.com/owner/repo.git""#
+        ));
+        assert!(!is_simple_git_hooks_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(is_commitlint_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(!is_simple_git_hooks_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_simple_git_hooks_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_simple_git_hooks_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""pre-commit": "npx lint-staged""#));
+        assert!(line_is_func_like(r#""pre-push": "npm test""#));
+        assert!(line_is_func_like(
+            r#""commit-msg": "npx commitlint --edit $1""#
+        ));
+        assert!(line_is_func_like(r#""preserveUnused": true"#));
+        assert!(line_is_func_like(r#""preserveUnused": ["#));
+        assert!(line_is_func_like(r#""post-checkout": "npm i""#));
     }
 
     #[test]

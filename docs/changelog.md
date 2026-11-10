@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.759] — 2026-11-10
+
+View:
+
+- **Function List** lists simple-git-hooks `.simple-git-hooks.json` / `package.json` `"simple-git-hooks"` JSON keys: git hook command lines (`"pre-commit": "npx lint-staged"`, `"pre-push": "npm test"`, `"commit-msg": "npx commitlint --edit $1"`, `"prepare-commit-msg": "…"`, `"post-checkout": "…"`, `"post-merge": "…"`, `"pre-rebase": "…"`, `"post-commit": "…"`, `"post-rewrite": "…"`, `"pre-auto-gc": "…"`, `"applypatch-msg": "…"`, `"pre-applypatch": "…"`, `"post-applypatch": "…"`, `"pre-merge-commit": "…"`, `"pre-receive": "…"`, `"update": "…"`, `"post-receive": "…"`, `"post-update": "…"`, `"push-to-checkout": "…"`, `"sendemail-validate": "…"`), plus `"preserveUnused": true` / `[`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / lint-staged `"chunkSize"` / `"hidePartiallyStaged"` / `"diffFilter"` / `"globOptions"` / `"*.js"` globs / semantic-release `"repositoryUrl"` / `"tagFormat"` / release-it `"hooks": {` / `"requireCleanWorkingDir"` / commitlint `"parserPreset"` / `"defaultIgnores"` / prettier `"printWidth"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out.
+
 ## [0.3.758] — 2026-11-10
 
 View:

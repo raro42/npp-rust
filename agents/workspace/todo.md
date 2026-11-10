@@ -1180,3 +1180,5 @@
 009 keep: Function List semantic-release .releaserc / package.json "release" repositoryUrl/tagFormat/branches/plugins/extends/preset/presetConfig/ci/dryRun/debug (v0.3.757)
 
 009 keep: Function List lint-staged .lintstagedrc.json chunkSize/maxArgLength/hidePartiallyStaged/hideUnstaged/diffFilter/globOptions/concurrent/relative/shell/stash/verbose/quiet/diff + glob tasks (v0.3.758)
+
+009 keep: Function List simple-git-hooks .simple-git-hooks.json pre-commit/pre-push/commit-msg/preserveUnused (v0.3.759)
