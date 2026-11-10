@@ -32418,6 +32418,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_codecept_json_decl(s)
             || is_detox_json_decl(s)
             || is_stryker_json_decl(s)
+            || is_cucumber_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32746,6 +32747,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_codecept_json_decl(s)
         || is_detox_json_decl(s)
         || is_stryker_json_decl(s)
+        || is_cucumber_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -51996,6 +51998,215 @@ fn stryker_json_string_ok(key: &str, value: &str) -> bool {
         ),
         "cleanTempDir" => value == "always",
         "tempDirName" | "incrementalFile" | "disableTypeChecks" => true,
+        _ => false,
+    }
+}
+
+/// Cucumber.js `.cucumberrc.json` / `cucumber.json` / `.cucumberrc` JSON keys:
+/// `"requireModule": [` / `"…"`, `"formatOptions": {`, `"retryTagFilter": "…"`,
+/// `"publishQuiet": true`, `"worldParameters": {`, `"dryRun": true`,
+/// `"backtrace": true`, `"paths": [` / `"…"`, `"format": [` / `"…"`,
+/// `"order": "defined"` / `"random"`, `"tags": "…"`, `"loader": [` / `"…"`,
+/// `"publish": true` / `{`, `"parallel": 2`, `"import": [` / `"…"`,
+/// `"require": [` / `"…"`, `"language": "…"`, `"retry": 1`, `"strict": true`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
+/// `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / Stryker
+/// `"mutate"` / `"testRunner": "jest"` / `"coverageAnalysis"` / `"timeoutMS"` /
+/// `"timeoutFactor"` / `"dryRunTimeoutMinutes"` / `"maxConcurrentTestRunners"` /
+/// `"disableTypeChecks"` / `"ignoreStatic"` / `"appendPlugins"` /
+/// `"htmlReporter"` / `"commandRunner"` / Detox `"apps"` / `"devices"` /
+/// `"selectedConfiguration"` / `"behavior"` / `"artifacts"` / `"reversePorts"` /
+/// `"skipLegacyWorkersSynchronization"` / `"testRunner": {` /
+/// `"configurations": {` / Codecept `"helpers": {` / `"include": {` /
+/// `"stepTimeout"` / `"fullPromiseBased"` / `"gherkin"` / `"noGlobals"` /
+/// WDIO `"waitforTimeout"` / `"waitforInterval"` / `"connectionRetryTimeout"` /
+/// `"connectionRetryCount"` / `"maxInstances"` / `"mochaOpts"` /
+/// `"specFileRetries"` / `"automationProtocol"` / `"runner": "local"` /
+/// TestCafe `"selectorTimeout"` / `"assertionTimeout"` / `"quarantineMode"` /
+/// `"skipJsErrors"` / `"port1"` / `"port2"` / `"videoPath"` /
+/// `"disableNativeAutomation"` / Karma `"frameworks"` / `"preprocessors"` /
+/// `"autoWatch"` / `"singleRun"` / `"customLaunchers"` /
+/// `"browserNoActivityTimeout"` / `"captureTimeout"` / `"logLevel": "INFO"` /
+/// Nightwatch `"src_folders"` / `"page_objects_path"` /
+/// `"skip_testcases_on_fail"` / `"end_session_on_fail"` / `"test_settings"` /
+/// `"desiredCapabilities"` / Jasmine `"spec_dir"` / `"spec_files"` /
+/// `"jsLoader"` / `"stopSpecOnExpectationFailure"` / AVA `"failFast"` /
+/// `"failWithoutAssertions"` / `"utilizeParallelBuilds"` /
+/// `"ignoredByWatcher"` / Mocha `"allowUncaught"` / `"ui": "bdd"` /
+/// `"watch-files"` / `"checkLeaks"` / `"parallel": true` / Jest
+/// `"testEnvironment"` / `"setupFilesAfterEnv"` / `"coverageProvider"` /
+/// `"forceExit"` / Playwright `"testDir"` / `"fullyParallel"` / `"webServer"` /
+/// `"preserveOutput"` / Vitest `"pool"` / `"fileParallelism"` / `"hookTimeout"` /
+/// Cypress `"specPattern"` / `"chromeWebSecurity"` / `"e2e"` / CSpell
+/// `"words"` / Oxlint `"categories"` / Knip `"entry"` / `"paths": {` / Deno
+/// `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` /
+/// tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx
+/// `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint
+/// `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay
+/// out. Shared `"require": [` / `"import": [` / `"language": "…"` /
+/// `"retry": 1` / `"parallel": 2` also match neighbouring scanners when shapes
+/// overlap. Knip `"paths": {` stays on Knip; Cucumber uses `"paths": [` /
+/// `"…"`. Mocha `"parallel": true` stays on Mocha; Cucumber uses a number.
+fn is_cucumber_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !cucumber_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    cucumber_json_value_and_tail_ok(key, after_colon)
+}
+
+fn cucumber_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "requireModule"
+            | "formatOptions"
+            | "retryTagFilter"
+            | "publishQuiet"
+            | "worldParameters"
+            | "dryRun"
+            | "backtrace"
+            | "paths"
+            | "format"
+            | "order"
+            | "tags"
+            | "loader"
+            | "publish"
+            | "parallel"
+            | "import"
+            | "require"
+            | "language"
+            | "retry"
+            | "strict"
+    )
+}
+
+fn cucumber_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !cucumber_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !cucumber_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !cucumber_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !cucumber_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !cucumber_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !cucumber_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            // parallel workers must be >= 1; retry may be 0.
+            if key == "parallel" && &after_colon[..digits] == "0" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn cucumber_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "formatOptions" | "worldParameters" | "publish")
+}
+
+fn cucumber_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "requireModule" | "paths" | "format" | "loader" | "import" | "require"
+    )
+}
+
+fn cucumber_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "requireModule"
+            | "retryTagFilter"
+            | "paths"
+            | "format"
+            | "order"
+            | "tags"
+            | "loader"
+            | "import"
+            | "require"
+            | "language"
+    )
+}
+
+fn cucumber_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "publishQuiet" | "dryRun" | "backtrace" | "publish" | "strict"
+    )
+}
+
+fn cucumber_json_number_key_ok(key: &str) -> bool {
+    matches!(key, "parallel" | "retry")
+}
+
+fn cucumber_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "order" => matches!(value, "defined" | "random"),
+        "requireModule" | "retryTagFilter" | "paths" | "format" | "tags" | "loader" | "import"
+        | "require" | "language" => true,
         _ => false,
     }
 }
@@ -82621,39 +82832,40 @@ mod func_like_line_tests {
         is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl, is_cliff_toml_decl,
         is_clippy_toml_decl, is_codecept_json_decl, is_codespell_ini_decl, is_commitizen_ini_decl,
         is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
-        is_cspell_json_decl, is_cypress_json_decl, is_darglint_ini_decl, is_default_grub_decl,
-        is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl, is_detox_json_decl,
-        is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
-        is_doc8_ini_decl, is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl,
-        is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl, is_electron_builder_json_decl,
-        is_electron_forge_json_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
-        is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
-        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
-        is_importlinter_ini_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_jasmine_json_decl, is_jest_json_decl, is_karma_json_decl,
-        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl, is_modprobe_conf_decl,
-        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
-        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
-        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
-        is_premake_decl, is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
-        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
-        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
-        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
-        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_refurb_toml_decl, is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_cspell_json_decl, is_cucumber_json_decl, is_cypress_json_decl, is_darglint_ini_decl,
+        is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl,
+        is_detox_json_decl, is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl,
+        is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl, is_dovecot_decl,
+        is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl,
+        is_electron_builder_json_decl, is_electron_forge_json_decl, is_eslint_json_decl,
+        is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl, is_firebase_json_decl,
+        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl,
+        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
+        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
+        is_jasmine_json_decl, is_jest_json_decl, is_karma_json_decl, is_keepalived_decl,
+        is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
+        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
+        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl,
+        is_netlify_toml_decl, is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl,
+        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl,
+        is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
+        is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl, is_prettier_json_decl,
+        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
+        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
+        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
+        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
+        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl,
+        is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
         is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
@@ -103199,6 +103411,368 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""tempDirName": ".stryker-tmp""#));
         assert!(line_is_func_like(r#""fileLogLevel": "off""#));
         assert!(line_is_func_like(r#""commandRunner": {"#));
+    }
+
+    #[test]
+    fn cucumber_json_keys_smoke() {
+        assert!(is_cucumber_json_decl(r#""requireModule": ["#));
+        assert!(is_cucumber_json_decl(r#""formatOptions": {"#));
+        assert!(is_cucumber_json_decl(r#""retryTagFilter": "@flaky""#));
+        assert!(is_cucumber_json_decl(r#""publishQuiet": true"#));
+        assert!(is_cucumber_json_decl(r#""worldParameters": {"#));
+        assert!(is_cucumber_json_decl(r#""dryRun": true"#));
+        assert!(is_cucumber_json_decl(r#""backtrace": false"#));
+        assert!(is_cucumber_json_decl(r#""paths": ["#));
+        assert!(is_cucumber_json_decl(r#""paths": "features/**/*.feature""#));
+        assert!(is_cucumber_json_decl(r#""format": ["#));
+        assert!(is_cucumber_json_decl(r#""format": "progress-bar""#));
+        assert!(is_cucumber_json_decl(r#""order": "defined""#));
+        assert!(is_cucumber_json_decl(r#""order": "random""#));
+        assert!(is_cucumber_json_decl(r#""tags": "not @wip""#));
+        assert!(is_cucumber_json_decl(r#""loader": ["#));
+        assert!(is_cucumber_json_decl(r#""publish": true"#));
+        assert!(is_cucumber_json_decl(r#""publish": {"#));
+        assert!(is_cucumber_json_decl(r#""parallel": 2"#));
+        assert!(is_cucumber_json_decl(r#""import": ["#));
+        assert!(is_cucumber_json_decl(r#""require": ["#));
+        assert!(is_cucumber_json_decl(r#""language": "en""#));
+        assert!(is_cucumber_json_decl(r#""retry": 1"#));
+        assert!(is_cucumber_json_decl(r#""strict": true"#));
+        // Distinctive Cucumber keys stay out of Stryker / neighbours.
+        assert!(!is_stryker_json_decl(r#""requireModule": ["#));
+        assert!(!is_stryker_json_decl(r#""formatOptions": {"#));
+        assert!(!is_stryker_json_decl(r#""retryTagFilter": "@flaky""#));
+        assert!(!is_stryker_json_decl(r#""publishQuiet": true"#));
+        assert!(!is_stryker_json_decl(r#""worldParameters": {"#));
+        assert!(!is_stryker_json_decl(r#""dryRun": true"#));
+        assert!(!is_detox_json_decl(r#""backtrace": false"#));
+        assert!(!is_codecept_json_decl(r#""order": "defined""#));
+        assert!(!is_wdio_json_decl(r#""tags": "not @wip""#));
+        assert!(!is_jest_json_decl(r#""loader": ["#));
+        assert!(!is_playwright_json_decl(r#""publishQuiet": true"#));
+        assert!(!is_mocha_json_decl(r#""formatOptions": {"#));
+        assert!(!is_ava_json_decl(r#""requireModule": ["#));
+        assert!(!is_cucumber_json_decl(r#""mutate": ["#));
+        assert!(is_stryker_json_decl(r#""mutate": ["#));
+        assert!(!is_cucumber_json_decl(r#""forceExit": true"#));
+        assert!(is_jest_json_decl(r#""forceExit": true"#));
+        assert!(!is_cucumber_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_cucumber_json_decl(r#""parallel": true"#));
+        assert!(is_mocha_json_decl(r#""parallel": true"#));
+        assert!(!is_cucumber_json_decl(r#""paths": {"#));
+        assert!(is_knip_json_decl(r#""paths": {"#));
+    }
+
+    #[test]
+    fn cucumber_json_keys_count() {
+        assert!(is_cucumber_json_decl(r#""requireModule": ["#));
+        assert!(is_cucumber_json_decl(
+            r#""requireModule": "ts-node/register""#
+        ));
+        assert!(!is_cucumber_json_decl(r#""requireModule": {"#));
+        assert!(is_cucumber_json_decl(r#""formatOptions": {"#));
+        assert!(!is_cucumber_json_decl(r#""formatOptions": ["#));
+        assert!(is_cucumber_json_decl(r#""retryTagFilter": "@flaky""#));
+        assert!(is_cucumber_json_decl(
+            r#""retryTagFilter": "@flaky", // retry"#
+        ));
+        assert!(!is_cucumber_json_decl(r#""retryTagFilter": ["#));
+        assert!(!is_cucumber_json_decl(r#""retryTagFilter": """#));
+        assert!(is_cucumber_json_decl(r#""publishQuiet": true"#));
+        assert!(is_cucumber_json_decl(r#""publishQuiet": false,"#));
+        assert!(!is_cucumber_json_decl(r#""publishQuiet": ["#));
+        assert!(is_cucumber_json_decl(r#""worldParameters": {"#));
+        assert!(!is_cucumber_json_decl(r#""worldParameters": ["#));
+        assert!(is_cucumber_json_decl(r#""dryRun": true"#));
+        assert!(is_cucumber_json_decl(r#""backtrace": false"#));
+        assert!(is_cucumber_json_decl(r#""paths": ["#));
+        assert!(is_cucumber_json_decl(r#""paths": "features/**/*.feature""#));
+        assert!(!is_cucumber_json_decl(r#""paths": {"#));
+        assert!(is_cucumber_json_decl(r#""format": ["#));
+        assert!(is_cucumber_json_decl(r#""format": "progress-bar""#));
+        assert!(!is_cucumber_json_decl(r#""format": {"#));
+        assert!(is_cucumber_json_decl(r#""order": "defined""#));
+        assert!(is_cucumber_json_decl(r#""order": "random""#));
+        assert!(!is_cucumber_json_decl(r#""order": "alpha""#));
+        assert!(!is_cucumber_json_decl(r#""order": ["#));
+        assert!(is_cucumber_json_decl(r#""tags": "not @wip""#));
+        assert!(!is_cucumber_json_decl(r#""tags": ["#));
+        assert!(is_cucumber_json_decl(r#""loader": ["#));
+        assert!(is_cucumber_json_decl(r#""loader": "ts-node/esm""#));
+        assert!(is_cucumber_json_decl(r#""publish": true"#));
+        assert!(is_cucumber_json_decl(r#""publish": {"#));
+        assert!(!is_cucumber_json_decl(r#""publish": ["#));
+        assert!(is_cucumber_json_decl(r#""parallel": 2"#));
+        assert!(is_cucumber_json_decl(r#""parallel": 2, // workers"#));
+        assert!(!is_cucumber_json_decl(r#""parallel": 0"#));
+        assert!(!is_cucumber_json_decl(r#""parallel": "2""#));
+        assert!(!is_cucumber_json_decl(r#""parallel": true"#));
+        assert!(is_cucumber_json_decl(r#""import": ["#));
+        assert!(is_cucumber_json_decl(r#""import": "./steps/**/*.ts""#));
+        assert!(is_cucumber_json_decl(r#""require": ["#));
+        assert!(is_cucumber_json_decl(
+            r#""require": "features/support/world.js""#
+        ));
+        assert!(is_cucumber_json_decl(r#""language": "en""#));
+        assert!(!is_cucumber_json_decl(r#""language": ["#));
+        assert!(is_cucumber_json_decl(r#""retry": 1"#));
+        assert!(!is_cucumber_json_decl(r#""retry": {"#));
+        assert!(is_cucumber_json_decl(r#""strict": true"#));
+        assert!(!is_cucumber_json_decl(r#""strict": "true""#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_cucumber_json_decl(r#""requireModule""#));
+        assert!(!is_cucumber_json_decl(r#""requireModule":"#));
+        assert!(!is_cucumber_json_decl(r#""requireModule: ["#));
+        assert!(!is_cucumber_json_decl(r#""dryRun":"#));
+        assert!(!is_cucumber_json_decl(r#""order": "defined"#));
+        // Generic / neighbouring stay out.
+        assert!(!is_cucumber_json_decl(
+            r#""$schema": "https://json.schemastore.org/cucumber""#
+        ));
+        assert!(!is_cucumber_json_decl(r#""name": "bdd""#));
+        assert!(!is_cucumber_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_cucumber_json_decl(r#""mutate": ["#));
+        assert!(is_stryker_json_decl(r#""mutate": ["#));
+        assert!(!is_cucumber_json_decl(r#""testRunner": "jest""#));
+        assert!(is_stryker_json_decl(r#""testRunner": "jest""#));
+        assert!(!is_cucumber_json_decl(r#""coverageAnalysis": "perTest""#));
+        assert!(is_stryker_json_decl(r#""coverageAnalysis": "perTest""#));
+        assert!(!is_cucumber_json_decl(r#""timeoutMS": 60000"#));
+        assert!(is_stryker_json_decl(r#""timeoutMS": 60000"#));
+        assert!(!is_cucumber_json_decl(r#""timeoutFactor": 1.5"#));
+        assert!(is_stryker_json_decl(r#""timeoutFactor": 1.5"#));
+        assert!(!is_cucumber_json_decl(r#""dryRunTimeoutMinutes": 5"#));
+        assert!(is_stryker_json_decl(r#""dryRunTimeoutMinutes": 5"#));
+        assert!(!is_cucumber_json_decl(r#""maxConcurrentTestRunners": 4"#));
+        assert!(is_stryker_json_decl(r#""maxConcurrentTestRunners": 4"#));
+        assert!(!is_cucumber_json_decl(r#""disableTypeChecks": true"#));
+        assert!(is_stryker_json_decl(r#""disableTypeChecks": true"#));
+        assert!(!is_cucumber_json_decl(r#""ignoreStatic": true"#));
+        assert!(is_stryker_json_decl(r#""ignoreStatic": true"#));
+        assert!(!is_cucumber_json_decl(r#""appendPlugins": ["#));
+        assert!(is_stryker_json_decl(r#""appendPlugins": ["#));
+        assert!(!is_cucumber_json_decl(r#""htmlReporter": {"#));
+        assert!(is_stryker_json_decl(r#""htmlReporter": {"#));
+        assert!(!is_cucumber_json_decl(r#""commandRunner": {"#));
+        assert!(is_stryker_json_decl(r#""commandRunner": {"#));
+        assert!(!is_cucumber_json_decl(r#""apps": {"#));
+        assert!(is_detox_json_decl(r#""apps": {"#));
+        assert!(!is_cucumber_json_decl(r#""devices": {"#));
+        assert!(is_detox_json_decl(r#""devices": {"#));
+        assert!(!is_cucumber_json_decl(
+            r#""selectedConfiguration": "ios.sim.debug""#
+        ));
+        assert!(is_detox_json_decl(
+            r#""selectedConfiguration": "ios.sim.debug""#
+        ));
+        assert!(!is_cucumber_json_decl(r#""behavior": {"#));
+        assert!(is_detox_json_decl(r#""behavior": {"#));
+        assert!(!is_cucumber_json_decl(r#""artifacts": {"#));
+        assert!(is_detox_json_decl(r#""artifacts": {"#));
+        assert!(!is_cucumber_json_decl(r#""reversePorts": ["#));
+        assert!(is_detox_json_decl(r#""reversePorts": ["#));
+        assert!(!is_cucumber_json_decl(
+            r#""skipLegacyWorkersSynchronization": true"#
+        ));
+        assert!(is_detox_json_decl(
+            r#""skipLegacyWorkersSynchronization": true"#
+        ));
+        assert!(!is_cucumber_json_decl(r#""configurations": {"#));
+        assert!(is_detox_json_decl(r#""configurations": {"#));
+        assert!(!is_cucumber_json_decl(r#""helpers": {"#));
+        assert!(is_codecept_json_decl(r#""helpers": {"#));
+        assert!(!is_cucumber_json_decl(r#""include": {"#));
+        assert!(is_codecept_json_decl(r#""include": {"#));
+        assert!(!is_cucumber_json_decl(r#""stepTimeout": 5000"#));
+        assert!(is_codecept_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_cucumber_json_decl(r#""fullPromiseBased": true"#));
+        assert!(is_codecept_json_decl(r#""fullPromiseBased": true"#));
+        assert!(!is_cucumber_json_decl(r#""gherkin": {"#));
+        assert!(is_codecept_json_decl(r#""gherkin": {"#));
+        assert!(!is_cucumber_json_decl(r#""noGlobals": true"#));
+        assert!(is_codecept_json_decl(r#""noGlobals": true"#));
+        assert!(!is_cucumber_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(is_wdio_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_cucumber_json_decl(r#""waitforInterval": 500"#));
+        assert!(is_wdio_json_decl(r#""waitforInterval": 500"#));
+        assert!(!is_cucumber_json_decl(
+            r#""connectionRetryTimeout": 120000"#
+        ));
+        assert!(is_wdio_json_decl(r#""connectionRetryTimeout": 120000"#));
+        assert!(!is_cucumber_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(is_wdio_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(!is_cucumber_json_decl(r#""maxInstances": 5"#));
+        assert!(is_wdio_json_decl(r#""maxInstances": 5"#));
+        assert!(!is_cucumber_json_decl(r#""mochaOpts": {"#));
+        assert!(is_wdio_json_decl(r#""mochaOpts": {"#));
+        assert!(!is_cucumber_json_decl(r#""specFileRetries": 1"#));
+        assert!(is_wdio_json_decl(r#""specFileRetries": 1"#));
+        assert!(!is_cucumber_json_decl(
+            r#""automationProtocol": "webdriver""#
+        ));
+        assert!(is_wdio_json_decl(r#""automationProtocol": "webdriver""#));
+        assert!(!is_cucumber_json_decl(r#""runner": "local""#));
+        assert!(is_wdio_json_decl(r#""runner": "local""#));
+        assert!(!is_cucumber_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(is_testcafe_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_cucumber_json_decl(r#""assertionTimeout": 3000"#));
+        assert!(is_testcafe_json_decl(r#""assertionTimeout": 3000"#));
+        assert!(!is_cucumber_json_decl(r#""quarantineMode": true"#));
+        assert!(is_testcafe_json_decl(r#""quarantineMode": true"#));
+        assert!(!is_cucumber_json_decl(r#""skipJsErrors": true"#));
+        assert!(is_testcafe_json_decl(r#""skipJsErrors": true"#));
+        assert!(!is_cucumber_json_decl(r#""port1": 1337"#));
+        assert!(is_testcafe_json_decl(r#""port1": 1337"#));
+        assert!(!is_cucumber_json_decl(r#""port2": 1338"#));
+        assert!(is_testcafe_json_decl(r#""port2": 1338"#));
+        assert!(!is_cucumber_json_decl(r#""videoPath": "artifacts/videos""#));
+        assert!(is_testcafe_json_decl(r#""videoPath": "artifacts/videos""#));
+        assert!(!is_cucumber_json_decl(r#""disableNativeAutomation": true"#));
+        assert!(is_testcafe_json_decl(r#""disableNativeAutomation": true"#));
+        assert!(!is_cucumber_json_decl(r#""frameworks": ["#));
+        assert!(is_karma_json_decl(r#""frameworks": ["#));
+        assert!(!is_cucumber_json_decl(r#""preprocessors": {"#));
+        assert!(is_karma_json_decl(r#""preprocessors": {"#));
+        assert!(!is_cucumber_json_decl(r#""autoWatch": true"#));
+        assert!(is_karma_json_decl(r#""autoWatch": true"#));
+        assert!(!is_cucumber_json_decl(r#""singleRun": true"#));
+        assert!(is_karma_json_decl(r#""singleRun": true"#));
+        assert!(!is_cucumber_json_decl(r#""customLaunchers": {"#));
+        assert!(is_karma_json_decl(r#""customLaunchers": {"#));
+        assert!(!is_cucumber_json_decl(
+            r#""browserNoActivityTimeout": 30000"#
+        ));
+        assert!(is_karma_json_decl(r#""browserNoActivityTimeout": 30000"#));
+        assert!(!is_cucumber_json_decl(r#""captureTimeout": 60000"#));
+        assert!(is_karma_json_decl(r#""captureTimeout": 60000"#));
+        assert!(!is_cucumber_json_decl(r#""logLevel": "INFO""#));
+        assert!(is_karma_json_decl(r#""logLevel": "INFO""#));
+        assert!(!is_cucumber_json_decl(r#""src_folders": ["#));
+        assert!(is_nightwatch_json_decl(r#""src_folders": ["#));
+        assert!(!is_cucumber_json_decl(r#""page_objects_path": ["#));
+        assert!(is_nightwatch_json_decl(r#""page_objects_path": ["#));
+        assert!(!is_cucumber_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(is_nightwatch_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(!is_cucumber_json_decl(r#""end_session_on_fail": true"#));
+        assert!(is_nightwatch_json_decl(r#""end_session_on_fail": true"#));
+        assert!(!is_cucumber_json_decl(r#""test_settings": {"#));
+        assert!(is_nightwatch_json_decl(r#""test_settings": {"#));
+        assert!(!is_cucumber_json_decl(r#""desiredCapabilities": {"#));
+        assert!(is_nightwatch_json_decl(r#""desiredCapabilities": {"#));
+        assert!(!is_cucumber_json_decl(r#""spec_dir": "spec""#));
+        assert!(is_jasmine_json_decl(r#""spec_dir": "spec""#));
+        assert!(!is_cucumber_json_decl(r#""spec_files": ["#));
+        assert!(is_jasmine_json_decl(r#""spec_files": ["#));
+        assert!(!is_cucumber_json_decl(r#""jsLoader": "require""#));
+        assert!(is_jasmine_json_decl(r#""jsLoader": "require""#));
+        assert!(!is_cucumber_json_decl(
+            r#""stopSpecOnExpectationFailure": true"#
+        ));
+        assert!(is_jasmine_json_decl(
+            r#""stopSpecOnExpectationFailure": true"#
+        ));
+        assert!(!is_cucumber_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_cucumber_json_decl(r#""failWithoutAssertions": true"#));
+        assert!(is_ava_json_decl(r#""failWithoutAssertions": true"#));
+        assert!(!is_cucumber_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(is_ava_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(!is_cucumber_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(is_ava_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(!is_cucumber_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_cucumber_json_decl(r#""ui": "bdd""#));
+        assert!(is_mocha_json_decl(r#""ui": "bdd""#));
+        assert!(!is_cucumber_json_decl(r#""watch-files": ["#));
+        assert!(is_mocha_json_decl(r#""watch-files": ["#));
+        assert!(!is_cucumber_json_decl(r#""checkLeaks": true"#));
+        assert!(is_mocha_json_decl(r#""checkLeaks": true"#));
+        assert!(!is_cucumber_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_cucumber_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(is_jest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_cucumber_json_decl(r#""coverageProvider": "v8""#));
+        assert!(is_jest_json_decl(r#""coverageProvider": "v8""#));
+        assert!(!is_cucumber_json_decl(r#""forceExit": true"#));
+        assert!(is_jest_json_decl(r#""forceExit": true"#));
+        assert!(!is_cucumber_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_cucumber_json_decl(r#""fullyParallel": true"#));
+        assert!(is_playwright_json_decl(r#""fullyParallel": true"#));
+        assert!(!is_cucumber_json_decl(r#""webServer": {"#));
+        assert!(is_playwright_json_decl(r#""webServer": {"#));
+        assert!(!is_cucumber_json_decl(r#""preserveOutput": "always""#));
+        assert!(is_playwright_json_decl(r#""preserveOutput": "always""#));
+        assert!(!is_cucumber_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_cucumber_json_decl(r#""fileParallelism": true"#));
+        assert!(is_vitest_json_decl(r#""fileParallelism": true"#));
+        assert!(!is_cucumber_json_decl(r#""hookTimeout": 10000"#));
+        assert!(is_vitest_json_decl(r#""hookTimeout": 10000"#));
+        assert!(!is_cucumber_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(is_cypress_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(!is_cucumber_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(is_cypress_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(!is_cucumber_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_cucumber_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_cucumber_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_cucumber_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_cucumber_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_cucumber_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_cucumber_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_cucumber_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_cucumber_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(!is_cucumber_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_cucumber_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_cucumber_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_cucumber_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_cucumber_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_cucumber_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_cucumber_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Shared / distinctive shapes list via Cucumber scanner.
+        assert!(line_is_func_like(r#""requireModule": ["#));
+        assert!(line_is_func_like(r#""formatOptions": {"#));
+        assert!(line_is_func_like(r#""retryTagFilter": "@flaky""#));
+        assert!(line_is_func_like(r#""publishQuiet": true"#));
+        assert!(line_is_func_like(r#""worldParameters": {"#));
+        assert!(line_is_func_like(r#""dryRun": true"#));
+        assert!(line_is_func_like(r#""backtrace": false"#));
+        assert!(line_is_func_like(r#""paths": ["#));
+        assert!(line_is_func_like(r#""order": "defined""#));
+        assert!(line_is_func_like(r#""tags": "not @wip""#));
+        assert!(line_is_func_like(r#""loader": ["#));
+        assert!(line_is_func_like(r#""publish": true"#));
+        assert!(line_is_func_like(r#""parallel": 2"#));
+        assert!(line_is_func_like(r#""strict": true"#));
     }
 
     #[test]

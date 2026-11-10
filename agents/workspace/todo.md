@@ -1166,3 +1166,5 @@
 009 keep: Function List Detox .detoxrc.json apps/devices/selectedConfiguration/behavior/artifacts/reversePorts/skipLegacyWorkersSynchronization/testRunner (v0.3.749)
 
 009 keep: Function List StrykerJS stryker.conf.json mutate/testRunner/coverageAnalysis/timeoutMS/timeoutFactor/dryRunTimeoutMinutes/maxConcurrentTestRunners/disableTypeChecks/ignoreStatic/appendPlugins/htmlReporter/commandRunner (v0.3.750)
+
+009 keep: Function List Cucumber.js .cucumberrc.json requireModule/formatOptions/retryTagFilter/publishQuiet/worldParameters/dryRun/paths/order/tags/loader/publish/parallel/strict (v0.3.751)
