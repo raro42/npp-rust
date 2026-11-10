@@ -32425,6 +32425,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_commitlint_json_decl(s)
             || is_release_it_json_decl(s)
             || is_semantic_release_json_decl(s)
+            || is_lint_staged_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32760,6 +32761,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_commitlint_json_decl(s)
         || is_release_it_json_decl(s)
         || is_semantic_release_json_decl(s)
+        || is_lint_staged_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -53451,6 +53453,222 @@ fn semantic_release_json_string_ok(key: &str, value: &str) -> bool {
                     b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'/' | b'@')
                 })
         }
+        _ => false,
+    }
+}
+
+/// lint-staged `.lintstagedrc` / `.lintstagedrc.json` / `package.json`
+/// `"lint-staged"` JSON keys: `"chunkSize": 10`, `"maxArgLength": 4096`,
+/// `"hidePartiallyStaged": true`, `"hideUnstaged": true`,
+/// `"diffFilter": "ACMR"`, `"globOptions": {`, `"concurrent": true` /
+/// `2`, `"relative": true`, `"shell": true` / `"/bin/bash"`,
+/// `"stash": true`, `"verbose": true`, `"quiet": true`,
+/// `"diff": "HEAD"`, plus micromatch glob task lines
+/// (`"*.js": "eslint --fix"`, `"*.{js,ts}": [`, `"src/**/*.ts": "…"`).
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// semantic-release `"repositoryUrl"` / `"tagFormat"` / `"presetConfig"` /
+/// release-it `"requireCleanWorkingDir"` / `"preReleaseId"` / `"hooks": {` /
+/// `"plugins": {` / commitlint `"parserPreset"` / `"defaultIgnores"` /
+/// `"helpUrl"` / `"prompt"` / biome `"formatter": {` / eslint `"parser"` /
+/// `"env"` / `"languageOptions"` / prettier `"printWidth"` / stylelint
+/// `"ignoreFiles"` / node-tap `"coverage-map"` / `"allow-empty-coverage"` /
+/// c8 `"src"` / nyc `"temp-dir"` / `"branches": 80` / Cucumber
+/// `"requireModule"` / Stryker `"mutate"` / Detox `"apps"` / Codecept
+/// `"helpers": {` / WDIO `"waitforTimeout"` / TestCafe `"selectorTimeout"` /
+/// Karma `"frameworks"` / Nightwatch `"src_folders"` / Jasmine
+/// `"spec_dir"` / AVA `"failFast"` / Mocha `"allowUncaught"` / Jest
+/// `"testEnvironment"` / Playwright `"testDir"` / Vitest `"pool"` /
+/// Cypress `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip
+/// `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` /
+/// launch `"configurations"` / tasks `"tasks": [` / Dev Container
+/// `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / package.json
+/// `"scripts"` / tsconfig `"compilerOptions"` / shared `"cwd"` /
+/// `"ignore"` / `"debug"` stay out. Glob keys need `*` or `{…}`; bare
+/// `"eslint": "…"` stays out.
+fn is_lint_staged_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    let glob = lint_staged_glob_key(key);
+    if !glob && !lint_staged_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    if glob {
+        lint_staged_glob_value_and_tail_ok(after_colon)
+    } else {
+        lint_staged_json_value_and_tail_ok(key, after_colon)
+    }
+}
+
+fn lint_staged_glob_key(key: &str) -> bool {
+    if key.is_empty() || key.len() > 256 {
+        return false;
+    }
+    if !(key.contains('*') || key.contains('{')) {
+        return false;
+    }
+    key.bytes()
+        .all(|b| b.is_ascii() && !b.is_ascii_control() && b != b'"')
+}
+
+fn lint_staged_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "chunkSize"
+            | "maxArgLength"
+            | "hidePartiallyStaged"
+            | "hideUnstaged"
+            | "diffFilter"
+            | "globOptions"
+            | "concurrent"
+            | "relative"
+            | "shell"
+            | "stash"
+            | "verbose"
+            | "quiet"
+            | "diff"
+    )
+}
+
+fn lint_staged_glob_value_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => package_json_tail_ok(&after_colon[1..]),
+        b'"' => {
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !lint_staged_command_string_ok(value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        _ => false,
+    }
+}
+
+fn lint_staged_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !lint_staged_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !lint_staged_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !lint_staged_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !lint_staged_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !lint_staged_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 6 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn lint_staged_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "globOptions")
+}
+
+fn lint_staged_json_string_key_ok(key: &str) -> bool {
+    matches!(key, "diffFilter" | "shell" | "diff")
+}
+
+fn lint_staged_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "hidePartiallyStaged"
+            | "hideUnstaged"
+            | "concurrent"
+            | "relative"
+            | "shell"
+            | "stash"
+            | "verbose"
+            | "quiet"
+    )
+}
+
+fn lint_staged_json_number_key_ok(key: &str) -> bool {
+    matches!(key, "chunkSize" | "maxArgLength" | "concurrent")
+}
+
+fn lint_staged_command_string_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    value.bytes().all(|b| b.is_ascii() && !b.is_ascii_control())
+}
+
+fn lint_staged_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "diffFilter" => {
+            !value.is_empty()
+                && value.len() <= 16
+                && value.bytes().all(|b: u8| b.is_ascii_alphabetic())
+        }
+        "shell" | "diff" => value.bytes().all(|b| b.is_ascii() && !b.is_ascii_control()),
         _ => false,
     }
 }
@@ -84090,11 +84308,11 @@ mod func_like_line_tests {
         is_importlinter_ini_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
         is_isort_ini_decl, is_jasmine_json_decl, is_jest_json_decl, is_karma_json_decl,
         is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl, is_modprobe_conf_decl,
-        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
+        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
         is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
         is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openvpn_decl,
@@ -106456,6 +106674,156 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""presetConfig": {"#));
         assert!(line_is_func_like(r#""ci": true"#));
         assert!(line_is_func_like(r#""dryRun": false"#));
+    }
+
+    #[test]
+    fn lint_staged_json_keys_smoke() {
+        assert!(is_lint_staged_json_decl(r#""chunkSize": 10"#));
+        assert!(is_lint_staged_json_decl(r#""maxArgLength": 4096"#));
+        assert!(is_lint_staged_json_decl(r#""hidePartiallyStaged": true"#));
+        assert!(is_lint_staged_json_decl(r#""hideUnstaged": false"#));
+        assert!(is_lint_staged_json_decl(r#""diffFilter": "ACMR""#));
+        assert!(is_lint_staged_json_decl(r#""globOptions": {"#));
+        assert!(is_lint_staged_json_decl(r#""concurrent": true"#));
+        assert!(is_lint_staged_json_decl(r#""concurrent": 2"#));
+        assert!(is_lint_staged_json_decl(r#""relative": true"#));
+        assert!(is_lint_staged_json_decl(r#""shell": true"#));
+        assert!(is_lint_staged_json_decl(r#""shell": "/bin/bash""#));
+        assert!(is_lint_staged_json_decl(r#""stash": false"#));
+        assert!(is_lint_staged_json_decl(r#""verbose": true"#));
+        assert!(is_lint_staged_json_decl(r#""quiet": true"#));
+        assert!(is_lint_staged_json_decl(r#""diff": "HEAD""#));
+        assert!(is_lint_staged_json_decl(r#""*.js": "eslint --fix""#));
+        assert!(is_lint_staged_json_decl(r#""*.{js,ts}": ["#));
+        assert!(is_lint_staged_json_decl(
+            r#""src/**/*.ts": "prettier --write""#
+        ));
+        // Distinctive keys stay out of neighbours.
+        assert!(!is_semantic_release_json_decl(r#""chunkSize": 10"#));
+        assert!(!is_release_it_json_decl(r#""hidePartiallyStaged": true"#));
+        assert!(!is_commitlint_json_decl(r#""diffFilter": "ACMR""#));
+        assert!(!is_eslint_json_decl(r#""*.js": "eslint --fix""#));
+        assert!(!is_prettier_json_decl(r#""*.js": "eslint --fix""#));
+    }
+
+    #[test]
+    fn lint_staged_json_keys_count() {
+        assert!(is_lint_staged_json_decl(r#""chunkSize": 10"#));
+        assert!(is_lint_staged_json_decl(r#""chunkSize": 10,"#));
+        assert!(is_lint_staged_json_decl(r#""chunkSize": 10 // size"#));
+        assert!(!is_lint_staged_json_decl(r#""chunkSize": true"#));
+        assert!(!is_lint_staged_json_decl(r#""chunkSize": "10""#));
+        assert!(!is_lint_staged_json_decl(r#""chunkSize": ["#));
+        assert!(is_lint_staged_json_decl(r#""maxArgLength": 131072"#));
+        assert!(!is_lint_staged_json_decl(r#""maxArgLength": true"#));
+        assert!(!is_lint_staged_json_decl(r#""maxArgLength": {"#));
+        assert!(is_lint_staged_json_decl(r#""hidePartiallyStaged": true"#));
+        assert!(is_lint_staged_json_decl(r#""hidePartiallyStaged": false,"#));
+        assert!(!is_lint_staged_json_decl(
+            r#""hidePartiallyStaged": "true""#
+        ));
+        assert!(!is_lint_staged_json_decl(r#""hidePartiallyStaged": 1"#));
+        assert!(is_lint_staged_json_decl(r#""hideUnstaged": true"#));
+        assert!(!is_lint_staged_json_decl(r#""hideUnstaged": ["#));
+        assert!(is_lint_staged_json_decl(r#""diffFilter": "ACMR""#));
+        assert!(is_lint_staged_json_decl(r#""diffFilter": "acmr""#));
+        assert!(!is_lint_staged_json_decl(r#""diffFilter": "A C""#));
+        assert!(!is_lint_staged_json_decl(r#""diffFilter": ["#));
+        assert!(!is_lint_staged_json_decl(r#""diffFilter": true"#));
+        assert!(is_lint_staged_json_decl(r#""globOptions": {"#));
+        assert!(!is_lint_staged_json_decl(r#""globOptions": ["#));
+        assert!(!is_lint_staged_json_decl(r#""globOptions": true"#));
+        assert!(is_lint_staged_json_decl(r#""concurrent": false"#));
+        assert!(is_lint_staged_json_decl(r#""concurrent": 4"#));
+        assert!(!is_lint_staged_json_decl(r#""concurrent": "2""#));
+        assert!(!is_lint_staged_json_decl(r#""concurrent": {"#));
+        assert!(is_lint_staged_json_decl(r#""relative": false"#));
+        assert!(is_lint_staged_json_decl(r#""shell": false"#));
+        assert!(is_lint_staged_json_decl(r#""shell": "bash""#));
+        assert!(!is_lint_staged_json_decl(r#""shell": ["#));
+        assert!(is_lint_staged_json_decl(r#""stash": true"#));
+        assert!(is_lint_staged_json_decl(r#""verbose": false"#));
+        assert!(is_lint_staged_json_decl(r#""quiet": false"#));
+        assert!(is_lint_staged_json_decl(r#""diff": "main...HEAD""#));
+        assert!(!is_lint_staged_json_decl(r#""diff": true"#));
+        assert!(!is_lint_staged_json_decl(r#""diff": ["#));
+        // Glob task lines.
+        assert!(is_lint_staged_json_decl(r#""*.js": "eslint --fix""#));
+        assert!(is_lint_staged_json_decl(
+            r#""*.{js,css,md}": "prettier --write""#
+        ));
+        assert!(is_lint_staged_json_decl(r#""*.ts": ["#));
+        assert!(is_lint_staged_json_decl(r#""src/**/*.{js,jsx}": "eslint""#));
+        assert!(!is_lint_staged_json_decl(r#""*.js": true"#));
+        assert!(!is_lint_staged_json_decl(r#""*.js": {"#));
+        assert!(!is_lint_staged_json_decl(r#""*.js": 1"#));
+        assert!(!is_lint_staged_json_decl(r#""eslint": "eslint --fix""#));
+        assert!(!is_lint_staged_json_decl(r#""js": "eslint""#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_lint_staged_json_decl(r#""chunkSize""#));
+        assert!(!is_lint_staged_json_decl(r#""chunkSize":"#));
+        assert!(!is_lint_staged_json_decl(r#""hidePartiallyStaged""#));
+        assert!(!is_lint_staged_json_decl(r#""*.js""#));
+        assert!(!is_lint_staged_json_decl(r#""*.js":"#));
+        // Generic / neighbouring stay out.
+        assert!(!is_lint_staged_json_decl(
+            r#""$schema": "https://json.schemastore.org/lintstagedrc.json""#
+        ));
+        assert!(!is_lint_staged_json_decl(r#""name": "lint-staged""#));
+        assert!(!is_lint_staged_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_lint_staged_json_decl(r#""cwd": ".""#));
+        assert!(!is_lint_staged_json_decl(r#""ignore": ["#));
+        assert!(!is_lint_staged_json_decl(r#""debug": true"#));
+        assert!(!is_lint_staged_json_decl(
+            r#""repositoryUrl": "https://github.com/owner/repo.git""#
+        ));
+        assert!(is_semantic_release_json_decl(
+            r#""repositoryUrl": "https://github.com/owner/repo.git""#
+        ));
+        assert!(!is_lint_staged_json_decl(r#""tagFormat": "v${version}""#));
+        assert!(is_semantic_release_json_decl(
+            r#""tagFormat": "v${version}""#
+        ));
+        assert!(!is_lint_staged_json_decl(r#""presetConfig": {"#));
+        assert!(is_semantic_release_json_decl(r#""presetConfig": {"#));
+        assert!(!is_lint_staged_json_decl(
+            r#""requireCleanWorkingDir": true"#
+        ));
+        assert!(is_release_it_json_decl(r#""requireCleanWorkingDir": true"#));
+        assert!(!is_lint_staged_json_decl(r#""hooks": {"#));
+        assert!(is_release_it_json_decl(r#""hooks": {"#));
+        assert!(!is_lint_staged_json_decl(r#""plugins": {"#));
+        assert!(is_release_it_json_decl(r#""plugins": {"#));
+        assert!(!is_lint_staged_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(is_commitlint_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(!is_lint_staged_json_decl(r#""defaultIgnores": true"#));
+        assert!(is_commitlint_json_decl(r#""defaultIgnores": true"#));
+        assert!(!is_lint_staged_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_lint_staged_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_lint_staged_json_decl(r#""formatter": {"#));
+        assert!(is_biome_json_decl(r#""formatter": {"#));
+        assert!(!is_lint_staged_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_lint_staged_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""chunkSize": 10"#));
+        assert!(line_is_func_like(r#""hidePartiallyStaged": true"#));
+        assert!(line_is_func_like(r#""diffFilter": "ACMR""#));
+        assert!(line_is_func_like(r#""globOptions": {"#));
+        assert!(line_is_func_like(r#""*.js": "eslint --fix""#));
+        assert!(line_is_func_like(r#""*.{js,ts}": ["#));
+        assert!(line_is_func_like(r#""concurrent": 2"#));
     }
 
     #[test]

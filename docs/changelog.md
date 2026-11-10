@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.758] — 2026-11-10
+
+View:
+
+- **Function List** lists lint-staged `.lintstagedrc` / `.lintstagedrc.json` / `package.json` `"lint-staged"` JSON keys: `"chunkSize": 10`, `"maxArgLength": 4096`, `"hidePartiallyStaged": true`, `"hideUnstaged": true`, `"diffFilter": "ACMR"`, `"globOptions": {`, `"concurrent": true` / `2`, `"relative": true`, `"shell": true` / `"/bin/bash"`, `"stash": true`, `"verbose": true`, `"quiet": true`, `"diff": "HEAD"`, plus micromatch glob task lines (`"*.js": "eslint --fix"`, `"*.{js,ts}": [`, `"src/**/*.ts": "…"`). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / semantic-release `"repositoryUrl"` / `"tagFormat"` / `"presetConfig"` / release-it `"requireCleanWorkingDir"` / `"preReleaseId"` / `"hooks": {` / `"plugins": {` / commitlint `"parserPreset"` / `"defaultIgnores"` / `"helpUrl"` / `"prompt"` / biome `"formatter": {` / eslint `"parser"` / `"env"` / `"languageOptions"` / prettier `"printWidth"` / stylelint `"ignoreFiles"` / node-tap `"coverage-map"` / `"allow-empty-coverage"` / c8 `"src"` / nyc `"temp-dir"` / `"branches": 80` / Cucumber `"requireModule"` / Stryker `"mutate"` / Detox `"apps"` / Codecept `"helpers": {` / WDIO `"waitforTimeout"` / TestCafe `"selectorTimeout"` / Karma `"frameworks"` / Nightwatch `"src_folders"` / Jasmine `"spec_dir"` / AVA `"failFast"` / Mocha `"allowUncaught"` / Jest `"testEnvironment"` / Playwright `"testDir"` / Vitest `"pool"` / Cypress `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / package.json `"scripts"` / tsconfig `"compilerOptions"` / shared `"cwd"` / `"ignore"` / `"debug"` stay out. Glob keys need `*` or `{…}`; bare `"eslint": "…"` stays out.
+
 ## [0.3.757] — 2026-11-10
 
 View:

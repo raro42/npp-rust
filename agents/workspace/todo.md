@@ -1178,3 +1178,5 @@
 009 keep: Function List release-it .release-it.json requireCleanWorkingDir/requireUpstream/requireCommits/preReleaseId/increment/hooks/plugins{} (v0.3.756)
 
 009 keep: Function List semantic-release .releaserc / package.json "release" repositoryUrl/tagFormat/branches/plugins/extends/preset/presetConfig/ci/dryRun/debug (v0.3.757)
+
+009 keep: Function List lint-staged .lintstagedrc.json chunkSize/maxArgLength/hidePartiallyStaged/hideUnstaged/diffFilter/globOptions/concurrent/relative/shell/stash/verbose/quiet/diff + glob tasks (v0.3.758)
