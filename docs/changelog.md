@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.755] — 2026-11-10
+
+View:
+
+- **Function List** lists commitlint `.commitlintrc` / `.commitlintrc.json` / `package.json` `"commitlint"` JSON keys: `"parserPreset": "…"` / `{`, `"formatter": "…"`, `"defaultIgnores": true`, `"helpUrl": "…"`, `"prompt": {`, `"extends": "…"` / `[`, `"rules": {`, `"ignores": [`, `"plugins": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / biome `"formatter": {` / eslint `"parser"` / `"env"` / `"languageOptions"` / prettier `"printWidth"` / stylelint `"ignoreFiles"` / node-tap `"coverage-map"` / `"allow-empty-coverage"` / c8 `"src"` / nyc `"temp-dir"` / Cucumber `"requireModule"` / Stryker `"mutate"` / Detox `"apps"` / Codecept `"helpers": {` / WDIO `"waitforTimeout"` / TestCafe `"selectorTimeout"` / Karma `"frameworks"` / Nightwatch `"src_folders"` / Jasmine `"spec_dir"` / AVA `"failFast"` / Mocha `"allowUncaught"` / Jest `"testEnvironment"` / Playwright `"testDir"` / Vitest `"pool"` / Cypress `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. biome `"formatter": {` stays on biome; commitlint uses `"formatter": "…"`. Shared `"extends"` / `"rules"` / `"ignores"` / `"plugins"` also match neighbouring scanners when shapes overlap.
+
 ## [0.3.754] — 2026-11-10
 
 View:

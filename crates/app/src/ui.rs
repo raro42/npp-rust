@@ -32422,6 +32422,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_nyc_json_decl(s)
             || is_c8_json_decl(s)
             || is_tap_json_decl(s)
+            || is_commitlint_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32754,6 +32755,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_nyc_json_decl(s)
         || is_c8_json_decl(s)
         || is_tap_json_decl(s)
+        || is_commitlint_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -52982,6 +52984,148 @@ fn tap_json_string_ok(key: &str, value: &str) -> bool {
         "coverage-map" | "coverage-exclude" | "reporter-file" | "reporter-arg" | "output-file"
         | "output-dir" | "test-arg" | "test-env" | "node-arg" | "plugin" | "files" | "include"
         | "exclude" | "serial" | "before" | "after" | "extends" | "tsconfig" | "grep" => true,
+        _ => false,
+    }
+}
+
+/// commitlint `.commitlintrc` / `.commitlintrc.json` / `package.json`
+/// `"commitlint"` JSON keys: `"parserPreset": "…"` / `{`,
+/// `"formatter": "…"`, `"defaultIgnores": true`, `"helpUrl": "…"`,
+/// `"prompt": {`, `"extends": "…"` / `[`, `"rules": {`, `"ignores": [`,
+/// `"plugins": [`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / biome `"formatter": {` / eslint `"parser"` /
+/// `"env"` / `"languageOptions"` / prettier `"printWidth"` / stylelint
+/// `"ignoreFiles"` / node-tap `"coverage-map"` / `"allow-empty-coverage"` /
+/// c8 `"src"` / nyc `"temp-dir"` / Cucumber `"requireModule"` / Stryker
+/// `"mutate"` / Detox `"apps"` / Codecept `"helpers": {` / WDIO
+/// `"waitforTimeout"` / TestCafe `"selectorTimeout"` / Karma
+/// `"frameworks"` / Nightwatch `"src_folders"` / Jasmine `"spec_dir"` /
+/// AVA `"failFast"` / Mocha `"allowUncaught"` / Jest `"testEnvironment"` /
+/// Playwright `"testDir"` / Vitest `"pool"` / Cypress `"e2e"` / CSpell
+/// `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno
+/// `"nodeModulesDir"` / Renovate `"packageRules"` / launch
+/// `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
+/// turbo `"pipeline"` / nx `"namedInputs"` / package.json `"scripts"` /
+/// tsconfig `"compilerOptions"` stay out. biome `"formatter": {` stays
+/// on biome; commitlint uses `"formatter": "…"`. Shared `"extends"` /
+/// `"rules"` / `"ignores"` / `"plugins"` also match neighbouring
+/// scanners when shapes overlap.
+fn is_commitlint_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !commitlint_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    commitlint_json_value_and_tail_ok(key, after_colon)
+}
+
+fn commitlint_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "parserPreset"
+            | "formatter"
+            | "defaultIgnores"
+            | "helpUrl"
+            | "prompt"
+            | "extends"
+            | "rules"
+            | "ignores"
+            | "plugins"
+    )
+}
+
+fn commitlint_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if !commitlint_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'{' => {
+            if !commitlint_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !commitlint_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !commitlint_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !commitlint_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn commitlint_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "extends" | "ignores" | "plugins")
+}
+
+fn commitlint_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "parserPreset" | "prompt" | "rules")
+}
+
+fn commitlint_json_string_key_ok(key: &str) -> bool {
+    matches!(key, "parserPreset" | "formatter" | "helpUrl" | "extends")
+}
+
+fn commitlint_json_bool_key_ok(key: &str) -> bool {
+    matches!(key, "defaultIgnores")
+}
+
+fn commitlint_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "helpUrl" => {
+            value.starts_with("http://")
+                || value.starts_with("https://")
+                || value.starts_with("./")
+                || value.starts_with('/')
+        }
+        "parserPreset" | "formatter" | "extends" => true,
         _ => false,
     }
 }
@@ -83606,36 +83750,36 @@ mod func_like_line_tests {
         is_cargo_toml_decl, is_cbindgen_toml_decl, is_changesets_json_decl,
         is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl,
         is_cliff_toml_decl, is_clippy_toml_decl, is_codecept_json_decl, is_codespell_ini_decl,
-        is_commitizen_ini_decl, is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl,
-        is_crypttab_decl, is_cspell_json_decl, is_cucumber_json_decl, is_cypress_json_decl,
-        is_darglint_ini_decl, is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl,
-        is_desktop_entry_decl, is_detox_json_decl, is_devcontainer_json_decl, is_dhcpd_decl,
-        is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl,
-        is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl,
-        is_editorconfig_decl, is_electron_builder_json_decl, is_electron_forge_json_decl,
-        is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl,
-        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
-        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
-        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
-        is_jasmine_json_decl, is_jest_json_decl, is_karma_json_decl, is_keepalived_decl,
-        is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
-        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl,
-        is_netlify_toml_decl, is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl,
-        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl,
-        is_nyc_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl,
-        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
-        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
-        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_commitizen_ini_decl, is_commitlint_json_decl, is_composer_json_decl,
+        is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl, is_cspell_json_decl,
+        is_cucumber_json_decl, is_cypress_json_decl, is_darglint_ini_decl, is_default_grub_decl,
+        is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl, is_detox_json_decl,
+        is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
+        is_doc8_ini_decl, is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl,
+        is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl, is_electron_builder_json_decl,
+        is_electron_forge_json_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
+        is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
+        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
+        is_importlinter_ini_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
+        is_isort_ini_decl, is_jasmine_json_decl, is_jest_json_decl, is_karma_json_decl,
+        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
+        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
+        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl, is_modprobe_conf_decl,
+        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openvpn_decl,
+        is_os_release_decl, is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl,
+        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
+        is_premake_decl, is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
+        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
+        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
         is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
         is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
         is_refurb_toml_decl, is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl,
@@ -105307,6 +105451,243 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""type-strip-only": true"#));
         assert!(line_is_func_like(r#""coverage-report": "lcov""#));
         assert!(line_is_func_like(r#""branches": 80"#));
+        // commitlint distinctive keys stay out of tap.
+        assert!(!is_tap_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(is_commitlint_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(!is_tap_json_decl(r#""defaultIgnores": true"#));
+        assert!(is_commitlint_json_decl(r#""defaultIgnores": true"#));
+        assert!(!is_tap_json_decl(
+            r#""helpUrl": "https://commitlint.js.org/""#
+        ));
+        assert!(is_commitlint_json_decl(
+            r#""helpUrl": "https://commitlint.js.org/""#
+        ));
+        assert!(!is_tap_json_decl(r#""prompt": {"#));
+        assert!(is_commitlint_json_decl(r#""prompt": {"#));
+    }
+
+    #[test]
+    fn commitlint_json_keys_smoke() {
+        assert!(is_commitlint_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(is_commitlint_json_decl(r#""parserPreset": {"#));
+        assert!(is_commitlint_json_decl(
+            r#""formatter": "@commitlint/format""#
+        ));
+        assert!(is_commitlint_json_decl(r#""defaultIgnores": true"#));
+        assert!(is_commitlint_json_decl(r#""defaultIgnores": false"#));
+        assert!(is_commitlint_json_decl(
+            r#""helpUrl": "https://commitlint.js.org/#guide""#
+        ));
+        assert!(is_commitlint_json_decl(r#""prompt": {"#));
+        assert!(is_commitlint_json_decl(r#""extends": ["#));
+        assert!(is_commitlint_json_decl(
+            r#""extends": "@commitlint/config-conventional""#
+        ));
+        assert!(is_commitlint_json_decl(r#""rules": {"#));
+        assert!(is_commitlint_json_decl(r#""ignores": ["#));
+        assert!(is_commitlint_json_decl(r#""plugins": ["#));
+        // Distinctive commitlint keys stay out of neighbours.
+        assert!(!is_eslint_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(!is_biome_json_decl(r#""formatter": "@commitlint/format""#));
+        assert!(is_biome_json_decl(r#""formatter": {"#));
+        assert!(!is_commitlint_json_decl(r#""formatter": {"#));
+        assert!(!is_tap_json_decl(r#""defaultIgnores": true"#));
+        assert!(!is_prettier_json_decl(
+            r#""helpUrl": "https://commitlint.js.org/""#
+        ));
+        assert!(!is_stylelint_json_decl(r#""prompt": {"#));
+        assert!(!is_c8_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(!is_nyc_json_decl(r#""defaultIgnores": true"#));
+        assert!(!is_jest_json_decl(r#""prompt": {"#));
+        assert!(!is_mocha_json_decl(
+            r#""helpUrl": "https://commitlint.js.org/""#
+        ));
+        // Shared shapes also match eslint when shapes overlap.
+        assert!(is_eslint_json_decl(r#""rules": {"#));
+        assert!(is_eslint_json_decl(r#""ignores": ["#));
+        assert!(is_eslint_json_decl(r#""plugins": ["#));
+        assert!(is_eslint_json_decl(
+            r#""extends": "@commitlint/config-conventional""#
+        ));
+    }
+
+    #[test]
+    fn commitlint_json_keys_count() {
+        assert!(is_commitlint_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(is_commitlint_json_decl(
+            r#""parserPreset": "./parser-preset", // local"#
+        ));
+        assert!(is_commitlint_json_decl(r#""parserPreset": {"#));
+        assert!(!is_commitlint_json_decl(r#""parserPreset": ["#));
+        assert!(!is_commitlint_json_decl(r#""parserPreset": true"#));
+        assert!(!is_commitlint_json_decl(r#""parserPreset": """#));
+        assert!(is_commitlint_json_decl(
+            r#""formatter": "@commitlint/format""#
+        ));
+        assert!(is_commitlint_json_decl(r#""formatter": "./my-format.js""#));
+        assert!(!is_commitlint_json_decl(r#""formatter": {"#));
+        assert!(is_biome_json_decl(r#""formatter": {"#));
+        assert!(!is_commitlint_json_decl(r#""formatter": ["#));
+        assert!(!is_commitlint_json_decl(r#""formatter": true"#));
+        assert!(!is_commitlint_json_decl(r#""formatter": """#));
+        assert!(is_commitlint_json_decl(r#""defaultIgnores": true"#));
+        assert!(is_commitlint_json_decl(r#""defaultIgnores": false,"#));
+        assert!(!is_commitlint_json_decl(r#""defaultIgnores": ["#));
+        assert!(!is_commitlint_json_decl(r#""defaultIgnores": "true""#));
+        assert!(is_commitlint_json_decl(
+            r#""helpUrl": "https://commitlint.js.org/#what-is-commitlint""#
+        ));
+        assert!(is_commitlint_json_decl(
+            r#""helpUrl": "http://example.com/help""#
+        ));
+        assert!(is_commitlint_json_decl(r#""helpUrl": "./HELP.md""#));
+        assert!(is_commitlint_json_decl(r#""helpUrl": "/docs/help""#));
+        assert!(!is_commitlint_json_decl(r#""helpUrl": "not-a-url""#));
+        assert!(!is_commitlint_json_decl(r#""helpUrl": ["#));
+        assert!(!is_commitlint_json_decl(r#""helpUrl": {"#));
+        assert!(is_commitlint_json_decl(r#""prompt": {"#));
+        assert!(!is_commitlint_json_decl(r#""prompt": ["#));
+        assert!(!is_commitlint_json_decl(r#""prompt": "cz""#));
+        assert!(is_commitlint_json_decl(
+            r#""extends": "@commitlint/config-conventional""#
+        ));
+        assert!(is_commitlint_json_decl(r#""extends": ["#));
+        assert!(!is_commitlint_json_decl(r#""extends": {"#));
+        assert!(!is_commitlint_json_decl(r#""extends": true"#));
+        assert!(is_commitlint_json_decl(r#""rules": {"#));
+        assert!(!is_commitlint_json_decl(r#""rules": ["#));
+        assert!(!is_commitlint_json_decl(r#""rules": "strict""#));
+        assert!(is_commitlint_json_decl(r#""ignores": ["#));
+        assert!(!is_commitlint_json_decl(r#""ignores": {"#));
+        assert!(!is_commitlint_json_decl(r#""ignores": true"#));
+        assert!(is_commitlint_json_decl(r#""plugins": ["#));
+        assert!(!is_commitlint_json_decl(r#""plugins": {"#));
+        assert!(!is_commitlint_json_decl(
+            r#""plugins": "@commitlint/plugin""#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_commitlint_json_decl(r#""parserPreset""#));
+        assert!(!is_commitlint_json_decl(r#""parserPreset":"#));
+        assert!(!is_commitlint_json_decl(r#""parserPreset: "x""#));
+        assert!(!is_commitlint_json_decl(r#""defaultIgnores""#));
+        assert!(!is_commitlint_json_decl(r#""defaultIgnores":"#));
+        assert!(!is_commitlint_json_decl(r#""helpUrl":"#));
+        // Generic / neighbouring stay out.
+        assert!(!is_commitlint_json_decl(
+            r#""$schema": "https://json.schemastore.org/commitlintrc""#
+        ));
+        assert!(!is_commitlint_json_decl(r#""name": "commitlint""#));
+        assert!(!is_commitlint_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_commitlint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_commitlint_json_decl(r#""env": {"#));
+        assert!(is_eslint_json_decl(r#""env": {"#));
+        assert!(!is_commitlint_json_decl(r#""languageOptions": {"#));
+        assert!(is_eslint_json_decl(r#""languageOptions": {"#));
+        assert!(!is_commitlint_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_commitlint_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_commitlint_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_commitlint_json_decl(r#""coverage-map": "./map.js""#));
+        assert!(is_tap_json_decl(r#""coverage-map": "./map.js""#));
+        assert!(!is_commitlint_json_decl(r#""allow-empty-coverage": true"#));
+        assert!(is_tap_json_decl(r#""allow-empty-coverage": true"#));
+        assert!(!is_commitlint_json_decl(r#""src": ["#));
+        assert!(is_c8_json_decl(r#""src": ["#));
+        assert!(!is_commitlint_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(is_nyc_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(!is_commitlint_json_decl(r#""requireModule": ["#));
+        assert!(is_cucumber_json_decl(r#""requireModule": ["#));
+        assert!(!is_commitlint_json_decl(r#""mutate": ["#));
+        assert!(is_stryker_json_decl(r#""mutate": ["#));
+        assert!(!is_commitlint_json_decl(r#""apps": {"#));
+        assert!(is_detox_json_decl(r#""apps": {"#));
+        assert!(!is_commitlint_json_decl(r#""helpers": {"#));
+        assert!(is_codecept_json_decl(r#""helpers": {"#));
+        assert!(!is_commitlint_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(is_wdio_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_commitlint_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(is_testcafe_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_commitlint_json_decl(r#""frameworks": ["#));
+        assert!(is_karma_json_decl(r#""frameworks": ["#));
+        assert!(!is_commitlint_json_decl(r#""src_folders": ["#));
+        assert!(is_nightwatch_json_decl(r#""src_folders": ["#));
+        assert!(!is_commitlint_json_decl(r#""spec_dir": "spec""#));
+        assert!(is_jasmine_json_decl(r#""spec_dir": "spec""#));
+        assert!(!is_commitlint_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_commitlint_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_commitlint_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_commitlint_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_commitlint_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_commitlint_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_commitlint_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_commitlint_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_commitlint_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_commitlint_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_commitlint_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_commitlint_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_commitlint_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_commitlint_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(!is_commitlint_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_commitlint_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_commitlint_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_commitlint_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive + shared shapes list via commitlint / eslint scanners.
+        assert!(line_is_func_like(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(line_is_func_like(r#""formatter": "@commitlint/format""#));
+        assert!(line_is_func_like(r#""defaultIgnores": true"#));
+        assert!(line_is_func_like(
+            r#""helpUrl": "https://commitlint.js.org/""#
+        ));
+        assert!(line_is_func_like(r#""prompt": {"#));
+        assert!(line_is_func_like(r#""rules": {"#));
+        assert!(line_is_func_like(r#""ignores": ["#));
+        assert!(line_is_func_like(r#""plugins": ["#));
+        assert!(line_is_func_like(
+            r#""extends": "@commitlint/config-conventional""#
+        ));
     }
 
     #[test]
