@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.766] — 2026-11-11
+
+View:
+
+- **Function List** lists ESDoc `.esdoc.json` / `esdoc.json` JSON keys (v0.5 + current top-level): `"source": "./src"`, `"destination": "./docs"`, `"includes": [`, `"excludes": [`, `"index": "./README.md"`, `"package": "./package.json"`, `"outputAST": true`, `"plugins": [`, `"access": [`, `"autoPrivate": true`, `"undocumentIdentifier": true`, `"unexportIdentifier": false`, `"builtinExternal": true`, `"coverage": true`, `"includeSource": true`, `"test": {`, `"title": "…"`, `"styles": [`, `"scripts": [`, `"manual": {`, `"lint": true`, `"experimentalProposal": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"extends"` / `"name"` / `"version"` / `"include": [` / `"exclude": [` / `"readme"` / `"private": true` / jsdoc `"source": {` / `"sourceType"` / `"recurseDepth"` / `"opts": {` / `"allowUnknownTags"` / typedoc `"entryPoints"` / `"excludePrivate"` / api-extractor `"mainEntryPointFilePath"` / `"apiReport"` / vitest `"coverage": {` / `"includeSource": [` / package.json `"scripts": {` / prettier `"printWidth"` / karma `"basePath"` stay out. ESDoc `"includes": [` / `"excludes": [` also match dprint when shapes overlap; `"plugins": [` also matches jsdoc when shapes overlap; `"package": "…"` / `"destination": "…"` also match jsdoc when shapes overlap.
+
 ## [0.3.765] — 2026-11-10
 
 View:
