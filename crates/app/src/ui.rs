@@ -32423,6 +32423,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_c8_json_decl(s)
             || is_tap_json_decl(s)
             || is_commitlint_json_decl(s)
+            || is_release_it_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32756,6 +32757,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_c8_json_decl(s)
         || is_tap_json_decl(s)
         || is_commitlint_json_decl(s)
+        || is_release_it_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -53126,6 +53128,167 @@ fn commitlint_json_string_ok(key: &str, value: &str) -> bool {
                 || value.starts_with('/')
         }
         "parserPreset" | "formatter" | "extends" => true,
+        _ => false,
+    }
+}
+
+/// release-it `.release-it.json` / `package.json` `"release-it"` JSON keys:
+/// `"requireCleanWorkingDir": true`, `"requireUpstream": true`,
+/// `"requireCommits": true`, `"requireCommitsFail": true`,
+/// `"addUntrackedFiles": true`, `"preReleaseId": "…"`,
+/// `"onlyVersion": true`, `"skipChecks": true`,
+/// `"increment": "patch"` / `"minor"` / `"major"` / `"conventional:…"`,
+/// `"increment": false`, `"hooks": {`, `"plugins": {`, `"git": {`,
+/// `"npm": {`, `"github": {`, `"gitlab": {`. Optional trailing `,` and
+/// `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"$schema"` / `"name"` / `"version"` / commitlint
+/// `"parserPreset"` / `"defaultIgnores"` / `"helpUrl"` / `"prompt"` /
+/// biome `"formatter": {` / eslint `"parser"` / `"env"` /
+/// `"languageOptions"` / prettier `"printWidth"` / stylelint
+/// `"ignoreFiles"` / node-tap `"coverage-map"` / `"allow-empty-coverage"` /
+/// c8 `"src"` / nyc `"temp-dir"` / Cucumber `"requireModule"` / Stryker
+/// `"mutate"` / Detox `"apps"` / Codecept `"helpers": {` / WDIO
+/// `"waitforTimeout"` / TestCafe `"selectorTimeout"` / Karma
+/// `"frameworks"` / Nightwatch `"src_folders"` / Jasmine `"spec_dir"` /
+/// AVA `"failFast"` / Mocha `"allowUncaught"` / Jest `"testEnvironment"` /
+/// Playwright `"testDir"` / Vitest `"pool"` / Cypress `"e2e"` / CSpell
+/// `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno
+/// `"nodeModulesDir"` / Renovate `"packageRules"` / launch
+/// `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
+/// turbo `"pipeline"` / nx `"namedInputs"` / package.json `"scripts"` /
+/// tsconfig `"compilerOptions"` stay out. release-it `"plugins": {`
+/// (object); commitlint / eslint `"plugins": [` stay on those scanners.
+/// Shared `"ci": true` / `"dryRun": true` stay out of this scanner.
+fn is_release_it_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !release_it_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    release_it_json_value_and_tail_ok(key, after_colon)
+}
+
+fn release_it_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "requireCleanWorkingDir"
+            | "requireUpstream"
+            | "requireCommits"
+            | "requireCommitsFail"
+            | "addUntrackedFiles"
+            | "preReleaseId"
+            | "onlyVersion"
+            | "skipChecks"
+            | "increment"
+            | "hooks"
+            | "plugins"
+            | "git"
+            | "npm"
+            | "github"
+            | "gitlab"
+    )
+}
+
+fn release_it_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !release_it_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !release_it_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !release_it_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let (is_true, rest) = if let Some(rest) = after_colon.strip_prefix("true") {
+                (true, rest)
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                (false, rest)
+            } else {
+                return false;
+            };
+            if key == "increment" {
+                // release-it allows `"increment": false` only (not true).
+                if is_true {
+                    return false;
+                }
+            } else if !release_it_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn release_it_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "hooks" | "plugins" | "git" | "npm" | "github" | "gitlab"
+    )
+}
+
+fn release_it_json_string_key_ok(key: &str) -> bool {
+    matches!(key, "preReleaseId" | "increment")
+}
+
+fn release_it_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "requireCleanWorkingDir"
+            | "requireUpstream"
+            | "requireCommits"
+            | "requireCommitsFail"
+            | "addUntrackedFiles"
+            | "onlyVersion"
+            | "skipChecks"
+    )
+}
+
+fn release_it_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "preReleaseId" => {
+            !value.is_empty()
+                && value
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
+        }
+        "increment" => {
+            matches!(value, "major" | "minor" | "patch") || value.starts_with("conventional:")
+        }
         _ => false,
     }
 }
@@ -83782,11 +83945,11 @@ mod func_like_line_tests {
         is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
         is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
         is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_refurb_toml_decl, is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl,
-        is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl,
-        is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
-        is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_refurb_toml_decl, is_release_it_json_decl, is_release_toml_decl, is_renovate_json_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
+        is_sddm_conf_decl, is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stryker_json_decl, is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl,
         is_supabase_toml_decl, is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl,
@@ -105688,6 +105851,253 @@ mod func_like_line_tests {
         assert!(line_is_func_like(
             r#""extends": "@commitlint/config-conventional""#
         ));
+        // release-it distinctive keys stay out of commitlint.
+        assert!(!is_commitlint_json_decl(
+            r#""requireCleanWorkingDir": true"#
+        ));
+        assert!(is_release_it_json_decl(r#""requireCleanWorkingDir": true"#));
+        assert!(!is_commitlint_json_decl(r#""preReleaseId": "beta""#));
+        assert!(is_release_it_json_decl(r#""preReleaseId": "beta""#));
+        assert!(!is_commitlint_json_decl(r#""increment": "patch""#));
+        assert!(is_release_it_json_decl(r#""increment": "patch""#));
+        assert!(!is_commitlint_json_decl(r#""plugins": {"#));
+        assert!(is_release_it_json_decl(r#""plugins": {"#));
+        assert!(is_commitlint_json_decl(r#""plugins": ["#));
+        assert!(!is_release_it_json_decl(r#""plugins": ["#));
+    }
+
+    #[test]
+    fn release_it_json_keys_smoke() {
+        assert!(is_release_it_json_decl(r#""requireCleanWorkingDir": true"#));
+        assert!(is_release_it_json_decl(r#""requireUpstream": false"#));
+        assert!(is_release_it_json_decl(r#""requireCommits": true"#));
+        assert!(is_release_it_json_decl(r#""requireCommitsFail": false,"#));
+        assert!(is_release_it_json_decl(r#""addUntrackedFiles": true"#));
+        assert!(is_release_it_json_decl(r#""preReleaseId": "beta""#));
+        assert!(is_release_it_json_decl(r#""onlyVersion": true"#));
+        assert!(is_release_it_json_decl(r#""skipChecks": false"#));
+        assert!(is_release_it_json_decl(r#""increment": "patch""#));
+        assert!(is_release_it_json_decl(r#""increment": "minor""#));
+        assert!(is_release_it_json_decl(r#""increment": "major""#));
+        assert!(is_release_it_json_decl(
+            r#""increment": "conventional:angular""#
+        ));
+        assert!(is_release_it_json_decl(r#""increment": false"#));
+        assert!(is_release_it_json_decl(r#""hooks": {"#));
+        assert!(is_release_it_json_decl(r#""plugins": {"#));
+        assert!(is_release_it_json_decl(r#""git": {"#));
+        assert!(is_release_it_json_decl(r#""npm": {"#));
+        assert!(is_release_it_json_decl(r#""github": {"#));
+        assert!(is_release_it_json_decl(r#""gitlab": {"#));
+        // Distinctive release-it keys stay out of neighbours.
+        assert!(!is_commitlint_json_decl(
+            r#""requireCleanWorkingDir": true"#
+        ));
+        assert!(!is_eslint_json_decl(r#""requireUpstream": true"#));
+        assert!(!is_tap_json_decl(r#""preReleaseId": "beta""#));
+        assert!(!is_prettier_json_decl(r#""increment": "patch""#));
+        assert!(!is_jest_json_decl(r#""onlyVersion": true"#));
+        assert!(!is_cucumber_json_decl(r#""skipChecks": true"#));
+        // plugins object vs array: release-it object; commitlint/eslint array.
+        assert!(is_release_it_json_decl(r#""plugins": {"#));
+        assert!(!is_release_it_json_decl(r#""plugins": ["#));
+        assert!(is_commitlint_json_decl(r#""plugins": ["#));
+        assert!(is_eslint_json_decl(r#""plugins": ["#));
+        assert!(!is_commitlint_json_decl(r#""plugins": {"#));
+    }
+
+    #[test]
+    fn release_it_json_keys_count() {
+        assert!(is_release_it_json_decl(r#""requireCleanWorkingDir": true"#));
+        assert!(is_release_it_json_decl(
+            r#""requireCleanWorkingDir": false, // dirty ok"#
+        ));
+        assert!(!is_release_it_json_decl(r#""requireCleanWorkingDir": ["#));
+        assert!(!is_release_it_json_decl(
+            r#""requireCleanWorkingDir": "true""#
+        ));
+        assert!(is_release_it_json_decl(r#""requireUpstream": true"#));
+        assert!(is_release_it_json_decl(r#""requireCommits": false"#));
+        assert!(is_release_it_json_decl(r#""requireCommitsFail": true"#));
+        assert!(is_release_it_json_decl(r#""addUntrackedFiles": false"#));
+        assert!(is_release_it_json_decl(r#""preReleaseId": "alpha""#));
+        assert!(is_release_it_json_decl(r#""preReleaseId": "rc.1""#));
+        assert!(is_release_it_json_decl(r#""preReleaseId": "beta-1""#));
+        assert!(!is_release_it_json_decl(r#""preReleaseId": """#));
+        assert!(!is_release_it_json_decl(r#""preReleaseId": "bad id""#));
+        assert!(!is_release_it_json_decl(r#""preReleaseId": {"#));
+        assert!(!is_release_it_json_decl(r#""preReleaseId": true"#));
+        assert!(is_release_it_json_decl(r#""onlyVersion": true"#));
+        assert!(is_release_it_json_decl(r#""skipChecks": false,"#));
+        assert!(is_release_it_json_decl(r#""increment": "patch""#));
+        assert!(is_release_it_json_decl(r#""increment": "minor""#));
+        assert!(is_release_it_json_decl(r#""increment": "major""#));
+        assert!(is_release_it_json_decl(
+            r#""increment": "conventional:angular""#
+        ));
+        assert!(is_release_it_json_decl(
+            r#""increment": "conventional:eslint""#
+        ));
+        assert!(is_release_it_json_decl(r#""increment": false"#));
+        assert!(!is_release_it_json_decl(r#""increment": true"#));
+        assert!(!is_release_it_json_decl(r#""increment": "auto""#));
+        assert!(!is_release_it_json_decl(r#""increment": ["#));
+        assert!(!is_release_it_json_decl(r#""increment": {"#));
+        assert!(is_release_it_json_decl(r#""hooks": {"#));
+        assert!(!is_release_it_json_decl(r#""hooks": ["#));
+        assert!(!is_release_it_json_decl(r#""hooks": "pre""#));
+        assert!(is_release_it_json_decl(r#""plugins": {"#));
+        assert!(!is_release_it_json_decl(r#""plugins": ["#));
+        assert!(!is_release_it_json_decl(
+            r#""plugins": "@release-it/conventional-changelog""#
+        ));
+        assert!(is_release_it_json_decl(r#""git": {"#));
+        assert!(!is_release_it_json_decl(r#""git": ["#));
+        assert!(!is_release_it_json_decl(r#""git": "origin""#));
+        assert!(is_release_it_json_decl(r#""npm": {"#));
+        assert!(!is_release_it_json_decl(r#""npm": true"#));
+        assert!(is_release_it_json_decl(r#""github": {"#));
+        assert!(!is_release_it_json_decl(r#""github": ["#));
+        assert!(is_release_it_json_decl(r#""gitlab": {"#));
+        assert!(!is_release_it_json_decl(
+            r#""gitlab": "https://gitlab.com""#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_release_it_json_decl(r#""requireCleanWorkingDir""#));
+        assert!(!is_release_it_json_decl(r#""requireCleanWorkingDir":"#));
+        assert!(!is_release_it_json_decl(r#""preReleaseId""#));
+        assert!(!is_release_it_json_decl(r#""preReleaseId":"#));
+        assert!(!is_release_it_json_decl(r#""increment":"#));
+        assert!(!is_release_it_json_decl(r#""hooks":"#));
+        // Generic / neighbouring stay out.
+        assert!(!is_release_it_json_decl(
+            r#""$schema": "https://json.schemastore.org/release-it""#
+        ));
+        assert!(!is_release_it_json_decl(r#""name": "release-it""#));
+        assert!(!is_release_it_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_release_it_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(is_commitlint_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(!is_release_it_json_decl(r#""defaultIgnores": true"#));
+        assert!(is_commitlint_json_decl(r#""defaultIgnores": true"#));
+        assert!(!is_release_it_json_decl(
+            r#""helpUrl": "https://commitlint.js.org/""#
+        ));
+        assert!(is_commitlint_json_decl(
+            r#""helpUrl": "https://commitlint.js.org/""#
+        ));
+        assert!(!is_release_it_json_decl(r#""prompt": {"#));
+        assert!(is_commitlint_json_decl(r#""prompt": {"#));
+        assert!(!is_release_it_json_decl(
+            r#""formatter": "@commitlint/format""#
+        ));
+        assert!(is_commitlint_json_decl(
+            r#""formatter": "@commitlint/format""#
+        ));
+        assert!(!is_release_it_json_decl(r#""formatter": {"#));
+        assert!(is_biome_json_decl(r#""formatter": {"#));
+        assert!(!is_release_it_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_release_it_json_decl(r#""env": {"#));
+        assert!(is_eslint_json_decl(r#""env": {"#));
+        assert!(!is_release_it_json_decl(r#""languageOptions": {"#));
+        assert!(is_eslint_json_decl(r#""languageOptions": {"#));
+        assert!(!is_release_it_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_release_it_json_decl(r#""ignoreFiles": ["#));
+        assert!(is_stylelint_json_decl(r#""ignoreFiles": ["#));
+        assert!(!is_release_it_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_release_it_json_decl(r#""coverage-map": "./map.js""#));
+        assert!(is_tap_json_decl(r#""coverage-map": "./map.js""#));
+        assert!(!is_release_it_json_decl(r#""allow-empty-coverage": true"#));
+        assert!(is_tap_json_decl(r#""allow-empty-coverage": true"#));
+        assert!(!is_release_it_json_decl(r#""src": ["#));
+        assert!(is_c8_json_decl(r#""src": ["#));
+        assert!(!is_release_it_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(is_nyc_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(!is_release_it_json_decl(r#""requireModule": ["#));
+        assert!(is_cucumber_json_decl(r#""requireModule": ["#));
+        assert!(!is_release_it_json_decl(r#""mutate": ["#));
+        assert!(is_stryker_json_decl(r#""mutate": ["#));
+        assert!(!is_release_it_json_decl(r#""apps": {"#));
+        assert!(is_detox_json_decl(r#""apps": {"#));
+        assert!(!is_release_it_json_decl(r#""helpers": {"#));
+        assert!(is_codecept_json_decl(r#""helpers": {"#));
+        assert!(!is_release_it_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(is_wdio_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_release_it_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(is_testcafe_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_release_it_json_decl(r#""frameworks": ["#));
+        assert!(is_karma_json_decl(r#""frameworks": ["#));
+        assert!(!is_release_it_json_decl(r#""src_folders": ["#));
+        assert!(is_nightwatch_json_decl(r#""src_folders": ["#));
+        assert!(!is_release_it_json_decl(r#""spec_dir": "spec""#));
+        assert!(is_jasmine_json_decl(r#""spec_dir": "spec""#));
+        assert!(!is_release_it_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_release_it_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_release_it_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_release_it_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_release_it_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_release_it_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_release_it_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_release_it_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_release_it_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_release_it_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_release_it_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_release_it_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_release_it_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_release_it_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(!is_release_it_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_release_it_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_release_it_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_release_it_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive + shared shapes list via release-it / commitlint scanners.
+        assert!(line_is_func_like(r#""requireCleanWorkingDir": true"#));
+        assert!(line_is_func_like(r#""requireUpstream": true"#));
+        assert!(line_is_func_like(r#""requireCommits": true"#));
+        assert!(line_is_func_like(r#""requireCommitsFail": false"#));
+        assert!(line_is_func_like(r#""addUntrackedFiles": true"#));
+        assert!(line_is_func_like(r#""preReleaseId": "beta""#));
+        assert!(line_is_func_like(r#""onlyVersion": true"#));
+        assert!(line_is_func_like(r#""skipChecks": true"#));
+        assert!(line_is_func_like(r#""increment": "patch""#));
+        assert!(line_is_func_like(r#""increment": false"#));
+        assert!(line_is_func_like(r#""hooks": {"#));
+        assert!(line_is_func_like(r#""plugins": {"#));
+        assert!(line_is_func_like(r#""git": {"#));
+        assert!(line_is_func_like(r#""npm": {"#));
+        assert!(line_is_func_like(r#""github": {"#));
+        assert!(line_is_func_like(r#""gitlab": {"#));
     }
 
     #[test]

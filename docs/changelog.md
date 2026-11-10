@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.756] — 2026-11-10
+
+View:
+
+- **Function List** lists release-it `.release-it.json` / `package.json` `"release-it"` JSON keys: `"requireCleanWorkingDir": true`, `"requireUpstream": true`, `"requireCommits": true`, `"requireCommitsFail": true`, `"addUntrackedFiles": true`, `"preReleaseId": "…"`, `"onlyVersion": true`, `"skipChecks": true`, `"increment": "patch"` / `"minor"` / `"major"` / `"conventional:…"` / `false`, `"hooks": {`, `"plugins": {`, `"git": {`, `"npm": {`, `"github": {`, `"gitlab": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / commitlint `"parserPreset"` / `"defaultIgnores"` / `"helpUrl"` / `"prompt"` / biome `"formatter": {` / eslint `"parser"` / `"env"` / `"languageOptions"` / prettier `"printWidth"` / stylelint `"ignoreFiles"` / node-tap `"coverage-map"` / `"allow-empty-coverage"` / c8 `"src"` / nyc `"temp-dir"` / Cucumber `"requireModule"` / Stryker `"mutate"` / Detox `"apps"` / Codecept `"helpers": {` / WDIO `"waitforTimeout"` / TestCafe `"selectorTimeout"` / Karma `"frameworks"` / Nightwatch `"src_folders"` / Jasmine `"spec_dir"` / AVA `"failFast"` / Mocha `"allowUncaught"` / Jest `"testEnvironment"` / Playwright `"testDir"` / Vitest `"pool"` / Cypress `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. release-it `"plugins": {` (object); commitlint / eslint `"plugins": [` stay on those scanners. Shared `"ci"` / `"dryRun"` stay out of this scanner.
+
 ## [0.3.755] — 2026-11-10
 
 View:

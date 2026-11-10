@@ -1174,3 +1174,5 @@
 009 keep: Function List node-tap package.json "tap" / .taprc coverage-map/allow-empty-coverage/omit-version/fail-todo/reporter-file/serial[] (v0.3.754)
 
 009 keep: Function List commitlint .commitlintrc.json parserPreset/formatter/defaultIgnores/helpUrl/prompt (v0.3.755)
+
+009 keep: Function List release-it .release-it.json requireCleanWorkingDir/requireUpstream/requireCommits/preReleaseId/increment/hooks/plugins{} (v0.3.756)
