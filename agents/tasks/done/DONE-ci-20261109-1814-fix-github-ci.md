@@ -53,3 +53,5 @@ Created: 2026-11-09T18:14:18Z
 - No user-facing product change; left `docs/changelog.md` **[Unreleased]** empty.
 - No GitHub issue on this CI watch task (nothing to close via `gh-safe`).
 
+Handoff: complete
+GitHub: closed
