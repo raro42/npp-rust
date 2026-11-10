@@ -1192,3 +1192,5 @@
 009 keep: Function List API Extractor api-extractor.json mainEntryPointFilePath/bundledPackages/newlineKind/enumMemberOrder/apiReport/docModel/dtsRollup/tsdocMetadata (v0.3.763)
 
 009 keep: Function List TypeDoc typedoc.json entryPoints/entryPointStrategy/excludePrivate/excludeNotDocumented/disableSources/categorizeByGroup/visibilityFilters/kindSortOrder/hostedBaseUrl (v0.3.764)
+
+009 keep: Function List JSDoc conf.json/jsdoc.json recurseDepth/source/sourceType/opts/tags/templates/allowUnknownTags/cleverLinks/monospaceLinks/includePattern/access/pedantic (v0.3.765)

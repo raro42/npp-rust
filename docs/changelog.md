@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.765] — 2026-11-10
+
+View:
+
+- **Function List** lists JSDoc `conf.json` / `jsdoc.json` / `.jsdoc.json` / `jsdoc.conf.json` JSON keys: `"plugins": [`, `"recurseDepth": 10`, `"source": {`, `"sourceType": "module"` / `"script"`, `"opts": {`, `"tags": {`, `"templates": {`, `"allowUnknownTags": true`, `"dictionaries": [`, `"cleverLinks": false`, `"monospaceLinks": false`, `"includePattern": "…"`, `"excludePattern": "…"`, `"destination": "…"`, `"encoding": "utf8"`, `"template": "…"`, `"tutorials": "…"`, `"package": "…"`, `"readme": "…"`, `"access": "all"` / `"private"` / `"protected"` / `"public"` / `"undefined"`, `"pedantic": true`, `"recurse": true`, `"debug": true`, `"test": true`, `"outputSourceFiles": true`, `"includeDate": true`, `"useLongnameInNav": true`, `"layoutFile": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"extends"` / `"name"` / `"version"` / `"include": [` / `"exclude": [` / `"default": {` / `"private": true` / typedoc `"entryPoints"` / `"excludePrivate"` / api-extractor `"mainEntryPointFilePath"` / `"apiReport"` / syncpack `"semverGroups"` / versionrc `"bumpFiles"` / babel `"sourceType": "unambiguous"` / mocha `"opts": "…"` (string) / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. JSDoc `"dictionaries": [` also matches cspell when shapes overlap; `"sourceType": "module"` / `"script"` also match babel; `"access": "public"` also matches changesets when shapes overlap.
+
 ## [0.3.764] — 2026-11-10
 
 View:

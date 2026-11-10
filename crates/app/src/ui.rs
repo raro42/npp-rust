@@ -32432,6 +32432,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_syncpack_json_decl(s)
             || is_api_extractor_json_decl(s)
             || is_typedoc_json_decl(s)
+            || is_jsdoc_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32774,6 +32775,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_syncpack_json_decl(s)
         || is_api_extractor_json_decl(s)
         || is_typedoc_json_decl(s)
+        || is_jsdoc_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -54942,6 +54944,282 @@ fn typedoc_json_text_ok(value: &str) -> bool {
                     | b'+'
                     | b' '
                     | b'~'
+            )
+    })
+}
+
+/// JSDoc `conf.json` / `jsdoc.json` / `.jsdoc.json` / `jsdoc.conf.json` JSON keys:
+/// `"plugins": [`, `"recurseDepth": 10`, `"source": {`,
+/// `"sourceType": "module"` / `"script"`, `"opts": {`, `"tags": {`,
+/// `"templates": {`, `"allowUnknownTags": true`, `"dictionaries": [`,
+/// `"cleverLinks": false`, `"monospaceLinks": false`,
+/// `"includePattern": "…"`, `"excludePattern": "…"`,
+/// `"destination": "…"`, `"encoding": "utf8"`, `"template": "…"`,
+/// `"tutorials": "…"`, `"package": "…"`, `"readme": "…"`,
+/// `"access": "all"` / `"private"` / `"protected"` / `"public"` /
+/// `"undefined"`, `"pedantic": true`, `"recurse": true`, `"debug": true`,
+/// `"test": true`, `"outputSourceFiles": true`, `"includeDate": true`,
+/// `"useLongnameInNav": true`, `"layoutFile": "…"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"extends"` / `"name"` /
+/// `"version"` / `"include": [` / `"exclude": [` / `"default": {` /
+/// `"private": true` / typedoc `"entryPoints"` / `"excludePrivate"` /
+/// api-extractor `"mainEntryPointFilePath"` / `"apiReport"` / syncpack
+/// `"semverGroups"` / versionrc `"bumpFiles"` / cspell `"dictionaries"`
+/// (shared array shape) / babel `"sourceType": "unambiguous"` /
+/// mocha `"opts": "…"` (string) / prettier `"printWidth"` / package.json
+/// `"bin"` / karma `"basePath"` stay out.
+fn is_jsdoc_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !jsdoc_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    jsdoc_json_value_and_tail_ok(key, after_colon)
+}
+
+fn jsdoc_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "plugins"
+            | "recurseDepth"
+            | "source"
+            | "sourceType"
+            | "opts"
+            | "tags"
+            | "templates"
+            | "allowUnknownTags"
+            | "dictionaries"
+            | "cleverLinks"
+            | "monospaceLinks"
+            | "includePattern"
+            | "excludePattern"
+            | "destination"
+            | "encoding"
+            | "template"
+            | "tutorials"
+            | "package"
+            | "readme"
+            | "access"
+            | "pedantic"
+            | "recurse"
+            | "debug"
+            | "test"
+            | "outputSourceFiles"
+            | "includeDate"
+            | "useLongnameInNav"
+            | "layoutFile"
+    )
+}
+
+fn jsdoc_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !jsdoc_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !jsdoc_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !jsdoc_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !jsdoc_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !jsdoc_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !jsdoc_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 8 {
+                return false;
+            }
+            if digits == 1 && after_colon.as_bytes()[0] == b'0' {
+                // allow 0
+            } else if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn jsdoc_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "source" | "opts" | "tags" | "templates")
+}
+
+fn jsdoc_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "plugins" | "dictionaries")
+}
+
+fn jsdoc_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "sourceType"
+            | "includePattern"
+            | "excludePattern"
+            | "destination"
+            | "encoding"
+            | "template"
+            | "tutorials"
+            | "package"
+            | "readme"
+            | "access"
+            | "layoutFile"
+    )
+}
+
+fn jsdoc_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "allowUnknownTags"
+            | "cleverLinks"
+            | "monospaceLinks"
+            | "pedantic"
+            | "recurse"
+            | "debug"
+            | "test"
+            | "outputSourceFiles"
+            | "includeDate"
+            | "useLongnameInNav"
+    )
+}
+
+fn jsdoc_json_number_key_ok(key: &str) -> bool {
+    matches!(key, "recurseDepth")
+}
+
+fn jsdoc_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "sourceType" => matches!(value, "module" | "script"),
+        "access" => matches!(
+            value,
+            "all" | "private" | "protected" | "public" | "undefined"
+        ),
+        "includePattern" | "excludePattern" => jsdoc_json_pattern_ok(value),
+        "destination" | "encoding" | "template" | "tutorials" | "package" | "readme"
+        | "layoutFile" => jsdoc_json_text_ok(value),
+        _ => false,
+    }
+}
+
+fn jsdoc_json_pattern_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii()
+            && !b.is_ascii_control()
+            && b != b'"'
+            && (b.is_ascii_alphanumeric()
+                || matches!(
+                    b,
+                    b'.' | b'-'
+                        | b'_'
+                        | b'/'
+                        | b'\\'
+                        | b'^'
+                        | b'$'
+                        | b'+'
+                        | b'*'
+                        | b'?'
+                        | b'|'
+                        | b'('
+                        | b')'
+                        | b'['
+                        | b']'
+                        | b'{'
+                        | b'}'
+                        | b'='
+                        | b'!'
+                        | b':'
+                        | b','
+                        | b' '
+                ))
+    })
+}
+
+fn jsdoc_json_text_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'-'
+                    | b'_'
+                    | b'/'
+                    | b'\\'
+                    | b':'
+                    | b'?'
+                    | b'='
+                    | b'&'
+                    | b'%'
+                    | b'#'
+                    | b'{'
+                    | b'}'
+                    | b'@'
+                    | b'+'
+                    | b' '
+                    | b'~'
+                    | b'*'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
             )
     })
 }
@@ -85579,16 +85857,16 @@ mod func_like_line_tests {
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
         is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
         is_importlinter_ini_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_jasmine_json_decl, is_jest_json_decl, is_karma_json_decl,
-        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
-        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openvpn_decl,
+        is_isort_ini_decl, is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl,
+        is_karma_json_decl, is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl,
+        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl,
+        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
+        is_mocha_json_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openvpn_decl,
         is_os_release_decl, is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl,
         is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
         is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
@@ -109254,6 +109532,178 @@ mod func_like_line_tests {
             r#""hostedBaseUrl": "https://example.com/docs/""#
         ));
         assert!(line_is_func_like(r#""treatWarningsAsErrors": true"#));
+    }
+
+    #[test]
+    fn jsdoc_json_keys_smoke() {
+        assert!(is_jsdoc_json_decl(r#""plugins": ["#));
+        assert!(is_jsdoc_json_decl(r#""recurseDepth": 10"#));
+        assert!(is_jsdoc_json_decl(r#""source": {"#));
+        assert!(is_jsdoc_json_decl(r#""sourceType": "module""#));
+        assert!(is_jsdoc_json_decl(r#""sourceType": "script""#));
+        assert!(is_jsdoc_json_decl(r#""opts": {"#));
+        assert!(is_jsdoc_json_decl(r#""tags": {"#));
+        assert!(is_jsdoc_json_decl(r#""templates": {"#));
+        assert!(is_jsdoc_json_decl(r#""allowUnknownTags": true"#));
+        assert!(is_jsdoc_json_decl(r#""dictionaries": ["#));
+        assert!(is_jsdoc_json_decl(r#""cleverLinks": false"#));
+        assert!(is_jsdoc_json_decl(r#""monospaceLinks": false"#));
+        assert!(is_jsdoc_json_decl(
+            r#""includePattern": ".+\\.js(doc|x)?$""#
+        ));
+        assert!(is_jsdoc_json_decl(r#""excludePattern": "(^|\\/|\\\\)_""#));
+        assert!(is_jsdoc_json_decl(r#""destination": "./out/""#));
+        assert!(is_jsdoc_json_decl(r#""encoding": "utf8""#));
+        assert!(is_jsdoc_json_decl(r#""template": "templates/default""#));
+        assert!(is_jsdoc_json_decl(r#""tutorials": "./tutorials""#));
+        assert!(is_jsdoc_json_decl(r#""package": "./package.json""#));
+        assert!(is_jsdoc_json_decl(r#""readme": "./README.md""#));
+        assert!(is_jsdoc_json_decl(r#""access": "all""#));
+        assert!(is_jsdoc_json_decl(r#""access": "private""#));
+        assert!(is_jsdoc_json_decl(r#""access": "protected""#));
+        assert!(is_jsdoc_json_decl(r#""access": "public""#));
+        assert!(is_jsdoc_json_decl(r#""access": "undefined""#));
+        assert!(is_jsdoc_json_decl(r#""pedantic": true"#));
+        assert!(is_jsdoc_json_decl(r#""recurse": true"#));
+        assert!(is_jsdoc_json_decl(r#""debug": true"#));
+        assert!(is_jsdoc_json_decl(r#""test": true"#));
+        assert!(is_jsdoc_json_decl(r#""outputSourceFiles": true"#));
+        assert!(is_jsdoc_json_decl(r#""includeDate": true"#));
+        assert!(is_jsdoc_json_decl(r#""useLongnameInNav": true"#));
+        assert!(is_jsdoc_json_decl(r#""layoutFile": "layout.tmpl""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_typedoc_json_decl(r#""recurseDepth": 10"#));
+        assert!(!is_api_extractor_json_decl(r#""recurseDepth": 10"#));
+        assert!(!is_syncpack_json_decl(r#""recurseDepth": 10"#));
+        assert!(!is_package_json_decl(r#""recurseDepth": 10"#));
+        assert!(!is_mocha_json_decl(r#""opts": {"#));
+        assert!(is_mocha_json_decl(r#""opts": "./test/mocha.opts""#));
+    }
+
+    #[test]
+    fn jsdoc_json_keys_count() {
+        assert!(is_jsdoc_json_decl(r#""plugins": ["#));
+        assert!(is_jsdoc_json_decl(r#""plugins": [,"#));
+        assert!(is_jsdoc_json_decl(r#""plugins": [ // markdown"#));
+        assert!(!is_jsdoc_json_decl(r#""plugins": {"#));
+        assert!(!is_jsdoc_json_decl(r#""plugins": "plugins/markdown""#));
+        assert!(!is_jsdoc_json_decl(r#""plugins": true"#));
+        assert!(is_jsdoc_json_decl(r#""recurseDepth": 10"#));
+        assert!(is_jsdoc_json_decl(r#""recurseDepth": 0,"#));
+        assert!(is_jsdoc_json_decl(r#""recurseDepth": 10 // deep"#));
+        assert!(!is_jsdoc_json_decl(r#""recurseDepth": 01"#));
+        assert!(!is_jsdoc_json_decl(r#""recurseDepth": true"#));
+        assert!(!is_jsdoc_json_decl(r#""recurseDepth": "10""#));
+        assert!(is_jsdoc_json_decl(r#""source": {"#));
+        assert!(is_jsdoc_json_decl(r#""source": {,"#));
+        assert!(is_jsdoc_json_decl(r#""source": { // inputs"#));
+        assert!(!is_jsdoc_json_decl(r#""source": ["#));
+        assert!(is_syncpack_json_decl(r#""source": ["#));
+        assert!(!is_jsdoc_json_decl(r#""source": true"#));
+        assert!(is_jsdoc_json_decl(r#""sourceType": "module""#));
+        assert!(is_jsdoc_json_decl(r#""sourceType": "script","#));
+        assert!(!is_jsdoc_json_decl(r#""sourceType": "unambiguous""#));
+        assert!(is_babel_json_decl(r#""sourceType": "unambiguous""#));
+        assert!(!is_jsdoc_json_decl(r#""sourceType": "Module""#));
+        assert!(!is_jsdoc_json_decl(r#""sourceType": true"#));
+        assert!(!is_jsdoc_json_decl(r#""sourceType": ["#));
+        assert!(is_jsdoc_json_decl(r#""opts": {"#));
+        assert!(!is_jsdoc_json_decl(r#""opts": "./test/mocha.opts""#));
+        assert!(!is_jsdoc_json_decl(r#""opts": ["#));
+        assert!(is_jsdoc_json_decl(r#""tags": {"#));
+        assert!(!is_jsdoc_json_decl(r#""tags": ["#));
+        assert!(is_jsdoc_json_decl(r#""templates": {"#));
+        assert!(!is_jsdoc_json_decl(r#""templates": ["#));
+        assert!(is_jsdoc_json_decl(r#""allowUnknownTags": true"#));
+        assert!(is_jsdoc_json_decl(r#""allowUnknownTags": false,"#));
+        assert!(!is_jsdoc_json_decl(r#""allowUnknownTags": "true""#));
+        assert!(!is_jsdoc_json_decl(r#""allowUnknownTags": ["#));
+        assert!(is_jsdoc_json_decl(r#""dictionaries": ["#));
+        assert!(!is_jsdoc_json_decl(r#""dictionaries": {"#));
+        assert!(is_cspell_json_decl(r#""dictionaries": ["#));
+        assert!(is_jsdoc_json_decl(r#""cleverLinks": false"#));
+        assert!(is_jsdoc_json_decl(r#""monospaceLinks": true,"#));
+        assert!(!is_jsdoc_json_decl(r#""cleverLinks": "false""#));
+        assert!(is_jsdoc_json_decl(
+            r#""includePattern": ".+\\.js(doc|x)?$""#
+        ));
+        assert!(!is_jsdoc_json_decl(r#""includePattern": true"#));
+        assert!(!is_jsdoc_json_decl(r#""includePattern": ["#));
+        assert!(!is_jsdoc_json_decl(r#""includePattern": """#));
+        assert!(is_jsdoc_json_decl(r#""excludePattern": "(^|\\/|\\\\)_""#));
+        assert!(is_jsdoc_json_decl(r#""destination": "./out/""#));
+        assert!(is_jsdoc_json_decl(r#""encoding": "utf8""#));
+        assert!(is_jsdoc_json_decl(r#""template": "templates/default""#));
+        assert!(is_jsdoc_json_decl(r#""tutorials": "./tutorials""#));
+        assert!(is_jsdoc_json_decl(r#""package": "./package.json""#));
+        assert!(is_jsdoc_json_decl(r#""readme": "./README.md""#));
+        assert!(!is_jsdoc_json_decl(r#""destination": true"#));
+        assert!(is_jsdoc_json_decl(r#""access": "all""#));
+        assert!(is_jsdoc_json_decl(r#""access": "public","#));
+        assert!(!is_jsdoc_json_decl(r#""access": "restricted""#));
+        assert!(!is_jsdoc_json_decl(r#""access": true"#));
+        assert!(is_jsdoc_json_decl(r#""pedantic": true"#));
+        assert!(is_jsdoc_json_decl(r#""recurse": false,"#));
+        assert!(is_jsdoc_json_decl(r#""debug": true"#));
+        assert!(is_jsdoc_json_decl(r#""test": true"#));
+        assert!(!is_jsdoc_json_decl(r#""test": "true""#));
+        assert!(is_jsdoc_json_decl(r#""outputSourceFiles": true"#));
+        assert!(is_jsdoc_json_decl(r#""includeDate": false,"#));
+        assert!(is_jsdoc_json_decl(r#""useLongnameInNav": true"#));
+        assert!(is_jsdoc_json_decl(r#""layoutFile": "layout.tmpl""#));
+        assert!(!is_jsdoc_json_decl(r#""layoutFile": true"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_jsdoc_json_decl(r#""plugins""#));
+        assert!(!is_jsdoc_json_decl(r#""plugins":"#));
+        assert!(!is_jsdoc_json_decl(r#""recurseDepth""#));
+        assert!(!is_jsdoc_json_decl(r#""source""#));
+        assert!(!is_jsdoc_json_decl(r#""opts""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_jsdoc_json_decl(
+            r#""$schema": "https://json.schemastore.org/jsdoc-1.0.0.json""#
+        ));
+        assert!(!is_jsdoc_json_decl(r#""extends": "./jsdoc.base.json""#));
+        assert!(!is_jsdoc_json_decl(r#""name": "My Project""#));
+        assert!(!is_jsdoc_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_jsdoc_json_decl(r#""include": ["#));
+        assert!(!is_jsdoc_json_decl(r#""exclude": ["#));
+        assert!(!is_jsdoc_json_decl(r#""default": {"#));
+        assert!(!is_jsdoc_json_decl(r#""private": true"#));
+        assert!(!is_jsdoc_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_jsdoc_json_decl(r#""excludePrivate": true"#));
+        assert!(is_typedoc_json_decl(r#""excludePrivate": true"#));
+        assert!(!is_jsdoc_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_jsdoc_json_decl(r#""apiReport": {"#));
+        assert!(is_api_extractor_json_decl(r#""apiReport": {"#));
+        assert!(!is_jsdoc_json_decl(r#""semverGroups": ["#));
+        assert!(is_syncpack_json_decl(r#""semverGroups": ["#));
+        assert!(!is_jsdoc_json_decl(r#""bumpFiles": ["#));
+        assert!(is_versionrc_json_decl(r#""bumpFiles": ["#));
+        assert!(!is_jsdoc_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_jsdoc_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_jsdoc_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""plugins": ["#));
+        assert!(line_is_func_like(r#""recurseDepth": 10"#));
+        assert!(line_is_func_like(r#""source": {"#));
+        assert!(line_is_func_like(r#""sourceType": "module""#));
+        assert!(line_is_func_like(r#""opts": {"#));
+        assert!(line_is_func_like(r#""tags": {"#));
+        assert!(line_is_func_like(r#""templates": {"#));
+        assert!(line_is_func_like(r#""allowUnknownTags": true"#));
+        assert!(line_is_func_like(r#""cleverLinks": false"#));
+        assert!(line_is_func_like(r#""access": "public""#));
+        assert!(line_is_func_like(r#""pedantic": true"#));
+        assert!(line_is_func_like(r#""outputSourceFiles": true"#));
     }
 
     #[test]
