@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.753] — 2026-11-10
+
+View:
+
+- **Function List** lists c8 `.c8rc` / `.c8rc.json` / `c8.config` JSON keys: `"all": true`, `"check-coverage": true`, `"clean": true`, `"src": [` / `"…"`, `"include": [` / `"…"`, `"exclude": [` / `"…"`, `"reporter": [` / `"…"`, `"report-dir": "…"`, `"reports-dir": "…"`, `"temp-directory": "…"`, `"extension": [` / `"…"`, `"exclude-after-remap": true`, `"excludeNodeModules": true`, `"skip-full": true`, `"skip-empty": true`, `"allowExternal": true`, `"omit-relative": true`, `"per-file": true`, `"branches": 80`, `"functions": 80`, `"lines": 80`, `"statements": 80`, `"cwd": "…"`, `"wrapper": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / nyc `"temp-dir"` / `"watermarks"` / `"show-process-tree"` / `"instrumenter"` / `"complete-copy"` / `"produce-source-map"` / `"hook-run-in-context"` / `"hook-run-in-this-context"` / `"hook-require"` / `"babel-cache"` / `"use-spawn-wrap"` / `"eager"` / `"cache-dir"` / `"source-map"` / `"instrument"` / `"cache"` / `"exit-on-error"` / Cucumber `"requireModule"` / Stryker `"mutate"` / `"testRunner": "jest"` / Detox `"apps"` / Codecept `"helpers": {` / WDIO `"waitforTimeout"` / TestCafe `"selectorTimeout"` / Karma `"frameworks"` / Nightwatch `"src_folders"` / Jasmine `"spec_dir"` / AVA `"failFast"` / Mocha `"allowUncaught"` / Jest `"testEnvironment"` / Playwright `"testDir"` / Vitest `"pool"` / Cypress `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. Shared `"include"` / `"exclude"` / `"reporter"` / `"all"` / `"check-coverage"` / `"report-dir"` / thresholds / `"cwd"` also match neighbouring scanners when shapes overlap.
+
 ## [0.3.752] — 2026-11-10
 
 View:

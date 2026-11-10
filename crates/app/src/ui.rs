@@ -32420,6 +32420,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_stryker_json_decl(s)
             || is_cucumber_json_decl(s)
             || is_nyc_json_decl(s)
+            || is_c8_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32750,6 +32751,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_stryker_json_decl(s)
         || is_cucumber_json_decl(s)
         || is_nyc_json_decl(s)
+        || is_c8_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -52246,9 +52248,11 @@ fn cucumber_json_string_ok(key: &str, value: &str) -> bool {
 /// `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
 /// turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` /
 /// biome `"linter"` / eslint `"parser"` / package.json `"scripts"` /
-/// tsconfig `"compilerOptions"` stay out. Shared `"include"` /
-/// `"exclude"` / `"reporter"` / `"require"` / `"all"` / `"cache"` /
-/// `"cwd"` also match neighbouring scanners when shapes overlap.
+/// tsconfig `"compilerOptions"` / c8 `"src"` / `"allowExternal"` /
+/// `"temp-directory"` stay out. Shared `"include"` / `"exclude"` /
+/// `"reporter"` / `"require"` / `"all"` / `"cache"` / `"cwd"` /
+/// `"check-coverage"` / `"report-dir"` / thresholds also match
+/// neighbouring scanners when shapes overlap.
 fn is_nyc_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -52458,6 +52462,216 @@ fn nyc_json_string_ok(key: &str, value: &str) -> bool {
         ),
         "report-dir" | "temp-dir" | "instrumenter" | "cache-dir" | "cwd" | "include"
         | "exclude" | "require" | "extension" => true,
+        _ => false,
+    }
+}
+
+/// c8 `.c8rc` / `.c8rc.json` / `c8.config` JSON keys:
+/// `"all": true`, `"check-coverage": true`, `"clean": true`,
+/// `"src": [` / `"…"`, `"include": [` / `"…"`, `"exclude": [` / `"…"`,
+/// `"reporter": [` / `"…"`, `"report-dir": "…"`, `"reports-dir": "…"`,
+/// `"temp-directory": "…"`, `"extension": [` / `"…"`,
+/// `"exclude-after-remap": true`, `"excludeNodeModules": true`,
+/// `"skip-full": true`, `"skip-empty": true`, `"allowExternal": true`,
+/// `"omit-relative": true`, `"per-file": true`, `"branches": 80`,
+/// `"functions": 80`, `"lines": 80`, `"statements": 80`, `"cwd": "…"`,
+/// `"wrapper": "…"`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / nyc `"temp-dir"` / `"watermarks"` /
+/// `"show-process-tree"` / `"instrumenter"` / `"complete-copy"` /
+/// `"produce-source-map"` / `"hook-run-in-context"` /
+/// `"hook-run-in-this-context"` / `"hook-require"` / `"babel-cache"` /
+/// `"use-spawn-wrap"` / `"eager"` / `"cache-dir"` / `"source-map"` /
+/// `"instrument"` / `"cache"` / `"exit-on-error"` / Cucumber
+/// `"requireModule"` / Stryker `"mutate"` / `"testRunner": "jest"` /
+/// Detox `"apps"` / Codecept `"helpers": {` / WDIO `"waitforTimeout"` /
+/// TestCafe `"selectorTimeout"` / Karma `"frameworks"` / Nightwatch
+/// `"src_folders"` / Jasmine `"spec_dir"` / AVA `"failFast"` /
+/// Mocha `"allowUncaught"` / Jest `"testEnvironment"` /
+/// Playwright `"testDir"` / Vitest `"pool"` / Cypress `"e2e"` /
+/// CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` /
+/// Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch
+/// `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
+/// turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` /
+/// biome `"linter"` / eslint `"parser"` / package.json `"scripts"` /
+/// tsconfig `"compilerOptions"` stay out. Shared `"include"` /
+/// `"exclude"` / `"reporter"` / `"all"` / `"check-coverage"` /
+/// `"report-dir"` / thresholds / `"cwd"` also match neighbouring
+/// scanners when shapes overlap.
+fn is_c8_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !c8_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    c8_json_value_and_tail_ok(key, after_colon)
+}
+
+fn c8_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "all"
+            | "check-coverage"
+            | "clean"
+            | "src"
+            | "include"
+            | "exclude"
+            | "reporter"
+            | "report-dir"
+            | "reports-dir"
+            | "temp-directory"
+            | "extension"
+            | "exclude-after-remap"
+            | "excludeNodeModules"
+            | "skip-full"
+            | "skip-empty"
+            | "allowExternal"
+            | "omit-relative"
+            | "per-file"
+            | "branches"
+            | "functions"
+            | "lines"
+            | "statements"
+            | "cwd"
+            | "wrapper"
+    )
+}
+
+fn c8_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if !c8_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !c8_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !c8_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !c8_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !c8_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 3 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn c8_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "src" | "include" | "exclude" | "reporter" | "extension"
+    )
+}
+
+fn c8_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "src"
+            | "include"
+            | "exclude"
+            | "reporter"
+            | "report-dir"
+            | "reports-dir"
+            | "temp-directory"
+            | "extension"
+            | "cwd"
+            | "wrapper"
+    )
+}
+
+fn c8_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "all"
+            | "check-coverage"
+            | "clean"
+            | "exclude-after-remap"
+            | "excludeNodeModules"
+            | "skip-full"
+            | "skip-empty"
+            | "allowExternal"
+            | "omit-relative"
+            | "per-file"
+    )
+}
+
+fn c8_json_number_key_ok(key: &str) -> bool {
+    matches!(key, "branches" | "functions" | "lines" | "statements")
+}
+
+fn c8_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "reporter" => matches!(
+            value,
+            "text"
+                | "text-summary"
+                | "text-lcov"
+                | "html"
+                | "lcov"
+                | "lcovonly"
+                | "json"
+                | "json-summary"
+                | "clover"
+                | "cobertura"
+                | "teamcity"
+                | "none"
+        ),
+        "src" | "include" | "exclude" | "report-dir" | "reports-dir" | "temp-directory"
+        | "extension" | "cwd" | "wrapper" => true,
         _ => false,
     }
 }
@@ -83077,22 +83291,22 @@ mod func_like_line_tests {
         is_autoflake_ini_decl, is_autopep8_ini_decl, is_ava_json_decl, is_aws_config_decl,
         is_babel_json_decl, is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl,
         is_biome_json_decl, is_bitbake_decl, is_black_ini_decl, is_brewfile_decl,
-        is_bumpversion_ini_decl, is_bunfig_toml_decl, is_cabal_decl, is_capacitor_json_decl,
-        is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl,
-        is_cbindgen_toml_decl, is_changesets_json_decl, is_check_manifest_ini_decl,
-        is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl, is_cliff_toml_decl,
-        is_clippy_toml_decl, is_codecept_json_decl, is_codespell_ini_decl, is_commitizen_ini_decl,
-        is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
-        is_cspell_json_decl, is_cucumber_json_decl, is_cypress_json_decl, is_darglint_ini_decl,
-        is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl,
-        is_detox_json_decl, is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl,
-        is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl, is_dovecot_decl,
-        is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl,
-        is_electron_builder_json_decl, is_electron_forge_json_decl, is_eslint_json_decl,
-        is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl, is_firebase_json_decl,
-        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl,
-        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
-        is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
+        is_bumpversion_ini_decl, is_bunfig_toml_decl, is_c8_json_decl, is_cabal_decl,
+        is_capacitor_json_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
+        is_cargo_toml_decl, is_cbindgen_toml_decl, is_changesets_json_decl,
+        is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl,
+        is_cliff_toml_decl, is_clippy_toml_decl, is_codecept_json_decl, is_codespell_ini_decl,
+        is_commitizen_ini_decl, is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl,
+        is_crypttab_decl, is_cspell_json_decl, is_cucumber_json_decl, is_cypress_json_decl,
+        is_darglint_ini_decl, is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl,
+        is_desktop_entry_decl, is_detox_json_decl, is_devcontainer_json_decl, is_dhcpd_decl,
+        is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl,
+        is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl,
+        is_editorconfig_decl, is_electron_builder_json_decl, is_electron_forge_json_decl,
+        is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl,
+        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
+        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
         is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
         is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
         is_jasmine_json_decl, is_jest_json_decl, is_karma_json_decl, is_keepalived_decl,
@@ -104254,6 +104468,17 @@ mod func_like_line_tests {
         assert!(is_package_json_decl(r#""scripts": {"#));
         assert!(!is_nyc_json_decl(r#""compilerOptions": {"#));
         assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // c8-distinctive keys stay out of nyc.
+        assert!(!is_nyc_json_decl(r#""src": ["#));
+        assert!(is_c8_json_decl(r#""src": ["#));
+        assert!(!is_nyc_json_decl(r#""allowExternal": true"#));
+        assert!(is_c8_json_decl(r#""allowExternal": true"#));
+        assert!(!is_nyc_json_decl(r#""temp-directory": "./.c8_output""#));
+        assert!(is_c8_json_decl(r#""temp-directory": "./.c8_output""#));
+        assert!(!is_nyc_json_decl(r#""reports-dir": "./coverage""#));
+        assert!(is_c8_json_decl(r#""reports-dir": "./coverage""#));
+        assert!(!is_nyc_json_decl(r#""wrapper": "./c8-wrapper.js""#));
+        assert!(is_c8_json_decl(r#""wrapper": "./c8-wrapper.js""#));
         // Shared / distinctive shapes list via nyc scanner.
         assert!(line_is_func_like(r#""check-coverage": true"#));
         assert!(line_is_func_like(r#""report-dir": "./coverage""#));
@@ -104262,6 +104487,233 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""skip-full": true"#));
         assert!(line_is_func_like(r#""show-process-tree": true"#));
         assert!(line_is_func_like(r#""exclude-after-remap": true"#));
+        assert!(line_is_func_like(r#""branches": 80"#));
+        assert!(line_is_func_like(r#""reporter": "lcov""#));
+        assert!(line_is_func_like(r#""all": true"#));
+    }
+
+    #[test]
+    fn c8_json_keys_smoke() {
+        assert!(is_c8_json_decl(r#""all": true"#));
+        assert!(is_c8_json_decl(r#""check-coverage": true"#));
+        assert!(is_c8_json_decl(r#""clean": true"#));
+        assert!(is_c8_json_decl(r#""src": ["#));
+        assert!(is_c8_json_decl(r#""src": "src""#));
+        assert!(is_c8_json_decl(r#""include": ["#));
+        assert!(is_c8_json_decl(r#""exclude": ["#));
+        assert!(is_c8_json_decl(r#""reporter": ["#));
+        assert!(is_c8_json_decl(r#""reporter": "lcov""#));
+        assert!(is_c8_json_decl(r#""report-dir": "./coverage""#));
+        assert!(is_c8_json_decl(r#""reports-dir": "./coverage""#));
+        assert!(is_c8_json_decl(r#""temp-directory": "./.c8_output""#));
+        assert!(is_c8_json_decl(r#""extension": ["#));
+        assert!(is_c8_json_decl(r#""exclude-after-remap": true"#));
+        assert!(is_c8_json_decl(r#""excludeNodeModules": true"#));
+        assert!(is_c8_json_decl(r#""skip-full": true"#));
+        assert!(is_c8_json_decl(r#""skip-empty": false"#));
+        assert!(is_c8_json_decl(r#""allowExternal": true"#));
+        assert!(is_c8_json_decl(r#""omit-relative": true"#));
+        assert!(is_c8_json_decl(r#""per-file": true"#));
+        assert!(is_c8_json_decl(r#""branches": 80"#));
+        assert!(is_c8_json_decl(r#""functions": 80"#));
+        assert!(is_c8_json_decl(r#""lines": 80"#));
+        assert!(is_c8_json_decl(r#""statements": 80"#));
+        assert!(is_c8_json_decl(r#""cwd": ".""#));
+        assert!(is_c8_json_decl(r#""wrapper": "./c8-wrapper.js""#));
+        // Distinctive c8 keys stay out of nyc / neighbours.
+        assert!(!is_nyc_json_decl(r#""src": ["#));
+        assert!(!is_nyc_json_decl(r#""allowExternal": true"#));
+        assert!(!is_nyc_json_decl(r#""temp-directory": "./.c8_output""#));
+        assert!(!is_cucumber_json_decl(r#""allowExternal": true"#));
+        assert!(!is_stryker_json_decl(r#""temp-directory": "./.c8_output""#));
+        assert!(!is_jest_json_decl(r#""reports-dir": "./coverage""#));
+        assert!(!is_c8_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(is_nyc_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(!is_c8_json_decl(r#""watermarks": {"#));
+        assert!(is_nyc_json_decl(r#""watermarks": {"#));
+        assert!(!is_c8_json_decl(r#""show-process-tree": true"#));
+        assert!(is_nyc_json_decl(r#""show-process-tree": true"#));
+        assert!(!is_c8_json_decl(r#""requireModule": ["#));
+        assert!(is_cucumber_json_decl(r#""requireModule": ["#));
+        assert!(!is_c8_json_decl(r#""mutate": ["#));
+        assert!(is_stryker_json_decl(r#""mutate": ["#));
+        assert!(!is_c8_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+    }
+
+    #[test]
+    fn c8_json_keys_count() {
+        assert!(is_c8_json_decl(r#""all": true"#));
+        assert!(is_c8_json_decl(r#""all": false,"#));
+        assert!(!is_c8_json_decl(r#""all": ["#));
+        assert!(is_c8_json_decl(r#""check-coverage": true"#));
+        assert!(is_c8_json_decl(r#""clean": true"#));
+        assert!(is_c8_json_decl(r#""src": ["#));
+        assert!(is_c8_json_decl(r#""src": "src", // root"#));
+        assert!(!is_c8_json_decl(r#""src": {"#));
+        assert!(!is_c8_json_decl(r#""src": """#));
+        assert!(is_c8_json_decl(r#""include": ["#));
+        assert!(is_c8_json_decl(r#""include": "src/**/*.js""#));
+        assert!(is_c8_json_decl(r#""exclude": ["#));
+        assert!(is_c8_json_decl(r#""exclude": "**/*.test.js""#));
+        assert!(is_c8_json_decl(r#""reporter": ["#));
+        assert!(is_c8_json_decl(r#""reporter": "text""#));
+        assert!(is_c8_json_decl(r#""reporter": "html""#));
+        assert!(is_c8_json_decl(r#""reporter": "lcov""#));
+        assert!(is_c8_json_decl(r#""reporter": "json-summary""#));
+        assert!(!is_c8_json_decl(r#""reporter": "fancy""#));
+        assert!(!is_c8_json_decl(r#""reporter": {"#));
+        assert!(is_c8_json_decl(r#""report-dir": "./coverage""#));
+        assert!(is_c8_json_decl(r#""reports-dir": "./coverage", // out"#));
+        assert!(!is_c8_json_decl(r#""report-dir": ["#));
+        assert!(is_c8_json_decl(r#""temp-directory": "./.c8_output""#));
+        assert!(!is_c8_json_decl(r#""temp-directory": ["#));
+        assert!(is_c8_json_decl(r#""extension": ["#));
+        assert!(is_c8_json_decl(r#""extension": ".ts""#));
+        assert!(is_c8_json_decl(r#""exclude-after-remap": true"#));
+        assert!(is_c8_json_decl(r#""excludeNodeModules": false"#));
+        assert!(is_c8_json_decl(r#""skip-full": true"#));
+        assert!(is_c8_json_decl(r#""skip-empty": false"#));
+        assert!(is_c8_json_decl(r#""allowExternal": true"#));
+        assert!(!is_c8_json_decl(r#""allowExternal": ["#));
+        assert!(is_c8_json_decl(r#""omit-relative": true"#));
+        assert!(is_c8_json_decl(r#""per-file": true"#));
+        assert!(is_c8_json_decl(r#""branches": 80"#));
+        assert!(is_c8_json_decl(r#""functions": 100"#));
+        assert!(is_c8_json_decl(r#""lines": 0"#));
+        assert!(is_c8_json_decl(r#""statements": 90, // thresh"#));
+        assert!(!is_c8_json_decl(r#""branches": "80""#));
+        assert!(!is_c8_json_decl(r#""branches": true"#));
+        assert!(!is_c8_json_decl(r#""branches": 1000"#));
+        assert!(is_c8_json_decl(r#""cwd": ".""#));
+        assert!(is_c8_json_decl(r#""wrapper": "./c8-wrapper.js""#));
+        assert!(!is_c8_json_decl(r#""wrapper": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_c8_json_decl(r#""check-coverage""#));
+        assert!(!is_c8_json_decl(r#""check-coverage":"#));
+        assert!(!is_c8_json_decl(r#""check-coverage: true"#));
+        assert!(!is_c8_json_decl(r#""src":"#));
+        assert!(!is_c8_json_decl(r#""branches":"#));
+        // Generic / neighbouring stay out.
+        assert!(!is_c8_json_decl(
+            r#""$schema": "https://json.schemastore.org/c8rc""#
+        ));
+        assert!(!is_c8_json_decl(r#""name": "coverage""#));
+        assert!(!is_c8_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_c8_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(is_nyc_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(!is_c8_json_decl(r#""watermarks": {"#));
+        assert!(is_nyc_json_decl(r#""watermarks": {"#));
+        assert!(!is_c8_json_decl(r#""show-process-tree": true"#));
+        assert!(is_nyc_json_decl(r#""show-process-tree": true"#));
+        assert!(!is_c8_json_decl(
+            r#""instrumenter": "./lib/instrumenters/istanbul""#
+        ));
+        assert!(is_nyc_json_decl(
+            r#""instrumenter": "./lib/instrumenters/istanbul""#
+        ));
+        assert!(!is_c8_json_decl(r#""complete-copy": true"#));
+        assert!(is_nyc_json_decl(r#""complete-copy": true"#));
+        assert!(!is_c8_json_decl(r#""produce-source-map": true"#));
+        assert!(is_nyc_json_decl(r#""produce-source-map": true"#));
+        assert!(!is_c8_json_decl(r#""hook-run-in-context": true"#));
+        assert!(is_nyc_json_decl(r#""hook-run-in-context": true"#));
+        assert!(!is_c8_json_decl(r#""hook-run-in-this-context": false"#));
+        assert!(is_nyc_json_decl(r#""hook-run-in-this-context": false"#));
+        assert!(!is_c8_json_decl(r#""hook-require": true"#));
+        assert!(is_nyc_json_decl(r#""hook-require": true"#));
+        assert!(!is_c8_json_decl(r#""babel-cache": true"#));
+        assert!(is_nyc_json_decl(r#""babel-cache": true"#));
+        assert!(!is_c8_json_decl(r#""use-spawn-wrap": false"#));
+        assert!(is_nyc_json_decl(r#""use-spawn-wrap": false"#));
+        assert!(!is_c8_json_decl(r#""eager": true"#));
+        assert!(is_nyc_json_decl(r#""eager": true"#));
+        assert!(!is_c8_json_decl(r#""cache-dir": "./.nyc_cache""#));
+        assert!(is_nyc_json_decl(r#""cache-dir": "./.nyc_cache""#));
+        assert!(!is_c8_json_decl(r#""source-map": true"#));
+        assert!(is_nyc_json_decl(r#""source-map": true"#));
+        assert!(!is_c8_json_decl(r#""instrument": true"#));
+        assert!(is_nyc_json_decl(r#""instrument": true"#));
+        assert!(!is_c8_json_decl(r#""cache": true"#));
+        assert!(is_nyc_json_decl(r#""cache": true"#));
+        assert!(!is_c8_json_decl(r#""exit-on-error": true"#));
+        assert!(is_nyc_json_decl(r#""exit-on-error": true"#));
+        assert!(!is_c8_json_decl(r#""requireModule": ["#));
+        assert!(is_cucumber_json_decl(r#""requireModule": ["#));
+        assert!(!is_c8_json_decl(r#""mutate": ["#));
+        assert!(is_stryker_json_decl(r#""mutate": ["#));
+        assert!(!is_c8_json_decl(r#""testRunner": "jest""#));
+        assert!(is_stryker_json_decl(r#""testRunner": "jest""#));
+        assert!(!is_c8_json_decl(r#""apps": {"#));
+        assert!(is_detox_json_decl(r#""apps": {"#));
+        assert!(!is_c8_json_decl(r#""helpers": {"#));
+        assert!(is_codecept_json_decl(r#""helpers": {"#));
+        assert!(!is_c8_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(is_wdio_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_c8_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(is_testcafe_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_c8_json_decl(r#""frameworks": ["#));
+        assert!(is_karma_json_decl(r#""frameworks": ["#));
+        assert!(!is_c8_json_decl(r#""src_folders": ["#));
+        assert!(is_nightwatch_json_decl(r#""src_folders": ["#));
+        assert!(!is_c8_json_decl(r#""spec_dir": "spec""#));
+        assert!(is_jasmine_json_decl(r#""spec_dir": "spec""#));
+        assert!(!is_c8_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_c8_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_c8_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_c8_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_c8_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_c8_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_c8_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_c8_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_c8_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_c8_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_c8_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_c8_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_c8_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_c8_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(!is_c8_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_c8_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_c8_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_c8_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_c8_json_decl(r#""parser": "@typescript-eslint/parser""#));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_c8_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_c8_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive + shared shapes list via c8 / nyc scanners.
+        assert!(line_is_func_like(r#""src": ["#));
+        assert!(line_is_func_like(r#""allowExternal": true"#));
+        assert!(line_is_func_like(r#""temp-directory": "./.c8_output""#));
+        assert!(line_is_func_like(r#""reports-dir": "./coverage""#));
+        assert!(line_is_func_like(r#""wrapper": "./c8-wrapper.js""#));
+        assert!(line_is_func_like(r#""check-coverage": true"#));
+        assert!(line_is_func_like(r#""report-dir": "./coverage""#));
         assert!(line_is_func_like(r#""branches": 80"#));
         assert!(line_is_func_like(r#""reporter": "lcov""#));
         assert!(line_is_func_like(r#""all": true"#));
