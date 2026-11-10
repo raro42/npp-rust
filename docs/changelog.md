@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.760] — 2026-11-10
+
+View:
+
+- **Function List** lists release-please `release-please-config.json` JSON keys: `"packages": {`, `"bootstrap-sha": "…"`, `"last-release-sha": "…"`, `"always-link-local": true`, `"plugins": [`, `"signoff": "…"`, `"group-pull-request-title-pattern": "…"`, `"release-search-depth": 10`, `"commit-search-depth": 500`, `"commit-batch-size": 10`, `"sequential-calls": true`, `"release-type": "node"`, `"bump-minor-pre-major": true`, `"bump-patch-for-minor-pre-major": true`, `"prerelease-type": "…"`, `"versioning": "default"`, `"changelog-sections": [`, `"release-as": "1.2.3"`, `"skip-github-release": true`, `"skip-changelog": true`, `"draft": true`, `"force-tag-creation": true`, `"prerelease": true`, `"draft-pull-request": true`, `"label": "…"`, `"release-label": "…"`, `"extra-label": "…"`, `"include-component-in-tag": true`, `"include-v-in-tag": true`, `"include-v-in-release-name": true`, `"changelog-type": "github"`, `"changelog-host": "…"`, `"changelog-path": "CHANGELOG.md"`, `"include-commit-authors": true`, `"pull-request-title-pattern": "…"`, `"pull-request-header": "…"`, `"pull-request-footer": "…"`, `"separate-pull-requests": true`, `"always-update": true`, `"tag-separator": "/"`, `"date-format": "%Y-%m-%d"`, `"extra-files": [`, `"exclude-paths": [`, `"version-file": "…"`, `"snapshot-label": "…"`, `"skip-snapshot": true`, `"initial-version": "0.1.0"`, `"component-no-space": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / lerna `"packages": [` / `"npmClient"` / simple-git-hooks `"pre-commit"` / `"preserveUnused"` / lint-staged `"chunkSize"` / `"hidePartiallyStaged"` / semantic-release `"repositoryUrl"` / `"tagFormat"` / release-it `"requireCleanWorkingDir"` / `"hooks": {` / `"plugins": {` / commitlint `"parserPreset"` / `"defaultIgnores"` / prettier `"printWidth"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. release-please `"packages": {` (object); lerna `"packages": [` stay on those scanners. Shared `"plugins": [` also match neighbouring scanners when shapes overlap.
+
 ## [0.3.759] — 2026-11-10
 
 View:
