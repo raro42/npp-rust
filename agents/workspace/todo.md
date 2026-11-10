@@ -1150,3 +1150,5 @@
 009 keep: Function List Playwright playwright.config.json testDir/fullyParallel/forbidOnly/webServer/preserveOutput/updateSnapshots/use (v0.3.738)
 
 009 keep: Function List Mocha .mocharc.json allowUncaught/ui/watch-files/node-option/checkLeaks (v0.3.741)
+
+009 keep: Function List Jasmine jasmine.json (v0.3.743)

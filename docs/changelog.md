@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.743] — 2026-11-10
+
+View:
+
+- **Function List** lists Jasmine `jasmine.json` / `spec/support/jasmine.json` JSON keys: `"spec_dir": "spec"`, `"spec_files": [` / `"…"`, `"helpers": [` / `"…"`, `"requires": [` / `"…"`, `"jsLoader": "require"` / `"import"`, `"cssFiles": [` / `"…"`, `"jsFiles": [` / `"…"`, `"env": {`, `"random": true`, `"seed": 1234` / `"…"`, `"stopOnSpecFailure": true`, `"stopSpecOnExpectationFailure": true`, `"failSpecWithNoExpectations": true`, `"forbidDuplicateNames": true`, `"hideDisabled": true`, `"verboseDeprecations": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / AVA `"failFast"` / `"failWithoutAssertions"` / `"utilizeParallelBuilds"` / `"ignoredByWatcher"` / Mocha `"allowUncaught"` / `"ui": "bdd"` / `"watch-files"` / `"checkLeaks"` / Jest `"testEnvironment"` / `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright `"testDir"` / `"fullyParallel"` / `"webServer"` / `"preserveOutput"` / Vitest `"pool"` / `"fileParallelism"` / `"hookTimeout"` / Cypress `"baseUrl": "http://…"` / `"specPattern"` / `"chromeWebSecurity"` / `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. Shared `"helpers": [` / `"requires": [` / `"random": true` / `"env": {` also match neighbouring scanners when shapes overlap.
+
 ## [0.3.742] — 2026-11-10
 
 View:
